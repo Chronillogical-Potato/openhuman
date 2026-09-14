@@ -58,3 +58,45 @@ async fn logout_drops_the_old_runtime_and_aborts_owned_workers() {
     dropped_rx.await.unwrap();
     assert!(!touched_after_logout.load(Ordering::SeqCst));
 }
+
+#[tokio::test]
+async fn clear_session_invalidates_old_channels_and_opens_a_fresh_generation() {
+    // Logout resolves the signed-out workspace through HOME. Keep the real
+    // user profile untouched and restore the process environment on panic too.
+    let _env_guard = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    struct RestoreHome(Option<std::ffi::OsString>);
+    impl Drop for RestoreHome {
+        fn drop(&mut self) {
+            unsafe {
+                match self.0.take() {
+                    Some(value) => std::env::set_var("HOME", value),
+                    None => std::env::remove_var("HOME"),
+                }
+            }
+        }
+    }
+    let tmp = tempfile::TempDir::new().unwrap();
+    let _home = RestoreHome(std::env::var_os("HOME"));
+    unsafe { std::env::set_var("HOME", tmp.path()) };
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    crate::memory::binding::install_diagnostics_for_test(
+        &config.workspace_dir,
+        &config.subsystems.memory,
+        Default::default(),
+        Default::default(),
+    );
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(false);
+    let old_session = channel_session();
+    crate::security::credentials::ops::clear_session(&config)
+        .await
+        .unwrap();
+    assert!(old_session.is_cancelled());
+    assert!(!channel_session().is_cancelled());
+}

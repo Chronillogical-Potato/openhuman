@@ -32,14 +32,7 @@ async fn clear_session_on_empty_store_reports_removed_false() {
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let config = test_config(&tmp);
-    #[cfg(feature = "channels")]
-    let old_channel_session = crate::channels::session::channel_session();
     let result = clear_session(&config).await.unwrap();
-    #[cfg(feature = "channels")]
-    {
-        assert!(old_channel_session.is_cancelled());
-        assert!(!crate::channels::session::channel_session().is_cancelled());
-    }
     assert_eq!(result.value["removed"], false);
 }
 
