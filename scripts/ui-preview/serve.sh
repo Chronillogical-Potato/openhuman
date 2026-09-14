@@ -121,6 +121,26 @@ if ! wait_for_http "http://127.0.0.1:${CORE_PORT}/health" "standalone core"; the
   exit 1
 fi
 
+# Log a preview user in, the way app/test/playwright/helpers/core-rpc.ts
+# does: the session token lives in the core, not the browser, so it is
+# seeded here over RPC rather than through the action's cookie/localStorage
+# auth. The JWT is unsigned (`alg: none`) and the mock backend never checks
+# it; it unlocks nothing real.
+rpc() {
+  curl -fsS "http://127.0.0.1:${CORE_PORT}/rpc" \
+    -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer ${CORE_TOKEN}" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}" >/dev/null
+}
+for _ in $(seq 1 30); do
+  rpc "core.ping" '{}' 2>/dev/null && break
+  sleep 1
+done
+PAYLOAD="$(printf '{"sub":"ui-preview-user","userId":"ui-preview-user","exp":%d}' $(( $(date +%s) + 7200 )) | base64 -w0 | tr '+/' '-_' | tr -d '=')"
+rpc "openhuman.auth_clear_session" '{}'
+rpc "openhuman.config_set_onboarding_completed" '{"value":true}'
+rpc "openhuman.auth_store_session" "{\"token\":\"eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.${PAYLOAD}.sig\"}"
+
 echo "[ui-preview :$TS_PORT] serving $APP_DIR/dist-web"
 python3 -m http.server "$TS_PORT" --bind 127.0.0.1 --directory "$APP_DIR/dist-web" >"$WORKSPACE/web.log" 2>&1 &
 WEB_PID=$!
