@@ -4,10 +4,9 @@
   "timeout_s": 1500,
   "viewport": [1440, 900],
   "auth": {
+    "visit": "/__preview-connect.html",
     "cookies": [],
     "localStorage": {
-      "openhuman_core_mode": "cloud",
-      "openhuman_core_rpc_token": "ui-preview-core-token",
       "openhuman:walkthrough_completed": "true"
     }
   },

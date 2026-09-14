@@ -41,6 +41,22 @@ fi
 echo "[ui-preview :$TS_PORT] building the web bundle"
 (cd "$APP_DIR" && pnpm run build:web)
 
+# The bootstrap page the action opens first (`auth.visit` in
+# .tinysweeper/ui-preview.json). Same job as the dev server's `/__dev-connect`
+# route: seed the runtime endpoint, its bearer and the cloud mode into
+# localStorage, then go to the app. Written here because the RPC URL depends
+# on this side's core port, which only this script knows.
+cat > "$APP_DIR/dist-web/__preview-connect.html" <<CONNECT
+<!doctype html><meta charset="utf-8"><title>connecting</title><script>
+localStorage.setItem("openhuman_core_rpc_url", "http://127.0.0.1:${CORE_PORT}/rpc");
+localStorage.setItem("openhuman_core_rpc_token", "${CORE_TOKEN}");
+localStorage.setItem("openhuman_core_mode", "cloud");
+localStorage.setItem("openhuman:walkthrough_completed", "true");
+localStorage.removeItem("openhuman:walkthrough_pending");
+location.replace("/#/chat");
+</script>
+CONNECT
+
 if [ -n "${TS_SHARED_CORE_BIN:-}" ] && [ -x "$TS_SHARED_CORE_BIN" ]; then
   CORE_BIN="$TS_SHARED_CORE_BIN"
 else
