@@ -8,8 +8,7 @@
     "localStorage": {
       "openhuman_core_mode": "cloud",
       "openhuman_core_rpc_token": "ui-preview-core-token",
-      "openhuman:walkthrough_completed": "true",
-      "persist:theme": "{\"mode\":\"\\\"light\\\"\",\"_persist\":\"{\\\"version\\\":-1,\\\"rehydrated\\\":true}\"}"
+      "openhuman:walkthrough_completed": "true"
     }
   },
   "mocks": [],
