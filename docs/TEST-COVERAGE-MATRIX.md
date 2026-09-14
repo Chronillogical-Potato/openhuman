@@ -89,7 +89,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 
 | ID    | Feature            | Layer | Test path(s)                        | Status | Notes                              |
 | ----- | ------------------ | ----- | ----------------------------------- | ------ | ---------------------------------- |
-| 1.4.1 | Session Logout     | WD    | `logout-relogin-onboarding.spec.ts` | ✅     |                                    |
+| 1.4.1 | Session Logout | RU+WD | `logout-relogin-onboarding.spec.ts`, `crates/openhuman-core/src/channels/runtime/session_tests.rs`, `crates/openhuman-core/src/security/credentials/ops_provider_oauth_tests.rs` | ✅ | Logout invalidates channel lifetimes, including pending startup; local inference remains independent of backend login. |
 | 1.4.2 | Global Logout      | WD    | _missing_ — tracked #968            | ❌     | Multi-session invalidation         |
 | 1.4.3 | Token Invalidation | WD    | _missing_ — tracked #968            | ❌     | Server-side revocation propagation |
 

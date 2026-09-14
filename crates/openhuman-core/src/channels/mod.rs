@@ -136,3 +136,5 @@ pub use controllers::{ChannelAuthMode, ChannelDefinition};
 pub use crate::agent::context::channels_prompt::build_system_prompt;
 #[cfg(feature = "channels")]
 pub use runtime::start_channels;
+#[cfg(feature = "channels")]
+pub(crate) use runtime::{session, start_channels_with_session};

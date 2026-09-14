@@ -23,6 +23,7 @@ use std::time::{Duration, Instant};
 use tinybus::NativeRequestError;
 use tinymemory_api::provider::MemoryCore as _;
 use tokio_util::sync::CancellationToken;
+use tokio_util::task::AbortOnDropHandle;
 
 use super::super::helpers::{
     build_channel_context_block, log_worker_join_result, select_acknowledgment_reaction,
@@ -246,7 +247,7 @@ pub(crate) async fn process_channel_runtime_message(
         let channel = Arc::clone(channel_ref);
         let reply_target = msg.reply_target.clone();
         let draft_id = draft_id_ref.to_string();
-        Some(tokio::spawn(async move {
+        Some(AbortOnDropHandle::new(tokio::spawn(async move {
             let mut accumulated = String::new();
             let mut last_thinking_update = None;
             const THINKING_UPDATE_INTERVAL_MS: u128 = 2000;
@@ -298,7 +299,7 @@ pub(crate) async fn process_channel_runtime_message(
                     _ => {}
                 }
             }
-        }))
+        })))
     } else {
         None
     };
@@ -307,11 +308,11 @@ pub(crate) async fn process_channel_runtime_message(
     // Typing was already started early (before memory/provider setup). Here we only
     // spawn the background refresh task that keeps the indicator alive during long turns.
     let typing_task = match (target_channel.as_ref(), typing_cancellation.as_ref()) {
-        (Some(channel), Some(token)) => Some(spawn_scoped_typing_task(
+        (Some(channel), Some(token)) => Some(AbortOnDropHandle::new(spawn_scoped_typing_task(
             Arc::clone(channel),
             msg.reply_target.clone(),
             token.clone(),
-        )),
+        ))),
         _ => None,
     };
 
