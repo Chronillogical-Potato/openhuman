@@ -272,8 +272,17 @@ pub(super) async fn evaluate_inference_readiness(
             config,
         )
     });
-    let needs_session = crate::inference::provider::factory::current_host_requires_session()
-        || needs_backend_session;
+    let needs_session = needs_backend_session
+        || (crate::inference::provider::factory::current_host_requires_session()
+            && agent_nodes.iter().any(|node| {
+                let provider = crate::inference::provider::factory::provider_for_role(
+                    agent_node_role(config, node),
+                    config,
+                );
+                !crate::inference::provider::factory::access_gates::provider_uses_independent_auth(
+                    &provider,
+                )
+            }));
 
     // Layer 1: signed-out is the cheapest, most decisive check. Session-wide
     // — checked once for the whole graph, not per node/role.
@@ -304,7 +313,9 @@ pub(super) async fn evaluate_inference_readiness(
     // behavior for a real signed-out desktop user is unchanged — only the
     // (redundant, in that case) early rejection here is test-only skipped.
     #[cfg(not(test))]
-    let session_result = if needs_backend_session {
+    let session_result = if !needs_session {
+        Ok(())
+    } else if needs_backend_session {
         crate::inference::provider::factory::access_gates::verify_backend_session_active(config)
     } else {
         crate::inference::provider::factory::access_gates::verify_session_active(config)

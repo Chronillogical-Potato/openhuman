@@ -659,3 +659,49 @@ async fn from_string_external_provider_emits_egress_realpath() {
         "external inference via create_test_chat_model_from_string must publish ExternalTransferPending"
     );
 }
+
+#[tokio::test]
+async fn caller_owned_models_build_without_openhuman_session() {
+    let _guard = crate::inference::inference_test_guard();
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config {
+        config_path: dir.path().join("config.toml"),
+        workspace_dir: dir.path().join("workspace"),
+        ..Config::default()
+    };
+    for provider in [
+        "ollama:test-model",
+        "lmstudio:test-model",
+        "mlx:test-model",
+        "omlx:test-model",
+        "local-openai:test-model",
+        "claude_agent_sdk:test-model",
+    ] {
+        create_chat_model_from_string("chat", provider, &config, 0.0)
+            .unwrap_or_else(|e| panic!("{provider} must build while signed out: {e}"));
+    }
+    // CLI discovery is machine-specific; verify its authentication gate without
+    // starting or requiring an installed CLI.
+    crate::inference::provider::factory::access_gates::verify_provider_session(
+        &config,
+        "claude-code:test-model",
+    )
+    .expect("Claude Code uses its own authentication while OpenHuman is signed out");
+    // Exercise the real gate (cloud constructors skip auth under cfg(test)).
+    for provider in [
+        "openhuman",
+        "openai:test-model",
+        "unknown:test-model",
+        "cloud",
+    ] {
+        let error = crate::inference::provider::factory::access_gates::verify_provider_session(
+            &config, provider,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("SESSION_EXPIRED"),
+            "{provider}: {error}"
+        );
+    }
+}

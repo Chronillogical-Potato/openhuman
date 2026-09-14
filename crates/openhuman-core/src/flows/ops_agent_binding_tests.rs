@@ -623,3 +623,25 @@ async fn flows_run_fails_cleanly_without_invoking_engine_when_inference_not_read
     // `SignedOutTestGuard` restores the prior flag on drop at the end of this
     // scope — no other test observes this override.
 }
+
+#[tokio::test]
+async fn local_agent_flow_is_ready_without_openhuman_session() {
+    let _inference = crate::inference::inference_test_guard();
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.chat_provider = Some("omlx:test-model".into());
+    config.memory_provider = Some("omlx:test-model".into());
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Local", "config": { "prompt": "test" } }
+        ],
+        "edges": [{ "from_node": "t", "to_node": "a" }]
+    }));
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(
+        errors.is_empty(),
+        "local flow must not need a session: {errors:?}"
+    );
+}

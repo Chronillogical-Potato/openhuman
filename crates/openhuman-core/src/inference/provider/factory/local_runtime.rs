@@ -3,8 +3,7 @@
 
 use super::*;
 use crate::inference::provider::crate_openai;
-#[cfg(not(test))]
-use crate::inference::provider::factory::access_gates::verify_session_active;
+use crate::inference::provider::factory::access_gates::verify_provider_session;
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] (issue #4727).
@@ -16,8 +15,8 @@ use crate::inference::provider::factory::access_gates::verify_session_active;
 /// `ollama_base_url_from_config` / `lm_studio_base_url` / profile helpers. It
 /// runs the host access gates for custom/local providers —
 /// [`enforce_local_only_inference`] (privacy mode) +
-/// [`verify_session_active`] (session requirement) — so routing a local runtime
-/// here cannot bypass either. Temperature rides the per-call `ModelRequest` on
+/// [`verify_provider_session`] (provider-specific authentication). Local runtimes
+/// do not require an OpenHuman account. Temperature rides the per-call `ModelRequest` on
 /// the crate path (parity with the managed-backend cutover; the `@<temp>` suffix
 /// still bakes a fixed override).
 ///
@@ -30,14 +29,13 @@ pub(super) fn try_create_local_runtime_chat_model(
     config: &Config,
 ) -> OptionalChatModelResult {
     let resolved = provider_for_role(role, config);
-    try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+    try_create_local_runtime_chat_model_from_string(role, &resolved, config)
 }
 
 pub(super) fn try_create_local_runtime_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
-    require_session: bool,
 ) -> OptionalChatModelResult {
     use crate::inference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
 
@@ -51,16 +49,13 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         return None;
     }
 
-    // Preserve host privacy-mode refusal + the session requirement for
-    // custom/local providers.
+    // Preserve privacy policy; local runtime authentication does not depend on
+    // an OpenHuman backend session.
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    if require_session {
-        #[cfg(not(test))]
-        if let Err(e) = verify_session_active(config) {
-            return Some(Err(e));
-        }
+    if let Err(e) = verify_provider_session(config, provider) {
+        return Some(Err(e));
     }
 
     // Egress spine (privacy epic S2, #4436): committed to a local runtime here
@@ -201,6 +196,6 @@ pub(crate) fn create_local_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    try_create_local_runtime_chat_model_from_string("chat", provider, config, false)
+    try_create_local_runtime_chat_model_from_string("chat", provider, config)
         .ok_or_else(|| anyhow::anyhow!("unsupported local provider string '{provider}'"))?
 }

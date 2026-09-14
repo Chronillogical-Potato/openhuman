@@ -114,3 +114,9 @@ consumers: the agent harness (`agent/harness/session/builder/factory.rs`,
 - `crate_openai_tests.rs`, `crate_anthropic_tests.rs`,
   `openhuman_backend_model_tests.rs`, `openai_codex_tests.rs` — per-transport
   model builders.
+
+Local runtime chat providers (Ollama, LM Studio, MLX, oMLX, local-openai)
+and caller-authenticated Claude Code/Agent SDK subprocesses do not require
+an OpenHuman session, including when used by channel agents. Claude subprocesses
+still contact their external provider and remain subject to the LocalOnly privacy
+gate. Managed inference and custom cloud routes retain their session checks.

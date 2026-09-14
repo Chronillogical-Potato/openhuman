@@ -58,6 +58,8 @@ Applies to every release, all platforms.
 
 ### Cross-platform
 
+- [ ] **Caller-owned inference works without an OpenHuman session** — In a local workspace without an OpenHuman login, configure Ollama/LM Studio/MLX/oMLX/local-openai or an independently authenticated Claude Code/Agent SDK provider. Run chat and an agent flow routed entirely to that provider. Expected: no OpenHuman session requirement. Select managed inference instead: it must still require a backend session. With LocalOnly privacy enabled, local runtimes remain allowed and Claude subprocesses remain blocked as external inference.
+
 - [ ] **ChatGPT sign-in works after onboarding** — In desktop Settings > AI > Providers, add OpenAI and complete ChatGPT sign-in from its provider dialog. Expected: OpenAI is registered without an API key and existing workload routes are preserved. Reopen the provider dialog and disconnect. Expected: the connected badge clears, OpenAI is removed, and workloads no longer reference it. A failed callback shows a localized error without logging the redirect URL.
 - [ ] **First launch flow completes for a brand-new user** — Fresh OS user account, no `~/.openhuman` directory. Walk through onboarding to first agent reply. Expected: no crashes, no permission deadlocks, no stale-config errors.
 - [ ] **A background sub-agent result lands in Chat exactly once** — Ask for something that delegates to a background sub-agent (e.g. "how's my day looking?" with a calendar connected, or any `delegate_*` archetype), then wait for it to finish. Expected: the delivered reply appears once, as a normal agent message; no user-side (right-aligned) bubble showing raw `**markdown**`, and still one copy after switching to another thread and back (#5933).
