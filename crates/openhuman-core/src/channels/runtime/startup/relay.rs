@@ -43,6 +43,7 @@ pub(super) struct RelayRuntimeHandle {
 
 impl Drop for RelayRuntimeHandle {
     fn drop(&mut self) {
+        crate::channels::relay_runtime::unregister_relay_transport(&self._transport);
         self._reconnect.abort();
     }
 }
