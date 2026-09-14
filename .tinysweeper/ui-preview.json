@@ -1,0 +1,29 @@
+{
+  "serve": "bash scripts/ui-preview/serve.sh",
+  "ready": "/index.html",
+  "timeout_s": 1500,
+  "viewport": [1440, 900],
+  "auth": {
+    "cookies": [],
+    "localStorage": {
+      "openhuman_core_mode": "cloud",
+      "openhuman_core_rpc_token": "ui-preview-core-token",
+      "openhuman:walkthrough_completed": "true",
+      "persist:theme": "{\"mode\":\"\\\"light\\\"\",\"_persist\":\"{\\\"version\\\":-1,\\\"rehydrated\\\":true}\"}"
+    }
+  },
+  "mocks": [],
+  "mask": [
+    "[data-testid=chat-mascot-overlay]",
+    "[data-walkthrough=home-card] h1",
+    "#react-joyride-portal"
+  ],
+  "entry_points": [
+    { "name": "chat", "path": "/#/chat" },
+    { "name": "settings", "path": "/#/settings" },
+    { "name": "connections (providers, channels, wallet)", "path": "/#/connections" },
+    { "name": "flows", "path": "/#/flows" },
+    { "name": "brain (memory)", "path": "/#/brain" }
+  ],
+  "max_flows": 4
+}
