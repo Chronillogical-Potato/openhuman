@@ -99,6 +99,8 @@ pub(crate) async fn process_channel_runtime_message(
     // Send a smart acknowledgment reaction immediately so the user knows the message
     // was received and understood. The LLM may override this later by including its
     // own [REACTION:...] marker, which Telegram replaces atomically.
+    // Keep the reaction owned by this worker so logout also aborts a pending send.
+    let mut _acknowledgment_task = None;
     if let Some(channel) = target_channel.as_ref() {
         if channel.supports_reactions() && msg.thread_ts.is_some() {
             let ack_emoji = select_acknowledgment_reaction(&msg.content);
@@ -111,14 +113,14 @@ pub(crate) async fn process_channel_runtime_message(
             let channel_for_react = Arc::clone(channel);
             let react_msg =
                 SendMessage::new(react_content, &msg.reply_target).in_thread(msg.thread_ts.clone());
-            tokio::spawn(async move {
+            _acknowledgment_task = Some(AbortOnDropHandle::new(tokio::spawn(async move {
                 if let Err(e) = channel_for_react
                     .send_with_outbound_intent(&react_msg)
                     .await
                 {
                     tracing::debug!("[dispatch] Acknowledgment reaction failed: {e}");
                 }
-            });
+            })));
         }
     }
 
