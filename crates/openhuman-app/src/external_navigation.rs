@@ -21,20 +21,31 @@ pub fn init() -> TauriPlugin<crate::AppRuntime> {
             } else {
                 None
             };
-            if webview.label() != "main" || !is_external(url, dev_url) {
-                return true;
-            }
-            log::debug!("[external-navigation] handing main-window navigation to OS");
             let app = webview.app_handle().clone();
-            let target = url.to_string();
-            tauri::async_runtime::spawn_blocking(move || {
-                if app.opener().open_url(target, None::<&str>).is_err() {
-                    log::warn!("[external-navigation] OS opener failed; retained main window");
-                }
-            });
-            false
+            handle_navigation(webview.label(), url, dev_url, move |target| {
+                app.opener().open_url(target, None::<&str>).is_ok()
+            })
         })
         .build()
+}
+
+fn handle_navigation(
+    label: &str,
+    url: &Url,
+    dev_url: Option<&Url>,
+    open: impl FnOnce(String) -> bool + Send + 'static,
+) -> bool {
+    if label != "main" || !is_external(url, dev_url) {
+        return true;
+    }
+    log::debug!("[external-navigation] handing main-window navigation to OS");
+    let target = url.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        if !open(target) {
+            log::warn!("[external-navigation] OS opener failed; retained main window");
+        }
+    });
+    false
 }
 
 #[cfg(test)]
