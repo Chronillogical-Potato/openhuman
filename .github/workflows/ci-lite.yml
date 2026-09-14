@@ -570,6 +570,11 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             -p openhuman --no-default-features --lib -- \
             core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime:: agent::registry::agents::loader:: memory::people::contacts_gate_tests:: openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::
+          # Logout mutates process-wide session state; isolate this module
+          # from the other gate-contract tests and run its cases serially.
+          bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
+            -p openhuman --no-default-features --lib \
+            security::credentials::ops::tests::provider_oauth_tests:: -- --test-threads=1
           bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml \
             -p openhuman --no-default-features --features mcp --lib -- \
             mcp::server::resources::
@@ -691,6 +696,7 @@ jobs:
           mcp/server/tools/mod.rs
           platform/socket/event_handlers.rs
           platform/socket/ops.rs
+          security/credentials/ops_provider_oauth_tests.rs
           skills/bundled/mod.rs
           skills/mod.rs
           skills/search.rs
