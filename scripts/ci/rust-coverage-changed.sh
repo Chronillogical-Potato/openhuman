@@ -73,10 +73,11 @@ llvm_cov() {
   bash scripts/ci-cancel-aware.sh cargo llvm-cov --features "${PRODUCT_FEATURES}" "$@"
 }
 
-# Workspace facade packages have no copy of the core's product feature
-# vocabulary. Their dependency on openhuman-core uses the contributor defaults.
+# Facade packages mirror the core's feature names. Forward the product set so
+# their own feature-gated façade modules (not just their core dependency) are
+# compiled and measured too.
 llvm_cov_package() {
-  bash scripts/ci-cancel-aware.sh cargo llvm-cov "$@"
+  bash scripts/ci-cancel-aware.sh cargo llvm-cov --features "${PRODUCT_FEATURES}" "$@"
 }
 
 # Total libtest cases executed across every scoped/full run in this invocation.

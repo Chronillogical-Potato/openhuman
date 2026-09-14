@@ -31,6 +31,8 @@ use crate::tools::traits::{PermissionLevel, Tool};
 
 mod helpers;
 mod read;
+#[path = "tools_uninstall.rs"]
+mod uninstall;
 mod write;
 
 pub(super) use helpers::{skill_allowed, SkillAllowlist};
@@ -38,7 +40,8 @@ pub use read::{
     WorkflowDescribeTool, WorkflowListTool, WorkflowReadResourceTool, WorkflowReadRunLogTool,
     WorkflowRecentRunsTool,
 };
-pub use write::{WorkflowCreateTool, WorkflowInstallFromUrlTool, WorkflowUninstallTool};
+pub use uninstall::WorkflowUninstallTool;
+pub use write::{WorkflowCreateTool, WorkflowInstallFromUrlTool};
 
 #[cfg(test)]
 #[path = "tools_tests.rs"]
