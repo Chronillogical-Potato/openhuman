@@ -73,10 +73,17 @@ llvm_cov() {
   bash scripts/ci-cancel-aware.sh cargo llvm-cov --features "${PRODUCT_FEATURES}" "$@"
 }
 
-# Workspace facade packages have no copy of the core's product feature
-# vocabulary. Their dependency on openhuman-core uses the contributor defaults.
+# Workspace packages which do not need the core product-feature vocabulary.
 llvm_cov_package() {
   bash scripts/ci-cancel-aware.sh cargo llvm-cov "$@"
+}
+
+# The embedding facade mirrors the core's feature names. Forward the product
+# set so its own feature-gated façade modules (not just its core dependency)
+# are compiled and measured too. The TUI does not expose that vocabulary, so
+# it must continue through llvm_cov_package above.
+llvm_cov_embed() {
+  bash scripts/ci-cancel-aware.sh cargo llvm-cov --features "${PRODUCT_FEATURES}" "$@"
 }
 
 # Total libtest cases executed across every scoped/full run in this invocation.
@@ -264,7 +271,7 @@ run_full() {
   llvm_cov --no-report --no-fail-fast -p openhuman --lib \
     -- "openhuman::agent::tinyagents::reaper::tests::a_build_only_runtime_is_swept_before_it_can_be_invoked" \
     --exact --test-threads=1
-  llvm_cov_package --no-report --no-fail-fast -p openhuman-embed --all-targets
+  llvm_cov_embed --no-report --no-fail-fast -p openhuman-embed --all-targets
   llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
   while IFS= read -r target; do
     [ -n "${target}" ] || continue
@@ -469,7 +476,7 @@ if [ "${#lib_filters[@]}" -gt 0 ]; then
   fi
   if [ "${run_embed}" = true ]; then
     log "running openhuman-embed tests"
-    run_counted llvm_cov_package --no-report --no-fail-fast -p openhuman-embed --all-targets
+    run_counted llvm_cov_embed --no-report --no-fail-fast -p openhuman-embed --all-targets
   fi
   if [ "${run_tui}" = true ]; then
     log "running openhuman-tui tests"
