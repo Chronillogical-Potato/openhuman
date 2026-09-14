@@ -3,8 +3,8 @@
 
 use std::path::Path;
 
-use crate::skills::ops_types::{Workflow, WorkflowScope, MAX_WORKFLOW_RESOURCE_BYTES};
 use crate::skills::ops_discover_resource::resolve_workflow_for_resource;
+use crate::skills::ops_types::{Workflow, WorkflowScope, MAX_WORKFLOW_RESOURCE_BYTES};
 
 use super::api::load_workflow_metadata_for_profile;
 use super::scan::scan_root;
