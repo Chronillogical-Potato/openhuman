@@ -19,7 +19,7 @@ Capability {
         domain: "local_ai",
         category: CapabilityCategory::LocalAI,
         description: "Select Ollama, LM Studio, MLX, oMLX, or a generic local OpenAI-compatible server. Local chat inference does not require an OpenHuman account.",
-        how_to: "Connections → API keys → LLM, or use provider strings: ollama:<model>, lmstudio:<model>, mlx:<model>, local-openai:<model>",
+        how_to: "Connections → API keys → LLM, or use provider strings: ollama:<model>, lmstudio:<model>, mlx:<model>, omlx:<model>, local-openai:<model>",
         status: CapabilityStatus::Beta,
         privacy: None,
     },

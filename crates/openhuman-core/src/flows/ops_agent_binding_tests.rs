@@ -645,3 +645,44 @@ async fn local_agent_flow_is_ready_without_openhuman_session() {
         "local flow must not need a session: {errors:?}"
     );
 }
+
+#[tokio::test]
+async fn claude_agent_flow_readiness_does_not_require_an_openhuman_session() {
+    let _inference = crate::inference::inference_test_guard();
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    // Isolate the caller's session classification from CLI installation/auth
+    // and provider availability. Layer 1 must still reject managed inference
+    // even while the Layer 2 probe has an injected model.
+    let _model =
+        crate::inference::provider::factory::test_provider_override::install_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["OK"]),
+        ));
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Claude", "config": { "prompt": "test" } }
+        ],
+        "edges": [{ "from_node": "t", "to_node": "a" }]
+    }));
+    for provider in [
+        "claude-code:test-model",
+        "claude_agent_sdk:test-model",
+        "openhuman",
+    ] {
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.memory_provider = Some(provider.into());
+        let errors = validate_inference_readiness(&config, &g).await;
+        if provider == "openhuman" {
+            assert!(
+                errors.iter().any(|e| e.contains("signed out")),
+                "{errors:?}"
+            );
+        } else {
+            assert!(
+                errors.is_empty(),
+                "{provider} must not require a session: {errors:?}"
+            );
+        }
+    }
+}

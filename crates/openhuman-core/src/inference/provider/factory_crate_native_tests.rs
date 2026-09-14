@@ -705,3 +705,37 @@ async fn caller_owned_models_build_without_openhuman_session() {
         );
     }
 }
+
+#[tokio::test]
+async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
+    let _guard = crate::inference::inference_test_guard();
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    let config = Config::default();
+    for (prefix, canonical) in [
+        ("OLLAMA", "ollama"),
+        ("LMSTUDIO", "lmstudio"),
+        ("lm-studio", "lmstudio"),
+        ("lm_studio", "lmstudio"),
+        ("MLX", "mlx"),
+        ("OMLX", "omlx"),
+        ("LOCAL-OPENAI", "local-openai"),
+        ("local_openai", "local-openai"),
+    ] {
+        let provider = format!(" {prefix}:Publisher/Model:Tag@0.4 ");
+        let (chat, model) =
+            create_chat_model_from_string_with_model_id("chat", &provider, &config, 0.0)
+                .unwrap_or_else(|e| panic!("{provider}: {e}"));
+        assert_eq!(model, "Publisher/Model:Tag");
+        assert_eq!(
+            chat.profile().and_then(|p| p.provider.as_deref()),
+            Some(canonical)
+        );
+    }
+    // A bare provider names a runtime but not a model. Report that actual
+    // configuration problem instead of incorrectly asking for a session.
+    let error = create_chat_model_from_string("chat", "ollama", &config, 0.0)
+        .err()
+        .expect("bare Ollama must require a model ID");
+    assert!(error.to_string().contains("empty model"), "{error}");
+    assert!(!error.to_string().contains("SESSION_EXPIRED"), "{error}");
+}

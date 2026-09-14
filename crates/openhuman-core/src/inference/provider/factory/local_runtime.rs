@@ -39,15 +39,15 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
 ) -> OptionalChatModelResult {
     use crate::inference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
 
-    let p = provider.trim().to_string();
-    let is_local = p.starts_with(OLLAMA_PROVIDER_PREFIX)
-        || p.starts_with(LM_STUDIO_PROVIDER_PREFIX)
-        || p.starts_with(MLX_PROVIDER_PREFIX)
-        || p.starts_with(OMLX_PROVIDER_PREFIX)
-        || p.starts_with(LOCAL_OPENAI_PROVIDER_PREFIX);
-    if !is_local {
-        return None;
-    }
+    // Use the same classifier as privacy and session policy. Canonicalize only
+    // the provider prefix: model IDs (including tags and temperature suffixes)
+    // remain case-sensitive and must reach the runtime unchanged.
+    let kind = crate::inference::local::profile::kind_from_provider_string(provider)?;
+    let model = provider
+        .trim()
+        .split_once(':')
+        .map_or("", |(_, model)| model);
+    let p = format!("{}:{model}", kind.as_str());
 
     // Preserve privacy policy; local runtime authentication does not depend on
     // an OpenHuman backend session.
