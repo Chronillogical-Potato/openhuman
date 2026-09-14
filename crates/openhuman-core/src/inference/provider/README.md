@@ -120,3 +120,9 @@ and caller-authenticated Claude Code/Agent SDK subprocesses do not require
 an OpenHuman session, including when used by channel agents. Claude subprocesses
 still contact their external provider and remain subject to the LocalOnly privacy
 gate. Managed inference and custom cloud routes retain their session checks.
+
+Flow readiness checks the initial provider role used by a known harness agent,
+including node model overrides, custom registry pins, and the session builder's
+configured default. It shares the builder's role resolver before deciding whether
+a session is required. A separate summarization provider does not determine the
+session requirement for that agent.

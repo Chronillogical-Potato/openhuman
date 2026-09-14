@@ -391,30 +391,8 @@ impl Agent {
         // legacy callers. A built-in Master Agent has an explicit
         // `hint:coding`, while existing pre-registry callers continue using
         // `config.default_model` unchanged.
-        let master_model_hint = config
-            .default_model
-            .is_none()
-            .then(|| {
-                target_def.and_then(|def| {
-                    if def.id == "orchestrator" {
-                        match &def.model {
-                            crate::agent::harness::definition::ModelSpec::Hint(hint) => {
-                                Some(format!("hint:{hint}"))
-                            }
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .flatten();
-        let provider_role = provider_role_for(
-            agent_id,
-            master_model_hint
-                .as_deref()
-                .or(config.default_model.as_deref()),
-        );
+        let provider_role =
+            provider_role_for_definition(agent_id, config.default_model.as_deref(), target_def);
         // Retry/backoff is now owned by the crate `RetryPolicy` at the harness
         // model call (issue #4249, Phase 3a) — see `tinyagents::run_policy_for`.
         // The turn path therefore no longer wraps the resolved provider in
@@ -1441,6 +1419,33 @@ pub(crate) fn provider_role_for(agent_id: &str, default_model: Option<&str>) -> 
 #[cfg(test)]
 #[path = "factory_provider_role_tests_tests.rs"]
 mod provider_role_tests;
+
+/// Resolve the initial harness workload without constructing a session.
+/// Flow readiness shares this path so it checks the provider used at runtime.
+pub(crate) fn provider_role_for_definition(
+    agent_id: &str,
+    default_model: Option<&str>,
+    target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
+) -> &'static str {
+    let master_hint = default_model
+        .is_none()
+        .then(|| {
+            target_def.and_then(|def| {
+                if def.id == "orchestrator" {
+                    match &def.model {
+                        crate::agent::harness::definition::ModelSpec::Hint(hint) => {
+                            Some(format!("hint:{hint}"))
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+        })
+        .flatten();
+    provider_role_for(agent_id, master_hint.as_deref().or(default_model))
+}
 
 pub(crate) fn derive_profile_workspace_descriptor(
     action_dir: &std::path::Path,

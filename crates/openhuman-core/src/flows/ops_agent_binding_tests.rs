@@ -686,3 +686,65 @@ async fn claude_agent_flow_readiness_does_not_require_an_openhuman_session() {
         }
     }
 }
+
+#[test]
+fn harness_readiness_uses_runtime_role_and_node_override() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.default_model = None;
+    let mut g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Agent",
+              "config": { "agent_ref": "orchestrator", "prompt": "go" } }
+        ],
+        "edges": [{"from_node": "t", "to_node": "a"}]
+    }));
+    let node = g.nodes.iter_mut().find(|n| n.id == "a").unwrap();
+    assert_eq!(agent_node_role(&config, node), "coding");
+    config.default_model = Some("hint:reasoning".into());
+    assert_eq!(agent_node_role(&config, node), "reasoning");
+    node.config["model"] = json!("chat-v1");
+    assert_eq!(agent_node_role(&config, node), "chat");
+    node.config["model"] = json!("hint:summarization");
+    assert_eq!(agent_node_role(&config, node), "summarization");
+    node.config["model"] = json!("custom-model-id");
+    assert_eq!(agent_node_role(&config, node), "chat");
+}
+
+#[tokio::test]
+async fn harness_readiness_checks_session_for_execution_provider() {
+    let _inference = crate::inference::inference_test_guard();
+    let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
+    let _model =
+        crate::inference::provider::factory::test_provider_override::install_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["OK"]),
+        ));
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Agent",
+              "config": { "agent_ref": "orchestrator", "prompt": "go" } }
+        ],
+        "edges": [{"from_node": "t", "to_node": "a"}]
+    }));
+    for (runtime, summary, should_reject) in [
+        ("ollama:test", "openhuman", false),
+        ("openhuman", "ollama:test", true),
+    ] {
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.default_model = Some("hint:reasoning".into());
+        config.reasoning_provider = Some(runtime.into());
+        config.memory_provider = Some(summary.into());
+        let errors = validate_inference_readiness(&config, &g).await;
+        assert_eq!(
+            errors.iter().any(|e| e.contains("signed out")),
+            should_reject,
+            "{errors:?}"
+        );
+        if !should_reject {
+            assert!(errors.is_empty(), "{errors:?}");
+        }
+    }
+}
