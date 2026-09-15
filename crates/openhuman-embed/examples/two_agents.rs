@@ -77,6 +77,7 @@ async fn run() -> anyhow::Result<()> {
     // ── step 2: the agents ───────────────────────────────────────────────
     let cwd = std::env::current_dir()?;
 
+    #[cfg_attr(not(feature = "skills"), allow(unused_mut))]
     let mut reviewer = AgentSpec::new("reviewer")
         .system_prompt("You are a careful code reviewer. You read; you never change files.")
         .provider(provider.clone())
