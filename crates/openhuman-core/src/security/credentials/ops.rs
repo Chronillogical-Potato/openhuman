@@ -26,7 +26,7 @@ pub use gated_services::{
     start_credential_gated_services, start_login_gated_services, stop_credential_gated_services,
     stop_login_gated_services,
 };
-pub use login_tokens::{auth_create_channel_link_token, consume_login_token};
+pub use login_tokens::auth_create_channel_link_token;
 pub use oauth::{
     oauth_connect, oauth_fetch_client_key, oauth_fetch_integration_tokens, oauth_list_integrations,
     oauth_revoke_integration,
@@ -36,7 +36,7 @@ pub use provider_credentials::{
     store_provider_credentials,
 };
 pub use secrets::{decrypt_secret, encrypt_secret};
-pub use session_query::{auth_get_me, auth_get_session_token_json, auth_get_state};
+pub use session_query::{auth_get_session_token_json, auth_get_state};
 
 #[cfg(test)]
 pub(crate) use secrets::secret_store_for_config;
