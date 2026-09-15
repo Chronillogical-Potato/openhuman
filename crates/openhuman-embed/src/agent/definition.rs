@@ -4,9 +4,13 @@
 //! [`AgentDefinition`](openhuman_core::agent::harness::definition::AgentDefinition)
 //! so the library surface does not track that thirty-field struct
 //! field-by-field. The default is the built-in orchestrator's definition
-//! under the agent's own id — the same dynamic prompt, wildcard tools and
-//! delegation surface the desktop's main agent runs with — and each setter
-//! overrides one aspect of it.
+//! under the agent's own id — the same dynamic prompt and delegation
+//! surface the desktop's main agent runs with — except that **every
+//! registered tool is visible** ([`ToolScopeSpec::Wildcard`]). The desktop
+//! orchestrator names its direct tools and delegates the rest (MCP bridge,
+//! integrations) to specialists; a library agent that declared an MCP
+//! server expects to call it, so the host narrows with
+//! [`AgentDefinitionSpec::tools`] rather than widening.
 
 use openhuman_core::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, PromptSource, SandboxMode, ToolScope,
@@ -126,12 +130,10 @@ impl AgentDefinitionSpec {
         if let Some(prompt) = self.system_prompt {
             def.system_prompt = PromptSource::Inline(prompt);
         }
-        if let Some(scope) = self.tools {
-            def.tools = match scope {
-                ToolScopeSpec::Wildcard => ToolScope::Wildcard,
-                ToolScopeSpec::Named(names) => ToolScope::Named(names),
-            };
-        }
+        def.tools = match self.tools.unwrap_or(ToolScopeSpec::Wildcard) {
+            ToolScopeSpec::Wildcard => ToolScope::Wildcard,
+            ToolScopeSpec::Named(names) => ToolScope::Named(names),
+        };
         def.disallowed_tools.extend(self.disallowed_tools);
         def.sandbox_mode = match self.sandbox {
             SandboxModeSpec::None => SandboxMode::None,

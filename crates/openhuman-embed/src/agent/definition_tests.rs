@@ -6,6 +6,7 @@ fn default_is_the_orchestrator_under_the_agents_id() {
     assert_eq!(def.id, "alpha");
     assert_eq!(def.display_name(), "alpha");
     assert!(matches!(def.system_prompt, PromptSource::Dynamic(_)));
+    assert!(matches!(def.tools, ToolScope::Wildcard));
     assert_eq!(def.sandbox_mode, SandboxMode::None);
 }
 
