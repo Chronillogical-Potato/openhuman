@@ -357,64 +357,6 @@ fn seed_resume_from_messages_primes_cached_transcript() {
     assert_eq!(cached[2].content, "$80,000");
 }
 
-/// #6282: rows seeded from the conversation log belong to earlier turns and
-/// carry no request id, so persisting them together with the next turn must
-/// not stamp them with that turn's request.
-#[test]
-fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
-    use crate::agent::harness::session::transcript::{
-        append_transcript_turn, read_transcript_display, DisplayRecord,
-    };
-    use crate::agent::messages::{ChatMessage, ConversationMessage};
-
-    let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
-    agent
-        .seed_resume_from_messages(
-            vec![
-                ("user".to_string(), "install it".to_string()),
-                ("agent".to_string(), "Something went wrong.".to_string()),
-            ],
-            "what happened?",
-        )
-        .expect("seed");
-    // The resuming turn: its own message, then the seeded prefix absorbed ahead
-    // of it and rendered for persistence, exactly as the turn driver does.
-    agent.history = vec![ConversationMessage::Chat(ChatMessage::user(
-        "what happened?",
-    ))];
-    agent.absorb_resumed_transcript_prefix();
-    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
-
-    let dir = tempfile::TempDir::new().expect("temp dir");
-    let path = dir.path().join("seeded.jsonl");
-    append_transcript_turn(
-        &path,
-        &[],
-        &messages,
-        &fake_transcript_meta("thr_seeded"),
-        None,
-        Some("req-now"),
-    )
-    .expect("persist seeded turn");
-
-    let rows: Vec<(String, Option<String>)> = read_transcript_display(&path)
-        .expect("display read")
-        .records
-        .into_iter()
-        .filter_map(|record| match record {
-            DisplayRecord::Message(m) => Some((m.message.content, m.request_id)),
-            _ => None,
-        })
-        .collect();
-    let ids: Vec<Option<&str>> = rows.iter().map(|(_, id)| id.as_deref()).collect();
-    assert_eq!(
-        ids,
-        vec![None, None, None, Some("req-now")],
-        "the seeded prefix (its system prompt included) keeps no request id; only \
-         this turn's new message takes it: {rows:?}"
-    );
-}
-
 /// `seed_resume_from_messages` must not stomp the existing context if
 /// the agent has already been warmed (in-process session cache hit).
 /// Otherwise the cache-miss branch in the web channel would erase

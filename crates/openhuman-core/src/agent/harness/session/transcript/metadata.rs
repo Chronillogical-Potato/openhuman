@@ -27,31 +27,34 @@ const TOOL_FAILURE_METADATA_KEY: &str = "openhuman_tool_failure";
 /// the failure marker.
 const REPLAYED_METADATA_KEY: &str = "openhuman_replayed";
 
+/// Key a non-object `extra_metadata` value is moved under when a side-channel
+/// marker has to be added next to it. Distinct from any caller key, so
+/// [`take_metadata`] can tell the wrap apart from a real object and restore
+/// the original value once the marker is removed.
+const WRAPPED_VALUE_KEY: &str = "openhuman_wrapped_value";
+
 /// Insert `value` under `key` in `message.extra_metadata`, wrapping a
-/// non-object value under `"value"` so nothing already there is lost.
+/// non-object value under [`WRAPPED_VALUE_KEY`] so nothing already there is
+/// lost.
 fn insert_metadata(message: &mut ChatMessage, key: &str, value: serde_json::Value) {
-    match message.extra_metadata.take() {
-        Some(serde_json::Value::Object(mut map)) => {
-            map.insert(key.to_string(), value);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
+    let mut map = match message.extra_metadata.take() {
+        Some(serde_json::Value::Object(map)) => map,
         Some(existing) => {
             let mut map = serde_json::Map::new();
-            map.insert("value".to_string(), existing);
-            map.insert(key.to_string(), value);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
+            map.insert(WRAPPED_VALUE_KEY.to_string(), existing);
+            map
         }
-        None => {
-            let mut map = serde_json::Map::new();
-            map.insert(key.to_string(), value);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-    }
+        None => serde_json::Map::new(),
+    };
+    map.insert(key.to_string(), value);
+    message.extra_metadata = Some(serde_json::Value::Object(map));
 }
 
-/// Pop `key` out of a cloned `extra_metadata` map. If removing it emptied the
-/// object, drop `extra_metadata` entirely so a legacy-identical line stays
-/// legacy-identical.
+/// Pop `key` out of a cloned `extra_metadata` map, then undo what adding it
+/// did: an object left empty becomes no `extra_metadata` (a legacy-identical
+/// line stays legacy-identical), and an object holding only a wrapped scalar
+/// becomes that scalar again, so a replayed or failed row persists its
+/// original metadata exactly.
 fn take_metadata(extra: &mut Option<serde_json::Value>, key: &str) -> Option<serde_json::Value> {
     let serde_json::Value::Object(map) = extra.as_mut()? else {
         return None;
@@ -59,6 +62,10 @@ fn take_metadata(extra: &mut Option<serde_json::Value>, key: &str) -> Option<ser
     let value = map.remove(key)?;
     if map.is_empty() {
         *extra = None;
+    } else if map.len() == 1 {
+        if let Some(wrapped) = map.remove(WRAPPED_VALUE_KEY) {
+            *extra = Some(wrapped);
+        }
     }
     Some(value)
 }

@@ -586,6 +586,47 @@ fn resumed_rows_keep_their_request_id_and_failure_flag() {
     );
 }
 
+/// #6282 review: a row whose `extra_metadata` is a scalar keeps that exact
+/// scalar through a resume. Adding the replayed marker next to it must not
+/// leave the value wrapped in an object once the writer strips the marker.
+#[test]
+fn resumed_row_keeps_scalar_extra_metadata() {
+    let dir = TempDir::new().unwrap();
+    let meta = sample_meta();
+
+    let mut noted = ChatMessage::user("noted question");
+    noted.extra_metadata = Some(serde_json::json!("pinned"));
+    let first = dir.path().join("scalar-first.jsonl");
+    AppendHarness::new(first.clone()).turn(
+        &[ChatMessage::system("sys"), noted],
+        &meta,
+        None,
+        Some("req-1"),
+    );
+
+    let resumed = read_transcript(&first).unwrap().messages;
+    let second = dir.path().join("scalar-second.jsonl");
+    AppendHarness::new(second.clone()).turn(&resumed, &meta, None, Some("req-2"));
+
+    let reread = read_transcript(&second).unwrap().messages;
+    assert_eq!(
+        reread[1].extra_metadata.as_ref().map(|value| {
+            // The reader re-attaches the replayed marker in memory; strip it
+            // the way the writer does before comparing the persisted value.
+            let mut value = Some(value.clone());
+            super::super::metadata::take_replayed_request_id(&mut value);
+            value
+        }),
+        Some(Some(serde_json::json!("pinned"))),
+        "the scalar must survive the resume unwrapped"
+    );
+    let raw = fs::read_to_string(&second).unwrap();
+    assert!(
+        raw.contains("\"extra_metadata\":\"pinned\""),
+        "the persisted line must carry the original scalar: {raw}"
+    );
+}
+
 /// An interrupted partial is appended to the file, is visible in the display
 /// read flagged `interrupted`, and is SKIPPED by the model-context read (a
 /// resumed context never carries a truncated answer).
