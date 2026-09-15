@@ -20,6 +20,7 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
 | `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
+| `crates/openhuman-session/` | Host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
 | `gitbooks/` | Public product and contributor documentation |
@@ -342,7 +343,8 @@ Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 - `BackendOAuthClient`
 - `IntegrationClient`, except redirected file downloads
 - `MedullaClient`, including its separate SSE handshake
-- desktop `GET /auth/me`
+- the host session owner's `POST /auth/login-token/consume` and
+  `GET /auth/me` (`crates/openhuman-session`, through `ClientHeaders`)
 - the agent Langfuse ingestion request
 
 Set `ProductIdentity` once during startup before building clients. Do not add
