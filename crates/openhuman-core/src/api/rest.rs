@@ -617,12 +617,14 @@ impl BackendOAuthClient {
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
-        let sdk = self.sdk_with_credential(&credential.into());
+        let credential = credential.into();
+        let is_api_key = credential.is_api_key();
+        let sdk = self.sdk_with_credential(&credential);
         let response = sdk
             .raw()
             .send(method.clone(), path, &[], body.as_ref(), true)
             .await;
-        self.finish_authed_json(method, path, response)
+        self.finish_authed_json(method, path, response, is_api_key)
     }
 
     /// Fetch the deployed billing summary through the SDK's authenticated raw API.
@@ -631,9 +633,11 @@ impl BackendOAuthClient {
         credential: impl Into<BackendCredential>,
     ) -> Result<Value> {
         const PATH: &str = "/payments/summary";
-        let sdk = self.sdk_with_credential(&credential.into());
+        let credential = credential.into();
+        let is_api_key = credential.is_api_key();
+        let sdk = self.sdk_with_credential(&credential);
         let response = sdk.raw().send(Method::GET, PATH, &[], None, true).await;
-        self.finish_authed_json(Method::GET, PATH, response)
+        self.finish_authed_json(Method::GET, PATH, response, is_api_key)
     }
 
     fn finish_authed_json(
@@ -641,6 +645,7 @@ impl BackendOAuthClient {
         method: Method,
         path: &str,
         response: Result<Value, SdkError>,
+        is_api_key: bool,
     ) -> Result<Value> {
         let url = self.url_for(path)?;
         let value = match response {
@@ -728,9 +733,22 @@ impl BackendOAuthClient {
                     method.as_str(),
                     url.path(),
                 );
-                return Err(anyhow::Error::new(BackendApiError::Unauthorized {
-                    method: method.as_str().to_string(),
-                    path: url.path().to_string(),
+                // The credential kind decides the *recovery*, not just the
+                // wording: `flatten_authed_error` maps `Unauthorized` onto
+                // the `SESSION_EXPIRED` sentinel that triggers session
+                // sign-out, which is the wrong recovery for a rejected API
+                // key (there is no session to expire) — see
+                // `BackendApiError::ApiKeyRejected`.
+                return Err(anyhow::Error::new(if is_api_key {
+                    BackendApiError::ApiKeyRejected {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
+                } else {
+                    BackendApiError::Unauthorized {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
                 }));
             }
 
