@@ -3,6 +3,7 @@ import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
 import type { LocalAiStatus } from '../utils/tauriCommands/localAi';
 import type { ServiceStatus } from '../utils/tauriCommands/service';
 import { callCoreRpc } from './coreRpcClient';
+import { fetchCurrentUser, useShellSessionOwner } from './session/sessionOwner';
 
 interface OnboardingTasks {
   accessibilityPermissionGranted: boolean;
@@ -39,7 +40,12 @@ interface AppStateSnapshotResult {
     profileId: string | null;
   };
   sessionToken: string | null;
-  currentUser: User | null;
+  /**
+   * The live user: the session owner's `/auth/me` answer on the desktop, else
+   * the payload the core was handed at login. Older cores also populate it
+   * themselves.
+   */
+  currentUser?: User | null;
   onboardingCompleted: boolean;
   chatOnboardingCompleted: boolean;
   analyticsEnabled: boolean;
@@ -80,9 +86,9 @@ interface AppStateSnapshotResult {
    */
   currentUserStale?: boolean;
   /**
-   * Seconds since the core last got a successful `auth_get_me` answer this
-   * process. Absent when it never has — the stored snapshot then came off
-   * disk and its real age is unknown, which is a different statement from
+   * Seconds since the session owner last got a successful `/auth/me` answer
+   * this process. Absent when it never has — the stored snapshot then came
+   * off disk and its real age is unknown, which is a different statement from
    * "zero seconds old".
    */
   currentUserStaleSeconds?: number;
@@ -123,9 +129,32 @@ export const fetchCoreAppSnapshot = async (): Promise<AppStateSnapshotResult> =>
     method: 'openhuman.app_state_snapshot',
     timeoutMs: SNAPSHOT_TIMEOUT_MS,
   });
-  // Normalise the optional #1299 field at the API boundary so older core
-  // privacy-conservative `false` to callers (e.g. CoreStateProvider).
-  return { ...response.result };
+  const result: AppStateSnapshotResult = { ...response.result };
+  // The core reports the credential it holds and the user payload it was
+  // handed at login (`auth.user`); the *live* current user comes from the
+  // session owner's `/auth/me` cache. On the desktop that is the Tauri shell,
+  // whose cache makes this poll-frequency call cheap. Browser and cloud mode
+  // have no cached owner, so they keep the stored payload rather than paying
+  // a backend round trip on every poll.
+  if (result.auth?.isAuthenticated && useShellSessionOwner()) {
+    try {
+      const current = await fetchCurrentUser(false);
+      if (current.user) {
+        result.currentUser = current.user as User;
+        result.currentUserStale = current.stale;
+        result.currentUserStaleSeconds = current.staleSeconds ?? undefined;
+      }
+    } catch (error) {
+      // A `REJECTED:` here means the owner already cleared the credential and
+      // emitted `auth://expired`; CoreStateProvider reacts to that event. Any
+      // other failure leaves the stored payload in place.
+      console.debug('[core-state] current user unavailable from the session owner:', error);
+    }
+  }
+  if (!result.currentUser && result.auth?.user) {
+    result.currentUser = result.auth.user as User;
+  }
+  return result;
 };
 
 export const updateCoreLocalState = async (params: UpdateCoreLocalStateParams): Promise<void> => {
