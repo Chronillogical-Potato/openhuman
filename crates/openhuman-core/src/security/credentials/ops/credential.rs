@@ -18,7 +18,7 @@ use crate::rpc::RpcOutcome;
 use crate::security::credentials::responses::AuthStateResponse;
 use crate::security::credentials::session_support::{
     build_session_state, load_app_session_profile, local_session_user_id, session_token_from_profile,
-    user_id_from_jwt_claims, CredentialKind, LOCAL_SESSION_USER_ID, SESSION_EXPIRES_AT_META,
+    user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
 use crate::security::credentials::{
     api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
@@ -124,7 +124,6 @@ fn resolve(request: SetCredentialRequest) -> Result<Resolved, String> {
             let local_id = local_session_user_id();
             let user = user.ok_or_else(|| "local session requires a user payload".to_string())?;
             let user = normalize_local_user(user, &local_id);
-            let _ = LOCAL_SESSION_USER_ID;
             Ok(Resolved {
                 kind,
                 token,

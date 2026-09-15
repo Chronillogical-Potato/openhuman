@@ -6,6 +6,7 @@ pub mod cli;
 mod core;
 pub mod credential_ref;
 pub mod http_creds;
+pub mod identity;
 pub mod ops;
 pub mod profiles;
 pub mod responses;
