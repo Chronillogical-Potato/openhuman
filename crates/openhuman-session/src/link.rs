@@ -51,14 +51,14 @@ impl CoreAuthState {
     }
 }
 
-/// Peel the core's `{result, logs}` / `{data}` envelopes off an RPC result.
+/// Peel the core's `{result, logs}` / `{data}` envelopes off an RPC result —
+/// the same walk as `openhuman_rpc::unwrap_rpc`, copied so this crate stays
+/// free of core-side dependencies.
 pub fn unwrap_envelope(mut value: &Value) -> &Value {
     loop {
         match value.get("result").or_else(|| value.get("data")) {
-            Some(next) if value.get("logs").is_some() || value.get("data").is_some() => {
-                value = next;
-            }
-            _ => return value,
+            Some(next) => value = next,
+            None => return value,
         }
     }
 }
