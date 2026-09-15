@@ -74,6 +74,9 @@ export const ProviderKeyDialog = ({
   const [phase, setPhase] = useState<'idle' | 'saving' | 'oauth'>('idle');
   const [error, setError] = useState<string | null>(null);
   const busy = phase !== 'idle';
+  // A pending OAuth sign-in waits on the browser for up to minutes, so it must
+  // stay dismissable (onCancel aborts it); only an in-flight save locks the dialog.
+  const saving = phase === 'saving';
 
   const placeholder = isLocalRuntime
     ? defaultEndpointFor(slug) || t('settings.ai.defaultLocalEndpoint')
@@ -170,18 +173,18 @@ export const ProviderKeyDialog = ({
     <DialogRoot
       open
       onOpenChange={next => {
-        if (!next && !busy) onCancel();
+        if (!next && !saving) onCancel();
       }}>
       <DialogContent
         aria-labelledby={titleId}
         onEscapeKeyDown={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         onPointerDownOutside={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         onInteractOutside={event => {
-          if (busy) event.preventDefault();
+          if (saving) event.preventDefault();
         }}
         className="border border-line p-6 shadow-soft">
         {platformLinkUrl ? (
@@ -299,7 +302,7 @@ export const ProviderKeyDialog = ({
           </div>
         ) : null}
         <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
+          <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={saving}>
             {t('common.cancel')}
           </Button>
           <Button

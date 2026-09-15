@@ -65,10 +65,14 @@ function extractOAuthCode(callbackUrl: string, expectedState: string): string {
 async function exchangeCodeForKey(
   code: string,
   verifier: string,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal
 ): Promise<string> {
+  // `signal` aborts an exchange still in flight when the user cancels, so a
+  // late callback cannot import a key after the dialog was dismissed.
   const response = await fetchImpl(OPENROUTER_TOKEN_URL, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, code_verifier: verifier, code_challenge_method: PKCE_METHOD }),
   });
@@ -152,7 +156,7 @@ export async function connectOpenRouterViaOAuth(deps: OpenRouterOAuthDeps = {}):
       }),
     ]);
     const code = extractOAuthCode(callbackUrl, loopback.state);
-    return await exchangeCodeForKey(code, verifier, fetchImpl);
+    return await exchangeCodeForKey(code, verifier, fetchImpl, signal);
   } finally {
     await loopback.cancel();
   }

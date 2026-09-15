@@ -105,6 +105,56 @@ describe('connectOpenRouterViaOAuth', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a Deny callback that carries only the state, without exchanging', async () => {
+    // OpenRouter's Deny redirects to callback_url with nothing but the echoed
+    // state (observed 2026-09-15).
+    const fetchImpl = vi.fn();
+
+    await expect(
+      connectOpenRouterViaOAuth({
+        startLoopbackListener: vi
+          .fn()
+          .mockResolvedValue({
+            redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+            state: 'expected-state',
+            awaitCallback: vi
+              .fn()
+              .mockResolvedValue('http://127.0.0.1:3000/auth?state=expected-state'),
+            cancel: vi.fn().mockResolvedValue(undefined),
+          }),
+        openExternalUrl: vi.fn().mockResolvedValue(undefined),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).rejects.toThrow('OpenRouter OAuth did not return an authorization code.');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('passes the abort signal to the key exchange so a cancel stops it', async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ key: 'k' }) });
+
+    await connectOpenRouterViaOAuth({
+      signal: controller.signal,
+      startLoopbackListener: vi
+        .fn()
+        .mockResolvedValue({
+          redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+          state: 'expected-state',
+          awaitCallback: vi
+            .fn()
+            .mockResolvedValue('http://127.0.0.1:3000/auth?state=expected-state&code=abc123'),
+          cancel: vi.fn().mockResolvedValue(undefined),
+        }),
+      openExternalUrl: vi.fn().mockResolvedValue(undefined),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://openrouter.ai/api/v1/auth/keys',
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it('cancels the loopback listener when the OAuth flow is aborted', async () => {
     const cancel = vi.fn().mockResolvedValue(undefined);
     const controller = new AbortController();

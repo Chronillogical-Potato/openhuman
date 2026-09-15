@@ -1443,6 +1443,38 @@ describe('AIPanel', () => {
     );
   });
 
+  // Regression: the dialog disabled Cancel (and blocked Esc / click-outside)
+  // for the whole browser round-trip, so an abandoned sign-in left the user
+  // stuck on "Connecting…" with no way out.
+  it('keeps Cancel usable while OpenRouter sign-in is pending and aborts the flow', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+    let signal: AbortSignal | undefined;
+    vi.mocked(connectOpenRouterViaOAuth).mockImplementation(deps => {
+      signal = deps?.signal;
+      return new Promise((_, reject) =>
+        signal?.addEventListener('abort', () =>
+          reject(new Error('OpenRouter OAuth was cancelled.'))
+        )
+      );
+    });
+
+    renderWithProviders(<AIPanel />);
+    await openProviderConnectDialog('openrouter');
+    const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i }));
+    await waitFor(() => expect(connectOpenRouterViaOAuth).toHaveBeenCalledTimes(1));
+
+    const cancel = within(dialog).getByRole('button', { name: /^Cancel$/i });
+    expect(cancel).toBeEnabled();
+    fireEvent.click(cancel);
+
+    expect(signal?.aborted).toBe(true);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /Connect OpenRouter/i })).not.toBeInTheDocument()
+    );
+    expect(setCloudProviderKey).not.toHaveBeenCalled();
+  });
+
   // Regression: picking a provider in the add-provider modal has to hand off to
   // that provider's own connect dialog. Two Radix dialogs are involved (the
   // picker unmounts as the key dialog mounts), so this asserts the handoff

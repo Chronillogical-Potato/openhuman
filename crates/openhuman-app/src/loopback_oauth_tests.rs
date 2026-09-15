@@ -146,3 +146,32 @@ async fn bind_loopback_allows_rebind_via_so_reuseaddr() {
     drop(listener);
     let _ = bind_loopback(port).expect("rebind on same port must succeed with SO_REUSEADDR");
 }
+
+// ── callback_carries_credential ─────────────────────────────────────────
+
+#[test]
+fn deny_or_error_callback_carries_no_credential() {
+    // OpenRouter Deny: only the echoed state (observed 2026-09-15).
+    assert!(!callback_carries_credential("state=abc"), "state-only");
+    assert!(
+        !callback_carries_credential("state=abc&error=access_denied"),
+        "error param"
+    );
+    assert!(
+        !callback_carries_credential("state=abc&code="),
+        "empty code"
+    );
+}
+
+#[test]
+fn code_or_token_callback_carries_credential() {
+    assert!(callback_carries_credential("state=abc&code=xyz"), "code");
+    assert!(callback_carries_credential("token=jwt&state=abc"), "token");
+}
+
+#[test]
+fn deny_callback_serves_failure_page_not_signed_in() {
+    assert!(callback_body("state=abc").contains("Sign-in was not completed."));
+    assert!(!callback_body("state=abc").contains("signed in."));
+    assert!(callback_body("state=abc&code=xyz").contains("You're signed in."));
+}
