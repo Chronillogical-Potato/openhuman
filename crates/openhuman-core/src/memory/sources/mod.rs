@@ -99,6 +99,11 @@ pub mod sync;
 // for a `config.toml` rewrite.
 pub mod reconcile;
 
+// The host's record of the sync runs it drives — the Sync button, Apply all and
+// every Composio run, none of which the driver's audit log sees — read beside
+// the driver's log by the history RPCs (openhuman#6257).
+pub(crate) mod run_history;
+
 // The controller aggregators this domain's RPC surface defines. Aliased
 // exactly as the pre-extraction module exported them.
 pub use schemas::{

@@ -144,6 +144,11 @@ export type FreshnessLabel = 'active' | 'recent' | 'idle';
 
 export interface SourceStatus {
   source_id: string;
+  /**
+   * The source's display label (openhuman#6257), so a screen that reads only
+   * the status list can name the row. Absent from a core that predates it.
+   */
+  label?: string;
   chunks_synced: number;
   chunks_pending: number;
   last_chunk_at_ms: number | null;
