@@ -161,7 +161,8 @@ impl OpenHumanToolOutcomeClassifier {
     ///   permissions, a missing app, and bad credentials need a human to act, so
     ///   an identical re-dispatch just burns an iteration; `BlockedByPolicy`,
     ///   `Denied`, and `ApprovalExpired` are refusals that auto-retrying would
-    ///   actively subvert (#4459); and `Unknown` is the case where OpenHuman has
+    ///   actively subvert (#4459); `NotFound` and `Unsupported` fail identically
+    ///   on every repeat (#6277); and `Unknown` is the case where OpenHuman has
     ///   no basis to promise a repeat is safe.
     fn class_of(failure: ToolFailureClass, retry_safe: bool) -> OutcomeClass {
         match failure {
@@ -178,6 +179,8 @@ impl OpenHumanToolOutcomeClassifier {
             | ToolFailureClass::BlockedByPolicy
             | ToolFailureClass::Denied
             | ToolFailureClass::ApprovalExpired
+            | ToolFailureClass::NotFound
+            | ToolFailureClass::Unsupported
             | ToolFailureClass::Unknown => OutcomeClass::PermanentFailure,
         }
     }

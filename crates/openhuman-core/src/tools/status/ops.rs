@@ -58,6 +58,19 @@ fn classify_class(error_text: &str, timed_out: bool) -> ToolFailureClass {
         tracing::debug!("[tool_status::classify] matched POLICY_DENIED_MARKER -> Denied");
         return ToolFailureClass::Denied;
     }
+    //    `NOT_FOUND_MARKER` / `UNSUPPORTED_MARKER` — the producer knew the call
+    //    named something that is not there, or asked for something the target
+    //    can never do (#6277). Ahead of every heuristic for the same reason as
+    //    the policy markers: a catalog entry id or a skill description can
+    //    contain any of the words sniffed below.
+    if text.contains(super::types::NOT_FOUND_MARKER) {
+        tracing::debug!("[tool_status::classify] matched NOT_FOUND_MARKER -> NotFound");
+        return ToolFailureClass::NotFound;
+    }
+    if text.contains(super::types::UNSUPPORTED_MARKER) {
+        tracing::debug!("[tool_status::classify] matched UNSUPPORTED_MARKER -> Unsupported");
+        return ToolFailureClass::Unsupported;
+    }
 
     // 1. Timeout — the executor's explicit signal wins over any text sniffing.
     if timed_out || contains_any(&text, &["timed out", "timeout", "deadline exceeded"]) {
@@ -234,6 +247,14 @@ pub fn describe(class: ToolFailureClass) -> ClassifiedFailure {
         ToolFailureClass::ApprovalExpired => (
             "The approval request expired before anyone responded.",
             "Ask again to run it — OpenHuman won't retry it on its own.",
+        ),
+        ToolFailureClass::NotFound => (
+            "What this action asked for doesn't exist or isn't available here.",
+            "No action needed. The assistant can look up the right name and try again.",
+        ),
+        ToolFailureClass::Unsupported => (
+            "OpenHuman can't do this automatically yet.",
+            "Do it manually, or ask for a different option.",
         ),
         ToolFailureClass::Unknown => (
             "Something went wrong with this action.",

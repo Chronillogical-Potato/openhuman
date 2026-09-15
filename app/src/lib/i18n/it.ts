@@ -218,6 +218,10 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Qualcosa è andato storto con questa azione.',
   'conversations.toolFailure.unknown.next':
     'Riprova; se continua a fallire, esegui la diagnostica dalle Impostazioni.',
+  'conversations.toolFailure.notFound.cause': 'Ciò che questa azione ha richiesto non esiste o non è disponibile qui.',
+  'conversations.toolFailure.notFound.next': "Non serve fare nulla. L'assistente può cercare il nome corretto e riprovare.",
+  'conversations.toolFailure.unsupported.cause': 'OpenHuman non può ancora farlo automaticamente.',
+  'conversations.toolFailure.unsupported.next': "Fallo manualmente o chiedi un'altra opzione.",
   'conversations.backgroundTasks.title': 'Attività in background',
   'nav.feedback': 'Condividi feedback',
   'feedback.board': 'Bacheca dei feedback',

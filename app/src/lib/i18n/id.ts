@@ -215,6 +215,10 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Terjadi kesalahan pada tindakan ini.',
   'conversations.toolFailure.unknown.next':
     'Coba lagi; jika terus gagal, jalankan diagnostik dari Pengaturan.',
+  'conversations.toolFailure.notFound.cause': 'Yang diminta tindakan ini tidak ada atau tidak tersedia di sini.',
+  'conversations.toolFailure.notFound.next': 'Tidak perlu melakukan apa pun. Asisten dapat mencari nama yang benar dan mencoba lagi.',
+  'conversations.toolFailure.unsupported.cause': 'OpenHuman belum bisa melakukan ini secara otomatis.',
+  'conversations.toolFailure.unsupported.next': 'Lakukan secara manual, atau minta opsi lain.',
   'conversations.backgroundTasks.title': 'Tugas latar belakang',
   'nav.feedback': 'Bagikan masukan',
   'feedback.board': 'Papan masukan',

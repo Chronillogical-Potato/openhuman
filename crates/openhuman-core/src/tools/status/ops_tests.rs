@@ -193,6 +193,8 @@ fn every_class_produces_nonempty_user_copy() {
         ToolFailureClass::Timeout,
         ToolFailureClass::Denied,
         ToolFailureClass::ApprovalExpired,
+        ToolFailureClass::NotFound,
+        ToolFailureClass::Unsupported,
         ToolFailureClass::Unknown,
     ] {
         let f = describe(class);
@@ -200,6 +202,27 @@ fn every_class_produces_nonempty_user_copy() {
         assert!(!f.next_action.is_empty(), "empty next_action for {class:?}");
         assert_eq!(f.recoverable, f.category.is_recoverable());
     }
+}
+
+// #6277: failures whose producer knows they cannot succeed on retry are
+// classified from its marker, ahead of any word the message happens to contain.
+#[test]
+fn marked_permanent_failures_are_not_recoverable() {
+    use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
+
+    let not_found = classify(
+        &format!("Error executing use_skill: {NOT_FOUND_MARKER} skill 'timeout-helper' not found"),
+        false,
+    );
+    assert_eq!(not_found.class, ToolFailureClass::NotFound);
+    assert!(!not_found.recoverable);
+
+    let unsupported = classify(
+        &format!("{UNSUPPORTED_MARKER} Failed to install skill 'x': hosted on skills.sh"),
+        false,
+    );
+    assert_eq!(unsupported.class, ToolFailureClass::Unsupported);
+    assert!(!unsupported.recoverable);
 }
 
 #[test]

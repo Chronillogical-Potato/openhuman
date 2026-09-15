@@ -151,7 +151,8 @@ pub fn render_pack_filtered(
         // Scoped too: offering a hallucinating model a pack it cannot use is the
         // same wrong turn the advertised index used to take, one error later.
         return Err(format!(
-            "Unknown skill `{skill}`. Available:\n{}",
+            "{} Unknown skill `{skill}`. Available:\n{}",
+            crate::tools::status::NOT_FOUND_MARKER,
             registry::pack_index_markdown_filtered(is_callable)
         ));
     };
@@ -419,8 +420,9 @@ impl Tool for UseSkillTool {
 
         let Some((tools, idx)) = self.handle.resolve(skill, name) else {
             return Ok(ToolResult::error(format!(
-                "No tool `{name}` in skill `{skill}`. Call `use_skill {{ \"skill\": \"{skill}\" }}` \
+                "{} No tool `{name}` in skill `{skill}`. Call `use_skill {{ \"skill\": \"{skill}\" }}` \
                  to see what it contains.\n\nSkills:\n{}",
+                crate::tools::status::NOT_FOUND_MARKER,
                 registry::pack_index_markdown()
             )));
         };

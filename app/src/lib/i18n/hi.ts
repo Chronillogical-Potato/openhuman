@@ -210,6 +210,10 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'इस कार्य में कुछ गड़बड़ हो गई।',
   'conversations.toolFailure.unknown.next':
     'दोबारा प्रयास करें; यदि यह बार-बार विफल हो, तो सेटिंग्स से डायग्नोस्टिक्स चलाएँ।',
+  'conversations.toolFailure.notFound.cause': 'इस कार्रवाई ने जो माँगा वह मौजूद नहीं है या यहाँ उपलब्ध नहीं है।',
+  'conversations.toolFailure.notFound.next': 'कुछ करने की ज़रूरत नहीं। सहायक सही नाम खोजकर फिर से कोशिश कर सकता है।',
+  'conversations.toolFailure.unsupported.cause': 'OpenHuman अभी इसे अपने आप नहीं कर सकता।',
+  'conversations.toolFailure.unsupported.next': 'इसे मैन्युअल रूप से करें, या कोई दूसरा विकल्प माँगें।',
   'conversations.backgroundTasks.title': 'नेपथ्य कार्य',
   'nav.feedback': 'फ़ीडबैक साझा करें',
   'feedback.board': 'फ़ीडबैक बोर्ड',
