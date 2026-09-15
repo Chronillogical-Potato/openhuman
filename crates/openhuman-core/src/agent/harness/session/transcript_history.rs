@@ -353,6 +353,28 @@ impl SessionHistoryLocator for FileTranscriptLocator {
         )))
     }
 
+    fn root_for_thread_scoped(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<Arc<dyn SessionTranscriptRead>> {
+        // Same cross-dir, newest-wins scan as `root_for_thread`, additionally
+        // filtered on `_meta.agent_id` so one runtime agent's resume cannot
+        // pick up a different agent's transcript for a caller-reused
+        // `thread_id` — see `find_root_transcript_for_thread_scoped`.
+        let path =
+            find_root_transcript_for_thread_scoped(&self.workspace_dir, thread_id, agent_id)?;
+        log::debug!(
+            "[transcript-history] locator root_for_thread_scoped thread={thread_id} \
+             agent_id={agent_id:?} path={}",
+            path.display()
+        );
+        Some(Arc::new(SessionTranscriptHistory::opened_at(
+            path,
+            seed_meta_for_discovered(thread_id),
+        )))
+    }
+
     fn open_stem(
         &self,
         stem: &str,
