@@ -58,6 +58,81 @@ pub async fn agent_chat(
     cwd: Option<String>,
     route: Option<crate::config::schema::EphemeralRoute>,
 ) -> Result<RpcOutcome<String>, String> {
+    agent_chat_for(
+        config,
+        AgentChatTarget::Orchestrator,
+        message,
+        model_override,
+        temperature,
+        thread_id,
+        cwd,
+        route,
+    )
+    .await
+}
+
+/// Which session [`agent_chat_for`] builds the turn on.
+#[derive(Debug, Clone, Copy)]
+pub enum AgentChatTarget<'a> {
+    /// The orchestrator — [`Agent::from_config`], today's `agent_chat`.
+    Orchestrator,
+    /// Resolve `id` the way every other id-keyed entry point does: the
+    /// process registry first, then `config.agent_registry.entries`.
+    AgentId(&'a str),
+    /// A definition the caller already holds; nothing is resolved by id. The
+    /// entry point for a library host running its own per-agent specs — see
+    /// [`Agent::from_config_with_definition`].
+    Definition {
+        definition: &'a crate::agent::harness::definition::AgentDefinition,
+        profile: Option<&'a crate::agent::profiles::AgentProfile>,
+        profile_prompt_suffix: Option<&'a str>,
+    },
+}
+
+fn build_turn_agent(config: &Config, target: &AgentChatTarget<'_>) -> Result<Agent, String> {
+    match target {
+        AgentChatTarget::Orchestrator => Agent::from_config(config),
+        AgentChatTarget::AgentId(id) => {
+            log::debug!("[inference] agent_chat building agent_id={id}");
+            Agent::from_config_for_agent(config, id)
+        }
+        AgentChatTarget::Definition {
+            definition,
+            profile,
+            profile_prompt_suffix,
+        } => Agent::from_config_with_definition(
+            config,
+            definition,
+            *profile,
+            profile_prompt_suffix.map(str::to_string),
+        ),
+    }
+    .map_err(|e| e.to_string())
+}
+
+/// [`agent_chat`] on an explicit [`AgentChatTarget`].
+///
+/// Two differences from the historical `agent_chat` beyond the target:
+///
+/// * A non-empty `thread_id` resumes **that thread's** transcript
+///   (`Agent::seed_resume_from_thread_transcript`). When the thread has no
+///   transcript yet, auto-resume is suppressed for the turn so a fresh thread
+///   never splices in the agent's newest transcript from some other thread —
+///   `Agent::turn` resolves the latest transcript per agent *name*, not per
+///   thread.
+/// * The agent is built by `target`, so a library host can run one booted
+///   core with many independently defined agents.
+#[allow(clippy::too_many_arguments)]
+pub async fn agent_chat_for(
+    config: &mut Config,
+    target: AgentChatTarget<'_>,
+    message: &str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    thread_id: Option<String>,
+    cwd: Option<String>,
+    route: Option<crate::config::schema::EphemeralRoute>,
+) -> Result<RpcOutcome<String>, String> {
     enforce_user_prompt_or_reject(message, "local_ai.ops.agent_chat")?;
 
     // TAURI-RUST-RS: an upstream caller (frontend, JSON-RPC client) can pass
@@ -93,7 +168,7 @@ pub async fn agent_chat(
                 "[inference] agent_chat rooting turn tools at cwd={}",
                 root.display()
             );
-            let mut agent = Agent::from_config(&scoped).map_err(|e| e.to_string())?;
+            let mut agent = build_turn_agent(&scoped, &target)?;
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
             // default cwd here, and so spawned sub-agents inherit the same root.
@@ -102,8 +177,28 @@ pub async fn agent_chat(
             ));
             agent
         }
-        None => Agent::from_config(config).map_err(|e| e.to_string())?,
+        None => build_turn_agent(config, &target)?,
     };
+    // Thread-correct resume. `Agent::turn` would otherwise auto-load the
+    // newest transcript for the agent *name*, which is another thread's
+    // history whenever the same agent serves several threads (every library
+    // host does exactly that). Seed from this thread's transcript when it has
+    // one; when it has none, keep the turn from falling back to that autoload.
+    if let Some(id) = thread_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    {
+        if agent.seed_resume_from_thread_transcript(id) {
+            log::debug!("[inference] agent_chat resumed thread transcript thread_id={id}");
+        } else {
+            log::debug!("[inference] agent_chat fresh thread thread_id={id}; autoload suppressed");
+            agent.set_next_turn_overrides(crate::agent::harness::session::TurnOverrides {
+                suppress_transcript_autoload: true,
+                ..Default::default()
+            });
+        }
+    }
     // Live progress for in-process embedders. `Agent::from_config` never
     // attaches a sink itself, so there is nothing to clobber here; callers that
     // set one explicitly (web chat, platform socket, flows, skills) hold their
