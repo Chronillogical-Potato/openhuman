@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 /**
- * Three independent connectivity channels surfaced separately so the UI can
+ * Four independent connectivity channels surfaced separately so the UI can
  * tell the user *which* link is broken instead of one conflated "Disconnected"
  * pill (#1527).
  *
@@ -9,30 +9,48 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
  *   listeners on `window`.
  * - `core`     — local Rust sidecar reachability. Source: `coreHealthMonitor`
  *   poll of `openhuman.connectivity_diag`.
- * - `backend`  — Socket.IO link to the hosted backend. Source:
- *   `socketService` lifecycle callbacks.
+ * - `backend`  — the renderer's Socket.IO link to the local core, the realtime
+ *   path for chat streaming and approvals. Source: `socketService` lifecycle
+ *   callbacks.
+ * - `hosted`   — the Rust core's own Socket.IO link to the hosted backend
+ *   (webhooks, Composio triggers, managed-DM channel routing, hosted-brain
+ *   runs). Source: `coreHealthMonitor` reading `socket_state` off the same
+ *   `connectivity_diag` poll (#6256). `unknown` means the core's reconnect
+ *   loop is not running at all — signed out, local session, early boot — and
+ *   is deliberately not a degraded state: the core reports `reconnecting`
+ *   between retries, so a link that is down but being retried is never
+ *   mistaken for one that was never wanted.
  */
 
 export type InternetState = 'online' | 'offline';
 export type CoreState = 'reachable' | 'unreachable' | 'unknown';
 export type BackendState = 'connected' | 'disconnected' | 'connecting';
+/**
+ * Mirrors the core's `ConnectionStatus` as reported by
+ * `connectivity_diag.socket_state`, minus `disconnected`, which — like an
+ * uninitialised manager — collapses to `unknown` because it means the
+ * reconnect loop is not running.
+ */
+export type HostedState = 'connected' | 'connecting' | 'reconnecting' | 'error' | 'unknown';
 
 export interface ConnectivityState {
   internet: InternetState;
   core: CoreState;
   backend: BackendState;
+  hosted: HostedState;
   /**
    * Last error string emitted per channel, if any. Cleared on the next
    * successful state for that channel. UI surfaces these in tooltips /
    * blocking screens for diagnosability.
    */
-  lastError: { internet?: string; core?: string; backend?: string };
+  lastError: { internet?: string; core?: string; backend?: string; hosted?: string };
 }
 
 const initialState: ConnectivityState = {
   internet: typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online',
   core: 'unknown',
   backend: 'connecting',
+  hosted: 'unknown',
   lastError: {},
 };
 
@@ -70,8 +88,20 @@ const slice = createSlice({
         state.lastError.backend = action.payload.error;
       }
     },
+    setHosted(state, action: PayloadAction<{ value: HostedState; error?: string }>) {
+      const { value, error } = action.payload;
+      state.hosted = value;
+      // `connected` and `unknown` are not outages, and a degraded reading that
+      // carries no message must not leave an older one behind — delete rather
+      // than assign `undefined` (same lesson as `setBackend` above).
+      if (value === 'connected' || value === 'unknown' || error === undefined) {
+        delete state.lastError.hosted;
+      } else {
+        state.lastError.hosted = error;
+      }
+    },
   },
 });
 
-export const { setInternet, setCore, setBackend } = slice.actions;
+export const { setInternet, setCore, setBackend, setHosted } = slice.actions;
 export default slice.reducer;

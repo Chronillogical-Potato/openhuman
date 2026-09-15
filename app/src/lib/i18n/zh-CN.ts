@@ -610,6 +610,8 @@ const messages: TranslationMap = {
   'home.askAssistant': '向你的助手提问...',
   'home.statusOk': '你的助手已准备就绪。在下方输入内容即可开始。',
   'home.statusBackendOnly': '正在重新连接后端…你的智能体很快将再次可用。',
+  'home.statusHostedDegraded':
+    '正在重新连接云端…聊天仍可正常使用；连接恢复后，集成和频道将继续工作。',
   'home.statusCoreUnreachable': '本地核心 sidecar 无响应。OpenHuman 后台进程可能已崩溃或未能启动。',
   'home.statusInternetOffline': '你的设备当前处于离线状态。请检查网络或重启应用以重新连接。',
   'home.restartCore': '重启核心',

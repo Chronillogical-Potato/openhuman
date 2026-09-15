@@ -7,11 +7,11 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use tokio::sync::{mpsc, watch};
-use tokio::time::Duration;
+use tokio::time::{Duration, Instant};
 
 use crate::api::models::socket::ConnectionStatus;
 
-use super::connect::run_connection;
+use super::connect::{run_connection, ReconnectContext};
 use crate::platform::socket::manager::{emit_state_change, SharedState};
 use crate::platform::socket::token_provider::{is_invalid_token_error, TokenProvider};
 use crate::platform::socket::types::ConnectionOutcome;
@@ -83,6 +83,9 @@ pub(crate) async fn ws_loop(
     // follow the Location header and pin the resolved URL here so subsequent
     // reconnects skip the redirect round-trip entirely.
     let mut ws_url = crate::api::socket::websocket_url(&url);
+    // What the next attempt is recovering from, so the handshake can log how
+    // long the socket was down and how many attempts it took (#6256).
+    let mut reconnect = ReconnectContext::default();
 
     loop {
         if *shutdown_rx.borrow() {
@@ -145,6 +148,7 @@ pub(crate) async fn ws_loop(
             &mut shutdown_rx,
             &internal_tx,
             &emit_ready,
+            reconnect,
         )
         .await;
 
@@ -179,6 +183,23 @@ pub(crate) async fn ws_loop(
         // `SocketManager::disconnect()` (CodeRabbit #4355).
         shared.ack_registry.cancel_all();
         workflows::end_connection_generation();
+
+        match &outcome {
+            ConnectionOutcome::Lost(_) => {
+                reconnect = ReconnectContext {
+                    outage_started: Some(Instant::now()),
+                    lost_previous: true,
+                    failed_attempts: 0,
+                };
+            }
+            ConnectionOutcome::Failed(_) => {
+                if reconnect.outage_started.is_none() {
+                    reconnect.outage_started = Some(Instant::now());
+                }
+                reconnect.failed_attempts = reconnect.failed_attempts.saturating_add(1);
+            }
+            ConnectionOutcome::Shutdown => {}
+        }
 
         match outcome {
             ConnectionOutcome::Shutdown => {
@@ -288,7 +309,13 @@ pub(crate) async fn ws_loop(
             }
         }
 
-        *shared.status.write() = ConnectionStatus::Disconnected;
+        // Between attempts the loop is alive and will retry, so report
+        // `Reconnecting` rather than `Disconnected`: `Disconnected` is what a
+        // stopped loop reports (signed out, session expired, shutdown), and
+        // the frontend's connectivity chip has to tell the two apart — a link
+        // that is down but being retried is an outage worth showing, a loop
+        // that was never started is not (#6256).
+        *shared.status.write() = ConnectionStatus::Reconnecting;
         *shared.socket_id.write() = None;
         emit_state_change(&shared);
 

@@ -476,6 +476,8 @@ const en: TranslationMap = {
   'home.askAssistant': 'Ask your assistant anything...',
   'home.statusOk': 'Your assistant is ready when you are. Type something below to get started.',
   'home.statusBackendOnly': 'Reconnecting to backend… your agent will be available again shortly.',
+  'home.statusHostedDegraded':
+    "Reconnecting to the cloud… chat keeps working; integrations and channels resume once it's back.",
   'home.statusCoreUnreachable':
     "The OpenHuman core isn't responding. The background process may have crashed or failed to start.",
   'home.statusInternetOffline':

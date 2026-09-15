@@ -653,6 +653,8 @@ const messages: TranslationMap = {
   'home.askAssistant': 'असिस्टेंट से कुछ भी पूछें...',
   'home.statusOk': 'आपका सहायक तैयार है। शुरू करने के लिए नीचे कुछ लिखें।',
   'home.statusBackendOnly': 'बैकएंड से फिर से जुड़ रहे हैं… आपका एजेंट जल्द ही उपलब्ध होगा।',
+  'home.statusHostedDegraded':
+    'क्लाउड से दोबारा कनेक्ट हो रहा है… चैट काम करती रहेगी; कनेक्शन लौटते ही इंटीग्रेशन और चैनल फिर से चालू हो जाएंगे।',
   'home.statusCoreUnreachable':
     'लोकल कोर साइडकार रिस्पॉन्ड नहीं कर रहा। OpenHuman का बैकग्राउंड प्रोसेस क्रैश हो गया होगा या शुरू नहीं हो पाया।',
   'home.statusInternetOffline':

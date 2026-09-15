@@ -6,12 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock store and connectivitySlice first.
 const dispatchMock = vi.fn();
+const connectivityState: { core: string; hosted?: string } = { core: 'reachable' };
 vi.mock('../../store/index', () => ({
-  store: { dispatch: dispatchMock, getState: () => ({ connectivity: { core: 'reachable' } }) },
+  store: { dispatch: dispatchMock, getState: () => ({ connectivity: connectivityState }) },
 }));
 
 const setCoreMock = vi.fn((payload: unknown) => ({ type: 'connectivity/setCore', payload }));
-vi.mock('../../store/connectivitySlice', () => ({ setCore: (p: unknown) => setCoreMock(p) }));
+const setHostedMock = vi.fn((payload: unknown) => ({ type: 'connectivity/setHosted', payload }));
+vi.mock('../../store/connectivitySlice', () => ({
+  setCore: (p: unknown) => setCoreMock(p),
+  setHosted: (p: unknown) => setHostedMock(p),
+}));
 
 const callCoreRpcMock = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: callCoreRpcMock }));
@@ -28,8 +33,11 @@ describe('coreHealthMonitor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
+    connectivityState.core = 'reachable';
+    delete connectivityState.hosted;
     dispatchMock.mockClear();
     setCoreMock.mockClear();
+    setHostedMock.mockClear();
     callCoreRpcMock.mockClear();
   });
 
@@ -170,6 +178,81 @@ describe('coreHealthMonitor', () => {
     stopCoreHealthMonitor();
   });
 
+  it("mirrors the core's hosted link from the diag reply (#6256)", async () => {
+    // Real wire shape: the handler answers `{ diag: … }` and the RPC layer's
+    // log envelope wraps it as `{ result, logs }` (#6080).
+    callCoreRpcMock.mockResolvedValueOnce({
+      result: {
+        diag: {
+          socket_state: 'reconnecting',
+          last_ws_error: 'Ping timeout',
+          sidecar_pid: 42,
+          listen_port: 7788,
+          listen_port_in_use: true,
+        },
+      },
+      logs: ['connectivity diag returned'],
+    });
+
+    const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
+    startCoreHealthMonitor();
+    await flushPromises();
+
+    expect(setHostedMock).toHaveBeenCalledWith({ value: 'reconnecting', error: 'Ping timeout' });
+    stopCoreHealthMonitor();
+  });
+
+  it('reports the hosted link as unknown when the diag reply carries no socket state', async () => {
+    callCoreRpcMock.mockResolvedValueOnce({});
+
+    const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
+    startCoreHealthMonitor();
+    await flushPromises();
+
+    expect(setHostedMock).toHaveBeenCalledWith({ value: 'unknown' });
+    stopCoreHealthMonitor();
+  });
+
+  it('polls at the degraded cadence while the hosted link is retrying (#6256)', async () => {
+    callCoreRpcMock.mockResolvedValue({
+      result: { diag: { socket_state: 'reconnecting' } },
+      logs: ['connectivity diag returned'],
+    });
+    // The mocked store never applies the dispatch, so mirror what the reducer
+    // would have stored before the monitor picks its next interval.
+    connectivityState.hosted = 'reconnecting';
+
+    const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
+    startCoreHealthMonitor();
+    await flushPromises();
+    expect(callCoreRpcMock).toHaveBeenCalledTimes(1);
+
+    // Core is reachable and never failed: without the hosted rule this would
+    // be a 30s heartbeat and nothing would fire at 5s.
+    vi.advanceTimersByTime(5_001);
+    await flushPromises();
+    expect(callCoreRpcMock).toHaveBeenCalledTimes(2);
+    stopCoreHealthMonitor();
+  });
+
+  it('keeps the healthy cadence when the hosted link is simply not running', async () => {
+    callCoreRpcMock.mockResolvedValue({
+      result: { diag: { socket_state: 'disconnected' } },
+      logs: ['connectivity diag returned'],
+    });
+    connectivityState.hosted = 'unknown';
+
+    const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
+    startCoreHealthMonitor();
+    await flushPromises();
+    expect(setHostedMock).toHaveBeenCalledWith({ value: 'unknown' });
+
+    vi.advanceTimersByTime(5_001);
+    await flushPromises();
+    expect(callCoreRpcMock).toHaveBeenCalledTimes(1);
+    stopCoreHealthMonitor();
+  });
+
   it('error message falls back to String(err) when not an Error instance (lines 31-34)', async () => {
     callCoreRpcMock
       .mockRejectedValueOnce('plain string error')
@@ -188,5 +271,56 @@ describe('coreHealthMonitor', () => {
     expect(unreachableCall).toBeDefined();
     expect((unreachableCall![0] as { error: string }).error).toBe('plain string error');
     stopCoreHealthMonitor();
+  });
+});
+
+describe('hostedStateFromDiag', () => {
+  it('passes the live-loop statuses through verbatim', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    for (const socket_state of ['connected', 'connecting', 'reconnecting', 'error']) {
+      expect(hostedStateFromDiag({ socket_state })).toEqual({ value: socket_state });
+    }
+  });
+
+  it('peels the handler envelope and the log envelope the RPC layer adds (#6080)', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    // Bare handler answer.
+    expect(hostedStateFromDiag({ diag: { socket_state: 'connected' } })).toEqual({
+      value: 'connected',
+    });
+    // What actually crosses the wire today: `single_log` wraps as `{ result, logs }`.
+    expect(
+      hostedStateFromDiag({
+        result: { diag: { socket_state: 'error', last_ws_error: 'boom' } },
+        logs: ['connectivity diag returned'],
+      })
+    ).toEqual({ value: 'error', error: 'boom' });
+    // An envelope with nothing usable inside is still `unknown`, never a throw.
+    expect(hostedStateFromDiag({ result: null, logs: [] })).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag({ result: { diag: 'nope' } })).toEqual({ value: 'unknown' });
+  });
+
+  it('collapses a loop that is not running, and anything unrecognised, to unknown', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    expect(hostedStateFromDiag({ socket_state: 'disconnected' })).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag({ socket_state: 'uninitialized' })).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag({ socket_state: 42 })).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag({})).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag(null)).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag('nope')).toEqual({ value: 'unknown' });
+  });
+
+  it('carries a non-empty last_ws_error and drops an empty or non-string one', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    expect(hostedStateFromDiag({ socket_state: 'error', last_ws_error: 'boom' })).toEqual({
+      value: 'error',
+      error: 'boom',
+    });
+    expect(hostedStateFromDiag({ socket_state: 'connected', last_ws_error: '' })).toEqual({
+      value: 'connected',
+    });
+    expect(hostedStateFromDiag({ socket_state: 'connected', last_ws_error: null })).toEqual({
+      value: 'connected',
+    });
   });
 });

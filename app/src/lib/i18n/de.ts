@@ -683,6 +683,8 @@ const messages: TranslationMap = {
     'Dein Assistent ist bereit, wenn du es bist. Schreib unten etwas, um loszulegen.',
   'home.statusBackendOnly':
     'Verbindung zum Backend wird wiederhergestellt. Dein Agent wird in Kürze wieder verfügbar sein.',
+  'home.statusHostedDegraded':
+    'Verbindung zur Cloud wird wiederhergestellt… Der Chat funktioniert weiter; Integrationen und Kanäle laufen weiter, sobald sie wieder da ist.',
   'home.statusCoreUnreachable':
     'Der lokale Core-Sidecar reagiert nicht. Der Hintergrundprozess OpenHuman ist möglicherweise abgestürzt oder konnte nicht gestartet werden.',
   'home.statusInternetOffline':

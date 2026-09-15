@@ -93,6 +93,41 @@ describe('ConnectionIndicator', () => {
     expect(screen.getByText('Disconnected')).toBeInTheDocument();
   });
 
+  it("shows an amber dot and 'Disconnected' while the core's hosted link is retrying (#6256)", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'reconnecting',
+          lastError: {},
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-amber-500')).not.toBeNull();
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+  });
+
+  it("stays green when the core's hosted link is simply not running (signed out / local)", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'unknown',
+          lastError: {},
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-sage-500')).not.toBeNull();
+  });
+
   it('shows "Connecting" when blocking=backend-only and legacy socket status is connecting (line 67)', () => {
     renderWithProviders(<ConnectionIndicator />, {
       preloadedState: {
