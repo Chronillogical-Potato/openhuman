@@ -32,7 +32,13 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     // ── config ───────────────────────────────────────────────────────────
     let mut config = base.clone();
-    let action_dir = parts.action_dir.unwrap_or_else(|| {
+    // Modeled default; `config.action_dir` is the field every later step
+    // (including the `config_fn` escape hatch below) actually reads and can
+    // override, so the directory we create and the layout we resolve are
+    // taken from it again below, after every step has had a chance to touch
+    // it — not from this local, which would go stale the moment a caller's
+    // `config_fn` edits `config.action_dir`.
+    config.action_dir = parts.action_dir.unwrap_or_else(|| {
         AgentLayout::default_action_dir(
             &root_dir,
             &base.action_dir,
@@ -40,11 +46,6 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
             &id,
         )
     });
-    std::fs::create_dir_all(&action_dir).map_err(|source| AgentError::Workspace {
-        what: "create the agent's action directory",
-        source,
-    })?;
-    config.action_dir = action_dir.clone();
 
     let mut access = parts
         .access
