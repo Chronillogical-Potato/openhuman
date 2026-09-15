@@ -8,7 +8,7 @@
 //! process, with the same `x-sdk-name` / version attribution headers the core
 //! sends on its own backend traffic.
 
-mod commands;
+pub(crate) mod commands;
 mod link;
 
 use std::sync::Arc;
@@ -19,9 +19,6 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::core_process::CoreProcessHandle;
 use crate::AppRuntime;
 
-pub(crate) use commands::{
-    auth_current_user, auth_login_with_token, auth_logout, auth_state, auth_store_session,
-};
 pub(crate) use link::HttpCoreLink;
 
 /// Tauri event emitted whenever the credential or the current user changes.
