@@ -328,6 +328,55 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
+  // The composer slots are handed to assistant-ui by type, so an unstable slot
+  // identity remounts them on every host render. For the hidden file input that
+  // means a pick made after any re-render lands on a detached element and never
+  // reaches React; for the preview it means the image restarts decoding before
+  // it can paint. Both were #6246.
+  it('keeps the file input mounted across a host re-render, so a slow pick still lands', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).not.toBeNull();
+
+    // Stands in for whatever re-renders the chat while the native dialog is
+    // open: a keystroke, a streaming token, a socket event.
+    await act(async () => {
+      textarea.textContent = 'still typing';
+      fireEvent.input(textarea, { data: 'still typing', inputType: 'insertText' });
+    });
+
+    expect(document.querySelector('input[type="file"]')).toBe(fileInput);
+
+    const file = makeFile('late-pick.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('late-pick.png')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps the attachment preview image mounted across a host re-render', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = makeFile('preview.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    const image = await screen.findByAltText('preview.png');
+
+    await act(async () => {
+      textarea.textContent = 'typing after attaching';
+      fireEvent.input(textarea, { data: 'typing after attaching', inputType: 'insertText' });
+    });
+
+    expect(screen.getByAltText('preview.png')).toBe(image);
+  });
+
   it('shows too-many error when selecting more than 4 images', async () => {
     await renderWithSelectedThread();
 
