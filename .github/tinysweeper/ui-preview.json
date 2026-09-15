@@ -1,5 +1,5 @@
 {
-  "serve": "bash scripts/ui-preview/serve.sh",
+  "serve": "bash .github/tinysweeper/serve.sh",
   "ready": "/index.html",
   "timeout_s": 1500,
   "viewport": [1440, 900],

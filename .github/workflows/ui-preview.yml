@@ -5,8 +5,8 @@
 # and merge-base), and the tinysweeper server posts one comment with clips
 # and annotated screenshots of what changed. This job builds and serves
 # openhuman's own code and talks to the server with a bearer token; it holds
-# no model or GitHub-write credential. See scripts/ui-preview/serve.sh and
-# .tinysweeper/ui-preview.json.
+# no model or GitHub-write credential. See .github/tinysweeper/serve.sh and
+# .github/tinysweeper/ui-preview.json.
 #
 # Same-repository, non-draft pull requests only: a fork's job cannot read the
 # secrets below.
@@ -20,8 +20,7 @@ on:
       - "app/index.html"
       - "app/public/**"
       - "app/package.json"
-      - ".tinysweeper/ui-preview.json"
-      - "scripts/ui-preview/**"
+      - ".github/tinysweeper/**"
       - ".github/workflows/ui-preview.yml"
 
 permissions:
