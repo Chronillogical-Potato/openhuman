@@ -109,6 +109,21 @@ pub(crate) fn attach_replayed_metadata(message: &mut ChatMessage, request_id: Op
     );
 }
 
+/// Mark `message` as replayed with no recorded request id, unless it already
+/// carries a replayed marker. A transcript row read back with its own
+/// `request_id` keeps that id; every other resumed row (a request-less line, a
+/// conversation-log seed) must not take the resuming turn's id either (#6282).
+pub(crate) fn mark_replayed_if_unmarked(message: &mut ChatMessage) {
+    let marked = message
+        .extra_metadata
+        .as_ref()
+        .and_then(|meta| meta.get(REPLAYED_METADATA_KEY))
+        .is_some();
+    if !marked {
+        attach_replayed_metadata(message, None);
+    }
+}
+
 /// Pop the replayed marker out of a cloned `extra_metadata` map, returning
 /// `Some(original_request_id)` when the message was replayed and `None` when it
 /// belongs to the turn being written.

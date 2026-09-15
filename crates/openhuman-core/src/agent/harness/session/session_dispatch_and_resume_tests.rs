@@ -365,7 +365,7 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
     use crate::agent::harness::session::transcript::{
         append_transcript_turn, read_transcript_display, DisplayRecord,
     };
-    use crate::agent::messages::ChatMessage;
+    use crate::agent::messages::{ChatMessage, ConversationMessage};
 
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent
@@ -377,11 +377,13 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
             "what happened?",
         )
         .expect("seed");
-    let mut messages = agent
-        .cached_transcript_messages
-        .clone()
-        .expect("cache populated");
-    messages.push(ChatMessage::user("what happened?"));
+    // The resuming turn: its own message, then the seeded prefix absorbed ahead
+    // of it and rendered for persistence, exactly as the turn driver does.
+    agent.history = vec![ConversationMessage::Chat(ChatMessage::user(
+        "what happened?",
+    ))];
+    agent.absorb_resumed_transcript_prefix();
+    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let path = dir.path().join("seeded.jsonl");
@@ -407,9 +409,9 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
     let ids: Vec<Option<&str>> = rows.iter().map(|(_, id)| id.as_deref()).collect();
     assert_eq!(
         ids,
-        vec![Some("req-now"), None, None, Some("req-now")],
-        "only this turn's rows (the freshly built system prompt and the new user \
-         message) take its request id: {rows:?}"
+        vec![None, None, None, Some("req-now")],
+        "the seeded prefix (its system prompt included) keeps no request id; only \
+         this turn's new message takes it: {rows:?}"
     );
 }
 

@@ -54,7 +54,7 @@ impl Agent {
             Vec::with_capacity(prior.len() + 1);
         cached.push(crate::agent::messages::ChatMessage::system(system_prompt));
         for (role, content) in prior {
-            let mut chat = match role.as_str() {
+            let chat = match role.as_str() {
                 "user" => crate::agent::messages::ChatMessage::user(content),
                 "agent" | "assistant" => crate::agent::messages::ChatMessage::assistant(content),
                 // Fall back to user role for unknown senders rather than
@@ -62,10 +62,6 @@ impl Agent {
                 // mislabelling a system/tool message.
                 _ => crate::agent::messages::ChatMessage::user(content),
             };
-            // The conversation log records no request id for these rows, and
-            // they belong to earlier turns: mark them so persisting them with the
-            // next turn does not attribute them to that turn's request (#6282).
-            crate::agent::harness::session::transcript::attach_replayed_metadata(&mut chat, None);
             cached.push(chat);
         }
 

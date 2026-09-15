@@ -117,10 +117,10 @@ mod types;
 mod writer;
 
 pub use legacy_md::read_transcript_legacy_md;
-pub(crate) use metadata::attach_replayed_metadata;
 pub(crate) use metadata::attach_tool_failure_metadata;
 #[cfg(test)]
 pub(crate) use metadata::attach_turn_usage_metadata;
+pub(crate) use metadata::mark_replayed_if_unmarked;
 pub use paths::{
     find_latest_transcript_in_subdir, resolve_keyed_transcript_path,
     resolve_keyed_transcript_path_in_dir,
