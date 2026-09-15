@@ -1,4 +1,5 @@
 use super::*;
+use crate::AgentError;
 use crate::agent::build::{check_domains_narrow, check_tool_groups_narrow};
 use openhuman_core::tools::toolpacks::GroupMode;
 
