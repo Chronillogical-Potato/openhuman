@@ -4,6 +4,7 @@ use crate::test_support::{
     me_user, Backend, FakeCore, MeAnswer, EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB, LOCAL_TOKEN,
     OPAQUE_TOKEN,
 };
+use crate::test_support::ENV_LOCK;
 use std::sync::Arc;
 
 fn manager(core: &Arc<FakeCore>) -> Arc<SessionManager<FakeCore>> {
@@ -20,6 +21,7 @@ async fn drain(rx: &mut tokio::sync::broadcast::Receiver<SessionEvent>) -> Vec<S
 
 #[tokio::test]
 async fn login_with_token_exchanges_validates_and_stores() {
+    let _global = ENV_LOCK.lock().await;
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);
@@ -137,6 +139,7 @@ async fn api_key_store_and_clear() {
 
 #[tokio::test]
 async fn logout_clears_the_session_and_identity() {
+    let _global = ENV_LOCK.lock().await;
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);

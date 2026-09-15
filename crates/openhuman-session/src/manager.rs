@@ -235,7 +235,7 @@ impl<L: CoreLink> SessionManager<L> {
                     .or_else(|| user_id_from_jwt_claims(&credential.secret));
                 log::info!("{LOG_PREFIX} session JWT verified via GET /auth/me on {}", client.base_url());
                 self.push(&credential, user_id.as_deref(), Some(&me)).await?;
-                self.cache.forget();
+                self.cache.seed(&client, &credential, me);
                 self.changed().await
             }
             Err(FetchMeError::Rejected(reason)) => {
@@ -303,7 +303,7 @@ impl<L: CoreLink> SessionManager<L> {
                         if let Err(e) = manager.push(&credential, user_id.as_deref(), Some(&me)).await {
                             log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
                         }
-                        manager.cache.forget();
+                        manager.cache.seed(&client, &credential, me);
                         if let Ok(state) = manager.state().await {
                             manager.emit(SessionEvent::Changed(state));
                         }

@@ -113,6 +113,7 @@ async fn fetch_me_reports_unreachable_backend_as_transport() {
 
 #[tokio::test]
 async fn validate_for_store_retries_once_after_transient() {
+    let _env = ENV_LOCK.lock().await;
     let backend = Backend::start(vec![MeAnswer::Status(502), MeAnswer::Ok(me_user())]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     let user = client.validate_for_store(&Credential::session(LIVE_JWT)).await.unwrap();
@@ -122,6 +123,7 @@ async fn validate_for_store_retries_once_after_transient() {
 
 #[tokio::test]
 async fn validate_for_store_does_not_retry_a_rejection() {
+    let _env = ENV_LOCK.lock().await;
     let backend = Backend::start(vec![MeAnswer::Status(401), MeAnswer::Ok(me_user())]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     assert!(matches!(

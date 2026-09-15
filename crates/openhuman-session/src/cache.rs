@@ -153,6 +153,22 @@ impl CurrentUserCache {
         state.last_success = None;
     }
 
+    /// Seed the positive entry with a user just fetched elsewhere (store-time
+    /// validation), so the next poll is served from cache instead of paying a
+    /// second round trip for the same answer.
+    pub fn seed(&self, client: &SessionClient, credential: &Credential, user: Value) {
+        let key = Self::key(client, credential);
+        let mut state = self.lock();
+        state.generation = state.generation.wrapping_add(1);
+        state.positive = Some(Positive {
+            key: key.clone(),
+            fetched_at: Instant::now(),
+            user,
+        });
+        state.failure = None;
+        state.last_success = Some((key, Instant::now()));
+    }
+
     /// The cached user regardless of TTL or identity. For prompt/identity
     /// peeks where a slightly stale answer is fine.
     pub fn peek(&self) -> Option<Value> {

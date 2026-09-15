@@ -17,7 +17,8 @@ use tokio::sync::Mutex as AsyncMutex;
 
 use crate::link::{self, CoreLink};
 
-/// Serialises tests that touch process environment variables.
+/// Serialises tests that touch process-global state (environment variables,
+/// the `identity` slot).
 pub static ENV_LOCK: AsyncMutex<()> = AsyncMutex::const_new(());
 
 /// A JWT (alg none) with `sub`/`userId` = `user-123` and `exp` in 2100.
