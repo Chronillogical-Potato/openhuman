@@ -296,30 +296,6 @@
       ]
     },
     {
-      "description": "Remove the stored backend credential of one kind, or every kind.",
-      "function": "clear_credential",
-      "inputs": [
-        {
-          "comment": "\"session\", \"api-key\" or \"local\"; omit to clear every credential.",
-          "name": "kind",
-          "required": false,
-          "ty": {
-            "Option": "String"
-          }
-        }
-      ],
-      "method": "openhuman.auth_clear_credential",
-      "namespace": "auth",
-      "outputs": [
-        {
-          "comment": "Which credentials were removed.",
-          "name": "result",
-          "required": true,
-          "ty": "Json"
-        }
-      ]
-    },
-    {
       "description": "Read stored app session token.",
       "function": "get_session_token",
       "inputs": [],
@@ -501,60 +477,6 @@
         {
           "comment": "Provider credential removal result.",
           "name": "result",
-          "required": true,
-          "ty": "Json"
-        }
-      ]
-    },
-    {
-      "description": "Install the backend credential the core authenticates with: a session JWT, a TinyHumans API key, or the offline local token. The core never validates it against the backend; the host that obtained it supplies the user id and payload it already knows.",
-      "function": "set_credential",
-      "inputs": [
-        {
-          "comment": "Session JWT, API key, or local session token.",
-          "name": "token",
-          "required": true,
-          "ty": "String"
-        },
-        {
-          "comment": "\"session\", \"api-key\" or \"local\". Defaults to classifying the token by shape; an API key must be named explicitly.",
-          "name": "kind",
-          "required": false,
-          "ty": {
-            "Option": "String"
-          }
-        },
-        {
-          "comment": "Backend user id. Optional when `user` carries one or the JWT has a subject claim.",
-          "name": "userId",
-          "required": false,
-          "ty": {
-            "Option": "String"
-          }
-        },
-        {
-          "comment": "Alias of `userId`.",
-          "name": "user_id",
-          "required": false,
-          "ty": {
-            "Option": "String"
-          }
-        },
-        {
-          "comment": "User payload (the host's /auth/me answer, or the local user).",
-          "name": "user",
-          "required": false,
-          "ty": {
-            "Option": "Json"
-          }
-        }
-      ],
-      "method": "openhuman.auth_set_credential",
-      "namespace": "auth",
-      "outputs": [
-        {
-          "comment": "Auth state after installing the credential.",
-          "name": "state",
           "required": true,
           "ty": "Json"
         }
