@@ -27,6 +27,9 @@ pub mod link;
 pub mod manager;
 mod tls;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub use cache::{CachedUser, CurrentUserCache};
 pub use client::{ClientHeaders, FetchMeError, SessionClient, SessionClientError};
 pub use credential::{
