@@ -102,6 +102,14 @@ async fn ws_loop_reports_reconnecting_between_attempts() {
     let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
     loop {
         if *shared.status.read() == ConnectionStatus::Reconnecting {
+            // The loop is alive and retrying: that is what `connectivity_diag`
+            // reports as `socket_loop_active` so the chip can show an outage.
+            assert!(
+                shared
+                    .loop_active
+                    .load(std::sync::atomic::Ordering::Acquire),
+                "loop_active must be raised while the loop is retrying"
+            );
             break;
         }
         assert!(
@@ -114,8 +122,15 @@ async fn ws_loop_reports_reconnecting_between_attempts() {
 
     let _ = shutdown_tx.send(true);
     let _ = tokio::time::timeout(tokio::time::Duration::from_secs(5), handle).await;
-    // Once the loop is gone the status is `Disconnected` again — stopped, not retrying.
+    // Once the loop is gone the status is `Disconnected` again — stopped, not
+    // retrying — and the liveness flag is lowered by the loop's drop guard.
     assert_eq!(*shared.status.read(), ConnectionStatus::Disconnected);
+    assert!(
+        !shared
+            .loop_active
+            .load(std::sync::atomic::Ordering::Acquire),
+        "loop_active must be lowered once the loop task has exited"
+    );
 }
 
 /// Spawn an EIO server that answers two connections and reports each client

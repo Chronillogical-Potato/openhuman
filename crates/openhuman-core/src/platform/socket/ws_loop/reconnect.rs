@@ -2,6 +2,7 @@
 //! invalid-token retry decision, and the emit-queue drain used on shutdown.
 
 use crate::platform::socket::medulla::workflows;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -34,6 +35,17 @@ use crate::platform::socket::types::ConnectionOutcome;
 /// Sentry events because every retry was logged at `error`.
 pub(super) const FAIL_ESCALATE_THRESHOLD: u32 = 5;
 
+/// Clears `SharedState::loop_active` when the loop task ends, whatever the
+/// exit path — a `return`, a `break`, or an abort from `terminate_loop`
+/// (dropping the future drops this guard too).
+struct LoopActiveGuard<'a>(&'a SharedState);
+
+impl Drop for LoopActiveGuard<'_> {
+    fn drop(&mut self) {
+        self.0.loop_active.store(false, Ordering::Release);
+    }
+}
+
 /// Background loop that manages the WebSocket connection and reconnection.
 ///
 /// `token_provider` is called before **each** connection attempt, so a
@@ -55,6 +67,11 @@ pub(crate) async fn ws_loop(
     internal_tx: mpsc::UnboundedSender<String>,
     emit_ready: Arc<Mutex<bool>>,
 ) {
+    // `spawn_loop` raises the flag before the task starts; a direct caller
+    // (tests) gets the same contract from here. The guard lowers it on exit.
+    shared.loop_active.store(true, Ordering::Release);
+    let _loop_active = LoopActiveGuard(&shared);
+
     let mut backoff = Duration::from_millis(1000);
     let max_backoff = Duration::from_secs(30);
     let mut consecutive_failures: u32 = 0;

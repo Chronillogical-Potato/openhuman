@@ -111,6 +111,23 @@ describe('ConnectionIndicator', () => {
     expect(container.querySelector('.animate-pulse')).toBeNull();
   });
 
+  it('stays green on a server error event, which leaves the hosted link live', () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'error',
+          lastError: { hosted: 'boom' },
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-sage-500')).not.toBeNull();
+  });
+
   it("stays green when the core's hosted link is simply not running (signed out / local)", () => {
     const { container } = renderWithProviders(<ConnectionIndicator />, {
       preloadedState: {

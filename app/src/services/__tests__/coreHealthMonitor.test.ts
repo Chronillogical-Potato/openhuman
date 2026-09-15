@@ -279,7 +279,27 @@ describe('hostedStateFromDiag', () => {
     const { hostedStateFromDiag } = await import('../coreHealthMonitor');
     for (const socket_state of ['connected', 'connecting', 'reconnecting', 'error']) {
       expect(hostedStateFromDiag({ socket_state })).toEqual({ value: socket_state });
+      expect(hostedStateFromDiag({ socket_state, socket_loop_active: true })).toEqual({
+        value: socket_state,
+      });
     }
+  });
+
+  it('lets the core decide who is retrying via socket_loop_active (#6256)', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    // Loop alive + namespace closed by the server: an outage worth showing.
+    expect(hostedStateFromDiag({ socket_state: 'disconnected', socket_loop_active: true })).toEqual(
+      { value: 'disconnected' }
+    );
+    // Loop not running: nobody is retrying, whatever the last status said.
+    expect(
+      hostedStateFromDiag({ socket_state: 'disconnected', socket_loop_active: false })
+    ).toEqual({ value: 'unknown' });
+    expect(hostedStateFromDiag({ socket_state: 'connected', socket_loop_active: false })).toEqual({
+      value: 'unknown',
+    });
+    // A core that predates the flag: `disconnected` stays `unknown` (legacy inference).
+    expect(hostedStateFromDiag({ socket_state: 'disconnected' })).toEqual({ value: 'unknown' });
   });
 
   it('peels the handler envelope and the log envelope the RPC layer adds (#6080)', async () => {

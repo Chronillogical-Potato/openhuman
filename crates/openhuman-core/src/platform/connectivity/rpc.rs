@@ -36,6 +36,14 @@ pub struct ConnectivityDiagResponse {
     /// Last user-visible socket error surfaced via `SocketManager`'s
     /// `SharedState.error` slot. `None` when no error pending.
     pub last_ws_error: Option<String>,
+    /// Whether the core's backend reconnect loop is running. `false` means
+    /// nobody is retrying — never connected, signed out, a local session, or
+    /// stopped after a terminal failure — and the frontend shows no outage
+    /// for it. `true` with any `socket_state` other than `connected` is a
+    /// link that is down and being retried, or a live transport whose
+    /// Socket.IO namespace the server closed (#6256). `false` when the
+    /// SocketManager is not bootstrapped.
+    pub socket_loop_active: bool,
     /// Sidecar process id — i.e. the PID of *this* core binary handling the
     /// RPC. The frontend matches this against the PID it started so it can
     /// detect a stale-process scenario where the bound port belongs to an
@@ -460,10 +468,10 @@ fn resolve_listen_port() -> u16 {
     DEFAULT_CORE_PORT
 }
 
-/// Snapshot the backend socket state. Returns `("uninitialized", None)`
-/// when the SocketManager singleton hasn't been registered yet — typical
-/// during early startup or in unit tests.
-fn snapshot_socket_state() -> (String, Option<String>) {
+/// Snapshot the backend socket state as `(status, last error, loop active)`.
+/// Returns `("uninitialized", None, false)` when the SocketManager singleton
+/// hasn't been registered yet — typical during early startup or in unit tests.
+fn snapshot_socket_state() -> (String, Option<String>, bool) {
     match global_socket_manager() {
         Some(mgr) => {
             let state = mgr.get_state();
@@ -475,9 +483,9 @@ fn snapshot_socket_state() -> (String, Option<String>) {
                 .ok()
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_else(|| "unknown".to_string());
-            (status_value, state.error)
+            (status_value, state.error, mgr.is_loop_active())
         }
-        None => ("uninitialized".to_string(), None),
+        None => ("uninitialized".to_string(), None, false),
     }
 }
 
@@ -486,12 +494,13 @@ fn snapshot_socket_state() -> (String, Option<String>) {
 pub fn snapshot() -> ConnectivityDiagResponse {
     let listen_port = resolve_listen_port();
     let listen_port_in_use = is_port_in_use(listen_port);
-    let (socket_state, last_ws_error) = snapshot_socket_state();
+    let (socket_state, last_ws_error, socket_loop_active) = snapshot_socket_state();
     let sidecar_pid = Some(std::process::id());
 
     ConnectivityDiagResponse {
         socket_state,
         last_ws_error,
+        socket_loop_active,
         sidecar_pid,
         listen_port,
         listen_port_in_use,

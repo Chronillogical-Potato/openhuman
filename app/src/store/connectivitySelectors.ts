@@ -10,11 +10,12 @@ import { RootState } from './index';
  * - `backend-only`      : the renderer's Socket.IO link to the core is down but
  *                         the core is alive — the app stays usable, we just
  *                         show a soft banner.
- * - `hosted-degraded`   : the core's own link to the hosted backend is down and
- *                         being retried. Chat keeps working (it rides the local
- *                         core bridge); webhooks, Composio triggers, managed-DM
- *                         routing and hosted-brain runs pause until it heals.
- *                         Soft chip only (#6256).
+ * - `hosted-degraded`   : the core's own link to the hosted backend is down
+ *                         while its loop is alive — being retried, or its
+ *                         namespace closed by the server. Chat keeps working
+ *                         (it rides the local core bridge); webhooks, Composio
+ *                         triggers, managed-DM routing and hosted-brain runs
+ *                         pause until it heals. Soft chip only (#6256).
  * - `ok`                : everything healthy.
  */
 type BlockingState =
@@ -25,12 +26,16 @@ type BlockingState =
   | 'ok';
 
 /**
- * A hosted link that is down *and being retried*. `unknown` — the core's
- * reconnect loop is not running (signed out, local session, early boot) — is
- * deliberately excluded: it is the absence of a link, not an outage.
+ * A hosted link that is down while the core's loop is alive: being retried
+ * (`connecting` / `reconnecting`), or its Socket.IO namespace closed by the
+ * server (`disconnected`). Two states are deliberately excluded: `unknown`,
+ * the loop not running at all (signed out, local session, early boot) — the
+ * absence of a link, not an outage — and `error`, a server `error` event on a
+ * transport that stays live and keeps emitting, which is not a reconnect and
+ * must not read as one.
  */
 export const isHostedDegraded = (hosted: HostedState | undefined): boolean =>
-  hosted === 'connecting' || hosted === 'reconnecting' || hosted === 'error';
+  hosted === 'connecting' || hosted === 'reconnecting' || hosted === 'disconnected';
 
 export const selectBlockingState = (s: RootState): BlockingState => {
   if (s.connectivity.internet === 'offline') return 'internet-offline';

@@ -80,6 +80,15 @@ describe('connectivitySlice', () => {
     state = connectivityReducer(state, setHosted({ value: 'error', error: 'server error' }));
     expect(state.lastError.hosted).toBe('server error');
 
+    // Namespace closed by the server on a live transport: stored like any
+    // other degraded reading.
+    state = connectivityReducer(
+      state,
+      setHosted({ value: 'disconnected', error: 'io server disconnect' })
+    );
+    expect(state.hosted).toBe('disconnected');
+    expect(state.lastError.hosted).toBe('io server disconnect');
+
     // Recovery clears it…
     state = connectivityReducer(state, setHosted({ value: 'connected' }));
     expect(state.hosted).toBe('connected');

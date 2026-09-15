@@ -33,6 +33,7 @@ const HOSTED_STATES: ReadonlySet<string> = new Set<HostedState>([
   'connected',
   'connecting',
   'reconnecting',
+  'disconnected',
   'error',
 ]);
 
@@ -58,21 +59,35 @@ function unwrapDiag(reply: unknown): Record<string, unknown> {
 }
 
 /**
- * Map a `connectivity_diag` reply onto the hosted channel. `disconnected` and
- * `uninitialized` both mean the core's reconnect loop is not running (signed
- * out, local session, early boot), which is not an outage — they land on
- * `unknown`, as does a reply that carries no `socket_state` at all. The core
- * reports `reconnecting` between retries, so a link that is down but being
- * retried never collapses into that bucket.
+ * Map a `connectivity_diag` reply onto the hosted channel.
+ *
+ * The core says whether anyone is retrying: `socket_loop_active` is `false`
+ * when its reconnect loop is not running (never connected, signed out, local
+ * session, stopped after a terminal failure), and that is `unknown` here — not
+ * an outage — whatever `socket_state` says. While the loop is alive the status
+ * passes through verbatim, including `disconnected`, which then means the
+ * server closed the Socket.IO namespace on a transport it left open. A reply
+ * with no `socket_state` is `unknown` too.
+ *
+ * A core that predates `socket_loop_active` cannot say who is retrying, so
+ * its `disconnected` — most often a loop that is not running — stays
+ * `unknown` rather than raising a false outage; every other status is taken
+ * as is, because the loop reports `reconnecting` between retries.
  */
 export function hostedStateFromDiag(reply: unknown): { value: HostedState; error?: string } {
   const record = unwrapDiag(reply);
   const socketState = record.socket_state;
+  const loopActive = record.socket_loop_active;
   const lastError = record.last_ws_error;
-  const value: HostedState =
-    typeof socketState === 'string' && HOSTED_STATES.has(socketState)
-      ? (socketState as HostedState)
-      : 'unknown';
+  let value: HostedState = 'unknown';
+  if (
+    loopActive !== false &&
+    typeof socketState === 'string' &&
+    HOSTED_STATES.has(socketState) &&
+    !(loopActive === undefined && socketState === 'disconnected')
+  ) {
+    value = socketState as HostedState;
+  }
   return typeof lastError === 'string' && lastError.length > 0
     ? { value, error: lastError }
     : { value };
@@ -107,6 +122,7 @@ function schedule(): void {
   // (addresses @coderabbitai on coreHealthMonitor.ts:46)
   // A degraded hosted link selects the fast cadence too, so its recovery is
   // reflected within seconds rather than at the next 30s heartbeat (#6256).
+  // `error` is not degraded (live transport), so it never pins the fast poll.
   const { core, hosted } = store.getState().connectivity;
   const isDegraded = consecutiveFails > 0 || core !== 'reachable' || isHostedDegraded(hosted);
   const interval = isDegraded ? DEGRADED_INTERVAL_MS : HEALTHY_INTERVAL_MS;

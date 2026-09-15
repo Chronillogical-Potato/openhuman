@@ -40,10 +40,17 @@ describe('selectBlockingState', () => {
     expect(selectBlockingState(make({ backend: 'connecting' }))).toBe('backend-only');
   });
 
-  it("returns hosted-degraded when only the core's hosted link is down and retrying (#6256)", () => {
+  it("returns hosted-degraded when only the core's hosted link is down while its loop is alive (#6256)", () => {
     expect(selectBlockingState(make({ hosted: 'connecting' }))).toBe('hosted-degraded');
     expect(selectBlockingState(make({ hosted: 'reconnecting' }))).toBe('hosted-degraded');
-    expect(selectBlockingState(make({ hosted: 'error' }))).toBe('hosted-degraded');
+    // Server closed the namespace on a transport it left open: no events flow.
+    expect(selectBlockingState(make({ hosted: 'disconnected' }))).toBe('hosted-degraded');
+  });
+
+  it('does not read a server error event on a live link as an outage', () => {
+    // The core keeps the transport open and emits keep working after a server
+    // `error` event, so "reconnecting" copy would be wrong here.
+    expect(selectBlockingState(make({ hosted: 'error' }))).toBe('ok');
   });
 
   it('treats a hosted link that is not running as healthy, not degraded', () => {
@@ -72,7 +79,8 @@ describe('isHostedDegraded', () => {
   it('is true only for a link that is down and being retried', () => {
     expect(isHostedDegraded('connecting')).toBe(true);
     expect(isHostedDegraded('reconnecting')).toBe(true);
-    expect(isHostedDegraded('error')).toBe(true);
+    expect(isHostedDegraded('disconnected')).toBe(true);
+    expect(isHostedDegraded('error')).toBe(false);
     expect(isHostedDegraded('connected')).toBe(false);
     expect(isHostedDegraded('unknown')).toBe(false);
     expect(isHostedDegraded(undefined)).toBe(false);

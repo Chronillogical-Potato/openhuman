@@ -27,11 +27,25 @@ export type CoreState = 'reachable' | 'unreachable' | 'unknown';
 export type BackendState = 'connected' | 'disconnected' | 'connecting';
 /**
  * Mirrors the core's `ConnectionStatus` as reported by
- * `connectivity_diag.socket_state`, minus `disconnected`, which — like an
- * uninitialised manager — collapses to `unknown` because it means the
- * reconnect loop is not running.
+ * `connectivity_diag.socket_state` while its reconnect loop is running
+ * (`socket_loop_active`); `unknown` is the loop not running at all.
+ *
+ * - `connecting` / `reconnecting` — down and being retried (degraded).
+ * - `disconnected` — the loop is alive but the server closed the Socket.IO
+ *   namespace without closing the transport, so no events flow and no
+ *   automatic reconnect happens (degraded). Never reported by a core that
+ *   predates `socket_loop_active`: there it collapses to `unknown`.
+ * - `error` — the server sent an `error` event on a transport that stays
+ *   live and keeps emitting; not an outage, so it gets no chip until it has
+ *   its own presentation. Stored so the state is observable.
  */
-export type HostedState = 'connected' | 'connecting' | 'reconnecting' | 'error' | 'unknown';
+export type HostedState =
+  | 'connected'
+  | 'connecting'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'error'
+  | 'unknown';
 
 export interface ConnectivityState {
   internet: InternetState;
