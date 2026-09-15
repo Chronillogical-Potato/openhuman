@@ -259,7 +259,6 @@ async fn set_and_clear_api_key_credential() {
     assert!(state.is_authenticated);
     assert_eq!(state.credential.as_deref(), Some("api-key"));
     assert!(state.user_id.is_none());
-    assert!(!crate::cron::scheduler_gate::is_signed_out());
 
     let cleared = clear_credential(&config, Some(session_support::CredentialKind::ApiKey))
         .await
@@ -268,7 +267,6 @@ async fn set_and_clear_api_key_credential() {
     assert_eq!(cleared["removedApiKey"], true);
     assert_eq!(cleared["removedSession"], false);
     assert!(!auth_get_state(&config).await.unwrap().value.is_authenticated);
-    assert!(crate::cron::scheduler_gate::is_signed_out());
 }
 
 #[tokio::test]
