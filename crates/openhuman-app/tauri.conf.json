@@ -25,7 +25,8 @@
           "y": 28
         },
         "resizable": true,
-        "center": false
+        "center": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
