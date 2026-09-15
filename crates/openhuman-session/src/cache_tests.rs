@@ -45,7 +45,7 @@ fn backoff_doubles_from_a_floor_and_saturates() {
 async fn fresh_entry_is_served_without_a_request() {
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     let first = cache
         .get_or_refresh(&client(&backend), &cred, false)
         .await
@@ -70,7 +70,7 @@ async fn force_bypasses_the_cache() {
     ])
     .await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     cache
         .get_or_refresh(&client(&backend), &cred, false)
         .await
@@ -87,7 +87,7 @@ async fn force_bypasses_the_cache() {
 async fn availability_failure_opens_a_backoff_window() {
     let backend = Backend::start(vec![MeAnswer::Status(503)]).await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     let c = client(&backend);
     assert!(matches!(
         cache.get_or_refresh(&c, &cred, false).await,
@@ -124,7 +124,7 @@ async fn availability_failure_opens_a_backoff_window() {
 async fn rejection_is_never_cached() {
     let backend = Backend::start(vec![MeAnswer::Status(401)]).await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     let c = client(&backend);
     for _ in 0..2 {
         assert!(matches!(
@@ -139,7 +139,7 @@ async fn rejection_is_never_cached() {
 async fn success_clears_the_failure_and_stamps_freshness() {
     let backend = Backend::start(vec![MeAnswer::Status(503), MeAnswer::Ok(me_user())]).await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     let c = client(&backend);
     let _ = cache.get_or_refresh(&c, &cred, false).await;
     let ok = cache.get_or_refresh(&c, &cred, true).await.unwrap();
@@ -154,7 +154,7 @@ async fn success_clears_the_failure_and_stamps_freshness() {
 async fn forget_drops_the_positive_entry() {
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let cache = CurrentUserCache::new();
-    let cred = Credential::session(&*LIVE_JWT);
+    let cred = Credential::session(&LIVE_JWT);
     cache
         .get_or_refresh(&client(&backend), &cred, false)
         .await
