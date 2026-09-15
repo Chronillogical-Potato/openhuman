@@ -23,7 +23,10 @@ pub use provider_credentials::{
     list_provider_credentials, list_provider_credentials_by_prefix, remove_provider_credentials,
     store_provider_credentials,
 };
-pub use session_query::{auth_get_me, auth_get_session_token_json, auth_get_state, clear_session};
+pub use session_query::{
+    auth_clear_api_key, auth_get_me, auth_get_session_token_json, auth_get_state,
+    auth_store_api_key, clear_session,
+};
 pub use session_store::{
     decrypt_secret, encrypt_secret, store_session, store_session_with_deferred_validation,
 };

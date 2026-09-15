@@ -50,6 +50,8 @@ fn every_known_schema_key_returns_a_non_unknown_schema() {
         "auth_store_session",
         "auth_clear_session",
         "auth_get_state",
+        "auth_store_api_key",
+        "auth_clear_api_key",
         "auth_get_session_token",
         "auth_get_me",
         "auth_consume_login_token",

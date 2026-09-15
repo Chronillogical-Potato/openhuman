@@ -31,6 +31,7 @@ fn turn_request_field_names_match_the_controller() {
         cwd: Some("/tmp".into()),
         inference_url: Some("https://example.invalid/v1".into()),
         api_key: Some("k".into()),
+        agent_id: Some("a".into()),
     };
 
     let serde_json::Value::Object(encoded) =

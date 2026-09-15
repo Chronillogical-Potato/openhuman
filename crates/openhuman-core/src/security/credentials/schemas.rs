@@ -85,6 +85,11 @@ struct AuthOauthFetchClientKeyParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct AuthStoreApiKeyParams {
+    key: String,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AuthOauthRevokeParams {
     integration_id: String,
@@ -95,6 +100,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("auth_store_session"),
         schemas("auth_clear_session"),
         schemas("auth_get_state"),
+        schemas("auth_store_api_key"),
+        schemas("auth_clear_api_key"),
         schemas("auth_get_session_token"),
         schemas("auth_get_me"),
         schemas("auth_consume_login_token"),
@@ -123,6 +130,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("auth_get_state"),
             handler: handle_auth_get_state,
+        },
+        RegisteredController {
+            schema: schemas("auth_store_api_key"),
+            handler: handle_auth_store_api_key,
+        },
+        RegisteredController {
+            schema: schemas("auth_clear_api_key"),
+            handler: handle_auth_clear_api_key,
         },
         RegisteredController {
             schema: schemas("auth_get_session_token"),
@@ -205,6 +220,21 @@ pub fn schemas(function: &str) -> ControllerSchema {
             description: "Get current auth/session state.",
             inputs: vec![],
             outputs: vec![json_output("state", "Current auth state response.")],
+        },
+        "auth_store_api_key" => ControllerSchema {
+            namespace: "auth",
+            function: "store_api_key",
+            description: "Store a TinyHumans API key as the backend credential (no user \
+                          session; managed inference sends it as a bearer, REST as x-api-key).",
+            inputs: vec![required_string("key", "TinyHumans API key.")],
+            outputs: vec![json_output("state", "Auth state after storing the key.")],
+        },
+        "auth_clear_api_key" => ControllerSchema {
+            namespace: "auth",
+            function: "clear_api_key",
+            description: "Remove the stored TinyHumans API key.",
+            inputs: vec![],
+            outputs: vec![json_output("result", "Whether a key was removed.")],
         },
         "auth_get_session_token" => ControllerSchema {
             namespace: "auth",
@@ -362,6 +392,21 @@ fn handle_auth_get_state(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(crate::security::credentials::rpc::auth_get_state(&config).await?)
+    })
+}
+
+fn handle_auth_store_api_key(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let payload = deserialize_params::<AuthStoreApiKeyParams>(params)?;
+        to_json(crate::security::credentials::rpc::auth_store_api_key(&config, &payload.key).await?)
+    })
+}
+
+fn handle_auth_clear_api_key(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(crate::security::credentials::rpc::auth_clear_api_key(&config).await?)
     })
 }
 

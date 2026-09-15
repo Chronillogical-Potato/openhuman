@@ -2829,6 +2829,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
         (
             "auth",
             vec![
+                "openhuman.auth_clear_api_key",
                 "openhuman.auth_clear_session",
                 "openhuman.auth_consume_login_token",
                 "openhuman.auth_create_channel_link_token",
@@ -2842,6 +2843,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.auth_oauth_list_integrations",
                 "openhuman.auth_oauth_revoke_integration",
                 "openhuman.auth_remove_provider_credentials",
+                "openhuman.auth_store_api_key",
                 "openhuman.auth_store_provider_credentials",
                 "openhuman.auth_store_session",
             ],

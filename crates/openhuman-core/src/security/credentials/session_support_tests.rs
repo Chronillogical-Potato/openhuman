@@ -256,6 +256,43 @@ fn get_session_token_returns_stored_token_when_present() {
     assert!(state.profile_id.is_some());
 }
 
+/// Regression: when both an app-session profile and a stored API key are
+/// present, `auth.get_state` must report `credential: "api-key"`, matching
+/// `resolve_backend_credential`'s precedence — every backend request the
+/// runtime actually makes authenticates with the key, not the session, so
+/// the state must not misidentify which credential is live.
+#[test]
+fn build_session_state_prefers_the_api_key_over_a_present_session() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let service = AuthService::from_config(&config);
+    let mut session_meta = std::collections::HashMap::new();
+    session_meta.insert("user_id".to_string(), "user-123".to_string());
+    service
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "raw-session-token",
+            session_meta,
+            true,
+        )
+        .expect("store session token");
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_key")
+        .expect("store api key");
+
+    let state = build_session_state(&config).unwrap();
+    assert!(state.is_authenticated);
+    assert_eq!(
+        state.credential.as_deref(),
+        Some(crate::security::credentials::responses::CREDENTIAL_API_KEY),
+        "the api key must win when both credentials are present: {state:?}"
+    );
+    assert!(
+        state.user_id.is_none(),
+        "an api-key state must not leak the session's user_id: {state:?}"
+    );
+}
+
 // ── classify_session_token (local expiry precheck, #3297) ──────────
 
 fn token_profile_with_expiry(token: Option<&str>, expires_at: Option<&str>) -> AuthProfile {
