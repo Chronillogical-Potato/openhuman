@@ -352,7 +352,7 @@ fn artifact_read_target_follows_only_use_skill_into_a_wrapped_tool() {
 }
 
 #[test]
-fn a_page_near_the_maximum_offset_does_not_overflow() {
+fn a_page_near_the_maximum_offset_neither_overflows_nor_advertises_a_stuck_continuation() {
     let read = ArtifactRead {
         path: "artifacts/tool-results/s/shell/c.txt".to_string(),
         offset: usize::MAX - 10,
@@ -364,4 +364,33 @@ fn a_page_near_the_maximum_offset_does_not_overflow() {
         page.is_ok(),
         "an offset near usize::MAX must not overflow the page arithmetic"
     );
+    let page = page.unwrap();
+    assert!(
+        page.len() <= 1_000,
+        "the result is still bounded, got {} bytes",
+        page.len()
+    );
+    assert!(
+        !page.contains("Continue with"),
+        "no continuation may be advertised when the next offset cannot advance"
+    );
+}
+
+#[test]
+fn artifact_read_target_rejects_an_explicit_invalid_offset() {
+    let path = "artifacts/tool-results/s/shell/c.txt";
+    for bad in [json!(-1), json!(1.5), json!("12")] {
+        assert_eq!(
+            artifact_read_target("file_read", &json!({"path": path, "offset": bad.clone()})),
+            None,
+            "offset {bad} is not a read file_read serves, so it must not become an artifact read at 0"
+        );
+    }
+    for absent in [json!({"path": path}), json!({"path": path, "offset": null})] {
+        assert_eq!(
+            artifact_read_target("file_read", &absent).map(|read| read.offset),
+            Some(0),
+            "an absent or null offset reads from the start"
+        );
+    }
 }

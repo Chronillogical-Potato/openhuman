@@ -52,13 +52,17 @@ pub(crate) fn artifact_read_target(tool_name: &str, args: &Value) -> Option<Arti
         .trim_start_matches("./")
         .strip_prefix(ARTIFACT_ROOT)
         .is_some_and(|rest| rest.starts_with('/'));
+    // An absent or null offset starts at 0. A present one that is not a
+    // non-negative integer that fits `usize` is not a read `file_read` serves
+    // (it rejects it), so it is not an artifact read either; never reinterpret
+    // it as 0.
+    let offset = match args.get("offset") {
+        None | Some(Value::Null) => 0,
+        Some(value) => usize::try_from(value.as_u64()?).ok()?,
+    };
     under_root.then(|| ArtifactRead {
         path: path.to_string(),
-        offset: args
-            .get("offset")
-            .and_then(Value::as_u64)
-            .and_then(|o| usize::try_from(o).ok())
-            .unwrap_or(0),
+        offset,
     })
 }
 
@@ -84,8 +88,13 @@ pub(crate) fn page_artifact_read(
         return content;
     }
     let start = read.offset;
-    // Saturating: the offset comes from the model's arguments.
-    let total = start.saturating_add(content.len());
+    let Some(total) = start.checked_add(content.len()) else {
+        // Only reachable with an offset no real read carries (`file_read`
+        // rejects offsets past its at-most-10-MiB file). Bound the result but
+        // advertise no continuation, since none could advance.
+        let cut = crate::util::floor_char_boundary(&content, budget_bytes);
+        return content[..cut].to_string();
+    };
     let with_path = |next: usize| {
         format!(
             "\n\n[artifact page: bytes {start}..{next} of {total}. Continue with file_read {{\"path\":\"{}\",\"offset\":{next}}}]",
@@ -110,9 +119,9 @@ pub(crate) fn page_artifact_read(
     };
     let cut = crate::util::floor_char_boundary(&content, budget_bytes - longest);
     let trailer = if use_path {
-        with_path(start.saturating_add(cut))
+        with_path(start + cut)
     } else {
-        without_path(start.saturating_add(cut))
+        without_path(start + cut)
     };
     format!("{}{trailer}", &content[..cut])
 }
