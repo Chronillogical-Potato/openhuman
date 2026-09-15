@@ -159,11 +159,6 @@ async fn serve_mock_backend() -> (
     let app = Router::new()
         .route("/auth/me", get(mock_auth_me))
         .route("/api/auth/me", get(mock_auth_me))
-        .route("/auth/login-token/consume", post(mock_consume_login_token))
-        .route(
-            "/api/auth/login-token/consume",
-            post(mock_consume_login_token),
-        )
         .route(
             "/auth/channels/{channel}/link-token",
             post(mock_channel_link_token),
@@ -226,91 +221,6 @@ async fn mock_auth_me(State(state): State<MockBackendState>, headers: HeaderMap)
             "name": "Remote Worker",
             "email": "remote-worker@example.test",
             "authHeader": auth
-        }
-    }))
-}
-
-async fn sequence_auth_me(
-    State(state): State<SequenceAuthBackendState>,
-    headers: HeaderMap,
-) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "sequence-user",
-                    "name": "Sequence Worker",
-                    "email": "sequence-worker@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        2 => Json(json!({
-            "success": true,
-            "data": {}
-        }))
-        .into_response(),
-        _ => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "success": false,
-                "error": "forced auth/me failure"
-            })),
-        )
-            .into_response(),
-    }
-}
-
-async fn null_auth_me(State(state): State<NullAuthBackendState>, headers: HeaderMap) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "null-sequence-user",
-                    "name": "Null Sequence Worker",
-                    "email": "null-sequence@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        _ => Json(json!({
-            "success": true,
-            "data": null
-        }))
-        .into_response(),
-    }
-}
-
-async fn static_auth_me(
-    State(state): State<StaticAuthBackendState>,
-    _headers: HeaderMap,
-) -> Json<Value> {
-    state.auth_me_hits.fetch_add(1, Ordering::SeqCst);
-    Json(json!({
-        "success": true,
-        "data": (*state.user).clone()
-    }))
-}
-
-async fn mock_consume_login_token(Json(body): Json<Value>) -> Json<Value> {
-    // Token now arrives in the JSON body (`{ token }`), not the URL path, and the
-    // response field is `jwt` (matches backend `routes/auth.ts`).
-    let token = body
-        .get("token")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    Json(json!({
-        "success": true,
-        "data": {
-            "jwt": format!("jwt-from-{token}")
         }
     }))
 }
