@@ -185,11 +185,10 @@ impl Agent {
                     // Scope direct Master-Agent calls under its declared
                     // sandbox. `agent_definition_name` can carry a thread
                     // suffix, so resolve with the stable definition id.
-                    sandbox_mode:
-                        crate::agent::harness::definition::AgentDefinitionRegistry::global()
-                            .and_then(|registry| registry.get(&self.agent_definition_id))
-                            .map(|definition| definition.sandbox_mode)
-                            .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
+                    sandbox_mode: self
+                        .resolved_definition()
+                        .map(|definition| definition.sandbox_mode)
+                        .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
                 }),
             ),
         );

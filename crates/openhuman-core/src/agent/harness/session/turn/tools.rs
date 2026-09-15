@@ -42,10 +42,9 @@ impl Agent {
                 "[agent_loop] snapshotting workspace descriptor for parent context (ambient or own)"
             );
         }
-        let allowed_subagent_ids =
-            crate::agent::harness::definition::AgentDefinitionRegistry::global()
-                .and_then(|registry| registry.get(&self.agent_definition_id))
-                .map(|definition| {
+        let allowed_subagent_ids = self
+            .resolved_definition()
+            .map(|definition| {
                     definition
                         .subagents
                         .iter()
@@ -576,7 +575,7 @@ impl Agent {
             // whatever the builder produced.
             return;
         };
-        let Some(def) = reg.get(&self.agent_definition_id) else {
+        let Some(def) = self.resolved_definition() else {
             log::debug!(
                 "[agent] refresh_delegation_tools: definition '{}' not in registry — skipping",
                 self.agent_definition_id
