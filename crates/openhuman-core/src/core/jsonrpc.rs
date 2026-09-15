@@ -1678,6 +1678,19 @@ fn register_domain_subscribers(
         // battery-powered hosts).
         crate::cron::scheduler_gate::init_global(&config);
 
+        // A headless host (Docker / VPS / CI) has no interactive login; it
+        // hands the core a credential through the environment instead. The
+        // API key is a plain profile write, so it lands before the gate is
+        // seeded from the store below; a session token runs the full
+        // `set_credential` path and seeds the gate itself when it finishes.
+        crate::security::credentials::seed_api_key_from_env(&config);
+        if std::env::var_os(crate::security::credentials::BACKEND_SESSION_TOKEN_ENV).is_some() {
+            let config = config.clone();
+            tokio::spawn(async move {
+                crate::security::credentials::seed_session_from_env(&config).await;
+            });
+        }
+
         // Seed the scheduler-gate signed-out override from the on-disk
         // credential — an API key (library runtime) or the app session.
         // Without this, a sidecar that boots with no stored credential would

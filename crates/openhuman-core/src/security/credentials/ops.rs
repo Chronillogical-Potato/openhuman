@@ -1,5 +1,6 @@
 //! JSON-RPC / CLI controller surface for credentials and app session auth.
 
+mod boot_env;
 mod composio;
 mod credential;
 mod gated_services;
@@ -13,6 +14,9 @@ mod user_scope;
 pub use composio::{
     clear_composio_api_key, get_composio_api_key, rpc_store_composio_api_key,
     store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
+};
+pub use boot_env::{
+    seed_api_key_from_env, seed_session_from_env, BACKEND_API_KEY_ENV, BACKEND_SESSION_TOKEN_ENV,
 };
 pub use credential::{
     clear_credential, clear_session, set_credential, store_session, SetCredentialRequest,
