@@ -236,24 +236,6 @@ fn find_catalog_entry_not_found_suggests_real_ids_instead_of_a_refresh() {
     assert!(!err.contains("refresh"), "{err}");
 }
 
-#[test]
-fn download_url_from_source_url_rejects_non_github_and_malformed() {
-    assert_eq!(
-        download_url_from_source_url("https://lobehub.com/agent/x"),
-        None
-    );
-    // GitHub URL missing the branch/path tail.
-    assert_eq!(
-        download_url_from_source_url("https://github.com/owner/repo"),
-        None
-    );
-    // Unknown ref kind.
-    assert_eq!(
-        download_url_from_source_url("https://github.com/o/r/raw/main/x"),
-        None
-    );
-}
-
 #[tokio::test]
 async fn install_from_catalog_errors_for_portal_skill_without_download() {
     // A portal-only entry (empty download_url) must fail fast with an

@@ -1,5 +1,7 @@
-//! Where a community skill's `SKILL.md` lives when its catalog entry is not a
-//! GitHub link.
+//! Where a catalog entry's `SKILL.md` lives, and the URL to fetch it from.
+//!
+//! [`derive_download_url`] picks the download URL for an entry at index time;
+//! the rest of this module is the per-source knowledge it draws on.
 //!
 //! - **ClawHub** entries carry only a slug; ClawHub's file API serves the raw
 //!   `SKILL.md` for it.
@@ -15,6 +17,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
+const DOWNLOAD_BASE_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL";
 const CLAWHUB_SKILLS_API: &str = "https://clawhub.ai/api/v1/skills";
 const GITHUB_RAW: &str = "https://raw.githubusercontent.com";
 const GITHUB_REPOS_API: &str = "https://api.github.com/repos";
@@ -22,6 +25,124 @@ const GITHUB_REPOS_API: &str = "https://api.github.com/repos";
 /// this order before listing the whole repo.
 const SKILLS_SH_BASE_DIRS: [&str; 4] = ["", "skills/", ".agents/skills/", ".claude/skills/"];
 const PROBE_TIMEOUT_SECS: u64 = 15;
+
+/// Resolve a fetchable `SKILL.md` URL for a catalog entry.
+///
+/// Precedence:
+/// 1. `OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL` test override.
+/// 2. `docsPath` — Hermes' own bundled / optional skills, which live in the
+///    `NousResearch/hermes-agent` repo under `skills/` / `optional-skills/`.
+/// 3. `sourceUrl` on GitHub (browse.sh, NVIDIA, GitHub, ...): the blob/tree
+///    view is rewritten to the `raw.githubusercontent.com` `SKILL.md`.
+/// 4. ClawHub `identifier`: ClawHub's file API by slug.
+/// 5. skills.sh `sourceUrl`: the most common location in the listed GitHub
+///    repo. `install_from_catalog` locates the real one before fetching.
+///
+/// Returns an empty string when no download exists (LobeHub agents have no
+/// `SKILL.md`). `install_from_catalog` turns that into an actionable error
+/// rather than fetching a guaranteed-404 URL (#3741).
+pub(super) fn derive_download_url(
+    source: &str,
+    identifier: Option<&str>,
+    name: &str,
+    docs_path: Option<&str>,
+    source_url: Option<&str>,
+) -> String {
+    if let Ok(base) = std::env::var(DOWNLOAD_BASE_URL_ENV) {
+        let base = base.trim().trim_end_matches('/');
+        if !base.is_empty() {
+            return format!("{base}/{name}/SKILL.md");
+        }
+    }
+    if let Some(url) = docs_path.and_then(download_url_from_docs_path) {
+        return url;
+    }
+    if let Some(url) = source_url.and_then(download_url_from_source_url) {
+        return url;
+    }
+    if source.eq_ignore_ascii_case("clawhub") {
+        if let Some(url) = identifier.and_then(clawhub_download_url) {
+            return url;
+        }
+    }
+    if let Some(skill) = source_url.and_then(SkillsShRef::parse) {
+        if let Some(url) = skill.candidate_urls().into_iter().next() {
+            return url;
+        }
+    }
+    String::new()
+}
+
+/// Rewrite a GitHub `sourceUrl` (blob or tree view) into the raw
+/// `SKILL.md` download URL. Returns `None` for non-GitHub hosts (portal pages
+/// that serve HTML, not raw markdown).
+///
+/// - blob: `…/github.com/{owner}/{repo}/blob/{branch}/{path}` →
+///   `…/raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}`
+/// - tree (directory): same rewrite, then append `/SKILL.md`.
+fn download_url_from_source_url(source_url: &str) -> Option<String> {
+    let rest = source_url
+        .strip_prefix("https://github.com/")
+        .or_else(|| source_url.strip_prefix("http://github.com/"))?;
+
+    // {owner}/{repo}/{blob|tree}/{branch}/{path...}
+    let parts: Vec<&str> = rest.splitn(5, '/').collect();
+    if parts.len() < 5 {
+        return None;
+    }
+    let (owner, repo, kind, branch, path) = (parts[0], parts[1], parts[2], parts[3], parts[4]);
+    if owner.is_empty() || repo.is_empty() || branch.is_empty() || path.is_empty() {
+        return None;
+    }
+
+    let path = path.trim_end_matches('/');
+    let raw = format!("https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}");
+    match kind {
+        // blob points directly at a file; only append SKILL.md if it isn't one.
+        "blob" => {
+            if raw.ends_with("/SKILL.md") || raw.ends_with(".md") {
+                Some(raw)
+            } else {
+                Some(format!("{raw}/SKILL.md"))
+            }
+        }
+        // tree points at a directory — the skill's SKILL.md lives inside it.
+        "tree" => Some(format!("{raw}/SKILL.md")),
+        _ => None,
+    }
+}
+
+fn download_url_from_docs_path(docs_path: &str) -> Option<String> {
+    let parts: Vec<&str> = docs_path.split('/').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let root = match parts[0] {
+        "bundled" => "skills",
+        "optional" => "optional-skills",
+        _ => return None,
+    };
+    let category = parts[1];
+    let prefixed_slug = parts[2];
+    let skill = prefixed_slug
+        .strip_prefix(&format!("{category}-"))
+        .unwrap_or(prefixed_slug);
+    // `category` and `skill` come from the catalog and are spliced into a URL
+    // path. A reserved character (space, `#`, `?`, `%`) would change what the
+    // URL names, so an entry that is not a plain path segment gets no download
+    // URL and is reported as not installable rather than fetched from a
+    // different path.
+    if !is_safe_segment(category) || !is_safe_segment(skill) {
+        tracing::debug!(
+            docs_path = %docs_path,
+            "[skill_registry] docsPath has a non-plain path segment; no download URL"
+        );
+        return None;
+    }
+    Some(format!(
+        "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/{root}/{category}/{skill}/SKILL.md"
+    ))
+}
 
 /// A catalog value is spliced into a URL path, so it must be one plain segment.
 pub(super) fn is_safe_segment(value: &str) -> bool {
