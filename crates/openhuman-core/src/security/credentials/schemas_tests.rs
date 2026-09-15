@@ -47,11 +47,11 @@ fn every_known_schema_key_returns_a_non_unknown_schema() {
     // coverage for every branch without needing the async handler
     // to fire off HTTP.
     let keys = [
+        "auth_set_credential",
+        "auth_clear_credential",
         "auth_store_session",
         "auth_clear_session",
         "auth_get_state",
-        "auth_store_api_key",
-        "auth_clear_api_key",
         "auth_get_session_token",
         "auth_get_me",
         "auth_consume_login_token",
@@ -106,6 +106,24 @@ fn store_session_schema_requires_token_and_accepts_user_fields() {
     // advertises the canonical snake_case form.
     assert!(s.inputs.iter().any(|f| f.name == "user_id"));
     assert!(s.inputs.iter().any(|f| f.name == "user"));
+}
+
+#[test]
+fn set_credential_schema_requires_token_and_advertises_kind_user_fields() {
+    let s = schemas("auth_set_credential");
+    let required: Vec<&str> = s
+        .inputs
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| f.name)
+        .collect();
+    assert_eq!(required, vec!["token"]);
+    for name in ["kind", "userId", "user"] {
+        assert!(s.inputs.iter().any(|f| f.name == name), "missing {name}");
+    }
+    let clear = schemas("auth_clear_credential");
+    assert!(clear.inputs.iter().all(|f| !f.required));
+    assert!(clear.inputs.iter().any(|f| f.name == "kind"));
 }
 
 // ── Field-builder helpers ──────────────────────────────────────
