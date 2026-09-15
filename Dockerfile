@@ -71,8 +71,11 @@ RUN mkdir -p crates/openhuman-core/src crates/openhuman-embed/src crates/openhum
 COPY crates/openhuman-core/src/ crates/openhuman-core/src/
 COPY crates/openhuman-embed/src/ crates/openhuman-embed/src/
 COPY crates/openhuman-rpc/src/ crates/openhuman-rpc/src/
-# Touch main.rs to force rebuild of our code (not deps)
-RUN touch crates/openhuman-core/src/main.rs crates/openhuman-core/src/lib.rs && \
+# Touch every crate the dep-cache stage built from a dummy src. COPY keeps the
+# checkout's mtimes, which predate that build, so cargo would otherwise link
+# core against the empty openhuman-rpc placeholder.
+RUN touch crates/openhuman-core/src/main.rs crates/openhuman-core/src/lib.rs \
+          crates/openhuman-rpc/src/lib.rs && \
     cargo build --profile "${CARGO_PROFILE}" --bin openhuman-core && \
     cp "target/${CARGO_PROFILE}/openhuman-core" /tmp/openhuman-core
 
