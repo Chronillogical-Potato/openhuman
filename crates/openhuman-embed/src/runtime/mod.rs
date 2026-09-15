@@ -200,7 +200,6 @@ pub struct Runtime {
     tool_groups: ToolGroups,
     provider: Provider,
     access: Access,
-    has_api_key: bool,
     agents: Mutex<HashMap<String, Weak<AgentInner>>>,
 }
 
