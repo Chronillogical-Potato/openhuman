@@ -285,6 +285,11 @@ async fn turn_synthesizes_final_answer_when_tool_turn_yields_no_text() {
                 usage: None,
                 reasoning_content: None,
             }),
+            // The check on that closing message accepts it (#6278).
+            Ok(ChatResponse {
+                text: Some("ACCEPT".into()),
+                ..ChatResponse::default()
+            }),
         ]),
         requests: AsyncMutex::new(Vec::new()),
         tool_counts: AsyncMutex::new(Vec::new()),
@@ -436,7 +441,7 @@ async fn summarize_turn_wrapup_rejects_prompt_tool_call_and_preserves_usage() {
     );
 
     let (summary, usage) = agent
-        .summarize_turn_wrapup(&[], "test-model", 1, "write a wrap-up")
+        .summarize_turn_wrapup(&[], "test-model", 1, "write a wrap-up", true)
         .await;
 
     assert!(

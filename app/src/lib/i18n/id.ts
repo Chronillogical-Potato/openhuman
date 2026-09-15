@@ -664,6 +664,10 @@ const messages: TranslationMap = {
   'home.statusOk': 'Asistenmu siap kapan pun kamu siap. Ketik sesuatu di bawah untuk memulai.',
   'home.statusBackendOnly':
     'Menghubungkan ulang ke backend... agen Anda akan segera tersedia lagi.',
+  'home.statusHostedDegraded':
+    'Menyambung kembali ke cloud… obrolan tetap berjalan; integrasi dan kanal akan berlanjut begitu koneksi kembali.',
+  'home.statusHostedStopped':
+    'Koneksi cloud terhenti: masuk kembali untuk melanjutkan integrasi dan kanal. Obrolan tetap berjalan.',
   'home.statusCoreUnreachable':
     'Core sidecar lokal tidak merespons. Proses latar OpenHuman mungkin crash atau gagal dimulai.',
   'home.statusInternetOffline':

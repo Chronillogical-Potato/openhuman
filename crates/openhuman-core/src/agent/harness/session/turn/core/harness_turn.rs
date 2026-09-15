@@ -272,6 +272,7 @@ impl Agent {
                     effective_model,
                     outcome.model_calls as u32 + 1,
                     turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION,
+                    true,
                 )
                 .await;
             if let Some(u) = summary_usage {
@@ -327,61 +328,31 @@ impl Agent {
                     iteration: outcome.model_calls,
                 },
             ));
-        } else if outcome.text.trim().is_empty() {
-            // #4093: the loop ran tool calls (tool_calls > 0, so the branch
-            // above did not fire) and then yielded a terminating response with
-            // no final text — the turn did work but would otherwise end
-            // silently, leaving the user with nothing. Enforce the
-            // "must produce a final response" terminal step: re-prompt the
-            // model (tools disabled) for a closing summary of what it did,
-            // falling back to a deterministic summary of the tool calls so the
-            // synthesized message is never itself empty. Fold the extra call's
-            // usage into the turn accounting, exactly like the cap path above.
-            let base = self.tool_dispatcher.to_provider_messages(&self.history);
-            let (summary, summary_usage) = self
-                .summarize_turn_wrapup(
-                    &base,
-                    effective_model,
-                    outcome.model_calls as u32 + 1,
-                    turn_checkpoint::FINAL_ANSWER_INSTRUCTION,
-                )
+        } else if outcome.breaker_halt.is_some() || outcome.text.trim().is_empty() {
+            // Two ways a turn reaches here without a reply it can ship:
+            //
+            // * #4093: the loop ran tool calls (tool_calls > 0, so the branch
+            //   above did not fire) and then ended with no final text — the
+            //   turn did work but would otherwise end silently.
+            // * #6279: the no-progress breaker halted the run. `outcome.text`
+            //   then holds the breaker's stop note, which is worded for a model
+            //   ("Report this back instead of retrying") and must not be the
+            //   user's reply.
+            //
+            // Both close from the turn's tool records: a grounded wrap-up, a
+            // check that rejects intent narration or claims the records
+            // contradict (#6278), and a deterministic fallback that quotes the
+            // failures. Fold the extra calls' usage into the turn accounting,
+            // exactly like the cap path above.
+            let (final_answer, close_usage) = self
+                .close_turn_from_records(&outcome, user_message, effective_model)
                 .await;
-            if let Some(u) = summary_usage {
+            for u in close_usage {
                 input_tokens += u.input_tokens;
                 output_tokens += u.output_tokens;
                 cached_input_tokens += u.cached_input_tokens;
                 charged_amount_usd += u.charged_amount_usd;
             }
-            let final_answer = if summary.trim().is_empty() {
-                turn_checkpoint::build_deterministic_final_summary(&tool_records_from_conversation(
-                    &outcome.conversation,
-                    &outcome.tool_outcomes,
-                ))
-            } else {
-                summary
-            };
-            log::info!(
-                "[agent_loop] turn produced no final text after {} tool call(s); synthesized a closing summary ({} chars) — #4093",
-                outcome.tool_calls,
-                final_answer.chars().count()
-            );
-            // The empty terminal assistant response was already folded into
-            // `self.history` via `outcome.conversation` above (an empty
-            // `Chat(assistant(""))` — see `messages_to_conversation`). Drop that
-            // blank turn before appending the synthesized answer so the
-            // transcript and the next prompt don't carry a dangling empty
-            // assistant message immediately before the real reply (Codex review).
-            if matches!(
-                self.history.last(),
-                Some(ConversationMessage::Chat(msg))
-                    if msg.role == "assistant" && msg.content.trim().is_empty()
-            ) {
-                self.history.pop();
-            }
-            self.history
-                .push(ConversationMessage::Chat(ChatMessage::assistant(
-                    final_answer.clone(),
-                )));
             final_answer
         } else if outcome.early_exit_tool.is_some() {
             // Paused on `ask_user_clarification`. The run stopped right after the

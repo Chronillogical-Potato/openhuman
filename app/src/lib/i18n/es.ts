@@ -674,6 +674,10 @@ const messages: TranslationMap = {
   'home.statusOk': 'Tu asistente está listo cuando tú lo estés. Escribe algo abajo para empezar.',
   'home.statusBackendOnly':
     'Reconectando al backend… tu agente estará disponible nuevamente en breve.',
+  'home.statusHostedDegraded':
+    'Reconectando con la nube… el chat sigue funcionando; las integraciones y los canales se reanudarán en cuanto vuelva.',
+  'home.statusHostedStopped':
+    'La conexión con la nube se detuvo: inicia sesión de nuevo para reanudar las integraciones y los canales. El chat sigue funcionando.',
   'home.statusCoreUnreachable':
     'El proceso en segundo plano de OpenHuman no responde. Es posible que haya fallado o no haya podido iniciarse.',
   'home.statusInternetOffline':

@@ -24,6 +24,7 @@
 //! | `user_scopes`     | per-toolkit agent scope prefs, over the bound memory driver         |
 //! | `connector_runs`  | Sync History rows for Composio runs (openhuman#6257)                |
 //! | `source_rows`     | which memory-sources row a Composio connection belongs to           |
+//! | `pass_failure`    | when a connector pass failed; the Sources-row retry schedule (openhuman#6255) |
 
 mod connections;
 mod connector_runs;
@@ -32,6 +33,7 @@ mod error_utils;
 mod execute;
 mod memory_cleanup;
 mod pass_budget;
+mod pass_failure;
 mod providers_ops;
 mod source_rows;
 mod toolkits;

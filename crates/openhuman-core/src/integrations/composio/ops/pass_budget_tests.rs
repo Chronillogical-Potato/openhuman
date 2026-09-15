@@ -17,6 +17,7 @@ fn pass(written: u32, more_pending: bool) -> SyncPassOutcome {
         already_ingested: false,
         more_pending,
         message: None,
+        failure: None,
     }
 }
 
@@ -131,6 +132,7 @@ async fn already_ingested_holds_only_when_every_pass_was_a_no_op() {
         already_ingested: true,
         more_pending: true,
         message: None,
+        failure: None,
     };
     let last = SyncPassOutcome {
         more_pending: false,
@@ -197,6 +199,7 @@ async fn the_budget_counts_records_read_not_records_written() {
         already_ingested: true,
         more_pending: true,
         message: None,
+        failure: None,
     };
     let (out, asked) = drive(
         SINGLE_CALL_ITEM_BUDGET,
@@ -227,10 +230,57 @@ async fn a_pass_that_reads_nothing_ends_the_run() {
         already_ingested: false,
         more_pending: true,
         message: None,
+        failure: None,
     };
     let (out, asked) = drive(SINGLE_CALL_ITEM_BUDGET, vec![Ok(empty)]).await;
     let out = out.expect("the pass succeeds");
     assert_eq!(asked.len(), 1);
     assert_eq!(out.records_read, 0);
     assert!(out.more_pending, "the module's own word is still reported");
+}
+
+#[tokio::test]
+async fn a_pass_the_connector_reports_as_failed_ends_the_run_with_its_reason() {
+    // openhuman#6255: a failed pass is not "more pending". The pages it read
+    // before its page failed are committed, so they count toward the written
+    // total, and the drain stops instead of asking the failing connector again.
+    let failed = SyncPassOutcome {
+        failure: Some("GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS failed".to_string()),
+        ..pass(40, false)
+    };
+    let (out, asked) = drive(
+        SINGLE_CALL_ITEM_BUDGET,
+        vec![Ok(pass(200, true)), Ok(failed)],
+    )
+    .await;
+    assert_eq!(
+        out.unwrap_err(),
+        DrainFailure {
+            error: "GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS failed".to_string(),
+            written: 240,
+        }
+    );
+    assert_eq!(
+        asked.len(),
+        2,
+        "a failed pass is not retried within the call"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_pass_that_read_nothing_is_still_a_failure() {
+    // The read-nothing stop would otherwise end this drain as a quiet success.
+    let failed = SyncPassOutcome {
+        failure: Some("the github connector stopped without saying why".to_string()),
+        ..SyncPassOutcome::default()
+    };
+    let (out, asked) = drive(SINGLE_CALL_ITEM_BUDGET, vec![Ok(failed)]).await;
+    assert_eq!(
+        out.unwrap_err(),
+        DrainFailure {
+            error: "the github connector stopped without saying why".to_string(),
+            written: 0,
+        }
+    );
+    assert_eq!(asked.len(), 1);
 }

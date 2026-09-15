@@ -129,7 +129,7 @@ env | grep -E 'APPLE|TAURI|VITE' || true
 
 cd app
 echo "Building now... ${BUILD_ARGS[@]}"
-npx tauri build "${BUILD_ARGS[@]}"
+pnpm tauri build "${BUILD_ARGS[@]}"
 echo "Done building"
 cd ..
 

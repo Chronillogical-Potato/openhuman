@@ -613,7 +613,13 @@ Three cooperating mechanisms keep runs from wandering or dying silently:
 - `AwaitingUser { question, options }`: the child called `ask_user_clarification`; a full checkpoint (history, question, options, overrides) is written to `{workspace}/.openhuman/subagent_checkpoints/{task_id}.json`, and the run resumes from it when the user answers.
 - `Incomplete { reason }`: the child was halted by the breaker or hit its model-call cap. The delegating parent **relays the blocker** instead of treating a halted child as a finished answer or re-spinning the identical delegation.
 
-A breaker halt at the top level is likewise never a silent finish: the turn's final text is overridden with the breaker's root-cause summary, and `hit_cap` / `breaker_halt` are surfaced on the turn result.
+A breaker halt at the top level is likewise never a silent finish, and the breaker's root-cause summary is not shown to the user as is either: it is worded for a model ("Report this back instead of retrying"). `hit_cap` / `breaker_halt` are surfaced on the turn result, and the chat turn closes the halted run the same way it closes a tool turn that ended without final text (`turn/core/grounded_close.rs`, #4093 / #6278 / #6279):
+
+1. A tools-disabled wrap-up call whose instruction restates the turn's tool records, each failure's own message included, with the breaker summary passed as a stop note to explain rather than repeat.
+2. A separate check call that sees only the request, the records and the candidate reply. It rejects a reply that only narrates intent, contradicts a record, or leaves out the failure that explains an unfinished request.
+3. A deterministic fallback for an empty, tool-calling, rejected or unverified reply (a check that failed or gave no verdict). It quotes each tool result and the stop note.
+
+Accepted text is streamed only after the check, so a rejected reply never renders.
 
 **Classified tool failures** (`crates/openhuman-core/src/tools/status/`): every failed tool call is classified into a transport-agnostic `ClassifiedFailure { class, category, cause_plain, next_action, recoverable }`. Classes cover `MissingPermission`, `MissingApp`, `ServiceUnavailable`, `BadCredentials`, `BlockedByPolicy`, `ModelConnection`, `Timeout`, `Denied`, `ApprovalExpired`; categories map 1:1 to UI states: _recoverable_ (safe auto-retry), _blocked by policy_ (change settings), _needs user confirmation_ (sign in / install / grant), _user declined_ (never auto-retried). The classification rides `AgentProgress::ToolCallCompleted.failure` (including for sub-agent calls) into the chat timeline.
 

@@ -38,7 +38,8 @@ const SINGLE_CALL_MAX_PASSES: usize = 50;
 pub(crate) struct DrainFailure {
     /// The failing pass's error.
     pub error: String,
-    /// Records written by the passes that finished before it.
+    /// Records written before the drain stopped: the passes before a failing
+    /// call, and a failed pass's own pages when the connector read some first.
     pub written: u32,
 }
 
@@ -49,9 +50,11 @@ pub(crate) struct DrainFailure {
 /// The outcome sums `records_read` and `written` across passes, is
 /// `already_ingested` only when every pass was a no-op, and carries the last
 /// pass's `more_pending` and `message` — the same "last pass's word wins" rule
-/// the Sources-row loop applies. A pass error ends the run with a
-/// [`DrainFailure`] carrying that error and what the earlier passes wrote,
-/// which the driver has already committed.
+/// the Sources-row loop applies. A pass error, or a pass the connector reports
+/// as failed, ends the run with a [`DrainFailure`] carrying the reason and what
+/// the passes wrote, which the driver has already committed. Nothing here
+/// retries a failure: these entry points run again on their own schedule
+/// (openhuman#6255).
 pub(crate) async fn run_passes_within_budget<F, Fut>(
     budget: u32,
     mut run_pass: F,
@@ -86,6 +89,14 @@ where
         total.already_ingested = total.already_ingested && pass.already_ingested;
         total.more_pending = pass.more_pending;
         total.message = pass.message;
+        // Checked before the read-nothing stop below, which would otherwise end
+        // a failed pass as a quiet success.
+        if let Some(error) = pass.failure {
+            return Err(DrainFailure {
+                error,
+                written: total.written,
+            });
+        }
         // A pass that read nothing cannot make progress; "more pending" from
         // it would only be asked again for the same nothing.
         if !pass.more_pending || pass.records_read == 0 {
