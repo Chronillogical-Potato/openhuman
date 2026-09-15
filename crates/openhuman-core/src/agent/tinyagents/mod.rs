@@ -71,7 +71,9 @@ pub(crate) use crate::agent::message_convert::{reasoning_from_content, ta_call_t
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
-pub(crate) use middleware::{HandoffConfig, TranscriptSnapshotSink, TurnContextMiddleware};
+pub(crate) use middleware::{
+    HandoffConfig, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
+};
 pub(crate) use observability::SubagentScope;
 pub use resolved_route::{
     current_resolved_provider_route, current_route_slot, record_resolved_provider_route,

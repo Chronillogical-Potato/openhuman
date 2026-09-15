@@ -242,8 +242,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // worker thread. Attach a snapshot middleware that mirrors each `before_model`
     // request's transcript here, so the error path below can still persist the
     // rounds that completed before the failure.
-    let transcript_snapshot: crate::agent::tinyagents::TranscriptSnapshotSink =
-        std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let transcript_snapshot = crate::agent::tinyagents::TranscriptSnapshotSink::default();
 
     // A sub-agent turn runs *nested inside* the parent agent's turn (parent
     // harness → spawn_subagent tool → here), so the child's full
@@ -331,7 +330,7 @@ pub(in super::super) async fn run_subagent_via_graph(
             let mapped = map_tinyagents_subagent_error(err);
             let recovered = transcript_snapshot
                 .lock()
-                .map(|g| g.clone())
+                .map(|g| crate::agent::message_convert::messages_to_history(&g.messages))
                 .unwrap_or_default();
             tracing::warn!(
                 agent_id,

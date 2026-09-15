@@ -60,7 +60,9 @@ pub(crate) use repeated_failure::RepeatedToolFailureMiddleware;
 pub(crate) use tool_exposure::OpenHumanToolExposureShadowMiddleware;
 pub(crate) use tool_outcome_capture::ToolOutcomeCaptureMiddleware;
 pub(crate) use tool_policy::ToolPolicyMiddleware;
-pub(crate) use turn_context::{HandoffConfig, TranscriptSnapshotSink, TurnContextMiddleware};
+pub(crate) use turn_context::{
+    HandoffConfig, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
+};
 
 #[cfg(test)]
 #[path = "middleware_tests.rs"]

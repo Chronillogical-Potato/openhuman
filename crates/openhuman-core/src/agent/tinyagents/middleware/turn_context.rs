@@ -12,7 +12,8 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
-use tinyinference::model::ModelRequest;
+use tinyinference::message::Message;
+use tinyinference::model::{ModelRequest, ModelResponse};
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
 use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
@@ -58,32 +59,47 @@ pub(crate) struct TurnContextMiddleware {
     /// placeholder. `None` everywhere else.
     pub(crate) handoff: Option<HandoffConfig>,
     /// Live transcript snapshot sink (#4466). When set, a
-    /// [`TranscriptSnapshotMiddleware`] mirrors the running conversation (as
-    /// openhuman [`ChatMessage`]s) into this shared buffer before every model
-    /// call. Only the sub-agent path sets it, so an erroring run can persist the
-    /// rounds completed before the failure (the harness drops its partial
-    /// transcript on `Err`). `None` everywhere else (chat persists post-run).
+    /// [`TranscriptSnapshotMiddleware`] mirrors the running conversation into
+    /// this shared buffer before every model call, so an erroring run can still
+    /// record the rounds completed before the failure (the harness drops its
+    /// partial transcript on `Err`). Set by the sub-agent path and by the
+    /// top-level chat turn (#6281); `None` on the channel path.
     pub(crate) transcript_snapshot: Option<TranscriptSnapshotSink>,
 }
 
-/// Shared buffer a [`TranscriptSnapshotMiddleware`] mirrors the live sub-agent
+/// What a [`TranscriptSnapshotMiddleware`] has seen of a live run.
+#[derive(Default)]
+pub(crate) struct TranscriptSnapshot {
+    /// The transcript of the most recent model request: the run's input plus
+    /// every assistant/tool round completed before that call.
+    pub(crate) messages: Vec<Message>,
+    /// Length of the most recent request the provider **answered**. The loop
+    /// only appends to its working transcript, so `messages[..accepted_len]` is
+    /// exactly a request the provider accepted. Anything past it was sent only
+    /// in a request that has not been answered, which is where a provider
+    /// rejection of malformed history comes from (#6281).
+    pub(crate) accepted_len: usize,
+    /// Length of the transcript the caller seeded the run with, so the rounds
+    /// this run produced start at `messages[request_base_len..]`. Set by the
+    /// caller; `0` when the caller does not need the split.
+    pub(crate) request_base_len: usize,
+}
+
+/// Shared buffer a [`TranscriptSnapshotMiddleware`] mirrors the live
 /// conversation into, so the caller can persist completed rounds even when the
 /// harness run ends in `Err` (#4466).
-pub(crate) type TranscriptSnapshotSink =
-    Arc<std::sync::Mutex<Vec<crate::agent::messages::ChatMessage>>>;
+pub(crate) type TranscriptSnapshotSink = Arc<std::sync::Mutex<TranscriptSnapshot>>;
 
 /// Observation-only middleware that snapshots the running transcript into a
 /// shared [`TranscriptSnapshotSink`] before each model call (#4466).
 ///
 /// The tinyagents harness owns the working message vector and only hands it back
-/// inside a successful `AgentRun`; on a mid-run error it is dropped. The
-/// sub-agent runner persists a per-child `session_raw` transcript so
-/// `learning/transcript_ingest` can read it — but a failed run used to persist
-/// nothing. This middleware mirrors each `before_model` request's messages
-/// (which include every prior completed assistant/tool round) into an
-/// openhuman-owned buffer, so the runner's error path can still write the rounds
-/// that completed before the failure. Converts to [`ChatMessage`] eagerly so the
-/// caller does not need access to the private `convert` module.
+/// inside a successful `AgentRun`; on a mid-run error it is dropped. This
+/// middleware mirrors each `before_model` request's messages (which include
+/// every prior completed assistant/tool round) into an openhuman-owned buffer,
+/// and marks the boundary of what the provider answered in `after_model`, so the
+/// caller's error path can still record the rounds that completed before the
+/// failure.
 pub(crate) struct TranscriptSnapshotMiddleware {
     sink: TranscriptSnapshotSink,
 }
@@ -100,9 +116,20 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
-        let history = crate::agent::message_convert::messages_to_history(&request.messages);
         if let Ok(mut guard) = self.sink.lock() {
-            *guard = history;
+            guard.messages = request.messages.clone();
+        }
+        Ok(())
+    }
+
+    async fn after_model(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        _response: &mut ModelResponse,
+    ) -> TaResult<()> {
+        if let Ok(mut guard) = self.sink.lock() {
+            guard.accepted_len = guard.messages.len();
         }
         Ok(())
     }
