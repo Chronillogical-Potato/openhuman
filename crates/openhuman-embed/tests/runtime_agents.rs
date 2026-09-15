@@ -11,7 +11,9 @@
 
 mod common;
 
-use common::{chat_completion, offline_config, provider, runtime, stub_backend, tool_names};
+#[cfg(feature = "mcp")]
+use common::tool_names;
+use common::{chat_completion, offline_config, provider, runtime, stub_backend};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentError, AgentSpec, Provider, Runtime, SandboxModeSpec,
     Workspace,
@@ -64,6 +66,7 @@ fn one_runtime_hosts_independently_configured_agents() {
 
             let provider_a = provider("alpha-ok").await;
             let provider_b = provider("beta-ok").await;
+            #[allow(unused_variables)]
             let skills = skills_fixture();
             let beta_action = tempfile::tempdir().expect("beta action dir");
 
@@ -96,6 +99,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             );
 
             // ── alpha: read-only, own provider, own skills, an MCP server ──
+            #[allow(unused_mut)]
             let mut alpha_spec = AgentSpec::new("alpha")
                 .provider(
                     Provider::openai_compatible(format!("{}/v1", provider_a.uri()), "sk-a")
