@@ -277,13 +277,13 @@ fn build_session_state_prefers_the_api_key_over_a_present_session() {
             true,
         )
         .expect("store session token");
-    super::api_key::store_api_key(&config, "th_test_key").expect("store api key");
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_key").expect("store api key");
 
     let state = build_session_state(&config).unwrap();
     assert!(state.is_authenticated);
     assert_eq!(
         state.credential.as_deref(),
-        Some(super::responses::CREDENTIAL_API_KEY),
+        Some(crate::security::credentials::responses::CREDENTIAL_API_KEY),
         "the api key must win when both credentials are present: {state:?}"
     );
     assert!(
