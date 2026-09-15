@@ -127,6 +127,40 @@ fn derive_with_keeps_the_host_and_overrides_the_per_agent_fields() {
     assert!(parent.user_skill_roots());
 }
 
+/// Regression: `derive_with` must clamp the overlay's requested `DomainSet`
+/// to what the parent context actually has, not adopt it verbatim. Without
+/// the intersection, a runtime booted with a restricted `DomainSet` (say,
+/// `kernel()`, which has `agent`/`memory`/`mcp` off) could still derive a
+/// child scoped with `DomainSet::full()`, and every reader that dispatches
+/// through that child (the config loader, the DomainSet gate, skill
+/// discovery) would observe the wider set the runtime never registered.
+#[test]
+fn derive_with_clamps_overlay_domains_to_the_parent_registered_set() {
+    let mut parent_ctx = ctx("/tmp/parent-ws");
+    Arc::get_mut(&mut parent_ctx).expect("sole owner").domains =
+        crate::core::runtime::DomainSet::kernel();
+    assert!(!parent_ctx.domains().agent, "sanity: kernel() has agent off");
+    assert!(!parent_ctx.domains().mcp, "sanity: kernel() has mcp off");
+
+    let overlay = ContextOverlay::new(
+        crate::config::Config::default(),
+        crate::core::runtime::DomainSet::full(),
+        Default::default(),
+    );
+    let child = parent_ctx.derive_with(overlay);
+
+    assert!(
+        !child.domains().agent,
+        "a disabled parent family must not reappear via an overlay: {:?}",
+        child.domains()
+    );
+    assert!(!child.domains().mcp);
+    // Families the parent *did* register, and the overlay also asked for,
+    // still come through.
+    assert!(child.domains().threads);
+    assert!(child.domains().config);
+}
+
 #[test]
 fn derive_with_defaults_to_visible_user_skill_roots() {
     let overlay = ContextOverlay::new(
