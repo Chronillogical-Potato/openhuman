@@ -28,8 +28,13 @@ describe('ProviderKeyDialog OAuth action', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i }));
 
-    await waitFor(() =>
-      expect(within(dialog).getByRole('button', { name: /^Cancel$/i })).toBeEnabled()
-    );
+    // Every control the saving phase disables must come back, not just Cancel.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: /^Cancel$/i })).toBeEnabled();
+      expect(within(dialog).getByRole('button', { name: /^Save$/i })).toBeEnabled();
+      expect(
+        within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i })
+      ).toBeEnabled();
+    });
   });
 });

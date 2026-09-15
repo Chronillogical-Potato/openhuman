@@ -135,32 +135,29 @@ export async function connectOpenRouterViaOAuth(deps: OpenRouterOAuthDeps = {}):
     throw new Error('OpenRouter OAuth was cancelled.');
   }
 
-  const verifier = randomVerifier();
-  const challenge = await createCodeChallenge(verifier);
-  const authUrl = new URL(OPENROUTER_AUTH_URL);
-  authUrl.searchParams.set('callback_url', toOpenRouterCallbackUrl(loopback.redirectUri));
-  authUrl.searchParams.set('code_challenge', challenge);
-  authUrl.searchParams.set('code_challenge_method', PKCE_METHOD);
+  // One abort promise for every wait below. It is created before any await, so an
+  // abort that already fired rejects at once instead of being missed by a later
+  // listener. The flow can finish without racing it, so a late rejection is dropped.
+  const aborted = new Promise<never>((_, reject) => {
+    if (!signal) return;
+    const onAbort = () => reject(new Error('OpenRouter OAuth was cancelled.'));
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  });
+  aborted.catch(() => {});
 
   try {
-    await openExternalUrl(authUrl.toString());
-    const callbackUrl = await Promise.race([
-      loopback.awaitCallback(),
-      new Promise<string>((_, reject) => {
-        if (!signal) return;
-        // An abort while the challenge was built or the browser was opening has
-        // already fired, so a listener added now would never run.
-        if (signal.aborted) {
-          reject(new Error('OpenRouter OAuth was cancelled.'));
-          return;
-        }
-        const onAbort = () => {
-          signal.removeEventListener('abort', onAbort);
-          reject(new Error('OpenRouter OAuth was cancelled.'));
-        };
-        signal.addEventListener('abort', onAbort, { once: true });
-      }),
-    ]);
+    const verifier = randomVerifier();
+    const challenge = await createCodeChallenge(verifier);
+    // A cancel while the challenge was built must not open the browser.
+    if (signal?.aborted) throw new Error('OpenRouter OAuth was cancelled.');
+    const authUrl = new URL(OPENROUTER_AUTH_URL);
+    authUrl.searchParams.set('callback_url', toOpenRouterCallbackUrl(loopback.redirectUri));
+    authUrl.searchParams.set('code_challenge', challenge);
+    authUrl.searchParams.set('code_challenge_method', PKCE_METHOD);
+
+    await Promise.race([openExternalUrl(authUrl.toString()), aborted]);
+    const callbackUrl = await Promise.race([loopback.awaitCallback(), aborted]);
     const code = extractOAuthCode(callbackUrl, loopback.state);
     return await exchangeCodeForKey(code, verifier, fetchImpl, signal);
   } finally {
