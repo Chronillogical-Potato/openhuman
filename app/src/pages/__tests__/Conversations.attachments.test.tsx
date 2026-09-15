@@ -422,6 +422,28 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
+  // The list every caller hands over belongs to a DOM event that does not
+  // outlive its handler: the picker clears its `FileList` on the next line, and
+  // a drop's `DataTransfer` is neutered on return. Ingest is queued, so reading
+  // the list inside the continuation finds it already empty — and an empty list
+  // yields no attachment and no error, which is silent rather than visible.
+  it('keeps a picked file when the input clears its list right after the event', async () => {
+    await renderWithSelectedThread();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const live = [makeFile('cleared-after.png', 'image/png', 512)];
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: live } });
+      // Stands in for `event.target.value = ''` emptying the live FileList.
+      live.length = 0;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('cleared-after.png')).toBeInTheDocument();
+    });
+  });
+
   it('marks the composer while files are dragged over it, and clears on leave', async () => {
     await renderWithSelectedThread();
 

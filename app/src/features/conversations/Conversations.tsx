@@ -1064,9 +1064,18 @@ const Conversations = ({
    * same budget — a paste landing while a dropped file is still being read, for
    * instance. Each run starts only once the one before it has finished writing
    * `attachmentsRef`, so the budget it counts from is current.
+   *
+   * The list is copied here, synchronously, and that is load-bearing: every
+   * caller hands over a list owned by a DOM event that does not outlive the
+   * handler. The picker clears its `FileList` on the next line
+   * (`event.target.value = ''`), and a drop's `DataTransfer` is neutered once
+   * the handler returns. Reading either from inside the queued continuation
+   * finds an empty list — and an empty list produces no attachment and no
+   * error, which is a silent failure rather than a visible one.
    */
   const handleAttachFiles = (files: FileList | File[] | null): Promise<void> => {
-    const run = ingestQueueRef.current.then(() => ingestFiles(files));
+    const snapshot = files ? Array.from(files) : null;
+    const run = ingestQueueRef.current.then(() => ingestFiles(snapshot));
     // The queue must survive a rejected run, or one failure wedges every later
     // attachment. Errors still surface to the caller through `run`.
     ingestQueueRef.current = run.then(
