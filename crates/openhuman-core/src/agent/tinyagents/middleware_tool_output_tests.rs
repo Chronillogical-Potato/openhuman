@@ -678,3 +678,47 @@ async fn the_turns_task_hint_reaches_the_payload_summarizer() {
         "the turn's task hint must be handed to the payload summarizer"
     );
 }
+
+/// #6283 review: the authoritative size is stated after the output caps, so a
+/// tool cap shorter than the summary cannot cut it away.
+#[tokio::test]
+async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
+    let mut tool_policies = HashMap::new();
+    tool_policies.insert(
+        "terse".to_string(),
+        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+            timeout_ms: None,
+            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            max_retries: None,
+            idempotent: false,
+            cancelable: true,
+            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            max_result_bytes: Some(12),
+            streaming: false,
+        }),
+    );
+    let summary = "summary ".repeat(50);
+    let mut mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Summarized(
+        crate::agent::tinyagents::payload_summarizer::SummarizedPayload {
+            summary_bytes: summary.len(),
+            summary,
+            original_bytes: 119_796,
+        },
+    )));
+    mw.tool_policies = tool_policies;
+    let mut result = tool_result("terse", &"payload ".repeat(200));
+
+    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+
+    assert!(
+        result
+            .content
+            .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
+        "the real size must lead the content whatever the caps did, got {:?}",
+        result.content.chars().take(160).collect::<String>()
+    );
+    assert!(
+        result.content.contains("[truncated by tool cap:"),
+        "the summary itself is still bound by the tool's cap"
+    );
+}

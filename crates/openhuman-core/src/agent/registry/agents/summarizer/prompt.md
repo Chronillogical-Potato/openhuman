@@ -48,7 +48,7 @@ Structure:
 (Only include this section if the payload contained IDs/URLs/hashes. Skip otherwise.)
 ```
 
-Do not state the payload's size and do not add an "Original size" section: the runtime appends the exact byte count after your note. The input tells you how many bytes the payload has and that all of it is between the markers, so never describe it as truncated unless the payload text itself says it was cut.
+Do not state the payload's size and do not add an "Original size" section: the runtime states the exact byte count alongside your note. The input tells you how many bytes the payload has and that all of it is between the markers, so never describe it as truncated unless the payload text itself says it was cut.
 
 ## Edge cases
 

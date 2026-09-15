@@ -517,14 +517,10 @@ impl SubagentPayloadSummarizer {
                     self.record_failure();
                     return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
                 }
-                // The size is the runtime's to state, not the model's. The model
-                // was never told it and estimated it instead — live summaries
-                // reported "~9,000 bytes (truncated payload)" for a complete
-                // 119,796-byte input, and the orchestrator reasoned from that.
-                let summary = format!(
-                    "{summary}\n\n## Original size\n{} bytes of tool output, complete, summarized into this note.",
-                    raw.len()
-                );
+                // No size is written into the summary. The size is the runtime's
+                // to state, and `ToolOutputMiddleware` states it after the output
+                // caps, so a cap that cuts the summary cannot cut the size too.
+                let summary = summary.to_string();
                 if summary.len() >= raw.len() {
                     warn!(
                         tool = tool_name,
@@ -647,6 +643,24 @@ fn remember_summary(key: SummaryCacheKey, summary: String) {
 /// the intent, not the whole thing.
 const TASK_HINT_MAX_CHARS: usize = 2_000;
 
+/// Bound a task hint to [`TASK_HINT_MAX_CHARS`], keeping both ends. A pasted
+/// log or document usually carries the actual request at the end ("…find the
+/// authentication failure"), so a prefix-only cut drops the one part the
+/// summarizer needs.
+fn clip_task_hint(hint: &str) -> String {
+    let chars: Vec<char> = hint.chars().collect();
+    if chars.len() <= TASK_HINT_MAX_CHARS {
+        return hint.to_string();
+    }
+    let half = TASK_HINT_MAX_CHARS / 2;
+    let head: String = chars[..half].iter().collect();
+    let tail: String = chars[chars.len() - half..].iter().collect();
+    format!(
+        "{head}\n[... {} characters omitted ...]\n{tail}",
+        chars.len() - 2 * half
+    )
+}
+
 /// Build the user-message prompt fed into the summarizer sub-agent.
 ///
 /// Wraps the raw payload in `--- BEGIN ---` / `--- END ---` markers so
@@ -660,10 +674,7 @@ fn build_summarizer_prompt(tool_name: &str, parent_task_hint: Option<&str>, raw:
     let hint_line = parent_task_hint
         .map(str::trim)
         .filter(|h| !h.is_empty())
-        .map(|h| {
-            let clipped: String = h.chars().take(TASK_HINT_MAX_CHARS).collect();
-            format!("Parent task hint: {clipped}\n\n")
-        })
+        .map(|h| format!("Parent task hint: {}\n\n", clip_task_hint(h)))
         .unwrap_or_default();
     format!(
         "Tool name: {tool_name}\n\n{hint_line}Raw tool output: {} bytes, complete, all of it between the markers below (summarize per the extraction contract in your system prompt):\n\n--- BEGIN ---\n{raw}\n--- END ---",

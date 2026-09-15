@@ -179,6 +179,10 @@ impl Middleware<()> for ToolOutputMiddleware {
         // tool's own output, which is what it is a contract about, rather than
         // openhuman's annotation about it.
         let mut pending_notice: Option<&'static str> = None;
+        // The byte count a summary replaced, stated in step 5 for the same
+        // reason as the notice: a cap that truncates the summary must not take
+        // the authoritative size with it (#6283).
+        let mut summarized_from_bytes: Option<usize> = None;
 
         if !compaction_exempt {
             if let Some(ps) = &self.payload_summarizer {
@@ -202,6 +206,7 @@ impl Middleware<()> for ToolOutputMiddleware {
                             from_tokens: estimate_output_tokens(payload.original_bytes),
                             to_tokens: estimate_output_tokens(payload.summary_bytes),
                         });
+                        summarized_from_bytes = Some(payload.original_bytes);
                         result.content = payload.summary;
                     }
                     // The payload was fine as it was. Say nothing: a notice on
@@ -358,6 +363,12 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    because it still looks like tool output.
         if let Some(notice) = pending_notice {
             result.content = format!("{notice}\n\n{}", result.content);
+        }
+        if let Some(bytes) = summarized_from_bytes {
+            result.content = format!(
+                "[openhuman: summary of {bytes} bytes of tool output, complete]\n\n{}",
+                result.content
+            );
         }
 
         Ok(())

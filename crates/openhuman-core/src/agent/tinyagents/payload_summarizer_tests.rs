@@ -264,7 +264,7 @@ async fn a_summary_written_for_another_goal_is_not_reused() {
 }
 
 #[test]
-fn a_successful_summary_is_remembered_and_states_the_real_size() {
+fn a_successful_summary_is_remembered_for_reuse() {
     let summarizer = low_threshold_summarizer();
     let raw = "x".repeat(50_000);
     let key = summary_cache_key("size_tool", Some("size goal"), &raw);
@@ -274,7 +274,7 @@ fn a_successful_summary_is_remembered_and_states_the_real_size() {
             "size_tool",
             &raw,
             std::time::Instant::now(),
-            Ok("model note: original was ~9,000 bytes (truncated payload)".to_string()),
+            Ok("model note about the payload".to_string()),
             key,
         )
         .expect("a usable summary is not an error");
@@ -282,12 +282,10 @@ fn a_successful_summary_is_remembered_and_states_the_real_size() {
     let SummarizeOutcome::Summarized(payload) = outcome else {
         panic!("a non-empty, smaller summary must be accepted");
     };
-    assert!(
-        payload
-            .summary
-            .contains("50000 bytes of tool output, complete"),
-        "the size the orchestrator reads must come from the real byte count, got: {}",
-        payload.summary
+    assert_eq!(
+        payload.original_bytes,
+        raw.len(),
+        "the summarized size handed to the middleware must be the real byte count"
     );
     assert_eq!(
         cached_summary(&key).as_deref(),
@@ -303,5 +301,27 @@ fn build_summarizer_prompt_states_the_real_byte_count() {
     assert!(
         prompt.contains("Raw tool output: 3000 bytes, complete"),
         "the summarizer must be told the payload's exact size, got: {prompt}"
+    );
+}
+
+#[test]
+fn a_long_task_hint_keeps_its_trailing_request() {
+    let hint = format!(
+        "{}\nfind the authentication failure",
+        "log line ".repeat(1_000)
+    );
+    let prompt = build_summarizer_prompt("hint_tool", Some(&hint), "payload");
+    assert!(
+        prompt.contains("find the authentication failure"),
+        "the request at the end of a long message must survive clipping"
+    );
+    assert!(
+        prompt.contains("log line"),
+        "the start of the message is kept too"
+    );
+    assert!(
+        prompt.len() < hint.len(),
+        "the hint must still be bounded, got a {}-byte prompt",
+        prompt.len()
     );
 }
