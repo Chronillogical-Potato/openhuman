@@ -397,6 +397,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'Erfolg',
   'sync.status.failed': 'Fehlgeschlagen',
   'sync.status.partial': 'Abgerufen, Speicherung im Gedächtnis fehlgeschlagen',
+  'sync.nowSyncing.title': 'Wird gerade synchronisiert',
+  'sync.nowSyncing.empty': 'Gerade wird nichts synchronisiert.',
   'common.error': 'Fehler',
   'common.success': 'Erfolg',
   'common.back': 'Zurück',
@@ -1007,6 +1009,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'Erneut eingereihte Jobs: {count}.',
   'memoryTree.status.retryFailedError':
     'Die fehlgeschlagenen Jobs konnten nicht neu eingereiht werden',
+  'memoryTree.status.jobQueue':
+    'Gedächtnisaufgaben: {ready} wartend, {running} laufend, {failed} fehlgeschlagen',
   'memoryTree.status.toggleFailed':
     'Automatische Synchronisierung konnte nicht umgeschaltet werden',
   'memoryTree.status.justNow': 'gerade eben',
@@ -2713,8 +2717,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Twitter-Suche',
   'memorySources.kind.rss_feed': 'RSS-Feed',
   'memorySources.kind.web_page': 'Webseite',
-  'memorySources.sync.successTitle': 'Synchronisierung läuft',
-  'memorySources.sync.successMessage': 'Der Fortschritt wird in Kürze angezeigt.',
   'memorySources.sync.failedTitle': 'Synchronisierung ist fehlgeschlagen',
   'memorySources.sync.completeTitle': 'Synchronisiert',
   'memorySources.sync.itemsSynced': 'Elemente synchronisiert',
@@ -2723,6 +2725,13 @@ const messages: TranslationMap = {
   'memorySources.sync.morePending': 'Mehr zu synchronisieren. Erneut auf Synchronisieren klicken',
   'memorySources.sync.budgetSpent':
     'Das heutige Anfragebudget ist aufgebraucht. Morgen erneut versuchen',
+  'memorySources.stage.requested': 'Wird gestartet',
+  'memorySources.stage.running': 'Synchronisierung läuft',
+  'memorySources.stage.fetching': 'Wird abgerufen',
+  'memorySources.stage.stored': 'Wird gespeichert',
+  'memorySources.stage.queued': 'Wird ins Gedächtnis übernommen',
+  'memorySources.stage.ingesting': 'Wird ins Gedächtnis übernommen',
+  'memorySources.stage.unknown': 'Synchronisierung läuft',
   'time.justNow': 'gerade eben',
   'time.secondsAgoSuffix': 'vor {count} Sek.',
   'time.minutesAgoSuffix': 'vor {count} Min.',

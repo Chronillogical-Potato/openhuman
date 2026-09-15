@@ -397,7 +397,9 @@ Capability {
             (max_items, sync_depth_days, max_prs/issues/commits, since_days). \
             An \"All In\" action enables every source and removes the caps to build the richest \
             memory graph, then triggers a full sync. Already-connected sources are migrated to \
-            the new defaults once.",
+            the new defaults once. Brain > Sync lists every sync run with its item count and \
+            outcome (Sync button, All In, first syncs, and background runs that found something \
+            new), which sources are syncing right now, and how many memory jobs are queued.",
         how_to: "Intelligence > Memory Sources — toggle a source, open its gear for per-source \
             limits, or use \"All In\". Programmatic: openhuman.memory_sources_update and \
             openhuman.memory_sources_apply_all_in (RPC).",

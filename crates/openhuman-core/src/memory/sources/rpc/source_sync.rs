@@ -165,11 +165,20 @@ pub async fn sync_rpc(req: SyncRequest) -> Result<RpcOutcome<SyncResponse>, Stri
             binding.driver_id()
         )
     })?;
-    sync.run_source_sync(&req.source_id)
-        .await
-        .map_err(|error| {
-            describe_source_sync_failure(&req.source_id, host_entry.is_some(), &error)
-        })?;
+    // `run_source_sync` reports neither the run's start nor its finish and
+    // writes no history row; `run_recorded` owns all three (openhuman#6257).
+    let kind = host_entry
+        .as_ref()
+        .map_or("unknown", |entry| entry.kind.as_str());
+    super::driver_run::run_recorded(
+        &config,
+        &req.source_id,
+        host_entry.as_ref(),
+        || sync.run_source_sync(&req.source_id),
+        |error| describe_source_sync_failure(&req.source_id, host_entry.is_some(), error),
+        super::driver_run::bus_stage_publisher(&req.source_id, kind),
+    )
+    .await?;
 
     Ok(RpcOutcome::new(
         SyncResponse {

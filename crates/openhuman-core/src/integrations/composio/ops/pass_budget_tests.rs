@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 
 use super::super::providers_ops::{SyncPassOutcome, SYNC_PASS_MAX_ITEMS};
-use super::{run_passes_within_budget, SINGLE_CALL_ITEM_BUDGET};
+use super::{run_passes_within_budget, DrainFailure, SINGLE_CALL_ITEM_BUDGET};
 
 fn pass(written: u32, more_pending: bool) -> SyncPassOutcome {
     SyncPassOutcome {
@@ -25,7 +25,7 @@ fn pass(written: u32, more_pending: bool) -> SyncPassOutcome {
 async fn drive(
     budget: u32,
     script: Vec<Result<SyncPassOutcome, String>>,
-) -> (Result<SyncPassOutcome, String>, Vec<usize>) {
+) -> (Result<SyncPassOutcome, DrainFailure>, Vec<usize>) {
     let script = RefCell::new(VecDeque::from(script));
     let asked = RefCell::new(Vec::new());
     let out = run_passes_within_budget(budget, |pass_budget| {
@@ -88,14 +88,39 @@ async fn a_small_account_is_still_one_pass() {
 }
 
 #[tokio::test]
-async fn a_pass_error_ends_the_run_with_that_error() {
+async fn a_pass_error_ends_the_run_with_that_error_and_the_earlier_writes() {
     let (out, asked) = drive(
         SINGLE_CALL_ITEM_BUDGET,
         vec![Ok(pass(200, true)), Err("module went away".to_string())],
     )
     .await;
-    assert_eq!(out.unwrap_err(), "module went away");
+    // The first pass's 200 records are committed whatever the second did, so
+    // the run's history row reports them (openhuman#6257).
+    assert_eq!(
+        out.unwrap_err(),
+        DrainFailure {
+            error: "module went away".to_string(),
+            written: 200,
+        }
+    );
     assert_eq!(asked.len(), 2, "no pass is attempted after the failure");
+}
+
+#[tokio::test]
+async fn a_first_pass_error_reports_nothing_written() {
+    let (out, asked) = drive(
+        SINGLE_CALL_ITEM_BUDGET,
+        vec![Err("connector refused the call".to_string())],
+    )
+    .await;
+    assert_eq!(
+        out.unwrap_err(),
+        DrainFailure {
+            error: "connector refused the call".to_string(),
+            written: 0,
+        }
+    );
+    assert_eq!(asked.len(), 1);
 }
 
 #[tokio::test]

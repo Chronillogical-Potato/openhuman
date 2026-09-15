@@ -30,6 +30,18 @@ pub(crate) const SINGLE_CALL_ITEM_BUDGET: u32 = 500;
 /// trickle cannot pin the caller.
 const SINGLE_CALL_MAX_PASSES: usize = 50;
 
+/// A drain a pass error ended, with what the passes before it wrote.
+///
+/// Those writes are committed by the driver whatever the later pass did, so the
+/// run's history row reports them rather than zero (Codex review on #6264).
+#[derive(Debug, PartialEq)]
+pub(crate) struct DrainFailure {
+    /// The failing pass's error.
+    pub error: String,
+    /// Records written by the passes that finished before it.
+    pub written: u32,
+}
+
 /// Run passes until the connector reports the end, `budget` records have been
 /// read, a pass reads nothing, or [`SINGLE_CALL_MAX_PASSES`] is reached; each
 /// pass is capped at `SYNC_PASS_MAX_ITEMS` through [`next_pass_budget`].
@@ -37,12 +49,13 @@ const SINGLE_CALL_MAX_PASSES: usize = 50;
 /// The outcome sums `records_read` and `written` across passes, is
 /// `already_ingested` only when every pass was a no-op, and carries the last
 /// pass's `more_pending` and `message` — the same "last pass's word wins" rule
-/// the Sources-row loop applies. A pass error ends the run with that error;
-/// what earlier passes wrote is already committed by the driver.
+/// the Sources-row loop applies. A pass error ends the run with a
+/// [`DrainFailure`] carrying that error and what the earlier passes wrote,
+/// which the driver has already committed.
 pub(crate) async fn run_passes_within_budget<F, Fut>(
     budget: u32,
     mut run_pass: F,
-) -> Result<SyncPassOutcome, String>
+) -> Result<SyncPassOutcome, DrainFailure>
 where
     F: FnMut(usize) -> Fut,
     Fut: Future<Output = Result<SyncPassOutcome, String>>,
@@ -57,7 +70,15 @@ where
         if passes >= SINGLE_CALL_MAX_PASSES {
             break;
         }
-        let pass = run_pass(pass_budget).await?;
+        let pass = match run_pass(pass_budget).await {
+            Ok(pass) => pass,
+            Err(error) => {
+                return Err(DrainFailure {
+                    error,
+                    written: total.written,
+                });
+            }
+        };
         passes += 1;
         read = read.saturating_add(u64::try_from(pass.records_read).unwrap_or(u64::MAX));
         total.records_read = total.records_read.saturating_add(pass.records_read);
@@ -84,16 +105,40 @@ where
 
 /// [`run_sync_pass`] for the single-call entry points: the same
 /// tinyconnectors-mediated pass, repeated within [`SINGLE_CALL_ITEM_BUDGET`].
+///
+/// Also where each of those runs gets its Sync History row (openhuman#6257):
+/// the periodic tick, the first sync after connecting, a provider sync and the
+/// Slack RPC all end here, so recording at the callers would be four copies of
+/// one rule. A drain a later pass fails still records what its earlier passes
+/// wrote: the driver has committed those.
 pub(crate) async fn run_sync_within_budget(
     config: &Config,
     toolkit: &str,
     connection_id: &str,
     reason: &str,
 ) -> Result<SyncPassOutcome, String> {
-    run_passes_within_budget(SINGLE_CALL_ITEM_BUDGET, |pass_budget| {
+    let started = std::time::Instant::now();
+    let result = run_passes_within_budget(SINGLE_CALL_ITEM_BUDGET, |pass_budget| {
         run_sync_pass(config, toolkit, connection_id, reason, pass_budget)
     })
-    .await
+    .await;
+    let (written, error) = match &result {
+        Ok(pass) => (pass.written, None),
+        Err(failure) => (failure.written, Some(failure.error.as_str())),
+    };
+    super::connector_runs::record(
+        config,
+        &super::connector_runs::ConnectorRun {
+            toolkit,
+            connection_id,
+            source_id: None,
+            reason,
+            started,
+            written: u64::from(written),
+            error,
+        },
+    );
+    result.map_err(|failure| failure.error)
 }
 
 #[cfg(test)]
