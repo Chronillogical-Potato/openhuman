@@ -1,0 +1,465 @@
+//! Host-facing orchestration: login, store, logout, current user and state
+//! on top of a [`SessionClient`], a [`CurrentUserCache`] and a [`CoreLink`].
+//!
+//! The core is the persistent store; this manager keeps no copy of the
+//! secret. It reads the stored token back through the link when it needs to
+//! refresh `/auth/me`, and pushes credentials in through `auth.set_credential`.
+
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use serde::Serialize;
+use serde_json::{json, Value};
+use tokio::sync::broadcast;
+use tokio::task::JoinHandle;
+
+use crate::cache::{CachedUser, CurrentUserCache};
+use crate::client::{ClientHeaders, FetchMeError, SessionClient};
+use crate::credential::{
+    decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload,
+    Credential, CredentialKind,
+};
+use crate::identity;
+use crate::link::{self, CoreAuthState, CoreLink};
+
+const LOG_PREFIX: &str = "[session][manager]";
+
+/// Marks a stored user payload as not yet confirmed against the backend —
+/// set when a JWT is accepted while the backend is unreachable, cleared once
+/// `/auth/me` confirms it.
+pub const PENDING_BACKEND_VALIDATION_FIELD: &str = "pendingBackendValidation";
+
+const REVALIDATION_INITIAL_DELAY: Duration = Duration::from_secs(5);
+const REVALIDATION_MAX_DELAY: Duration = Duration::from_secs(60);
+
+/// Why a login / store did not complete. The `Display` form carries a stable
+/// `PREFIX:` a frontend can classify on.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum SessionError {
+    /// The backend refused the credential; nothing was stored.
+    #[error("REJECTED: {0}")]
+    Rejected(String),
+    /// The JWT's `exp` is already in the past; nothing was stored.
+    #[error("EXPIRED: session token has already expired")]
+    Expired,
+    /// The backend could not be reached and the token cannot be accepted
+    /// provisionally (no live `exp`).
+    #[error("TRANSIENT: {0}")]
+    Transient(String),
+    /// Deferred acceptance needs a user id and the token carries none.
+    #[error("USER_ID_UNAVAILABLE: backend unreachable and the token carries no subject claim")]
+    UserIdUnavailable,
+    /// Login-token exchange failed.
+    #[error("CONSUME_FAILED: {0}")]
+    ConsumeFailed(String),
+    /// The backend base URL could not be resolved or the client not built.
+    #[error("BACKEND: {0}")]
+    Backend(String),
+    /// The core refused or failed the RPC.
+    #[error("CORE: {0}")]
+    Core(String),
+    /// The local session needs a user payload.
+    #[error("INVALID: {0}")]
+    Invalid(String),
+}
+
+/// Everything a UI needs to render the signed-in state.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionState {
+    #[serde(flatten)]
+    pub core: CoreAuthState,
+    pub current_user: Option<Value>,
+    pub current_user_stale: bool,
+    pub current_user_stale_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum SessionEvent {
+    /// The credential or the current user changed.
+    Changed(SessionState),
+    /// The backend rejected the stored credential; it has been cleared.
+    Expired { source: String },
+}
+
+pub struct SessionManager<L: CoreLink> {
+    link: Arc<L>,
+    headers: ClientHeaders,
+    client: Mutex<Option<Arc<SessionClient>>>,
+    cache: CurrentUserCache,
+    events: broadcast::Sender<SessionEvent>,
+    revalidation: Mutex<Option<JoinHandle<()>>>,
+    /// Serialises login / logout so two callbacks cannot interleave their
+    /// core-side side effects.
+    mutation: tokio::sync::Mutex<()>,
+}
+
+impl<L: CoreLink> SessionManager<L> {
+    pub fn new(link: Arc<L>, headers: ClientHeaders) -> Arc<Self> {
+        let (events, _) = broadcast::channel(32);
+        Arc::new(Self {
+            link,
+            headers,
+            client: Mutex::new(None),
+            cache: CurrentUserCache::new(),
+            events,
+            revalidation: Mutex::new(None),
+            mutation: tokio::sync::Mutex::new(()),
+        })
+    }
+
+    pub fn link(&self) -> &Arc<L> {
+        &self.link
+    }
+
+    pub fn cache(&self) -> &CurrentUserCache {
+        &self.cache
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<SessionEvent> {
+        self.events.subscribe()
+    }
+
+    fn emit(&self, event: SessionEvent) {
+        let _ = self.events.send(event);
+    }
+
+    /// The client for the backend the core is configured against. Rebuilt
+    /// when the resolved base URL changes (environment / gateway switch).
+    pub async fn client(&self) -> Result<Arc<SessionClient>, SessionError> {
+        let base = link::resolve_backend_url(self.link.as_ref())
+            .await
+            .map_err(SessionError::Backend)?;
+        let normalized = base.trim().trim_end_matches('/');
+        {
+            let guard = self.client.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(client) = guard.as_ref() {
+                if client.base_url() == normalized {
+                    return Ok(Arc::clone(client));
+                }
+            }
+        }
+        let client = Arc::new(
+            SessionClient::new(&base, &self.headers).map_err(|e| SessionError::Backend(e.to_string()))?,
+        );
+        log::debug!("{LOG_PREFIX} session client bound to {}", client.base_url());
+        *self.client.lock().unwrap_or_else(|p| p.into_inner()) = Some(Arc::clone(&client));
+        Ok(client)
+    }
+
+    fn cancel_revalidation(&self) {
+        if let Some(handle) = self
+            .revalidation
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            handle.abort();
+        }
+    }
+
+    async fn push(
+        &self,
+        credential: &Credential,
+        user_id: Option<&str>,
+        user: Option<&Value>,
+    ) -> Result<CoreAuthState, SessionError> {
+        let state = link::push_credential(self.link.as_ref(), credential, user_id, user)
+            .await
+            .map_err(SessionError::Core)?;
+        identity::set_user_id(state.user_id.clone());
+        Ok(state)
+    }
+
+    async fn changed(&self) -> Result<SessionState, SessionError> {
+        let state = self.state().await?;
+        self.emit(SessionEvent::Changed(state.clone()));
+        Ok(state)
+    }
+
+    /// Exchange a one-time login token for a JWT and store it.
+    pub async fn login_with_token(self: &Arc<Self>, login_token: &str) -> Result<SessionState, SessionError> {
+        let client = self.client().await?;
+        let jwt = client
+            .consume_login_token(login_token)
+            .await
+            .map_err(|e| SessionError::ConsumeFailed(e.to_string()))?;
+        self.store_session_token(&jwt, None).await
+    }
+
+    /// Store a session JWT (or a local offline token) after validating it.
+    ///
+    /// * local token → stored as-is with `user` (required);
+    /// * JWT with a dead `exp` → [`SessionError::Expired`];
+    /// * JWT confirmed by `/auth/me` → stored with the backend's user;
+    /// * JWT refused by the backend → [`SessionError::Rejected`], nothing stored;
+    /// * backend unreachable and JWT has a live `exp` and a subject claim →
+    ///   stored provisionally with `pendingBackendValidation: true` and
+    ///   revalidated in the background.
+    pub async fn store_session_token(
+        self: &Arc<Self>,
+        token: &str,
+        user: Option<Value>,
+    ) -> Result<SessionState, SessionError> {
+        let _guard = self.mutation.lock().await;
+        self.cancel_revalidation();
+        let credential = Credential::classify(token);
+        if credential.secret.is_empty() {
+            return Err(SessionError::Invalid("token is required".to_string()));
+        }
+
+        if credential.is_local() {
+            let user = user.filter(|u| u.as_object().is_some_and(|m| !m.is_empty()));
+            if user.is_none() {
+                return Err(SessionError::Invalid(
+                    "local session requires a user payload".to_string(),
+                ));
+            }
+            self.push(&credential, None, user.as_ref()).await?;
+            self.cache.forget();
+            return self.changed().await;
+        }
+
+        let now = chrono::Utc::now();
+        if decode_jwt_exp(&credential.secret).is_some() && jwt_is_live(&credential.secret, now).is_none() {
+            return Err(SessionError::Expired);
+        }
+
+        let client = self.client().await?;
+        match client.validate_for_store(&credential).await {
+            Ok(me) => {
+                let user_id = user_id_from_profile_payload(&me)
+                    .or_else(|| user.as_ref().and_then(user_id_from_profile_payload))
+                    .or_else(|| user_id_from_jwt_claims(&credential.secret));
+                log::info!("{LOG_PREFIX} session JWT verified via GET /auth/me on {}", client.base_url());
+                self.push(&credential, user_id.as_deref(), Some(&me)).await?;
+                self.cache.forget();
+                self.changed().await
+            }
+            Err(FetchMeError::Rejected(reason)) => {
+                log::warn!("{LOG_PREFIX} GET /auth/me rejected the session token; not stored: {reason}");
+                Err(SessionError::Rejected(reason))
+            }
+            Err(error) => {
+                let reason = error.message().to_string();
+                if jwt_is_live(&credential.secret, now).is_none() {
+                    log::warn!("{LOG_PREFIX} backend unreachable and JWT has no live exp; not stored: {reason}");
+                    return Err(SessionError::Transient(reason));
+                }
+                let user_id = user
+                    .as_ref()
+                    .and_then(user_id_from_profile_payload)
+                    .or_else(|| user_id_from_jwt_claims(&credential.secret))
+                    .ok_or(SessionError::UserIdUnavailable)?;
+                log::warn!(
+                    "{LOG_PREFIX} backend unreachable ({reason}); storing pending session for user_id={user_id} and revalidating in the background"
+                );
+                let pending = json!({ PENDING_BACKEND_VALIDATION_FIELD: true });
+                self.push(&credential, Some(&user_id), Some(&pending)).await?;
+                self.cache.forget();
+                self.spawn_revalidation(credential);
+                self.changed().await
+            }
+        }
+    }
+
+    /// Store a TinyHumans API key. No user identity, no backend round trip.
+    pub async fn store_api_key(self: &Arc<Self>, key: &str) -> Result<SessionState, SessionError> {
+        let _guard = self.mutation.lock().await;
+        let credential = Credential::api_key(key);
+        if credential.secret.is_empty() {
+            return Err(SessionError::Invalid("api key is required".to_string()));
+        }
+        self.push(&credential, None, None).await?;
+        self.changed().await
+    }
+
+    fn spawn_revalidation(self: &Arc<Self>, credential: Credential) {
+        let manager = Arc::clone(self);
+        let handle = tokio::spawn(async move {
+            let mut delay = REVALIDATION_INITIAL_DELAY;
+            loop {
+                tokio::time::sleep(delay).await;
+                let Ok(client) = manager.client().await else {
+                    delay = (delay * 2).min(REVALIDATION_MAX_DELAY);
+                    continue;
+                };
+                // The core is the store of record; if it no longer holds this
+                // token (logout, or a newer login), this loop is stale.
+                match link::core_session_token(manager.link.as_ref()).await {
+                    Ok(Some(stored)) if stored == credential.secret => {}
+                    _ => {
+                        log::debug!("{LOG_PREFIX} pending-session revalidation stopped; token no longer stored");
+                        return;
+                    }
+                }
+                match client.fetch_me(&credential).await {
+                    Ok(me) => {
+                        let user_id = user_id_from_profile_payload(&me)
+                            .or_else(|| user_id_from_jwt_claims(&credential.secret));
+                        log::info!("{LOG_PREFIX} pending session confirmed via GET /auth/me");
+                        if let Err(e) = manager.push(&credential, user_id.as_deref(), Some(&me)).await {
+                            log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
+                        }
+                        manager.cache.forget();
+                        if let Ok(state) = manager.state().await {
+                            manager.emit(SessionEvent::Changed(state));
+                        }
+                        return;
+                    }
+                    Err(FetchMeError::Rejected(reason)) => {
+                        log::warn!("{LOG_PREFIX} pending session rejected by backend; clearing: {reason}");
+                        manager.clear_session_credential("pending-revalidation").await;
+                        return;
+                    }
+                    Err(error) => {
+                        log::debug!(
+                            "{LOG_PREFIX} pending-session revalidation still failing ({}); retrying in {}s",
+                            error.message(),
+                            delay.as_secs()
+                        );
+                        delay = (delay * 2).min(REVALIDATION_MAX_DELAY);
+                    }
+                }
+            }
+        });
+        *self.revalidation.lock().unwrap_or_else(|p| p.into_inner()) = Some(handle);
+    }
+
+    async fn clear_session_credential(&self, source: &str) {
+        if let Err(e) = link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session)).await {
+            log::warn!("{LOG_PREFIX} failed to clear rejected session credential: {e}");
+        }
+        self.cache.forget();
+        identity::clear();
+        self.emit(SessionEvent::Expired {
+            source: source.to_string(),
+        });
+        if let Ok(state) = self.state().await {
+            self.emit(SessionEvent::Changed(state));
+        }
+    }
+
+    /// Sign out: clear the session (or local) credential in the core and
+    /// forget the current user.
+    pub async fn logout(&self) -> Result<SessionState, SessionError> {
+        let _guard = self.mutation.lock().await;
+        self.cancel_revalidation();
+        link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session))
+            .await
+            .map_err(SessionError::Core)?;
+        self.cache.forget();
+        identity::clear();
+        self.changed().await
+    }
+
+    /// Remove a stored API key.
+    pub async fn clear_api_key(&self) -> Result<SessionState, SessionError> {
+        let _guard = self.mutation.lock().await;
+        link::clear_credential(self.link.as_ref(), Some(CredentialKind::ApiKey))
+            .await
+            .map_err(SessionError::Core)?;
+        self.changed().await
+    }
+
+    /// The core's own view of the credential it holds.
+    pub async fn core_state(&self) -> Result<CoreAuthState, SessionError> {
+        let state = link::core_auth_state(self.link.as_ref())
+            .await
+            .map_err(SessionError::Core)?;
+        identity::set_user_id(state.user_id.clone());
+        Ok(state)
+    }
+
+    /// The current user: cached `/auth/me` for a session credential
+    /// (refreshed per the cache policy, or unconditionally with `force`),
+    /// the stored payload for a local session or an API key.
+    ///
+    /// A backend rejection clears the credential and reports
+    /// [`SessionError::Rejected`]; an availability failure serves the stored
+    /// user marked stale.
+    pub async fn current_user(&self, force: bool) -> Result<CachedUser, SessionError> {
+        let core = self.core_state().await?;
+        self.current_user_for(&core, force).await
+    }
+
+    async fn current_user_for(&self, core: &CoreAuthState, force: bool) -> Result<CachedUser, SessionError> {
+        if !core.is_authenticated {
+            return Ok(CachedUser {
+                user: None,
+                stale: false,
+                stale_seconds: None,
+            });
+        }
+        let stored = || CachedUser {
+            user: core.user.clone(),
+            stale: false,
+            stale_seconds: None,
+        };
+        if core.kind() != Some(CredentialKind::Session) {
+            return Ok(stored());
+        }
+        let Some(secret) = link::core_session_token(self.link.as_ref())
+            .await
+            .map_err(SessionError::Core)?
+        else {
+            return Ok(stored());
+        };
+        let credential = Credential::session(secret);
+        let client = self.client().await?;
+        match self.cache.get_or_refresh(&client, &credential, force).await {
+            Ok(cached) => {
+                if cached.user.is_some() && user_is_pending(core.user.as_ref()) {
+                    // The shell (or a previous process) accepted this token
+                    // while the backend was down; the confirmation just came in.
+                    let user_id = cached.user.as_ref().and_then(user_id_from_profile_payload);
+                    if let Err(e) = self.push(&credential, user_id.as_deref(), cached.user.as_ref()).await {
+                        log::warn!("{LOG_PREFIX} failed to store confirmed pending session: {e}");
+                    }
+                }
+                Ok(cached)
+            }
+            Err(FetchMeError::Rejected(reason)) => {
+                log::warn!("{LOG_PREFIX} GET /auth/me rejected the stored session; signing out: {reason}");
+                self.clear_session_credential("auth/me").await;
+                Err(SessionError::Rejected(reason))
+            }
+            Err(error) => {
+                log::debug!("{LOG_PREFIX} serving stored user; refresh failed: {error}");
+                let mut fallback = stored();
+                fallback.stale = true;
+                Ok(fallback)
+            }
+        }
+    }
+
+    /// Core state plus the current user, in one shape.
+    pub async fn state(&self) -> Result<SessionState, SessionError> {
+        let core = self.core_state().await?;
+        let current = match self.current_user_for(&core, false).await {
+            Ok(current) => current,
+            Err(SessionError::Rejected(_)) => {
+                return Ok(SessionState::default());
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(SessionState {
+            current_user: current.user.or_else(|| core.user.clone()),
+            current_user_stale: current.stale,
+            current_user_stale_seconds: current.stale_seconds,
+            core,
+        })
+    }
+}
+
+fn user_is_pending(user: Option<&Value>) -> bool {
+    user.and_then(Value::as_object)
+        .and_then(|m| m.get(PENDING_BACKEND_VALIDATION_FIELD))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+#[path = "manager_tests.rs"]
+mod tests;
