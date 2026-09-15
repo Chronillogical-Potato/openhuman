@@ -175,21 +175,6 @@ fn main() {
             // filter catches any future call site that re-emits the same
             // shape — keeping OPENHUMAN-TAURI-25 / -1Q / -27 / -1G off
             // Sentry permanently (~185 events/day combined).
-            // Defense-in-depth: drop opaque "GET /auth/me" events from the
-            // `openhuman.auth_get_me` RPC. The primary fix in
-            // `credentials::ops::auth_get_me` walks the full anyhow context
-            // chain so `is_transient_message_failure` can demote transient
-            // transport failures at the rpc dispatcher. This catches any
-            // future regression where a sibling call site collapses the
-            // chain via `e.to_string()` and reproduces TAURI-RUST-10
-            // (~409 events / 17 users).
-            if openhuman_core::core::observability::is_auth_get_me_opaque_transport_event(&event) {
-                log::debug!(
-                    "[sentry-auth-get-me-opaque-filter] dropping opaque transport event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
             // Defense-in-depth: drop user-config provider errors that
             // slipped past the call-site classifiers — 4xx client errors,
             // subscription/payment issues, embedding API authorization
