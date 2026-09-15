@@ -11,6 +11,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     })
 }
 
@@ -39,6 +40,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: Some(config),
+        user_skill_roots: true,
     })
 }
 
@@ -206,6 +208,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes
@@ -255,6 +258,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     });
     let b = Arc::new(CoreContext {
         host_kind: HostKind::Cli,
@@ -265,6 +269,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     });
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -291,6 +296,7 @@ fn rebind_workspace_updates_context_memory_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -318,6 +324,7 @@ fn rebind_workspace_refreshes_memory_subsystem_config() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -358,6 +365,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
     let b = CoreContext {
         host_kind: HostKind::Cli,
@@ -368,6 +376,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -398,6 +407,7 @@ fn memory_capabilities_defaults_open_without_a_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
     assert!(ctx.memory_binding().is_err(), "no workspace ⇒ no binding");
     assert_eq!(
