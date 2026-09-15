@@ -561,3 +561,5 @@ mod session_dispatch_and_resume_tests;
 mod session_prefix_stability_tests;
 #[path = "session_thread_resume_tests.rs"]
 mod session_thread_resume_tests;
+#[path = "session_thread_resume_scoped_tests.rs"]
+mod session_thread_resume_scoped_tests;
