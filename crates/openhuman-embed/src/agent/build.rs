@@ -146,6 +146,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     Ok(AgentInner {
         id,
+        _runtime_guard: runtime.guard(),
         runtime: runtime.core_runtime().clone(),
         ctx,
         config,
