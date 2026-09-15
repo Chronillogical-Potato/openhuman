@@ -722,6 +722,8 @@ const messages: TranslationMap = {
   'skills.explorer.installed': '已安装',
   'skills.explorer.install': '安装',
   'skills.explorer.installing': '安装中…',
+  'skills.explorer.notInstallable': '无法安装',
+  'skills.explorer.notInstallableHint': '此条目没有可下载的 SKILL.md，因此无法在此安装。',
   'skills.integrations': 'Composio 集成',
   'skills.integrationsSubtitle':
     '基于云端的 OAuth 连接：使用您的账户登录，Composio 代管令牌，让智能体能以您的名义读取数据并执行操作，无需管理 API 密钥。',
