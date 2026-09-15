@@ -19,9 +19,9 @@ use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
 use openhuman_core::desktop::app_state::{
-    peek_cached_current_user_identity, snapshot, update_local_state, StoredAppStatePatch,
-    StoredOnboardingTasks,
+    snapshot, update_local_state, StoredAppStatePatch, StoredOnboardingTasks,
 };
+use openhuman_core::security::credentials::identity::peek_credential_user_identity;
 use openhuman_core::integrations::composio::ops::{
     composio_authorize, composio_execute, composio_list_connections, composio_list_toolkits,
     composio_list_tools,
@@ -554,7 +554,7 @@ async fn round18_app_state_snapshot_uses_local_session_cache_and_patch_edges() {
     assert!(snap.onboarding_completed);
     assert!(!snap.analytics_enabled);
 
-    assert!(peek_cached_current_user_identity().is_none());
+    assert!(peek_credential_user_identity().is_none());
 }
 
 async fn composio_backend_handler(State(state): State<MockState>, request: Request) -> Response {
