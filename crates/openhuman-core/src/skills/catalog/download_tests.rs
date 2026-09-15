@@ -83,7 +83,7 @@ fn find_skill_md_in_tree_refuses_to_guess_between_same_named_directories() {
 }
 
 #[test]
-fn find_skill_md_in_tree_does_not_call_a_truncated_listing_proof_of_absence() {
+fn find_skill_md_in_tree_does_not_trust_a_truncated_listing() {
     let truncated = json!({
         "truncated": true,
         "tree": [{ "path": "other/SKILL.md", "type": "blob" }]
@@ -92,13 +92,26 @@ fn find_skill_md_in_tree_does_not_call_a_truncated_listing_proof_of_absence() {
         find_skill_md_in_tree(&truncated, "my-skill"),
         Err(TreeMiss::Truncated)
     );
-    // A match that did make it into a truncated listing is still usable.
-    let found = json!({
+    // A lone visible match is not proof of uniqueness: the cut-off part of the
+    // listing can hold another directory with the same name.
+    let one_visible = json!({
         "truncated": true,
         "tree": [{ "path": "deep/my-skill/SKILL.md", "type": "blob" }]
     });
     assert_eq!(
-        find_skill_md_in_tree(&found, "my-skill"),
-        Ok("deep/my-skill/SKILL.md".to_string())
+        find_skill_md_in_tree(&one_visible, "my-skill"),
+        Err(TreeMiss::Truncated)
     );
+    // Two visible matches are ambiguous whatever was cut off.
+    let two_visible = json!({
+        "truncated": true,
+        "tree": [
+            { "path": "a/my-skill/SKILL.md", "type": "blob" },
+            { "path": "b/my-skill/SKILL.md", "type": "blob" },
+        ]
+    });
+    assert!(matches!(
+        find_skill_md_in_tree(&two_visible, "my-skill"),
+        Err(TreeMiss::Ambiguous(_))
+    ));
 }

@@ -146,7 +146,8 @@ impl<'a> SkillsShRef<'a> {
 pub(super) enum TreeMiss {
     /// The listing is complete and has no `<skill>/SKILL.md`.
     Absent,
-    /// GitHub truncated the listing and it has no match, so absence is unproven.
+    /// GitHub truncated the listing and it shows at most one match, so neither
+    /// absence nor uniqueness is proven.
     Truncated,
     /// Several directories are named for the skill; picking one would be a guess.
     Ambiguous(Vec<String>),
@@ -166,10 +167,15 @@ pub(super) fn find_skill_md_in_tree(tree: &Value, skill: &str) -> Result<String,
         .filter(|path| path.ends_with(&suffix) || *path == &suffix[1..])
         .map(str::to_string)
         .collect();
+    // A truncated listing can omit a match: it proves neither that the skill is
+    // absent nor that a lone visible match is the only one. Two visible matches
+    // are ambiguous either way.
     let truncated = tree.get("truncated").and_then(Value::as_bool) == Some(true);
+    if truncated && matches.len() < 2 {
+        return Err(TreeMiss::Truncated);
+    }
     match matches.len() {
         1 => Ok(matches.remove(0)),
-        0 if truncated => Err(TreeMiss::Truncated),
         0 => Err(TreeMiss::Absent),
         _ => Err(TreeMiss::Ambiguous(matches)),
     }
