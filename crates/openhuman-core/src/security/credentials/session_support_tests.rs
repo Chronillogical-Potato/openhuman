@@ -277,7 +277,8 @@ fn build_session_state_prefers_the_api_key_over_a_present_session() {
             true,
         )
         .expect("store session token");
-    crate::security::credentials::api_key::store_api_key(&config, "th_test_key").expect("store api key");
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_key")
+        .expect("store api key");
 
     let state = build_session_state(&config).unwrap();
     assert!(state.is_authenticated);
