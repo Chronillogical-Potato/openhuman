@@ -141,14 +141,21 @@ impl Access {
         self.approval_gate
     }
 
-    /// Write this access level into `config`.
+    /// Write this access level into `config`, **replacing** whatever
+    /// `trusted_roots` it already carried.
+    ///
+    /// An `Access` is the complete authority statement for whoever applies
+    /// it, not an addition to it: `Runtime::agent` starts each agent's config
+    /// from the runtime's own base config (which already has the runtime
+    /// default `Access` applied), then applies the agent's own `Access` on
+    /// top. Extending rather than replacing would let a narrower per-agent
+    /// grant — e.g. `Access::readonly()`, which trusts nothing — keep every
+    /// root the runtime default trusted, silently widening a supposedly
+    /// scoped-down agent.
     pub(crate) fn apply(&self, config: &mut openhuman_core::config::Config) {
         config.autonomy.level = self.level;
         config.autonomy.allow_tool_install = self.allow_tool_install;
-        config
-            .autonomy
-            .trusted_roots
-            .extend(self.trusted_roots.iter().cloned());
+        config.autonomy.trusted_roots = self.trusted_roots.clone();
         // `auto_approve_all` is deliberately NOT set for `full()`. The origin
         // is the correct instrument — it says *who is calling*, which the gate
         // can reason about — whereas `auto_approve_all` is a blanket bypass
