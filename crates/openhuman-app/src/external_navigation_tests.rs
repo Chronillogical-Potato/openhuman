@@ -12,6 +12,8 @@ fn remote_pages_are_cancelled_and_handed_to_the_os_browser() {
         // Loopback that is not the dev server is still a remote page to the webview.
         "http://localhost:8000/",
         "https://tauri.localhost.example.com/",
+        // Same host, different origin: a loopback service on another port.
+        "http://tauri.localhost:8000/",
     ] {
         assert_eq!(
             navigation_handoff("main", &url(href), None),

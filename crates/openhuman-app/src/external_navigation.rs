@@ -26,13 +26,16 @@ const MAIN_WINDOW: &str = "main";
 /// App origins that stay in the webview:
 /// - any non-`http(s)` scheme: `tauri://localhost` (macOS/Linux), `about:`,
 ///   `blob:`, `data:`;
-/// - `http(s)://tauri.localhost` (Windows);
+/// - `http(s)://tauri.localhost` on its default port (Windows); any other port
+///   is a different origin, e.g. a loopback service, and is handed off;
 /// - the dev server origin, passed as `dev_url` only under `tauri dev`.
 pub(crate) fn navigation_handoff(label: &str, url: &Url, dev_url: Option<&Url>) -> Option<Url> {
     if label != MAIN_WINDOW || !matches!(url.scheme(), "http" | "https") {
         return None;
     }
-    if url.host_str() == Some("tauri.localhost")
+    // `Url` drops a scheme's default port, so `port()` is `None` only for the
+    // canonical `http(s)://tauri.localhost` origins.
+    if (url.host_str() == Some("tauri.localhost") && url.port().is_none())
         || dev_url.is_some_and(|dev| dev.origin() == url.origin())
     {
         return None;
