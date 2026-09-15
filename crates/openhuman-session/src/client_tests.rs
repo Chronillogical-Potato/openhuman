@@ -65,7 +65,7 @@ async fn consume_login_token_returns_jwt_and_sends_attribution_headers() {
     assert_eq!(h.get("x-core-version").unwrap(), "1.2.3+abc");
     assert_eq!(
         h.get("authorization").unwrap().to_str().unwrap(),
-        format!("Bearer {}", &LIVE_JWT)
+        format!("Bearer {}", LIVE_JWT.as_str())
     );
     assert!(h.get("x-api-key").is_none());
 }
