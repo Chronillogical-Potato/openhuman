@@ -155,8 +155,10 @@ see [`models/mod.rs`](models/mod.rs) for the full list.
   `crates/openhuman-core/src/api/`.
 - Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
   `BackendOAuthClient`, `IntegrationClient` (except redirected file
-  downloads), `MedullaClient` (including its separate SSE handshake),
-  desktop `GET /auth/me`, and the agent's Langfuse ingestion request.
+  downloads), `MedullaClient` (including its separate SSE handshake), the
+  agent's Langfuse ingestion request, and — outside this crate — the host
+  session owner's `POST /auth/login-token/consume` / `GET /auth/me`
+  (`crates/openhuman-session`, via `ClientHeaders`).
 - Never add `x-sdk-name` to third-party endpoints, MCP servers, BYOK
   inference endpoints, or presigned storage redirects.
 - When auditing hand-built backend requests, grep for
