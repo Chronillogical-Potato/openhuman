@@ -118,4 +118,3 @@ Because the ledger is real git history, Memory Diff gives the agent's knowledge 
 - [Memory Tree](memory-tree.md) - the authoritative knowledge base that snapshots are derived from.
 - [Auto-fetch from Integrations](auto-fetch.md) - what triggers the syncs that produce new snapshots.
 - [Obsidian Wiki](README.md) - the Markdown vault these sources ingest into.
-- [Subconscious Loop](../subconscious.md) - the background loop that reviews new memory changes for actionable items.
