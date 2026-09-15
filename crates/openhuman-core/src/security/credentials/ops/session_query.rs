@@ -118,9 +118,7 @@ pub async fn auth_store_api_key(
 
 /// Remove the stored TinyHumans API key. The scheduler gate follows whatever
 /// credential remains.
-pub async fn auth_clear_api_key(
-    config: &Config,
-) -> Result<RpcOutcome<serde_json::Value>, String> {
+pub async fn auth_clear_api_key(config: &Config) -> Result<RpcOutcome<serde_json::Value>, String> {
     let removed = super::super::api_key::clear_api_key(config).map_err(|e| e.to_string())?;
     if !super::super::session_support::has_backend_credential(config) {
         crate::cron::scheduler_gate::set_signed_out(true);

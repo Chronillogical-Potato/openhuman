@@ -106,7 +106,10 @@ fn derive_with_keeps_the_host_and_overrides_the_per_agent_fields() {
 
     assert_eq!(child.host_kind(), parent.host_kind());
     assert_eq!(child.domains(), crate::core::runtime::DomainSet::kernel());
-    assert_eq!(child.tool_groups(), crate::tools::toolpacks::ToolGroups::none());
+    assert_eq!(
+        child.tool_groups(),
+        crate::tools::toolpacks::ToolGroups::none()
+    );
     assert!(!child.user_skill_roots());
     assert_eq!(
         child.workspace_dir().expect("child workspace"),

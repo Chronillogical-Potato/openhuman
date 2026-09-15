@@ -39,7 +39,9 @@ async fn from_config_with_definition_stamps_the_definition_on_the_session() {
         .expect("the explicit definition is stamped");
     assert_eq!(resolved.id, "embedded-alpha");
     assert_eq!(resolved.sandbox_mode, SandboxMode::ReadOnly);
-    assert!(matches!(resolved.system_prompt, PromptSource::Inline(ref p) if p == "You are explicit."));
+    assert!(
+        matches!(resolved.system_prompt, PromptSource::Inline(ref p) if p == "You are explicit.")
+    );
 }
 
 #[tokio::test]

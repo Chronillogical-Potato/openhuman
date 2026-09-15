@@ -1,6 +1,6 @@
 use super::*;
-use crate::AgentError;
 use crate::agent::build::{check_domains_narrow, check_tool_groups_narrow};
+use crate::AgentError;
 use openhuman_core::tools::toolpacks::GroupMode;
 
 #[test]
@@ -15,7 +15,10 @@ fn model_without_a_route_pins_the_model_on_an_inherited_provider() {
 #[test]
 fn debug_omits_the_provider_and_closure() {
     let spec = AgentSpec::new("alpha")
-        .provider(Provider::openai_compatible("https://x.example", "sk-secret"))
+        .provider(Provider::openai_compatible(
+            "https://x.example",
+            "sk-secret",
+        ))
         .config(|_| {});
     let debug = format!("{spec:?}");
     assert!(debug.contains("alpha"));

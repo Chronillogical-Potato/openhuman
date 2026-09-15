@@ -45,23 +45,23 @@ impl Agent {
         let allowed_subagent_ids = self
             .resolved_definition()
             .map(|definition| {
-                    definition
-                        .subagents
-                        .iter()
-                        .filter_map(|entry| match entry {
-                            crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                                Some(id.clone())
-                            }
-                            crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
-                                if wildcard.matches_all() =>
-                            {
-                                Some("integrations_agent".to_string())
-                            }
-                            crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
+                definition
+                    .subagents
+                    .iter()
+                    .filter_map(|entry| match entry {
+                        crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
+                            Some(id.clone())
+                        }
+                        crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                            if wildcard.matches_all() =>
+                        {
+                            Some("integrations_agent".to_string())
+                        }
+                        crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
         harness::ParentExecutionContext {
             agent_definition_id: self.agent_definition_id.clone(),

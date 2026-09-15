@@ -88,12 +88,12 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     {
         profile.allowed_mcp_servers = None;
     }
-    ensure_profile_home(&config.workspace_dir, &config.action_dir, &profile).map_err(
-        |source| AgentError::Workspace {
+    ensure_profile_home(&config.workspace_dir, &config.action_dir, &profile).map_err(|source| {
+        AgentError::Workspace {
             what: "create the agent's profile home",
             source,
-        },
-    )?;
+        }
+    })?;
     let layout = AgentLayout::resolve(&config.workspace_dir, &profile, action_dir);
 
     // ── skills ───────────────────────────────────────────────────────────
@@ -158,7 +158,10 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 }
 
 /// Every family the agent asks for must be one the runtime registered.
-pub(crate) fn check_domains_narrow(requested: DomainSet, runtime: DomainSet) -> Result<(), AgentError> {
+pub(crate) fn check_domains_narrow(
+    requested: DomainSet,
+    runtime: DomainSet,
+) -> Result<(), AgentError> {
     let widened: Vec<String> = DomainGroup::ALL
         .iter()
         .filter(|group| requested.allows(**group) && !runtime.allows(**group))

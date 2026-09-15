@@ -650,8 +650,11 @@ async fn discovery_home_dir_is_hidden_by_a_context_without_user_skill_roots() {
         ContextOverlay::new(config.clone(), DomainSet::full(), Default::default())
             .without_user_skill_roots(),
     );
-    let visible =
-        parent.derive_with(ContextOverlay::new(config, DomainSet::full(), Default::default()));
+    let visible = parent.derive_with(ContextOverlay::new(
+        config,
+        DomainSet::full(),
+        Default::default(),
+    ));
 
     let under_hidden = CoreContext::scope(hidden, async { discovery_home_dir() }).await;
     assert_eq!(under_hidden, None, "user-scope roots must be hidden");

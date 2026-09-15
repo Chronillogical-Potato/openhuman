@@ -88,8 +88,7 @@ mod runtime;
 mod turn;
 
 pub use agent::{
-    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, SandboxModeSpec,
-    ToolScopeSpec,
+    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, SandboxModeSpec, ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
 pub use config::{Config, RuntimeFlags};
@@ -98,8 +97,6 @@ pub use error::CoreError;
 pub use harness::{
     Access, Harness, HarnessBuilder, HarnessCore, HarnessError, Provider, Workspace,
 };
-pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
-pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
 #[cfg(feature = "medulla")]
@@ -107,6 +104,8 @@ pub use medulla::{
     AbortResult, Medulla, MedullaStatus, Message, RosterWorker, SendResult, SessionCreated,
     SessionDetail, SessionSummary, WireEventEnvelope,
 };
+pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 
 use std::sync::Arc;
 

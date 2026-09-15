@@ -48,7 +48,10 @@ fn one_runtime_hosts_independently_configured_agents() {
             // runtime's API key must arrive as a bearer, and nothing else.
             Mock::given(method("POST"))
                 .and(path("/openai/v1/chat/completions"))
-                .and(header("authorization", format!("Bearer {API_KEY}").as_str()))
+                .and(header(
+                    "authorization",
+                    format!("Bearer {API_KEY}").as_str(),
+                ))
                 .respond_with(
                     ResponseTemplate::new(200).set_body_json(chat_completion("managed-ok")),
                 )
@@ -118,7 +121,13 @@ fn one_runtime_hosts_independently_configured_agents() {
             assert!(state.is_authenticated, "api key must count as signed in");
             assert!(state.user_id.is_none(), "an api key carries no user");
             assert!(
-                runtime.core().auth().token().await.expect("token").is_none(),
+                runtime
+                    .core()
+                    .auth()
+                    .token()
+                    .await
+                    .expect("token")
+                    .is_none(),
                 "no session token exists"
             );
 
@@ -150,11 +159,8 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .agent(
                     AgentSpec::new("beta")
                         .provider(
-                            Provider::openai_compatible(
-                                format!("{}/v1", provider_b.uri()),
-                                "sk-b",
-                            )
-                            .model("beta-model"),
+                            Provider::openai_compatible(format!("{}/v1", provider_b.uri()), "sk-b")
+                                .model("beta-model"),
                         )
                         .access(Access::full())
                         .action_dir(beta_action.path()),
@@ -280,9 +286,9 @@ fn one_runtime_hosts_independently_configured_agents() {
             let a2_body: serde_json::Value = serde_json::from_slice(&a2_req.body).unwrap();
             let a2_messages = a2_body["messages"].as_array().cloned().unwrap_or_default();
             assert!(
-                a2_messages
-                    .iter()
-                    .any(|m| m["content"].as_str().is_some_and(|c| c.contains("hello from alpha"))),
+                a2_messages.iter().any(|m| m["content"]
+                    .as_str()
+                    .is_some_and(|c| c.contains("hello from alpha"))),
                 "the second turn on a thread must carry the first exchange: {a2_messages:?}"
             );
 
@@ -298,7 +304,10 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .collect();
             assert_eq!(managed.len(), 1, "one managed completion");
             assert_eq!(
-                managed[0].headers.get("authorization").map(|v| v.to_str().unwrap()),
+                managed[0]
+                    .headers
+                    .get("authorization")
+                    .map(|v| v.to_str().unwrap()),
                 Some(format!("Bearer {API_KEY}").as_str())
             );
             assert!(
@@ -334,7 +343,10 @@ fn one_runtime_hosts_independently_configured_agents() {
             let err = runtime
                 .agent(AgentSpec::new("alpha"))
                 .expect_err("duplicate id");
-            assert!(matches!(err, AgentError::DuplicateId(ref id) if id == "alpha"), "{err:?}");
+            assert!(
+                matches!(err, AgentError::DuplicateId(ref id) if id == "alpha"),
+                "{err:?}"
+            );
             let err = runtime
                 .agent(AgentSpec::new("Not Valid!"))
                 .expect_err("invalid id");
@@ -346,7 +358,10 @@ fn one_runtime_hosts_independently_configured_agents() {
 
             // Dropping every handle releases the id.
             drop(gamma);
-            assert_eq!(runtime.agent_ids(), vec!["alpha".to_string(), "beta".to_string()]);
+            assert_eq!(
+                runtime.agent_ids(),
+                vec!["alpha".to_string(), "beta".to_string()]
+            );
             let _gamma_again = runtime
                 .agent(AgentSpec::new("gamma"))
                 .expect("id reusable after drop");
@@ -354,7 +369,9 @@ fn one_runtime_hosts_independently_configured_agents() {
             drop(alpha);
             drop(beta);
             drop(_gamma_again);
-            let runtime = std::sync::Arc::try_unwrap(runtime).ok().expect("sole owner");
+            let runtime = std::sync::Arc::try_unwrap(runtime)
+                .ok()
+                .expect("sole owner");
             drop(runtime);
             assert!(
                 !workspace_dir.exists(),

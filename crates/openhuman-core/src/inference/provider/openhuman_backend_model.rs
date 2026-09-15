@@ -118,7 +118,9 @@ impl OpenHumanBackendModel {
             &self.state_dir(),
             self.options.secrets_encrypt,
         )? {
-            log::debug!("[providers][openhuman-backend] authenticating managed inference with api-key");
+            log::debug!(
+                "[providers][openhuman-backend] authenticating managed inference with api-key"
+            );
             return Ok(key);
         }
         if crate::cron::scheduler_gate::is_signed_out() {

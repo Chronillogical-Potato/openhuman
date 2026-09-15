@@ -429,30 +429,30 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
             let turn: std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<String, CoreError>> + Send>,
             > = Box::pin(async move {
-                    use openhuman_core::inference::local::ops::{agent_chat_for, AgentChatTarget};
-                    let mut config = inner.config.clone();
-                    let route = openhuman_core::config::schema::EphemeralRoute::from_params(
-                        request.inference_url,
-                        request.api_key,
-                    );
-                    let target = AgentChatTarget::Definition {
-                        definition: &inner.definition,
-                        profile: Some(&inner.profile),
-                        profile_prompt_suffix: inner.profile.system_prompt_suffix.as_deref(),
-                    };
-                    agent_chat_for(
-                        &mut config,
-                        target,
-                        &request.message,
-                        request.model_override,
-                        request.temperature,
-                        request.thread_id,
-                        request.cwd,
-                        route,
-                    )
-                    .await
-                    .map(|outcome| outcome.value)
-                    .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                use openhuman_core::inference::local::ops::{agent_chat_for, AgentChatTarget};
+                let mut config = inner.config.clone();
+                let route = openhuman_core::config::schema::EphemeralRoute::from_params(
+                    request.inference_url,
+                    request.api_key,
+                );
+                let target = AgentChatTarget::Definition {
+                    definition: &inner.definition,
+                    profile: Some(&inner.profile),
+                    profile_prompt_suffix: inner.profile.system_prompt_suffix.as_deref(),
+                };
+                agent_chat_for(
+                    &mut config,
+                    target,
+                    &request.message,
+                    request.model_override,
+                    request.temperature,
+                    request.thread_id,
+                    request.cwd,
+                    route,
+                )
+                .await
+                .map(|outcome| outcome.value)
+                .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
             });
             runtime.run_in(ctx, turn).await
         }

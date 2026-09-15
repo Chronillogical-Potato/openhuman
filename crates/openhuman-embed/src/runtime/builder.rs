@@ -195,9 +195,9 @@ impl RuntimeBuilder {
         // knobs (access tier, backend URL, API key) are applied *on top* of it.
         let mut config = match (&self.workspace, self.config) {
             (Workspace::Inherit, Some(config)) => config,
-            (Workspace::Inherit, None) => Config::load_or_init()
-                .await
-                .map_err(RuntimeError::Build)?,
+            (Workspace::Inherit, None) => {
+                Config::load_or_init().await.map_err(RuntimeError::Build)?
+            }
             (_, supplied) => {
                 let mut config = supplied.unwrap_or_default();
                 config.workspace_dir = resolved.workspace_dir.clone();

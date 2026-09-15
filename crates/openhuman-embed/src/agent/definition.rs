@@ -79,7 +79,8 @@ impl AgentDefinitionSpec {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.disallowed_tools.extend(tools.into_iter().map(Into::into));
+        self.disallowed_tools
+            .extend(tools.into_iter().map(Into::into));
         self
     }
 
@@ -116,12 +117,9 @@ impl AgentDefinitionSpec {
     /// Materialize the core definition for agent `id`.
     pub(crate) fn into_core(self, id: &str) -> Result<AgentDefinition, AgentError> {
         let registry = AgentDefinitionRegistry::builtins_only();
-        let mut def = registry
-            .get(ORCHESTRATOR_ID)
-            .cloned()
-            .ok_or_else(|| {
-                AgentError::Invalid("built-in orchestrator definition is missing".to_string())
-            })?;
+        let mut def = registry.get(ORCHESTRATOR_ID).cloned().ok_or_else(|| {
+            AgentError::Invalid("built-in orchestrator definition is missing".to_string())
+        })?;
         def.id = id.to_string();
         def.display_name = Some(self.display_name.unwrap_or_else(|| id.to_string()));
         if let Some(text) = self.when_to_use {

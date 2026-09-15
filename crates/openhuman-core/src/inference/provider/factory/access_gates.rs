@@ -164,7 +164,9 @@ pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<(
     // An API key is a standing credential: no session to be active, nothing
     // for the scheduler gate to have expired.
     if crate::security::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt) {
-        log::debug!("[providers][access-gate] api-key credential satisfies the backend session gate");
+        log::debug!(
+            "[providers][access-gate] api-key credential satisfies the backend session gate"
+        );
         return Ok(());
     }
     // Fast path: the scheduler gate already knows the session is dead.

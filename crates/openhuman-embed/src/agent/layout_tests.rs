@@ -15,7 +15,10 @@ fn dedicated_memory_keys_transcripts_by_agent_id() {
         layout.skills,
         Path::new("/r/workspace/personalities/alpha/skills")
     );
-    assert_eq!(layout.transcripts, Path::new("/r/workspace/session_raw-alpha"));
+    assert_eq!(
+        layout.transcripts,
+        Path::new("/r/workspace/session_raw-alpha")
+    );
     assert_eq!(layout.action_dir, Path::new("/r/a"));
 }
 
@@ -33,7 +36,12 @@ fn default_action_dir_is_a_workspace_sibling_or_a_profile_dir() {
         Path::new("/r/agents/a/action")
     );
     assert_eq!(
-        AgentLayout::default_action_dir(Path::new("/home/u/.openhuman"), Path::new("/home/u/OpenHuman/projects"), true, "a"),
+        AgentLayout::default_action_dir(
+            Path::new("/home/u/.openhuman"),
+            Path::new("/home/u/OpenHuman/projects"),
+            true,
+            "a"
+        ),
         Path::new("/home/u/OpenHuman/projects/profiles/a")
     );
 }

@@ -112,7 +112,10 @@ async fn run() -> anyhow::Result<()> {
     println!("fixer action dir:    {}", fixer.action_dir().display());
 
     let review = reviewer.run(&prompt).await?;
-    println!("\n[reviewer] session {}\n{}", review.session_id, review.reply);
+    println!(
+        "\n[reviewer] session {}\n{}",
+        review.session_id, review.reply
+    );
 
     let fix = fixer
         .turn(format!(

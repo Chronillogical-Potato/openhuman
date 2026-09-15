@@ -21,7 +21,10 @@ fn store_then_get_round_trips_and_marks_kind() {
         profile.metadata.get(API_KEY_KIND_META).map(String::as_str),
         Some(API_KEY_KIND)
     );
-    assert_eq!(get_api_key(&config).expect("get").as_deref(), Some("th_live_abc"));
+    assert_eq!(
+        get_api_key(&config).expect("get").as_deref(),
+        Some("th_live_abc")
+    );
     assert!(has_api_key(&config));
 }
 
@@ -47,7 +50,9 @@ fn clear_removes_the_profile() {
 #[test]
 fn api_key_wins_over_an_expired_session() {
     use crate::security::credentials::session_support::SESSION_EXPIRES_AT_META;
-    use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+    use crate::security::credentials::{
+        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    };
 
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());
@@ -57,7 +62,13 @@ fn api_key_wins_over_an_expired_session() {
         (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
     );
     AuthService::from_config(&config)
-        .store_provider_token(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME, "jwt", meta, true)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "jwt",
+            meta,
+            true,
+        )
         .expect("store session");
     assert!(matches!(
         resolve_backend_credential(&config),

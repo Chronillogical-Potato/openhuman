@@ -57,7 +57,10 @@ fn a_directory_without_a_manifest_is_not_a_bundle() {
     std::fs::create_dir_all(src.path().join("notaskill")).expect("mkdir");
     std::fs::write(src.path().join("notaskill/readme.txt"), "hi").expect("write");
 
-    assert_eq!(install(src.path(), &ws.path().join("skills")).expect("install"), 0);
+    assert_eq!(
+        install(src.path(), &ws.path().join("skills")).expect("install"),
+        0
+    );
     assert!(!ws.path().join("skills/notaskill").exists());
 }
 
@@ -76,7 +79,10 @@ fn a_symlinked_bundle_is_skipped_not_followed() {
     std::os::unix::fs::symlink(outside.path().join("evil"), src.path().join("evil"))
         .expect("symlink");
 
-    assert_eq!(install(src.path(), &ws.path().join("skills")).expect("install"), 0);
+    assert_eq!(
+        install(src.path(), &ws.path().join("skills")).expect("install"),
+        0
+    );
     assert!(!ws.path().join("skills/evil").exists());
 }
 
@@ -126,8 +132,11 @@ fn a_symlinked_manifest_does_not_make_a_directory_a_bundle() {
 #[test]
 fn a_missing_skills_dir_is_a_clear_error_not_a_silent_skip() {
     let ws = tempfile::tempdir().expect("ws");
-    let err = install(std::path::Path::new("/nonexistent/skills"), &ws.path().join("skills"))
-        .expect_err("a missing directory is a caller mistake");
+    let err = install(
+        std::path::Path::new("/nonexistent/skills"),
+        &ws.path().join("skills"),
+    )
+    .expect_err("a missing directory is a caller mistake");
     assert!(matches!(err, HarnessError::Invalid(_)));
 }
 
@@ -135,5 +144,8 @@ fn a_missing_skills_dir_is_a_clear_error_not_a_silent_skip() {
 fn an_empty_skills_dir_is_allowed() {
     let src = tempfile::tempdir().expect("src");
     let ws = tempfile::tempdir().expect("ws");
-    assert_eq!(install(src.path(), &ws.path().join("skills")).expect("install"), 0);
+    assert_eq!(
+        install(src.path(), &ws.path().join("skills")).expect("install"),
+        0
+    );
 }

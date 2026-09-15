@@ -126,8 +126,8 @@ impl Agent {
     /// anything set on the returned [`Turn`] overrides them for that turn
     /// alone.
     pub fn turn(&self, message: impl Into<String>) -> Turn {
-        let mut turn =
-            Turn::new(TurnTarget::Agent(Arc::clone(&self.inner)), message).with_agent_id(&self.inner.id);
+        let mut turn = Turn::new(TurnTarget::Agent(Arc::clone(&self.inner)), message)
+            .with_agent_id(&self.inner.id);
         if let Some(route) = self.inner.provider.route() {
             turn = turn.route(route.clone());
         }

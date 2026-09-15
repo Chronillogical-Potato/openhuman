@@ -299,7 +299,9 @@ fn handle_agent_chat(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let mut config = config_rpc::load_config_with_timeout().await?;
         let target = match p.agent_id.as_deref().map(str::trim) {
-            Some(id) if !id.is_empty() => crate::inference::local::ops::AgentChatTarget::AgentId(id),
+            Some(id) if !id.is_empty() => {
+                crate::inference::local::ops::AgentChatTarget::AgentId(id)
+            }
             _ => crate::inference::local::ops::AgentChatTarget::Orchestrator,
         };
         to_json(
