@@ -103,6 +103,15 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
                 .collect(),
         );
     }
+    // Read back now, after `config_fn` (the escape hatch, applied above) has
+    // had its chance to edit `config.action_dir` — the directory created and
+    // the layout resolved below must match whatever it ends up being, not
+    // the pre-`config_fn` default computed further up.
+    let action_dir = config.action_dir.clone();
+    std::fs::create_dir_all(&action_dir).map_err(|source| AgentError::Workspace {
+        what: "create the agent's action directory",
+        source,
+    })?;
     ensure_profile_home(&config.workspace_dir, &config.action_dir, &profile).map_err(|source| {
         AgentError::Workspace {
             what: "create the agent's profile home",
