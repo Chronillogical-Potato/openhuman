@@ -75,6 +75,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -142,6 +143,23 @@ export type ThreadComponents = {
   ComposerIdleAction?: ComponentType | undefined;
   /** Switches the host chat surface into its microphone-first composer. */
   onSwitchToMicCloud?: (() => void) | undefined;
+  /**
+   * Host sink for files dropped on the composer or pasted into it.
+   *
+   * Supplying it also replaces `ComposerPrimitive.AttachmentDropzone` with the
+   * equivalent host-driven handlers, because that primitive routes files to the
+   * runtime's attachment adapter and refuses the drag outright
+   * (`dataTransfer.dropEffect = 'none'`) when the runtime declares no
+   * attachment capability — which is every runtime that keeps attachments on
+   * the host side, as this app does.
+   */
+  onComposerFiles?: ((files: FileList | File[] | null) => void) | undefined;
+  /**
+   * Whether the host can take files right now (feature enabled, composer
+   * unlocked, budget left). Drives the drag affordance only; the host still
+   * validates whatever arrives.
+   */
+  canAcceptComposerFiles?: boolean | undefined;
 };
 
 export type ThreadProps = {
@@ -438,8 +456,13 @@ const Composer: FC<{
   const commands = useContext(SlashCommandsContext);
   const slash = unstable_useSlashCommandAdapter({ commands, fallbackIcon: SlashIcon });
   const inputWrapperRef = useRef<HTMLDivElement>(null);
-  const { ComposerHeader, ComposerAttachments: HostComposerAttachments } =
-    useContext(ThreadComponentsContext);
+  const {
+    ComposerHeader,
+    ComposerAttachments: HostComposerAttachments,
+    onComposerFiles,
+    canAcceptComposerFiles,
+  } = useContext(ThreadComponentsContext);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
     const textbox = inputWrapperRef.current?.querySelector<HTMLElement>('[contenteditable="true"]');
     textbox?.setAttribute('aria-label', 'Message input');
@@ -472,6 +495,52 @@ const Composer: FC<{
   // composition that started in between makes this write stale, and dropping it
   // loses nothing, because the DOM is the source of truth and that
   // composition's own commit reads the whole of it.
+  // Host-driven file ingest. Mirrors the legacy composer's handlers
+  // (`ChatComposer.tsx`) so both surfaces accept a drop and a pasted
+  // screenshot through the same host path.
+  //
+  // `preventDefault` on a *file* drag happens whether or not ingest is allowed:
+  // without it the webview navigates away to the dropped file and the whole
+  // chat is gone.
+  const isFileDrag = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    if (!canAcceptComposerFiles) {
+      event.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingFiles(true);
+  };
+  const handleDragLeave = (event: React.DragEvent) => {
+    // Ignore leave events that bubble while the cursor is still over a child.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  };
+  const handleDrop = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    setIsDraggingFiles(false);
+    if (!canAcceptComposerFiles) return;
+    const files = event.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    onComposerFiles(files);
+  };
+  // Capture phase, so the media is pulled out and the default cancelled before
+  // Lexical's own paste handling turns it into editor content.
+  const handlePasteCapture = (event: React.ClipboardEvent) => {
+    if (!onComposerFiles || !canAcceptComposerFiles) return;
+    const files = Array.from(event.clipboardData?.items ?? [])
+      .filter(item => item.kind === 'file' && /^(image|video)\//.test(item.type))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length === 0) return;
+    event.preventDefault();
+    onComposerFiles(files);
+  };
+
   const syncComposerFromDom = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
     const text = target.textContent ?? '';
@@ -487,9 +556,20 @@ const Composer: FC<{
         className="aui-composer-root relative flex w-full flex-col"
         data-walkthrough="chat-agent-panel">
         {ComposerHeader ? <ComposerHeader /> : null}
-        <ComposerPrimitive.AttachmentDropzone asChild>
+        {/*
+         * Neutered whenever the host owns file ingest: every handler in the
+         * primitive short-circuits on `disabled`, so the drag handlers below
+         * are the only ones left and the `data-dragging` styling runs off this
+         * component's own state. Left enabled otherwise, so a host that does
+         * use a runtime attachment adapter keeps the primitive's behaviour.
+         */}
+        <ComposerPrimitive.AttachmentDropzone asChild disabled={!!onComposerFiles}>
           <div
             data-slot="aui_composer-shell"
+            data-dragging={onComposerFiles && isDraggingFiles ? 'true' : undefined}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             // Keyed to `content-faint` rather than `line`/`line-strong`, which
             // sat too close to the composer's own surface to read as an edge at
             // all; `content-faint` is a real step along the grey ramp in both
@@ -560,6 +640,7 @@ const Composer: FC<{
             <LexicalComposerInput
               ref={inputWrapperRef}
               placeholder="Send a message..."
+              onPasteCapture={handlePasteCapture}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
               }}

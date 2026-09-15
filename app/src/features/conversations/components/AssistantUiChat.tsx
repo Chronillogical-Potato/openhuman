@@ -291,6 +291,13 @@ export function AssistantUiChat({
     ) : null;
   }, [t]);
 
+  // Files arriving from a drop or a paste, routed to the same host validator
+  // the picker uses. Stable like the slots above, and for the same reason: it
+  // is handed to `thread.tsx` through the components object.
+  const handleComposerFiles = useCallback((files: FileList | File[] | null) => {
+    void slotPropsRef.current.onAttachFiles(files);
+  }, []);
+
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
@@ -311,6 +318,13 @@ export function AssistantUiChat({
             ComposerAddAttachment,
             hasComposerAttachments: attachments.length > 0,
             onComposerAttachmentSend: onAttachmentOnlySend,
+            // Drop and paste reach the same validator as the picker. Without
+            // this the assistant surface had no host file path at all: its only
+            // dropzone was the assistant-ui primitive, which hands files to a
+            // runtime attachment adapter this app does not use.
+            onComposerFiles: handleComposerFiles,
+            canAcceptComposerFiles:
+              !attachmentInteractionBlocked && attachments.length < maxAttachments,
           }
         : {}),
     }),
@@ -320,6 +334,9 @@ export function AssistantUiChat({
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
+      attachmentInteractionBlocked,
+      handleComposerFiles,
+      maxAttachments,
       // The array itself, not just its length: the slot components above hold a
       // constant identity now, so this memo is what makes `thread.tsx`'s
       // context change and re-render them against the latest attachments.
