@@ -306,7 +306,7 @@ pub enum ToolCallFormat {
 /// Only **identifying** fields land here; tokens, refresh tokens, and
 /// any opaque credential material are forbidden. The struct is
 /// constructed from the cached `auth_get_me` response in
-/// `app_state::ops::peek_cached_current_user_identity`, which strips
+/// `credentials::identity::peek_credential_user_identity`, which strips
 /// everything but `id` / `email` / `name` before returning.
 #[derive(Debug, Clone, Default)]
 pub struct UserIdentity {
