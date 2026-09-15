@@ -63,7 +63,8 @@ pub fn backoff_for(consecutive: u32, fetch_timeout: Duration) -> Duration {
 
 /// What the cache hands back: the user (if the backend returned one) and
 /// how stale the data being served is.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CachedUser {
     pub user: Option<Value>,
     /// The backend could not refresh this identity recently.
