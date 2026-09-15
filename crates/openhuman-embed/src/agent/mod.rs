@@ -80,6 +80,11 @@ pub enum AgentError {
 /// by every [`Turn`] it issues.
 pub(crate) struct AgentInner {
     pub(crate) id: String,
+    /// Keeps the runtime's core and (for an ephemeral workspace) its
+    /// directory alive for as long as this agent is, even after the host
+    /// drops its `Runtime` handle. See
+    /// [`CoreGuard`](crate::runtime::CoreGuard).
+    _runtime_guard: Arc<crate::runtime::CoreGuard>,
     pub(crate) runtime: Arc<CoreRuntime>,
     pub(crate) ctx: Arc<CoreContext>,
     pub(crate) config: Config,
