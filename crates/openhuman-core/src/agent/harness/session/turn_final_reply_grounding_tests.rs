@@ -32,6 +32,37 @@ impl Tool for FailingInstallTool {
     }
 }
 
+/// Succeeds on its first call and fails on every later one, so each tool round's
+/// record is distinguishable from the others.
+struct TwoRoundInstallTool {
+    calls: AtomicUsize,
+}
+
+#[async_trait]
+impl Tool for TwoRoundInstallTool {
+    fn name(&self) -> &str {
+        "install_item"
+    }
+
+    fn description(&self) -> &str {
+        "install an item"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object"})
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> Result<ToolResult> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            Ok(ToolResult::success(
+                "round one: found the demo item in the catalog",
+            ))
+        } else {
+            Ok(ToolResult::error(INSTALL_FAILURE))
+        }
+    }
+}
+
 fn respond(text: &str) -> anyhow::Result<ChatResponse> {
     Ok(ChatResponse {
         text: Some(text.into()),
@@ -48,10 +79,13 @@ fn scripted(responses: Vec<anyhow::Result<ChatResponse>>) -> Arc<SequenceProvide
 }
 
 /// Run one turn against `provider`, returning the reply and everything streamed.
-async fn run_turn(provider: Arc<SequenceProvider>) -> (Agent, String, String) {
+async fn run_turn(
+    provider: Arc<SequenceProvider>,
+    tools: Vec<Box<dyn Tool>>,
+) -> (Agent, String, String) {
     let mut agent = make_agent_with_builder(
         provider,
-        vec![Box::new(FailingInstallTool)],
+        tools,
         vec![],
         crate::config::AgentConfig {
             max_tool_iterations: 8,
@@ -95,7 +129,8 @@ async fn an_intent_only_close_is_rejected_and_replaced_by_the_tool_records() {
         respond("REJECT"),
     ]);
 
-    let (agent, reply, streamed) = run_turn(recorded.clone()).await;
+    let (agent, reply, streamed) =
+        run_turn(recorded.clone(), vec![Box::new(FailingInstallTool)]).await;
 
     assert!(
         !reply.contains(NARRATION),
@@ -146,7 +181,7 @@ async fn an_accepted_close_is_streamed_and_kept() {
         respond("ACCEPT"),
     ]);
 
-    let (agent, reply, streamed) = run_turn(recorded).await;
+    let (agent, reply, streamed) = run_turn(recorded, vec![Box::new(FailingInstallTool)]).await;
 
     assert_eq!(reply, CLOSE, "an accepted close is the reply");
     assert!(
@@ -170,7 +205,7 @@ async fn a_breaker_halt_is_closed_for_the_user_instead_of_showing_the_stop_note(
         respond("ACCEPT"),
     ]);
 
-    let (agent, reply, _) = run_turn(recorded.clone()).await;
+    let (agent, reply, _) = run_turn(recorded.clone(), vec![Box::new(FailingInstallTool)]).await;
 
     assert!(
         !reply.contains("instead of retrying") && !reply.starts_with("Stopping:"),
@@ -193,5 +228,43 @@ async fn a_breaker_halt_is_closed_for_the_user_instead_of_showing_the_stop_note(
     assert!(
         wrap_up.contains("<stop_note>") && wrap_up.contains(INSTALL_FAILURE),
         "the wrap-up must receive the stop note and the records as input, got: {wrap_up}"
+    );
+}
+
+/// XML-dialect calls carry no provider id, so both rounds' calls are `call_0`.
+/// Each round must still be recorded with its own result: the second round's
+/// failure is why the request was not done, and a first-match lookup replaced it
+/// with the first round's success (Codex review on #6289).
+#[tokio::test]
+async fn each_tool_round_is_recorded_with_its_own_result() {
+    let recorded = scripted(vec![
+        respond(INSTALL_CALL),
+        respond(INSTALL_CALL),
+        respond(""),
+        respond("I'll look into the demo item."),
+        respond("REJECT"),
+    ]);
+
+    let (_, reply, _) = run_turn(
+        recorded.clone(),
+        vec![Box::new(TwoRoundInstallTool {
+            calls: AtomicUsize::new(0),
+        })],
+    )
+    .await;
+
+    assert!(
+        reply.contains("round one: found the demo item in the catalog"),
+        "the first round keeps its own result, got: {reply}"
+    );
+    assert!(
+        reply.contains("View it at https://example.test/demo"),
+        "the second round must be recorded with its own failure, not the first round's result, got: {reply}"
+    );
+    let requests = recorded.requests.lock().await;
+    let wrap_up = &requests[3].last().expect("wrap-up instruction").content;
+    assert!(
+        wrap_up.contains(INSTALL_FAILURE),
+        "the wrap-up records must carry the second round's failure, got: {wrap_up}"
     );
 }

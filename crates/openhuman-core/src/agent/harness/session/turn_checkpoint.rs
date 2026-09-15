@@ -284,8 +284,10 @@ pub(super) fn final_answer_instruction(stop_reason: Option<&str>, records: &str)
     let mut out = String::new();
     if let Some(reason) = stop_reason {
         out.push_str(
-            "The harness stopped this turn early after tool failures. Its stop note is written for \
-             you, not for the user, so explain it in your own words rather than repeating it:\n\
+            "The harness stopped this turn early because its tool calls stopped making progress: they \
+             kept failing, or kept repeating the same step. Its stop note is written for you, not for \
+             the user, so explain it in your own words rather than repeating it, and describe each \
+             call as the tool records show it:\n\
              <stop_note>\n",
         );
         out.push_str(reason.trim());
@@ -354,7 +356,7 @@ pub(super) fn parse_close_verdict(text: &str) -> CloseVerdict {
             "REJECT" => Some(CloseVerdict::Reject),
             _ => None,
         })
-        .last()
+        .next_back()
         .unwrap_or(CloseVerdict::Unclear)
 }
 
@@ -370,6 +372,9 @@ pub(super) fn parse_close_verdict(text: &str) -> CloseVerdict {
 /// be reduced to the word "failed". When the breaker halted the run (issue
 /// #6279) its stop note is quoted too, because it names the rung that tripped
 /// and, for a missing connection or exhausted credits, what the user must do.
+/// The lead does not say the calls failed: `RepeatProgressMiddleware` halts
+/// through the same slot when identical calls keep *succeeding*, and the
+/// records below carry each call's real status.
 pub(super) fn build_deterministic_final_summary(
     results: &[CheckpointToolResult],
     stop_reason: Option<&str>,
@@ -380,8 +385,8 @@ pub(super) fn build_deterministic_final_summary(
     let mut out = match stop_reason {
         Some(reason) => {
             let mut lead = String::from(
-                "I stopped this turn early because my tool calls kept failing, so I could not \
-                 finish the request.\n\n**Why I stopped**\n",
+                "I stopped this turn early because my tool calls were not making progress, so I \
+                 could not finish the request.\n\n**Why I stopped**\n",
             );
             for line in reason.trim().lines() {
                 lead.push_str("> ");

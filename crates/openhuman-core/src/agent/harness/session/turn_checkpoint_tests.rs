@@ -176,6 +176,28 @@ fn the_final_summary_of_a_halted_turn_keeps_the_stop_note_and_the_records() {
     );
 }
 
+/// The breaker also halts a run whose identical calls keep succeeding
+/// (`RepeatProgressMiddleware`). The fallback must not call those calls failed
+/// when its own records show them `ok` (Codex review on #6289).
+#[test]
+fn the_final_summary_of_a_successful_repeat_halt_does_not_claim_failure() {
+    let out = build_deterministic_final_summary(
+        &[result("list_items", true, "3 items")],
+        Some(
+            "Stopping: the same successful tool-call batch was issued 3 times in a row with \
+             identical arguments and no new information.",
+        ),
+    );
+    assert!(
+        !out.to_lowercase().contains("fail"),
+        "a halt over successful calls must not be described as failing: {out}"
+    );
+    assert!(
+        out.contains("`list_items` — ok"),
+        "records keep their status: {out}"
+    );
+}
+
 /// The wrap-up is grounded in the records it is handed, and only a halted run
 /// passes a stop note.
 #[test]

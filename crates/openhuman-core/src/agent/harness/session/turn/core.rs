@@ -15,6 +15,35 @@ use crate::memory::MemoryCategory;
 use anyhow::Result;
 use std::hash::{Hash, Hasher};
 
+/// The outcome captured for one assistant tool call, matched by call id, tool
+/// name **and occurrence**.
+///
+/// Prompt-guided (XML / P-Format) calls carry no provider id, so every model
+/// response synthesizes `call_0`, `call_1`, … afresh (`tinyagents::model`), and a
+/// turn with several tool rounds repeats the same ids. A first-match lookup gave
+/// every later round the first round's result, so a turn's records could hide its
+/// latest failure (Codex review on #6289). The n-th call under an `(id, name)`
+/// takes the n-th outcome recorded under it: rounds run in order and ids are
+/// unique within a round, so parallel execution inside a round cannot reorder
+/// them. Keying on the name as well stops an unknown-tool call, which never
+/// reaches the capture sink, from consuming a later round's real outcome.
+fn nth_call_outcome<'a>(
+    tool_outcomes: &'a [crate::agent::tinyagents::ToolCallOutcome],
+    seen: &mut std::collections::HashMap<(String, String), usize>,
+    call_id: &str,
+    name: &str,
+) -> Option<&'a crate::agent::tinyagents::ToolCallOutcome> {
+    let occurrence = seen
+        .entry((call_id.to_string(), name.to_string()))
+        .or_insert(0);
+    let outcome = tool_outcomes
+        .iter()
+        .filter(|o| o.call_id == call_id && o.name == name)
+        .nth(*occurrence);
+    *occurrence += 1;
+    outcome
+}
+
 /// Flatten the assistant tool calls a turn produced into [`ToolCallRecord`]s for
 /// post-turn hooks + the deterministic cap checkpoint. Per-call success +
 /// sanitized output summary are recovered from the turn's captured
@@ -26,10 +55,11 @@ fn tool_records_from_conversation(
     tool_outcomes: &[crate::agent::tinyagents::ToolCallOutcome],
 ) -> Vec<hooks::ToolCallRecord> {
     let mut records = Vec::new();
+    let mut seen = std::collections::HashMap::new();
     for msg in conversation {
         if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
             for call in tool_calls {
-                let outcome = tool_outcomes.iter().find(|o| o.call_id == call.id);
+                let outcome = nth_call_outcome(tool_outcomes, &mut seen, &call.id, &call.name);
                 // Default a MISSING outcome to `false` (#4467, item 7): a call
                 // with no captured outcome is a hallucinated/unknown tool the
                 // crate recovered via `ReturnToolError` without running
@@ -69,10 +99,11 @@ fn checkpoint_results_from_conversation(
     tool_outcomes: &[crate::agent::tinyagents::ToolCallOutcome],
 ) -> Vec<super::super::turn_checkpoint::CheckpointToolResult> {
     let mut results = Vec::new();
+    let mut seen = std::collections::HashMap::new();
     for msg in conversation {
         if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
             for call in tool_calls {
-                let outcome = tool_outcomes.iter().find(|o| o.call_id == call.id);
+                let outcome = nth_call_outcome(tool_outcomes, &mut seen, &call.id, &call.name);
                 // Same missing-outcome rule as `tool_records_from_conversation`:
                 // a call the crate recovered without running `after_tool` never
                 // reached the capture sink, so it is reported as failed rather
