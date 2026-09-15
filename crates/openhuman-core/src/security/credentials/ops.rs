@@ -18,7 +18,6 @@ pub use credential::{
     clear_credential, clear_session, set_credential, store_session, SetCredentialRequest,
     PENDING_BACKEND_VALIDATION_FIELD,
 };
-pub(crate) use credential::CREDENTIAL_MUTATION_LOCK;
 pub use gated_services::{
     start_credential_gated_services, start_login_gated_services,
     stop_credential_gated_services, stop_login_gated_services,
