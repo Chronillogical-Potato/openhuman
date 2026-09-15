@@ -370,9 +370,9 @@ fn one_runtime_hosts_independently_configured_agents() {
             drop(alpha);
             drop(beta);
             drop(_gamma_again);
-            let runtime = std::sync::Arc::try_unwrap(runtime)
-                .ok()
-                .expect("sole owner");
+            let Ok(runtime) = std::sync::Arc::try_unwrap(runtime) else {
+                panic!("the test is the runtime's sole owner once every agent is dropped");
+            };
             drop(runtime);
             assert!(
                 !workspace_dir.exists(),

@@ -18,6 +18,9 @@ use openhuman_core::tools::toolpacks::ToolGroups;
 use super::AgentDefinitionSpec;
 use crate::harness::{Access, Provider};
 
+/// The [`AgentSpec::config`] escape hatch, applied last onto the agent's config.
+type ConfigEdit = Box<dyn FnOnce(&mut Config) + Send>;
+
 /// Where [`AgentSpec::skills_dir`] bundles are copied.
 #[cfg(feature = "skills")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,7 +53,7 @@ pub struct AgentSpec {
     action_dir: Option<PathBuf>,
     trusted: Vec<(String, TrustedAccess)>,
     dedicated_memory: bool,
-    config_fn: Option<Box<dyn FnOnce(&mut Config) + Send>>,
+    config_fn: Option<ConfigEdit>,
 }
 
 impl AgentSpec {
@@ -295,7 +298,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) action_dir: Option<PathBuf>,
     pub(crate) trusted: Vec<(String, TrustedAccess)>,
     pub(crate) dedicated_memory: bool,
-    pub(crate) config_fn: Option<Box<dyn FnOnce(&mut Config) + Send>>,
+    pub(crate) config_fn: Option<ConfigEdit>,
 }
 
 impl std::fmt::Debug for AgentSpec {
