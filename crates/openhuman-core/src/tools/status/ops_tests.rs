@@ -210,8 +210,13 @@ fn every_class_produces_nonempty_user_copy() {
 fn marked_permanent_failures_are_not_recoverable() {
     use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
 
+    // Through the adapter's own wrapper, exactly as a tool's `Err` reaches the
+    // classifier.
     let not_found = classify(
-        &format!("Error executing use_skill: {NOT_FOUND_MARKER} skill 'timeout-helper' not found"),
+        &tool_execution_error(
+            "use_skill",
+            format!("{NOT_FOUND_MARKER} skill 'timeout-helper' not found"),
+        ),
         false,
     );
     assert_eq!(not_found.class, ToolFailureClass::NotFound);
@@ -223,6 +228,30 @@ fn marked_permanent_failures_are_not_recoverable() {
     );
     assert_eq!(unsupported.class, ToolFailureClass::Unsupported);
     assert!(!unsupported.recoverable);
+}
+
+// #6277 review: a marker counts only where a producer puts it. Text that merely
+// contains one (shell stderr, an upstream body, an interpolated id) keeps its
+// ordinary classification.
+#[test]
+fn markers_outside_the_producer_prefix_do_not_count() {
+    use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
+
+    for text in [
+        format!("grep: pattern {NOT_FOUND_MARKER} not in log"),
+        format!("upstream said: {UNSUPPORTED_MARKER}"),
+        format!("Failed to install skill '{NOT_FOUND_MARKER}x': network hiccup"),
+        tool_execution_error("shell", format!("exit 1\nstderr: {UNSUPPORTED_MARKER}")),
+    ] {
+        let class = classify(&text, false).class;
+        assert!(
+            !matches!(
+                class,
+                ToolFailureClass::NotFound | ToolFailureClass::Unsupported
+            ),
+            "{text:?} carries a marker outside the producer prefix but classified {class:?}"
+        );
+    }
 }
 
 #[test]

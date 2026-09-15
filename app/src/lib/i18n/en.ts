@@ -3848,8 +3848,10 @@ const en: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Something went wrong with this action.',
   'conversations.toolFailure.unknown.next':
     'Try again; if it keeps failing, run diagnostics from Settings.',
-  'conversations.toolFailure.notFound.cause': "What this action asked for doesn't exist or isn't available here.",
-  'conversations.toolFailure.notFound.next': 'No action needed. The assistant can look up the right name and try again.',
+  'conversations.toolFailure.notFound.cause':
+    "What this action asked for doesn't exist or isn't available here.",
+  'conversations.toolFailure.notFound.next':
+    'No action needed. The assistant can look up the right name and try again.',
   'conversations.toolFailure.unsupported.cause': "OpenHuman can't do this automatically yet.",
   'conversations.toolFailure.unsupported.next': 'Do it manually, or ask for a different option.',
   'conversations.backgroundTasks.title': 'Background tasks',

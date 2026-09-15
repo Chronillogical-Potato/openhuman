@@ -213,10 +213,14 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'С этим действием что-то пошло не так.',
   'conversations.toolFailure.unknown.next':
     'Повторите попытку; если ошибка повторяется, запустите диагностику в Настройках.',
-  'conversations.toolFailure.notFound.cause': 'То, что запросило это действие, не существует или недоступно здесь.',
-  'conversations.toolFailure.notFound.next': 'Ничего делать не нужно. Ассистент может найти правильное название и попробовать снова.',
-  'conversations.toolFailure.unsupported.cause': 'OpenHuman пока не может сделать это автоматически.',
-  'conversations.toolFailure.unsupported.next': 'Сделайте это вручную или попросите другой вариант.',
+  'conversations.toolFailure.notFound.cause':
+    'Запрошенный элемент не существует или недоступен здесь.',
+  'conversations.toolFailure.notFound.next':
+    'Ничего делать не нужно. Ассистент может найти правильное название и попробовать снова.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman пока не может сделать это автоматически.',
+  'conversations.toolFailure.unsupported.next':
+    'Сделайте это вручную или попросите другой вариант.',
   'conversations.backgroundTasks.title': 'Фоновые задачи',
   'nav.feedback': 'Поделиться отзывом',
   'feedback.board': 'Доска отзывов',
