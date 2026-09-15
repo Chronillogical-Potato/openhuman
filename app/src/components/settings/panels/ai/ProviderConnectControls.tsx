@@ -152,6 +152,8 @@ export const ProviderKeyDialog = ({
     setPhase('oauth');
     try {
       await oauthAction.onClick({ onPersisting: () => setPhase('saving') });
+      // Callers normally close the dialog on success; if one does not, release the lock.
+      setPhase('idle');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[ai-settings] provider oauth failed', {
