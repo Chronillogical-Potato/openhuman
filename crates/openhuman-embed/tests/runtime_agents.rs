@@ -108,6 +108,32 @@ fn one_runtime_hosts_independently_configured_agents() {
                     .expect("runtime builds"),
             );
             assert!(runtime.has_api_key());
+
+            // Regression: `has_api_key()` must read the credential store live,
+            // not a snapshot taken when the runtime was built — a host that
+            // clears or (re)stores the key on a running runtime via
+            // `runtime.core().auth()` needs this to reflect that immediately.
+            runtime
+                .core()
+                .auth()
+                .clear_api_key()
+                .await
+                .expect("clear api key");
+            assert!(
+                !runtime.has_api_key(),
+                "has_api_key() must observe a live clear, not a build-time snapshot"
+            );
+            runtime
+                .core()
+                .auth()
+                .store_api_key(API_KEY)
+                .await
+                .expect("restore api key");
+            assert!(
+                runtime.has_api_key(),
+                "has_api_key() must observe a live store, not a build-time snapshot"
+            );
+
             let workspace_dir = runtime.workspace_dir().to_path_buf();
             let root_dir = runtime.root_dir().to_path_buf();
             assert!(workspace_dir.is_dir());
