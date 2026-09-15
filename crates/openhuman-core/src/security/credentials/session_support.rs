@@ -204,9 +204,59 @@ pub(crate) fn classify_session_token(
 ///   presence-only check; the `flatten_authed_error` 401 net still covers a
 ///   server-side revocation that precedes the recorded `exp`.
 pub fn require_live_session_token(config: &Config) -> Result<String, String> {
+    resolve_backend_credential(config).map(BackendCredential::into_secret)
+}
+
+/// The credential a backend request authenticates with.
+///
+/// Two shapes because the wire differs: a session JWT rides
+/// `Authorization: Bearer` everywhere, while an API key rides
+/// `Authorization: Bearer` on managed inference but `x-api-key` on the SDK
+/// REST routes. Callers that build SDK requests match on this; callers that
+/// only need "the secret string" use [`into_secret`](Self::into_secret).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BackendCredential {
+    /// The app-session JWT stored by `auth_store_session`.
+    Session(String),
+    /// The TinyHumans API key stored by `auth_store_api_key`
+    /// (see [`super::api_key`]).
+    ApiKey(String),
+}
+
+impl BackendCredential {
+    /// The raw secret, whichever kind it is.
+    pub fn into_secret(self) -> String {
+        match self {
+            Self::Session(s) | Self::ApiKey(s) => s,
+        }
+    }
+
+    /// The raw secret, borrowed.
+    pub fn secret(&self) -> &str {
+        match self {
+            Self::Session(s) | Self::ApiKey(s) => s,
+        }
+    }
+
+    pub fn is_api_key(&self) -> bool {
+        matches!(self, Self::ApiKey(_))
+    }
+}
+
+/// Resolve the backend credential for `config`: the API key when one is
+/// stored, else the live app-session token with exactly the classification
+/// [`require_live_session_token`] has always applied.
+///
+/// The API key is checked **first**, and a stored key short-circuits every
+/// session check: a library runtime never stores a session, and a desktop that
+/// somehow has both has been told explicitly to use the key.
+pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, String> {
+    if let Some(key) = super::api_key::get_api_key(config).map_err(|e| e.to_string())? {
+        return Ok(BackendCredential::ApiKey(key));
+    }
     let profile = load_app_session_profile(config)?;
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
-        SessionTokenCheck::Live(token) => Ok(token),
+        SessionTokenCheck::Live(token) => Ok(BackendCredential::Session(token)),
         SessionTokenCheck::Absent => {
             Err("no backend session token; run auth_store_session first".to_string())
         }
@@ -218,6 +268,18 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
             )
         }
     }
+}
+
+/// Whether *some* backend credential is present — an API key or a non-empty
+/// app-session token — without classifying expiry. This is the boot-time
+/// "signed in?" question the scheduler gate asks: an expired session still
+/// counts as signed in here because the gate's job is to notice the later
+/// `SessionExpired`, not to pre-empt it.
+pub fn has_backend_credential(config: &Config) -> bool {
+    if super::api_key::has_api_key(config) {
+        return true;
+    }
+    matches!(get_session_token(config), Ok(Some(_)))
 }
 
 /// Announce a locally-detected session expiry on the bus so
@@ -235,6 +297,18 @@ pub fn publish_local_session_expiry(operation: &'static str) {
     // Dedupe the publish via the scheduler gate so N parallel authed
     // callers in one tick don't emit N SessionExpired events.
     if crate::cron::scheduler_gate::is_signed_out() {
+        return;
+    }
+    // An API-key runtime has no session to expire. Its backend calls never
+    // reach here through `resolve_backend_credential` (the key short-circuits),
+    // but a stale direct caller must not sign the whole process out over a
+    // credential the runtime does not use.
+    if ambient_config_has_api_key() {
+        tracing::debug!(
+            domain = "credentials",
+            operation = operation,
+            "[credentials] session expiry ignored — runtime authenticates with an API key"
+        );
         return;
     }
     tracing::info!(
@@ -296,6 +370,15 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
         .map(str::trim)
         .filter(|token| !token.is_empty())
         .map(str::to_string)
+}
+
+/// Whether the ambient runtime config carries an API key. Reads the
+/// embedder-supplied config off the [`CoreContext`](crate::core::runtime::CoreContext)
+/// when there is one; a host that discovers its config from disk has no API
+/// key by construction (it is only ever installed by a library runtime).
+pub fn ambient_config_has_api_key() -> bool {
+    crate::core::runtime::CoreContext::current_embedder_config()
+        .is_some_and(|config| super::api_key::has_api_key(&config))
 }
 
 #[cfg(test)]
