@@ -82,6 +82,109 @@ async fn the_current_dispatch_sees_the_scoped_embedder_config() {
     assert_eq!(scoped.workspace_dir, PathBuf::from("/tmp/scoped-ws"));
 }
 
+// ---- derived per-agent contexts (the multi-agent library seam) -----------
+//
+// `derive_with` is how one booted runtime hosts many independently configured
+// agents: a child context carrying that agent's config, domain set, tool groups
+// and skill-root policy, with no boot of its own. Everything a handler reads
+// through `CoreContext::current()` must follow the child inside its scope.
+
+#[test]
+fn derive_with_keeps_the_host_and_overrides_the_per_agent_fields() {
+    let parent = ctx("/tmp/parent-ws");
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = PathBuf::from("/tmp/agent-ws");
+    config.default_model = Some("agent-model".into());
+    let overlay = ContextOverlay::new(
+        config,
+        crate::core::runtime::DomainSet::kernel(),
+        crate::tools::toolpacks::ToolGroups::none(),
+    )
+    .without_user_skill_roots();
+
+    let child = parent.derive_with(overlay);
+
+    assert_eq!(child.host_kind(), parent.host_kind());
+    assert_eq!(child.domains(), crate::core::runtime::DomainSet::kernel());
+    assert_eq!(child.tool_groups(), crate::tools::toolpacks::ToolGroups::none());
+    assert!(!child.user_skill_roots());
+    assert_eq!(
+        child.workspace_dir().expect("child workspace"),
+        PathBuf::from("/tmp/agent-ws")
+    );
+    assert_eq!(
+        child
+            .embedder_config()
+            .and_then(|c| c.default_model.clone())
+            .as_deref(),
+        Some("agent-model")
+    );
+    // The parent is untouched: no boot ran, nothing was rebound.
+    assert!(parent.embedder_config().is_none());
+    assert!(parent.user_skill_roots());
+}
+
+#[test]
+fn derive_with_defaults_to_visible_user_skill_roots() {
+    let overlay = ContextOverlay::new(
+        crate::config::Config::default(),
+        crate::core::runtime::DomainSet::full(),
+        Default::default(),
+    );
+    assert!(overlay.user_skill_roots);
+    assert!(ctx("/tmp/ws").derive_with(overlay).user_skill_roots());
+}
+
+#[tokio::test]
+async fn two_derived_contexts_serve_their_own_config_to_the_dispatch() {
+    // The read path `load_config_with_timeout` uses. Two agents scoped one
+    // after the other must each see their own overlay, never the sibling's.
+    let parent = ctx("/tmp/parent-ws");
+    let mut a = crate::config::Config::default();
+    a.workspace_dir = PathBuf::from("/tmp/agent-a");
+    a.default_model = Some("model-a".into());
+    let mut b = crate::config::Config::default();
+    b.workspace_dir = PathBuf::from("/tmp/agent-b");
+    b.default_model = Some("model-b".into());
+    let ctx_a = parent.derive_with(ContextOverlay::new(
+        a,
+        crate::core::runtime::DomainSet::embedded(),
+        Default::default(),
+    ));
+    let ctx_b = parent.derive_with(
+        ContextOverlay::new(
+            b,
+            crate::core::runtime::DomainSet::kernel(),
+            Default::default(),
+        )
+        .without_user_skill_roots(),
+    );
+
+    let seen_a = CoreContext::scope(ctx_a, async {
+        (
+            CoreContext::current_embedder_config().and_then(|c| c.default_model),
+            CoreContext::current().map(|c| c.domains()),
+            CoreContext::current_user_skill_roots(),
+        )
+    })
+    .await;
+    let seen_b = CoreContext::scope(ctx_b, async {
+        (
+            CoreContext::current_embedder_config().and_then(|c| c.default_model),
+            CoreContext::current().map(|c| c.domains()),
+            CoreContext::current_user_skill_roots(),
+        )
+    })
+    .await;
+
+    assert_eq!(seen_a.0.as_deref(), Some("model-a"));
+    assert_eq!(seen_a.1, Some(crate::core::runtime::DomainSet::embedded()));
+    assert!(seen_a.2);
+    assert_eq!(seen_b.0.as_deref(), Some("model-b"));
+    assert_eq!(seen_b.1, Some(crate::core::runtime::DomainSet::kernel()));
+    assert!(!seen_b.2);
+}
+
 // ---- store-init gating (#4796 DoD item 3) --------------------------------
 // `init_stores` side-effects on process globals with no init-state probe, so
 // the gating is proven via the pure `StoreInitPlan` the registrar consumes.
