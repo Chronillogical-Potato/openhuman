@@ -223,6 +223,27 @@ pub enum BackendCredential {
     ApiKey(String),
 }
 
+impl From<&str> for BackendCredential {
+    /// A bare token string is a session JWT — the historical `authed_json`
+    /// contract. API keys only ever arrive typed, from
+    /// [`resolve_backend_credential`].
+    fn from(token: &str) -> Self {
+        Self::Session(token.to_string())
+    }
+}
+
+impl From<&String> for BackendCredential {
+    fn from(token: &String) -> Self {
+        Self::Session(token.clone())
+    }
+}
+
+impl From<&BackendCredential> for BackendCredential {
+    fn from(credential: &BackendCredential) -> Self {
+        credential.clone()
+    }
+}
+
 impl BackendCredential {
     /// The raw secret, whichever kind it is.
     pub fn into_secret(self) -> String {

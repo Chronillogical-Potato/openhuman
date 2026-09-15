@@ -564,18 +564,34 @@ impl BackendOAuthClient {
         .await
     }
 
+    /// An SDK client carrying `credential` on the wire the backend expects for
+    /// its kind: a session JWT as `Authorization: Bearer`, an API key as
+    /// `x-api-key`. See `security::credentials::api_key`.
+    fn sdk_with_credential(&self, credential: &BackendCredential) -> TinyHumansClient {
+        let secret = credential.secret().trim().to_string();
+        match credential {
+            BackendCredential::Session(_) => self.sdk.clone().with_token(Some(secret)),
+            BackendCredential::ApiKey(_) => {
+                log::trace!("[backend-api] authenticating request with x-api-key");
+                self.sdk.clone().with_api_key(Some(secret))
+            }
+        }
+    }
+
     /// Generic authenticated JSON request helper for backend API routes.
+    ///
+    /// `credential` accepts a [`BackendCredential`] (from
+    /// `session_support::resolve_backend_credential`) or, for the many callers
+    /// that still hold a bare session token string, a `&str` / `&String`,
+    /// which is treated as a session JWT.
     pub async fn authed_json(
         &self,
-        bearer_jwt: &str,
+        credential: impl Into<BackendCredential>,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
+        let sdk = self.sdk_with_credential(&credential.into());
         let response = sdk
             .raw()
             .send(method.clone(), path, &[], body.as_ref(), true)
@@ -584,12 +600,12 @@ impl BackendOAuthClient {
     }
 
     /// Fetch the deployed billing summary through the SDK's authenticated raw API.
-    pub async fn fetch_billing_summary(&self, bearer_jwt: &str) -> Result<Value> {
+    pub async fn fetch_billing_summary(
+        &self,
+        credential: impl Into<BackendCredential>,
+    ) -> Result<Value> {
         const PATH: &str = "/payments/summary";
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
+        let sdk = self.sdk_with_credential(&credential.into());
         let response = sdk.raw().send(Method::GET, PATH, &[], None, true).await;
         self.finish_authed_json(Method::GET, PATH, response)
     }
