@@ -730,6 +730,18 @@ fn download_url_from_docs_path(docs_path: &str) -> Option<String> {
     let skill = prefixed_slug
         .strip_prefix(&format!("{category}-"))
         .unwrap_or(prefixed_slug);
+    // `category` and `skill` come from the catalog and are spliced into a URL
+    // path. A reserved character (space, `#`, `?`, `%`) would change what the
+    // URL names, so an entry that is not a plain path segment gets no download
+    // URL and is reported as not installable rather than fetched from a
+    // different path.
+    if !download::is_safe_segment(category) || !download::is_safe_segment(skill) {
+        tracing::debug!(
+            docs_path = %docs_path,
+            "[skill_registry] docsPath has a non-plain path segment; no download URL"
+        );
+        return None;
+    }
     Some(format!(
         "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/{root}/{category}/{skill}/SKILL.md"
     ))

@@ -24,7 +24,7 @@ const SKILLS_SH_BASE_DIRS: [&str; 4] = ["", "skills/", ".agents/skills/", ".clau
 const PROBE_TIMEOUT_SECS: u64 = 15;
 
 /// A catalog value is spliced into a URL path, so it must be one plain segment.
-fn is_safe_segment(value: &str) -> bool {
+pub(super) fn is_safe_segment(value: &str) -> bool {
     !value.is_empty()
         && value != "."
         && value != ".."

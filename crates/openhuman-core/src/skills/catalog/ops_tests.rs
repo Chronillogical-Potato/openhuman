@@ -102,6 +102,30 @@ fn parse_hermes_entry_leaves_entries_without_a_skill_md_undownloadable() {
 }
 
 #[test]
+fn parse_hermes_entry_rejects_a_docs_path_segment_that_is_not_a_plain_path_segment() {
+    // `docsPath` is spliced into a raw.githubusercontent URL: a reserved
+    // character would change the path the URL names, so the entry gets no
+    // download URL instead. (#6285)
+    for docs_path in [
+        "bundled/apple/apple-my skill",
+        "bundled/apple/apple-my#skill",
+        "bundled/ap?ple/apple-notes",
+        "bundled/apple/..",
+    ] {
+        let entry = parse_hermes_entry(&json!({
+            "name": "odd-skill",
+            "description": "x",
+            "category": "apple",
+            "source": "built-in",
+            "docsPath": docs_path
+        }))
+        .expect("entry");
+        assert_eq!(entry.download_url, "", "docsPath {docs_path:?}");
+        assert!(!entry.has_direct_download());
+    }
+}
+
+#[test]
 fn parse_hermes_entry_installs_clawhub_skills_by_slug() {
     // ClawHub entries carry only a slug; the file API serves its SKILL.md. (#6285)
     let entry = parse_hermes_entry(&json!({
