@@ -208,6 +208,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'এই কাজটিতে কিছু ভুল হয়েছে।',
   'conversations.toolFailure.unknown.next':
     'আবার চেষ্টা করুন; বারবার ব্যর্থ হলে সেটিংস থেকে ডায়াগনস্টিকস চালান।',
+  'conversations.toolFailure.notFound.cause': 'এই কাজটি যা চেয়েছিল তা নেই বা এখানে উপলভ্য নয়।',
+  'conversations.toolFailure.notFound.next':
+    'কিছু করার দরকার নেই। সহকারী সঠিক নামটি খুঁজে আবার চেষ্টা করতে পারে।',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman এখনও এটি স্বয়ংক্রিয়ভাবে করতে পারে না।',
+  'conversations.toolFailure.unsupported.next':
+    'এটি নিজে করুন, অথবা সহকারীকে অন্য একটি উপায় খুঁজতে বলুন।',
   'conversations.backgroundTasks.title': 'পটভূমি কাজ',
   'nav.feedback': 'মতামত দিন',
   'feedback.board': 'মতামত বোর্ড',

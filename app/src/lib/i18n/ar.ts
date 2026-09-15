@@ -199,6 +199,11 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'حدث خطأ ما في هذا الإجراء.',
   'conversations.toolFailure.unknown.next':
     'حاول مرة أخرى؛ وإذا استمر الفشل، شغّل التشخيص من الإعدادات.',
+  'conversations.toolFailure.notFound.cause': 'ما طلبه هذا الإجراء غير موجود أو غير متاح هنا.',
+  'conversations.toolFailure.notFound.next':
+    'لا حاجة لأي إجراء. يمكن للمساعد البحث عن الاسم الصحيح والمحاولة مرة أخرى.',
+  'conversations.toolFailure.unsupported.cause': 'لا يستطيع OpenHuman القيام بذلك تلقائيًا بعد.',
+  'conversations.toolFailure.unsupported.next': 'قم بذلك يدويًا، أو اطلب خيارًا آخر.',
   'conversations.backgroundTasks.title': 'مهام الخلفية',
   'nav.feedback': 'شارك ملاحظاتك',
   'feedback.board': 'لوحة الملاحظات',

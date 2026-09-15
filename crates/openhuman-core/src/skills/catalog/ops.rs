@@ -366,7 +366,7 @@ pub async fn install_from_catalog(
         "[skill_registry] installing from catalog"
     );
 
-    if entry.download_url.trim().is_empty() {
+    if !entry.has_direct_download() {
         let where_to_find = entry
             .source_url
             .as_deref()

@@ -233,9 +233,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             // short a whole tool span — a span *count* divergence, not just a
             // missing attribute — on every turn the model named a tool it did
             // not have. Mirrors `observability/event_projection.rs`'s `UnknownToolCall`
-            // arm exactly, including the `Unknown` (recoverable) class.
+            // arm exactly, including the `NotFound` (permanent) class (#6277).
             let failure = Some(crate::tools::status::describe(
-                crate::tools::status::ToolFailureClass::Unknown,
+                crate::tools::status::ToolFailureClass::NotFound,
             ));
             let label = format!(
                 "{} (unavailable)",

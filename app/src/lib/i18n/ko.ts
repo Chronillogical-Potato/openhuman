@@ -204,6 +204,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': '이 작업에서 문제가 발생했습니다.',
   'conversations.toolFailure.unknown.next':
     '다시 시도하세요. 계속 실패하면 설정에서 진단을 실행하세요.',
+  'conversations.toolFailure.notFound.cause':
+    '이 작업이 요청한 항목이 없거나 여기서 사용할 수 없습니다.',
+  'conversations.toolFailure.notFound.next':
+    '따로 할 일은 없습니다. 어시스턴트가 올바른 이름을 찾아 다시 시도할 수 있습니다.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman은 아직 이 작업을 자동으로 할 수 없습니다.',
+  'conversations.toolFailure.unsupported.next': '직접 처리하거나 다른 옵션을 요청하세요.',
   'conversations.backgroundTasks.title': '백그라운드 작업',
   'nav.feedback': '피드백 보내기',
   'feedback.board': '피드백 보드',
