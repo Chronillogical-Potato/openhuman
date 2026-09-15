@@ -243,12 +243,13 @@ fn main() {
             // the slot is empty (root cause of the original userCount=0).
             if event.user.is_none() {
                 event.user =
-                    openhuman_core::security::credentials::identity::peek_credential_user_identity()
-                        .and_then(|identity| identity.id)
-                        .map(|id| sentry::User {
-                            id: Some(id),
-                            ..Default::default()
-                        });
+                    openhuman_core::security::credentials::identity::peek_credential_user_identity(
+                    )
+                    .and_then(|identity| identity.id)
+                    .map(|id| sentry::User {
+                        id: Some(id),
+                        ..Default::default()
+                    });
             }
             // Scrub secrets from exception values and top-level message.
             for exc in &mut event.exception.values {

@@ -2505,7 +2505,6 @@ async fn credentials_secret_helpers_round_trip_with_file_keyring_backend() {
     assert_eq!(decrypted, "worker-a-sensitive-value");
 }
 
-
 #[tokio::test]
 async fn worker_a_controller_schemas_are_fully_exposed() {
     let _lock = env_lock();
@@ -3796,14 +3795,6 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
     harness.join.abort();
 }
 
-
-
-
-
-
-
-
-
 #[tokio::test]
 async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_session() {
     let _lock = env_lock();
@@ -3829,8 +3820,14 @@ async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_ses
     )
     .await;
     let state = payload(&session, "auth_set_credential remote");
-    assert_eq!(state.get("credential").and_then(Value::as_str), Some("session"));
-    assert_eq!(state.get("userId").and_then(Value::as_str), Some("remote-user-1"));
+    assert_eq!(
+        state.get("credential").and_then(Value::as_str),
+        Some("session")
+    );
+    assert_eq!(
+        state.get("userId").and_then(Value::as_str),
+        Some("remote-user-1")
+    );
     assert_eq!(
         backend_state.auth_me_hits.load(Ordering::SeqCst),
         0,

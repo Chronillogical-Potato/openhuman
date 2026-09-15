@@ -380,11 +380,6 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-/// Alias for [`user_id_from_profile_payload`] for semantic clarity in auth flows.
-pub fn user_id_from_auth_me_payload(payload: &Value) -> Option<String> {
-    user_id_from_profile_payload(payload)
-}
-
 /// JSON body returned by the backend when an OAuth connection process is initiated.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectResponse {

@@ -179,8 +179,7 @@ fn json_output_produces_required_json_output_field() {
 fn deserialize_params_parses_set_credential_request() {
     let mut m = Map::new();
     m.insert("token".into(), Value::String("abc".into()));
-    let parsed: crate::security::credentials::SetCredentialRequest =
-        deserialize_params(m).unwrap();
+    let parsed: crate::security::credentials::SetCredentialRequest = deserialize_params(m).unwrap();
     assert_eq!(parsed.token, "abc");
     assert!(parsed.kind.is_none());
     assert!(parsed.user_id.is_none());

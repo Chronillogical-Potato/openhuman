@@ -33,8 +33,6 @@ fn app_state_path_creates_state_dir_and_points_at_app_state_json() {
     );
 }
 
-
-
 #[test]
 fn load_stored_app_state_returns_default_when_missing() {
     let tmp = tempdir().unwrap();
@@ -102,8 +100,6 @@ fn save_and_reload_stored_app_state_round_trips() {
     assert_eq!(tasks.connected_sources, vec!["telegram".to_string()]);
     assert_eq!(tasks.updated_at_ms, Some(42));
 }
-
-
 
 // ── RuntimeSnapshot cache tests ──────────────────────────────────────────────
 
@@ -235,7 +231,6 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
     );
 }
 
-
 // ── Configurable auth fetch timeout (#5930) ─────────────────────────────────
 //
 // "5s may be too tight" is the issue's first acceptance criterion. The risk in
@@ -243,8 +238,6 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
 // was a fixed 10s, so an operator setting 20s would make every poll find the
 // window already closed and pay the full 20s again. The clamp and the derived
 // base are what stop that, so both are pinned here.
-
-
 
 fn build_dummy_runtime_snapshot() -> RuntimeSnapshot {
     degraded_runtime_snapshot(&Config::default())
