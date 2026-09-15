@@ -80,6 +80,28 @@ fn resumed_rows_keep_their_own_extra_metadata() {
         rows[3].failure && rows[3].failure_detail.as_deref() == Some("boom"),
         "the replayed tool row keeps its failure flag and detail"
     );
+
+    // The display reader reconstructs from the line fields, so assert the file
+    // itself too: the markers are an in-memory side-channel and must never be
+    // persisted, and each row's caller metadata must be on disk in its original
+    // shape.
+    let raw = std::fs::read_to_string(&second).expect("read persisted transcript");
+    for marker in [
+        "openhuman_replayed",
+        "openhuman_tool_failure",
+        "openhuman_wrapped_value\":{",
+    ] {
+        assert!(
+            !raw.contains(marker),
+            "the persisted transcript must not carry {marker}: {raw}"
+        );
+    }
+    assert!(
+        raw.contains(r#""extra_metadata":"pinned""#)
+            && raw.contains(r#""extra_metadata":{"openhuman_wrapped_value":"pinned"}"#)
+            && raw.contains(r#""extra_metadata":"tool-note""#),
+        "each row's caller metadata must be persisted in its original shape: {raw}"
+    );
 }
 
 /// #6282 review: when a resumed transcript is later reduced, the writer's
