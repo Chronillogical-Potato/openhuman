@@ -1475,6 +1475,24 @@ describe('AIPanel', () => {
     expect(setCloudProviderKey).not.toHaveBeenCalled();
   });
 
+  // Regression (review on #6265): once the key exists, Cancel must not close the
+  // dialog while it is being saved, or the provider is added after a "cancel".
+  it('locks the dialog while an OpenRouter OAuth key is being saved', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+    vi.mocked(connectOpenRouterViaOAuth).mockResolvedValue('sk-or-from-oauth');
+    vi.mocked(setCloudProviderKey).mockImplementationOnce(() => new Promise(() => {}));
+
+    renderWithProviders(<AIPanel />);
+    await openProviderConnectDialog('openrouter');
+    const dialog = await screen.findByRole('dialog', { name: /Connect OpenRouter/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Sign in with OpenRouter/i }));
+
+    await waitFor(() =>
+      expect(setCloudProviderKey).toHaveBeenCalledWith('openrouter', 'sk-or-from-oauth')
+    );
+    expect(within(dialog).getByRole('button', { name: /^Cancel$/i })).toBeDisabled();
+  });
+
   // Regression: picking a provider in the add-provider modal has to hand off to
   // that provider's own connect dialog. Two Radix dialogs are involved (the
   // picker unmounts as the key dialog mounts), so this asserts the handoff

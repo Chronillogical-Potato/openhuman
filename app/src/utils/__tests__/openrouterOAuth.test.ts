@@ -178,4 +178,34 @@ describe('connectOpenRouterViaOAuth', () => {
     await expect(promise).rejects.toThrow('OpenRouter OAuth was cancelled.');
     expect(cancel).toHaveBeenCalledTimes(1);
   });
+
+  it('cancels when the flow is aborted while the browser is still opening', async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+
+    const promise = connectOpenRouterViaOAuth({
+      signal: controller.signal,
+      startLoopbackListener: vi
+        .fn()
+        .mockResolvedValue({
+          redirectUri: 'http://127.0.0.1:3000/auth?state=expected-state',
+          state: 'expected-state',
+          awaitCallback: vi.fn().mockImplementation(() => new Promise(() => {})),
+          cancel,
+        }),
+      // The abort lands after the listener is up but before the callback race exists.
+      openExternalUrl: vi.fn().mockImplementation(async () => controller.abort()),
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+
+    const outcome = await Promise.race([
+      promise.then(
+        () => 'resolved',
+        (err: Error) => err.message
+      ),
+      new Promise(resolve => setTimeout(() => resolve('still pending'), 50)),
+    ]);
+    expect(outcome).toBe('OpenRouter OAuth was cancelled.');
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
 });

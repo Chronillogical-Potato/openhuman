@@ -148,6 +148,12 @@ export async function connectOpenRouterViaOAuth(deps: OpenRouterOAuthDeps = {}):
       loopback.awaitCallback(),
       new Promise<string>((_, reject) => {
         if (!signal) return;
+        // An abort while the challenge was built or the browser was opening has
+        // already fired, so a listener added now would never run.
+        if (signal.aborted) {
+          reject(new Error('OpenRouter OAuth was cancelled.'));
+          return;
+        }
         const onAbort = () => {
           signal.removeEventListener('abort', onAbort);
           reject(new Error('OpenRouter OAuth was cancelled.'));

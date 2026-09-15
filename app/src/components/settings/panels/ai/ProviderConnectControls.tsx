@@ -52,7 +52,12 @@ export const ProviderKeyDialog = ({
   initialValue?: string;
   /** Pre-populate the API key field in `endpointKeyMode`. */
   initialKeyValue?: string;
-  oauthAction?: { label: string; description?: string; onClick: () => Promise<void> | void } | null;
+  oauthAction?: {
+    label: string;
+    description?: string;
+    /** `onPersisting` locks the dialog once a credential exists and is being saved. */
+    onClick: (hooks: { onPersisting: () => void }) => Promise<void> | void;
+  } | null;
   /** Register or remove the provider after the core OAuth operation succeeds. */
   openAiOAuth?: {
     onCompleted: () => Promise<void> | void;
@@ -146,7 +151,7 @@ export const ProviderKeyDialog = ({
     setError(null);
     setPhase('oauth');
     try {
-      await oauthAction.onClick();
+      await oauthAction.onClick({ onPersisting: () => setPhase('saving') });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[ai-settings] provider oauth failed', {

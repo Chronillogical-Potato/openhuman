@@ -212,11 +212,14 @@ const FAILURE_BODY: &str = "<!doctype html><meta charset=utf-8><title>Sign-in no
 
 /// Whether a state-matched callback actually delivered a credential. OpenRouter's
 /// Deny redirects back with nothing but the echoed `state=`, and an OAuth error
-/// carries `error=`; neither may show the "signed in" page.
+/// carries `error=`; neither may show the "signed in" page. Only a non-empty
+/// `code` (OAuth / PKCE) or `token` (backend login) counts as a credential.
 fn callback_carries_credential(query: &str) -> bool {
     let pairs: Vec<(&str, &str)> = query.split('&').filter_map(|p| p.split_once('=')).collect();
     !pairs.iter().any(|(k, _)| *k == "error")
-        && pairs.iter().any(|(k, v)| *k != "state" && !v.is_empty())
+        && pairs
+            .iter()
+            .any(|(k, v)| matches!(*k, "code" | "token") && !v.is_empty())
 }
 
 /// Page served for a state-matched callback: success only when it carried a credential.

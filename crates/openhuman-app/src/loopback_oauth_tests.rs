@@ -161,6 +161,10 @@ fn deny_or_error_callback_carries_no_credential() {
         !callback_carries_credential("state=abc&code="),
         "empty code"
     );
+    assert!(
+        !callback_carries_credential("state=abc&scope=openid"),
+        "non-credential param"
+    );
 }
 
 #[test]
