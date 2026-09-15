@@ -87,21 +87,22 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     profile.system_prompt_suffix = parts.system_prompt_suffix;
     #[cfg(feature = "mcp")]
     {
-        // `None` is the "all configured servers" sentinel
-        // (`AgentProfile`'s doc comment), not "none requested" — an agent
-        // that declared zero MCP servers of its own but inherited the
-        // runtime's `domains.mcp = true` (the default when `parts.domains`
-        // is unset) would otherwise reach every server in the runtime's
-        // static registry, including a host-seeded one meant for other
-        // agents. List exactly what this agent asked for instead, so an
-        // agent with none declared is scoped to none.
-        profile.allowed_mcp_servers = Some(
-            parts
-                .mcp_servers
-                .iter()
-                .map(|server| server.name().to_owned())
-                .collect(),
-        );
+        // Deliberately `None` ("all configured servers" — see
+        // `AgentProfile`'s doc comment), NOT narrowed to `parts.mcp_servers`.
+        // `config.mcp_client.servers` is already per-agent: `config` starts
+        // as `base.clone()` and each agent's own `.mcp(...)` declarations are
+        // appended to its own clone only, never a sibling's (proven by
+        // `tests/runtime_agents.rs`'s `beta.config().mcp_client.servers.is_empty()`
+        // while alpha's carries one). So "all configured servers" for THIS
+        // agent already means only what the runtime's base config seeded
+        // (host-wide servers meant for every agent, e.g. the docs server —
+        // see the crate README's "host-seeded documentation server is
+        // visible to every agent") plus whatever this agent itself declared.
+        // Narrowing this to `Some(parts.mcp_servers-only)` would additionally
+        // hide that host-seeded server from any agent that declared no MCP
+        // servers of its own, which `tests/runtime_agents.rs` pins as
+        // intended ("both see the host-seeded docs server").
+        profile.allowed_mcp_servers = None;
     }
     // Read back now, after `config_fn` (the escape hatch, applied above) has
     // had its chance to edit `config.action_dir` — the directory created and
