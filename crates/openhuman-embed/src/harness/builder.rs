@@ -55,6 +55,7 @@ impl HarnessBuilder {
             action_dir: None,
             provider: Provider::inherit(),
             access: Access::default(),
+            #[cfg(feature = "skills")]
             skills_dir: None,
             #[cfg(feature = "mcp")]
             mcp_servers: Vec::new(),
