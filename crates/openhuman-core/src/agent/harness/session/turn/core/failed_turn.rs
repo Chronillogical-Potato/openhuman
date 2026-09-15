@@ -5,7 +5,9 @@ use crate::agent::harness::session::turn_checkpoint::{truncate_chars, CHECKPOINT
 use crate::agent::harness::session::types::Agent;
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
 use crate::agent::messages::{ChatMessage, ConversationMessage};
-use crate::agent::tinyagents::{TranscriptSnapshot, TranscriptSnapshotSink};
+use crate::agent::tinyagents::{
+    render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink,
+};
 use anyhow::Result;
 use tinyinference::message::Message;
 
@@ -63,7 +65,10 @@ impl Agent {
         effective_model: &str,
         err: &anyhow::Error,
     ) {
-        let (accepted, unanswered) = split_snapshot(snapshot);
+        let base = snapshot.request_base_len.min(snapshot.messages.len());
+        let accepted_end = snapshot.accepted_end();
+        let accepted = &snapshot.messages[base..accepted_end];
+        let unanswered = &snapshot.messages[accepted_end..];
         log::warn!(
             "[agent_loop] turn failed; recording {} accepted round message(s), {} unanswered \
              message(s) as text, and the failure cause into history session_id={} \
@@ -91,75 +96,56 @@ impl Agent {
             )));
         self.trim_history();
 
+        // The calls the provider answered were billed even though the turn
+        // failed. Their spend already reached the cost tracker live (the event
+        // bridge records usage per call); the transcript records the same totals
+        // instead of zeros.
+        let (input, output, cached) = (
+            snapshot.input_tokens,
+            snapshot.output_tokens,
+            snapshot.cached_input_tokens,
+        );
+        let cost_usd = crate::platform::cost::catalog::estimate_cost_usd(
+            effective_model,
+            input,
+            output,
+            cached,
+        );
         let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
-        // A failed run reports no usage; record zeros, but keep the provider and
-        // model so the transcript meta stays attributable.
         let turn_usage = TurnUsage {
             provider: self.event_channel().to_string(),
             model: effective_model.to_string(),
             usage: MessageUsage {
-                input: 0,
-                output: 0,
-                cached_input: 0,
+                input,
+                output,
+                cached_input: cached,
                 context_window: 0,
-                cost_usd: 0.0,
+                cost_usd,
             },
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,
             tool_calls: Vec::new(),
             iteration: 0,
         };
-        self.persist_session_transcript(&persisted, 0, 0, 0, 0.0, Some(&turn_usage));
+        self.persist_session_transcript(
+            &persisted,
+            input,
+            output,
+            cached,
+            cost_usd,
+            Some(&turn_usage),
+        );
     }
-}
-
-/// Split a snapshot into this run's rounds the provider answered and the ones
-/// only the failing (unanswered) request carried.
-fn split_snapshot(snapshot: &TranscriptSnapshot) -> (&[Message], &[Message]) {
-    let len = snapshot.messages.len();
-    let base = snapshot.request_base_len.min(len);
-    let accepted_end = snapshot.accepted_len.clamp(base, len);
-    (
-        &snapshot.messages[base..accepted_end],
-        &snapshot.messages[accepted_end..],
-    )
 }
 
 /// The failure cause, plus the unanswered steps rendered as text.
 fn failed_turn_note(err: &anyhow::Error, unanswered: &[Message]) -> String {
-    let mut note = format!(
+    let cause = format!(
         "{FAILED_TURN_NOTE_PREFIX} {}]",
         truncate_chars(&err.to_string(), CHECKPOINT_RESULT_CHARS)
     );
-    if unanswered.is_empty() {
-        return note;
+    match render_unanswered_steps(unanswered) {
+        Some(steps) => format!("{cause}\n\n{steps}"),
+        None => cause,
     }
-    note.push_str("\n\nThe request that failed also carried these steps, recorded here as text:\n");
-    for msg in unanswered {
-        match msg {
-            Message::Assistant(assistant) if !assistant.tool_calls.is_empty() => {
-                for call in &assistant.tool_calls {
-                    let call = crate::agent::message_convert::ta_call_to_oh_call(call);
-                    note.push_str(&format!(
-                        "- called `{}` with {}\n",
-                        call.name,
-                        truncate_chars(&call.arguments, CHECKPOINT_RESULT_CHARS)
-                    ));
-                }
-            }
-            Message::Tool(_) => note.push_str(&format!(
-                "- tool result: {}\n",
-                truncate_chars(&msg.text(), CHECKPOINT_RESULT_CHARS)
-            )),
-            Message::Assistant(_) => note.push_str(&format!(
-                "- assistant: {}\n",
-                truncate_chars(&msg.text(), CHECKPOINT_RESULT_CHARS)
-            )),
-            Message::User(_) | Message::System(_) => note.push_str(&format!(
-                "- message: {}\n",
-                truncate_chars(&msg.text(), CHECKPOINT_RESULT_CHARS)
-            )),
-        }
-    }
-    note
 }

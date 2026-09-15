@@ -77,6 +77,9 @@ impl ChatModel<()> for TwoStepProvider {
     }
 }
 
+#[path = "graph_failed_run_tests.rs"]
+mod graph_failed_run_tests;
+
 #[tokio::test]
 async fn subagent_runs_through_the_graph_engine_with_real_tools() {
     let provider = Arc::new(TwoStepProvider {

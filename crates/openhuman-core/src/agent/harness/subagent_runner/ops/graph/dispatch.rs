@@ -243,6 +243,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     // request's transcript here, so the error path below can still persist the
     // rounds that completed before the failure.
     let transcript_snapshot = crate::agent::tinyagents::TranscriptSnapshotSink::default();
+    // The seeded history is always kept; only rounds past it are split into
+    // accepted and unanswered on failure (#6281).
+    transcript_snapshot
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .request_base_len = dispatch_history.len();
 
     // A sub-agent turn runs *nested inside* the parent agent's turn (parent
     // harness → spawn_subagent tool → here), so the child's full
@@ -328,15 +334,38 @@ pub(in super::super) async fn run_subagent_via_graph(
             // error. Previously the `?`-return skipped both persistence steps, so
             // a failed run left no transcript and an empty worker thread.
             let mapped = map_tinyagents_subagent_error(err);
-            let recovered = transcript_snapshot
-                .lock()
-                .map(|g| crate::agent::message_convert::messages_to_history(&g.messages))
-                .unwrap_or_default();
+            // Persist only what a provider accepted as structured history: a
+            // request rejected for malformed tool history must not be replayed by
+            // a resumed sub-agent. The unanswered suffix rides the failure marker
+            // as text (#6281).
+            let (recovered, unanswered_steps, recovered_usage) = {
+                let snapshot = transcript_snapshot
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let end = snapshot.accepted_end();
+                let usage = AggregatedUsage {
+                    input_tokens: snapshot.input_tokens,
+                    output_tokens: snapshot.output_tokens,
+                    cached_input_tokens: snapshot.cached_input_tokens,
+                    charged_amount_usd: crate::platform::cost::catalog::estimate_cost_usd(
+                        model,
+                        snapshot.input_tokens,
+                        snapshot.output_tokens,
+                        snapshot.cached_input_tokens,
+                    ),
+                };
+                (
+                    crate::agent::message_convert::messages_to_history(&snapshot.messages[..end]),
+                    crate::agent::tinyagents::render_unanswered_steps(&snapshot.messages[end..]),
+                    usage,
+                )
+            };
             tracing::warn!(
                 agent_id,
                 task_id,
                 error = %mapped,
                 recovered_rounds = recovered.len(),
+                unanswered_steps = unanswered_steps.is_some(),
                 "[subagent_runner:graph] sub-agent run errored; persisting recovered transcript before returning (#4466)"
             );
             super::transcript::persist_failed_run(
@@ -347,6 +376,8 @@ pub(in super::super) async fn run_subagent_via_graph(
                 provider_label,
                 model,
                 &recovered,
+                &recovered_usage,
+                unanswered_steps.as_deref(),
                 context_window.unwrap_or(0),
                 if native_tools { "native" } else { "xml" },
                 worker_thread_id.as_deref(),

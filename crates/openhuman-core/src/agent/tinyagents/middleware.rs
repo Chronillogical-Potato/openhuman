@@ -61,7 +61,8 @@ pub(crate) use tool_exposure::OpenHumanToolExposureShadowMiddleware;
 pub(crate) use tool_outcome_capture::ToolOutcomeCaptureMiddleware;
 pub(crate) use tool_policy::ToolPolicyMiddleware;
 pub(crate) use turn_context::{
-    HandoffConfig, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
+    render_unanswered_steps, HandoffConfig, TranscriptSnapshot, TranscriptSnapshotSink,
+    TurnContextMiddleware,
 };
 
 #[cfg(test)]

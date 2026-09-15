@@ -84,9 +84,11 @@ pub(super) fn persist_subagent_transcript(
 /// transcript-snapshot middleware captured before the harness error to
 /// `session_raw` (so `learning/transcript_ingest` can still ingest a failed run,
 /// not skip an absent file), mirror those rounds onto the worker thread, and
-/// append a trailing failure marker so the record is self-describing. Usage is
-/// zeroed — the harness reported no totals on the error path — and the iteration
-/// count is the number of completed rounds recovered.
+/// append a trailing failure marker so the record is self-describing. `recovered`
+/// holds only what a provider accepted; steps only the failing request carried
+/// arrive as `unanswered_steps` text and are appended to the marker (#6281).
+/// `usage` is what the answered calls reported, and the iteration count is the
+/// number of completed rounds recovered.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn persist_failed_run(
     workspace_dir: &std::path::Path,
@@ -96,18 +98,20 @@ pub(super) fn persist_failed_run(
     provider_label: &str,
     model: &str,
     recovered: &[ChatMessage],
+    usage: &AggregatedUsage,
+    unanswered_steps: Option<&str>,
     context_window: u64,
     dispatcher: &str,
     worker_thread_id: Option<&str>,
     error: &SubagentRunError,
 ) {
-    let marker = format!("[subagent run failed before completion: {error}]");
+    let marker = match unanswered_steps {
+        Some(steps) => format!("[subagent run failed before completion: {error}]\n\n{steps}"),
+        None => format!("[subagent run failed before completion: {error}]"),
+    };
     let mut history = recovered.to_vec();
     history.push(ChatMessage::assistant(marker.clone()));
 
-    // A failed run has no usage totals; record zeros so the transcript is still a
-    // valid, ingestable `session_raw` record with the failure surfaced.
-    let usage = AggregatedUsage::default();
     persist_subagent_transcript(
         workspace_dir,
         transcript_stem,
@@ -116,7 +120,7 @@ pub(super) fn persist_failed_run(
         provider_label,
         model,
         &history,
-        &usage,
+        usage,
         context_window,
         dispatcher,
         recovered.len() as u32,

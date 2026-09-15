@@ -4,7 +4,11 @@ fn echo_tool_call() -> anyhow::Result<ChatResponse> {
     Ok(ChatResponse {
         text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
         tool_calls: vec![],
-        usage: None,
+        usage: Some(UsageInfo {
+            input_tokens: 100,
+            output_tokens: 7,
+            ..UsageInfo::default()
+        }),
         reasoning_content: None,
     })
 }
@@ -99,6 +103,13 @@ async fn failed_turn_keeps_its_work_and_cause_for_the_next_turn() {
             .iter()
             .any(|message| message.role == "assistant" && message.content.contains("provider boom")),
         "the persisted transcript must carry the failure note"
+    );
+    // Both answered calls reported usage before the failure; the failed turn
+    // records it rather than zeros.
+    assert_eq!(
+        (persisted.meta.input_tokens, persisted.meta.output_tokens),
+        (200, 14),
+        "the failed turn must record the usage of its answered calls"
     );
 
     agent

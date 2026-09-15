@@ -83,6 +83,57 @@ pub(crate) struct TranscriptSnapshot {
     /// this run produced start at `messages[request_base_len..]`. Set by the
     /// caller; `0` when the caller does not need the split.
     pub(crate) request_base_len: usize,
+    /// Usage the provider reported for the calls it answered (cache replays
+    /// excluded), so a run that fails still accounts for what it spent.
+    pub(crate) input_tokens: u64,
+    pub(crate) output_tokens: u64,
+    pub(crate) cached_input_tokens: u64,
+}
+
+/// Display cap for one unanswered step in a failure note, matching the cap
+/// checkpoint's per-result slice.
+const UNANSWERED_STEP_CHARS: usize = 800;
+
+impl TranscriptSnapshot {
+    /// End of the prefix the provider accepted: never before the seeded input,
+    /// never past the snapshot.
+    pub(crate) fn accepted_end(&self) -> usize {
+        let len = self.messages.len();
+        self.accepted_len.clamp(self.request_base_len.min(len), len)
+    }
+}
+
+/// Render the messages only an unanswered request carried as plain text for a
+/// failure note, or `None` when there are none. Text cannot be replayed as a
+/// malformed tool sequence, so it is safe to persist where structured messages
+/// from a rejected request are not (#6281).
+pub(crate) fn render_unanswered_steps(messages: &[Message]) -> Option<String> {
+    if messages.is_empty() {
+        return None;
+    }
+    let clip = |text: &str| crate::util::truncate_with_ellipsis(text.trim(), UNANSWERED_STEP_CHARS);
+    let mut out =
+        String::from("The request that failed also carried these steps, recorded here as text:\n");
+    for msg in messages {
+        match msg {
+            Message::Assistant(assistant) if !assistant.tool_calls.is_empty() => {
+                for call in &assistant.tool_calls {
+                    let call = crate::agent::message_convert::ta_call_to_oh_call(call);
+                    out.push_str(&format!(
+                        "- called `{}` with {}\n",
+                        call.name,
+                        clip(&call.arguments)
+                    ));
+                }
+            }
+            Message::Tool(_) => out.push_str(&format!("- tool result: {}\n", clip(&msg.text()))),
+            Message::Assistant(_) => out.push_str(&format!("- assistant: {}\n", clip(&msg.text()))),
+            Message::User(_) | Message::System(_) => {
+                out.push_str(&format!("- message: {}\n", clip(&msg.text())))
+            }
+        }
+    }
+    Some(out)
 }
 
 /// Shared buffer a [`TranscriptSnapshotMiddleware`] mirrors the live
@@ -126,10 +177,20 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        _response: &mut ModelResponse,
+        response: &mut ModelResponse,
     ) -> TaResult<()> {
         if let Ok(mut guard) = self.sink.lock() {
             guard.accepted_len = guard.messages.len();
+            // A cache replay consumed no provider tokens.
+            if let Some(usage) = response
+                .usage
+                .as_ref()
+                .filter(|_| !response.served_from_cache)
+            {
+                guard.input_tokens += usage.input_tokens;
+                guard.output_tokens += usage.output_tokens;
+                guard.cached_input_tokens += usage.cache_read_tokens;
+            }
         }
         Ok(())
     }
