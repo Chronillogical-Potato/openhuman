@@ -45,9 +45,9 @@ pub enum HarnessError {
     /// here is the loud version. Create more agents on the existing
     /// [`Runtime`](crate::Runtime) instead.
     #[error(
-        "an OpenHuman harness is already running in this process; \
+        "an OpenHuman runtime is already running in this process; \
          core state (keyring, event bus, domain subscribers) is process-scoped, \
-         so a second one would share it. Reuse the existing harness."
+         so a second one would share it. Create more agents on the existing runtime."
     )]
     AlreadyRunning,
 
