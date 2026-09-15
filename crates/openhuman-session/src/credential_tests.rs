@@ -4,12 +4,12 @@ use serde_json::json;
 
 #[test]
 fn classify_recognises_the_local_session_shape() {
-    let local = Credential::classify(&LOCAL_TOKEN);
+    let local = Credential::classify(LOCAL_TOKEN.as_str());
     assert_eq!(local.kind, CredentialKind::Local);
     assert!(local.is_local());
     assert_eq!(local.expires_at, None);
 
-    let session = Credential::classify(&LIVE_JWT);
+    let session = Credential::classify(LIVE_JWT.as_str());
     assert_eq!(session.kind, CredentialKind::Session);
     assert!(session.expires_at.is_some());
 

@@ -55,7 +55,7 @@ async fn consume_login_token_returns_jwt_and_sends_attribution_headers() {
     assert_eq!(backend.consume_calls(), vec![json!({ "token": "tok" })]);
 
     let user = client
-        .fetch_me(&Credential::session(&LIVE_JWT))
+        .fetch_me(&Credential::session(LIVE_JWT.as_str()))
         .await
         .unwrap();
     assert_eq!(user["_id"], "user-123");
@@ -103,7 +103,7 @@ async fn fetch_me_sends_api_key_header_for_api_keys() {
 async fn fetch_me_classifies_statuses() {
     let backend = Backend::start(vec![MeAnswer::Status(401), MeAnswer::Status(503)]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
-    let cred = Credential::session(&LIVE_JWT);
+    let cred = Credential::session(LIVE_JWT.as_str());
     assert!(matches!(
         client.fetch_me(&cred).await,
         Err(FetchMeError::Rejected(_))
@@ -118,7 +118,9 @@ async fn fetch_me_classifies_statuses() {
 async fn fetch_me_reports_unreachable_backend_as_transport() {
     let client = SessionClient::new("http://127.0.0.1:9", &headers()).unwrap();
     assert!(matches!(
-        client.fetch_me(&Credential::session(&LIVE_JWT)).await,
+        client
+            .fetch_me(&Credential::session(LIVE_JWT.as_str()))
+            .await,
         Err(FetchMeError::Transport(_))
     ));
 }
@@ -129,7 +131,7 @@ async fn validate_for_store_retries_once_after_transient() {
     let backend = Backend::start(vec![MeAnswer::Status(502), MeAnswer::Ok(me_user())]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     let user = client
-        .validate_for_store(&Credential::session(&LIVE_JWT))
+        .validate_for_store(&Credential::session(LIVE_JWT.as_str()))
         .await
         .unwrap();
     assert_eq!(user["_id"], "user-123");
@@ -143,7 +145,7 @@ async fn validate_for_store_does_not_retry_a_rejection() {
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     assert!(matches!(
         client
-            .validate_for_store(&Credential::session(&LIVE_JWT))
+            .validate_for_store(&Credential::session(LIVE_JWT.as_str()))
             .await,
         Err(FetchMeError::Rejected(_))
     ));
@@ -157,7 +159,7 @@ async fn validate_for_store_times_out_into_transport() {
     let backend = Backend::start(vec![MeAnswer::Slow(2_000)]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     let result = client
-        .validate_for_store(&Credential::session(&LIVE_JWT))
+        .validate_for_store(&Credential::session(LIVE_JWT.as_str()))
         .await;
     std::env::remove_var(VALIDATION_BUDGET_ENV);
     match result {
