@@ -148,7 +148,8 @@ impl<L: CoreLink> SessionManager<L> {
         Ok(client)
     }
 
-    fn cancel_revalidation(&self) {
+    /// Stop a pending-session revalidation loop, if one is running.
+    pub fn cancel_revalidation(&self) {
         if let Some(handle) = self
             .revalidation
             .lock()
