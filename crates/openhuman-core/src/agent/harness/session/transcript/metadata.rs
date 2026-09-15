@@ -3,11 +3,11 @@
 //! persistence and the transcript writer lifts onto line fields.
 //!
 //! **The `openhuman_*` key namespace inside `extra_metadata` is reserved for
-//! these host markers.** They travel in-band next to caller metadata, so a
-//! caller key with one of these names is indistinguishable from the marker:
-//! the writer strips `openhuman_tool_failure` and `openhuman_replayed`, and an
-//! object holding only `openhuman_wrapped_value` is read as a wrapped scalar.
-//! Caller metadata must not use the prefix.
+//! these host markers.** They travel in-band next to caller metadata, so the
+//! writer strips a `openhuman_tool_failure` / `openhuman_replayed` key it finds
+//! there whoever wrote it. A caller value stored under
+//! [`WRAPPED_VALUE_KEY`] is safe, though: a wrap is recorded in the marker's own
+//! payload rather than inferred from that key.
 
 use super::types::TurnUsage;
 use crate::agent::messages::ChatMessage;
@@ -35,14 +35,25 @@ const TOOL_FAILURE_METADATA_KEY: &str = "openhuman_tool_failure";
 const REPLAYED_METADATA_KEY: &str = "openhuman_replayed";
 
 /// Key a non-object `extra_metadata` value is moved under when a side-channel
-/// marker has to be added next to it. Distinct from any caller key, so
-/// [`take_metadata`] can tell the wrap apart from a real object and restore
-/// the original value once the marker is removed.
+/// marker has to be added next to it. The wrap is recorded in the marker's own
+/// payload (`"wrapped": true`), never inferred from this key being present, so
+/// caller metadata that happens to use the same key is left alone.
 const WRAPPED_VALUE_KEY: &str = "openhuman_wrapped_value";
 
-/// Insert `value` under `key` in `message.extra_metadata`, wrapping a
-/// non-object value under [`WRAPPED_VALUE_KEY`] so nothing already there is
-/// lost.
+/// Field a marker payload carries when adding it wrapped a non-object
+/// `extra_metadata` value that [`take_metadata`] must restore.
+const WRAPPED_FLAG: &str = "wrapped";
+
+/// Whether adding a marker to `message` would have to wrap its existing
+/// `extra_metadata` (i.e. it is present and not an object).
+fn would_wrap(message: &ChatMessage) -> bool {
+    matches!(&message.extra_metadata, Some(value) if !value.is_object())
+}
+
+/// Insert `value` under `key` in `message.extra_metadata`, moving a non-object
+/// value under [`WRAPPED_VALUE_KEY`] so nothing already there is lost. Callers
+/// that need the value restored on removal record the wrap in their own payload
+/// (see [`would_wrap`]).
 fn insert_metadata(message: &mut ChatMessage, key: &str, value: serde_json::Value) {
     let mut map = match message.extra_metadata.take() {
         Some(serde_json::Value::Object(map)) => map,
@@ -59,19 +70,24 @@ fn insert_metadata(message: &mut ChatMessage, key: &str, value: serde_json::Valu
 
 /// Pop `key` out of a cloned `extra_metadata` map, then undo what adding it
 /// did: an object left empty becomes no `extra_metadata` (a legacy-identical
-/// line stays legacy-identical), and an object holding only a wrapped scalar
-/// becomes that scalar again, so a replayed or failed row persists its
-/// original metadata exactly.
+/// line stays legacy-identical), and a value this marker wrapped (its payload
+/// says so) is restored, so a replayed or failed row persists its original
+/// metadata exactly — including a caller object that itself uses
+/// [`WRAPPED_VALUE_KEY`], which is never treated as a wrap.
 fn take_metadata(extra: &mut Option<serde_json::Value>, key: &str) -> Option<serde_json::Value> {
     let serde_json::Value::Object(map) = extra.as_mut()? else {
         return None;
     };
     let value = map.remove(key)?;
+    let wrapped = value
+        .get(WRAPPED_FLAG)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
     if map.is_empty() {
         *extra = None;
-    } else if map.len() == 1 {
-        if let Some(wrapped) = map.remove(WRAPPED_VALUE_KEY) {
-            *extra = Some(wrapped);
+    } else if wrapped {
+        if let Some(original) = map.remove(WRAPPED_VALUE_KEY) {
+            *extra = Some(original);
         }
     }
     Some(value)
@@ -89,6 +105,9 @@ pub(crate) fn attach_tool_failure_metadata(message: &mut ChatMessage, detail: Op
             "detail".to_string(),
             serde_json::Value::String(detail.to_string()),
         );
+    }
+    if would_wrap(message) {
+        payload.insert(WRAPPED_FLAG.to_string(), serde_json::Value::Bool(true));
     }
     insert_metadata(
         message,
@@ -116,10 +135,21 @@ pub(super) fn take_tool_failure(
 /// `request_id` (`None` when that turn recorded none). See
 /// [`REPLAYED_METADATA_KEY`].
 pub(crate) fn attach_replayed_metadata(message: &mut ChatMessage, request_id: Option<&str>) {
+    let mut payload = serde_json::Map::new();
+    payload.insert(
+        "request_id".to_string(),
+        match request_id {
+            Some(id) => serde_json::Value::String(id.to_string()),
+            None => serde_json::Value::Null,
+        },
+    );
+    if would_wrap(message) {
+        payload.insert(WRAPPED_FLAG.to_string(), serde_json::Value::Bool(true));
+    }
     insert_metadata(
         message,
         REPLAYED_METADATA_KEY,
-        serde_json::json!({ "request_id": request_id }),
+        serde_json::Value::Object(payload),
     );
 }
 

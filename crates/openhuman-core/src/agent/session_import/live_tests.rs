@@ -336,13 +336,15 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
     // difference must be the first row, and that row's only legacy-side extra
     // must be the `openhuman_replayed` marker.
     let rendered = base_messages.len();
+    assert_eq!(
+        legacy.messages[0].extra_metadata,
+        Some(serde_json::json!({ "openhuman_replayed": { "request_id": "req-1" } })),
+        "the legacy read-back's first row must carry the replayed provenance marker for \
+         this turn's request, and nothing else"
+    );
     assert!(
-        legacy.messages[0]
-            .extra_metadata
-            .as_ref()
-            .is_some_and(|meta| meta.get("openhuman_replayed").is_some()),
-        "the legacy read-back must carry the replayed provenance marker: {:?}",
-        legacy.messages[0].extra_metadata
+        base_messages[0].extra_metadata.is_none(),
+        "the in-memory fixture row must have no metadata, so the marker is the only difference"
     );
     assert_eq!(
         outcome,
