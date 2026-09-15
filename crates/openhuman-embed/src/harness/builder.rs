@@ -27,6 +27,7 @@ pub struct HarnessBuilder {
     action_dir: Option<PathBuf>,
     provider: Provider,
     access: Access,
+    #[cfg(feature = "skills")]
     skills_dir: Option<PathBuf>,
     #[cfg(feature = "mcp")]
     mcp_servers: Vec<super::mcp::McpServer>,
