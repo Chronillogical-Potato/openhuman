@@ -283,8 +283,7 @@ impl HarnessBuilder {
 
         let mut spec = AgentSpec::new(HARNESS_AGENT_ID)
             .provider(self.provider)
-            .access(self.access)
-            .shared_memory(true);
+            .access(self.access);
         if let Some(dir) = self.action_dir {
             spec = spec.action_dir(dir);
         }
