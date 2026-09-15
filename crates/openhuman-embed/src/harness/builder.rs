@@ -288,6 +288,20 @@ impl HarnessBuilder {
             .access(self.access);
         if let Some(dir) = self.action_dir {
             spec = spec.action_dir(dir);
+        } else if !inherit {
+            // Preserve the resolved workspace's own action directory
+            // (`ResolvedWorkspace::resolve` already created it) rather than
+            // falling through to `agent::build`'s per-agent default of
+            // `<root>/agents/harness/action`. That default is right for a
+            // `Runtime::agent` caller juggling several agents, but a
+            // `Harness` caller — one runtime, one agent — expects its action
+            // directory to be the workspace's, exactly where the resolved
+            // workspace put it (and where `Workspace::Dir`'s sibling
+            // `action` dir already lives on disk). `inherit` keeps the
+            // per-agent-subdirectory default: an operator-owned workspace
+            // must not let the harness act directly in the operator's own
+            // directory.
+            spec = spec.action_dir(runtime.base_config().action_dir.clone());
         }
         #[cfg(feature = "skills")]
         if let Some(dir) = self.skills_dir {
