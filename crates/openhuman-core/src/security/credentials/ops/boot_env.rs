@@ -39,7 +39,7 @@ pub fn seed_api_key_from_env(config: &Config) {
         return;
     }
     match api_key::store_api_key(config, &key) {
-        Ok(()) => log::info!("[auth][boot] api key installed from {BACKEND_API_KEY_ENV}"),
+        Ok(_) => log::info!("[auth][boot] api key installed from {BACKEND_API_KEY_ENV}"),
         Err(error) => log::warn!("[auth][boot] failed to install api key from {BACKEND_API_KEY_ENV}: {error}"),
     }
 }
