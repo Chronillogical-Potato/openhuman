@@ -30,7 +30,7 @@ use std::time::Instant;
 /// Correlates a snapshot call's own timing/debug log lines across the poll.
 pub(super) static SNAPSHOT_REQ_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn sanitize_snapshot_user(user: Option<Value>) -> Option<Value> {
+pub(super) fn sanitize_snapshot_user(user: Option<Value>) -> Option<Value> {
     match user {
         Some(Value::Object(map)) if map.is_empty() => None,
         Some(Value::Null) => None,

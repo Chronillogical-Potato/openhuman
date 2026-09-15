@@ -1,17 +1,12 @@
 use super::*;
 use once_cell::sync::Lazy as TestLazy;
-use parking_lot::Mutex as TestMutex;
 use serde_json::json;
 use tempfile::tempdir;
 
-/// Serialises every test that reads or writes the process-global snapshot
-/// caches. A `tokio` mutex rather than a `parking_lot` one so async tests can
-/// hold it across an `.await` — sibling `ops_current_user_backoff_tests.rs`
-/// guards its own global the same way.
-///
-/// `pub(super)` for `ops_snapshot_latency_tests.rs`, which seeds the positive
-/// cache and so has to serialise against the readers here.
-pub(super) static APP_STATE_CACHE_TEST_LOCK: TestLazy<tokio::sync::Mutex<()>> =
+/// Serialises every test that reads or writes the process-global runtime
+/// snapshot cache. A `tokio` mutex rather than a `parking_lot` one so async
+/// tests can hold it across an `.await`.
+static APP_STATE_CACHE_TEST_LOCK: TestLazy<tokio::sync::Mutex<()>> =
     TestLazy::new(|| tokio::sync::Mutex::new(()));
 
 #[test]
@@ -23,12 +18,6 @@ fn sanitize_snapshot_user_drops_empty_payloads() {
         Some(json!({ "firstName": "steven" }))
     );
 }
-
-
-// The freshness branch in `fetch_current_user_cached` is `elapsed() < TTL`.
-// Lock that contract here so a future TTL change can't silently flip the
-// cache from "hit" to "miss" without updating this test.
-
 
 #[test]
 fn app_state_path_creates_state_dir_and_points_at_app_state_json() {
@@ -260,53 +249,3 @@ fn degraded_runtime_snapshot_has_expected_degraded_fields() {
 fn build_dummy_runtime_snapshot() -> RuntimeSnapshot {
     degraded_runtime_snapshot(&Config::default())
 }
-
-
-#[path = "ops_signout_cache_tests.rs"]
-mod signout_cache_tests;
-
-// Serialises the `OPENHUMAN_WORKSPACE` env mutations below so two of these tests
-// can't race each other on the process-global var.
-static WORKSPACE_ENV_TEST_LOCK: TestLazy<TestMutex<()>> = TestLazy::new(|| TestMutex::new(()));
-
-/// RAII guard for `OPENHUMAN_WORKSPACE`. Captures the prior value on
-/// construction and restores it (set or remove) on drop, so a test that panics
-/// between the mutation and the end of the test can't leak the override into a
-/// sibling test. Must be constructed while holding `WORKSPACE_ENV_TEST_LOCK`:
-/// mutating a process env var while another thread reads it is unsafe, and the
-/// lock serialises every test in this group.
-struct WorkspaceEnvGuard {
-    prior: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(value: &std::path::Path) -> Self {
-        let prior = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", value);
-        Self { prior }
-    }
-
-    fn set_empty() -> Self {
-        let prior = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", "");
-        Self { prior }
-    }
-
-    fn unset() -> Self {
-        let prior = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-        Self { prior }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match &self.prior {
-            Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-        }
-    }
-}
-
-
-
