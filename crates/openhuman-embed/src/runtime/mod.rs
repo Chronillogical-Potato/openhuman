@@ -166,19 +166,20 @@ impl Runtime {
     /// agent (any clone of it) is alive.
     pub fn agent(&self, spec: AgentSpec) -> Result<Agent, AgentError> {
         let id = spec.id().to_string();
-        {
-            let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-            agents.retain(|_, weak| weak.strong_count() > 0);
-            if agents.contains_key(&id) {
-                return Err(AgentError::DuplicateId(id));
-            }
+        // Held across `instantiate` (fs layout only, no turn, no await) so a
+        // concurrent `agent()` call for the same id cannot pass the duplicate
+        // check while this one is still being built. Releasing the lock
+        // between the check and the insert let two callers both observe the
+        // id as free and both instantiate, with the second `insert`
+        // silently overwriting the first agent's registry entry.
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
+        agents.retain(|_, weak| weak.strong_count() > 0);
+        if agents.contains_key(&id) {
+            return Err(AgentError::DuplicateId(id));
         }
-        let inner = crate::agent::build::instantiate(self, spec)?;
-        let inner = Arc::new(inner);
-        self.agents
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(id.clone(), Arc::downgrade(&inner));
+        let inner = Arc::new(crate::agent::build::instantiate(self, spec)?);
+        agents.insert(id.clone(), Arc::downgrade(&inner));
+        drop(agents);
         log::debug!("[embed][runtime] agent registered id={id}");
         Ok(Agent::from_inner(inner))
     }
