@@ -29,7 +29,7 @@ import {
 } from './oauthAppVersionGate';
 import { clearOAuthReturnRoute, takeOAuthReturnRoute } from './oauthReturnRoute';
 import { openUrl } from './openUrl';
-import { getSessionToken } from './tauriCommands/auth';
+import { getSessionToken } from './tauriCommands';
 import { isTauri as coreIsTauri } from './tauriCommands/common';
 
 const SESSION_TOKEN_UPDATED_EVENT = 'core-state:session-token-updated';
