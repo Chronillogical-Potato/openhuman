@@ -13,7 +13,7 @@
  * slots correct.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -83,7 +83,11 @@ function goalController(overrides: Partial<ThreadGoalController> = {}): ThreadGo
   };
 }
 
-function chat(threadGoal: ThreadGoalController, onOpenHumanMode?: () => void) {
+function chat(
+  threadGoal: ThreadGoalController,
+  onOpenHumanMode?: () => void,
+  overrides: { attachmentsEnabled?: boolean; attachmentInteractionBlocked?: boolean } = {}
+) {
   return (
     <AssistantUiChat
       threadGoal={threadGoal}
@@ -95,12 +99,16 @@ function chat(threadGoal: ThreadGoalController, onOpenHumanMode?: () => void) {
       onAttachFiles={vi.fn()}
       onRemoveAttachment={vi.fn()}
       maxAttachments={5}
-      attachmentsEnabled={false}
-      attachmentInteractionBlocked={false}
+      attachmentsEnabled={overrides.attachmentsEnabled ?? false}
+      attachmentInteractionBlocked={overrides.attachmentInteractionBlocked ?? false}
       onAttachmentOnlySend={vi.fn()}
       onOpenHumanMode={onOpenHumanMode}
     />
   );
+}
+
+function composerShell(): HTMLElement {
+  return document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
 }
 
 describe('assistant-ui composer slots', () => {
@@ -135,5 +143,37 @@ describe('assistant-ui composer slots', () => {
     rerender(<Provider store={store}>{chat(goalController(), () => navigate('/human'))}</Provider>);
 
     expect(screen.getByTestId('composer-human-mode')).toBe(button);
+  });
+
+  it('refuses a file drag while the composer is locked', () => {
+    const store = buildStore();
+    render(
+      <Provider store={store}>
+        {chat(goalController(), undefined, {
+          attachmentsEnabled: true,
+          attachmentInteractionBlocked: true,
+        })}
+      </Provider>
+    );
+
+    const dataTransfer = { types: ['Files'], dropEffect: 'copy' };
+    fireEvent.dragOver(composerShell(), { dataTransfer });
+
+    // `preventDefault` still ran — otherwise the webview navigates away to the
+    // dropped file — but the drop is refused and no affordance is shown.
+    expect(dataTransfer.dropEffect).toBe('none');
+    expect(composerShell().getAttribute('data-dragging')).toBeNull();
+  });
+
+  it('leaves the assistant-ui dropzone in charge when the host takes no files', () => {
+    const store = buildStore();
+    render(<Provider store={store}>{chat(goalController())}</Provider>);
+
+    const dataTransfer = { types: ['Files'], dropEffect: 'copy' };
+    fireEvent.dragOver(composerShell(), { dataTransfer });
+
+    // `attachmentsEnabled` is false here, so no host file sink is published and
+    // the primitive's own (capability-gated) handling is what remains.
+    expect(composerShell().getAttribute('data-dragging')).toBeNull();
   });
 });

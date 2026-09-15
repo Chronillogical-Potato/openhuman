@@ -377,6 +377,69 @@ describe('Conversations — attachment feature', () => {
     expect(screen.getByAltText('preview.png')).toBe(image);
   });
 
+  // Drop and paste had no host path on this surface at all: the only dropzone
+  // was assistant-ui's own, which routes files to a runtime attachment adapter
+  // this app does not use and refuses the drag outright when the runtime
+  // declares no attachment capability.
+  it('attaches a file dropped on the composer', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    expect(shell).not.toBeNull();
+
+    const file = makeFile('dropped.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.drop(shell, { dataTransfer: { files: [file], types: ['Files'] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('dropped.png')).toBeInTheDocument();
+    });
+  });
+
+  it('marks the composer while files are dragged over it, and clears on leave', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+
+    await act(async () => {
+      fireEvent.dragOver(shell, { dataTransfer: { types: ['Files'], dropEffect: '' } });
+    });
+    expect(shell.getAttribute('data-dragging')).toBe('true');
+
+    await act(async () => {
+      fireEvent.dragLeave(shell, { relatedTarget: document.body });
+    });
+    expect(shell.getAttribute('data-dragging')).toBeNull();
+  });
+
+  it('attaches a pasted screenshot', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const file = makeFile('screenshot.png', 'image/png', 512);
+    await act(async () => {
+      fireEvent.paste(textarea, {
+        clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('screenshot.png')).toBeInTheDocument();
+    });
+  });
+
+  it('ignores a plain-text paste so typing still works', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    await act(async () => {
+      fireEvent.paste(textarea, {
+        clipboardData: { items: [{ kind: 'string', type: 'text/plain', getAsFile: () => null }] },
+      });
+    });
+
+    expect(document.querySelector('[data-slot="aui_composer-shell"] img')).toBeNull();
+  });
+
   it('shows too-many error when selecting more than 4 images', async () => {
     await renderWithSelectedThread();
 
