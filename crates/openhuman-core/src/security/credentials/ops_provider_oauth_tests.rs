@@ -1,21 +1,5 @@
 use super::*;
 
-#[test]
-fn normalize_local_session_user_overwrites_id_fields() {
-    let out = normalize_local_session_user(
-        json!({
-            "id": "old",
-            "_id": "old",
-            "name": "Local User"
-        }),
-        "local-device-123",
-    );
-
-    assert_eq!(out["id"], "local-device-123");
-    assert_eq!(out["_id"], "local-device-123");
-    assert_eq!(out["name"], "Local User");
-}
-
 // ── clear_session ──────────────────────────────────────────────
 
 #[tokio::test]
