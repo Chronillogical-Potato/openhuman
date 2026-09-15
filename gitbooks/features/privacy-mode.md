@@ -1,8 +1,10 @@
 ---
 description: >-
   One switch, enforced in the Rust core: local-only mode blocks every cloud
-  model call and every data-carrying egress, permitting only on-device runtimes
-  (Ollama, LM Studio, MLX, local OpenAI-compatible endpoints).
+  model call, plus network tools, web search, integrations and cloud embeddings,
+  permitting only on-device runtimes (Ollama, LM Studio, MLX, local
+  OpenAI-compatible endpoints). Voice is the documented exception: there is no
+  local speech-to-text engine, so transcription still leaves the device.
 icon: lock
 ---
 
@@ -12,11 +14,11 @@ Most assistants' privacy stories are a paragraph in a system prompt. OpenHuman's
 
 The `[privacy]` config block defines three modes:
 
-| Mode                       | What it means                                                                                                                                                                                                                                                                                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`standard`** _(default)_ | Normal operation: managed cloud routing, BYO providers, and local models all available.                                                                                                                                                                                                                                                                                   |
-| **`local_only`**           | **No inference leaves the device.** Every external chat provider (the managed cloud, BYO cloud keys, even CLI delegates like Claude Code) is refused at construction time, and network tools, web search, integrations, and cloud embeddings are refused at their egress points. Only local runtimes pass: Ollama, LM Studio, MLX, and local OpenAI-compatible endpoints. |
-| **`sensitive`**            | Foundation for the upcoming PII-aware tier (detection, redaction, destination disclosure). Today it behaves like `standard`.                                                                                                                                                                                                                                              |
+| Mode                       | What it means                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`standard`** _(default)_ | Normal operation: managed cloud routing, BYO providers, and local models all available.                                                                                                                                                                                                                                                                                                                                                   |
+| **`local_only`**           | **No inference leaves the device.** Every external chat provider (the managed cloud, BYO cloud keys, even CLI delegates like Claude Code) is refused at construction time, and network tools, web search, integrations, and cloud embeddings are refused at their egress points. Only local runtimes pass: Ollama, LM Studio, MLX, and local OpenAI-compatible endpoints. Voice is the one exception, because no local STT engine exists. |
+| **`sensitive`**            | Foundation for the upcoming PII-aware tier (detection, redaction, destination disclosure). Today it behaves like `standard`.                                                                                                                                                                                                                                                                                                              |
 
 ## Why "enforced" matters
 
@@ -36,7 +38,7 @@ Inference is no longer the only chokepoint. `local_only` is also enforced at the
 
 One deliberate exemption: backend **control-plane** round-trips (sign-in, session, team, billing, and the integration connection-management and catalog reads) keep flowing, because blocking them breaks the app for no privacy gain. They carry auth tokens, ids, and routing metadata, never user content.
 
-**Voice is not covered.** There is no local speech-to-text engine, so dictation and transcription still reach the hosted STT proxy even under `local_only`. If that matters for your threat model, leave voice off.
+**Voice is not covered.** There is no local speech-to-text engine, so dictation and transcription still leave the device under `local_only` - to the hosted OpenHuman STT proxy, or to whichever third-party STT provider you configured. If that matters for your threat model, leave voice off.
 
 Privacy Mode governs **data egress**. It is orthogonal to the [autonomy tiers](privacy-and-security.md) (readonly / supervised / full), which govern what the agent may _do_. You can run a fully autonomous agent that never sends a byte of inference off-device.
 

@@ -37,7 +37,7 @@ Two goals, both in service of a dense, relevant tree:
 | `entity_density`  | Distinct entities per token, capped at ~1 entity / 100 tokens. More entities → more substantive.                                     | 1.0            |
 | `llm_importance`  | LLM-derived importance rating in `[0.0, 1.0]`. Off by default; weight `2.0` once an LLM extractor is wired in.                       | 0.0            |
 
-`interaction` is deliberately the strongest signal - direct user engagement is the clearest proxy for "this mattered to a human." Weights live in `SignalWeights` (`score/signals/types.rs`); `combine` / `combine_cheap_only` in `score/signals/ops.rs` produce the normalised total (the cheap variant excludes the `llm_importance` term). Scoring is engine-owned: these files live under `vendor/tinymemory` (in the vendored `tinycortex` crate), not in `crates/openhuman-core`.
+`interaction` is deliberately the strongest signal - direct user engagement is the clearest proxy for "this mattered to a human." Weights live in `SignalWeights` (`signals/types.rs`); `combine` / `combine_cheap_only` in `signals/ops.rs` produce the normalised total (the cheap variant excludes the `llm_importance` term). Scoring is engine-owned: both files are defined in the vendored `tinycortex` crate under `vendor/tinymemory` (`src/memory/score/signals/`) and re-exported through `tinymemory-core`, not in `crates/openhuman-core`.
 
 ---
 
@@ -80,7 +80,7 @@ Extraction enriches a chunk and feeds both the `entity_density` / `llm_importanc
 - **`RegexEntityExtractor`** - always on, deterministic, cheap. Once-compiled patterns pull mechanical identifiers: email, URL, handle (`@alice` and Discord-style `alice#1234`), and hashtag. UTF-8 safe (spans are char offsets).
 - **`LlmEntityExtractor`** - consulted only on borderline chunks. A single structured-JSON call asks the model for semantic NER (Person / Organization / Location / Topic / …) plus an importance rating, with span recovery and a soft warn-and-empty fallback on transport failure.
 
-The two are chained by **`CompositeExtractor`**, which runs a sequence of extractors and tolerates per-extractor failures. Outputs are merged (`ExtractedEntities::merge` deduplicates entities and takes the max importance), then **canonicalised** by `score/resolver.rs` - lowercasing emails, stripping leading `@`/`#`, and assigning stable `canonical_id` strings - so the same person or topic resolves to one identity across chunks.
+The two are chained by **`CompositeExtractor`**, which runs a sequence of extractors and tolerates per-extractor failures. Outputs are merged (`ExtractedEntities::merge` deduplicates entities and takes the max importance), then **canonicalised** by `resolver.rs` - defined in the vendored `tinycortex` crate at `src/memory/score/resolver.rs` and re-exported through `tinymemory-core`'s `tree/score/mod.rs` - lowercasing emails, stripping leading `@`/`#`, and assigning stable `canonical_id` strings - so the same person or topic resolves to one identity across chunks.
 
 ---
 

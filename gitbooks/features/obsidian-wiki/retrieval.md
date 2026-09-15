@@ -34,7 +34,7 @@ The historical `query_global` and `query_topic` modes were **removed**: source t
 
 ## The `RetrievalHit` shape
 
-Every primitive emits `RetrievalHit` (`tree/retrieval/types.rs`, engine-owned under `vendor/tinymemory`). The important fields:
+Every primitive emits `RetrievalHit`. Retrieval is engine-owned: `crates/openhuman-core/src/memory/tree/retrieval/` is only the JSON-RPC layer, and the primitives live under `vendor/tinymemory` in `crates/tinymemory-core/src/tree/retrieval/`, whose `types.rs` re-exports the shapes defined in the vendored `tinycortex` crate (`src/memory/retrieval/types.rs`). The important fields:
 
 - `node_id`, `node_kind` - `leaf` (a raw `mem_tree_chunks` row) or `summary` (a sealed `mem_tree_summaries` row). Consumers branch on this (e.g. "only `drill_down` on summaries").
 - `tree_id` / `tree_kind` / `tree_scope` / `level` - provenance, so a UI can say "from Slack #eng".
@@ -72,7 +72,7 @@ It is a pure read-only SELF-JOIN over `mem_tree_entity_index` - no new tables, n
 
 ## Deterministic walk (`walk` / `smart_walk`, no LLM)
 
-`walk` and `smart_walk` both route through `fast_retrieve` (`tree/retrieval/fast.rs`, engine-owned under `vendor/tinymemory`), an **E2GraphRAG-style** algorithm that replaces the old agentic turn-by-turn loops. It never invokes an LLM. Routing is decided purely by query entities and co-occurrence-graph hop distance:
+`walk` and `smart_walk` both route through `fast_retrieve` (`crates/tinymemory-core/src/tree/retrieval/fast.rs` under `vendor/tinymemory`), an **E2GraphRAG-style** algorithm that replaces the old agentic turn-by-turn loops. It never invokes an LLM. Routing is decided purely by query entities and co-occurrence-graph hop distance:
 
 1. Extract query entities `Eq` (spaCy NLP, regex fallback).
 2. `Eq` empty -> **global**: dense rerank over the summary tree.
