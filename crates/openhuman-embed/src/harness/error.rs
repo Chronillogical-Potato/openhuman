@@ -33,15 +33,17 @@ pub enum HarnessError {
         source: std::io::Error,
     },
 
-    /// A second [`Harness`](super::Harness) was built in this process.
+    /// A second runtime — and a [`Harness`](super::Harness) owns one — was
+    /// built in this process.
     ///
     /// Not a limitation of the harness but of the core it wraps: the keyring
     /// master key, the RPC bearer, the global event bus and the `Once`-guarded
     /// domain subscribers are all process-scoped — seeded by
     /// [`CoreContext::init`](openhuman_core::core::runtime::context::CoreContext::init).
-    /// Two harnesses would share those while believing they had separate
+    /// Two runtimes would share those while believing they had separate
     /// workspaces, which corrupts state quietly rather than loudly. Failing
-    /// here is the loud version.
+    /// here is the loud version. Create more agents on the existing
+    /// [`Runtime`](crate::Runtime) instead.
     #[error(
         "an OpenHuman harness is already running in this process; \
          core state (keyring, event bus, domain subscribers) is process-scoped, \
@@ -63,4 +65,36 @@ impl HarnessError {
     pub fn is_unavailable(&self) -> bool {
         matches!(self, Self::Call(CoreError::Unavailable { .. }))
     }
+}
+
+impl From<crate::RuntimeError> for HarnessError {
+    fn from(err: crate::RuntimeError) -> Self {
+        use crate::RuntimeError as R;
+        match err {
+            R::Call(e) => Self::Call(e),
+            R::Build(e) => Self::Build(e),
+            R::Workspace { what, source } => Self::Workspace { what, source },
+            R::AlreadyRunning => Self::AlreadyRunning,
+            R::Invalid(msg) => Self::Invalid(msg),
+            R::BlankApiKey => Self::Invalid(err_text(&R::BlankApiKey)),
+        }
+    }
+}
+
+impl From<crate::AgentError> for HarnessError {
+    fn from(err: crate::AgentError) -> Self {
+        use crate::AgentError as A;
+        match err {
+            A::Call(e) => Self::Call(e),
+            A::Workspace { what, source } => Self::Workspace { what, source },
+            A::DuplicateId(_) | A::InvalidId { .. } | A::WidensRuntime(_) => {
+                Self::Invalid(err_text(&err))
+            }
+            A::Invalid(msg) => Self::Invalid(msg),
+        }
+    }
+}
+
+fn err_text(err: &dyn std::fmt::Display) -> String {
+    err.to_string()
 }
