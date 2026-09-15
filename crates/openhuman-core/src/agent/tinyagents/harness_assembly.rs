@@ -642,6 +642,11 @@ pub(super) fn assemble_turn_harness(
     // path bypassed it, so a deny/require-approval silently no-opped (security
     // regression). Installed only when the caller threads an enforcement context
     // (the session chat path); channel/CLI + sub-agent paths pass `None`.
+    // The packed-tool router below gates on the same session, and `None`
+    // disables it, so take a copy before the enforcement is moved.
+    let route_session = tool_policy
+        .as_ref()
+        .map(|enforcement| enforcement.session.clone());
     if let Some(enforcement) = tool_policy {
         harness.push_tool_middleware(Arc::new(middleware::ToolPolicyMiddleware::new(
             enforcement.policy,
@@ -677,12 +682,14 @@ pub(super) fn assemble_turn_harness(
 
     // Bare packed-tool routing (`before_tool`, #6276): a call that names a
     // withheld packed tool directly becomes the `use_skill` call that reaches
-    // it, ahead of admission, so every gate above still applies. After
+    // it, ahead of admission, so every gate above still applies. Only when the
+    // session lets that tool run, and never without a session. After
     // `ArgRecoveryMiddleware` so it wraps recovered arguments; before the
     // embedder hooks so they observe the call that actually runs.
     let registered_tools = harness.tools().names();
     harness.push_middleware(Arc::new(middleware::PackedToolRouteMiddleware::new(
         registered_tools,
+        route_session,
     )));
 
     // Embedder tool lifecycle hooks. Registered AFTER `ArgRecoveryMiddleware`:
