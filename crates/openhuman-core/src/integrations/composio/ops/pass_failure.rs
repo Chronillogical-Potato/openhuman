@@ -30,7 +30,7 @@ pub(crate) const MAX_FAILED_ATTEMPTS: u32 = 3;
 /// the call site and are not retried: repeating them cannot help, and a timed
 /// out call may still be running.
 ///
-/// The reason is the connector's message, trimmed and cut to
+/// The reason is the connector's message on one line, cut to
 /// [`MAX_REASON_CHARS`]. A failure that gave no message is still named, so a
 /// row never reads "Sync failed:" with nothing after it.
 pub(crate) fn failure_reason(
@@ -43,7 +43,7 @@ pub(crate) fn failure_reason(
     }
     Some(
         message
-            .map(str::trim)
+            .map(one_line)
             .filter(|message| !message.is_empty())
             .map(clip)
             .unwrap_or_else(|| format!("the {toolkit} connector stopped without saying why")),
@@ -72,11 +72,18 @@ pub(crate) fn pass_failure(
     Some(reason)
 }
 
+/// `message` with every run of whitespace, line breaks included, made one
+/// space. A provider error can span lines (the complaint, then the fields it
+/// wanted), and the reason is shown as one row and logged as one line.
+fn one_line(message: &str) -> String {
+    message.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// `message` cut to [`MAX_REASON_CHARS`] characters, on a character boundary.
-fn clip(message: &str) -> String {
+fn clip(message: String) -> String {
     match message.char_indices().nth(MAX_REASON_CHARS) {
         Some((cut, _)) => format!("{}…", message[..cut].trim_end()),
-        None => message.to_string(),
+        None => message,
     }
 }
 

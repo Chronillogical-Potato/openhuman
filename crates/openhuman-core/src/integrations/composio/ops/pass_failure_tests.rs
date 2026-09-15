@@ -38,8 +38,31 @@ fn a_failure_carries_the_connectors_reason_trimmed() {
 }
 
 #[test]
+fn a_reason_that_spans_lines_is_kept_on_one_line() {
+    // The shape of the GitHub error seen on staging (tinyhumansai/tinyconnectors#20).
+    assert_eq!(
+        failure_reason(
+            SyncStage::Failed,
+            Some("`GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS` failed: Invalid request data provided\n- Following fields are missing: {'q'}\n"),
+            "github"
+        )
+        .as_deref(),
+        Some("`GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS` failed: Invalid request data provided - Following fields are missing: {'q'}")
+    );
+    assert_eq!(
+        failure_reason(
+            SyncStage::Failed,
+            Some("rate limited\r\n\t retry later"),
+            "notion"
+        )
+        .as_deref(),
+        Some("rate limited retry later")
+    );
+}
+
+#[test]
 fn a_failure_without_a_reason_is_still_named() {
-    for message in [None, Some(""), Some("   ")] {
+    for message in [None, Some(""), Some("   "), Some("\n\t")] {
         assert_eq!(
             failure_reason(SyncStage::Failed, message, "github").as_deref(),
             Some("the github connector stopped without saying why"),
