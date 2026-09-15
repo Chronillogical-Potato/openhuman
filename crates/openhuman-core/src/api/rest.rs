@@ -41,6 +41,22 @@ pub enum BackendApiError {
         /// Request path the 401 came back from (no query string).
         path: String,
     },
+    /// Backend rejected a TinyHumans API key (`x-api-key`) with
+    /// `401 Unauthorized` — a library-mode runtime's credential, not a user
+    /// session. Must stay distinct from [`Self::Unauthorized`]:
+    /// `flatten_authed_error` maps that variant onto the `SESSION_EXPIRED`
+    /// sentinel, which `core/jsonrpc.rs` treats as "clear the app session and
+    /// sign out". A rejected API key on a runtime that never had a session
+    /// would otherwise trigger that same session-expiry recovery, clearing an
+    /// app session that was never the problem and leaving the rejected key
+    /// installed. Callers should surface this as a credential error instead.
+    #[error("backend rejected api key on {method} {path}")]
+    ApiKeyRejected {
+        /// HTTP method as a static string (`"GET"`, `"POST"`, …).
+        method: String,
+        /// Request path the 401 came back from (no query string).
+        path: String,
+    },
     /// `PATCH /channels/<provider>/messages/<id>` returned 404 because the
     /// backend **implements no such route** — not because the message is gone.
     ///
