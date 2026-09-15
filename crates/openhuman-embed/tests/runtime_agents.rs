@@ -120,6 +120,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             let state = runtime.core().auth().state().await.expect("auth state");
             assert!(state.is_authenticated, "api key must count as signed in");
             assert!(state.user_id.is_none(), "an api key carries no user");
+            assert!(state.is_api_key(), "state names the credential: {state:?}");
             assert!(
                 runtime
                     .core()
