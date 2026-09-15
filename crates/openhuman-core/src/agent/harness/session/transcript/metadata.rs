@@ -1,6 +1,13 @@
 //! `extra_metadata` side-channel keys on [`ChatMessage`]: turn usage /
 //! provenance and tool-failure markers that the turn loop stamps before
 //! persistence and the transcript writer lifts onto line fields.
+//!
+//! **The `openhuman_*` key namespace inside `extra_metadata` is reserved for
+//! these host markers.** They travel in-band next to caller metadata, so a
+//! caller key with one of these names is indistinguishable from the marker:
+//! the writer strips `openhuman_tool_failure` and `openhuman_replayed`, and an
+//! object holding only `openhuman_wrapped_value` is read as a wrapped scalar.
+//! Caller metadata must not use the prefix.
 
 use super::types::TurnUsage;
 use crate::agent::messages::ChatMessage;

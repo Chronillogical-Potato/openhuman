@@ -1,5 +1,61 @@
 use super::*;
 
+/// #6282 review: when a resumed transcript is later reduced, the writer's
+/// compaction record carries the full reduced set. Replayed rows inside it must
+/// keep the request they were first written under, the same as on a plain
+/// append.
+#[test]
+fn replayed_rows_keep_their_request_id_inside_a_compaction_record() {
+    use crate::agent::harness::session::transcript::{
+        append_transcript_turn, read_transcript, read_transcript_display, DisplayRecord,
+    };
+    use crate::agent::messages::ChatMessage;
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let meta = fake_transcript_meta("thr_compaction");
+
+    let first = dir.path().join("first.jsonl");
+    let turn1 = vec![
+        ChatMessage::system("sys"),
+        ChatMessage::user("old question"),
+        ChatMessage::assistant("old answer"),
+    ];
+    append_transcript_turn(&first, &[], &turn1, &meta, None, Some("req-1")).expect("turn 1");
+
+    // Resume into a fresh file, then append the resuming turn.
+    let mut resumed = read_transcript(&first).expect("read").messages;
+    resumed.push(ChatMessage::user("new question"));
+    let second = dir.path().join("second.jsonl");
+    append_transcript_turn(&second, &[], &resumed, &meta, None, Some("req-2")).expect("turn 2");
+
+    // A context reduction drops the old question: the persisted set is no
+    // longer a prefix, so the writer appends a compaction record.
+    let reduced = vec![resumed[0].clone(), resumed[2].clone(), resumed[3].clone()];
+    append_transcript_turn(&second, &resumed, &reduced, &meta, None, Some("req-3"))
+        .expect("reduced turn");
+
+    let compaction = read_transcript_display(&second)
+        .expect("display read")
+        .records
+        .into_iter()
+        .find_map(|record| match record {
+            DisplayRecord::Compaction(marker) => Some(marker),
+            _ => None,
+        })
+        .expect("the reduction must be recorded as a compaction");
+    let ids: Vec<Option<&str>> = compaction
+        .replacement
+        .iter()
+        .map(|m| m.request_id.as_deref())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![Some("req-1"), Some("req-1"), Some("req-3")],
+        "replayed rows keep req-1 inside the compaction; only the non-replayed row takes \
+         the compacting request, as compaction already does for live rows"
+    );
+}
+
 /// #6282: rows seeded from the conversation log belong to earlier turns and
 /// carry no request id, so persisting them together with the next turn must
 /// not stamp them with that turn's request.
