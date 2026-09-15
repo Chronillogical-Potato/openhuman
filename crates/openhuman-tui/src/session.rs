@@ -14,7 +14,11 @@ pub struct InProcessLink(pub Arc<CoreRuntime>);
 
 #[async_trait]
 impl CoreLink for InProcessLink {
-    async fn invoke(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    async fn invoke(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         self.0.invoke(method, params).await
     }
 }
