@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, OnceLock,
 };
 
@@ -69,6 +69,22 @@ pub(super) struct SharedState {
     /// Seeded by `spawn_loop` and rewritten by the loop on each attempt; cleared
     /// on disconnect. Read by [`SocketManager::is_live_for`].
     pub(super) connection_identity: RwLock<Option<(String, String)>>,
+    /// Whether the background `ws_loop` task is running. Set by `spawn_loop`
+    /// before the task starts, cleared by the loop itself on every exit path
+    /// (a drop guard, so an abort counts too) and by `disconnect`. This is the
+    /// explicit "is anyone retrying?" signal the frontend's connectivity chip
+    /// reads through `connectivity_diag`, so it never infers loop liveness
+    /// from `status`: `Disconnected` alone cannot tell a stopped loop from a
+    /// live transport whose Socket.IO namespace the server closed (#6256).
+    pub(super) loop_active: AtomicBool,
+    /// Whether the loop exited on a terminal failure: no usable session token
+    /// (provider returned nothing, or errored), or the backend rejected the
+    /// stored token and nothing fresher existed. Set by `ws_loop` on those exit
+    /// paths only, cleared by `spawn_loop` and `disconnect`. Reported by
+    /// `connectivity_diag` as `socket_loop_stopped_on_failure` so a link that
+    /// stopped for good shows as an outage ("sign in again") instead of
+    /// reading like a link that was never wanted (Codex review, #6270).
+    pub(super) loop_stopped_on_failure: AtomicBool,
 }
 
 /// The connection's readiness flag, guarded by a lock so a reader can hold the
@@ -191,6 +207,8 @@ impl SocketManager {
                 socket_id: RwLock::new(None),
                 error: RwLock::new(None),
                 connection_identity: RwLock::new(None),
+                loop_active: AtomicBool::new(false),
+                loop_stopped_on_failure: AtomicBool::new(false),
             }),
             emit_tx: tokio::sync::Mutex::new(None),
             shutdown_tx: tokio::sync::Mutex::new(None),
@@ -227,6 +245,22 @@ impl SocketManager {
     /// Check if the socket is currently connected.
     pub fn is_connected(&self) -> bool {
         *self.shared.status.read() == ConnectionStatus::Connected
+    }
+
+    /// Whether the background reconnect loop is running — reported by
+    /// `connectivity_diag` as `socket_loop_active` (#6256). `false` means
+    /// nobody is retrying: never connected, signed out, or stopped after a
+    /// terminal failure such as an expired session.
+    pub fn is_loop_active(&self) -> bool {
+        self.shared.loop_active.load(Ordering::Acquire)
+    }
+
+    /// Whether the background loop stopped on a terminal failure (no usable
+    /// session token) — reported by `connectivity_diag` as
+    /// `socket_loop_stopped_on_failure`. Cleared by the next `connect` or
+    /// `disconnect`.
+    pub fn loop_stopped_on_failure(&self) -> bool {
+        self.shared.loop_stopped_on_failure.load(Ordering::Acquire)
     }
 
     /// True when a **live** connection is already serving exactly this `url`
@@ -377,6 +411,12 @@ impl SocketManager {
 
         let url = url.to_string();
         let shared = Arc::clone(&self.shared);
+        // Raised here rather than inside the task so a `connectivity_diag`
+        // read racing the spawn cannot see `Connecting` with no loop behind it.
+        self.shared.loop_active.store(true, Ordering::Release);
+        self.shared
+            .loop_stopped_on_failure
+            .store(false, Ordering::Release);
 
         let handle = tokio::spawn(async move {
             ws_loop(
@@ -406,6 +446,10 @@ impl SocketManager {
         if let Some(handle) = self.loop_handle.lock().await.take() {
             terminate_loop(handle, Duration::from_secs(5)).await;
         }
+        self.shared.loop_active.store(false, Ordering::Release);
+        self.shared
+            .loop_stopped_on_failure
+            .store(false, Ordering::Release);
         *self.shared.status.write() = ConnectionStatus::Disconnected;
         *self.shared.socket_id.write() = None;
         *self.shared.error.write() = None;
