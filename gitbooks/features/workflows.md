@@ -63,4 +63,3 @@ The `flows` domain (`crates/openhuman-core/src/flows/`) exposes ten controllers 
 - [Triggers](integrations/triggers.md): the live app events that fire `app_event` workflows.
 - [Approval Gate](approval-gate.md): how pending approvals are surfaced and expire.
 - [Cron & Scheduling](native-tools/cron.md): one-shot and recurring agent jobs (workflows are the structured, multi-step upgrade).
-- [Subconscious Loop](subconscious.md): the background awareness layer that complements event-driven workflows.
