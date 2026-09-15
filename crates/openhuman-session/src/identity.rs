@@ -15,7 +15,9 @@ fn slot() -> &'static RwLock<Option<String>> {
 /// Record the signed-in user id (or clear it with `None`).
 pub fn set_user_id(user_id: Option<String>) {
     let mut guard = slot().write().unwrap_or_else(|p| p.into_inner());
-    *guard = user_id.map(|id| id.trim().to_string()).filter(|id| !id.is_empty());
+    *guard = user_id
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty());
 }
 
 /// Forget the signed-in user id.

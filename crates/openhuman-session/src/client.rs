@@ -267,7 +267,10 @@ impl SessionClient {
 
     /// Exchange a one-time login token for a session JWT
     /// (`POST /auth/login-token/consume`).
-    pub async fn consume_login_token(&self, login_token: &str) -> Result<String, SessionClientError> {
+    pub async fn consume_login_token(
+        &self,
+        login_token: &str,
+    ) -> Result<String, SessionClientError> {
         let token = login_token.trim();
         if token.is_empty() {
             return Err(SessionClientError::EmptyLoginToken);
@@ -330,7 +333,10 @@ impl SessionClient {
         }
     }
 
-    async fn validate_once_with_retry(&self, credential: &Credential) -> Result<Value, FetchMeError> {
+    async fn validate_once_with_retry(
+        &self,
+        credential: &Credential,
+    ) -> Result<Value, FetchMeError> {
         match self.fetch_me(credential).await {
             Ok(user) => Ok(user),
             Err(first) if first.is_availability_failure() => {

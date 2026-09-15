@@ -16,8 +16,8 @@ use tokio::task::JoinHandle;
 use crate::cache::{CachedUser, CurrentUserCache};
 use crate::client::{ClientHeaders, FetchMeError, SessionClient};
 use crate::credential::{
-    decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload,
-    Credential, CredentialKind,
+    decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload, Credential,
+    CredentialKind,
 };
 use crate::identity;
 use crate::link::{self, CoreAuthState, CoreLink};
@@ -141,7 +141,8 @@ impl<L: CoreLink> SessionManager<L> {
             }
         }
         let client = Arc::new(
-            SessionClient::new(&base, &self.headers).map_err(|e| SessionError::Backend(e.to_string()))?,
+            SessionClient::new(&base, &self.headers)
+                .map_err(|e| SessionError::Backend(e.to_string()))?,
         );
         log::debug!("{LOG_PREFIX} session client bound to {}", client.base_url());
         *self.client.lock().unwrap_or_else(|p| p.into_inner()) = Some(Arc::clone(&client));
@@ -180,7 +181,10 @@ impl<L: CoreLink> SessionManager<L> {
     }
 
     /// Exchange a one-time login token for a JWT and store it.
-    pub async fn login_with_token(self: &Arc<Self>, login_token: &str) -> Result<SessionState, SessionError> {
+    pub async fn login_with_token(
+        self: &Arc<Self>,
+        login_token: &str,
+    ) -> Result<SessionState, SessionError> {
         let client = self.client().await?;
         let jwt = client
             .consume_login_token(login_token)
@@ -223,7 +227,9 @@ impl<L: CoreLink> SessionManager<L> {
         }
 
         let now = chrono::Utc::now();
-        if decode_jwt_exp(&credential.secret).is_some() && jwt_is_live(&credential.secret, now).is_none() {
+        if decode_jwt_exp(&credential.secret).is_some()
+            && jwt_is_live(&credential.secret, now).is_none()
+        {
             return Err(SessionError::Expired);
         }
 
@@ -233,13 +239,19 @@ impl<L: CoreLink> SessionManager<L> {
                 let user_id = user_id_from_profile_payload(&me)
                     .or_else(|| user.as_ref().and_then(user_id_from_profile_payload))
                     .or_else(|| user_id_from_jwt_claims(&credential.secret));
-                log::info!("{LOG_PREFIX} session JWT verified via GET /auth/me on {}", client.base_url());
-                self.push(&credential, user_id.as_deref(), Some(&me)).await?;
+                log::info!(
+                    "{LOG_PREFIX} session JWT verified via GET /auth/me on {}",
+                    client.base_url()
+                );
+                self.push(&credential, user_id.as_deref(), Some(&me))
+                    .await?;
                 self.cache.seed(&client, &credential, me);
                 self.changed().await
             }
             Err(FetchMeError::Rejected(reason)) => {
-                log::warn!("{LOG_PREFIX} GET /auth/me rejected the session token; not stored: {reason}");
+                log::warn!(
+                    "{LOG_PREFIX} GET /auth/me rejected the session token; not stored: {reason}"
+                );
                 Err(SessionError::Rejected(reason))
             }
             Err(error) => {
@@ -257,7 +269,8 @@ impl<L: CoreLink> SessionManager<L> {
                     "{LOG_PREFIX} backend unreachable ({reason}); storing pending session for user_id={user_id} and revalidating in the background"
                 );
                 let pending = json!({ PENDING_BACKEND_VALIDATION_FIELD: true });
-                self.push(&credential, Some(&user_id), Some(&pending)).await?;
+                self.push(&credential, Some(&user_id), Some(&pending))
+                    .await?;
                 self.cache.forget();
                 self.spawn_revalidation(credential);
                 self.changed().await
@@ -300,7 +313,10 @@ impl<L: CoreLink> SessionManager<L> {
                         let user_id = user_id_from_profile_payload(&me)
                             .or_else(|| user_id_from_jwt_claims(&credential.secret));
                         log::info!("{LOG_PREFIX} pending session confirmed via GET /auth/me");
-                        if let Err(e) = manager.push(&credential, user_id.as_deref(), Some(&me)).await {
+                        if let Err(e) = manager
+                            .push(&credential, user_id.as_deref(), Some(&me))
+                            .await
+                        {
                             log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
                         }
                         manager.cache.seed(&client, &credential, me);
@@ -310,8 +326,12 @@ impl<L: CoreLink> SessionManager<L> {
                         return;
                     }
                     Err(FetchMeError::Rejected(reason)) => {
-                        log::warn!("{LOG_PREFIX} pending session rejected by backend; clearing: {reason}");
-                        manager.clear_session_credential("pending-revalidation").await;
+                        log::warn!(
+                            "{LOG_PREFIX} pending session rejected by backend; clearing: {reason}"
+                        );
+                        manager
+                            .clear_session_credential("pending-revalidation")
+                            .await;
                         return;
                     }
                     Err(error) => {
@@ -329,7 +349,9 @@ impl<L: CoreLink> SessionManager<L> {
     }
 
     async fn clear_session_credential(&self, source: &str) {
-        if let Err(e) = link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session)).await {
+        if let Err(e) =
+            link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session)).await
+        {
             log::warn!("{LOG_PREFIX} failed to clear rejected session credential: {e}");
         }
         self.cache.forget();
@@ -385,7 +407,11 @@ impl<L: CoreLink> SessionManager<L> {
         self.current_user_for(&core, force).await
     }
 
-    async fn current_user_for(&self, core: &CoreAuthState, force: bool) -> Result<CachedUser, SessionError> {
+    async fn current_user_for(
+        &self,
+        core: &CoreAuthState,
+        force: bool,
+    ) -> Result<CachedUser, SessionError> {
         if !core.is_authenticated {
             return Ok(CachedUser {
                 user: None,
@@ -415,14 +441,19 @@ impl<L: CoreLink> SessionManager<L> {
                     // The shell (or a previous process) accepted this token
                     // while the backend was down; the confirmation just came in.
                     let user_id = cached.user.as_ref().and_then(user_id_from_profile_payload);
-                    if let Err(e) = self.push(&credential, user_id.as_deref(), cached.user.as_ref()).await {
+                    if let Err(e) = self
+                        .push(&credential, user_id.as_deref(), cached.user.as_ref())
+                        .await
+                    {
                         log::warn!("{LOG_PREFIX} failed to store confirmed pending session: {e}");
                     }
                 }
                 Ok(cached)
             }
             Err(FetchMeError::Rejected(reason)) => {
-                log::warn!("{LOG_PREFIX} GET /auth/me rejected the stored session; signing out: {reason}");
+                log::warn!(
+                    "{LOG_PREFIX} GET /auth/me rejected the stored session; signing out: {reason}"
+                );
                 self.clear_session_credential("auth/me").await;
                 Err(SessionError::Rejected(reason))
             }

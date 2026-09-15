@@ -33,8 +33,8 @@ pub(crate) mod test_support;
 pub use cache::{CachedUser, CurrentUserCache};
 pub use client::{ClientHeaders, FetchMeError, SessionClient, SessionClientError};
 pub use credential::{
-    decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload,
-    Credential, CredentialKind,
+    decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload, Credential,
+    CredentialKind,
 };
 pub use link::{CoreAuthState, CoreLink};
 pub use manager::{SessionError, SessionEvent, SessionManager, SessionState};

@@ -272,8 +272,11 @@ impl CurrentUserCache {
         }
 
         let timeout = fetch_timeout();
-        match tokio::time::timeout(timeout, self.refresh_now(client, credential, generation, false))
-            .await
+        match tokio::time::timeout(
+            timeout,
+            self.refresh_now(client, credential, generation, false),
+        )
+        .await
         {
             Ok(Ok(user)) => Ok(self.with_result(&key, user)),
             Ok(Err(error)) => Err(error),
@@ -381,7 +384,9 @@ impl CurrentUserCache {
             }
         };
         if !committed {
-            log::debug!("{LOG_PREFIX} discarding refresh that raced sign-out or an identity switch");
+            log::debug!(
+                "{LOG_PREFIX} discarding refresh that raced sign-out or an identity switch"
+            );
         }
         Ok(fetched)
     }

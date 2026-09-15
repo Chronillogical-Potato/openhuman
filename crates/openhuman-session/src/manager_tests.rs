@@ -1,10 +1,10 @@
 use super::*;
 use crate::client::ClientHeaders;
+use crate::test_support::ENV_LOCK;
 use crate::test_support::{
     me_user, Backend, FakeCore, MeAnswer, EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB, LOCAL_TOKEN,
     OPAQUE_TOKEN,
 };
-use crate::test_support::ENV_LOCK;
 use std::sync::Arc;
 
 fn manager(core: &Arc<FakeCore>) -> Arc<SessionManager<FakeCore>> {
@@ -30,7 +30,10 @@ async fn login_with_token_exchanges_validates_and_stores() {
     let state = m.login_with_token("tok").await.unwrap();
     assert!(state.core.is_authenticated);
     assert_eq!(state.core.user_id.as_deref(), Some("user-123"));
-    assert_eq!(state.current_user.as_ref().unwrap()["email"], "u@example.com");
+    assert_eq!(
+        state.current_user.as_ref().unwrap()["email"],
+        "u@example.com"
+    );
     assert!(!state.current_user_stale);
 
     let stored = core.session().unwrap();
@@ -39,7 +42,10 @@ async fn login_with_token_exchanges_validates_and_stores() {
     assert_eq!(stored.user_id.as_deref(), Some("user-123"));
     assert_eq!(stored.user.unwrap()["_id"], "user-123");
     assert_eq!(identity::peek_user_id().as_deref(), Some("user-123"));
-    assert!(matches!(drain(&mut rx).await.as_slice(), [SessionEvent::Changed(_)]));
+    assert!(matches!(
+        drain(&mut rx).await.as_slice(),
+        [SessionEvent::Changed(_)]
+    ));
 }
 
 #[tokio::test]
@@ -52,7 +58,10 @@ async fn rejected_jwt_is_never_stored() {
         Err(SessionError::Rejected(_))
     ));
     assert_eq!(core.session(), None);
-    assert!(!core.methods().iter().any(|m| m == link::AUTH_SET_CREDENTIAL));
+    assert!(!core
+        .methods()
+        .iter()
+        .any(|m| m == link::AUTH_SET_CREDENTIAL));
 }
 
 #[tokio::test]
@@ -91,7 +100,9 @@ async fn unreachable_backend_refuses_tokens_without_exp_or_subject() {
         Err(SessionError::Transient(_))
     ));
     assert_eq!(
-        m.store_session_token(LIVE_JWT_NO_SUB, None).await.unwrap_err(),
+        m.store_session_token(LIVE_JWT_NO_SUB, None)
+            .await
+            .unwrap_err(),
         SessionError::UserIdUnavailable
     );
     assert_eq!(core.session(), None);
@@ -102,8 +113,13 @@ async fn caller_supplied_user_id_rescues_a_subjectless_jwt_offline() {
     let core = FakeCore::new("http://127.0.0.1:9");
     let m = manager(&core);
     let user = serde_json::json!({ "id": "from-caller" });
-    m.store_session_token(LIVE_JWT_NO_SUB, Some(user)).await.unwrap();
-    assert_eq!(core.session().unwrap().user_id.as_deref(), Some("from-caller"));
+    m.store_session_token(LIVE_JWT_NO_SUB, Some(user))
+        .await
+        .unwrap();
+    assert_eq!(
+        core.session().unwrap().user_id.as_deref(),
+        Some("from-caller")
+    );
     m.cancel_revalidation();
 }
 
@@ -134,7 +150,10 @@ async fn api_key_store_and_clear() {
     assert_eq!(core.api_key.lock().unwrap().as_deref(), Some("sk-1"));
     let state = m.clear_api_key().await.unwrap();
     assert!(!state.core.is_authenticated);
-    assert!(matches!(m.store_api_key("").await, Err(SessionError::Invalid(_))));
+    assert!(matches!(
+        m.store_api_key("").await,
+        Err(SessionError::Invalid(_))
+    ));
 }
 
 #[tokio::test]
@@ -165,10 +184,15 @@ async fn current_user_rejection_signs_out_and_emits_expired() {
     let m = manager(&core);
     m.login_with_token("tok").await.unwrap();
     let mut rx = m.subscribe();
-    assert!(matches!(m.current_user(true).await, Err(SessionError::Rejected(_))));
+    assert!(matches!(
+        m.current_user(true).await,
+        Err(SessionError::Rejected(_))
+    ));
     assert_eq!(core.session(), None);
     let events = drain(&mut rx).await;
-    assert!(events.iter().any(|e| matches!(e, SessionEvent::Expired { source } if source == "auth/me")));
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, SessionEvent::Expired { source } if source == "auth/me")));
     assert!(events
         .iter()
         .any(|e| matches!(e, SessionEvent::Changed(s) if !s.core.is_authenticated)));
@@ -186,7 +210,10 @@ async fn current_user_serves_the_stored_user_stale_while_the_backend_is_down() {
     let current = m.current_user(true).await.unwrap();
     assert!(current.stale);
     assert_eq!(current.user.unwrap()["_id"], "user-123");
-    assert!(core.session().is_some(), "an outage must not sign the user out");
+    assert!(
+        core.session().is_some(),
+        "an outage must not sign the user out"
+    );
 }
 
 #[tokio::test]
@@ -203,7 +230,11 @@ async fn current_user_confirms_a_pending_session_once_the_backend_answers() {
     let current = m.current_user(false).await.unwrap();
     assert_eq!(current.user.as_ref().unwrap()["email"], "u@example.com");
     let stored = core.session().unwrap();
-    assert!(stored.user.unwrap().get(PENDING_BACKEND_VALIDATION_FIELD).is_none());
+    assert!(stored
+        .user
+        .unwrap()
+        .get(PENDING_BACKEND_VALIDATION_FIELD)
+        .is_none());
 }
 
 #[tokio::test]
@@ -244,10 +275,20 @@ async fn core_failures_surface_as_core_errors() {
 
 #[test]
 fn session_error_display_carries_stable_prefixes() {
-    assert!(SessionError::Rejected("x".into()).to_string().starts_with("REJECTED:"));
+    assert!(SessionError::Rejected("x".into())
+        .to_string()
+        .starts_with("REJECTED:"));
     assert!(SessionError::Expired.to_string().starts_with("EXPIRED:"));
-    assert!(SessionError::Transient("x".into()).to_string().starts_with("TRANSIENT:"));
-    assert!(SessionError::UserIdUnavailable.to_string().starts_with("USER_ID_UNAVAILABLE:"));
-    assert!(SessionError::ConsumeFailed("x".into()).to_string().starts_with("CONSUME_FAILED:"));
-    assert!(SessionError::Core("x".into()).to_string().starts_with("CORE:"));
+    assert!(SessionError::Transient("x".into())
+        .to_string()
+        .starts_with("TRANSIENT:"));
+    assert!(SessionError::UserIdUnavailable
+        .to_string()
+        .starts_with("USER_ID_UNAVAILABLE:"));
+    assert!(SessionError::ConsumeFailed("x".into())
+        .to_string()
+        .starts_with("CONSUME_FAILED:"));
+    assert!(SessionError::Core("x".into())
+        .to_string()
+        .starts_with("CORE:"));
 }

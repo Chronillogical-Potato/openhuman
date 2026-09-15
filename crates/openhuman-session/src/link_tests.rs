@@ -24,7 +24,8 @@ fn core_auth_state_parses_camel_case_and_kind() {
     assert_eq!(state.kind(), Some(CredentialKind::ApiKey));
     assert_eq!(state.expires_at.as_deref(), Some("2100-01-01T00:00:00Z"));
 
-    let signed_out: CoreAuthState = serde_json::from_value(json!({ "isAuthenticated": false })).unwrap();
+    let signed_out: CoreAuthState =
+        serde_json::from_value(json!({ "isAuthenticated": false })).unwrap();
     assert_eq!(signed_out.kind(), None);
 }
 
@@ -32,9 +33,14 @@ fn core_auth_state_parses_camel_case_and_kind() {
 async fn push_credential_sends_kind_user_id_and_user() {
     let core = FakeCore::new("http://backend");
     let credential = Credential::session("jwt-1");
-    let state = push_credential(core.as_ref(), &credential, Some(" u1 "), Some(&json!({ "id": "u1" })))
-        .await
-        .unwrap();
+    let state = push_credential(
+        core.as_ref(),
+        &credential,
+        Some(" u1 "),
+        Some(&json!({ "id": "u1" })),
+    )
+    .await
+    .unwrap();
     assert!(state.is_authenticated);
     assert_eq!(state.user_id.as_deref(), Some("u1"));
     let (method, params) = core.calls().pop().unwrap();
@@ -60,7 +66,9 @@ async fn push_credential_omits_blank_user_id_and_missing_user() {
 #[tokio::test]
 async fn clear_credential_passes_kind_or_nothing() {
     let core = FakeCore::new("http://backend");
-    clear_credential(core.as_ref(), Some(CredentialKind::ApiKey)).await.unwrap();
+    clear_credential(core.as_ref(), Some(CredentialKind::ApiKey))
+        .await
+        .unwrap();
     clear_credential(core.as_ref(), None).await.unwrap();
     let calls = core.calls();
     assert_eq!(calls[0].0, AUTH_CLEAR_CREDENTIAL);
@@ -75,8 +83,14 @@ async fn session_token_and_backend_url_unwrap_envelopes() {
     push_credential(core.as_ref(), &Credential::session("jwt-2"), None, None)
         .await
         .unwrap();
-    assert_eq!(core_session_token(core.as_ref()).await.unwrap().as_deref(), Some("jwt-2"));
-    assert_eq!(resolve_backend_url(core.as_ref()).await.unwrap(), "http://backend/");
+    assert_eq!(
+        core_session_token(core.as_ref()).await.unwrap().as_deref(),
+        Some("jwt-2")
+    );
+    assert_eq!(
+        resolve_backend_url(core.as_ref()).await.unwrap(),
+        "http://backend/"
+    );
 }
 
 #[tokio::test]

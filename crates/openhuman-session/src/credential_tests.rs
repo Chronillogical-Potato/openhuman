@@ -29,12 +29,22 @@ fn local_shape_requires_exactly_three_segments_with_local_signature() {
 
 #[test]
 fn credential_kind_round_trips_its_wire_values() {
-    for kind in [CredentialKind::Session, CredentialKind::ApiKey, CredentialKind::Local] {
+    for kind in [
+        CredentialKind::Session,
+        CredentialKind::ApiKey,
+        CredentialKind::Local,
+    ] {
         assert_eq!(CredentialKind::parse(kind.as_str()), Some(kind));
     }
-    assert_eq!(CredentialKind::parse(" api-key "), Some(CredentialKind::ApiKey));
+    assert_eq!(
+        CredentialKind::parse(" api-key "),
+        Some(CredentialKind::ApiKey)
+    );
     assert_eq!(CredentialKind::parse("jwt"), None);
-    assert_eq!(serde_json::to_value(CredentialKind::ApiKey).unwrap(), json!("api-key"));
+    assert_eq!(
+        serde_json::to_value(CredentialKind::ApiKey).unwrap(),
+        json!("api-key")
+    );
 }
 
 #[test]
@@ -62,7 +72,10 @@ fn jwt_exp_decoding_and_liveness() {
 
 #[test]
 fn user_id_from_jwt_claims_prefers_sub() {
-    assert_eq!(user_id_from_jwt_claims(LIVE_JWT).as_deref(), Some("user-123"));
+    assert_eq!(
+        user_id_from_jwt_claims(LIVE_JWT).as_deref(),
+        Some("user-123")
+    );
     assert_eq!(user_id_from_jwt_claims(LIVE_JWT_NO_SUB), None);
     assert_eq!(user_id_from_jwt_claims(OPAQUE_TOKEN), None);
 }
