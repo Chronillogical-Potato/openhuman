@@ -324,6 +324,15 @@ describe('<SyncAuditPanel />', () => {
     expect(mockAuditLog).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the history without waiting for the status list', async () => {
+    mockAuditLog.mockResolvedValue([entry({ source_id: 'src-slow', scope: 'github:org/slow' })]);
+    mockStatusList.mockImplementation(() => new Promise<SourceStatus[]>(() => {}));
+    render(<SyncAuditPanel />);
+
+    expect(await screen.findByText('GitHub · org/slow')).toBeInTheDocument();
+    expect(screen.getByTestId('sync-history-refresh')).not.toBeDisabled();
+  });
+
   it('re-reads the history when Refresh is pressed', async () => {
     mockAuditLog.mockResolvedValue([]);
     render(<SyncAuditPanel />);

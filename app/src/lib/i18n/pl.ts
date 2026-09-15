@@ -990,7 +990,7 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'W kolejce do ponownego uruchomienia: {count}.',
   'memoryTree.status.retryFailedError': 'Nie udało się ponowić nieudanych zadań',
   'memoryTree.status.jobQueue':
-    'Zadania pamięci: {ready} oczekujących, {running} w toku, {failed} nieudanych',
+    'Zadania pamięci (oczekujące: {ready}, w toku: {running}, nieudane: {failed})',
   'memoryTree.status.toggleFailed': 'Nie udało się przełączyć automatycznej synchronizacji',
   'memoryTree.status.justNow': 'przed chwilą',
   'memoryTree.status.secondsAgo': '{count} s temu',

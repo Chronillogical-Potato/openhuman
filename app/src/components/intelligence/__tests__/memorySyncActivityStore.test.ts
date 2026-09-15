@@ -171,8 +171,8 @@ describe('memorySyncActivityStore', () => {
     expect(s.syncingIds.has('src-l')).toBe(false);
   });
 
-  // A background run reports nothing but per-item stages, so once the window
-  // the core applies too has passed, those stages are a later run's.
+  // A run whose start the app never saw shows up as per-item stages only, so
+  // once the window the core applies too has passed, those stages count.
   it('counts per-item stages again once the finished run is past the window', () => {
     const now = vi.spyOn(Date, 'now');
     const finishedAt = 5_000_000;

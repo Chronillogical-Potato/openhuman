@@ -84,12 +84,17 @@ export function stageLabelKey(stage: string): string {
 }
 
 /**
- * Whether a stage's detail is worth showing. The connector's `running` detail
- * ("pass 2 done, 400 item(s) so far") and a reader's `fetching` ratio are
- * progress a person can read; a per-item stage's detail is not.
+ * The stages whose detail a person can read: the connector's `running` detail
+ * ("pass 2 done, 400 item(s) so far"), a reader's `fetching` ratio, and the
+ * request itself. Listed rather than inferred, so a per-item stage's detail
+ * (`mem_src:…`, `queue_depth=…`) and a stage this app does not know yet stay
+ * hidden.
  */
+const DETAIL_STAGES = new Set(['requested', 'running', 'fetching']);
+
+/** Whether a stage's detail is worth showing (see `DETAIL_STAGES`). */
 export function showsStageDetail(stage: string): boolean {
-  return !isItemStage(stage);
+  return DETAIL_STAGES.has(stage);
 }
 
 /**

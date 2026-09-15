@@ -147,9 +147,11 @@ let state: MemorySyncActivity = EMPTY;
 const liveSince = new Map<string, number>();
 /**
  * How long a finished row ignores per-item stages: the core tracker's own
- * ceiling (`STALE_AFTER_MS` in `memory/sync_activity.rs`). Past it, a per-item
- * stage belongs to a later run (a background sync reports nothing but per-item
- * stages), and the row shows it again, as the core's status list does.
+ * ceiling (`STALE_AFTER_MS` in `memory/sync_activity.rs`). A new run normally
+ * announces itself first (the Sync button, or a `requested`, `fetching` or
+ * `running` stage), which clears the mark at once. Past the window, a per-item
+ * stage is taken as a later run whose start this app never saw, as the core's
+ * status list takes it.
  */
 export const LATE_ITEM_STAGE_WINDOW_MS = 30 * 60 * 1_000;
 

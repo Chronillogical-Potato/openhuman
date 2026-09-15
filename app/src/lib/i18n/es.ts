@@ -997,7 +997,7 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedError':
     'No se pudieron volver a poner en cola los trabajos fallidos',
   'memoryTree.status.jobQueue':
-    'Tareas de memoria: {ready} en espera, {running} en curso, {failed} fallidas',
+    'Tareas de memoria: {ready} en espera, {running} en curso, {failed} con error',
   'memoryTree.status.toggleFailed': 'No se pudo activar la sincronización automática',
   'memoryTree.status.justNow': 'justo ahora',
   'memoryTree.status.secondsAgo': '{count}s hace',

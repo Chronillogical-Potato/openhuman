@@ -1000,7 +1000,7 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'Lavori in coda per una nuova esecuzione: {count}.',
   'memoryTree.status.retryFailedError': 'Impossibile rimettere in coda i lavori non riusciti',
   'memoryTree.status.jobQueue':
-    'Attività di memoria: {ready} in attesa, {running} in corso, {failed} non riuscite',
+    'Attività di memoria: {ready} in attesa, {running} in corso, {failed} con errore',
   'memoryTree.status.toggleFailed':
     'Impossibile attivare/disattivare la sincronizzazione automatica',
   'memoryTree.status.justNow': 'proprio adesso',

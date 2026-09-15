@@ -187,4 +187,51 @@ describe('<SyncActivityCard />', () => {
     expect(getMemorySyncActivity().syncingIds.has('gmail:ca_1:msg-42')).toBe(true);
     expect(screen.getByTestId('sync-activity-card')).not.toHaveTextContent('msg-42');
   });
+
+  it('ignores a status read that answers after a newer one', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let answerFirst: (rows: SourceStatus[]) => void = () => {};
+    mockStatusList
+      .mockImplementationOnce(
+        () =>
+          new Promise<SourceStatus[]>(resolve => {
+            answerFirst = resolve;
+          })
+      )
+      .mockResolvedValue([status('src-h', { label: 'Newer', sync_stage: null })]);
+    render(<SyncActivityCard />);
+    await act(async () => {
+      vi.advanceTimersByTime(STATUS_POLL_MS);
+    });
+    await waitFor(() => expect(mockStatusList).toHaveBeenCalledTimes(2));
+    act(() => {
+      applyStageEvent({ stage: 'running', source_id: 'src-h', detail: null });
+    });
+    const row = await screen.findByTestId('sync-activity-row-src-h');
+    await waitFor(() => expect(row).toHaveTextContent('Newer'));
+
+    // The first read answers last, with an older label.
+    await act(async () => {
+      answerFirst([status('src-h', { label: 'Older', sync_stage: null })]);
+    });
+    expect(screen.getByTestId('sync-activity-row-src-h')).toHaveTextContent('Newer');
+  });
+
+  it('hides the detail of a stage it does not know', async () => {
+    mockStatusList.mockResolvedValue([status('src-u', { label: 'Feed' })]);
+    render(<SyncActivityCard />);
+    await waitFor(() => expect(mockStatusList).toHaveBeenCalled());
+    act(() => {
+      noteSyncRequested('src-u');
+      applyStageEvent({
+        stage: 'embedding',
+        source_id: 'src-u',
+        detail: 'batch for mem_src:src-u:7',
+      });
+    });
+
+    const row = await screen.findByTestId('sync-activity-row-src-u');
+    expect(row).toHaveTextContent('memorySources.stage.unknown');
+    expect(row).not.toHaveTextContent('mem_src:');
+  });
 });

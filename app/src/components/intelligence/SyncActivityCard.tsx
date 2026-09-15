@@ -36,10 +36,24 @@ export function SyncActivityCard() {
 
   useEffect(() => {
     let cancelled = false;
+    // Polls can answer out of order: a read slower than the poll interval must
+    // not put an older account back over a newer one.
+    let requested = 0;
+    let applied = 0;
     const refresh = async () => {
+      const seq = ++requested;
       try {
         const statuses = await memorySourcesStatusList();
         if (cancelled) return;
+        if (seq < applied) {
+          console.debug(
+            '[sync-activity] dropped an older status read seq=%d applied=%d',
+            seq,
+            applied
+          );
+          return;
+        }
+        applied = seq;
         setLabels(sourceLabelsById(statuses));
         setSourceIds(new Set(statuses.map(status => status.source_id)));
         reconcileWithStatuses(statuses);

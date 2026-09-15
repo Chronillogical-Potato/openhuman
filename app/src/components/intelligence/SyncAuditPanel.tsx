@@ -97,28 +97,17 @@ export function SyncAuditPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    // The history and the labels are read side by side, not together: a slow
+    // status list must not hold back the rows or the Refresh button.
     void (async () => {
       console.debug('[sync-audit] load: entry token=%d', reloadToken);
       try {
-        const [data, statuses] = await Promise.all([
-          memorySyncAuditLog(),
-          // Labels and source ids only: a failed status read must not hide
-          // the history. What the last read that answered said stays, and a
-          // row with no label names itself by its scope.
-          memorySourcesStatusList().catch((err: unknown) => {
-            console.warn('[sync-audit] status list failed; keeping the last labels', err);
-            return null;
-          }),
-        ]);
+        const data = await memorySyncAuditLog();
         if (cancelled) {
           console.debug('[sync-audit] load: dropped superseded token=%d', reloadToken);
           return;
         }
         setEntries(data);
-        if (statuses) {
-          setLabels(sourceLabelsById(statuses));
-          setSourceIds(new Set(statuses.map(status => status.source_id)));
-        }
         console.debug('[sync-audit] load: ok token=%d entries=%d', reloadToken, data.length);
       } catch (err) {
         console.error('[sync-audit] fetch failed', err);
@@ -126,6 +115,21 @@ export function SyncAuditPanel() {
         if (!cancelled) {
           setLoading(false);
           setRefreshing(false);
+        }
+      }
+    })();
+    // Labels and source ids only. A failed or superseded read keeps what the
+    // last read that answered said, and a row with no label names itself by
+    // its scope.
+    void (async () => {
+      try {
+        const statuses = await memorySourcesStatusList();
+        if (cancelled) return;
+        setLabels(sourceLabelsById(statuses));
+        setSourceIds(new Set(statuses.map(status => status.source_id)));
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[sync-audit] status list failed; keeping the last labels', err);
         }
       }
     })();

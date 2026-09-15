@@ -984,7 +984,7 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedCount': 'Задач в очереди на повторный запуск: {count}.',
   'memoryTree.status.retryFailedError': 'Не удалось вернуть неудавшиеся задачи в очередь',
   'memoryTree.status.jobQueue':
-    'Задачи памяти: {ready} ожидают, {running} выполняются, {failed} с ошибкой',
+    'Задачи памяти (в очереди: {ready}, выполняются: {running}, с ошибкой: {failed})',
   'memoryTree.status.toggleFailed': 'Не удалось включить автосинхронизацию.',
   'memoryTree.status.justNow': 'прямо сейчас',
   'memoryTree.status.secondsAgo': '{count} сек. назад',
