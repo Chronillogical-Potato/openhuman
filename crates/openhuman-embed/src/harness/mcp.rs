@@ -43,7 +43,7 @@ impl std::fmt::Debug for McpServer {
             // a sanitized form so it cannot leak into host logs.
             .field(
                 "endpoint",
-                &crate::agent::sanitize_url_for_display(&cfg.endpoint),
+                &crate::turn::sanitize_url_for_display(&cfg.endpoint),
             )
             .field("command", &cfg.command)
             .field("args", &cfg.args)
@@ -187,7 +187,7 @@ impl McpServer {
     }
 
     /// The underlying config entry.
-    pub(super) fn into_config(self) -> McpServerConfig {
+    pub(crate) fn into_config(self) -> McpServerConfig {
         self.0
     }
 }
