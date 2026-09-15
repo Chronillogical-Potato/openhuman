@@ -10,6 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
+import { ATTACHMENT_MAX_IMAGES } from '../../lib/attachments';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import socketReducer from '../../store/socketSlice';
@@ -438,6 +439,40 @@ describe('Conversations — attachment feature', () => {
     });
 
     expect(document.querySelector('[data-slot="aui_composer-shell"] img')).toBeNull();
+  });
+
+  // Three ingest entry points can now fire before React re-renders. Seeding the
+  // budget from the `attachments` render snapshot let each of two overlapping
+  // gestures admit a full quota, so 3 + 3 images landed as 6 against a cap of 4.
+  it('holds the image budget when a drop and a paste overlap', async () => {
+    const { textarea } = await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    const dropped = Array.from({ length: 3 }, (_, i) =>
+      makeFile(`ovl-d${i}.png`, 'image/png', 512)
+    );
+    const pasted = Array.from({ length: 3 }, (_, i) => makeFile(`ovl-p${i}.png`, 'image/png', 512));
+
+    // Both in the same tick, with no await between them — that is the race.
+    await act(async () => {
+      fireEvent.drop(shell, { dataTransfer: { files: dropped, types: ['Files'] } });
+      fireEvent.paste(textarea, {
+        clipboardData: {
+          items: pasted.map(file => ({ kind: 'file', type: 'image/png', getAsFile: () => file })),
+        },
+      });
+    });
+
+    // Count only once both ingests have settled. Asserting earlier measures how
+    // far the reads happen to have got, not the budget: mid-flight this reads 2
+    // whether or not the queue is serialised.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    });
+
+    // Unserialised, both runs seed from the same empty snapshot and admit three
+    // each — six against a cap of four.
+    expect(screen.queryAllByText(/^ovl-/).length).toBeLessThanOrEqual(ATTACHMENT_MAX_IMAGES);
   });
 
   it('shows too-many error when selecting more than 4 images', async () => {

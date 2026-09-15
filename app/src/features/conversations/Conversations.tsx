@@ -289,6 +289,13 @@ const Conversations = ({
 
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // What ingest counts its budget against. Tracks state on every render (so a
+  // removal or a send's clear is picked up) and is written synchronously as each
+  // file is admitted, which is what keeps two overlapping ingests honest.
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  // Tail of the ingest queue; see `handleAttachFiles`.
+  const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Imperative handle onto the transcript's own background-processes panel
   // (its state now lives inside `ChatThreadView`) so the header badge below
@@ -984,12 +991,17 @@ const Conversations = ({
     return true;
   };
 
-  const handleAttachFiles = async (files: FileList | File[] | null) => {
+  const ingestFiles = async (files: FileList | File[] | null) => {
     if (!files) return;
-    let acceptedFileCount = attachments.filter(attachment => attachment.kind === 'file').length;
+    // Counted from the ref, never from the `attachments` render snapshot: the
+    // composer now has three ingest entry points (picker, drop, paste) and two
+    // can fire before React re-renders. Both would then seed their budget from
+    // the same snapshot and each admit a full quota.
+    const admitted = attachmentsRef.current;
+    let acceptedFileCount = admitted.filter(attachment => attachment.kind === 'file').length;
     // Images and videos share one image-marker budget (video = its frames), so
     // track consumed markers rather than per-kind counts.
-    let acceptedImageMarkers = attachments.reduce(
+    let acceptedImageMarkers = admitted.reduce(
       (sum, attachment) => sum + imageMarkerCost(attachment.kind),
       0
     );
@@ -1040,8 +1052,28 @@ const Conversations = ({
       } else {
         acceptedImageMarkers += imageMarkerCost(result.attachment.kind);
       }
+      // Ref first, synchronously: the next queued run counts what this one just
+      // took, without waiting for React to commit the state update.
+      attachmentsRef.current = [...attachmentsRef.current, result.attachment];
       setAttachments(prev => [...prev, result.attachment]);
     }
+  };
+
+  /**
+   * Serialises ingest so overlapping gestures cannot both validate against the
+   * same budget — a paste landing while a dropped file is still being read, for
+   * instance. Each run starts only once the one before it has finished writing
+   * `attachmentsRef`, so the budget it counts from is current.
+   */
+  const handleAttachFiles = (files: FileList | File[] | null): Promise<void> => {
+    const run = ingestQueueRef.current.then(() => ingestFiles(files));
+    // The queue must survive a rejected run, or one failure wedges every later
+    // attachment. Errors still surface to the caller through `run`.
+    ingestQueueRef.current = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
   };
 
   const handleSendMessage = async (text?: string) => {
