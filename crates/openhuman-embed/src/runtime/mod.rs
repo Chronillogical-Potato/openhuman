@@ -128,16 +128,69 @@ pub enum RuntimeError {
     BlankApiKey,
 }
 
+/// The process-scoped state a [`Runtime`] and every [`Agent`](crate::Agent)
+/// built on it share ownership of: the core itself and, for
+/// [`Workspace::Ephemeral`], the workspace it lives in.
+///
+/// Held as `Arc<CoreGuard>` by both `Runtime` and `AgentInner` so its `Drop`
+/// — releasing [`RUNTIME_LIVE`] and removing an ephemeral workspace — runs
+/// only once the *last* of them goes away. `Agent`s are owned rather than
+/// borrowed from `Runtime`, so a caller can drop the `Runtime` handle while
+/// an `Agent` (or a `Turn` in flight) is still alive; if `Runtime` tore this
+/// state down unconditionally on its own drop, the surviving agent would run
+/// turns against a removed workspace while a second `Runtime::builder().build()`
+/// call reinitialized the same process-global keyring, event bus and
+/// subscribers underneath it.
+pub(crate) struct CoreGuard {
+    core: Option<Core>,
+    /// Held for its `Drop`: an ephemeral workspace lives exactly as long as
+    /// the last owner of this guard.
+    workspace: ResolvedWorkspace,
+}
+
+impl Drop for CoreGuard {
+    fn drop(&mut self) {
+        // Drop the core while the process slot is still claimed. Releasing it
+        // first lets another builder initialize process-scoped state while
+        // this runtime's keyring, bearer, event bus and subscribers are live.
+        drop(self.core.take());
+        // For an ephemeral workspace, take ownership of the temp path and
+        // remove it with a short retry. The core's memory/session writers keep
+        // running a moment after a turn returns and can recreate workspace
+        // subdirectories while `TempDir`'s own drop-time removal is racing
+        // them, leaving an empty directory behind. A bounded retry lets those
+        // writes settle before giving up.
+        if let Some(temp) = self.workspace._temp.take() {
+            let root = temp.keep();
+            let mut quiet_passes = 0;
+            for _ in 0..20 {
+                match std::fs::remove_dir_all(&root) {
+                    Ok(()) => quiet_passes += 1,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        quiet_passes += 1;
+                    }
+                    Err(_) => quiet_passes = 0,
+                }
+                if quiet_passes >= 5 {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            let _ = std::fs::remove_dir_all(&root);
+        }
+        RUNTIME_LIVE.store(false, std::sync::atomic::Ordering::Release);
+        log::debug!("[embed][runtime] released");
+    }
+}
+
 /// An initialised OpenHuman core, ready to host agents.
 ///
 /// Build once with [`Runtime::builder`]; share as `Arc<Runtime>` when several
-/// parts of the host create agents. Dropping it (after every [`Agent`]) tears
-/// the core down and, for [`Workspace::Ephemeral`], removes the workspace.
+/// parts of the host create agents. Dropping the last of this `Runtime` and
+/// every [`Agent`](crate::Agent) built on it tears the core down and, for
+/// [`Workspace::Ephemeral`], removes the workspace — see [`CoreGuard`].
 pub struct Runtime {
-    core: Option<Core>,
-    /// Held for its `Drop`: an ephemeral workspace lives exactly as long as
-    /// the runtime that owns it.
-    workspace: ResolvedWorkspace,
+    guard: Arc<CoreGuard>,
     /// The config every agent starts from. Already carries the runtime-wide
     /// defaults (backend URL, access, provider model, supplied overrides).
     base_config: Config,
