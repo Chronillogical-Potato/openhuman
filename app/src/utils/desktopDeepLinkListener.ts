@@ -398,13 +398,13 @@ export const classifyAuthStoreFailure = (message: string): string => {
 /**
  * Build the user-facing message for an auth-*store* failure (issue #3025).
  *
- * `auth_store_session` makes the core validate the freshly minted session token
- * against the backend `GET /auth/me` before persisting it. In **cloud mode**
- * that validation runs on the user's *remote* `openhuman-core`, so the dominant
- * failure is the remote runtime being unable to reach/authenticate against the
- * backend (misconfigured `BACKEND_URL`, offline, or an older core that predates
- * `allowPendingBackendValidation`) — not a problem the desktop can retry away.
- * The old blanket "Sign-in failed. Please try again." gave cloud users no path
+ * The session owner validates the freshly minted session token against the
+ * backend `GET /auth/me` before handing it to the core. In **cloud mode** the
+ * credential is then handed to the user's *remote* `openhuman-core`, so the
+ * dominant failure is that runtime being unreachable or rejecting the RPC
+ * (misconfigured URL / token, offline, or an older core that predates
+ * `auth.set_credential`) — not a problem the desktop can retry away. The old
+ * blanket "Sign-in failed. Please try again." gave cloud users no path
  * forward; point them at the remote runtime instead. Local mode keeps the plain
  * retry message (a transient embedded-core/backend blip that retrying can fix).
  */
