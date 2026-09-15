@@ -194,6 +194,87 @@ async fn turn_handles_unknown_tool_gracefully() {
     );
 }
 
+/// Stands in for a packed tool and records the arguments it ran with.
+struct RecordingPackedTool(Arc<Mutex<Option<serde_json::Value>>>);
+
+#[async_trait]
+impl Tool for RecordingPackedTool {
+    fn name(&self) -> &str {
+        "skill_registry_search"
+    }
+
+    fn description(&self) -> &str {
+        "Search available skills by keyword."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+        })
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
+        *self.0.lock().unwrap() = Some(args);
+        Ok(ToolResult::success("found: code-reviewer"))
+    }
+}
+
+// #6276: the model reads a packed tool's bare name (pack listing, sibling
+// descriptions) and calls it as a top-level tool. That call must reach the tool
+// through its pack, not loop on "unknown tool".
+#[tokio::test]
+async fn turn_routes_a_bare_packed_tool_call_through_use_skill() {
+    let provider = Arc::new(ScriptedProvider::new(vec![
+        tool_response(vec![ToolCall {
+            id: "tc1".into(),
+            name: "skill_registry_search".into(),
+            arguments: r#"{"query": "code review"}"#.into(),
+            extra_content: None,
+        }]),
+        text_response("found one"),
+    ]));
+    let ran = Arc::new(Mutex::new(None));
+    let mut tools: Vec<Box<dyn Tool>> = vec![Box::new(RecordingPackedTool(ran.clone()))];
+    crate::tools::toolpacks::append_pack_tools(&mut tools);
+
+    let (mut agent, _tmp) = build_agent_with(provider, tools, Box::new(NativeToolDispatcher));
+    assert!(
+        !agent
+            .visible_tool_names_for_test()
+            .contains("skill_registry_search"),
+        "precondition: the tool is withheld behind its pack"
+    );
+
+    agent.turn("find a code review skill").await.unwrap();
+
+    assert_eq!(
+        ran.lock().unwrap().clone(),
+        Some(serde_json::json!({ "query": "code review" })),
+        "a bare call to a withheld packed tool must run that tool with its own arguments"
+    );
+    let results: Vec<String> = agent
+        .history()
+        .iter()
+        .filter_map(|msg| match msg {
+            ConversationMessage::ToolResults(results) => Some(
+                results
+                    .iter()
+                    .map(|r| r.content.clone())
+                    .collect::<Vec<_>>(),
+            ),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    assert!(
+        results.iter().any(|c| c.contains("found: code-reviewer"))
+            && !results.iter().any(|c| c.contains("unknown tool")),
+        "the model must see the tool's result, not an unknown-tool error: {results:?}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 6. Tool execution failure recovery
 // ═══════════════════════════════════════════════════════════════════════════

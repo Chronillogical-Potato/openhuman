@@ -675,6 +675,16 @@ pub(super) fn assemble_turn_harness(
         tool_sets.clone(),
     )));
 
+    // Bare packed-tool routing (`before_tool`, #6276): a call that names a
+    // withheld packed tool directly becomes the `use_skill` call that reaches
+    // it, ahead of admission, so every gate above still applies. After
+    // `ArgRecoveryMiddleware` so it wraps recovered arguments; before the
+    // embedder hooks so they observe the call that actually runs.
+    let registered_tools = harness.tools().names();
+    harness.push_middleware(Arc::new(middleware::PackedToolRouteMiddleware::new(
+        registered_tools,
+    )));
+
     // Embedder tool lifecycle hooks. Registered AFTER `ArgRecoveryMiddleware`:
     // `before_tool` runs in registration order, so a hook installed earlier would
     // observe the provider's raw (possibly JSON-encoded-string / non-object)
