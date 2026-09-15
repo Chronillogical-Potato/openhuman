@@ -653,11 +653,34 @@ impl CoreRuntime {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
+        self.invoke_in(Arc::clone(&self.ctx), method, params).await
+    }
+
+    /// [`invoke`](Self::invoke) under a caller-supplied context instead of the
+    /// runtime's own — typically a per-agent child from
+    /// [`CoreContext::derive_with`], so the handler's config loader, DomainSet
+    /// gate and tool-group filter all read that agent's overlay.
+    pub async fn invoke_in(
+        &self,
+        ctx: Arc<CoreContext>,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        log::trace!("[core-runtime] invoke_in method={method}");
         CoreContext::scope(
-            Arc::clone(&self.ctx),
+            ctx,
             jsonrpc::invoke_method(jsonrpc::default_state(), method, params),
         )
         .await
+    }
+
+    /// Run an arbitrary future with `ctx` as the ambient [`CoreContext`] — the
+    /// native (non-RPC) counterpart of [`invoke_in`](Self::invoke_in) for
+    /// callers that reach a domain operation directly, such as an embedded
+    /// agent turn. Bypasses the registered-RPC dispatch gate, so the caller is
+    /// responsible for honouring `ctx.domains()` itself.
+    pub async fn run_in<F: std::future::Future>(&self, ctx: Arc<CoreContext>, fut: F) -> F::Output {
+        CoreContext::scope(ctx, fut).await
     }
 
     /// Spawn the selected background services and, when `rpc_http` is set, bind
