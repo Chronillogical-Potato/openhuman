@@ -9,23 +9,54 @@ icon: layer-group
 
 ## Embedding OpenHuman as a library
 
-`openhuman_embed::Harness` builds one in-process core for a caller that supplies
-its workspace, provider endpoint and credential, skills, MCP servers, and tool
-policy. Such a harness identifies as `HostKind::Library`: inference does not
-depend on OpenHuman app login, including inference-readiness checks for workflow
-agent nodes. Backend features such as integrations and managed services still
-need whatever identity their endpoint requires.
+`openhuman_embed` exposes a two-step API. `Runtime::builder()` boots one
+in-process core per process — background services, registered domain
+families, backend URL and the TinyHumans API key — and `Runtime::agent(spec)`
+instantiates any number of agents on it. Each `AgentSpec` fully describes
+one agent: provider endpoint and model, access tier, `action_dir`, MCP
+servers, skill bundles, system prompt, tool scope, sandbox mode, allowlists,
+and a narrowed `DomainSet` / `ToolGroups`. A runtime identifies as
+`HostKind::Library`: inference does not depend on OpenHuman app login,
+including inference-readiness checks for workflow agent nodes.
 
-Build one harness and issue concurrent `run` or `turn(...).send()` calls on it;
-do not build one core per agent. Each call owns a distinct session unless a
-prior session id is supplied. The conversation store coordinates metadata per
-workspace and message writes per thread, so independent agents do not serialize
-on one process-wide store mutex.
+Per-agent isolation is a context, not a second core. `Runtime::agent` clones
+the runtime's base `Config`, applies the spec, and derives a child
+`CoreContext` (`CoreContext::derive_with`) carrying that config, the agent's
+domain set, tool groups and skill-root policy. Every turn is dispatched under
+that context (`CoreRuntime::run_in` → `agent_chat_for` with an explicit
+`AgentDefinition` and `AgentProfile`), so the config loader, the domain gate,
+the tool-group filter and skill discovery all read the agent's own settings.
+Transcripts are keyed by agent id and a turn resumes only its own thread.
 
-`Workspace::Inherit` together with `Provider::inherit()` is deliberately not
-library-routed inference. It borrows the installed OpenHuman configuration and
-therefore keeps the installed application's session checks. Supply an explicit
-provider when embedding without app login.
+Layout under a runtime-owned root: `<root>/config.toml` and the credential
+store; `<root>/workspace/` with the session database, `session_raw/`
+transcripts and each agent's `personalities/<id>/skills/`; and
+`<root>/agents/<id>/action/` as each agent's default working root (a sibling
+of the workspace, never inside it).
+
+`Harness` is the one-agent shorthand: a runtime plus one agent named
+`harness`. Build one runtime and issue concurrent `run` or `turn(...).send()`
+calls on its agents; do not build one core per agent. Each call owns a
+distinct session unless a prior session id is supplied.
+
+Authentication in library mode is the TinyHumans API key
+(`RuntimeBuilder::api_key`), stored as an `api-key` auth profile beside the
+runtime's `config.toml`. Managed inference sends it as a bearer to the
+OpenAI-compatible endpoint; backend REST calls send `x-api-key`; there is no
+session JWT and nothing to expire. Agents that name their own `Provider`
+(BYOK) never touch it. Backend features that need a signed-in user still
+take `HarnessBuilder::session`.
+
+`Workspace::Inherit` together with `Provider::inherit()` and no API key is
+deliberately not library-routed inference. It borrows the installed
+OpenHuman configuration and therefore keeps the installed application's
+session checks. Supply an explicit provider or an API key when embedding
+without app login.
+
+Some settings remain runtime-wide for every agent (the live autonomy policy's
+`auto_approve*`, the approval gate switch, the sub-agent catalogue, the
+config sub-agents re-read); the crate README lists them under "Still
+runtime-wide".
 
 > **Status (issue #4249, tinyagents migration):** the agent turn no longer runs
 > on the in-tree `run_turn_engine` loop. **All three entry points (`Agent::turn`,
