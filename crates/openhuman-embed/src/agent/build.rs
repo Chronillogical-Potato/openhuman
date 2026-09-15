@@ -86,7 +86,21 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     profile.system_prompt_suffix = parts.system_prompt_suffix;
     #[cfg(feature = "mcp")]
     {
-        profile.allowed_mcp_servers = None;
+        // `None` is the "all configured servers" sentinel
+        // (`AgentProfile`'s doc comment), not "none requested" — an agent
+        // that declared zero MCP servers of its own but inherited the
+        // runtime's `domains.mcp = true` (the default when `parts.domains`
+        // is unset) would otherwise reach every server in the runtime's
+        // static registry, including a host-seeded one meant for other
+        // agents. List exactly what this agent asked for instead, so an
+        // agent with none declared is scoped to none.
+        profile.allowed_mcp_servers = Some(
+            parts
+                .mcp_servers
+                .iter()
+                .map(|server| server.name().to_owned())
+                .collect(),
+        );
     }
     ensure_profile_home(&config.workspace_dir, &config.action_dir, &profile).map_err(|source| {
         AgentError::Workspace {
