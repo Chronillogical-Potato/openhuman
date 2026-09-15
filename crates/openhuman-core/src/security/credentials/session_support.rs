@@ -132,6 +132,62 @@ fn session_user_value(
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
 }
 
+/// The kinds of backend credential the core can hold. The `as_str` values are
+/// the `auth.set_credential` / `auth.clear_credential` / `auth.get_state` wire
+/// vocabulary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CredentialKind {
+    /// A TinyHumans session JWT.
+    Session,
+    /// A TinyHumans API key.
+    ApiKey,
+    /// The offline local session (`is_local_session_token`).
+    Local,
+}
+
+impl CredentialKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Session => super::responses::CREDENTIAL_SESSION,
+            Self::ApiKey => super::responses::CREDENTIAL_API_KEY,
+            Self::Local => super::responses::CREDENTIAL_LOCAL,
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim() {
+            super::responses::CREDENTIAL_SESSION => Some(Self::Session),
+            super::responses::CREDENTIAL_API_KEY => Some(Self::ApiKey),
+            super::responses::CREDENTIAL_LOCAL => Some(Self::Local),
+            _ => None,
+        }
+    }
+
+    /// Classify a bare token the way the core always has: the local-session
+    /// shape is `Local`, anything else is a session JWT. An API key is never
+    /// inferred from shape — callers that hold one say so.
+    pub fn classify(token: &str) -> Self {
+        if is_local_session_token(token) {
+            Self::Local
+        } else {
+            Self::Session
+        }
+    }
+}
+
+/// The subject of a JWT, read from its payload claims without verification.
+/// Checked in order: `sub`, `userId`, `user_id`, `_id`, `id`.
+pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
+    let claims = crate::api::jwt::decode_jwt_payload(token)?;
+    let obj = claims.as_object()?;
+    ["sub", "userId", "user_id", "_id", "id"]
+        .iter()
+        .find_map(|key| obj.get(*key).and_then(serde_json::Value::as_str))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
     // The API key wins whenever both are present — same precedence as
     // `resolve_backend_credential`, which every backend request actually
@@ -149,6 +205,7 @@ pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String>
             user: None,
             profile_id: None,
             credential: Some(super::responses::CREDENTIAL_API_KEY.to_string()),
+            expires_at: None,
         });
     }
     let profile = load_app_session_profile(config)?;
@@ -383,21 +440,23 @@ pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateRes
             user: None,
             profile_id: None,
             credential: None,
+            expires_at: None,
         };
     };
 
-    let is_authenticated = profile
-        .token
-        .as_ref()
-        .map(|token| !token.trim().is_empty())
-        .unwrap_or(false);
+    let token = session_token_from_profile(Some(profile));
+    let is_authenticated = token.is_some();
+    let credential = token
+        .as_deref()
+        .map(|token| CredentialKind::classify(token).as_str().to_string());
 
     AuthStateResponse {
         is_authenticated,
         user_id: profile.metadata.get("user_id").cloned(),
         user: session_user_value(profile),
         profile_id: Some(profile.id.clone()),
-        credential: is_authenticated.then(|| super::responses::CREDENTIAL_SESSION.to_string()),
+        credential,
+        expires_at: session_expires_at_from_profile(Some(profile)).map(|dt| dt.to_rfc3339()),
     }
 }
 
