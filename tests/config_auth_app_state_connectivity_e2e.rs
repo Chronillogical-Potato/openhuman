@@ -1540,15 +1540,10 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
 #[tokio::test]
 async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
     let _lock = env_lock();
-    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
-        "id": "session-expired-user",
-        "name": "Session Expired Worker",
-        "email": "session-expired@example.test"
-    }))
-    .await;
     let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
 
+    // The host hands the core an already-obtained session; no backend is
+    // consulted to store it.
     let remote_session = rpc(
         &harness.rpc_base,
         18_101,
@@ -1566,9 +1561,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     .await;
     assert_eq!(
         payload(&remote_session, "auth_store_session before SessionExpired")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("session")
     );
 
     let subscriber = SessionExpiredSubscriber::new();
@@ -1613,9 +1608,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
             &local_session,
             "auth_store_session local before SessionExpired"
         )
-        .get("provider")
+        .get("credential")
         .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     subscriber
@@ -1641,7 +1636,6 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     );
 
     harness.join.abort();
-    backend_join.abort();
 }
 
 #[tokio::test]
