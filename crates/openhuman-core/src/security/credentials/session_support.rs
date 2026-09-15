@@ -134,7 +134,14 @@ fn session_user_value(
 
 pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
     let profile = load_app_session_profile(config)?;
-    Ok(session_state_from_profile(profile.as_ref()))
+    let mut state = session_state_from_profile(profile.as_ref());
+    // An API key authenticates the runtime without a user: report it so a
+    // host can tell "signed in as nobody" from "signed out".
+    if !state.is_authenticated && super::api_key::has_api_key(config) {
+        state.is_authenticated = true;
+        state.credential = Some(super::responses::CREDENTIAL_API_KEY.to_string());
+    }
+    Ok(state)
 }
 
 pub fn get_session_token(config: &Config) -> Result<Option<String>, String> {
@@ -364,6 +371,7 @@ pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateRes
             user_id: None,
             user: None,
             profile_id: None,
+            credential: None,
         };
     };
 
@@ -378,6 +386,7 @@ pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateRes
         user_id: profile.metadata.get("user_id").cloned(),
         user: session_user_value(profile),
         profile_id: Some(profile.id.clone()),
+        credential: is_authenticated.then(|| super::responses::CREDENTIAL_SESSION.to_string()),
     }
 }
 
