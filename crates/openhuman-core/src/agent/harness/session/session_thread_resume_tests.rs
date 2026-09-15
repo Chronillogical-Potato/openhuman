@@ -408,8 +408,13 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
     ];
     let a_path = wsp.join("session_raw").join("1700009999_agent_a.jsonl");
     std::fs::create_dir_all(a_path.parent().unwrap()).unwrap();
-    transcript::write_transcript(&a_path, &a_messages, &meta("agent_a", "2026-02-02T00:00:00Z"), None)
-        .expect("write agent A transcript");
+    transcript::write_transcript(
+        &a_path,
+        &a_messages,
+        &meta("agent_a", "2026-02-02T00:00:00Z"),
+        None,
+    )
+    .expect("write agent A transcript");
 
     // Agent B's own transcript — older, but the one agent B must resume.
     let b_messages = vec![
@@ -419,8 +424,13 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
     ];
     let b_path = wsp.join("session_raw").join("1700000000_agent_b.jsonl");
     std::fs::create_dir_all(b_path.parent().unwrap()).unwrap();
-    transcript::write_transcript(&b_path, &b_messages, &meta("agent_b", "2026-01-01T00:00:00Z"), None)
-        .expect("write agent B transcript");
+    transcript::write_transcript(
+        &b_path,
+        &b_messages,
+        &meta("agent_b", "2026-01-01T00:00:00Z"),
+        None,
+    )
+    .expect("write agent B transcript");
 
     let mut agent_b = build_minimal_agent_with_definition_name(Some("agent_b"));
     agent_b.workspace_dir = wsp.clone();
@@ -439,7 +449,9 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
         "agent B's resume must load its own transcript"
     );
     assert!(
-        !cached.iter().any(|m| m.content.contains("agent A's private")),
+        !cached
+            .iter()
+            .any(|m| m.content.contains("agent A's private")),
         "agent B's resume must never load agent A's transcript for the same thread id, \
          got {cached:?}"
     );

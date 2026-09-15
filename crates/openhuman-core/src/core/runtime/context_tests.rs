@@ -139,7 +139,10 @@ fn derive_with_clamps_overlay_domains_to_the_parent_registered_set() {
     let mut parent_ctx = ctx("/tmp/parent-ws");
     Arc::get_mut(&mut parent_ctx).expect("sole owner").domains =
         crate::core::runtime::DomainSet::kernel();
-    assert!(!parent_ctx.domains().agent, "sanity: kernel() has agent off");
+    assert!(
+        !parent_ctx.domains().agent,
+        "sanity: kernel() has agent off"
+    );
     assert!(!parent_ctx.domains().mcp, "sanity: kernel() has mcp off");
 
     let overlay = ContextOverlay::new(
