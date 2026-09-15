@@ -10,7 +10,6 @@ import {
   sessionErrorKind,
   storeSessionToken,
 } from '../services/session/sessionOwner';
-import { getSessionToken } from './tauriCommands/auth';
 import {
   beginDeepLinkAuthProcessing,
   completeDeepLinkAuthProcessing,
@@ -30,6 +29,7 @@ import {
 } from './oauthAppVersionGate';
 import { clearOAuthReturnRoute, takeOAuthReturnRoute } from './oauthReturnRoute';
 import { openUrl } from './openUrl';
+import { getSessionToken } from './tauriCommands/auth';
 import { isTauri as coreIsTauri } from './tauriCommands/common';
 
 const SESSION_TOKEN_UPDATED_EVENT = 'core-state:session-token-updated';
@@ -173,9 +173,7 @@ const AUTH_STORE_SUPPRESS_REAUTH_MS = 40_000;
  * Hand a login token or a raw session token to the session owner and, once
  * it is installed, surface the stored token to the core-state layer.
  */
-const applySessionToken = async (
-  install: () => Promise<void>
-): Promise<void> => {
+const applySessionToken = async (install: () => Promise<void>): Promise<void> => {
   // In cloud mode, bust any stale RPC URL/token caches so the credential
   // handoff targets the user's configured remote core. See issue #2377.
   const currentCoreMode = getStoredCoreMode();

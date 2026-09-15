@@ -17,12 +17,12 @@
  * `EXPIRED`, `TRANSIENT`, `CONSUME_FAILED`, `CORE`, …) so callers can classify
  * without parsing prose.
  */
+import { getStoredCoreMode } from '../../utils/configPersistence';
+import { isLocalSessionToken } from '../../utils/localSession';
+import { safeInvoke as invoke, isTauri } from '../../utils/tauriCommands/common';
 import { getBackendUrl } from '../backendUrl';
 import { getClientVersionHeaders } from '../clientVersionHeaders';
 import { callCoreRpc } from '../coreRpcClient';
-import { getStoredCoreMode } from '../../utils/configPersistence';
-import { isLocalSessionToken } from '../../utils/localSession';
-import { isTauri, safeInvoke as invoke } from '../../utils/tauriCommands/common';
 
 export interface SessionCurrentUser {
   user: object | null;
@@ -229,10 +229,11 @@ export const logoutSession = async (): Promise<void> => {
  */
 export const fetchCurrentUser = async (force = false): Promise<SessionCurrentUser> => {
   if (useShellSessionOwner()) {
-    const cached = await invoke<{ user: object | null; stale: boolean; staleSeconds: number | null }>(
-      'auth_current_user',
-      { force }
-    );
+    const cached = await invoke<{
+      user: object | null;
+      stale: boolean;
+      staleSeconds: number | null;
+    }>('auth_current_user', { force });
     return { user: cached.user, stale: cached.stale, staleSeconds: cached.staleSeconds };
   }
   return browserCurrentUser();
