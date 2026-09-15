@@ -395,11 +395,28 @@ impl CoreContext {
     /// an agent with its own workspace subdirectory resolves its own memory
     /// binding lazily, exactly as an embedder-supplied config does at boot.
     pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+        // Clamped to what this context can already dispatch. A derived
+        // overlay may only narrow: callers outside this crate (embed's
+        // `Runtime::agent`, for one) already refuse a spec that names a
+        // family the runtime never registered, but that check lives at the
+        // call site. Enforcing it here too means a future or third-party
+        // caller of `derive_with` cannot widen a restricted parent's domains
+        // just by omitting that check.
+        let domains = self.domains.intersect(&overlay.domains);
+        if domains != overlay.domains {
+            log::warn!(
+                "[core-context] derive: overlay requested domains={:?} wider than \
+                 parent domains={:?}; clamped to {:?}",
+                overlay.domains,
+                self.domains,
+                domains
+            );
+        }
         log::debug!(
             "[core-context] derive: workspace_dir={} domains={:?} tool_groups={:?} \
              user_skill_roots={}",
             overlay.config.workspace_dir.display(),
-            overlay.domains,
+            domains,
             overlay.tool_groups,
             overlay.user_skill_roots
         );
@@ -409,7 +426,7 @@ impl CoreContext {
                 workspace_dir: Some(overlay.config.workspace_dir.clone()),
                 memory_subsystem: overlay.config.subsystems.memory.clone(),
             }),
-            domains: overlay.domains,
+            domains,
             tool_groups: overlay.tool_groups,
             embedder_config: Some(overlay.config),
             user_skill_roots: overlay.user_skill_roots,
