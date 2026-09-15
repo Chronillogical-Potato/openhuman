@@ -110,6 +110,17 @@ impl OpenHumanBackendModel {
             classify_session_token, SessionTokenCheck,
         };
 
+        // A stored API key (library runtime) is the bearer outright: the
+        // OpenAI-compatible managed endpoint accepts it as `Bearer <key>`,
+        // and there is no session — so no `exp` and no signed-out state — to
+        // consult.
+        if let Some(key) = crate::security::credentials::api_key::get_api_key_in(
+            &self.state_dir(),
+            self.options.secrets_encrypt,
+        )? {
+            log::debug!("[providers][openhuman-backend] authenticating managed inference with api-key");
+            return Ok(key);
+        }
         if crate::cron::scheduler_gate::is_signed_out() {
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"
