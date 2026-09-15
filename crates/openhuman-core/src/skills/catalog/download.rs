@@ -65,8 +65,16 @@ impl<'a> SkillsShRef<'a> {
             .collect()
     }
 
+    /// Raw URL of `path` in this repo. Each segment is percent-encoded: a path
+    /// from the repo's tree listing can hold `#`, `?` or spaces, which would
+    /// otherwise cut the URL short or change what it names.
     fn raw_url(&self, path: &str) -> String {
-        format!("{GITHUB_RAW}/{}/{}/HEAD/{path}", self.owner, self.repo)
+        let mut url = url::Url::parse(GITHUB_RAW).expect("GITHUB_RAW is a valid base URL");
+        url.path_segments_mut()
+            .expect("an https URL has path segments")
+            .extend([self.owner, self.repo, "HEAD"])
+            .extend(path.split('/'));
+        url.into()
     }
 
     /// Locate this skill's `SKILL.md` in its GitHub repo.

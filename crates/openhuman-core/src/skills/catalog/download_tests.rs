@@ -68,6 +68,15 @@ fn find_skill_md_in_tree_matches_the_skill_directory_at_any_depth() {
 }
 
 #[test]
+fn raw_url_percent_encodes_segments_from_a_tree_listing() {
+    let skill = SkillsShRef::parse("https://skills.sh/o/r/my-skill").unwrap();
+    assert_eq!(
+        skill.raw_url("docs #1/what?/my-skill/SKILL.md"),
+        "https://raw.githubusercontent.com/o/r/HEAD/docs%20%231/what%3F/my-skill/SKILL.md"
+    );
+}
+
+#[test]
 fn find_skill_md_in_tree_refuses_to_guess_between_same_named_directories() {
     let tree = json!({ "tree": [
         { "path": "plugins/a/my-skill/SKILL.md", "type": "blob" },
