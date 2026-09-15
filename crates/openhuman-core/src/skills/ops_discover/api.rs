@@ -2,7 +2,7 @@
 //! of `load_workflow_metadata*` / `discover_workflows*` shims that select a
 //! root scan (see [`super::scan`]) for a given caller shape.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::skills::ops_types::{Workflow, TRUST_MARKER};
 
