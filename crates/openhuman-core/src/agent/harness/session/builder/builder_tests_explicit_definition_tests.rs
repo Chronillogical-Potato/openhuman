@@ -18,7 +18,9 @@ fn explicit_definition(id: &str) -> crate::agent::harness::definition::AgentDefi
     def.display_name = Some("Explicit".to_string());
     def.system_prompt = PromptSource::Inline("You are explicit.".to_string());
     def.tools = ToolScope::Wildcard;
-    def.sandbox_mode = SandboxMode::Sandboxed;
+    // The built-in orchestrator runs `Sandboxed`; `ReadOnly` is observably
+    // different at every reader that consults the definition.
+    def.sandbox_mode = SandboxMode::ReadOnly;
     def
 }
 
@@ -36,7 +38,7 @@ async fn from_config_with_definition_stamps_the_definition_on_the_session() {
         .resolved_definition()
         .expect("the explicit definition is stamped");
     assert_eq!(resolved.id, "embedded-alpha");
-    assert_eq!(resolved.sandbox_mode, SandboxMode::Sandboxed);
+    assert_eq!(resolved.sandbox_mode, SandboxMode::ReadOnly);
     assert!(matches!(resolved.system_prompt, PromptSource::Inline(ref p) if p == "You are explicit."));
 }
 
@@ -53,8 +55,8 @@ async fn resolved_definition_prefers_the_sessions_own_over_a_same_id_registry_en
         AgentDefinitionRegistry::global()
             .and_then(|r| r.get("orchestrator"))
             .map(|d| d.sandbox_mode),
-        Some(SandboxMode::Sandboxed),
-        "the registry's orchestrator is not sandboxed, so a leak is observable"
+        Some(SandboxMode::ReadOnly),
+        "the registry's orchestrator is not read-only, so a leak is observable"
     );
 
     let agent = Agent::from_config_with_definition(&config, &def, None, None)
@@ -62,7 +64,7 @@ async fn resolved_definition_prefers_the_sessions_own_over_a_same_id_registry_en
 
     assert_eq!(
         agent.resolved_definition().map(|d| d.sandbox_mode),
-        Some(SandboxMode::Sandboxed)
+        Some(SandboxMode::ReadOnly)
     );
 }
 
@@ -77,5 +79,9 @@ async fn registry_built_sessions_resolve_the_registry_definition() {
     let agent = Agent::from_config(&config).expect("orchestrator session");
     let resolved = agent.resolved_definition().expect("registry definition");
     assert_eq!(resolved.id, "orchestrator");
-    assert_eq!(resolved.sandbox_mode, SandboxMode::None);
+    let registry_mode = AgentDefinitionRegistry::global()
+        .and_then(|r| r.get("orchestrator"))
+        .map(|d| d.sandbox_mode)
+        .expect("registry orchestrator");
+    assert_eq!(resolved.sandbox_mode, registry_mode);
 }
