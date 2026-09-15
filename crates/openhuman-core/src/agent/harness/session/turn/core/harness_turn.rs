@@ -31,7 +31,11 @@ impl Agent {
     /// harness event stream via `OpenhumanEventBridge` (tinyagents harness),
     /// `[IMAGE:…]`/`[FILE:…]` markers are expanded for the provider, and history
     /// is trimmed to the provider's context window.
-    pub(super) async fn run_turn_via_tinyagents_session(
+    ///
+    /// Called through [`Agent::run_turn_via_tinyagents_session`], which records
+    /// a failed turn from `transcript_snapshot` (#6281).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) async fn run_turn_via_tinyagents_session_inner(
         &mut self,
         user_message: &str,
         effective_model: &str,
@@ -41,6 +45,7 @@ impl Agent {
             crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore,
         >,
         suppress_tools: bool,
+        transcript_snapshot: crate::agent::tinyagents::TranscriptSnapshotSink,
     ) -> Result<String> {
         let turn_started = std::time::Instant::now();
         // This turn's stamped user message is already the last entry in
@@ -93,6 +98,12 @@ impl Agent {
         .await
         .map(|prepared| prepared.messages)
         .unwrap_or(messages);
+        // The rounds this run produces start after the transcript it is seeded
+        // with; a failed turn records only those (#6281).
+        transcript_snapshot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .request_base_len = messages.len();
 
         // Per-turn tool scope (#1725). A chat / small-talk turn runs with an
         // EMPTY tool set: the provider request carries no tool schema, so the
@@ -135,9 +146,9 @@ impl Agent {
             // Progressive-disclosure handoff is a sub-agent (integrations_agent)
             // concern; the top-level chat turn never sets it.
             handoff: None,
-            // Live transcript snapshotting is a sub-agent error-recovery concern
-            // (#4466); the chat path persists its transcript post-run.
-            transcript_snapshot: None,
+            // The harness drops its working transcript on `Err`; the snapshot
+            // is how a failed turn still keeps the rounds it completed (#6281).
+            transcript_snapshot: Some(transcript_snapshot.clone()),
         };
 
         // Gather any sub-agent spend delegated during this turn (synchronous
@@ -201,6 +212,13 @@ impl Agent {
             )
             .await;
         let outcome = outcome?;
+        // The run handed back its own transcript, folded into history below, so
+        // an error after this point must not replay the snapshot's rounds again.
+        transcript_snapshot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .messages
+            .clear();
 
         // Record whether this turn paused at the tool-call cap (vs. finishing
         // naturally) BEFORE anything below can early-return, so a caller
