@@ -28,7 +28,7 @@ pub mod registry;
 pub mod tools;
 pub mod types;
 
-pub use groups::{GroupMode, ToolGroups, GROUP_COUNT};
+pub use groups::{set_process_default, GroupMode, ToolGroups, GROUP_COUNT};
 pub use ops::{
     append_pack_tools, bind_pack_registry, bind_synthesized_pack_registry,
     strip_packed_from_visible,
