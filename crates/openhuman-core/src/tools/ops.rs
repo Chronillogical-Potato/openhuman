@@ -639,7 +639,6 @@ pub fn all_tools_with_runtime(
         // non-secret reads.
         Box::new(CredentialListTool::new(config.clone())),
         Box::new(SessionStateTool::new(config.clone())),
-        Box::new(SessionGetUserTool::new(config.clone())),
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
         // MCP registry and workspace persona. Observe/connect/call tools

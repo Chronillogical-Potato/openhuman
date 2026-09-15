@@ -95,39 +95,6 @@ impl Tool for SessionStateTool {
     }
 }
 
-/// Current user profile.
-pub struct SessionGetUserTool {
-    config: Arc<Config>,
-}
-impl SessionGetUserTool {
-    pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
-    }
-}
-#[async_trait]
-impl Tool for SessionGetUserTool {
-    fn name(&self) -> &str {
-        "session_get_user"
-    }
-    fn description(&self) -> &str {
-        "Return the current signed-in user's profile (name/email/plan). Does not \
-         expose the session token."
-    }
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({ "type": "object", "properties": {} })
-    }
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        log::debug!("[tool][credentials] get_user invoked");
-        emit!(
-            credentials::auth_get_me(&self.config).await,
-            "session_get_user"
-        )
-    }
-    fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {
-        true
-    }
-}
-
 /// OAuth authorize URL for a provider.
 pub struct OAuthConnectUrlTool {
     config: Arc<Config>,
