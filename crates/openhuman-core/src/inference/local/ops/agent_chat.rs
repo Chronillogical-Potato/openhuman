@@ -189,7 +189,19 @@ pub async fn agent_chat_for(
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
-        if agent.seed_resume_from_thread_transcript(id) {
+        // Scoped to this call's agent identity, when it has one: a library
+        // host can hand the same caller-supplied thread_id to several
+        // independently configured runtime agents, and unscoped matching
+        // would resume whichever agent's transcript for that thread is
+        // newest into this one's turn. `Orchestrator` has no such identity
+        // and keeps the original unscoped lookup (#5351's cross-profile
+        // resume depends on it).
+        let resume_agent_id: Option<&str> = match &target {
+            AgentChatTarget::Orchestrator => None,
+            AgentChatTarget::AgentId(agent_id) => Some(agent_id),
+            AgentChatTarget::Definition { definition, .. } => Some(definition.id.as_str()),
+        };
+        if agent.seed_resume_from_thread_transcript_scoped(id, resume_agent_id) {
             log::debug!("[inference] agent_chat resumed thread transcript thread_id={id}");
         } else {
             log::debug!("[inference] agent_chat fresh thread thread_id={id}; autoload suppressed");
