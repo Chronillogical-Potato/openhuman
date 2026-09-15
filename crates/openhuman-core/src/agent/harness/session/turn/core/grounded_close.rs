@@ -23,7 +23,8 @@ impl Agent {
     /// 2. **Check.** A separate call that sees only the request, the records and
     ///    the candidate rejects a reply that narrates intent, contradicts a
     ///    record, or drops the failure that explains an unfinished request.
-    /// 3. **Fallback.** An empty, tool-calling or rejected close is replaced by
+    /// 3. **Fallback.** An empty, tool-calling, rejected or unverified close
+    ///    (the check failed or gave no verdict) is replaced by
     ///    [`turn_checkpoint::build_deterministic_final_summary`], which quotes
     ///    each result and the stop note.
     ///
@@ -89,11 +90,14 @@ impl Agent {
         };
         if verdict == Some(CloseVerdict::Unclear) {
             log::warn!(
-                "[agent_loop] closing-message check returned no ACCEPT/REJECT verdict; keeping the grounded reply"
+                "[agent_loop] closing-message check returned no ACCEPT/REJECT verdict; using the deterministic fallback"
             );
         }
 
-        let accepted = matches!(verdict, Some(CloseVerdict::Accept | CloseVerdict::Unclear));
+        // Only an explicit ACCEPT ships the model's text. A failed or malformed
+        // check leaves the reply unverified, and shipping unverified closing text
+        // is the defect this path exists to stop (CodeRabbit on #6289).
+        let accepted = verdict == Some(CloseVerdict::Accept);
         let reply = if accepted {
             self.stream_text_continuation(&candidate, iteration).await;
             candidate

@@ -586,7 +586,7 @@ A breaker halt at the top level is likewise never a silent finish, and the break
 
 1. A tools-disabled wrap-up call whose instruction restates the turn's tool records, each failure's own message included, with the breaker summary passed as a stop note to explain rather than repeat.
 2. A separate check call that sees only the request, the records and the candidate reply. It rejects a reply that only narrates intent, contradicts a record, or leaves out the failure that explains an unfinished request.
-3. A deterministic fallback for an empty, tool-calling or rejected reply. It quotes each tool result and the stop note.
+3. A deterministic fallback for an empty, tool-calling, rejected or unverified reply (a check that failed or gave no verdict). It quotes each tool result and the stop note.
 
 Accepted text is streamed only after the check, so a rejected reply never renders.
 

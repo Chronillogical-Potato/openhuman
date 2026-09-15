@@ -340,9 +340,8 @@ pub(super) fn close_verification_prompt(user_request: &str, records: &str, reply
 pub(super) enum CloseVerdict {
     Accept,
     Reject,
-    /// Neither word found (or the call failed). The caller keeps the reply:
-    /// the check is a guard added on top of the grounded instruction, and an
-    /// unavailable checker is no evidence against the reply.
+    /// Neither word found (or the call failed). The reply is unverified, so the
+    /// caller does not ship it and uses the deterministic fallback instead.
     Unclear,
 }
 

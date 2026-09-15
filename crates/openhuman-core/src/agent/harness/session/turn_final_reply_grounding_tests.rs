@@ -170,6 +170,36 @@ async fn an_intent_only_close_is_rejected_and_replaced_by_the_tool_records() {
     );
 }
 
+/// A check that fails or answers without a verdict leaves the close unverified,
+/// and unverified closing text must not ship (CodeRabbit on #6289).
+#[tokio::test]
+async fn an_unverified_close_is_replaced_by_the_tool_records() {
+    const CANDIDATE: &str = "The demo item is installed.";
+    let recorded = scripted(vec![
+        respond(INSTALL_CALL),
+        respond(""),
+        respond(CANDIDATE),
+        // No ACCEPT/REJECT verdict.
+        respond("I am not sure."),
+    ]);
+
+    let (agent, reply, streamed) = run_turn(recorded, vec![Box::new(FailingInstallTool)]).await;
+
+    assert!(
+        !reply.contains(CANDIDATE),
+        "a close the check could not verify must not be the reply, got: {reply}"
+    );
+    assert!(
+        reply.contains("View it at https://example.test/demo"),
+        "the fallback must carry the failing tool's own message, got: {reply}"
+    );
+    assert!(
+        !streamed.contains(CANDIDATE),
+        "an unverified close must never be streamed, got: {streamed}"
+    );
+    assert!(history_ends_on(&agent, &reply));
+}
+
 #[tokio::test]
 async fn an_accepted_close_is_streamed_and_kept() {
     const CLOSE: &str = "I could not install the demo item: it has no direct download. \
