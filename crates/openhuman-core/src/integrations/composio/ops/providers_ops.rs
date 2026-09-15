@@ -23,6 +23,7 @@ use super::super::types::{
 use super::connections::resolve_toolkit_for_connection;
 use super::connector_runs::{self, ConnectorRun};
 use super::error_utils::{report_composio_op_error, OpResult};
+use super::pass_failure::{pass_failure, retry_delay};
 use super::source_rows::source_sync_depth_days;
 use crate::memory::api::provider::types::SourceItem;
 use crate::memory::api::types::MemoryTaint;
@@ -323,6 +324,9 @@ pub async fn composio_sync_budgeted(
         // absent: it describes the state the run ended in, and a pass that
         // completes cleanly must not inherit the note of an earlier one.
         let mut stop_note: Option<String> = None;
+        // Consecutive passes the connector reported as failed (openhuman#6255).
+        // A clean pass resets it; `retry_delay` decides when to stop asking.
+        let mut failed_attempts = 0u32;
         let outcome = loop {
             passes += 1;
             // The source's configured per-run cap wins over the pass ceiling:
@@ -343,6 +347,31 @@ pub async fn composio_sync_budgeted(
             {
                 Ok(pass) => {
                     total_written = total_written.saturating_add(u64::from(pass.written));
+                    // A failed pass keeps what it read (counted above); the run
+                    // waits, then asks again a bounded number of times (openhuman#6255).
+                    if let Some(reason) = pass.failure {
+                        failed_attempts += 1;
+                        let Some(delay) = retry_delay(failed_attempts) else {
+                            break Err(reason);
+                        };
+                        tracing::info!(
+                            toolkit = %toolkit_for_log,
+                            connection_id = %connection_for_log,
+                            attempt = failed_attempts,
+                            retry_in_secs = delay.as_secs(),
+                            "[composio] connector sync pass failed; retrying"
+                        );
+                        publish_stage(
+                            "running",
+                            Some(format!(
+                                "attempt {failed_attempts} failed, retrying in {}s",
+                                delay.as_secs()
+                            )),
+                        );
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    failed_attempts = 0;
                     more_pending = pass.more_pending;
                     stop_note = pass
                         .message
@@ -361,6 +390,11 @@ pub async fn composio_sync_budgeted(
                         "[composio] background sync pass ok"
                     );
                     if !pass.more_pending {
+                        break Ok(());
+                    }
+                    // A pass that read nothing cannot make progress, whatever it
+                    // says about more (the same rule as `pass_budget`'s drain).
+                    if pass.records_read == 0 {
                         break Ok(());
                     }
                     if passes >= MAX_PASSES {
@@ -479,6 +513,10 @@ pub(crate) struct SyncPassOutcome {
     /// budget being spent, above all. Carried so the completed-stage detail
     /// can say *why* zero items arrived instead of reading as "up to date".
     pub message: Option<String>,
+    /// Why the connector stopped this pass on an error (openhuman#6255). The
+    /// counts above still stand; the caller ends or retries the run on this
+    /// instead of asking again as if the connector had only paused.
+    pub failure: Option<String>,
 }
 
 /// Read one connection through the module and ingest what it returns.
@@ -487,6 +525,10 @@ pub(crate) struct SyncPassOutcome {
 /// commits: the module already decides what a page is and where the cursor
 /// stands, and re-deciding that here would give the run two opinions about
 /// what has been read.
+///
+/// A pass the connector reports as failed still ingests the pages it read and
+/// comes back as `Ok`, with [`SyncPassOutcome::failure`] set and nothing
+/// pending: whether to ask again is the caller's decision (openhuman#6255).
 ///
 /// `pub(crate)` — also driven by `pass_budget::run_sync_within_budget` for
 /// the entry points that sync once per invocation (periodic tick, manual
@@ -527,14 +569,22 @@ pub(crate) async fn run_sync_pass(
     )
     .await?;
 
+    // A failed pass keeps what it read but is not "more pending": read as
+    // incomplete, a failing connector was asked again fifty times a click with
+    // its reason logged nowhere (openhuman#6255). Its message is the failure.
+    let failure = pass_failure(&response, toolkit, connection_id);
+    let more_pending = failure.is_none() && !response.batch.complete;
+    let message = response.message.filter(|_| failure.is_none());
+
     let count = response.batch.records.len();
     if count == 0 {
         return Ok(SyncPassOutcome {
             records_read: 0,
             written: 0,
             already_ingested: false,
-            more_pending: !response.batch.complete,
-            message: response.message,
+            more_pending,
+            message,
+            failure,
         });
     }
 
@@ -626,7 +676,7 @@ pub(crate) async fn run_sync_pass(
         }
     }
 
-    if !response.batch.complete {
+    if more_pending {
         // The module keeps its own cursor, so the next call resumes where this
         // one stopped. Saying so is worth a line: a partial run that looked
         // complete is how a user concludes half their mail is missing.
@@ -649,8 +699,9 @@ pub(crate) async fn run_sync_pass(
         records_read: count,
         written: outcome.written,
         already_ingested: outcome.already_ingested,
-        more_pending: !response.batch.complete,
-        message: response.message,
+        more_pending,
+        message,
+        failure,
     })
 }
 
