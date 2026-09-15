@@ -58,13 +58,21 @@
                     "comment": "Ordered list of accepted input fields.",
                     "name": "inputs",
                     "required": true,
-                    "ty": { "Array": { "Ref": "FieldSchema" } }
+                    "ty": {
+                      "Array": {
+                        "Ref": "FieldSchema"
+                      }
+                    }
                   },
                   {
                     "comment": "Ordered list of output fields.",
                     "name": "outputs",
                     "required": true,
-                    "ty": { "Array": { "Ref": "FieldSchema" } }
+                    "ty": {
+                      "Array": {
+                        "Ref": "FieldSchema"
+                      }
+                    }
                   }
                 ]
               }
@@ -92,72 +100,120 @@
       "description": "Run one-shot agent chat with optional model overrides.",
       "function": "chat",
       "inputs": [
-        { "comment": "User message.", "name": "message", "required": true, "ty": "String" },
+        {
+          "comment": "User message.",
+          "name": "message",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional model override.",
           "name": "model_override",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Optional temperature override.",
           "name": "temperature",
           "required": false,
-          "ty": { "Option": "F64" }
+          "ty": {
+            "Option": "F64"
+          }
         }
       ],
       "method": "openhuman.agent_chat",
       "namespace": "agent",
       "outputs": [
-        { "comment": "Agent response payload.", "name": "response", "required": true, "ty": "Json" }
+        {
+          "comment": "Agent response payload.",
+          "name": "response",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
       "description": "Run one-shot lightweight provider chat.",
       "function": "chat_simple",
       "inputs": [
-        { "comment": "User message.", "name": "message", "required": true, "ty": "String" },
+        {
+          "comment": "User message.",
+          "name": "message",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional model override.",
           "name": "model_override",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Optional temperature override.",
           "name": "temperature",
           "required": false,
-          "ty": { "Option": "F64" }
+          "ty": {
+            "Option": "F64"
+          }
         }
       ],
       "method": "openhuman.agent_chat_simple",
       "namespace": "agent",
       "outputs": [
-        { "comment": "Agent response payload.", "name": "response", "required": true, "ty": "Json" }
+        {
+          "comment": "Agent response payload.",
+          "name": "response",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
       "description": "Terminate REPL session.",
       "function": "repl_session_end",
       "inputs": [
-        { "comment": "REPL session id.", "name": "session_id", "required": true, "ty": "String" }
+        {
+          "comment": "REPL session id.",
+          "name": "session_id",
+          "required": true,
+          "ty": "String"
+        }
       ],
       "method": "openhuman.agent_repl_session_end",
       "namespace": "agent",
       "outputs": [
-        { "comment": "Session end result.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Session end result.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
       "description": "Clear REPL session history.",
       "function": "repl_session_reset",
       "inputs": [
-        { "comment": "REPL session id.", "name": "session_id", "required": true, "ty": "String" }
+        {
+          "comment": "REPL session id.",
+          "name": "session_id",
+          "required": true,
+          "ty": "String"
+        }
       ],
       "method": "openhuman.agent_repl_session_reset",
       "namespace": "agent",
       "outputs": [
-        { "comment": "Session reset result.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Session reset result.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -168,25 +224,36 @@
           "comment": "Optional session id.",
           "name": "session_id",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Optional model override.",
           "name": "model_override",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Optional temperature override.",
           "name": "temperature",
           "required": false,
-          "ty": { "Option": "F64" }
+          "ty": {
+            "Option": "F64"
+          }
         }
       ],
       "method": "openhuman.agent_repl_session_start",
       "namespace": "agent",
       "outputs": [
-        { "comment": "Session creation result.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Session creation result.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -199,6 +266,21 @@
         {
           "comment": "Agent server status payload.",
           "name": "status",
+          "required": true,
+          "ty": "Json"
+        }
+      ]
+    },
+    {
+      "description": "Remove the stored TinyHumans API key.",
+      "function": "clear_api_key",
+      "inputs": [],
+      "method": "openhuman.auth_clear_api_key",
+      "namespace": "auth",
+      "outputs": [
+        {
+          "comment": "Whether a key was removed.",
+          "name": "result",
           "required": true,
           "ty": "Json"
         }
@@ -248,7 +330,12 @@
       "method": "openhuman.auth_get_session_token",
       "namespace": "auth",
       "outputs": [
-        { "comment": "Session token payload.", "name": "token", "required": true, "ty": "Json" }
+        {
+          "comment": "Session token payload.",
+          "name": "token",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -274,7 +361,9 @@
           "comment": "Optional provider filter.",
           "name": "provider",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.auth_list_provider_credentials",
@@ -292,32 +381,56 @@
       "description": "Create OAuth connect URL for provider.",
       "function": "oauth_connect",
       "inputs": [
-        { "comment": "Provider id.", "name": "provider", "required": true, "ty": "String" },
+        {
+          "comment": "Provider id.",
+          "name": "provider",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional skill id.",
           "name": "skillId",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Optional OAuth response type.",
           "name": "responseType",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.auth_oauth_connect",
       "namespace": "auth",
       "outputs": [
-        { "comment": "OAuth connect payload.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "OAuth connect payload.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
       "description": "Fetch integration handoff tokens.",
       "function": "oauth_fetch_integration_tokens",
       "inputs": [
-        { "comment": "Integration id.", "name": "integrationId", "required": true, "ty": "String" },
-        { "comment": "Encryption key.", "name": "key", "required": true, "ty": "String" }
+        {
+          "comment": "Integration id.",
+          "name": "integrationId",
+          "required": true,
+          "ty": "String"
+        },
+        {
+          "comment": "Encryption key.",
+          "name": "key",
+          "required": true,
+          "ty": "String"
+        }
       ],
       "method": "openhuman.auth_oauth_fetch_integration_tokens",
       "namespace": "auth",
@@ -349,7 +462,12 @@
       "description": "Revoke OAuth integration.",
       "function": "oauth_revoke_integration",
       "inputs": [
-        { "comment": "Integration id.", "name": "integrationId", "required": true, "ty": "String" }
+        {
+          "comment": "Integration id.",
+          "name": "integrationId",
+          "required": true,
+          "ty": "String"
+        }
       ],
       "method": "openhuman.auth_oauth_revoke_integration",
       "namespace": "auth",
@@ -366,12 +484,19 @@
       "description": "Remove provider credentials for a profile.",
       "function": "remove_provider_credentials",
       "inputs": [
-        { "comment": "Provider id.", "name": "provider", "required": true, "ty": "String" },
+        {
+          "comment": "Provider id.",
+          "name": "provider",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional profile name.",
           "name": "profile",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.auth_remove_provider_credentials",
@@ -386,33 +511,68 @@
       ]
     },
     {
+      "description": "Store a TinyHumans API key as the backend credential (no user session; managed inference sends it as a bearer, REST as x-api-key).",
+      "function": "store_api_key",
+      "inputs": [
+        {
+          "comment": "TinyHumans API key.",
+          "name": "key",
+          "required": true,
+          "ty": "String"
+        }
+      ],
+      "method": "openhuman.auth_store_api_key",
+      "namespace": "auth",
+      "outputs": [
+        {
+          "comment": "Auth state after storing the key.",
+          "name": "state",
+          "required": true,
+          "ty": "Json"
+        }
+      ]
+    },
+    {
       "description": "Store provider credentials for a profile.",
       "function": "store_provider_credentials",
       "inputs": [
-        { "comment": "Provider id.", "name": "provider", "required": true, "ty": "String" },
+        {
+          "comment": "Provider id.",
+          "name": "provider",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional profile name.",
           "name": "profile",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Provider access token.",
           "name": "token",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Additional credential fields.",
           "name": "fields",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         },
         {
           "comment": "Whether to set profile as active.",
           "name": "setActive",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.auth_store_provider_credentials",
@@ -430,18 +590,27 @@
       "description": "Store and validate app session JWT.",
       "function": "store_session",
       "inputs": [
-        { "comment": "Session JWT token.", "name": "token", "required": true, "ty": "String" },
+        {
+          "comment": "Session JWT token.",
+          "name": "token",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Optional user id hint.",
           "name": "user_id",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         },
         {
           "comment": "Optional user payload.",
           "name": "user",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         }
       ],
       "method": "openhuman.auth_store_session",
@@ -463,7 +632,9 @@
           "comment": "Optional explicit suggestion value to apply.",
           "name": "suggestion",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.autocomplete_accept",
@@ -473,7 +644,9 @@
           "comment": "Suggestion acceptance result.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteAcceptResult" }
+          "ty": {
+            "Ref": "AutocompleteAcceptResult"
+          }
         }
       ]
     },
@@ -485,7 +658,9 @@
           "comment": "Optional explicit context to score suggestions against.",
           "name": "context",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.autocomplete_current",
@@ -495,7 +670,9 @@
           "comment": "Current suggestion payload.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteCurrentResult" }
+          "ty": {
+            "Ref": "AutocompleteCurrentResult"
+          }
         }
       ]
     },
@@ -510,7 +687,9 @@
           "comment": "Focused context diagnostics.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteDebugFocusResult" }
+          "ty": {
+            "Ref": "AutocompleteDebugFocusResult"
+          }
         }
       ]
     },
@@ -522,49 +701,69 @@
           "comment": "Enable or disable autocomplete.",
           "name": "enabled",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         },
         {
           "comment": "Debounce interval override in milliseconds.",
           "name": "debounce_ms",
           "required": false,
-          "ty": { "Option": "U64" }
+          "ty": {
+            "Option": "U64"
+          }
         },
         {
           "comment": "Maximum suggestion length in characters.",
           "name": "max_chars",
           "required": false,
-          "ty": { "Option": "U64" }
+          "ty": {
+            "Option": "U64"
+          }
         },
         {
           "comment": "Named style preset.",
           "name": "style_preset",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Custom style instructions.",
           "name": "style_instructions",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Style examples used for prompt shaping.",
           "name": "style_examples",
           "required": false,
-          "ty": { "Option": { "Array": "String" } }
+          "ty": {
+            "Option": {
+              "Array": "String"
+            }
+          }
         },
         {
           "comment": "App allow/deny override list.",
           "name": "disabled_apps",
           "required": false,
-          "ty": { "Option": { "Array": "String" } }
+          "ty": {
+            "Option": {
+              "Array": "String"
+            }
+          }
         },
         {
           "comment": "Whether tab key applies suggestion.",
           "name": "accept_with_tab",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.autocomplete_set_style",
@@ -574,7 +773,9 @@
           "comment": "Updated autocomplete style config.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteSetStyleResult" }
+          "ty": {
+            "Ref": "AutocompleteSetStyleResult"
+          }
         }
       ]
     },
@@ -586,7 +787,9 @@
           "comment": "Optional debounce interval in milliseconds.",
           "name": "debounce_ms",
           "required": false,
-          "ty": { "Option": "U64" }
+          "ty": {
+            "Option": "U64"
+          }
         }
       ],
       "method": "openhuman.autocomplete_start",
@@ -596,7 +799,9 @@
           "comment": "Whether the engine started.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteStartResult" }
+          "ty": {
+            "Ref": "AutocompleteStartResult"
+          }
         }
       ]
     },
@@ -611,7 +816,9 @@
           "comment": "Current runtime status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "AutocompleteStatus" }
+          "ty": {
+            "Ref": "AutocompleteStatus"
+          }
         }
       ]
     },
@@ -623,7 +830,9 @@
           "comment": "Optional reason for stopping.",
           "name": "reason",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.autocomplete_stop",
@@ -633,7 +842,9 @@
           "comment": "Whether the engine stopped.",
           "name": "result",
           "required": true,
-          "ty": { "Ref": "AutocompleteStopResult" }
+          "ty": {
+            "Ref": "AutocompleteStopResult"
+          }
         }
       ]
     },
@@ -678,7 +889,9 @@
           "comment": "Runtime flag state.",
           "name": "flags",
           "required": true,
-          "ty": { "Ref": "RuntimeFlagsOut" }
+          "ty": {
+            "Ref": "RuntimeFlagsOut"
+          }
         }
       ]
     },
@@ -700,7 +913,9 @@
           "comment": "Updated runtime flag state.",
           "name": "flags",
           "required": true,
-          "ty": { "Ref": "RuntimeFlagsOut" }
+          "ty": {
+            "Ref": "RuntimeFlagsOut"
+          }
         }
       ]
     },
@@ -712,7 +927,9 @@
           "comment": "Enable browser integration.",
           "name": "enabled",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.config_update_browser_settings",
@@ -734,31 +951,41 @@
           "comment": "Memory backend identifier.",
           "name": "backend",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Enable auto-save.",
           "name": "auto_save",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         },
         {
           "comment": "Embedding provider identifier.",
           "name": "embedding_provider",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Embedding model identifier.",
           "name": "embedding_model",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Embedding dimensions.",
           "name": "embedding_dimensions",
           "required": false,
-          "ty": { "Option": "U64" }
+          "ty": {
+            "Option": "U64"
+          }
         }
       ],
       "method": "openhuman.config_update_memory_settings",
@@ -780,19 +1007,25 @@
           "comment": "Backend API URL.",
           "name": "api_url",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Default model id.",
           "name": "default_model",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Default model temperature.",
           "name": "default_temperature",
           "required": false,
-          "ty": { "Option": "F64" }
+          "ty": {
+            "Option": "F64"
+          }
         }
       ],
       "method": "openhuman.config_update_model_settings",
@@ -814,13 +1047,17 @@
           "comment": "Runtime kind.",
           "name": "kind",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "Enable reasoning mode.",
           "name": "reasoning_enabled",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.config_update_runtime_settings",
@@ -838,30 +1075,51 @@
       "description": "Replace tunnel settings with provided config payload.",
       "function": "update_tunnel_settings",
       "inputs": [
-        { "comment": "Tunnel provider id.", "name": "provider", "required": true, "ty": "String" },
+        {
+          "comment": "Tunnel provider id.",
+          "name": "provider",
+          "required": true,
+          "ty": "String"
+        },
         {
           "comment": "Cloudflare tunnel settings.",
           "name": "cloudflare",
           "required": false,
-          "ty": { "Option": { "Ref": "CloudflareTunnelConfig" } }
+          "ty": {
+            "Option": {
+              "Ref": "CloudflareTunnelConfig"
+            }
+          }
         },
         {
           "comment": "Tailscale tunnel settings.",
           "name": "tailscale",
           "required": false,
-          "ty": { "Option": { "Ref": "TailscaleTunnelConfig" } }
+          "ty": {
+            "Option": {
+              "Ref": "TailscaleTunnelConfig"
+            }
+          }
         },
         {
           "comment": "ngrok tunnel settings.",
           "name": "ngrok",
           "required": false,
-          "ty": { "Option": { "Ref": "NgrokTunnelConfig" } }
+          "ty": {
+            "Option": {
+              "Ref": "NgrokTunnelConfig"
+            }
+          }
         },
         {
           "comment": "Custom tunnel settings.",
           "name": "custom",
           "required": false,
-          "ty": { "Option": { "Ref": "CustomTunnelConfig" } }
+          "ty": {
+            "Option": {
+              "Ref": "CustomTunnelConfig"
+            }
+          }
         }
       ],
       "method": "openhuman.config_update_tunnel_settings",
@@ -883,7 +1141,9 @@
           "comment": "Optional onboarding flag name override.",
           "name": "flag_name",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         }
       ],
       "method": "openhuman.config_workspace_onboarding_flag_exists",
@@ -908,7 +1168,11 @@
           "comment": "Cron jobs currently stored in the workspace.",
           "name": "jobs",
           "required": true,
-          "ty": { "Array": { "Ref": "CronJob" } }
+          "ty": {
+            "Array": {
+              "Ref": "CronJob"
+            }
+          }
         }
       ]
     },
@@ -952,7 +1216,7 @@
       ]
     },
     {
-      "description": "Enqueue a cron job for immediate background execution and return once it is queued. The terminal outcome (ok/error, duration, output) is recorded in the run history — read it with `cron_runs`.",
+      "description": "Enqueue a cron job for immediate background execution and return once it is queued. The terminal outcome (ok/error, duration, output) is recorded in the run history \u2014 read it with `cron_runs`.",
       "function": "run",
       "inputs": [
         {
@@ -979,10 +1243,16 @@
                   "ty": "String"
                 },
                 {
-                  "comment": "Always \"queued\" — the job runs in the background; poll `cron_runs` for the terminal status.",
+                  "comment": "Always \"queued\" \u2014 the job runs in the background; poll `cron_runs` for the terminal status.",
                   "name": "status",
                   "required": true,
-                  "ty": { "Enum": { "variants": ["queued"] } }
+                  "ty": {
+                    "Enum": {
+                      "variants": [
+                        "queued"
+                      ]
+                    }
+                  }
                 }
               ]
             }
@@ -1004,7 +1274,9 @@
           "comment": "Maximum number of records to return; defaults to 20.",
           "name": "limit",
           "required": false,
-          "ty": { "Option": "U64" }
+          "ty": {
+            "Option": "U64"
+          }
         }
       ],
       "method": "openhuman.cron_runs",
@@ -1014,7 +1286,11 @@
           "comment": "Ordered cron run history entries.",
           "name": "runs",
           "required": true,
-          "ty": { "Array": { "Ref": "CronRun" } }
+          "ty": {
+            "Array": {
+              "Ref": "CronRun"
+            }
+          }
         }
       ]
     },
@@ -1032,7 +1308,9 @@
           "comment": "Partial update payload with the fields to mutate.",
           "name": "patch",
           "required": true,
-          "ty": { "Ref": "CronJobPatch" }
+          "ty": {
+            "Ref": "CronJobPatch"
+          }
         }
       ],
       "method": "openhuman.cron_update",
@@ -1042,7 +1320,9 @@
           "comment": "Updated cron job after applying the patch.",
           "name": "job",
           "required": true,
-          "ty": { "Ref": "CronJob" }
+          "ty": {
+            "Ref": "CronJob"
+          }
         }
       ]
     },
@@ -1076,7 +1356,9 @@
           "comment": "Reuse cached provider metadata when available.",
           "name": "use_cache",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.doctor_models",
@@ -1086,7 +1368,9 @@
           "comment": "Model probe summary grouped by provider.",
           "name": "report",
           "required": true,
-          "ty": { "Ref": "ModelProbeReport" }
+          "ty": {
+            "Ref": "ModelProbeReport"
+          }
         }
       ]
     },
@@ -1101,7 +1385,9 @@
           "comment": "Aggregated diagnostics report.",
           "name": "report",
           "required": true,
-          "ty": { "Ref": "DoctorReport" }
+          "ty": {
+            "Ref": "DoctorReport"
+          }
         }
       ]
     },
@@ -1150,13 +1436,17 @@
           "comment": "Optional source workspace path override.",
           "name": "source_workspace",
           "required": false,
-          "ty": { "Option": "String" }
+          "ty": {
+            "Option": "String"
+          }
         },
         {
           "comment": "When true, report migration plan only.",
           "name": "dry_run",
           "required": false,
-          "ty": { "Option": "Bool" }
+          "ty": {
+            "Option": "Bool"
+          }
         }
       ],
       "method": "openhuman.migrate_openclaw",
@@ -1166,7 +1456,9 @@
           "comment": "Migration report and stats.",
           "name": "report",
           "required": true,
-          "ty": { "Ref": "MigrationReport" }
+          "ty": {
+            "Ref": "MigrationReport"
+          }
         }
       ]
     },
@@ -1181,7 +1473,9 @@
           "comment": "Service status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "ServiceStatus" }
+          "ty": {
+            "Ref": "ServiceStatus"
+          }
         }
       ]
     },
@@ -1196,7 +1490,9 @@
           "comment": "Service status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "ServiceStatus" }
+          "ty": {
+            "Ref": "ServiceStatus"
+          }
         }
       ]
     },
@@ -1211,7 +1507,9 @@
           "comment": "Service status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "ServiceStatus" }
+          "ty": {
+            "Ref": "ServiceStatus"
+          }
         }
       ]
     },
@@ -1226,7 +1524,9 @@
           "comment": "Service status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "ServiceStatus" }
+          "ty": {
+            "Ref": "ServiceStatus"
+          }
         }
       ]
     },
@@ -1241,7 +1541,9 @@
           "comment": "Service status payload.",
           "name": "status",
           "required": true,
-          "ty": { "Ref": "ServiceStatus" }
+          "ty": {
+            "Ref": "ServiceStatus"
+          }
         }
       ]
     },
@@ -1253,13 +1555,20 @@
           "comment": "Socket request payload.",
           "name": "payload",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         }
       ],
       "method": "openhuman.socket_connect",
       "namespace": "socket",
       "outputs": [
-        { "comment": "Socket response payload.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Socket response payload.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -1270,13 +1579,20 @@
           "comment": "Socket request payload.",
           "name": "payload",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         }
       ],
       "method": "openhuman.socket_disconnect",
       "namespace": "socket",
       "outputs": [
-        { "comment": "Socket response payload.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Socket response payload.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -1287,13 +1603,20 @@
           "comment": "Socket request payload.",
           "name": "payload",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         }
       ],
       "method": "openhuman.socket_emit",
       "namespace": "socket",
       "outputs": [
-        { "comment": "Socket response payload.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Socket response payload.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
@@ -1304,13 +1627,20 @@
           "comment": "Socket request payload.",
           "name": "payload",
           "required": false,
-          "ty": { "Option": "Json" }
+          "ty": {
+            "Option": "Json"
+          }
         }
       ],
       "method": "openhuman.socket_state",
       "namespace": "socket",
       "outputs": [
-        { "comment": "Socket response payload.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Socket response payload.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     }
   ]
