@@ -50,6 +50,7 @@ import {
   useAuiState,
 } from '@assistant-ui/react';
 import { LexicalComposerInput } from '@assistant-ui/react-lexical';
+import debugFactory from 'debug';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -204,6 +205,9 @@ export type ThreadProps = {
  */
 const lexicalDrivesTheStore = (): boolean =>
   typeof InputEvent !== 'undefined' && 'getTargetRanges' in InputEvent.prototype;
+
+// Counts only — never a filename, a MIME type or clipboard content.
+const debug = debugFactory('openhuman:assistant-composer');
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
 
@@ -523,21 +527,36 @@ const Composer: FC<{
     if (!onComposerFiles || !isFileDrag(event)) return;
     event.preventDefault();
     setIsDraggingFiles(false);
-    if (!canAcceptComposerFiles) return;
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] drop: refused, ingest not accepting');
+      return;
+    }
     const files = event.dataTransfer?.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      debug('[assistant-composer] drop: file drag carried no files');
+      return;
+    }
+    debug('[assistant-composer] drop: ingesting %d file(s)', files.length);
     onComposerFiles(files);
   };
   // Capture phase, so the media is pulled out and the default cancelled before
   // Lexical's own paste handling turns it into editor content.
   const handlePasteCapture = (event: React.ClipboardEvent) => {
-    if (!onComposerFiles || !canAcceptComposerFiles) return;
+    if (!onComposerFiles) return;
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] paste: refused, ingest not accepting');
+      return;
+    }
     const files = Array.from(event.clipboardData?.items ?? [])
       .filter(item => item.kind === 'file' && /^(image|video)\//.test(item.type))
       .map(item => item.getAsFile())
       .filter((file): file is File => file !== null);
-    if (files.length === 0) return;
+    if (files.length === 0) {
+      // The overwhelmingly common case: an ordinary text paste. Left for Lexical.
+      return;
+    }
     event.preventDefault();
+    debug('[assistant-composer] paste: ingesting %d media file(s)', files.length);
     onComposerFiles(files);
   };
 
