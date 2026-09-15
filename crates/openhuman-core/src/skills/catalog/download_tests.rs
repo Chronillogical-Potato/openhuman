@@ -13,6 +13,24 @@ fn clawhub_download_url_uses_the_file_api_and_rejects_unsafe_slugs() {
 }
 
 #[test]
+fn download_url_from_source_url_rejects_non_github_and_malformed() {
+    assert_eq!(
+        download_url_from_source_url("https://lobehub.com/agent/x"),
+        None
+    );
+    // GitHub URL missing the branch/path tail.
+    assert_eq!(
+        download_url_from_source_url("https://github.com/owner/repo"),
+        None
+    );
+    // Unknown ref kind.
+    assert_eq!(
+        download_url_from_source_url("https://github.com/o/r/raw/main/x"),
+        None
+    );
+}
+
+#[test]
 fn skills_sh_ref_parses_listing_urls_only() {
     let skill = SkillsShRef::parse("https://skills.sh/getagentseal/founder-playbook/100m-leads")
         .expect("skills.sh listing");
