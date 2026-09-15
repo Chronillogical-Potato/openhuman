@@ -176,6 +176,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "Backend user id. Optional when `user` carries one or the JWT has a \
                      subject claim.",
                 ),
+                // Accepted spelling for callers that still send the historical
+                // `auth_store_session` shape through the legacy alias.
+                optional_string("user_id", "Alias of `userId`."),
                 optional_json(
                     "user",
                     "User payload (the host's /auth/me answer, or the local user).",
