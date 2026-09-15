@@ -591,7 +591,7 @@ impl Agent {
         // `retain` can never withdraw a durable tool's spec.
         let synthed = super::super::builder::drop_synthesized_name_collisions(
             &self.tools,
-            collect_orchestrator_tools(def, reg, &self.connected_integrations),
+            collect_orchestrator_tools(&def, reg, &self.connected_integrations),
         );
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();
