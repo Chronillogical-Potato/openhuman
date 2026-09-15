@@ -211,7 +211,12 @@
       "method": "openhuman.auth_clear_api_key",
       "namespace": "auth",
       "outputs": [
-        { "comment": "Whether a key was removed.", "name": "result", "required": true, "ty": "Json" }
+        {
+          "comment": "Whether a key was removed.",
+          "name": "result",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
