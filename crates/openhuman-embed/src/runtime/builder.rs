@@ -284,7 +284,6 @@ impl RuntimeBuilder {
             tool_groups,
             self.provider,
             self.access,
-            has_api_key,
         ))
     }
 }
