@@ -115,8 +115,8 @@ pub(super) fn persist_subagent_transcript(
 /// append a trailing failure marker so the record is self-describing. `recovered`
 /// holds only what a provider accepted; steps only the failing request carried
 /// arrive as `unanswered_steps` text and are appended to the marker (#6281).
-/// `usage` is what the answered calls reported, and the iteration count is the
-/// number of completed rounds recovered.
+/// `usage` is what the answered calls reported, and `completed_rounds` is the
+/// number of model calls a provider answered.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn persist_failed_run(
     workspace_dir: &std::path::Path,
@@ -128,6 +128,7 @@ pub(super) fn persist_failed_run(
     recovered: &[ChatMessage],
     usage: &AggregatedUsage,
     unanswered_steps: Option<&str>,
+    completed_rounds: u32,
     context_window: u64,
     dispatcher: &str,
     worker_thread_id: Option<&str>,
@@ -151,7 +152,7 @@ pub(super) fn persist_failed_run(
         usage,
         context_window,
         dispatcher,
-        recovered.len() as u32,
+        completed_rounds,
     );
 
     if let Some(thread_id) = worker_thread_id {

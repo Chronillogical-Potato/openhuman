@@ -89,6 +89,9 @@ pub(crate) struct TranscriptSnapshot {
     pub(crate) input_tokens: u64,
     pub(crate) output_tokens: u64,
     pub(crate) cached_input_tokens: u64,
+    /// Model calls the provider answered, so a failed run reports its real
+    /// iteration count rather than one derived from message counts.
+    pub(crate) model_calls: u32,
 }
 
 /// Display cap for one unanswered step in a failure note, matching the cap
@@ -199,6 +202,7 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
     ) -> TaResult<()> {
         if let Ok(mut guard) = self.sink.lock() {
             guard.accepted_len = guard.messages.len();
+            guard.model_calls += 1;
             // The response has not been sent back to a provider yet, so it sits
             // past `accepted_len`; an error before the next request still keeps
             // it, as text.

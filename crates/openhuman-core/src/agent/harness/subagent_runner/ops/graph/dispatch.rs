@@ -340,7 +340,7 @@ pub(in super::super) async fn run_subagent_via_graph(
             // snapshot's own seed is the provider-bound copy with rehydrated
             // images. The unanswered suffix rides the failure marker as text
             // (#6281).
-            let (recovered, unanswered_steps, recovered_usage) = {
+            let (recovered, unanswered_steps, recovered_usage, completed_rounds) = {
                 let snapshot = transcript_snapshot
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -357,7 +357,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                         snapshot.cached_input_tokens,
                     ),
                 };
-                (recovered, unanswered, usage)
+                (recovered, unanswered, usage, snapshot.model_calls)
             };
             tracing::warn!(
                 agent_id,
@@ -377,6 +377,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                 &recovered,
                 &recovered_usage,
                 unanswered_steps.as_deref(),
+                completed_rounds,
                 context_window.unwrap_or(0),
                 if native_tools { "native" } else { "xml" },
                 worker_thread_id.as_deref(),

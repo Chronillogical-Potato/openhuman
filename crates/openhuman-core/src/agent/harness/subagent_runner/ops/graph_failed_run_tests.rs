@@ -101,6 +101,21 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
             && marker.contains("round-1"),
         "the marker carries the cause and the unanswered round as text, got: {marker}"
     );
+
+    // Two model calls were answered before the rejection; the recorded
+    // iteration must say so rather than count persisted messages.
+    let raw = std::fs::read_to_string(&path).expect("raw transcript");
+    let marker_line = raw
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|line| line.get("role").and_then(|role| role.as_str()) == Some("assistant"))
+        .last()
+        .expect("failure marker line");
+    assert_eq!(
+        marker_line.get("iteration").and_then(|n| n.as_u64()),
+        Some(2),
+        "the failed run reports the model calls a provider answered: {marker_line}"
+    );
 }
 
 /// #6281 review: a failed run recovers the caller's original history, not the

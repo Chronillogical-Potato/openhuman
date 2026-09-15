@@ -125,7 +125,7 @@ impl Agent {
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,
             tool_calls: Vec::new(),
-            iteration: 0,
+            iteration: snapshot.model_calls,
         };
         self.persist_session_transcript(
             &persisted,
