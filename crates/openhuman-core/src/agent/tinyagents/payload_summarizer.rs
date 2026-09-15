@@ -411,7 +411,7 @@ impl SubagentPayloadSummarizer {
         // (`run_child(.., streaming = false)`), which per its own contract
         // "leav[es] the parent's event stream unchanged", while still sharing
         // the sink so the sub-agent lifecycle events (started/completed) keep
-        // reaching observers. Mirrors `reprompt_for_required_block`, which is
+        // reaching observers. Mirrors `silent_completion`, which is
         // likewise deliberately silent about an internal repair call.
         //
         // Two bits of config that `invoke_in_parent` threaded are dropped by

@@ -121,3 +121,105 @@ fn newline_heavy_results_are_charged_what_they_render() {
     assert!(out.contains("`list_issues_19` — ok"));
     assert!(out.contains("  > y\n"), "the newest body must be rendered");
 }
+
+const STOP_NOTE: &str = "Stopping: the `install_item` call was retried 3 times with identical \
+                         arguments and kept failing. Report this back instead of retrying.";
+
+/// Issue #6278: the fallback used to reduce a failure to the word "failed", and
+/// the failure's own message is usually the only explanation of why the
+/// request was not done.
+#[test]
+fn the_final_summary_quotes_each_failure_message() {
+    let out = build_deterministic_final_summary(
+        &[result(
+            "install_item",
+            false,
+            "no direct download. View it at https://example.test/demo",
+        )],
+        None,
+    );
+    assert!(
+        out.contains("`install_item` — failed"),
+        "status missing: {out}"
+    );
+    assert!(
+        out.contains("  > no direct download. View it at https://example.test/demo"),
+        "the failure message must be quoted: {out}"
+    );
+    assert!(
+        !out.contains("Why I stopped"),
+        "no halt, no stop section: {out}"
+    );
+    assert!(!out.contains("tool-call limit"), "not a capped turn: {out}");
+}
+
+/// Issue #6279: when the breaker halted the run, the fallback says the turn
+/// stopped early and keeps the stop note as a quoted reason, beside the
+/// records, instead of standing in for the whole reply.
+#[test]
+fn the_final_summary_of_a_halted_turn_keeps_the_stop_note_and_the_records() {
+    let out = build_deterministic_final_summary(
+        &[result("install_item", false, "no direct download")],
+        Some(STOP_NOTE),
+    );
+    assert!(
+        out.starts_with("I stopped this turn early"),
+        "lead missing: {out}"
+    );
+    assert!(
+        out.contains("**Why I stopped**\n> Stopping:"),
+        "stop note must be quoted: {out}"
+    );
+    assert!(
+        out.contains("  > no direct download"),
+        "records must follow: {out}"
+    );
+}
+
+/// The wrap-up is grounded in the records it is handed, and only a halted run
+/// passes a stop note.
+#[test]
+fn the_final_answer_instruction_carries_the_records_and_the_stop_note() {
+    let records = render_tool_results(
+        &[result("install_item", false, "no direct download")],
+        1_000,
+    );
+
+    let plain = final_answer_instruction(None, &records);
+    assert!(plain.contains("<tool_records>") && plain.contains("  > no direct download"));
+    assert!(!plain.contains("<stop_note>"));
+    assert!(plain.contains("do not describe steps you are about to take"));
+
+    let halted = final_answer_instruction(Some(STOP_NOTE), &records);
+    assert!(halted.contains(&format!("<stop_note>\n{STOP_NOTE}\n</stop_note>")));
+    assert!(halted.contains("  > no direct download"));
+}
+
+/// The check is read by its conclusion: the last standalone verdict token wins,
+/// a word that merely contains one is not a verdict, and no verdict is unclear.
+#[test]
+fn the_close_verdict_is_the_last_standalone_verdict_token() {
+    assert_eq!(parse_close_verdict("ACCEPT"), CloseVerdict::Accept);
+    assert_eq!(parse_close_verdict("reject."), CloseVerdict::Reject);
+    assert_eq!(
+        parse_close_verdict("It could ACCEPT, but rule 1 applies.\nREJECT"),
+        CloseVerdict::Reject
+    );
+    assert_eq!(parse_close_verdict("UNACCEPTABLE"), CloseVerdict::Unclear);
+    assert_eq!(parse_close_verdict(""), CloseVerdict::Unclear);
+}
+
+/// The check prompt holds the request, the records and the candidate, so the
+/// checker can judge the reply against what actually ran.
+#[test]
+fn the_close_verification_prompt_holds_request_records_and_reply() {
+    let prompt = close_verification_prompt(
+        "install the demo item",
+        "\n- `install_item` — failed\n  > no direct download\n",
+        "I'll search the registry.",
+    );
+    assert!(prompt.contains("<user_request>\ninstall the demo item\n</user_request>"));
+    assert!(prompt.contains("  > no direct download"));
+    assert!(prompt.contains("<reply>\nI'll search the registry.\n</reply>"));
+    assert!(prompt.contains("ACCEPT or REJECT"));
+}

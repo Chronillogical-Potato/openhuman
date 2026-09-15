@@ -1,4 +1,3 @@
-use crate::agent::hooks::ToolCallRecord;
 use crate::agent::messages::ChatMessage;
 
 pub(crate) fn assistant_message_has_tool_calls(msg: &ChatMessage) -> bool {
@@ -100,7 +99,7 @@ conclusion yet, say that plainly and name what is missing.";
 /// One completed tool call, carrying enough of its **actual output** to stand
 /// in for an answer (issue #6014).
 ///
-/// Deliberately not [`ToolCallRecord`], and the difference is a contract rather
+/// Deliberately not [`ToolCallRecord`](crate::agent::hooks::ToolCallRecord), and the difference is a contract rather
 /// than a convenience: that type's `output_summary` is produced by
 /// [`sanitize_tool_output`](crate::agent::hooks::sanitize_tool_output),
 /// which by design "never contains raw tool output or PII" and renders a
@@ -183,48 +182,7 @@ pub(super) fn build_deterministic_checkpoint(
     if results.is_empty() {
         out.push_str("\n- (no tools completed yet)\n");
     } else {
-        // Render each block before choosing, so the budget is charged what
-        // the checkpoint will actually contain (CodeRabbit on #6068). Walking
-        // `r.content` alone undercounts by the per-result header and the `"  > "`
-        // on every line — a newline-heavy result costs well over its body, and
-        // several of them overran the limit while the walk believed it had room.
-        let blocks: Vec<String> = results
-            .iter()
-            .map(|r| {
-                let status = if r.success { "ok" } else { "failed" };
-                let mut block = format!("\n- `{}` — {}\n", r.name, status);
-                for line in r.content.lines() {
-                    block.push_str("  > ");
-                    block.push_str(line);
-                    block.push('\n');
-                }
-                block
-            })
-            .collect();
-        // Choose how far back the budget reaches by walking from the newest
-        // result, then render in the original order — a checkpoint read
-        // backwards is harder to follow than one that simply starts later.
-        let mut budget = CHECKPOINT_TOTAL_CHARS;
-        let mut first_shown = results.len();
-        for (idx, block) in blocks.iter().enumerate().rev() {
-            let cost = block.chars().count();
-            if cost > budget && idx + 1 < results.len() {
-                // The newest result is always shown, however long, so a single
-                // oversized payload cannot empty the checkpoint entirely; every
-                // earlier one has to fit what is left.
-                break;
-            }
-            budget = budget.saturating_sub(cost);
-            first_shown = idx;
-        }
-        if first_shown > 0 {
-            out.push_str(&format!(
-                "\n_({first_shown} earlier tool result(s) omitted for length — the most recent are shown.)_\n"
-            ));
-        }
-        for block in &blocks[first_shown..] {
-            out.push_str(block);
-        }
+        out.push_str(&render_tool_results(results, CHECKPOINT_TOTAL_CHARS));
     }
     out.push_str(
         "\n**Next steps:** I'll continue from here — just reply (e.g. \"continue\") and I'll pick up where I left off.",
@@ -232,31 +190,214 @@ pub(super) fn build_deterministic_checkpoint(
     out
 }
 
+/// Render tool results as `` - `name` — ok|failed `` blocks quoting each
+/// result's own output, spending `total_budget` characters from the **newest**
+/// result backwards (see [`CHECKPOINT_TOTAL_CHARS`] for why newest first) and
+/// disclosing how many earlier results were left out.
+pub(super) fn render_tool_results(results: &[CheckpointToolResult], total_budget: usize) -> String {
+    // Render each block before choosing, so the budget is charged what
+    // the checkpoint will actually contain (CodeRabbit on #6068). Walking
+    // `r.content` alone undercounts by the per-result header and the `"  > "`
+    // on every line — a newline-heavy result costs well over its body, and
+    // several of them overran the limit while the walk believed it had room.
+    let blocks: Vec<String> = results
+        .iter()
+        .map(|r| {
+            let status = if r.success { "ok" } else { "failed" };
+            let mut block = format!("\n- `{}` — {}\n", r.name, status);
+            for line in r.content.lines() {
+                block.push_str("  > ");
+                block.push_str(line);
+                block.push('\n');
+            }
+            block
+        })
+        .collect();
+    // Choose how far back the budget reaches by walking from the newest
+    // result, then render in the original order — a checkpoint read
+    // backwards is harder to follow than one that simply starts later.
+    let mut budget = total_budget;
+    let mut first_shown = results.len();
+    for (idx, block) in blocks.iter().enumerate().rev() {
+        let cost = block.chars().count();
+        if cost > budget && idx + 1 < results.len() {
+            // The newest result is always shown, however long, so a single
+            // oversized payload cannot empty the checkpoint entirely; every
+            // earlier one has to fit what is left.
+            break;
+        }
+        budget = budget.saturating_sub(cost);
+        first_shown = idx;
+    }
+    let mut out = String::new();
+    if first_shown > 0 {
+        out.push_str(&format!(
+            "\n_({first_shown} earlier tool result(s) omitted for length — the most recent are shown.)_\n"
+        ));
+    }
+    for block in &blocks[first_shown..] {
+        out.push_str(block);
+    }
+    out
+}
+
+/// Budget for the tool records a closing message is grounded in and checked
+/// against (issues #6278, #6279).
+///
+/// Larger than [`CHECKPOINT_TOTAL_CHARS`] because these records go to a model
+/// call, not a chat bubble. A reply is only as checkable as the records the
+/// check can see: a success from ten calls back is exactly what a false "that
+/// does not exist" contradicts. Still bounded, so a turn with a very long tool
+/// history cannot push the wrap-up past a small context window. Past the bound
+/// the oldest results drop first, disclosed as omitted.
+pub(super) const GROUNDING_TOTAL_CHARS: usize = 16_000;
+
 /// Instruction appended (as a synthetic user turn) when a turn finished its
 /// tool work but the model produced **no final answer** — it yielded a
-/// terminating response with empty text after running tools (issue #4093).
-/// Native tools are disabled for this call so the model wraps up in prose
-/// instead of requesting more tools.
+/// terminating response with empty text after running tools (issue #4093) —
+/// or when the no-progress breaker halted the run (issue #6279). Native tools
+/// are disabled for this call so the model wraps up in prose instead of
+/// requesting more tools. Used through [`final_answer_instruction`], which
+/// appends the turn's tool records.
+///
+/// Issue #6278: "summarise what you did" drew replies that narrated intent
+/// ("I'll search the registry") after the work was over, and replies that
+/// contradicted results the context middleware had already cleared from view.
+/// So this names both failure shapes, and the records are restated below it.
 pub(super) const FINAL_ANSWER_INSTRUCTION: &str = "\
 You have finished using tools for this turn but have not yet written a reply to the user. \
-Do not call any more tools. Write a short, self-contained final message that summarises what you did and \
-what you found or accomplished, grounded in the tool results above. If nothing conclusive resulted, say so plainly.";
+Tools are no longer available and nothing more will run this turn, so do not call any tools and do not \
+describe steps you are about to take. Write a self-contained final message that reports what actually happened: \
+what you found, changed or established, grounded in the tool results above and the tool records below. \
+If the request was not completed, say so and give the reason from the failing tool's own error message, \
+keeping any link it includes. Do not state anything the tool records contradict. \
+If nothing conclusive resulted, say so plainly.";
 
-/// Build a deterministic final answer from this turn's tool-call records.
+/// The full closing-message instruction: [`FINAL_ANSWER_INSTRUCTION`], the
+/// breaker's stop note when the run was halted (issue #6279), and this turn's
+/// rendered tool records.
+///
+/// The stop note is passed as input, not as text to repeat. The breaker words it
+/// for a model ("Report this back instead of retrying"), which is right for a
+/// sub-agent's parent and wrong on a user's screen.
+pub(super) fn final_answer_instruction(stop_reason: Option<&str>, records: &str) -> String {
+    let mut out = String::new();
+    if let Some(reason) = stop_reason {
+        out.push_str(
+            "The harness stopped this turn early after tool failures. Its stop note is written for \
+             you, not for the user, so explain it in your own words rather than repeating it:\n\
+             <stop_note>\n",
+        );
+        out.push_str(reason.trim());
+        out.push_str("\n</stop_note>\n\n");
+    }
+    out.push_str(FINAL_ANSWER_INSTRUCTION);
+    out.push_str("\n\n<tool_records>\n");
+    out.push_str(if records.trim().is_empty() {
+        "(no tool calls completed)"
+    } else {
+        records.trim()
+    });
+    out.push_str("\n</tool_records>");
+    out
+}
+
+/// Prompt for the separate call that checks a closing message before it is
+/// shown (issue #6278).
+///
+/// The check sees only the request, the records and the candidate. It does not
+/// see the conversation, so it cannot copy the pattern of the turn's own tool-call
+/// preambles, which is what wrote the intent-only reply in the first place. The
+/// three rules are shapes of reply, not particular tools or tasks.
+pub(super) fn close_verification_prompt(user_request: &str, records: &str, reply: &str) -> String {
+    format!(
+        "You are checking a reply before it is shown to a user. Below are the user's request, the \
+         records of the tool calls made while handling it, and the reply.\n\n\
+         Answer REJECT if any of these is true:\n\
+         1. The reply only says what the assistant will do or is about to do, instead of reporting \
+         what happened.\n\
+         2. The reply states something the tool records contradict, for example that something does \
+         not exist or did not work when a record shows it succeeded, or that something succeeded \
+         when its record shows it failed.\n\
+         3. The request was not completed, a failed record gives the reason, and the reply does not \
+         pass that reason on.\n\n\
+         Otherwise answer ACCEPT. Reply with the single word ACCEPT or REJECT.\n\n\
+         <user_request>\n{}\n</user_request>\n\n<tool_records>\n{}\n</tool_records>\n\n<reply>\n{}\n</reply>",
+        truncate_chars(user_request, CHECKPOINT_TOTAL_CHARS),
+        if records.trim().is_empty() {
+            "(no tool calls completed)"
+        } else {
+            records.trim()
+        },
+        reply.trim(),
+    )
+}
+
+/// The check call's verdict on a closing message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CloseVerdict {
+    Accept,
+    Reject,
+    /// Neither word found (or the call failed). The caller keeps the reply:
+    /// the check is a guard added on top of the grounded instruction, and an
+    /// unavailable checker is no evidence against the reply.
+    Unclear,
+}
+
+/// Read the verdict from the check call's text: the **last** standalone
+/// `ACCEPT`/`REJECT` token wins, so a model that reasons aloud before its
+/// answer is read by its conclusion, and `UNACCEPTABLE` is not an `ACCEPT`.
+pub(super) fn parse_close_verdict(text: &str) -> CloseVerdict {
+    text.split(|c: char| !c.is_ascii_alphabetic())
+        .filter_map(|token| match token.to_ascii_uppercase().as_str() {
+            "ACCEPT" => Some(CloseVerdict::Accept),
+            "REJECT" => Some(CloseVerdict::Reject),
+            _ => None,
+        })
+        .last()
+        .unwrap_or(CloseVerdict::Unclear)
+}
+
+/// Build a deterministic final answer from this turn's tool results.
 /// Used as the guaranteed non-empty fallback when a turn ran tools but the
-/// model produced no closing message and the re-prompt for one also came
-/// back empty — so a turn that did work can never end silently (issue #4093).
+/// model produced no usable closing message (empty, a tool call, or rejected
+/// by the check), so a turn that did work can never end silently (issue #4093).
 /// Distinct from [`build_deterministic_checkpoint`]: the turn did NOT hit the
 /// iteration cap, so this reads as a completed summary, not a paused one.
-pub(super) fn build_deterministic_final_summary(records: &[ToolCallRecord]) -> String {
-    if records.is_empty() {
+///
+/// Quotes each result's own output (issue #6278): a failure's message is
+/// usually the only explanation of why the request was not done, and it used to
+/// be reduced to the word "failed". When the breaker halted the run (issue
+/// #6279) its stop note is quoted too, because it names the rung that tripped
+/// and, for a missing connection or exhausted credits, what the user must do.
+pub(super) fn build_deterministic_final_summary(
+    results: &[CheckpointToolResult],
+    stop_reason: Option<&str>,
+) -> String {
+    if results.is_empty() && stop_reason.is_none() {
         return "I finished this turn but produced no result to report.".to_string();
     }
-    let mut out = String::from("Here's a summary of what I did this turn:\n\n");
-    for r in records {
-        let status = if r.success { "ok" } else { "failed" };
-        out.push_str(&format!("- `{}` — {}\n", r.name, status));
+    let mut out = match stop_reason {
+        Some(reason) => {
+            let mut lead = String::from(
+                "I stopped this turn early because my tool calls kept failing, so I could not \
+                 finish the request.\n\n**Why I stopped**\n",
+            );
+            for line in reason.trim().lines() {
+                lead.push_str("> ");
+                lead.push_str(line);
+                lead.push('\n');
+            }
+            lead.push_str("\n**What each tool call returned**\n");
+            lead
+        }
+        None => String::from("I finished this turn without writing up a result. Here is what each tool call returned:\n"),
+    };
+    if results.is_empty() {
+        out.push_str("\n- (no tool calls completed)\n");
+    } else {
+        out.push_str(&render_tool_results(results, CHECKPOINT_TOTAL_CHARS));
     }
-    out.push_str("\nLet me know if you'd like me to go further.");
+    out.push_str("\nTell me how you'd like to proceed.");
     out
 }
