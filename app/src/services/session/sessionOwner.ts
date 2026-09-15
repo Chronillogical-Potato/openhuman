@@ -153,38 +153,67 @@ const coreSetCredential = async (params: {
 };
 
 const browserStoreSessionToken = async (token: string, user?: object): Promise<void> => {
+  browserCurrentUserCache = null;
   if (isLocalSessionToken(token)) {
     await coreSetCredential({ token, kind: 'local', user });
     return;
   }
   const me = await browserFetchMe(token);
   await coreSetCredential({ token, kind: 'session', userId: userIdFromPayload(me), user: me });
+  browserCurrentUserCache = { token, fetchedAt: Date.now(), user: me };
 };
 
-const browserCurrentUser = async (): Promise<SessionCurrentUser> => {
+// The browser owner has no shell-side cache, so it keeps its own: one
+// `/auth/me` per token per window, unless a caller forces a refresh.
+const BROWSER_CURRENT_USER_TTL_MS = 30_000;
+let browserCurrentUserCache: { token: string; fetchedAt: number; user: object } | null = null;
+
+/** Drop the browser owner's cached user (sign-out, tests). */
+export const resetBrowserCurrentUserCache = (): void => {
+  browserCurrentUserCache = null;
+};
+
+const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> => {
   const state = await callCoreRpc<{
     result: { isAuthenticated: boolean; credential?: string | null; user: object | null };
   }>({ method: 'openhuman.auth_get_state' });
   const core = state.result;
-  if (!core.isAuthenticated) return { user: null, stale: false, staleSeconds: null };
+  if (!core.isAuthenticated) {
+    browserCurrentUserCache = null;
+    return { user: null, stale: false, staleSeconds: null };
+  }
   if (core.credential !== 'session') return { user: core.user, stale: false, staleSeconds: null };
   const tokenResponse = await callCoreRpc<{ result: { token: string | null } }>({
     method: 'openhuman.auth_get_session_token',
   });
   const token = tokenResponse.result.token;
   if (!token) return { user: core.user, stale: false, staleSeconds: null };
+  const cached = browserCurrentUserCache;
+  if (!force && cached && cached.token === token) {
+    const age = Date.now() - cached.fetchedAt;
+    if (age < BROWSER_CURRENT_USER_TTL_MS) {
+      return { user: cached.user, stale: false, staleSeconds: Math.floor(age / 1000) };
+    }
+  }
   try {
-    return { user: await browserFetchMe(token), stale: false, staleSeconds: 0 };
+    const user = await browserFetchMe(token);
+    browserCurrentUserCache = { token, fetchedAt: Date.now(), user };
+    return { user, stale: false, staleSeconds: 0 };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith('REJECTED:')) {
+      browserCurrentUserCache = null;
       await callCoreRpc({
         method: 'openhuman.auth_clear_credential',
         params: { kind: 'session' },
       }).catch(() => undefined);
       throw error;
     }
-    return { user: core.user, stale: true, staleSeconds: null };
+    return {
+      user: cached?.user ?? core.user,
+      stale: true,
+      staleSeconds: cached ? Math.floor((Date.now() - cached.fetchedAt) / 1000) : null,
+    };
   }
 };
 
@@ -218,6 +247,7 @@ export const logoutSession = async (): Promise<void> => {
     await invoke('auth_logout');
     return;
   }
+  browserCurrentUserCache = null;
   await callCoreRpc({ method: 'openhuman.auth_clear_credential', params: { kind: 'session' } });
 };
 
@@ -236,7 +266,7 @@ export const fetchCurrentUser = async (force = false): Promise<SessionCurrentUse
     }>('auth_current_user', { force });
     return { user: cached.user, stale: cached.stale, staleSeconds: cached.staleSeconds };
   }
-  return browserCurrentUser();
+  return browserCurrentUser(force);
 };
 
 /** The shell owner's full view (desktop only); `null` elsewhere. */

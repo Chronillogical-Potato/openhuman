@@ -3,7 +3,7 @@ import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
 import type { LocalAiStatus } from '../utils/tauriCommands/localAi';
 import type { ServiceStatus } from '../utils/tauriCommands/service';
 import { callCoreRpc } from './coreRpcClient';
-import { fetchCurrentUser, useShellSessionOwner } from './session/sessionOwner';
+import { fetchCurrentUser } from './session/sessionOwner';
 
 interface OnboardingTasks {
   accessibilityPermissionGranted: boolean;
@@ -132,11 +132,10 @@ export const fetchCoreAppSnapshot = async (): Promise<AppStateSnapshotResult> =>
   const result: AppStateSnapshotResult = { ...response.result };
   // The core reports the credential it holds and the user payload it was
   // handed at login (`auth.user`); the *live* current user comes from the
-  // session owner's `/auth/me` cache. On the desktop that is the Tauri shell,
-  // whose cache makes this poll-frequency call cheap. Browser and cloud mode
-  // have no cached owner, so they keep the stored payload rather than paying
-  // a backend round trip on every poll.
-  if (result.auth?.isAuthenticated && useShellSessionOwner()) {
+  // session owner's `/auth/me` cache — the Tauri shell's on the desktop, a
+  // small in-page one in the browser build and cloud mode — so this
+  // poll-frequency call stays cheap.
+  if (result.auth?.isAuthenticated) {
     try {
       const current = await fetchCurrentUser(false);
       if (current.user) {
