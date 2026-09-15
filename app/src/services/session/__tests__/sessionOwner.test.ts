@@ -77,6 +77,7 @@ describe('sessionOwner (browser / cloud owner)', () => {
     vi.clearAllMocks();
     isTauriMock.mockReturnValue(false);
     getStoredCoreMode.mockReturnValue(null);
+    owner.resetBrowserCurrentUserCache();
     vi.stubGlobal('fetch', fetchMock);
   });
 
@@ -184,6 +185,29 @@ describe('sessionOwner (browser / cloud owner)', () => {
       method: 'openhuman.auth_clear_credential',
       params: { kind: 'session' },
     });
+  });
+
+  it('caches a fetched user per token until forced', async () => {
+    const coreState = {
+      result: { isAuthenticated: true, credential: 'session', user: { id: 'old' } },
+    };
+    const token = { result: { token: 'jwt' } };
+    mockCallCoreRpc
+      .mockResolvedValueOnce(coreState)
+      .mockResolvedValueOnce(token)
+      .mockResolvedValueOnce(coreState)
+      .mockResolvedValueOnce(token)
+      .mockResolvedValueOnce(coreState)
+      .mockResolvedValueOnce(token);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, user: { id: 'first' } }))
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, user: { id: 'second' } }));
+
+    expect((await owner.fetchCurrentUser()).user).toEqual({ id: 'first' });
+    expect((await owner.fetchCurrentUser()).user).toEqual({ id: 'first' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((await owner.fetchCurrentUser(true)).user).toEqual({ id: 'second' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('serves the stored user flagged stale when the backend is down', async () => {
