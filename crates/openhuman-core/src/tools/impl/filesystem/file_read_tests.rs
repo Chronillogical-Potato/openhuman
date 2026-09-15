@@ -349,3 +349,34 @@ async fn file_read_rejects_an_offset_inside_a_multibyte_character() {
         .unwrap();
     assert_eq!(boundary.output(), " world");
 }
+
+#[tokio::test]
+async fn file_read_rejects_an_offset_that_is_not_a_non_negative_integer() {
+    let dir = tempfile::tempdir().unwrap();
+    tokio::fs::write(dir.path().join("offsets.txt"), "hello world")
+        .await
+        .unwrap();
+    let tool = FileReadTool::new(test_security(dir.path().to_path_buf()));
+
+    for bad in [json!(-5), json!("6"), json!(1.5)] {
+        let result = tool
+            .execute(json!({"path": "offsets.txt", "offset": bad.clone()}))
+            .await
+            .unwrap();
+        assert!(
+            result.is_error,
+            "offset {bad} must be rejected, not treated as 0: got {:?}",
+            result.output()
+        );
+    }
+
+    let null_offset = tool
+        .execute(json!({"path": "offsets.txt", "offset": null}))
+        .await
+        .unwrap();
+    assert_eq!(
+        null_offset.output(),
+        "hello world",
+        "a null offset reads from the start"
+    );
+}

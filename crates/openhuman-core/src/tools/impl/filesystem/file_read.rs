@@ -133,11 +133,21 @@ impl FileReadTool {
                         .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
                     file_state::record_read(&agent_id, resolved_path, mtime, false);
                 }
-                let offset = args
-                    .get("offset")
-                    .and_then(serde_json::Value::as_u64)
-                    .and_then(|o| usize::try_from(o).ok())
-                    .unwrap_or(0);
+                // An absent or null offset reads from the start; anything else
+                // that is not a non-negative integer is rejected, so a
+                // malformed continuation never silently re-reads the file from
+                // byte 0.
+                let offset = match args.get("offset") {
+                    None | Some(serde_json::Value::Null) => 0,
+                    Some(value) => match value.as_u64().and_then(|o| usize::try_from(o).ok()) {
+                        Some(offset) => offset,
+                        None => {
+                            return Ok(ToolResult::error(format!(
+                                "offset must be a non-negative integer byte offset, got {value}"
+                            )))
+                        }
+                    },
+                };
                 if offset == 0 {
                     return Ok(ToolResult::success(contents));
                 }

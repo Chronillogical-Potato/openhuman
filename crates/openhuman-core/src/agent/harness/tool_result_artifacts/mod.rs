@@ -84,7 +84,8 @@ pub(crate) fn page_artifact_read(
         return content;
     }
     let start = read.offset;
-    let total = start + content.len();
+    // Saturating: the offset comes from the model's arguments.
+    let total = start.saturating_add(content.len());
     let with_path = |next: usize| {
         format!(
             "\n\n[artifact page: bytes {start}..{next} of {total}. Continue with file_read {{\"path\":\"{}\",\"offset\":{next}}}]",
@@ -109,9 +110,9 @@ pub(crate) fn page_artifact_read(
     };
     let cut = crate::util::floor_char_boundary(&content, budget_bytes - longest);
     let trailer = if use_path {
-        with_path(start + cut)
+        with_path(start.saturating_add(cut))
     } else {
-        without_path(start + cut)
+        without_path(start.saturating_add(cut))
     };
     format!("{}{trailer}", &content[..cut])
 }

@@ -350,3 +350,18 @@ fn artifact_read_target_follows_only_use_skill_into_a_wrapped_tool() {
         );
     }
 }
+
+#[test]
+fn a_page_near_the_maximum_offset_does_not_overflow() {
+    let read = ArtifactRead {
+        path: "artifacts/tool-results/s/shell/c.txt".to_string(),
+        offset: usize::MAX - 10,
+    };
+    // The offset comes straight from the model's arguments, so the page
+    // arithmetic must not overflow on an absurd one.
+    let page = std::panic::catch_unwind(|| page_artifact_read("q".repeat(5_000), &read, 1_000));
+    assert!(
+        page.is_ok(),
+        "an offset near usize::MAX must not overflow the page arithmetic"
+    );
+}
