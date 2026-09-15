@@ -16,7 +16,7 @@
 //! roles — memory, embeddings, heartbeat, learning — alone, because those run
 //! tier-specific models a chat endpoint generally cannot serve.
 
-use crate::agent::Route;
+use crate::turn::Route;
 
 /// Where a harness sends its inference.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

@@ -68,7 +68,7 @@
 //! worker stack overflows.
 
 mod api_key;
-mod builder;
+pub(crate) mod builder;
 
 pub use api_key::ApiKey;
 pub use builder::RuntimeBuilder;

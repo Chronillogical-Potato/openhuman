@@ -15,10 +15,10 @@
 //! loader, DomainSet gate, tool-group filter and skill discovery all read
 //! the ambient context.
 
-mod build;
+pub(crate) mod build;
 mod definition;
 mod layout;
-mod spec;
+pub(crate) mod spec;
 
 pub use definition::{AgentDefinitionSpec, SandboxModeSpec, ToolScopeSpec};
 pub use layout::AgentLayout;
