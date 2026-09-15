@@ -229,6 +229,75 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
 }
 
 #[tokio::test]
+async fn authed_json_sends_an_api_key_as_x_api_key_and_no_bearer() {
+    // Library mode: the TinyHumans API key rides the SDK REST routes as
+    // `x-api-key`, never as `Authorization: Bearer` (that header is the
+    // managed-inference shape, handled by `OpenHumanBackendModel`).
+    use crate::security::credentials::session_support::BackendCredential;
+
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let response = client
+        .authed_json(
+            &BackendCredential::ApiKey("th_test_key".to_string()),
+            Method::GET,
+            "/probe",
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(response, json!({ "ok": true }));
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    assert_eq!(
+        request_headers
+            .get("x-api-key")
+            .and_then(|value| value.to_str().ok()),
+        Some("th_test_key")
+    );
+    assert!(
+        request_headers.get("authorization").is_none(),
+        "an API key must not also be sent as a bearer"
+    );
+    assert_eq!(
+        request_headers
+            .get("x-sdk-client")
+            .and_then(|value| value.to_str().ok()),
+        Some("tinyhumans-rust")
+    );
+}
+
+#[tokio::test]
+async fn authed_json_sends_a_session_credential_as_a_bearer_only() {
+    use crate::security::credentials::session_support::BackendCredential;
+
+    let (base_url, captured) = spawn_header_capture_server().await;
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    client
+        .authed_json(
+            &BackendCredential::Session("jwt-token".to_string()),
+            Method::GET,
+            "/probe",
+            None,
+        )
+        .await
+        .unwrap();
+
+    let headers = captured.take();
+    let request_headers = headers.last().unwrap();
+    assert_eq!(
+        request_headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok()),
+        Some("Bearer jwt-token")
+    );
+    assert!(request_headers.get("x-api-key").is_none());
+}
+
+#[tokio::test]
 async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
