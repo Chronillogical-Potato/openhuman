@@ -30,6 +30,40 @@ use crate::platform::socket::types::{ConnectionOutcome, WsStream};
 /// redirects while still bounding pathological loops.
 const MAX_REDIRECT_HOPS: u8 = 3;
 
+/// Upper bound on one WebSocket connect attempt — DNS resolution, TCP
+/// connect, TLS handshake and the HTTP upgrade response together — applied
+/// per redirect hop.
+///
+/// `connect_async` carries no deadline of its own, so a path that accepts the
+/// TCP connection and then goes silent (an ingress that blackholes the
+/// upgrade, a stalled TLS handshake, a resolver that never answers) used to
+/// park the reconnect loop until the far end gave up. Both ten-minute
+/// reconnect gaps reported in #6256 measure ~608 s: the ~600 s ingress
+/// ceiling documented on #5603, plus one backoff sleep and a handshake. The
+/// client had no bound of its own. Ten seconds matches the two handshake
+/// reads that follow (`read_eio_open`, `read_sio_connect_ack`) and the
+/// renderer's own socket.io connect timeout: a healthy path completes in well
+/// under a second and a remote or tunnelled one in a few, while a hang now
+/// surfaces as a `Failed` attempt that the next backoff cycle retries.
+pub(super) const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// What the reconnect loop knows about the outage a connection attempt is
+/// recovering from, so a successful handshake can say how long the socket
+/// was down and how many attempts it took (#6256).
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct ReconnectContext {
+    /// When the outage began: the moment the previous connection was lost,
+    /// or the moment the first failed attempt *started* if there was no
+    /// connection yet — so a dial that stalled for the whole connect deadline
+    /// is counted. `None` on a first connect that has not failed.
+    pub(super) outage_started: Option<Instant>,
+    /// Whether a live connection preceded this outage — distinguishes
+    /// "reconnected" from "connected after initial failures" in the log.
+    pub(super) lost_previous: bool,
+    /// Attempts that ended in `ConnectionOutcome::Failed` since the outage began.
+    pub(super) failed_attempts: u32,
+}
+
 // ---------------------------------------------------------------------------
 // Background loop
 // ---------------------------------------------------------------------------
@@ -48,6 +82,7 @@ pub(super) async fn run_connection(
     shutdown_rx: &mut watch::Receiver<bool>,
     internal_tx: &mpsc::UnboundedSender<String>,
     emit_ready: &Mutex<bool>,
+    reconnect: ReconnectContext,
 ) -> ConnectionOutcome {
     log::info!("[socket] WS URL: {}", ws_url);
 
@@ -123,6 +158,18 @@ pub(super) async fn run_connection(
     *shared.socket_id.write() = sio_sid;
     *emit_ready.lock() = true;
     emit_state_change(shared);
+    if let Some(started) = reconnect.outage_started {
+        log::info!(
+            "[socket] {} after {:.1}s ({} failed attempt(s))",
+            if reconnect.lost_previous {
+                "Reconnected"
+            } else {
+                "Connected"
+            },
+            started.elapsed().as_secs_f64(),
+            reconnect.failed_attempts
+        );
+    }
 
     // 7. Main event loop
     // Deadline = pingInterval + pingTimeout + 5 s grace so minor server-side
@@ -130,6 +177,16 @@ pub(super) async fn run_connection(
     let timeout_ms = ping_interval + ping_timeout_ms + 5_000;
     let timeout_duration = Duration::from_millis(timeout_ms);
     let mut deadline = Instant::now() + timeout_duration;
+    // Deadline diagnostics (#6256): when the deadline fires, the warning says
+    // how old this connection is, how many Engine.IO pings it ever saw, and
+    // how many frames we pushed into the silence — enough to tell "server
+    // went quiet" from "path went dead" from the log alone. A drop that
+    // always lands at the same connection age points at a lifetime ceiling
+    // on the path (#5603); zero pings on a minutes-old connection points at
+    // the server.
+    let connected_at = Instant::now();
+    let mut pings_received: u32 = 0;
+    let mut sent_since_last_frame: u32 = 0;
 
     loop {
         tokio::select! {
@@ -137,10 +194,17 @@ pub(super) async fn run_connection(
                 match msg {
                     Some(Ok(WsMessage::Text(text))) => {
                         deadline = Instant::now() + timeout_duration;
-                        handle_eio_message(&text, internal_tx, shared);
+                        sent_since_last_frame = 0;
+                        let frame: &str = &text;
+                        if frame.starts_with('2') {
+                            pings_received = pings_received.saturating_add(1);
+                        }
+                        handle_eio_message(frame, internal_tx, shared);
                     }
                     Some(Ok(WsMessage::Ping(data))) => {
+                        sent_since_last_frame = 0;
                         let _ = ws_write.send(WsMessage::Pong(data)).await;
+                        sent_since_last_frame = sent_since_last_frame.saturating_add(1);
                     }
                     Some(Ok(WsMessage::Close(_))) => {
                         log::info!("[socket] Server closed WebSocket");
@@ -152,7 +216,10 @@ pub(super) async fn run_connection(
                     None => {
                         return ConnectionOutcome::Lost("WebSocket stream ended".into());
                     }
-                    _ => {} // Binary, Pong, Frame
+                    _ => {
+                        // Binary, Pong, Frame: still proof the path is alive.
+                        sent_since_last_frame = 0;
+                    }
                 }
             }
             outgoing = emit_rx.recv() => {
@@ -161,6 +228,7 @@ pub(super) async fn run_connection(
                         if let Err(e) = ws_write.send(WsMessage::Text(msg.into())).await {
                             return ConnectionOutcome::Lost(format!("Send failed: {e}"));
                         }
+                        sent_since_last_frame = sent_since_last_frame.saturating_add(1);
                     }
                     None => {
                         let _ = ws_write.send(WsMessage::Close(None)).await;
@@ -170,10 +238,13 @@ pub(super) async fn run_connection(
             }
             _ = tokio::time::sleep_until(deadline) => {
                 log::warn!(
-                    "[socket] No server ping received within {}ms (interval={}ms + timeout={}ms + 5s grace); reconnecting",
+                    "[socket] No server ping received within {}ms (interval={}ms + timeout={}ms + 5s grace); connection age {:.0}s, {} EIO ping(s) received on this connection, {} frame(s) sent since the last server frame; reconnecting",
                     timeout_ms,
                     ping_interval,
                     ping_timeout_ms,
+                    connected_at.elapsed().as_secs_f64(),
+                    pings_received,
+                    sent_since_last_frame,
                 );
                 return ConnectionOutcome::Lost("Ping timeout".into());
             }
@@ -281,13 +352,32 @@ async fn read_sio_connect_ack(
 ///
 /// On non-redirect failures the original error is returned and the caller
 /// counts it toward the exponential backoff like before.
+///
+/// Every hop is bounded by [`CONNECT_TIMEOUT`]; a hop that outlives it fails
+/// the attempt with a timed-out `WsError::Io` (#6256).
 pub(super) async fn connect_with_redirects(
     ws_url: &mut String,
     shared: &Arc<SharedState>,
 ) -> Result<WsStream, WsError> {
+    connect_with_redirects_within(ws_url, shared, CONNECT_TIMEOUT).await
+}
+
+/// [`connect_with_redirects`] with an explicit per-hop deadline. Split out so
+/// a test can prove the bound with a sub-second budget instead of waiting out
+/// [`CONNECT_TIMEOUT`].
+pub(super) async fn connect_with_redirects_within(
+    ws_url: &mut String,
+    shared: &Arc<SharedState>,
+    connect_timeout: Duration,
+) -> Result<WsStream, WsError> {
     let original = ws_url.clone();
     for hop in 0..=MAX_REDIRECT_HOPS {
-        match connect_async(ws_url.as_str()).await {
+        let attempt =
+            match tokio::time::timeout(connect_timeout, connect_async(ws_url.as_str())).await {
+                Ok(attempt) => attempt,
+                Err(_elapsed) => return Err(connect_timed_out(connect_timeout)),
+            };
+        match attempt {
             Ok((stream, _response)) => return Ok(stream),
             Err(WsError::Http(response)) if is_redirect_status(response.status()) => {
                 if hop == MAX_REDIRECT_HOPS {
@@ -341,6 +431,22 @@ pub(super) async fn connect_with_redirects(
     // Unreachable: the loop either returns Ok, returns the redirect error after
     // exhausting hops, or returns a non-redirect Err.
     unreachable!("connect_with_redirects exited loop without returning")
+}
+
+/// The error a connect attempt surfaces when it outlives its deadline.
+///
+/// Rendered through `WsError::Io` so `run_connection`'s
+/// `"WebSocket connect: IO error: …"` wrapping stays uniform, and worded with
+/// the `operation timed out` phrase the observability classifier already
+/// treats as a user-environment transport shape
+/// (`core::observability::is_network_unreachable_message`): a sustained hang
+/// escalates to one `warn` breadcrumb on the fifth attempt, never to Sentry —
+/// the same treatment `ETIMEDOUT` gets when the OS reports it.
+fn connect_timed_out(after: Duration) -> WsError {
+    WsError::Io(std::io::Error::new(
+        std::io::ErrorKind::TimedOut,
+        format!("operation timed out after {after:?} waiting for the WebSocket upgrade"),
+    ))
 }
 
 /// Statuses we treat as "follow the Location and retry".

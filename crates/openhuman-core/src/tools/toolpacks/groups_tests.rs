@@ -1,10 +1,15 @@
 use super::*;
 
 #[test]
-fn the_default_is_todays_behaviour() {
-    // Every compiled-in group withheld — what the pack table meant before
-    // this type existed. A host that never calls `tool_groups` must be
-    // unaffected, so this is the assertion that pins "no behaviour change".
+fn the_default_withholds_every_compiled_in_group() {
+    // Every compiled-in group withheld: the fail-closed floor.
+    //
+    // This deliberately no longer claims to pin "no behaviour change". It did,
+    // and that reading is what let a regression through: the default equalled
+    // the pre-`ToolGroups` table only while the packs held nothing a host used,
+    // and every family that moves into a pack silently narrows what a host with
+    // no posture of its own receives. What this pins is the floor itself —
+    // that the default never drifts *open* — not that the floor is inert.
     let g = ToolGroups::default();
     for id in ToolGroups::ids() {
         assert_eq!(g.mode(id), GroupMode::Withheld, "group `{id}` drifted");
@@ -69,4 +74,29 @@ fn every_group_id_is_reachable_by_name() {
         assert!(ToolGroups::index_of(id).is_some(), "`{id}` is unselectable");
     }
     assert_eq!(ToolGroups::ids().count(), GROUP_COUNT);
+}
+
+#[test]
+fn a_scoped_context_outranks_the_process_default() {
+    // Multi-tenant dispatch passes a context per call; the process default must
+    // never override it, or one embedder's posture would decide another's.
+    let resolved = super::resolve(Some(ToolGroups::none()), Some(ToolGroups::advertised()));
+    assert_eq!(resolved, ToolGroups::none());
+}
+
+#[test]
+fn the_process_default_answers_when_no_context_is_scoped() {
+    // The gap this exists to close: a host that establishes no `CoreContext`
+    // could previously only resolve to `Default` — every group withheld — and
+    // so lost a tool family every time one moved into a pack.
+    let resolved = super::resolve(None, Some(ToolGroups::advertised()));
+    assert_eq!(resolved, ToolGroups::advertised());
+}
+
+#[test]
+fn with_neither_set_the_floor_is_still_fail_closed() {
+    // Unchanged for every existing host: no context, no process default, every
+    // pack withheld.
+    assert_eq!(super::resolve(None, None), ToolGroups::default());
+    assert_eq!(super::resolve(None, None), ToolGroups::packed());
 }

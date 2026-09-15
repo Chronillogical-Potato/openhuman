@@ -19,6 +19,10 @@ impl Agent {
     /// tool-call-cap checkpoint (`MAX_ITER_CHECKPOINT_INSTRUCTION`) or the
     /// no-final-answer close (`FINAL_ANSWER_INSTRUCTION`, issue #4093).
     ///
+    /// `stream_text` forwards the validated text to the progress sink. The
+    /// no-final-answer close passes `false` and streams only after its own
+    /// check accepts the text (issue #6278), so a rejected close never renders.
+    ///
     /// Returns the summary text (empty when the provider call fails or
     /// yields nothing — the caller then falls back to a deterministic builder
     /// so the turn is never left without a well-formed assistant message,
@@ -31,6 +35,7 @@ impl Agent {
         effective_model: &str,
         iteration_for_stream: u32,
         instruction: &str,
+        stream_text: bool,
     ) -> (String, Option<UsageInfo>) {
         let mut messages = base_messages.to_vec();
         messages.push(ChatMessage::user(instruction));
@@ -148,7 +153,7 @@ impl Agent {
         // Hold wrap-up deltas until protocol validation completes. Otherwise a
         // rejected XML/P-Format tool call briefly renders in chat even though
         // the caller subsequently replaces it with a deterministic fallback.
-        if !checkpoint.is_empty() {
+        if stream_text && !checkpoint.is_empty() {
             if let Some(sink) = &self.on_progress {
                 if let Err(error) = sink
                     .send(AgentProgress::TextDelta {
@@ -242,7 +247,7 @@ impl Agent {
         let mut base = self.tool_dispatcher.to_provider_messages(&self.history);
         base.push(ChatMessage::user(ro::repair_instruction(contract)));
         let (repair_text, usage) = self
-            .reprompt_for_required_block(&base, effective_model)
+            .silent_completion(&base, effective_model, "required-output re-prompt")
             .await;
         let repair_text = repair_text.trim().to_string();
 
@@ -309,9 +314,10 @@ impl Agent {
         Some((repaired, usage))
     }
 
-    /// Ask the provider once for a reply that includes the required
-    /// structured-output block, with native tools **disabled** and **without**
-    /// forwarding any delta to the progress sink. Returns the parsed prose paired
+    /// Ask the provider once, with native tools **disabled** and **without**
+    /// forwarding any delta to the progress sink: the required-output repair
+    /// (issue #4117) and the closing-message check (issue #6278). `purpose`
+    /// labels the logs. Returns the parsed prose paired
     /// with the call's usage (empty text + `None` usage when the call fails or
     /// yields only tool-call markup).
     ///
@@ -319,10 +325,11 @@ impl Agent {
     /// deliberately silent: `enforce_required_output` validates the result before
     /// deciding what (if anything) to stream, so a malformed repair attempt is
     /// never shown to the client.
-    async fn reprompt_for_required_block(
+    pub(in crate::agent::harness::session::turn) async fn silent_completion(
         &self,
         base_messages: &[ChatMessage],
         effective_model: &str,
+        purpose: &str,
     ) -> (String, Option<UsageInfo>) {
         let chat_model = match self
             .turn_model_source
@@ -333,7 +340,8 @@ impl Agent {
                 tracing::error!(
                     error = %error,
                     model = effective_model,
-                    "[agent::session] failed to build required-output re-prompt model"
+                    purpose,
+                    "[agent::session] failed to build silent-completion model"
                 );
                 return (String::new(), None);
             }
@@ -353,7 +361,8 @@ impl Agent {
                 tracing::warn!(
                     error = %error,
                     model = effective_model,
-                    "[agent::session] required-output re-prompt stream failed to start"
+                    purpose,
+                    "[agent::session] silent-completion stream failed to start"
                 );
                 return (String::new(), None);
             }
@@ -369,18 +378,21 @@ impl Agent {
                 }
                 ModelStreamItem::Completed(response) => completed = Some(response),
                 ModelStreamItem::Failed(error) => {
-                    tracing::warn!(%error, "[agent::session] required-output re-prompt stream failed");
+                    tracing::warn!(%error, purpose, "[agent::session] silent-completion stream failed");
                     return (String::new(), None);
                 }
                 ModelStreamItem::ProviderFailed(error) => {
-                    tracing::warn!(error = %error.message, "[agent::session] required-output re-prompt provider failed");
+                    tracing::warn!(error = %error.message, purpose, "[agent::session] silent-completion provider failed");
                     return (String::new(), None);
                 }
                 _ => {}
             }
         }
         let Some(response) = completed else {
-            tracing::warn!("[agent::session] required-output re-prompt ended without completion");
+            tracing::warn!(
+                purpose,
+                "[agent::session] silent-completion ended without completion"
+            );
             return (String::new(), None);
         };
         let usage = crate::agent::tinyagents::model::usage_info_from_response(&response);
@@ -399,7 +411,11 @@ impl Agent {
     /// Emit `text` to the progress sink as a `TextDelta` continuation so a
     /// repaired required-output block appears in the UI appended after the
     /// already-streamed reply (issue #4117). No-op when no sink is attached.
-    async fn stream_text_continuation(&self, text: &str, iteration: u32) {
+    pub(in crate::agent::harness::session::turn) async fn stream_text_continuation(
+        &self,
+        text: &str,
+        iteration: u32,
+    ) {
         if text.is_empty() {
             return;
         }
