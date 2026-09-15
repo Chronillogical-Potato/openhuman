@@ -77,8 +77,8 @@ impl Tool for SessionStateTool {
         "session_state"
     }
     fn description(&self) -> &str {
-        "Return the current auth/session state (signed-in flag, profile info — \
-         no token material)."
+        "Return the current auth/session state (signed-in flag, credential kind, \
+         the signed-in user's profile — no token material)."
     }
     fn parameters_schema(&self) -> serde_json::Value {
         json!({ "type": "object", "properties": {} })

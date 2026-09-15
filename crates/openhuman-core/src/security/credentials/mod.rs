@@ -2,7 +2,6 @@
 
 pub mod api_key;
 pub mod bus;
-pub mod cli;
 mod core;
 pub mod credential_ref;
 pub mod http_creds;
