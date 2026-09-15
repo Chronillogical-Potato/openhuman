@@ -534,7 +534,7 @@ Conventions:
 - **`useDaemonHealth` / `useDaemonLifecycle`** — core service health.
 - **`useDictationHotkey` / `usePttHotkey`** — global hotkey managers.
 - **`useDeveloperMode`**, **`useMediaQuery`**, **`useEscapeKey`**, **`useStickToBottom`** — UI utilities.
-- Feature hooks: `useFlowRunProgress`, `useWorkflowBuilderChat`, `useConsciousItems`, `useSubconscious`, `useIntelligenceStats`, `useCostDashboard`, ….
+- Feature hooks: `useFlowRunProgress`, `useWorkflowBuilderChat`, `useConsciousItems`, `useIntelligenceStats`, `useCostDashboard`, ….
 
 Feature-local hooks live next to their feature under `features/*/`.
 
