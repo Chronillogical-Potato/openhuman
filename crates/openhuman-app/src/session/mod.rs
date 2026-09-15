@@ -69,8 +69,12 @@ pub fn install(app: &AppHandle<AppRuntime>, desktop: CoreProcessHandle) {
                     }
                 }
                 Ok(SessionEvent::Expired { source }) => {
-                    log::warn!("[session] backend rejected the stored credential (source={source})");
-                    if let Err(e) = handle.emit(AUTH_EXPIRED_EVENT, serde_json::json!({ "source": source })) {
+                    log::warn!(
+                        "[session] backend rejected the stored credential (source={source})"
+                    );
+                    if let Err(e) =
+                        handle.emit(AUTH_EXPIRED_EVENT, serde_json::json!({ "source": source }))
+                    {
                         log::debug!("[session] failed to emit {AUTH_EXPIRED_EVENT}: {e}");
                     }
                 }

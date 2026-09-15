@@ -30,20 +30,30 @@ pub(crate) async fn auth_store_session(
     token: String,
     user: Option<serde_json::Value>,
 ) -> Result<SessionState, String> {
-    log::info!("[session][cmd] auth_store_session has_user={}", user.is_some());
-    host.manager.store_session_token(&token, user).await.map_err(err)
+    log::info!(
+        "[session][cmd] auth_store_session has_user={}",
+        user.is_some()
+    );
+    host.manager
+        .store_session_token(&token, user)
+        .await
+        .map_err(err)
 }
 
 /// Sign out: clear the session credential in the core.
 #[tauri::command]
-pub(crate) async fn auth_logout(host: tauri::State<'_, SessionHost>) -> Result<SessionState, String> {
+pub(crate) async fn auth_logout(
+    host: tauri::State<'_, SessionHost>,
+) -> Result<SessionState, String> {
     log::info!("[session][cmd] auth_logout");
     host.manager.logout().await.map_err(err)
 }
 
 /// The core's credential state plus the cached current user.
 #[tauri::command]
-pub(crate) async fn auth_state(host: tauri::State<'_, SessionHost>) -> Result<SessionState, String> {
+pub(crate) async fn auth_state(
+    host: tauri::State<'_, SessionHost>,
+) -> Result<SessionState, String> {
     host.manager.state().await.map_err(err)
 }
 

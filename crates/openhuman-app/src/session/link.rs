@@ -23,9 +23,8 @@ impl HttpCoreLink {
 /// Decode a JSON-RPC 2.0 response body into its `result`, or the error
 /// message.
 pub(crate) fn decode_rpc_response(status: u16, body: &str) -> Result<Value, String> {
-    let parsed: Value = serde_json::from_str(body).map_err(|e| {
-        format!("core rpc returned a non-JSON body (http {status}): {e}")
-    })?;
+    let parsed: Value = serde_json::from_str(body)
+        .map_err(|e| format!("core rpc returned a non-JSON body (http {status}): {e}"))?;
     if let Some(error) = parsed.get("error").filter(|e| !e.is_null()) {
         let message = error
             .get("message")
@@ -51,7 +50,10 @@ impl CoreLink for HttpCoreLink {
             "params": params,
         })
         .to_string();
-        log::debug!("[session][link] {method} -> {}", openhuman_rpc::redact_url_for_log(&url));
+        log::debug!(
+            "[session][link] {method} -> {}",
+            openhuman_rpc::redact_url_for_log(&url)
+        );
         let token = (!token.is_empty()).then_some(token);
         let response = crate::core_rpc::post_json_rpc(&url, token.as_deref(), body).await?;
         decode_rpc_response(response.status, &response.body)
