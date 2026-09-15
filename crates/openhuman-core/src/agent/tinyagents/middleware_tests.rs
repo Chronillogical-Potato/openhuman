@@ -314,13 +314,16 @@ async fn run_successful_repeat_cycle(
     mw: &RepeatProgressMiddleware,
     tool: &str,
     args: serde_json::Value,
+    output: &str,
     error: Option<&str>,
 ) {
     let mut response = repeated_success_response(tool, args);
     mw.after_model(&mut ctx(), &(), &mut response)
         .await
         .unwrap();
-    let mut result = tool_result(tool, "ok");
+    let mut result = tool_result(tool, output);
+    // Answer the call `repeated_success_response` issued.
+    result.call_id = "repeat-1".into();
     result.error = error.map(str::to_string);
     mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
 }

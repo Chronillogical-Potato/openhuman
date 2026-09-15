@@ -292,11 +292,14 @@ pub(super) fn assemble_turn_harness(
     // guard halts on identical successful `(tool, args)` batches / identical
     // outputs, sharing the same halt-summary slot + steering handle. Polling tools
     // (`wait_subagent`) stay exempt.
-    if let Some(handle) = &handle {
-        harness.push_middleware(Arc::new(middleware::RepeatProgressMiddleware::new(
+    let repeat_progress = handle.as_ref().map(|handle| {
+        Arc::new(middleware::RepeatProgressMiddleware::new(
             handle.clone(),
             halt_summary.clone(),
-        )));
+        ))
+    });
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(mw.clone());
     }
 
     // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
@@ -689,6 +692,14 @@ pub(super) fn assemble_turn_harness(
         harness.push_middleware(Arc::new(middleware::EmbedderToolHooksMiddleware::new(
             embedder_tool_hooks,
         )));
+    }
+
+    // Registered last so its `before_model` sees the request after every
+    // reduction step above (compression, microcompact, trim) has run. A tool
+    // result they evicted is no longer a repeat the model can see, so the
+    // repeat-progress recurrence ledger restarts (#6275).
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(Arc::new(mw.eviction_observer()));
     }
 
     AssembledTurnHarness {
