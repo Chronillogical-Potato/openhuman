@@ -23,7 +23,7 @@ use super::super::types::{
 use super::connections::resolve_toolkit_for_connection;
 use super::connector_runs::{self, ConnectorRun};
 use super::error_utils::{report_composio_op_error, OpResult};
-use super::pass_failure::{pass_failure, retry_delay};
+use super::pass_failure::{pass_failure, retry_after_failure};
 use super::source_rows::source_sync_depth_days;
 use crate::memory::api::provider::types::SourceItem;
 use crate::memory::api::types::MemoryTaint;
@@ -349,9 +349,12 @@ pub async fn composio_sync_budgeted(
                     total_written = total_written.saturating_add(u64::from(pass.written));
                     // A failed pass keeps what it read (counted above); the run
                     // waits, then asks again a bounded number of times (openhuman#6255).
+                    // Not when that pass filled the item cap: the cap check would
+                    // end the run next and report the failure as a success.
                     if let Some(reason) = pass.failure {
                         failed_attempts += 1;
-                        let Some(delay) = retry_delay(failed_attempts) else {
+                        let cap_left = next_pass_budget(source_max_items, total_written).is_some();
+                        let Some(delay) = retry_after_failure(failed_attempts, cap_left) else {
                             break Err(reason);
                         };
                         tracing::info!(

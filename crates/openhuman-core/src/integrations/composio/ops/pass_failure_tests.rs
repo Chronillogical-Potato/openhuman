@@ -77,10 +77,17 @@ fn a_long_reason_is_cut_to_the_limit() {
     let reason = failure_reason(SyncStage::Failed, Some(&long), "notion").expect("a failure");
     assert_eq!(
         reason.chars().count(),
-        MAX_REASON_CHARS + 1,
-        "the limit plus the ellipsis"
+        MAX_REASON_CHARS,
+        "the ellipsis counts toward the limit"
     );
     assert!(reason.ends_with('…'));
+
+    let one_over = "z".repeat(MAX_REASON_CHARS + 1);
+    assert_eq!(
+        failure_reason(SyncStage::Failed, Some(&one_over), "notion").map(|r| r.chars().count()),
+        Some(MAX_REASON_CHARS),
+        "one character over is cut, not kept"
+    );
 
     let exact = "y".repeat(MAX_REASON_CHARS);
     assert_eq!(
@@ -95,8 +102,19 @@ fn a_reason_is_cut_on_a_character_boundary() {
     // Multi-byte characters: a byte-offset cut would panic or split one.
     let long = "é".repeat(MAX_REASON_CHARS + 10);
     let reason = failure_reason(SyncStage::Failed, Some(&long), "slack").expect("a failure");
-    assert_eq!(reason.chars().count(), MAX_REASON_CHARS + 1);
+    assert_eq!(reason.chars().count(), MAX_REASON_CHARS);
     assert!(reason.starts_with('é') && reason.ends_with('…'));
+}
+
+#[test]
+fn a_failed_pass_that_filled_the_item_cap_is_not_retried() {
+    assert_eq!(retry_after_failure(1, true), Some(Duration::from_secs(5)));
+    assert_eq!(
+        retry_after_failure(1, false),
+        None,
+        "no room left: the run ends failed rather than completing at the cap"
+    );
+    assert_eq!(retry_after_failure(MAX_FAILED_ATTEMPTS, true), None);
 }
 
 #[test]

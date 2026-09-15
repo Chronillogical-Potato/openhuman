@@ -79,12 +79,17 @@ fn one_line(message: &str) -> String {
     message.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// `message` cut to [`MAX_REASON_CHARS`] characters, on a character boundary.
+/// `message` cut to at most [`MAX_REASON_CHARS`] characters, the ellipsis that
+/// marks the cut included, on a character boundary.
 fn clip(message: String) -> String {
-    match message.char_indices().nth(MAX_REASON_CHARS) {
-        Some((cut, _)) => format!("{}…", message[..cut].trim_end()),
-        None => message,
+    if message.chars().count() <= MAX_REASON_CHARS {
+        return message;
     }
+    let cut = message
+        .char_indices()
+        .nth(MAX_REASON_CHARS - 1)
+        .map_or(message.len(), |(index, _)| index);
+    format!("{}…", message[..cut].trim_end())
 }
 
 /// How long to wait before asking again after `failed_attempts` consecutive
@@ -99,6 +104,19 @@ pub(crate) fn retry_delay(failed_attempts: u32) -> Option<Duration> {
         return None;
     }
     Some(Duration::from_secs(5 * 2_u64.pow(failed_attempts - 1)))
+}
+
+/// [`retry_delay`], unless the failed pass left no room under the run's item
+/// cap.
+///
+/// A failed pass still writes what it read, and that can fill the cap. Waiting
+/// then only reaches the loop's cap check, which ends the run as completed and
+/// loses the failure; ending it here reports the failure with what was written.
+pub(crate) fn retry_after_failure(failed_attempts: u32, cap_left: bool) -> Option<Duration> {
+    if !cap_left {
+        return None;
+    }
+    retry_delay(failed_attempts)
 }
 
 #[cfg(test)]
