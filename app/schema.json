@@ -398,11 +398,18 @@
     {
       "description": "Store a TinyHumans API key as the backend credential (no user session; managed inference sends it as a bearer, REST as x-api-key).",
       "function": "store_api_key",
-      "inputs": [{ "comment": "TinyHumans API key.", "name": "key", "required": true, "ty": "String" }],
+      "inputs": [
+        { "comment": "TinyHumans API key.", "name": "key", "required": true, "ty": "String" }
+      ],
       "method": "openhuman.auth_store_api_key",
       "namespace": "auth",
       "outputs": [
-        { "comment": "Auth state after storing the key.", "name": "state", "required": true, "ty": "Json" }
+        {
+          "comment": "Auth state after storing the key.",
+          "name": "state",
+          "required": true,
+          "ty": "Json"
+        }
       ]
     },
     {
