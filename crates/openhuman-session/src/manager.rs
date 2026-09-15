@@ -336,9 +336,9 @@ impl<L: CoreLink> SessionManager<L> {
         self.emit(SessionEvent::Expired {
             source: source.to_string(),
         });
-        if let Ok(state) = self.state().await {
-            self.emit(SessionEvent::Changed(state));
-        }
+        // The credential is gone, so the signed-out state is known without
+        // asking the core again (and `state()` would recurse into here).
+        self.emit(SessionEvent::Changed(SessionState::default()));
     }
 
     /// Sign out: clear the session (or local) credential in the core and
