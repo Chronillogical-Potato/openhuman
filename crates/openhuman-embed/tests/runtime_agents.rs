@@ -149,8 +149,7 @@ fn one_runtime_hosts_independently_configured_agents() {
 
             // Layout: every agent has its own home, transcripts and action dir.
             assert_eq!(alpha.home_dir(), workspace_dir.join("personalities/alpha"));
-            assert_eq!(alpha.transcripts_dir(), workspace_dir.join("session_raw-alpha"));
-            assert_eq!(beta.transcripts_dir(), workspace_dir.join("session_raw-beta"));
+            assert_eq!(alpha.transcripts_dir(), workspace_dir.join("session_raw"));
             assert_eq!(alpha.action_dir(), root_dir.join("agents/alpha/action"));
             assert!(alpha.action_dir().is_dir());
             assert_eq!(beta.action_dir(), beta_action.path());
@@ -221,12 +220,19 @@ fn one_runtime_hosts_independently_configured_agents() {
                 );
             }
 
-            // Transcripts are per agent, and a thread resumes its own history.
-            assert!(alpha.transcripts_dir().is_dir(), "alpha wrote a transcript");
-            assert!(beta.transcripts_dir().is_dir(), "beta wrote a transcript");
+            // Transcripts are keyed by agent, and a thread resumes its own history.
+            let transcripts: Vec<String> = std::fs::read_dir(alpha.transcripts_dir())
+                .expect("transcript dir")
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect();
             assert!(
-                !workspace_dir.join("session_raw").exists(),
-                "no agent writes to the shared transcript root"
+                transcripts.iter().any(|f| f.ends_with("_alpha.jsonl")),
+                "alpha's transcript carries its id: {transcripts:?}"
+            );
+            assert!(
+                transcripts.iter().any(|f| f.ends_with("_beta.jsonl")),
+                "beta's transcript carries its id: {transcripts:?}"
             );
             let a2 = alpha
                 .turn("and again")

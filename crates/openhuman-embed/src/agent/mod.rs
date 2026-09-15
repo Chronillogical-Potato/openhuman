@@ -161,9 +161,9 @@ impl Agent {
         &self.inner.layout.skills
     }
 
-    /// Where this agent's transcripts are written
-    /// (`<workspace>/session_raw-<id>/`, or the shared `session_raw/` when
-    /// [`AgentSpec::shared_memory`] was set).
+    /// Where this agent's transcripts are written: the workspace's shared
+    /// `session_raw/` (files are keyed by agent name), or
+    /// `session_raw-<id>/` with [`AgentSpec::dedicated_memory`].
     pub fn transcripts_dir(&self) -> &Path {
         &self.inner.layout.transcripts
     }

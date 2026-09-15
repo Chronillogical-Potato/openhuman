@@ -10,8 +10,8 @@
 //!   workspace/
 //!     session_db/sessions.db                         runtime-wide run ledger
 //!     personalities/<id>/{SOUL.md, MEMORY.md, skills/}   the agent's home
-//!     session_raw-<id>/                              its transcripts
-//!     memory-<id>/, memory_tree-<id>/                its memory (dedicated)
+//!     session_raw/<ts>_<id>.jsonl                    its transcripts
+//!     session_raw-<id>/, memory-<id>/                with dedicated_memory
 //!   agents/<id>/action/                              its default action_dir
 //! ```
 //!

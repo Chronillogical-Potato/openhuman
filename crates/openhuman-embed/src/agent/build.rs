@@ -80,7 +80,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     // ── profile ──────────────────────────────────────────────────────────
     let mut profile = super::spec::blank_profile(&id);
-    profile.dedicated_memory = !parts.shared_memory;
+    profile.dedicated_memory = parts.dedicated_memory;
     profile.allowed_tools = parts.allowed_tools;
     profile.allowed_skills = parts.allowed_skills;
     profile.system_prompt_suffix = parts.system_prompt_suffix;

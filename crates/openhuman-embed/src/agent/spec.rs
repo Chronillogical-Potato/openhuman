@@ -49,7 +49,7 @@ pub struct AgentSpec {
     include_user_skills: bool,
     action_dir: Option<PathBuf>,
     trusted: Vec<(String, TrustedAccess)>,
-    shared_memory: bool,
+    dedicated_memory: bool,
     config_fn: Option<Box<dyn FnOnce(&mut Config) + Send>>,
 }
 
@@ -81,7 +81,7 @@ impl AgentSpec {
             include_user_skills: false,
             action_dir: None,
             trusted: Vec::new(),
-            shared_memory: false,
+            dedicated_memory: false,
             config_fn: None,
         }
     }
@@ -220,13 +220,19 @@ impl AgentSpec {
         self
     }
 
-    /// Share the workspace's global memory and transcript tree instead of a
-    /// dedicated `memory-<id>` / `session_raw-<id>` subtree.
+    /// Give this agent its own memory store and transcript tree
+    /// (`memory-<id>`, `session_raw-<id>`) instead of the workspace's shared
+    /// ones.
     ///
-    /// Off by default: two agents sharing a transcript root would resume each
-    /// other's histories.
-    pub fn shared_memory(mut self, shared: bool) -> Self {
-        self.shared_memory = shared;
+    /// Off by default. Transcripts are already kept apart without it — they
+    /// are keyed by agent name and every turn resumes only its own thread —
+    /// and a dedicated store is opened through the memory module, which a
+    /// library runtime only has when its host preloads modules
+    /// (`ServiceSet::memory_queue`). Without the module the open times out
+    /// on every turn. Turn this on only when memory itself must not be
+    /// shared between agents and the module is running.
+    pub fn dedicated_memory(mut self, dedicated: bool) -> Self {
+        self.dedicated_memory = dedicated;
         self
     }
 
@@ -262,7 +268,7 @@ impl AgentSpec {
             include_user_skills: self.include_user_skills,
             action_dir: self.action_dir,
             trusted: self.trusted,
-            shared_memory: self.shared_memory,
+            dedicated_memory: self.dedicated_memory,
             config_fn: self.config_fn,
         }
     }
@@ -288,7 +294,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) include_user_skills: bool,
     pub(crate) action_dir: Option<PathBuf>,
     pub(crate) trusted: Vec<(String, TrustedAccess)>,
-    pub(crate) shared_memory: bool,
+    pub(crate) dedicated_memory: bool,
     pub(crate) config_fn: Option<Box<dyn FnOnce(&mut Config) + Send>>,
 }
 
@@ -299,7 +305,7 @@ impl std::fmt::Debug for AgentSpec {
             .field("id", &self.id)
             .field("access", &self.access)
             .field("action_dir", &self.action_dir)
-            .field("shared_memory", &self.shared_memory)
+            .field("dedicated_memory", &self.dedicated_memory)
             .finish_non_exhaustive()
     }
 }
