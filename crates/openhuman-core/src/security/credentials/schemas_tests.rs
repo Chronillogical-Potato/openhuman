@@ -49,12 +49,8 @@ fn every_known_schema_key_returns_a_non_unknown_schema() {
     let keys = [
         "auth_set_credential",
         "auth_clear_credential",
-        "auth_store_session",
-        "auth_clear_session",
         "auth_get_state",
         "auth_get_session_token",
-        "auth_get_me",
-        "auth_consume_login_token",
         "auth_create_channel_link_token",
         "auth_store_provider_credentials",
         "auth_remove_provider_credentials",
@@ -89,23 +85,6 @@ fn oauth_connect_schema_requires_provider() {
     let s = schemas("auth_oauth_connect");
     let provider = s.inputs.iter().find(|f| f.name == "provider").unwrap();
     assert!(provider.required);
-}
-
-#[test]
-fn store_session_schema_requires_token_and_accepts_user_fields() {
-    let s = schemas("auth_store_session");
-    let required: Vec<&str> = s
-        .inputs
-        .iter()
-        .filter(|f| f.required)
-        .map(|f| f.name)
-        .collect();
-    assert!(required.contains(&"token"));
-    // Schema uses snake_case field names (`user_id`). The RPC layer
-    // tolerates `userId` via a serde alias, but the catalog surface
-    // advertises the canonical snake_case form.
-    assert!(s.inputs.iter().any(|f| f.name == "user_id"));
-    assert!(s.inputs.iter().any(|f| f.name == "user"));
 }
 
 #[test]
