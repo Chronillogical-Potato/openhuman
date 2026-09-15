@@ -60,7 +60,7 @@ async fn consume_login_token_returns_jwt_and_sends_attribution_headers() {
     let h = &calls[0];
     assert_eq!(h.get("x-sdk-name").unwrap(), "opencompany");
     assert_eq!(h.get("x-core-version").unwrap(), "1.2.3+abc");
-    assert_eq!(h.get("authorization").unwrap(), format!("Bearer {LIVE_JWT}"));
+    assert_eq!(h.get("authorization").unwrap().to_str().unwrap(), format!("Bearer {LIVE_JWT}"));
     assert!(h.get("x-api-key").is_none());
 }
 
