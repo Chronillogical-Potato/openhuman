@@ -6,9 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock store and connectivitySlice first.
 const dispatchMock = vi.fn();
-const connectivityState: { core: string; hosted?: string } = { core: 'reachable' };
+// Per-test state factory: tests that need a specific `connectivity` slice
+// (e.g. a degraded hosted link for the cadence checks) install their own
+// implementation; `beforeEach` restores the healthy default so nothing leaks.
+const healthyConnectivity = () => ({ connectivity: { core: 'reachable' } });
+const getStateMock = vi.fn(healthyConnectivity);
 vi.mock('../../store/index', () => ({
-  store: { dispatch: dispatchMock, getState: () => ({ connectivity: connectivityState }) },
+  store: { dispatch: dispatchMock, getState: () => getStateMock() },
 }));
 
 const setCoreMock = vi.fn((payload: unknown) => ({ type: 'connectivity/setCore', payload }));
@@ -33,8 +37,8 @@ describe('coreHealthMonitor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
-    connectivityState.core = 'reachable';
-    delete connectivityState.hosted;
+    getStateMock.mockReset();
+    getStateMock.mockImplementation(healthyConnectivity);
     dispatchMock.mockClear();
     setCoreMock.mockClear();
     setHostedMock.mockClear();
@@ -220,7 +224,9 @@ describe('coreHealthMonitor', () => {
     });
     // The mocked store never applies the dispatch, so mirror what the reducer
     // would have stored before the monitor picks its next interval.
-    connectivityState.hosted = 'reconnecting';
+    getStateMock.mockImplementation(() => ({
+      connectivity: { core: 'reachable', hosted: 'reconnecting' },
+    }));
 
     const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
     startCoreHealthMonitor();
@@ -240,7 +246,9 @@ describe('coreHealthMonitor', () => {
       result: { diag: { socket_state: 'disconnected' } },
       logs: ['connectivity diag returned'],
     });
-    connectivityState.hosted = 'unknown';
+    getStateMock.mockImplementation(() => ({
+      connectivity: { core: 'reachable', hosted: 'unknown' },
+    }));
 
     const { startCoreHealthMonitor, stopCoreHealthMonitor } = await import('../coreHealthMonitor');
     startCoreHealthMonitor();
