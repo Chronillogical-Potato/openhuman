@@ -42,6 +42,35 @@ use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
 
+/// Whether `endpoint` is safe to carry the TinyHumans API key as a bearer.
+///
+/// `https://` always qualifies; plain `http://` only for loopback, matching
+/// `openhuman_embed::turn::is_safe_endpoint_for_bearer`'s allowance for local
+/// testing against a dev server. Anything else — a plaintext non-loopback
+/// endpoint — would put the key on the wire in the clear (CWE-319), so
+/// [`OpenHumanBackendModel::resolve_bearer`] refuses before it gets there.
+/// Deliberately narrow to the managed-key bearer path: `normalize_api_base_url`
+/// itself must stay permissive, because a library host's BYOK/local `api_url`
+/// can legitimately be plain HTTP.
+fn is_safe_endpoint_for_managed_bearer(endpoint: &str) -> bool {
+    let Ok(url) = url::Url::parse(endpoint) else {
+        return false;
+    };
+    if url.scheme() == "https" {
+        return true;
+    }
+    if url.scheme() != "http" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    matches!(
+        host,
+        "127.0.0.1" | "localhost" | "::1" | "[::1]" | "[0:0:0:0:0:0:0:1]" | "0:0:0:0:0:0:0:1"
+    ) || host.starts_with("127.")
+}
+
 /// The managed OpenHuman backend as a crate [`ChatModel`]. Holds the backend
 /// connection settings (for JWT + base-URL resolution) and the default model id
 /// sent when a request doesn't override it.
