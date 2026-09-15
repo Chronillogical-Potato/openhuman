@@ -1,5 +1,87 @@
 use super::*;
 
+/// #6282 review: a resume leaves every row's own `extra_metadata` exactly as it
+/// was — a scalar, a caller object that happens to use the wrapper key, and a
+/// scalar under *two* host markers (a failed tool row that is also replayed,
+/// where removing the first marker must not drop the second) — while each row
+/// keeps the request it was first written under.
+#[test]
+fn resumed_rows_keep_their_own_extra_metadata() {
+    use crate::agent::harness::session::transcript::{
+        append_transcript_turn, attach_tool_failure_metadata, read_transcript,
+        read_transcript_display, DisplayRecord,
+    };
+    use crate::agent::messages::ChatMessage;
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let meta = fake_transcript_meta("thr_metadata");
+
+    let mut noted = ChatMessage::user("noted question");
+    noted.extra_metadata = Some(serde_json::json!("pinned"));
+    let mut collides = ChatMessage::user("caller uses the wrapper key");
+    collides.extra_metadata = Some(serde_json::json!({ "openhuman_wrapped_value": "pinned" }));
+    let mut failed_tool = ChatMessage::tool(r#"{"tool_call_id":"call-1","content":"boom"}"#);
+    failed_tool.extra_metadata = Some(serde_json::json!("tool-note"));
+    attach_tool_failure_metadata(&mut failed_tool, Some("boom"));
+
+    let first = dir.path().join("first.jsonl");
+    append_transcript_turn(
+        &first,
+        &[],
+        &[ChatMessage::system("sys"), noted, collides, failed_tool],
+        &meta,
+        None,
+        Some("req-1"),
+    )
+    .expect("turn 1");
+
+    // Resume into a fresh file: the reader re-attaches each row's provenance,
+    // the writer strips the markers again.
+    let resumed = read_transcript(&first).expect("read").messages;
+    let second = dir.path().join("second.jsonl");
+    append_transcript_turn(&second, &[], &resumed, &meta, None, Some("req-2")).expect("turn 2");
+
+    let rows: Vec<_> = read_transcript_display(&second)
+        .expect("display read")
+        .records
+        .into_iter()
+        .filter_map(|record| match record {
+            DisplayRecord::Message(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        rows.iter()
+            .map(|row| row.request_id.as_deref())
+            .collect::<Vec<_>>(),
+        vec![Some("req-1"); 4],
+        "every replayed row keeps the request that wrote it"
+    );
+    assert_eq!(
+        rows[0].message.extra_metadata, None,
+        "a row that had no metadata keeps none"
+    );
+    assert_eq!(
+        rows[1].message.extra_metadata,
+        Some(serde_json::json!("pinned")),
+        "a scalar survives the resume unwrapped"
+    );
+    assert_eq!(
+        rows[2].message.extra_metadata,
+        Some(serde_json::json!({ "openhuman_wrapped_value": "pinned" })),
+        "a caller object using the wrapper key stays an object"
+    );
+    assert_eq!(
+        rows[3].message.extra_metadata,
+        Some(serde_json::json!("tool-note")),
+        "a scalar under both the failure and replay markers survives intact"
+    );
+    assert!(
+        rows[3].failure && rows[3].failure_detail.as_deref() == Some("boom"),
+        "the replayed tool row keeps its failure flag and detail"
+    );
+}
+
 /// #6282 review: when a resumed transcript is later reduced, the writer's
 /// compaction record carries the full reduced set. Replayed rows inside it must
 /// keep the request they were first written under, the same as on a plain

@@ -86,8 +86,26 @@ fn take_metadata(extra: &mut Option<serde_json::Value>, key: &str) -> Option<ser
     if map.is_empty() {
         *extra = None;
     } else if wrapped {
-        if let Some(original) = map.remove(WRAPPED_VALUE_KEY) {
-            *extra = Some(original);
+        // Another marker may still sit beside the wrapped value (a replayed row
+        // that also failed carries both). Restoring now would drop it, so hand
+        // the wrap on and let whichever host marker is removed last restore.
+        match [TOOL_FAILURE_METADATA_KEY, REPLAYED_METADATA_KEY]
+            .into_iter()
+            .find(|remaining| map.contains_key(*remaining))
+        {
+            Some(carrier) => {
+                if let Some(serde_json::Value::Object(marker)) = map.get_mut(carrier) {
+                    marker.insert(WRAPPED_FLAG.to_string(), serde_json::Value::Bool(true));
+                }
+            }
+            // Only the wrapped value is left: restore it. Anything else still
+            // there (turn usage) is not ours to strip, so the wrap stays.
+            None if map.len() == 1 => {
+                if let Some(original) = map.remove(WRAPPED_VALUE_KEY) {
+                    *extra = Some(original);
+                }
+            }
+            None => {}
         }
     }
     Some(value)
