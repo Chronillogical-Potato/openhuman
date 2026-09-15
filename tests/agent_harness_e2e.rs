@@ -3184,6 +3184,446 @@ async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner()
     stack.shutdown();
 }
 
+// ─── Skills + MCP servers: installed from a registry, then used by the agent ─
+//
+// The registry suites (`skill_registry_e2e`, `mcp_registry_e2e`,
+// `raw_coverage/mcp_setup_clients_e2e`) stop at "installed" or "connected".
+// These go one step further: the item comes from a loopback registry through
+// the real install path, then a scripted turn reaches it through the same
+// delegation tools the orchestrator uses in production (`setup_skills`,
+// `run_skill`, `use_mcp_server`).
+//
+// The proof is the tool result the model receives, never the scripted reply:
+// every scripted completion below is canary-free, so a canary inside a tool
+// message can only have come from the installed skill or the running server.
+
+/// A call to a tool that lives in a tool pack, made the way production agents
+/// reach it: through `use_skill`. Packed tools are not on the orchestrator's belt,
+/// so calling one by its bare name only returns `unknown tool`. Ids the call
+/// `call_<tool>` so [`tool_result_text`] finds the result by the inner tool.
+fn packed_tool_call_completion(pack: &str, tool: &str, args: Value) -> Value {
+    json!({ "content": "", "toolCalls": [{
+        "id": format!("call_{tool}"),
+        "name": "use_skill",
+        "arguments": json!({ "skill": pack, "tool": tool, "args": args }).to_string(),
+    }]})
+}
+
+/// The tool message answering the scripted call to `tool_name`.
+///
+/// Calls are id'd `call_<name>` and the result carries that id back, so a
+/// delegate's summary of the same call can never match. Panics on an
+/// `unknown tool` result: that error echoes the call's arguments, so a canary
+/// passed as an argument would otherwise read as a pass.
+fn tool_result_text(requests: &[Value], tool_name: &str) -> Option<String> {
+    let call_id = format!("call_{tool_name}");
+    requests
+        .iter()
+        .filter_map(|request| request.pointer("/body/messages").and_then(Value::as_array))
+        .flatten()
+        .find(|message| {
+            message.get("role").and_then(Value::as_str) == Some("tool")
+                && message.get("tool_call_id").and_then(Value::as_str) == Some(call_id.as_str())
+        })
+        .and_then(|message| message.get("content"))
+        .map(|content| {
+            let text = content
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| content.to_string());
+            assert!(
+                !text.trim_start().starts_with("unknown tool"),
+                "`{tool_name}` was not a tool the calling agent could reach: {text}"
+            );
+            text
+        })
+}
+
+const REGISTRY_SKILL_ID: &str = "harness-registry-skill";
+const SKILL_BODY_CANARY: &str = "SKILL_BODY_CANARY_7f3a";
+
+/// A one-entry skill catalog plus the SKILL.md its download URL points at.
+async fn serve_skill_registry_fixture() -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    async fn catalog() -> Json<Value> {
+        Json(json!([{
+            "name": REGISTRY_SKILL_ID,
+            "description": "Fixture skill for the registry-to-agent harness test.",
+            "category": "testing",
+            "source": "fixture",
+            "tags": ["harness"],
+            "platforms": ["linux", "macos", "windows"],
+            "envVars": [],
+            "commands": []
+        }]))
+    }
+    async fn skill_md() -> String {
+        format!(
+            "---\nname: {REGISTRY_SKILL_ID}\ndescription: Fixture skill for the registry-to-agent harness test.\nmetadata:\n  id: {REGISTRY_SKILL_ID}\n---\n\n# Harness registry skill\n\n## Procedure\nReply with the marker {SKILL_BODY_CANARY}.\n"
+        )
+    }
+    let app = Router::new().route("/skills.json", get(catalog)).route(
+        &format!("/skills/{REGISTRY_SKILL_ID}/SKILL.md"),
+        get(skill_md),
+    );
+    serve_on_ephemeral(app).await
+}
+
+/// A skill found in the registry is installed by the agent (behind the approval
+/// gate), lands on disk, and is then loaded by the skill executor, with its body
+/// reaching the model.
+#[test]
+fn agent_installs_a_registry_skill_then_runs_it() {
+    run_on_agent_stack(
+        "agent_installs_a_registry_skill_then_runs_it",
+        agent_installs_a_registry_skill_then_runs_it_inner,
+    );
+}
+
+async fn agent_installs_a_registry_skill_then_runs_it_inner() {
+    let _lock = env_lock();
+    let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");
+    ensure_approval_gate().await;
+    let _approval_bridge = register_approval_bridge();
+
+    let (registry_addr, registry_join) = serve_skill_registry_fixture().await;
+    let registry = format!("http://{registry_addr}");
+    let cache_dir = tempdir().expect("catalog cache tempdir");
+    let _catalog = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
+        &format!("{registry}/skills.json"),
+    );
+    let _download = EnvVarGuard::set(
+        "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
+        &format!("{registry}/skills"),
+    );
+    let _local_http = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
+    let _cache = EnvVarGuard::set_to_path("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", cache_dir.path());
+
+    reset_script(vec![
+        // Orchestrator hands the install to `skill_setup` (packed in `skills`).
+        packed_tool_call_completion(
+            "skills",
+            "setup_skills",
+            json!({ "prompt": "Install the harness registry skill", "blocking": true }),
+        ),
+        // skill_setup finds the entry, then installs it (the gate parks here).
+        tool_call_completion(
+            "skill_registry_search",
+            json!({ "query": "harness-registry" }),
+        ),
+        tool_call_completion(
+            "skill_registry_install",
+            json!({ "entry_id": REGISTRY_SKILL_ID }),
+        ),
+        text_completion("Installed the skill."),
+        // Orchestrator hands the run to `skill_executor`, which loads the skill.
+        packed_tool_call_completion(
+            "skills",
+            "run_skill",
+            json!({ "prompt": format!("Run the {REGISTRY_SKILL_ID} skill"), "blocking": true }),
+        ),
+        tool_call_completion(
+            "describe_workflow",
+            json!({ "workflow_id": REGISTRY_SKILL_ID }),
+        ),
+        text_completion("Ran the skill."),
+        text_completion("The skill is installed and ran."),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-skill-registry",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        700,
+        "harness-skill-registry",
+        "thread-skill-registry",
+        "Install a skill from the registry and run it",
+    )
+    .await;
+
+    // Not `wait_for_event`: if the turn ends without asking, the failure has to
+    // show what the agent did instead, which only the captured requests hold.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+    let approval = loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let event = match tokio::time::timeout(remaining, events.recv()).await {
+            Ok(Some(event)) => event,
+            Ok(None) | Err(_) => panic!(
+                "no approval_request for skill_registry_install; requests: {}",
+                serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default()
+            ),
+        };
+        match event.get("event").and_then(Value::as_str) {
+            Some("approval_request") => break event,
+            Some("chat_done") | Some("chat_error") => panic!(
+                "turn ended before skill_registry_install asked for approval: {event}\nrequests: {}",
+                serde_json::to_string_pretty(&with_captured(|c| c.clone())).unwrap_or_default()
+            ),
+            _ => {}
+        }
+    };
+    assert!(
+        approval.to_string().contains("skill_registry_install"),
+        "installing a registry skill must ask for approval; event: {approval}"
+    );
+    let request_id = approval
+        .pointer("/data/request_id")
+        .or_else(|| approval.get("request_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("approval_request missing request_id: {approval}"))
+        .to_string();
+    let decide = post_json_rpc(
+        &stack.rpc_base,
+        701,
+        "openhuman.approval_decide",
+        json!({ "request_id": request_id, "decision": "approve_once" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&decide, "approval_decide for skill_registry_install");
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the install-and-run turn must finish: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let dump = || serde_json::to_string_pretty(&requests).unwrap_or_default();
+
+    // Found: the search the agent ran returned the registry entry.
+    let search = tool_result_text(&requests, "skill_registry_search").unwrap_or_else(|| {
+        panic!(
+            "no tool result for skill_registry_search; requests: {}",
+            dump()
+        )
+    });
+    assert!(
+        search.contains(REGISTRY_SKILL_ID),
+        "the agent's registry search did not return the fixture entry: {search}"
+    );
+
+    // Downloaded: the approved install wrote the registry's SKILL.md.
+    let installed = stack
+        ._tmp
+        .path()
+        .join(".openhuman/skills")
+        .join(REGISTRY_SKILL_ID)
+        .join("SKILL.md");
+    let body = std::fs::read_to_string(&installed).unwrap_or_else(|e| {
+        panic!(
+            "installed SKILL.md missing at {installed:?}: {e}; install result: {:?}",
+            tool_result_text(&requests, "skill_registry_install")
+        )
+    });
+    assert!(
+        body.contains(SKILL_BODY_CANARY),
+        "the installed SKILL.md is not the one the registry served: {body}"
+    );
+
+    // Usable: the executor loaded the installed skill and its body reached the model.
+    let described = tool_result_text(&requests, "describe_workflow")
+        .unwrap_or_else(|| panic!("no tool result for describe_workflow; requests: {}", dump()));
+    assert!(
+        described.contains(SKILL_BODY_CANARY),
+        "describe_workflow did not return the installed skill's body, so the agent cannot use it: {described}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
+#[cfg(feature = "mcp")]
+const REGISTRY_MCP_SERVER: &str = "io.github.harness/echo";
+#[cfg(feature = "mcp")]
+const MCP_ECHO_CANARY: &str = "MCP_ECHO_CANARY_91c2";
+
+/// An official-registry record whose npm package launches the hermetic stub.
+///
+/// `runtimeHint` replaces the `npx` launcher (`official/types.rs`
+/// `to_example_config`), and the stub ignores the `-y <identifier>` it is given.
+#[cfg(feature = "mcp")]
+fn registry_mcp_record() -> Value {
+    json!({
+        "name": REGISTRY_MCP_SERVER,
+        "title": "Harness Echo",
+        "description": "Echoes a message back.",
+        "remotes": [],
+        "packages": [{
+            "registryType": "npm",
+            "identifier": "@harness/echo",
+            "runtimeHint": env!("CARGO_BIN_EXE_test-mcp-stub"),
+            "environmentVariables": []
+        }]
+    })
+}
+
+/// The official registry's list and versions endpoints, serving one server.
+#[cfg(feature = "mcp")]
+async fn serve_mcp_registry_fixture() -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    async fn list() -> Json<Value> {
+        Json(json!({
+            "servers": [{ "server": registry_mcp_record() }],
+            "metadata": { "nextCursor": "" }
+        }))
+    }
+    async fn versions() -> Json<Value> {
+        Json(json!({ "servers": [{ "server": registry_mcp_record() }] }))
+    }
+    let app = Router::new()
+        .route("/v0/servers", get(list))
+        .route("/v0/servers/{name}/versions", get(versions));
+    serve_on_ephemeral(app).await
+}
+
+/// RPC handlers may wrap a result as `{ result, logs }`.
+#[cfg(feature = "mcp")]
+fn peel_logs_envelope(v: &Value) -> &Value {
+    match v.get("logs") {
+        Some(_) => v.get("result").unwrap_or(v),
+        None => v,
+    }
+}
+
+/// A server found in the MCP registry is installed and connected through the
+/// same RPCs the settings UI uses, then the agent calls its tool through
+/// `use_mcp_server` and the server's answer reaches the model.
+#[cfg(feature = "mcp")]
+#[test]
+fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry() {
+    run_on_agent_stack(
+        "agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry",
+        agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner,
+    );
+}
+
+#[cfg(feature = "mcp")]
+async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner() {
+    let _lock = env_lock();
+    let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
+    let _registry = EnvVarGuard::set(
+        "MCP_OFFICIAL_REGISTRY_BASE",
+        &format!("http://{registry_addr}"),
+    );
+    reset_script(Vec::new());
+    let stack = boot_stack().await;
+
+    // Found.
+    let search = post_json_rpc(
+        &stack.rpc_base,
+        800,
+        "openhuman.mcp_clients_registry_search",
+        json!({ "query": "echo", "page": 1, "page_size": 10 }),
+    )
+    .await;
+    let search = peel_logs_envelope(assert_no_jsonrpc_error(
+        &search,
+        "mcp_clients_registry_search",
+    ));
+    assert!(
+        search.to_string().contains(REGISTRY_MCP_SERVER),
+        "registry search must list the fixture server: {search}"
+    );
+
+    // Installed and connected.
+    let install = post_json_rpc(
+        &stack.rpc_base,
+        801,
+        "openhuman.mcp_clients_install",
+        json!({ "qualified_name": REGISTRY_MCP_SERVER, "env": {} }),
+    )
+    .await;
+    let install = peel_logs_envelope(assert_no_jsonrpc_error(&install, "mcp_clients_install"));
+    let server_id = install
+        .pointer("/server/server_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("install returned no server.server_id: {install}"))
+        .to_string();
+    let connect = post_json_rpc(
+        &stack.rpc_base,
+        802,
+        "openhuman.mcp_clients_connect",
+        json!({ "server_id": server_id }),
+    )
+    .await;
+    let connect = peel_logs_envelope(assert_no_jsonrpc_error(&connect, "mcp_clients_connect"));
+    assert_eq!(
+        connect.get("status").and_then(Value::as_str),
+        Some("connected"),
+        "the installed server must connect: {connect}"
+    );
+    assert!(
+        connect.to_string().contains("\"echo\""),
+        "the connected server must list its echo tool: {connect}"
+    );
+
+    // Used: orchestrator → use_skill(integrations/use_mcp_server) → mcp_agent,
+    // which owns the pack and calls mcp_registry_tool_call directly.
+    reset_script(vec![
+        packed_tool_call_completion(
+            "integrations",
+            "use_mcp_server",
+            json!({ "prompt": "Call the echo tool on the harness echo server", "blocking": true }),
+        ),
+        tool_call_completion(
+            "mcp_registry_tool_call",
+            json!({
+                "server_id": server_id,
+                "tool_name": "echo",
+                "arguments": { "message": MCP_ECHO_CANARY }
+            }),
+        ),
+        text_completion("Called the tool."),
+        text_completion("The MCP tool answered."),
+    ]);
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-mcp-registry",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        803,
+        "harness-mcp-registry",
+        "thread-mcp-registry",
+        "Use the echo MCP server",
+    )
+    .await;
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the MCP turn must finish: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let result = tool_result_text(&requests, "mcp_registry_tool_call").unwrap_or_else(|| {
+        panic!(
+            "no tool result for mcp_registry_tool_call; requests: {}",
+            serde_json::to_string_pretty(&requests).unwrap_or_default()
+        )
+    });
+    assert!(
+        !result.contains("\"is_error\":true"),
+        "the agent's MCP tool call failed: {result}"
+    );
+    assert!(
+        result.contains(MCP_ECHO_CANARY),
+        "the MCP server's answer did not reach the model: {result}"
+    );
+
+    registry_join.abort();
+    stack.shutdown();
+}
+
 // ── #5821: the tool-policy boundary is APPENDED, not prepended ──────────────
 //
 // Lives here rather than in `tests/raw_coverage/`: `raw_coverage_all` declares
