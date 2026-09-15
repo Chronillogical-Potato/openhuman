@@ -632,6 +632,8 @@ fn read_skill_resource_rejects_empty_inputs() {
 
 // ── `discovery_home_dir`: the per-agent "no user roots" switch ───────────
 
+use crate::skills::ops_discover::discovery_home_dir;
+
 #[tokio::test]
 async fn discovery_home_dir_is_hidden_by_a_context_without_user_skill_roots() {
     use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
