@@ -66,9 +66,15 @@ impl Agent {
         let (accepted, unanswered) = split_snapshot(snapshot);
         log::warn!(
             "[agent_loop] turn failed; recording {} accepted round message(s), {} unanswered \
-             message(s) as text, and the failure cause into history — #6281",
+             message(s) as text, and the failure cause into history session_id={} \
+             request_id={} model={} — #6281",
             accepted.len(),
-            unanswered.len()
+            unanswered.len(),
+            self.event_session_id,
+            crate::agent::turn_origin::current_request_id()
+                .as_deref()
+                .unwrap_or("-"),
+            effective_model
         );
         // Only rounds the provider already answered are replayed as structured
         // messages. The newest round was carried only by the failing request, and
