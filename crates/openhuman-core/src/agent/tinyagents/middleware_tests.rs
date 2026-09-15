@@ -417,6 +417,8 @@ fn embedder_hook_mw(
 
 #[path = "middleware_loop_guard_tests.rs"]
 mod loop_guard_tests;
+#[path = "middleware_repeat_progress_tests.rs"]
+mod repeat_progress_tests;
 #[path = "middleware_tool_output_tests.rs"]
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]
