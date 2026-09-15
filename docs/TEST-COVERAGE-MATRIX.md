@@ -223,6 +223,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 4.4.10 | Provider Error Retry                    | RI    | `tests/agent_harness_e2e.rs`                                                                                                 | ✅     | First upstream 500 retried by ReliableProvider; second succeeds                                                 |
 | 4.4.11 | Inference Phase Transitions             | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Redux `inferenceStatusByThread` observes `subagent` phase then clears to idle                                   |
 | 4.4.12 | Tool Timeline Completeness              | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Timeline entries carry id/name/status/round; subagent row reaches `success`; rounds non-decreasing              |
+| 4.4.13 | Grounded Close (no final text / breaker halt) | RU | `crates/openhuman-core/src/agent/harness/session/turn_final_reply_grounding_tests.rs`, `crates/openhuman-core/src/agent/harness/session/turn_checkpoint_tests.rs` | ✅ | Tool-records wrap-up, check rejects intent narration / contradicted claims, fallback quotes failure messages; breaker stop note never shown verbatim (#6278, #6279) |
 
 ---
 
