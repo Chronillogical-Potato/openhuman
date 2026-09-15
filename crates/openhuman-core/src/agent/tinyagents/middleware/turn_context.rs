@@ -70,8 +70,9 @@ pub(crate) struct TurnContextMiddleware {
 /// What a [`TranscriptSnapshotMiddleware`] has seen of a live run.
 #[derive(Default)]
 pub(crate) struct TranscriptSnapshot {
-    /// The transcript of the most recent model request: the run's input plus
-    /// every assistant/tool round completed before that call.
+    /// The transcript of the most recent model request (the run's input plus
+    /// every round completed before that call), followed by the response and
+    /// tool results produced since, so an error in a later stage still has them.
     pub(crate) messages: Vec<Message>,
     /// Length of the most recent request the provider **answered**. The loop
     /// only appends to its working transcript, so `messages[..accepted_len]` is
@@ -161,6 +162,23 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         "openhuman.transcript_snapshot"
     }
 
+    async fn after_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        result: &mut TaToolResult,
+    ) -> TaResult<()> {
+        // A tool result reaches a provider only with the next request, so it
+        // also sits past `accepted_len` until that request is answered.
+        if let Ok(mut guard) = self.sink.lock() {
+            guard.messages.push(Message::tool(
+                result.call_id.clone(),
+                result.content.clone(),
+            ));
+        }
+        Ok(())
+    }
+
     async fn before_model(
         &self,
         _ctx: &mut RunContext<()>,
@@ -181,6 +199,12 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
     ) -> TaResult<()> {
         if let Ok(mut guard) = self.sink.lock() {
             guard.accepted_len = guard.messages.len();
+            // The response has not been sent back to a provider yet, so it sits
+            // past `accepted_len`; an error before the next request still keeps
+            // it, as text.
+            guard
+                .messages
+                .push(Message::Assistant(response.message.clone()));
             // A cache replay consumed no provider tokens.
             if let Some(usage) = response
                 .usage

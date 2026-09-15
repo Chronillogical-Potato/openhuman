@@ -7,6 +7,34 @@ use crate::agent::messages::ChatMessage;
 use super::dispatch::AggregatedUsage;
 use super::worker_mirror::mirror_worker_thread_from_history;
 
+/// The history a failed sub-agent run persists, plus the unanswered steps as
+/// text (#6281).
+///
+/// Starts from the caller's original `history`, not the snapshot's seeded
+/// prefix: that prefix is the provider-bound `dispatch_history`, which carries
+/// rehydrated image data where the durable history keeps its placeholders. Only
+/// the rounds a provider accepted follow it as structured messages. An empty
+/// snapshot (the run failed before its first model call) recovers nothing, as
+/// before.
+pub(super) fn failed_run_history(
+    original: &[ChatMessage],
+    snapshot: &crate::agent::tinyagents::TranscriptSnapshot,
+) -> (Vec<ChatMessage>, Option<String>) {
+    if snapshot.messages.is_empty() {
+        return (Vec::new(), None);
+    }
+    let base = snapshot.request_base_len.min(snapshot.messages.len());
+    let end = snapshot.accepted_end();
+    let mut recovered = original.to_vec();
+    recovered.extend(crate::agent::message_convert::messages_to_history(
+        &snapshot.messages[base..end],
+    ));
+    (
+        recovered,
+        crate::agent::tinyagents::render_unanswered_steps(&snapshot.messages[end..]),
+    )
+}
+
 /// Persist a sub-agent turn's raw transcript to `session_raw`, mirroring the
 /// removed `SubagentObserver::persist_transcript`: `agent_type:"subagent"`, the
 /// `task_id`, and the provider/model + usage carried on the last assistant

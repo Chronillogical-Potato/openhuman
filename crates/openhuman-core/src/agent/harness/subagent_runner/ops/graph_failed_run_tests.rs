@@ -102,3 +102,60 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
         "the marker carries the cause and the unanswered round as text, got: {marker}"
     );
 }
+
+/// #6281 review: a failed run recovers the caller's original history, not the
+/// provider-bound seed the snapshot started from (which carries rehydrated image
+/// data for a vision run).
+#[test]
+fn failed_run_history_keeps_the_original_seed_not_the_provider_bound_one() {
+    use crate::agent::tinyagents::TranscriptSnapshot;
+    use tinyinference::message::Message;
+
+    let original = vec![ChatMessage::user("describe [IMAGE:attachment-1]")];
+    let snapshot = TranscriptSnapshot {
+        messages: vec![
+            // The provider-bound seed: the placeholder expanded to image data.
+            Message::user("describe data:image/png;base64,AAAA"),
+            // Round 0, answered by the next request.
+            Message::Assistant(
+                tool_response("call-0", "echo", serde_json::json!({ "msg": "round-0" })).message,
+            ),
+            Message::tool("call-0", "echoed:round-0"),
+            // Round 1, carried only by the failing request.
+            Message::Assistant(
+                tool_response("call-1", "echo", serde_json::json!({ "msg": "round-1" })).message,
+            ),
+            Message::tool("call-1", "echoed:round-1"),
+        ],
+        accepted_len: 3,
+        request_base_len: 1,
+        ..TranscriptSnapshot::default()
+    };
+
+    let (recovered, unanswered) =
+        super::super::transcript::failed_run_history(&original, &snapshot);
+
+    assert_eq!(
+        recovered.first().map(|message| message.content.as_str()),
+        Some("describe [IMAGE:attachment-1]"),
+        "the durable placeholder must be kept: {recovered:?}"
+    );
+    assert!(
+        !recovered
+            .iter()
+            .any(|message| message.content.contains("base64")),
+        "provider-bound image data must not be persisted: {recovered:?}"
+    );
+    assert_eq!(
+        recovered
+            .iter()
+            .filter(|message| message.role == "tool")
+            .count(),
+        1,
+        "only the accepted round follows the seed: {recovered:?}"
+    );
+    assert!(
+        unanswered.is_some_and(|steps| steps.contains("round-1")),
+        "the unanswered round is kept as text"
+    );
+}

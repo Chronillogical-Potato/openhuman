@@ -164,3 +164,56 @@ async fn turn_failing_on_first_call_records_the_cause() {
     assert!(tail[0].1.contains("provider boom"), "got: {}", tail[0].1);
     assert!(agent.session_transcript_path.is_some());
 }
+
+/// #6281 review: an error in the tool stage, after a model response and before
+/// the next model request, still records that response's tool calls.
+#[tokio::test]
+async fn tool_stage_failure_keeps_the_latest_response() {
+    // One response asking for more tool calls than the turn's tool-call cap
+    // (eight per allowed model call): admission of the call past the cap fails
+    // the run in the tool stage, before any further model request.
+    let calls: String = (0..9)
+        .map(|n| {
+            format!("<tool_call>{{\"name\":\"echo\",\"arguments\":{{\"n\":{n}}}}}</tool_call>")
+        })
+        .collect();
+    let provider: Arc<dyn ChatModel<()>> = Arc::new(SequenceProvider {
+        responses: AsyncMutex::new(vec![Ok(ChatResponse {
+            text: Some(calls),
+            tool_calls: vec![],
+            usage: None,
+            reasoning_content: None,
+        })]),
+        requests: AsyncMutex::new(Vec::new()),
+        tool_counts: AsyncMutex::new(Vec::new()),
+    });
+    let mut agent = make_agent_with_builder(
+        provider,
+        vec![Box::new(EchoTool)],
+        vec![],
+        crate::config::AgentConfig {
+            max_tool_iterations: 1,
+            ..crate::config::AgentConfig::default()
+        },
+        crate::config::ContextConfig::default(),
+    );
+
+    let err = agent
+        .turn("run the task")
+        .await
+        .expect_err("the call past the tool-call cap fails the turn");
+
+    let note = match agent.history.last() {
+        Some(ConversationMessage::Chat(chat)) if chat.role == "assistant" => chat.content.clone(),
+        other => panic!("a failed turn must end history on its failure note, got: {other:?}"),
+    };
+    assert!(
+        note.contains("called `echo`"),
+        "the response the tool stage failed on must be kept as text ({err}), got: {note}"
+    );
+    assert_eq!(
+        tool_call_rounds(&agent),
+        0,
+        "a response no provider has seen again is never replayed as structured tool calls"
+    );
+}

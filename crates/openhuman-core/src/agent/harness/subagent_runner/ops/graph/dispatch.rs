@@ -334,15 +334,18 @@ pub(in super::super) async fn run_subagent_via_graph(
             // error. Previously the `?`-return skipped both persistence steps, so
             // a failed run left no transcript and an empty worker thread.
             let mapped = map_tinyagents_subagent_error(err);
-            // Persist only what a provider accepted as structured history: a
-            // request rejected for malformed tool history must not be replayed by
-            // a resumed sub-agent. The unanswered suffix rides the failure marker
-            // as text (#6281).
+            // Persist the caller's original history plus only what a provider
+            // accepted as structured messages: a request rejected for malformed
+            // tool history must not be replayed by a resumed sub-agent, and the
+            // snapshot's own seed is the provider-bound copy with rehydrated
+            // images. The unanswered suffix rides the failure marker as text
+            // (#6281).
             let (recovered, unanswered_steps, recovered_usage) = {
                 let snapshot = transcript_snapshot
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let end = snapshot.accepted_end();
+                let (recovered, unanswered) =
+                    super::transcript::failed_run_history(history.as_slice(), &snapshot);
                 let usage = AggregatedUsage {
                     input_tokens: snapshot.input_tokens,
                     output_tokens: snapshot.output_tokens,
@@ -354,11 +357,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                         snapshot.cached_input_tokens,
                     ),
                 };
-                (
-                    crate::agent::message_convert::messages_to_history(&snapshot.messages[..end]),
-                    crate::agent::tinyagents::render_unanswered_steps(&snapshot.messages[end..]),
-                    usage,
-                )
+                (recovered, unanswered, usage)
             };
             tracing::warn!(
                 agent_id,
