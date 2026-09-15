@@ -89,6 +89,23 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 "action_dir must not sit inside the workspace, or every agent write \
              is blocked by is_workspace_internal_path"
             );
+            // Regression: the harness agent's action directory must be the
+            // resolved workspace's own action dir — `<root>/action`, a
+            // sibling of `<root>/workspace` — not `agent::build`'s per-agent
+            // default of `<root>/agents/harness/action`. The latter is right
+            // for a multi-agent `Runtime::agent` caller narrowing its own
+            // subdirectory, but a `Harness` (one runtime, one agent) must
+            // keep writing to the directory `ResolvedWorkspace::resolve`
+            // already created, or a caller reading `Workspace::Dir`'s sibling
+            // `action/` directly would see nothing the agent ever wrote to.
+            let root_dir = workspace_dir
+                .parent()
+                .expect("workspace_dir has a root parent");
+            assert_eq!(
+                harness.action_dir(),
+                root_dir.join("action"),
+                "harness action_dir must be the resolved workspace's own action dir"
+            );
 
             // No listener was bound: `ServiceSet` selects nothing that binds, and
             // `serve()` was never called.
