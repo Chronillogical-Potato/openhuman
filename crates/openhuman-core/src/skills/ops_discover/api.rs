@@ -33,6 +33,24 @@ pub fn init_workflows_dir(workspace_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The home directory skill discovery scans for user-scope roots
+/// (`~/.openhuman/skills/`, `~/.agents/skills/`, `~/.openhuman/workflows/`).
+///
+/// `dirs::home_dir()` for every ordinary caller. `None` when the ambient
+/// [`CoreContext`](crate::core::runtime::CoreContext) was derived with
+/// `user_skill_roots = false` — an embedded agent whose host installed its
+/// skills explicitly and must not see the operator's own — so the caller's
+/// discovery pipeline scans no user scope at all, exactly as passing `None`
+/// for `home_dir` always has.
+pub fn discovery_home_dir() -> Option<PathBuf> {
+    if crate::core::runtime::CoreContext::current_user_skill_roots() {
+        dirs::home_dir()
+    } else {
+        log::debug!("[skills][discover] user-scope roots hidden by the ambient context");
+        None
+    }
+}
+
 /// Backwards-compatible shim for callers that only have a workspace path.
 ///
 /// Delegates to [`discover_workflows`] with the current user's home directory
@@ -46,7 +64,7 @@ pub fn init_workflows_dir(workspace_dir: &Path) -> Result<(), String> {
 /// on name collisions.
 pub fn load_workflow_metadata(workspace_dir: &Path) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
-    let home = dirs::home_dir();
+    let home = discovery_home_dir();
     discover_workflows_inner(home.as_deref(), Some(workspace_dir), None, trusted)
 }
 
@@ -64,7 +82,7 @@ pub fn load_workflow_metadata_for_profile(
     profile_skills_root: Option<&Path>,
 ) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
-    let home = dirs::home_dir();
+    let home = discovery_home_dir();
     discover_workflows_inner(
         home.as_deref(),
         Some(workspace_dir),

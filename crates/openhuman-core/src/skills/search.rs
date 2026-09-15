@@ -158,7 +158,7 @@ impl SkillSearchTool {
     fn visible(&self) -> Vec<Workflow> {
         let trusted = is_workspace_trusted(&self.workspace_dir);
         let mut workflows = discover_workflows_with_profile(
-            dirs::home_dir().as_deref(),
+            crate::skills::ops_discover::discovery_home_dir().as_deref(),
             Some(&self.workspace_dir),
             self.profile_skills_root.as_deref(),
             trusted,
