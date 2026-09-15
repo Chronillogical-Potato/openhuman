@@ -118,6 +118,20 @@ impl OpenHumanBackendModel {
             &self.state_dir(),
             self.options.secrets_encrypt,
         )? {
+            // Refuse to send the key over a plaintext channel it could leak
+            // from. Scoped to this managed-key path only — `base_url()`
+            // comes from `effective_api_url`, which a library host can point
+            // at anything (a BYOK/local endpoint legitimately runs over
+            // plain HTTP on loopback), so this cannot tighten
+            // `normalize_api_base_url` itself without breaking those.
+            let endpoint = self.base_url();
+            if !is_safe_endpoint_for_managed_bearer(&endpoint) {
+                anyhow::bail!(
+                    "refusing to send the TinyHumans API key as a bearer over a non-HTTPS, \
+                     non-loopback endpoint: {endpoint} — set a https:// api_url or a loopback \
+                     one for local testing"
+                );
+            }
             log::debug!(
                 "[providers][openhuman-backend] authenticating managed inference with api-key"
             );
