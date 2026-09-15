@@ -43,3 +43,11 @@ pub struct CatalogEntry {
     /// Software license.
     pub license: Option<String>,
 }
+
+impl CatalogEntry {
+    /// Whether this entry has a `SKILL.md` that can be fetched directly. An
+    /// entry without one can never be installed automatically.
+    pub fn has_direct_download(&self) -> bool {
+        !self.download_url.trim().is_empty()
+    }
+}

@@ -33,6 +33,8 @@
 //! `crate::agent`, which re-exports them from this module.
 //! The child files are an implementation detail.
 
+pub(crate) use builder::provider_role_for_definition;
+
 mod builder;
 mod migration;
 mod runtime;

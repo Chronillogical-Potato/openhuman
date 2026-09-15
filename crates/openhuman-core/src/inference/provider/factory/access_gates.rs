@@ -121,13 +121,31 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
     );
 }
 
+/// Caller-owned runtimes authenticate independently of the OpenHuman account.
+/// Claude subprocesses still use external inference and remain subject to the
+/// privacy gate; this exemption only concerns OpenHuman registration.
+pub(crate) fn provider_uses_independent_auth(provider: &str) -> bool {
+    let p = provider.trim();
+    crate::inference::local::profile::is_local_provider_string(p)
+        || p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+        || p == CLAUDE_AGENT_SDK_PROVIDER
+        || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
+}
+
+pub(crate) fn verify_provider_session(config: &Config, provider: &str) -> anyhow::Result<()> {
+    if provider_uses_independent_auth(provider) {
+        log::debug!("[chat-factory] caller-owned runtime uses independent authentication");
+        return Ok(());
+    }
+    verify_session_active(config)
+}
+
 /// Verify the user has an active OpenHuman backend session.
 ///
 /// Without this check, an unregistered user can configure every workload
 /// to use a custom cloud provider and bypass the session requirement
-/// entirely.  This function ensures that custom providers (Ollama,
-/// `<slug>:<model>`) are only reachable when the workspace holds a valid
-/// `app-session` JWT.
+/// entirely. Custom cloud routes require an `app-session` JWT; caller-owned
+/// local runtimes and Claude subprocesses use `verify_provider_session` instead.
 ///
 /// `pub(crate)`: also reused directly by the flows provider-connectivity
 /// author gate (issue B45, `openhuman::flows::ops::evaluate_inference_readiness`)

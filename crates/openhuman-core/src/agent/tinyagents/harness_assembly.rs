@@ -267,34 +267,47 @@ pub(super) fn assemble_turn_harness(
     };
     let handle = Some(orchestration::openhuman_steering_handle(steering_run_class));
 
+    // Shared by the two breakers below: whichever halts writes the root cause here.
+    let halt_summary: HaltSummarySlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+
+    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
+    // breaker below resets on every success, so a model looping on a *successful*
+    // no-op tool or re-emitting an identical narration+call never trips it. This
+    // guard halts on identical successful `(tool, args)` batches / identical
+    // outputs, and on one call returning the identical result again with other
+    // calls in between (#6275), sharing the same halt-summary slot + steering
+    // handle. Polling tools (`wait_subagent`) stay exempt.
+    //
+    // Pushed first / outermost: `after_tool` runs in reverse registration order,
+    // so this guard fingerprints a result only after every other middleware
+    // (byte cap, summarizer, memory-protocol note) has finished rewriting it,
+    // i.e. exactly what the model sees. Registered any later, a result whose
+    // visible note changed between calls would count as identical.
+    let repeat_progress = handle.as_ref().map(|handle| {
+        Arc::new(middleware::RepeatProgressMiddleware::new(
+            handle.clone(),
+            halt_summary.clone(),
+        ))
+    });
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(mw.clone());
+    }
+
     // Memory protocol (issue #4116): observe the read → dedupe → write →
     // update-index cycle and append a corrective note when a write skips the
-    // dedupe read or leaves the index stale. Pushed first / outermost so its
-    // `after_tool` runs *after* the byte-cap truncation, keeping the note.
+    // dedupe read or leaves the index stale. Pushed ahead of every other
+    // result-rewriting middleware so its `after_tool` runs *after* the byte-cap
+    // truncation, keeping the note.
     harness.push_middleware(Arc::new(middleware::MemoryProtocolMiddleware::new()));
 
     // Repeated-failure circuit breaker: pause the run when a tool returns the same
     // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic
     // security/approval denial or terminal tool error surfaces its root cause
     // instead of burning the whole iteration budget (legacy ProgressGuard parity).
-    let halt_summary: HaltSummarySlot = std::sync::Arc::new(std::sync::Mutex::new(None));
     if let Some(handle) = &handle {
         harness.push_middleware(Arc::new(middleware::RepeatedToolFailureMiddleware::new(
             handle.clone(),
             REPEATED_TOOL_FAILURE_THRESHOLD,
-            halt_summary.clone(),
-        )));
-    }
-
-    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
-    // breaker above resets on every success, so a model looping on a *successful*
-    // no-op tool or re-emitting an identical narration+call never trips it. This
-    // guard halts on identical successful `(tool, args)` batches / identical
-    // outputs, sharing the same halt-summary slot + steering handle. Polling tools
-    // (`wait_subagent`) stay exempt.
-    if let Some(handle) = &handle {
-        harness.push_middleware(Arc::new(middleware::RepeatProgressMiddleware::new(
-            handle.clone(),
             halt_summary.clone(),
         )));
     }
@@ -642,6 +655,11 @@ pub(super) fn assemble_turn_harness(
     // path bypassed it, so a deny/require-approval silently no-opped (security
     // regression). Installed only when the caller threads an enforcement context
     // (the session chat path); channel/CLI + sub-agent paths pass `None`.
+    // The packed-tool router below gates on the same session, and `None`
+    // disables it, so take a copy before the enforcement is moved.
+    let route_session = tool_policy
+        .as_ref()
+        .map(|enforcement| enforcement.session.clone());
     if let Some(enforcement) = tool_policy {
         harness.push_tool_middleware(Arc::new(middleware::ToolPolicyMiddleware::new(
             enforcement.policy,
@@ -675,6 +693,18 @@ pub(super) fn assemble_turn_harness(
         tool_sets.clone(),
     )));
 
+    // Bare packed-tool routing (`before_tool`, #6276): a call that names a
+    // withheld packed tool directly becomes the `use_skill` call that reaches
+    // it, ahead of admission, so every gate above still applies. Only when the
+    // session lets that tool run, and never without a session. After
+    // `ArgRecoveryMiddleware` so it wraps recovered arguments; before the
+    // embedder hooks so they observe the call that actually runs.
+    let registered_tools = harness.tools().names();
+    harness.push_middleware(Arc::new(middleware::PackedToolRouteMiddleware::new(
+        registered_tools,
+        route_session,
+    )));
+
     // Embedder tool lifecycle hooks. Registered AFTER `ArgRecoveryMiddleware`:
     // `before_tool` runs in registration order, so a hook installed earlier would
     // observe the provider's raw (possibly JSON-encoded-string / non-object)
@@ -689,6 +719,14 @@ pub(super) fn assemble_turn_harness(
         harness.push_middleware(Arc::new(middleware::EmbedderToolHooksMiddleware::new(
             embedder_tool_hooks,
         )));
+    }
+
+    // Registered last so its `before_model` sees the request after every
+    // reduction step above (compression, microcompact, trim) has run. A tool
+    // result they evicted is no longer a repeat the model can see, so the
+    // repeat-progress recurrence ledger restarts (#6275).
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(Arc::new(mw.eviction_observer()));
     }
 
     AssembledTurnHarness {

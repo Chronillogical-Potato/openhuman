@@ -358,6 +358,10 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
     let mut logs = Vec::new();
     crate::cron::scheduler_gate::set_signed_out(true);
     identity::clear_current_user();
+    // Local/CLI model authentication can outlive an OpenHuman account. The old
+    // account's listeners and workspace-bound channel state cannot.
+    #[cfg(feature = "channels")]
+    crate::channels::session::invalidate_channel_session();
 
     let removed = AuthService::from_config(config)
         .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)

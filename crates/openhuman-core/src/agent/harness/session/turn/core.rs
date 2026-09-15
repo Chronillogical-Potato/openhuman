@@ -245,6 +245,7 @@ include!("core_turn.rs");
 // calls, split by responsibility into real submodules. Their `impl Agent`
 // blocks complement `turn()` above.
 mod experience_context;
+mod failed_turn;
 mod grounded_close;
 mod harness_turn;
 mod resumed_prefix;

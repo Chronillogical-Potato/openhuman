@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
+use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
 use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
@@ -241,7 +242,7 @@ impl Tool for SkillRegistryInstallTool {
 
         let entry = catalog.iter().find(|e| e.id == entry_id).ok_or_else(|| {
             anyhow::anyhow!(
-                "skill '{entry_id}' not found in catalog. \
+                "{NOT_FOUND_MARKER} skill '{entry_id}' not found in catalog. \
                      Run skill_registry_browse first to refresh."
             )
         })?;
@@ -253,9 +254,18 @@ impl Tool for SkillRegistryInstallTool {
                 "stderr": outcome.stderr,
                 "new_skills": outcome.new_skills,
             }))?)),
-            Err(e) => Ok(ToolResult::error(format!(
-                "Failed to install skill '{entry_id}': {e}"
-            ))),
+            Err(e) => {
+                // Tagged from the entry, not sniffed from `e`: an entry with no
+                // direct download can never install, whatever the message says.
+                let tag = if entry.has_direct_download() {
+                    String::new()
+                } else {
+                    format!("{UNSUPPORTED_MARKER} ")
+                };
+                Ok(ToolResult::error(format!(
+                    "{tag}Failed to install skill '{entry_id}': {e}"
+                )))
+            }
         }
     }
 }

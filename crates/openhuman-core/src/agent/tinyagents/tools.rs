@@ -294,7 +294,7 @@ pub(crate) async fn execute_openhuman_tool(
             TaToolResult {
                 call_id: call.id,
                 name: call.name.clone(),
-                content: format!("Error executing {}: {e}", call.name),
+                content: crate::tools::status::tool_execution_error(&call.name, &e),
                 raw: None,
                 error: Some(e.to_string()),
                 elapsed_ms,
