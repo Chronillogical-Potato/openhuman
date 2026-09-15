@@ -629,3 +629,70 @@ fn read_skill_resource_rejects_empty_inputs() {
         "unexpected: {err}"
     );
 }
+
+// ── `discovery_home_dir`: the per-agent "no user roots" switch ───────────
+
+#[tokio::test]
+async fn discovery_home_dir_is_hidden_by_a_context_without_user_skill_roots() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    // Outside any scope the ambient default applies: the operator's home.
+    // (Whether a DEFAULT_CONTEXT was built by an earlier test in this process
+    // does not matter — every booted or test context keeps user roots on.)
+    assert_eq!(discovery_home_dir(), dirs::home_dir());
+
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = std::path::PathBuf::from("/tmp/discovery-home-dir-test");
+    let parent = CoreContext::for_test(DomainSet::full(), None, None);
+    let hidden = parent.derive_with(
+        ContextOverlay::new(config.clone(), DomainSet::full(), Default::default())
+            .without_user_skill_roots(),
+    );
+    let visible =
+        parent.derive_with(ContextOverlay::new(config, DomainSet::full(), Default::default()));
+
+    let under_hidden = CoreContext::scope(hidden, async { discovery_home_dir() }).await;
+    assert_eq!(under_hidden, None, "user-scope roots must be hidden");
+
+    let under_visible = CoreContext::scope(visible, async { discovery_home_dir() }).await;
+    assert_eq!(under_visible, dirs::home_dir());
+}
+
+#[tokio::test]
+async fn load_workflow_metadata_skips_user_roots_under_a_hidden_context() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    // A user-scope skill under a fake home would normally be surfaced by
+    // `load_workflow_metadata`; a derived context without user roots must not
+    // see it, while workspace-scope skills are unaffected.
+    let ws_dir = tempfile::tempdir().unwrap();
+    let ws_skill = ws_dir.path().join("skills").join("ws-only");
+    write(
+        &ws_skill.join("SKILL.md"),
+        "---\nname: ws-only\ndescription: workspace skill\n---\n",
+    );
+
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = ws_dir.path().to_path_buf();
+    let hidden = CoreContext::for_test(DomainSet::full(), None, None).derive_with(
+        ContextOverlay::new(config, DomainSet::full(), Default::default())
+            .without_user_skill_roots(),
+    );
+
+    let ws = ws_dir.path().to_path_buf();
+    let names: Vec<String> = CoreContext::scope(hidden, async move {
+        load_workflow_metadata(&ws)
+            .into_iter()
+            .map(|w| w.name)
+            .collect()
+    })
+    .await;
+    assert!(
+        names.iter().any(|n| n == "ws-only"),
+        "workspace skills survive: {names:?}"
+    );
+    assert!(
+        names.iter().all(|n| n == "ws-only"),
+        "no user-scope skill may leak into a hidden-root context: {names:?}"
+    );
+}
