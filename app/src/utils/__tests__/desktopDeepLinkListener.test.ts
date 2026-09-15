@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { confirmWaitlistDownload } from '../../services/api/waitlistApi';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
+import { loginWithToken, storeSessionToken } from '../../services/session/sessionOwner';
 import {
   completeDeepLinkAuthProcessing,
   getDeepLinkAuthState,
@@ -20,7 +21,6 @@ import {
 import { BILLING_DASHBOARD_URL } from '../links';
 import { openUrl } from '../openUrl';
 import { getSessionToken } from '../tauriCommands';
-import { loginWithToken, storeSessionToken } from '../../services/session/sessionOwner';
 
 vi.mock('../configPersistence', () => ({ getStoredCoreMode: vi.fn() }));
 vi.mock('../../services/coreRpcClient', () => ({
@@ -269,7 +269,9 @@ describe('desktopDeepLinkListener', () => {
   });
 
   it('hands the token to the session owner exactly once — retries live in the owner', async () => {
-    vi.mocked(storeSessionToken).mockReset().mockRejectedValueOnce(new Error('TRANSIENT: timed out'));
+    vi.mocked(storeSessionToken)
+      .mockReset()
+      .mockRejectedValueOnce(new Error('TRANSIENT: timed out'));
 
     const state = registerAuthDeepLinkState();
     const url = `openhuman://auth?token=no-retry-token&key=auth&state=${state}`;
