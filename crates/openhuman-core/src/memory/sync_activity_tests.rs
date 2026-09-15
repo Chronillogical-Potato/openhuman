@@ -103,3 +103,119 @@ fn the_latest_stage_wins() {
     assert_eq!(live.stage, "ingesting");
     assert_eq!(live.updated_at_ms, 20);
 }
+
+fn empty_maps() -> (HashMap<String, LiveSync>, HashMap<String, i64>) {
+    (HashMap::new(), HashMap::new())
+}
+
+/// A per-item stage that trails the run's terminal stage does not reopen it:
+/// the bridge re-emits the module's per-document events, and they can arrive
+/// after `completed` (openhuman#6257).
+#[test]
+fn a_late_item_stage_does_not_reopen_a_finished_run() {
+    let (mut in_flight, mut finished_at) = empty_maps();
+    apply_stage(&mut in_flight, &mut finished_at, "src", "running", None, 10);
+    apply_stage(
+        &mut in_flight,
+        &mut finished_at,
+        "src",
+        "queued",
+        Some("queued chunk extraction"),
+        20,
+    );
+    assert!(
+        in_flight.contains_key("src"),
+        "an item stage inside a run keeps the run live"
+    );
+    apply_stage(
+        &mut in_flight,
+        &mut finished_at,
+        "src",
+        "completed",
+        Some("ingested 2 item(s)"),
+        30,
+    );
+    for (stage, at_ms) in [("stored", 40), ("queued", 41), ("ingesting", 42)] {
+        apply_stage(&mut in_flight, &mut finished_at, "src", stage, None, at_ms);
+        assert!(
+            !in_flight.contains_key("src"),
+            "`{stage}` after `completed` must not reopen the run"
+        );
+    }
+}
+
+/// A new run is a new run: its start clears the finished marker, and its own
+/// item stages count again.
+#[test]
+fn a_new_run_after_a_finished_one_is_tracked_again() {
+    for start in ["running", "requested", "fetching"] {
+        let (mut in_flight, mut finished_at) = empty_maps();
+        apply_stage(
+            &mut in_flight,
+            &mut finished_at,
+            "src",
+            "failed",
+            Some("boom"),
+            10,
+        );
+        apply_stage(&mut in_flight, &mut finished_at, "src", start, None, 20);
+        apply_stage(&mut in_flight, &mut finished_at, "src", "queued", None, 30);
+        assert_eq!(
+            in_flight.get("src").map(|live| live.stage.as_str()),
+            Some("queued"),
+            "after `{start}`"
+        );
+        assert!(!finished_at.contains_key("src"), "after `{start}`");
+    }
+}
+
+/// The marker ages out with the same ceiling as a live entry, so a source
+/// whose next run never announced its start is not ignored for the life of
+/// the process.
+#[test]
+fn the_finished_marker_ages_out_with_the_ceiling() {
+    let (mut in_flight, mut finished_at) = empty_maps();
+    apply_stage(
+        &mut in_flight,
+        &mut finished_at,
+        "src",
+        "completed",
+        None,
+        0,
+    );
+    apply_stage(
+        &mut in_flight,
+        &mut finished_at,
+        "src",
+        "queued",
+        None,
+        STALE_AFTER_MS + 1,
+    );
+    assert!(in_flight.contains_key("src"));
+}
+
+/// Through the bus subscriber, against the process-wide maps.
+#[tokio::test]
+async fn the_tracker_ignores_a_queued_stage_that_trails_completed() {
+    let tracker = SyncActivityTracker;
+    for (stage, detail) in [
+        ("running", None),
+        ("completed", Some("ingested 1 item(s)")),
+        ("queued", Some("queued chunk extraction")),
+    ] {
+        tracker
+            .handle(&stage_event(Some("src-trailing"), stage, detail))
+            .await;
+    }
+    assert_eq!(live_sync("src-trailing"), None);
+}
+
+#[test]
+fn the_explicit_sweep_drops_old_finished_markers_too() {
+    finished()
+        .lock()
+        .unwrap()
+        .insert("src-old-marker".to_string(), 0);
+    prune_stale();
+    assert!(!finished().lock().unwrap().contains_key("src-old-marker"));
+}

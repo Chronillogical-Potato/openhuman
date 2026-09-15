@@ -84,16 +84,36 @@ where
 
 /// [`run_sync_pass`] for the single-call entry points: the same
 /// tinyconnectors-mediated pass, repeated within [`SINGLE_CALL_ITEM_BUDGET`].
+///
+/// Also where each of those runs gets its Sync History row (openhuman#6257):
+/// the periodic tick, the first sync after connecting, a provider sync and the
+/// Slack RPC all end here, so recording at the callers would be four copies of
+/// one rule. A drain that fails records no item count — the passes before the
+/// failure are committed, but the error carries no total.
 pub(crate) async fn run_sync_within_budget(
     config: &Config,
     toolkit: &str,
     connection_id: &str,
     reason: &str,
 ) -> Result<SyncPassOutcome, String> {
-    run_passes_within_budget(SINGLE_CALL_ITEM_BUDGET, |pass_budget| {
+    let started = std::time::Instant::now();
+    let result = run_passes_within_budget(SINGLE_CALL_ITEM_BUDGET, |pass_budget| {
         run_sync_pass(config, toolkit, connection_id, reason, pass_budget)
     })
-    .await
+    .await;
+    super::connector_runs::record(
+        config,
+        &super::connector_runs::ConnectorRun {
+            toolkit,
+            connection_id,
+            source_id: None,
+            reason,
+            started,
+            written: result.as_ref().map_or(0, |pass| u64::from(pass.written)),
+            error: result.as_ref().err().map(String::as_str),
+        },
+    );
+    result
 }
 
 #[cfg(test)]
