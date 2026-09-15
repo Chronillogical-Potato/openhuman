@@ -209,6 +209,25 @@ const lexicalDrivesTheStore = (): boolean =>
 // Counts only — never a filename, a MIME type or clipboard content.
 const debug = debugFactory('openhuman:assistant-composer');
 
+/**
+ * The files a drop is actually carrying.
+ *
+ * `dataTransfer.files` is the obvious source and is empty more often than it
+ * looks: several macOS drag sources — the floating screenshot thumbnail among
+ * them — hand the webview promise-backed items instead, leaving `files` at
+ * length 0 while `items` holds the same content. Reading `files` alone made
+ * those drops do nothing at all, with no error, because there was nothing to
+ * reject.
+ */
+function filesFromDrop(dataTransfer: DataTransfer | null): File[] {
+  const direct = Array.from(dataTransfer?.files ?? []);
+  if (direct.length > 0) return direct;
+  return Array.from(dataTransfer?.items ?? [])
+    .filter(item => item.kind === 'file')
+    .map(item => item.getAsFile())
+    .filter((file): file is File => file !== null);
+}
+
 const EMPTY_COMPONENTS: ThreadComponents = {};
 
 const ThreadComponentsContext = createContext<ThreadComponents>(EMPTY_COMPONENTS);
@@ -531,9 +550,9 @@ const Composer: FC<{
       debug('[assistant-composer] drop: refused, ingest not accepting');
       return;
     }
-    const files = event.dataTransfer?.files;
-    if (!files || files.length === 0) {
-      debug('[assistant-composer] drop: file drag carried no files');
+    const files = filesFromDrop(event.dataTransfer);
+    if (files.length === 0) {
+      debug('[assistant-composer] drop: file drag carried no readable files');
       return;
     }
     debug('[assistant-composer] drop: ingesting %d file(s)', files.length);

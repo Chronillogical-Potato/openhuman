@@ -398,6 +398,30 @@ describe('Conversations — attachment feature', () => {
     });
   });
 
+  // Several macOS drag sources — the floating screenshot thumbnail among them —
+  // leave `dataTransfer.files` empty and carry the payload on `items` instead.
+  // Reading `files` alone made those drops do nothing, silently.
+  it('attaches a dropped file carried only on dataTransfer.items', async () => {
+    await renderWithSelectedThread();
+
+    const shell = document.querySelector('[data-slot="aui_composer-shell"]') as HTMLElement;
+    const file = makeFile('from-items.png', 'image/png', 512);
+
+    await act(async () => {
+      fireEvent.drop(shell, {
+        dataTransfer: {
+          files: [],
+          types: ['Files'],
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('from-items.png')).toBeInTheDocument();
+    });
+  });
+
   it('marks the composer while files are dragged over it, and clears on leave', async () => {
     await renderWithSelectedThread();
 
@@ -463,16 +487,21 @@ describe('Conversations — attachment feature', () => {
       });
     });
 
-    // Count only once both ingests have settled. Asserting earlier measures how
-    // far the reads happen to have got, not the budget: mid-flight this reads 2
-    // whether or not the queue is serialised.
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 400));
+    // Two-stage on purpose, and neither stage is redundant.
+    //
+    // Waiting for the cap catches the opposite failure — a queued run starved of
+    // its slot would stall below four and time out here. But `waitFor` alone
+    // cannot pin the count: unserialised, the total climbs 0 -> 6 and passes
+    // *through* four, so a bare `toHaveLength(4)` latches the transient and
+    // passes against the very bug this guards. The settle window after it is
+    // what lets the fifth and sixth land, so the final count is the real one.
+    await waitFor(() => {
+      expect(screen.queryAllByText(/^ovl-/).length).toBeGreaterThanOrEqual(ATTACHMENT_MAX_IMAGES);
     });
-
-    // Unserialised, both runs seed from the same empty snapshot and admit three
-    // each — six against a cap of four.
-    expect(screen.queryAllByText(/^ovl-/).length).toBeLessThanOrEqual(ATTACHMENT_MAX_IMAGES);
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    });
+    expect(screen.queryAllByText(/^ovl-/)).toHaveLength(ATTACHMENT_MAX_IMAGES);
   });
 
   it('shows too-many error when selecting more than 4 images', async () => {
