@@ -77,8 +77,13 @@ impl<'a> SkillsShRef<'a> {
             .build()
             .map_err(|e| format!("failed to build http client: {e}"))?;
 
-        for url in self.candidate_urls() {
-            match client.head(&url).send().await {
+        // Probe every conventional location at once: probed one after another,
+        // each slow miss could spend the whole timeout before the next starts.
+        let candidates = self.candidate_urls();
+        let responses =
+            futures::future::join_all(candidates.iter().map(|url| client.head(url).send())).await;
+        for (url, response) in candidates.into_iter().zip(responses) {
+            match response {
                 Ok(resp) if resp.status().is_success() => {
                     tracing::info!(url = %url, "[skill_registry] skills.sh SKILL.md found");
                     return Ok(url);
@@ -119,27 +124,55 @@ impl<'a> SkillsShRef<'a> {
             .json()
             .await
             .map_err(|e| format!("could not read the {repo} file listing: {e}"))?;
-        find_skill_md_in_tree(&tree, self.skill)
-            .map(|path| self.raw_url(&path))
-            .ok_or_else(|| {
-                format!(
-                    "'{}' is listed on skills.sh, but {repo} has no {}/SKILL.md",
-                    self.skill, self.skill
-                )
-            })
+        let skill = self.skill;
+        match find_skill_md_in_tree(&tree, skill) {
+            Ok(path) => Ok(self.raw_url(&path)),
+            Err(TreeMiss::Absent) => Err(format!(
+                "'{skill}' is listed on skills.sh, but {repo} has no {skill}/SKILL.md"
+            )),
+            Err(TreeMiss::Truncated) => Err(format!(
+                "{repo} is too large for GitHub to list in one response, so '{skill}' could not be located"
+            )),
+            Err(TreeMiss::Ambiguous(paths)) => Err(format!(
+                "{repo} has more than one {skill}/SKILL.md ({}), and skills.sh does not say which one it lists",
+                paths.join(", ")
+            )),
+        }
     }
 }
 
-/// Path of `<skill>/SKILL.md` at any depth in a GitHub recursive tree listing.
-pub(super) fn find_skill_md_in_tree(tree: &Value, skill: &str) -> Option<String> {
+/// Why a repo tree listing did not yield exactly one skill location.
+#[derive(Debug, PartialEq)]
+pub(super) enum TreeMiss {
+    /// The listing is complete and has no `<skill>/SKILL.md`.
+    Absent,
+    /// GitHub truncated the listing and it has no match, so absence is unproven.
+    Truncated,
+    /// Several directories are named for the skill; picking one would be a guess.
+    Ambiguous(Vec<String>),
+}
+
+/// The single path of `<skill>/SKILL.md` at any depth in a GitHub recursive
+/// tree listing.
+pub(super) fn find_skill_md_in_tree(tree: &Value, skill: &str) -> Result<String, TreeMiss> {
     let suffix = format!("/{skill}/SKILL.md");
-    tree.get("tree")?
-        .as_array()?
-        .iter()
+    let mut matches: Vec<String> = tree
+        .get("tree")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
         .filter(|item| item.get("type").and_then(Value::as_str) == Some("blob"))
         .filter_map(|item| item.get("path").and_then(Value::as_str))
-        .find(|path| path.ends_with(&suffix) || *path == &suffix[1..])
+        .filter(|path| path.ends_with(&suffix) || *path == &suffix[1..])
         .map(str::to_string)
+        .collect();
+    let truncated = tree.get("truncated").and_then(Value::as_bool) == Some(true);
+    match matches.len() {
+        1 => Ok(matches.remove(0)),
+        0 if truncated => Err(TreeMiss::Truncated),
+        0 => Err(TreeMiss::Absent),
+        _ => Err(TreeMiss::Ambiguous(matches)),
+    }
 }
 
 #[cfg(test)]

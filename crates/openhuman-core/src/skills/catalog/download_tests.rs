@@ -53,13 +53,52 @@ fn find_skill_md_in_tree_matches_the_skill_directory_at_any_depth() {
         { "path": "plugins/x/skills/my-skill/SKILL.md", "type": "blob" },
     ]});
     assert_eq!(
-        find_skill_md_in_tree(&tree, "my-skill").as_deref(),
-        Some("plugins/x/skills/my-skill/SKILL.md")
+        find_skill_md_in_tree(&tree, "my-skill"),
+        Ok("plugins/x/skills/my-skill/SKILL.md".to_string())
     );
     let root = json!({ "tree": [{ "path": "my-skill/SKILL.md", "type": "blob" }] });
     assert_eq!(
-        find_skill_md_in_tree(&root, "my-skill").as_deref(),
-        Some("my-skill/SKILL.md")
+        find_skill_md_in_tree(&root, "my-skill"),
+        Ok("my-skill/SKILL.md".to_string())
     );
-    assert_eq!(find_skill_md_in_tree(&tree, "other-skill"), None);
+    assert_eq!(
+        find_skill_md_in_tree(&tree, "other-skill"),
+        Err(TreeMiss::Absent)
+    );
+}
+
+#[test]
+fn find_skill_md_in_tree_refuses_to_guess_between_same_named_directories() {
+    let tree = json!({ "tree": [
+        { "path": "plugins/a/my-skill/SKILL.md", "type": "blob" },
+        { "path": "plugins/b/my-skill/SKILL.md", "type": "blob" },
+    ]});
+    assert_eq!(
+        find_skill_md_in_tree(&tree, "my-skill"),
+        Err(TreeMiss::Ambiguous(vec![
+            "plugins/a/my-skill/SKILL.md".to_string(),
+            "plugins/b/my-skill/SKILL.md".to_string(),
+        ]))
+    );
+}
+
+#[test]
+fn find_skill_md_in_tree_does_not_call_a_truncated_listing_proof_of_absence() {
+    let truncated = json!({
+        "truncated": true,
+        "tree": [{ "path": "other/SKILL.md", "type": "blob" }]
+    });
+    assert_eq!(
+        find_skill_md_in_tree(&truncated, "my-skill"),
+        Err(TreeMiss::Truncated)
+    );
+    // A match that did make it into a truncated listing is still usable.
+    let found = json!({
+        "truncated": true,
+        "tree": [{ "path": "deep/my-skill/SKILL.md", "type": "blob" }]
+    });
+    assert_eq!(
+        find_skill_md_in_tree(&found, "my-skill"),
+        Ok("deep/my-skill/SKILL.md".to_string())
+    );
 }
