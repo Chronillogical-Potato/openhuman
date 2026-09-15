@@ -76,11 +76,10 @@ fn turn_usage() -> TurnUsage {
 /// A multi-turn session whose messages carry the sidecar `extra_metadata` the
 /// single-turn happy-path fixture cannot express: a system message, a failed
 /// `tool` message tagged with `openhuman_tool_failure`, two assistant turns, and
-/// the trailing assistant that this turn's usage attaches to. The tool-failure
-/// marker is the deterministic asymmetry for #6149 — `write_transcript` strips it
-/// onto the line's top-level `failure`/`failure_detail` fields and the read-back
-/// never restores it to `extra_metadata`, so an in-memory reconstruction keeps a
-/// key the legacy JSONL round-trip has dropped.
+/// the trailing assistant that this turn's usage attaches to. The writer lifts
+/// the tool-failure marker onto the line's top-level `failure`/`failure_detail`
+/// fields, and since #6282 the read-back restores it to `extra_metadata`, so the
+/// marker round-trips.
 fn rich_base_messages() -> Vec<ChatMessage> {
     let mut failed_tool = ChatMessage::tool("read_file failed: boom");
     attach_tool_failure_metadata(&mut failed_tool, Some("boom"));
@@ -279,11 +278,15 @@ async fn shadow_read_roundtrip_matches_legacy() {
 /// Regression guard for #6149. Building the store record from the *in-memory*
 /// turn — the pre-fix `maybe_dual_write_session_store` behaviour — instead of
 /// mirroring `read_transcript` diverges on sidecar `extra_metadata` even though
-/// every message body, id and role is byte-identical. Here the
-/// `openhuman_tool_failure` marker survives on the in-memory tool message while
-/// the legacy JSONL round-trip drops it, so the shadow reader reports a
-/// divergence at that message. The fix mirrors the round-tripped read, which is
-/// why `shadow_read_roundtrip_matches_legacy` above stays a clean `Match`.
+/// every message body, id and role is byte-identical. The read-back carries
+/// sidecar state the in-memory turn never had: every row persisted under a
+/// request id reads back with the `openhuman_replayed` provenance marker (#6282),
+/// so the shadow reader reports a divergence from the first row. The fix mirrors
+/// the round-tripped read, which is why `shadow_read_roundtrip_matches_legacy`
+/// above stays a clean `Match`.
+///
+/// This used to pin the tool-failure marker instead, which the read-back
+/// dropped; #6282 made that marker round-trip, removing that asymmetry.
 #[tokio::test]
 async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata() {
     let ws = TempDir::new().expect("tempdir");
@@ -294,7 +297,17 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
     let meta = meta("t-root");
     let usage = turn_usage();
 
-    write_transcript(&jsonl_path, &base_messages, &meta, Some(&usage)).expect("legacy write");
+    // Legacy write the way `persist_session_transcript` does it: append-only,
+    // stamped with the turn's request id.
+    crate::agent::harness::session::transcript::append_transcript_turn(
+        &jsonl_path,
+        &[],
+        &base_messages,
+        &meta,
+        Some(&usage),
+        Some("req-1"),
+    )
+    .expect("legacy write");
 
     // Pre-fix store construction: clone the in-memory turn, attach usage to the
     // last assistant, and mirror THAT — never round-tripping through the JSONL,
@@ -316,25 +329,29 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
     let legacy = read_transcript(&jsonl_path).expect("read legacy transcript");
     let outcome = shadow_read_compare(ws.path(), stem, &legacy).await;
 
-    // Pin the divergence to the tool-failure message specifically. `Some(_)`
-    // would also accept a mismatch at any other index — including a count
-    // mismatch, which `first_diff` reports as the shorter length — so it could
-    // pass for a reason that has nothing to do with the dropped sidecar key.
-    // Both sides must render every fixture message, and the first difference
-    // must be the `tool` message carrying `openhuman_tool_failure`.
+    // Pin the divergence to the provenance marker specifically. `Some(_)`
+    // would also accept a count mismatch, which `first_diff` reports as the
+    // shorter length, so it could pass for a reason unrelated to sidecar
+    // metadata. Both sides must render every fixture message, the first
+    // difference must be the first row, and that row's only legacy-side extra
+    // must be the `openhuman_replayed` marker.
     let rendered = base_messages.len();
-    let tool_failure_idx = base_messages
-        .iter()
-        .position(|m| m.role == "tool")
-        .expect("tool message present");
+    assert!(
+        legacy.messages[0]
+            .extra_metadata
+            .as_ref()
+            .is_some_and(|meta| meta.get("openhuman_replayed").is_some()),
+        "the legacy read-back must carry the replayed provenance marker: {:?}",
+        legacy.messages[0].extra_metadata
+    );
     assert_eq!(
         outcome,
         ShadowReadOutcome::Divergence {
             legacy: rendered,
             shadow: rendered,
-            first_diff: Some(tool_failure_idx),
+            first_diff: Some(0),
         },
-        "the in-memory reconstruction must diverge on the dropped tool-failure marker at index {tool_failure_idx}, with both sides rendering {rendered} messages"
+        "the in-memory reconstruction must diverge on the replayed provenance marker at index 0, with both sides rendering {rendered} messages"
     );
 }
 

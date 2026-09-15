@@ -17,6 +17,52 @@ const TURN_USAGE_METADATA_KEY: &str = "openhuman_turn_usage";
 /// fields and strips it from the persisted `extra_metadata`.
 const TOOL_FAILURE_METADATA_KEY: &str = "openhuman_tool_failure";
 
+/// `extra_metadata` key marking a message **replayed from an earlier turn**: a
+/// row read back from a transcript, or a message seeded from the conversation
+/// log on cold boot. It carries the `request_id` the row was first written with
+/// (`null` when it had none). The writer stamps a replayed row with that
+/// original id instead of the current turn's, so resuming a thread into a fresh
+/// transcript file does not re-attribute every earlier turn's rows to the
+/// resuming request (#6282). Stripped from the persisted `extra_metadata`, like
+/// the failure marker.
+const REPLAYED_METADATA_KEY: &str = "openhuman_replayed";
+
+/// Insert `value` under `key` in `message.extra_metadata`, wrapping a
+/// non-object value under `"value"` so nothing already there is lost.
+fn insert_metadata(message: &mut ChatMessage, key: &str, value: serde_json::Value) {
+    match message.extra_metadata.take() {
+        Some(serde_json::Value::Object(mut map)) => {
+            map.insert(key.to_string(), value);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        Some(existing) => {
+            let mut map = serde_json::Map::new();
+            map.insert("value".to_string(), existing);
+            map.insert(key.to_string(), value);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        None => {
+            let mut map = serde_json::Map::new();
+            map.insert(key.to_string(), value);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+    }
+}
+
+/// Pop `key` out of a cloned `extra_metadata` map. If removing it emptied the
+/// object, drop `extra_metadata` entirely so a legacy-identical line stays
+/// legacy-identical.
+fn take_metadata(extra: &mut Option<serde_json::Value>, key: &str) -> Option<serde_json::Value> {
+    let serde_json::Value::Object(map) = extra.as_mut()? else {
+        return None;
+    };
+    let value = map.remove(key)?;
+    if map.is_empty() {
+        *extra = None;
+    }
+    Some(value)
+}
+
 /// Stamp a tool-result [`ChatMessage`] with its failure outcome so the
 /// transcript writer can persist an explicit failure flag. `detail` is an
 /// optional short, single-line reason (e.g. the head of the error output).
@@ -30,25 +76,11 @@ pub(crate) fn attach_tool_failure_metadata(message: &mut ChatMessage, detail: Op
             serde_json::Value::String(detail.to_string()),
         );
     }
-    let marker = serde_json::Value::Object(payload);
-
-    match message.extra_metadata.take() {
-        Some(serde_json::Value::Object(mut map)) => {
-            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-        Some(existing) => {
-            let mut map = serde_json::Map::new();
-            map.insert("value".to_string(), existing);
-            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-        None => {
-            let mut map = serde_json::Map::new();
-            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-    }
+    insert_metadata(
+        message,
+        TOOL_FAILURE_METADATA_KEY,
+        serde_json::Value::Object(payload),
+    );
 }
 
 /// Pop the tool-failure marker out of a cloned `extra_metadata` map, returning
@@ -58,15 +90,7 @@ pub(crate) fn attach_tool_failure_metadata(message: &mut ChatMessage, detail: Op
 pub(super) fn take_tool_failure(
     extra: &mut Option<serde_json::Value>,
 ) -> Option<(bool, Option<String>)> {
-    let serde_json::Value::Object(map) = extra.as_mut()? else {
-        return None;
-    };
-    let marker = map.remove(TOOL_FAILURE_METADATA_KEY)?;
-    // If removing the marker emptied the object, drop `extra_metadata` entirely
-    // so a legacy-identical line stays legacy-identical.
-    if map.is_empty() {
-        *extra = None;
-    }
+    let marker = take_metadata(extra, TOOL_FAILURE_METADATA_KEY)?;
     let detail = marker
         .get("detail")
         .and_then(|d| d.as_str())
@@ -74,29 +98,38 @@ pub(super) fn take_tool_failure(
     Some((true, detail))
 }
 
+/// Mark `message` as replayed from an earlier turn whose request was
+/// `request_id` (`None` when that turn recorded none). See
+/// [`REPLAYED_METADATA_KEY`].
+pub(crate) fn attach_replayed_metadata(message: &mut ChatMessage, request_id: Option<&str>) {
+    insert_metadata(
+        message,
+        REPLAYED_METADATA_KEY,
+        serde_json::json!({ "request_id": request_id }),
+    );
+}
+
+/// Pop the replayed marker out of a cloned `extra_metadata` map, returning
+/// `Some(original_request_id)` when the message was replayed and `None` when it
+/// belongs to the turn being written.
+pub(super) fn take_replayed_request_id(
+    extra: &mut Option<serde_json::Value>,
+) -> Option<Option<String>> {
+    let marker = take_metadata(extra, REPLAYED_METADATA_KEY)?;
+    Some(
+        marker
+            .get("request_id")
+            .and_then(|id| id.as_str())
+            .map(str::to_string),
+    )
+}
+
 pub(crate) fn attach_turn_usage_metadata(message: &mut ChatMessage, turn_usage: &TurnUsage) {
     let Ok(payload) = serde_json::to_value(turn_usage) else {
         log::warn!("[transcript] failed to serialize turn usage metadata");
         return;
     };
-
-    match message.extra_metadata.take() {
-        Some(serde_json::Value::Object(mut map)) => {
-            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-        Some(existing) => {
-            let mut map = serde_json::Map::new();
-            map.insert("value".to_string(), existing);
-            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-        None => {
-            let mut map = serde_json::Map::new();
-            map.insert(TURN_USAGE_METADATA_KEY.to_string(), payload);
-            message.extra_metadata = Some(serde_json::Value::Object(map));
-        }
-    }
+    insert_metadata(message, TURN_USAGE_METADATA_KEY, payload);
 }
 
 pub(crate) fn turn_usage_extra_metadata(turn_usage: &TurnUsage) -> Option<serde_json::Value> {
