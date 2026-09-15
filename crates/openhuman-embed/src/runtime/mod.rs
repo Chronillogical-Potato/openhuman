@@ -341,7 +341,6 @@ impl Runtime {
         tool_groups: ToolGroups,
         provider: Provider,
         access: Access,
-        has_api_key: bool,
     ) -> Self {
         Self {
             guard: Arc::new(CoreGuard {
@@ -354,7 +353,6 @@ impl Runtime {
             tool_groups,
             provider,
             access,
-            has_api_key,
             agents: Mutex::new(HashMap::new()),
         }
     }
@@ -364,7 +362,7 @@ impl std::fmt::Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Resolved paths and a provider bearer are both in here.
         f.debug_struct("Runtime")
-            .field("has_api_key", &self.has_api_key)
+            .field("has_api_key", &self.has_api_key())
             .field("domains", &self.domains)
             .finish_non_exhaustive()
     }
