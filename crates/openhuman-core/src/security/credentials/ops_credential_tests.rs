@@ -346,55 +346,10 @@ async fn clear_credential_without_a_kind_removes_everything() {
 
 // ── authed routes keep the SESSION_EXPIRED sentinel ───────────
 
-/// #5307 — a lapsed session on `GET /auth/me` must stay classifiable as
-/// session expiry all the way out of `auth_get_me`.
-///
-/// The dispatcher (`core::jsonrpc::invoke_method`) keys BOTH behaviours off the
-/// error string this function returns: it skips the Sentry report and publishes
-/// `DomainEvent::SessionExpired`, which is what makes `SessionExpiredSubscriber`
-/// clear the dead JWT. Before #5232 routed `fetch_current_user` through
-/// `authed_json`, a 401 surfaced as `"GET /auth/me failed (401 Unauthorized): …"`
-/// and matched the dispatcher's HTTP-verb-prefixed 401 rule. The typed
-/// `BackendApiError::Unauthorized` renders as
-/// `"backend rejected session token on GET /auth/me"` and matches nothing, so on
-/// 0.63.9 every lapsed session reported to Sentry as a code defect
-/// (TAURI-RUST-RYD) and the stale token was never cleared — so the next
-/// revalidation re-fired the same 401 and forced the user out again, forever.
-///
-/// Pinned through the real `auth_get_me` entry point rather than on the
-/// classifier alone: `is_session_expired_error` already recognised the flattened
-/// form (`jsonrpc_tests::is_session_expired_error_matches_flattened_backend_unauthorized`)
-/// — the only thing wrong was that this call site never produced it.
-#[tokio::test]
-async fn auth_get_me_401_stays_classifiable_as_session_expiry() {
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
-    let mut config = store_live_session("user-5307");
-    config.api_url = Some(spawn_auth_me_status(StatusCode::UNAUTHORIZED).await);
-
-    let err = auth_get_me(&config).await.unwrap_err();
-
-    // Assert on the sentinel specifically, not merely on
-    // `is_session_expired_message`: the local "session JWT required" guard also
-    // satisfies that predicate, so a test that only checked classification
-    // would pass even if the backend 401 were never reached.
-    assert!(
-        err.starts_with("SESSION_EXPIRED:"),
-        "a 401 from GET /auth/me must carry the SESSION_EXPIRED sentinel that \
-         `flatten_authed_error` produces, so the dispatcher suppresses the Sentry \
-         report and publishes SessionExpired (which clears the dead JWT and breaks \
-         the forced-logout loop), got: {err}"
-    );
-    assert!(
-        crate::core::observability::is_session_expired_message(&err),
-        "the flattened 401 must classify as session expiry, got: {err}"
-    );
-}
-
-/// The sibling authed route in this module must not regress the same way.
+/// #5307 — a lapsed session on an authed backend route must stay classifiable
+/// as session expiry: the dispatcher (`core::jsonrpc::invoke_method`) keys
+/// both the Sentry skip and the `DomainEvent::SessionExpired` publish off the
+/// `SESSION_EXPIRED:` sentinel `flatten_authed_error` produces.
 #[tokio::test]
 async fn auth_create_channel_link_token_401_stays_classifiable_as_session_expiry() {
     let _env_guard = crate::config::TEST_ENV_LOCK

@@ -176,47 +176,47 @@ fn json_output_produces_required_json_output_field() {
 // ── Param-deserialization helper ───────────────────────────────
 
 #[test]
-fn deserialize_params_parses_valid_object_into_struct() {
+fn deserialize_params_parses_set_credential_request() {
     let mut m = Map::new();
     m.insert("token".into(), Value::String("abc".into()));
-    let parsed: AuthStoreSessionParams = deserialize_params(m).unwrap();
+    let parsed: crate::security::credentials::SetCredentialRequest =
+        deserialize_params(m).unwrap();
     assert_eq!(parsed.token, "abc");
+    assert!(parsed.kind.is_none());
     assert!(parsed.user_id.is_none());
     assert!(parsed.user.is_none());
-    assert_eq!(parsed.allow_pending_backend_validation, None);
 }
 
 #[test]
-fn deserialize_params_honours_userid_alias() {
-    let mut m = Map::new();
-    m.insert("token".into(), Value::String("abc".into()));
-    m.insert("userId".into(), Value::String("u1".into()));
-    let parsed: AuthStoreSessionParams = deserialize_params(m).unwrap();
-    assert_eq!(parsed.user_id.as_deref(), Some("u1"));
-}
-
-#[test]
-fn deserialize_params_honours_allow_pending_backend_validation_alias() {
-    let mut m = Map::new();
-    m.insert("token".into(), Value::String("abc".into()));
-    m.insert("allowPendingBackendValidation".into(), Value::Bool(true));
-    let parsed: AuthStoreSessionParams = deserialize_params(m).unwrap();
-    assert_eq!(parsed.allow_pending_backend_validation, Some(true));
+fn deserialize_params_honours_userid_camel_and_snake_case() {
+    for key in ["userId", "user_id"] {
+        let mut m = Map::new();
+        m.insert("token".into(), Value::String("abc".into()));
+        m.insert(key.into(), Value::String("u1".into()));
+        m.insert("kind".into(), Value::String("session".into()));
+        let parsed: crate::security::credentials::SetCredentialRequest =
+            deserialize_params(m).unwrap();
+        assert_eq!(parsed.user_id.as_deref(), Some("u1"), "{key}");
+        assert_eq!(parsed.kind.as_deref(), Some("session"));
+    }
 }
 
 #[test]
 fn deserialize_params_reports_missing_required_fields() {
     // `token` is required — an empty object must fail.
-    let err = deserialize_params::<AuthStoreSessionParams>(Map::new()).unwrap_err();
+    let err = deserialize_params::<crate::security::credentials::SetCredentialRequest>(Map::new())
+        .unwrap_err();
     assert!(err.contains("invalid params"));
 }
 
 #[test]
-fn deserialize_params_parses_consume_login_token_camel_case() {
+fn deserialize_params_parses_clear_credential_kind() {
+    let parsed: AuthClearCredentialParams = deserialize_params(Map::new()).unwrap();
+    assert!(parsed.kind.is_none());
     let mut m = Map::new();
-    m.insert("loginToken".into(), Value::String("tok".into()));
-    let parsed: AuthConsumeLoginTokenParams = deserialize_params(m).unwrap();
-    assert_eq!(parsed.login_token, "tok");
+    m.insert("kind".into(), Value::String("api-key".into()));
+    let parsed: AuthClearCredentialParams = deserialize_params(m).unwrap();
+    assert_eq!(parsed.kind.as_deref(), Some("api-key"));
 }
 
 #[test]

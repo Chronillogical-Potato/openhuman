@@ -39,16 +39,6 @@ async fn auth_get_session_token_json_returns_null_when_empty() {
     assert!(out.value["token"].is_null());
 }
 
-// ── consume_login_token (input validation) ────────────────────
-
-#[tokio::test]
-async fn consume_login_token_rejects_empty() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp);
-    let err = consume_login_token(&config, "  ").await.unwrap_err();
-    assert!(err.contains("loginToken is required"));
-}
-
 // ── auth_create_channel_link_token (validation) ───────────────
 
 #[tokio::test]
@@ -344,14 +334,6 @@ async fn oauth_revoke_integration_errors_without_session() {
     let err = oauth_revoke_integration(&config, "int-1")
         .await
         .unwrap_err();
-    assert!(err.contains("session JWT required"));
-}
-
-#[tokio::test]
-async fn auth_get_me_errors_without_session() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp);
-    let err = auth_get_me(&config).await.unwrap_err();
     assert!(err.contains("session JWT required"));
 }
 
