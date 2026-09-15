@@ -209,78 +209,6 @@ async fn serve_mock_backend() -> (
     (format!("http://{addr}"), state, join)
 }
 
-#[derive(Clone, Default)]
-struct SequenceAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone, Default)]
-struct NullAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone)]
-struct StaticAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-    user: Arc<Value>,
-}
-
-async fn serve_sequence_auth_backend() -> (
-    String,
-    SequenceAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = SequenceAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(sequence_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind sequence auth backend");
-    let addr = listener.local_addr().expect("sequence auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_null_auth_backend() -> (
-    String,
-    NullAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = NullAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(null_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind null auth backend");
-    let addr = listener.local_addr().expect("null auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_static_auth_backend(
-    user: Value,
-) -> (
-    String,
-    StaticAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = StaticAuthBackendState {
-        auth_me_hits: Arc::new(AtomicUsize::new(0)),
-        user: Arc::new(user),
-    };
-    let app = Router::new()
-        .route("/auth/me", get(static_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind static auth backend");
-    let addr = listener.local_addr().expect("static auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(AUTHORIZATION)
@@ -3966,6 +3894,213 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
 
 
 
+
+#[tokio::test]
+async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_session() {
+    let _lock = env_lock();
+    let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
+    let harness = setup().await;
+    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
+
+    // The host hands over an already-obtained session with the user it
+    // resolved; the core stores it without consulting the backend.
+    let session = rpc(
+        &harness.rpc_base,
+        22_001,
+        "openhuman.auth_set_credential",
+        json!({
+            "token": "remote-jwt",
+            "userId": "remote-user-1",
+            "user": {
+                "id": "remote-user-1",
+                "name": "Remote Worker",
+                "email": "remote-worker@example.test"
+            }
+        }),
+    )
+    .await;
+    let state = payload(&session, "auth_set_credential remote");
+    assert_eq!(state.get("credential").and_then(Value::as_str), Some("session"));
+    assert_eq!(state.get("userId").and_then(Value::as_str), Some("remote-user-1"));
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        0,
+        "installing a credential must not touch GET /auth/me"
+    );
+
+    // Every remaining auth.* backend call is bearer-only and keeps working
+    // against the stored session.
+    let link = rpc(
+        &harness.rpc_base,
+        22_004,
+        "openhuman.auth_create_channel_link_token",
+        json!({ "channel": " Telegram " }),
+    )
+    .await;
+    assert_eq!(
+        payload(&link, "auth_create_channel_link_token remote")
+            .get("linkToken")
+            .and_then(Value::as_str),
+        Some("link-token-123")
+    );
+
+    let integrations = rpc(
+        &harness.rpc_base,
+        22_005,
+        "openhuman.auth_oauth_list_integrations",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&integrations, "auth_oauth_list_integrations remote")
+            .pointer("/0/provider")
+            .and_then(Value::as_str),
+        Some("github")
+    );
+
+    let oauth_connect = rpc(
+        &harness.rpc_base,
+        22_011,
+        "openhuman.auth_oauth_connect",
+        json!({
+            "provider": "github",
+            "skillId": "worker-a-skill",
+            "responseType": "code",
+            "encryptionMode": "handoff"
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&oauth_connect, "auth_oauth_connect remote")
+            .get("oauthUrl")
+            .and_then(Value::as_str),
+        Some("https://github.example.test/oauth?state=worker-a-state")
+    );
+
+    let integration_tokens = rpc(
+        &harness.rpc_base,
+        22_012,
+        "openhuman.auth_oauth_fetch_integration_tokens",
+        json!({
+            "integrationId": "0123456789abcdef01234567",
+            "key": "0123456789abcdef0123456789abcdef"
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(
+            &integration_tokens,
+            "auth_oauth_fetch_integration_tokens remote"
+        )
+        .get("accessToken")
+        .and_then(Value::as_str),
+        Some("gh-access-token")
+    );
+
+    let client_key = rpc(
+        &harness.rpc_base,
+        22_006,
+        "openhuman.auth_oauth_fetch_client_key",
+        json!({ "integrationId": "0123456789abcdef01234567" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&client_key, "auth_oauth_fetch_client_key remote")
+            .get("clientKey")
+            .and_then(Value::as_str),
+        Some("client-key-share")
+    );
+
+    let revoked = rpc(
+        &harness.rpc_base,
+        22_007,
+        "openhuman.auth_oauth_revoke_integration",
+        json!({ "integrationId": "0123456789abcdef01234567" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&revoked, "auth_oauth_revoke_integration remote")
+            .get("revoked")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    assert_error_contains(
+        &rpc(
+            &harness.rpc_base,
+            22_008,
+            "openhuman.auth_oauth_fetch_integration_tokens",
+            json!({ "integrationId": "short", "key": "secret" }),
+        )
+        .await,
+        "auth_oauth_fetch_integration_tokens invalid id with session",
+        "integrationId must be a 24-char hex id",
+    );
+
+    // The snapshot reports the handed-over user and never refreshes it.
+    let snapshot = rpc(
+        &harness.rpc_base,
+        22_009,
+        "openhuman.app_state_snapshot",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        payload(&snapshot, "app_state_snapshot remote")
+            .pointer("/currentUser/email")
+            .and_then(Value::as_str),
+        Some("remote-worker@example.test")
+    );
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        0,
+        "the snapshot must not call GET /auth/me; the host owns that"
+    );
+
+    // Re-handing the same token for the same user is a cheap refresh that
+    // replaces the stored payload.
+    let refreshed = rpc(
+        &harness.rpc_base,
+        22_013,
+        "openhuman.auth_set_credential",
+        json!({
+            "token": "remote-jwt",
+            "userId": "remote-user-1",
+            "user": { "id": "remote-user-1", "name": "Renamed Worker" }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&refreshed, "auth_set_credential refresh")
+            .pointer("/user/name")
+            .and_then(Value::as_str),
+        Some("Renamed Worker")
+    );
+    let identity = openhuman_core::security::credentials::identity::peek_credential_user_identity()
+        .expect("set_credential should seed the identity slot");
+    assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
+    assert_eq!(identity.name.as_deref(), Some("Renamed Worker"));
+
+    let cleared = rpc(
+        &harness.rpc_base,
+        22_014,
+        "openhuman.auth_clear_credential",
+        json!({ "kind": "session" }),
+    )
+    .await;
+    assert_eq!(
+        payload(&cleared, "auth_clear_credential")
+            .get("removedSession")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(
+        openhuman_core::security::credentials::identity::peek_credential_user_identity().is_none()
+    );
+
+    harness.join.abort();
+    backend_join.abort();
+}
 
 #[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
