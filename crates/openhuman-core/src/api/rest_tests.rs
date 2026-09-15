@@ -716,6 +716,76 @@ async fn authed_json_surfaces_unauthorized_on_401() {
     assert_eq!(path, "/referral/stats");
 }
 
+/// Regression: a 401 for an API-key-authenticated request must classify as
+/// `BackendApiError::ApiKeyRejected`, not `Unauthorized`. `Unauthorized` is
+/// what `flatten_authed_error` maps onto the `SESSION_EXPIRED` sentinel, and
+/// `core/jsonrpc.rs`'s `is_session_expired_error` treats that sentinel as
+/// "clear the app session and sign out" — the wrong recovery for a
+/// library-mode runtime that authenticates with an API key and has no
+/// session at all.
+#[tokio::test]
+async fn authed_json_surfaces_api_key_rejected_not_unauthorized_on_401() {
+    use crate::security::credentials::session_support::BackendCredential;
+
+    let app = Router::new().route(
+        "/teams/me/usage",
+        get(|| async { (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized") }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let base_url = format!("http://{addr}");
+    let client = BackendOAuthClient::new(&base_url).unwrap();
+
+    let err = client
+        .authed_json(
+            BackendCredential::ApiKey("th_test_key".to_string()),
+            Method::GET,
+            "/teams/me/usage",
+            None,
+        )
+        .await
+        .unwrap_err();
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    let BackendApiError::ApiKeyRejected { method, path } = typed else {
+        panic!("expected ApiKeyRejected for an api-key credential, got {typed:?}");
+    };
+    assert_eq!(method, "GET");
+    assert_eq!(path, "/teams/me/usage");
+
+    // The flattened message must NOT carry the `SESSION_EXPIRED` sentinel —
+    // that would make `core/jsonrpc.rs::is_session_expired_error` clear an
+    // app session that was never the problem.
+    let flattened = flatten_authed_error(err);
+    assert!(
+        !flattened.contains("SESSION_EXPIRED"),
+        "an api-key 401 must not trigger session-expiry recovery: {flattened}"
+    );
+    assert!(flattened.contains("API_KEY_REJECTED"), "{flattened}");
+
+    // A session credential on the same endpoint still classifies as the
+    // original `Unauthorized` / `SESSION_EXPIRED` path — this fix must not
+    // regress the existing session-expiry recovery.
+    let err = client
+        .authed_json(
+            BackendCredential::Session("mock-jwt".to_string()),
+            Method::GET,
+            "/teams/me/usage",
+            None,
+        )
+        .await
+        .unwrap_err();
+    let typed = err.downcast_ref::<BackendApiError>().unwrap();
+    assert!(
+        matches!(typed, BackendApiError::Unauthorized { .. }),
+        "expected Unauthorized for a session credential, got {typed:?}"
+    );
+    assert!(flatten_authed_error(err).contains("SESSION_EXPIRED"));
+}
+
 #[test]
 fn backend_api_body_shape_emits_safe_keys_not_values() {
     // PII guard (Codex P1 on #4058): the body SHAPE must expose only schema-like
