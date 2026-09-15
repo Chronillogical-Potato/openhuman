@@ -363,7 +363,6 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
     );
 }
 
-
 /// When no root transcript exists for the thread, the transcript resume is a
 /// no-op returning `false` so the caller falls back to prose-pair seeding.
 #[test]
