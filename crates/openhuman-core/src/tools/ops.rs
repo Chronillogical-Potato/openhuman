@@ -878,11 +878,12 @@ pub fn all_tools_with_runtime(
                 None => Arc::new(base),
             }
         };
-        log::debug!(
-            "[tools::ops][mcp_client] static registry servers={} configured={} enabled={}",
+        let (servers, configured) = (
             mcp_registry.list().len(),
             root_config.mcp_client.servers.len(),
-            root_config.mcp_client.enabled
+        );
+        log::debug!(
+            "[tools::ops][mcp_client] static registry servers={servers} configured={configured}"
         );
         if !mcp_registry.is_empty() {
             tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
