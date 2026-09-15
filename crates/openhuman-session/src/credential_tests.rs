@@ -54,7 +54,7 @@ fn constructors_trim_and_keep_kind() {
     assert_eq!(key.kind, CredentialKind::ApiKey);
     assert_eq!(key.expires_at, None);
     let local = Credential::local(format!(" {} ", &*LOCAL_TOKEN));
-    assert_eq!(local.secret, &*LOCAL_TOKEN);
+    assert_eq!(local.secret, *LOCAL_TOKEN);
 }
 
 #[test]

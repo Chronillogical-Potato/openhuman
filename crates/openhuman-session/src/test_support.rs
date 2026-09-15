@@ -24,11 +24,14 @@ pub static ENV_LOCK: AsyncMutex<()> = AsyncMutex::const_new(());
 /// Unpadded base64url, enough to assemble unsigned JWT fixtures at runtime
 /// (kept out of source as literals so secret scanners do not trip on them).
 fn b64url(input: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::new();
     for chunk in input.chunks(3) {
-        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
         let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
         out.push(ALPHABET[(n >> 18) as usize & 63] as char);
         out.push(ALPHABET[(n >> 12) as usize & 63] as char);
@@ -50,7 +53,10 @@ fn unsigned_jwt(claims: Value, signature: &str) -> String {
 
 /// A JWT (alg none) with `sub`/`userId` = `user-123` and `exp` in 2100.
 pub static LIVE_JWT: LazyLock<String> = LazyLock::new(|| {
-    unsigned_jwt(json!({ "sub": "user-123", "userId": "user-123", "exp": 4102444800u64 }), "sig")
+    unsigned_jwt(
+        json!({ "sub": "user-123", "userId": "user-123", "exp": 4102444800u64 }),
+        "sig",
+    )
 });
 /// Same subject, `exp` in 2001.
 pub static EXPIRED_JWT: LazyLock<String> =

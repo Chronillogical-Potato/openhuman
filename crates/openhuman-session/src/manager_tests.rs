@@ -38,7 +38,7 @@ async fn login_with_token_exchanges_validates_and_stores() {
 
     let stored = core.session().unwrap();
     assert_eq!(stored.kind, "session");
-    assert_eq!(stored.token, &*LIVE_JWT);
+    assert_eq!(stored.token, *LIVE_JWT);
     assert_eq!(stored.user_id.as_deref(), Some("user-123"));
     assert_eq!(stored.user.unwrap()["_id"], "user-123");
     assert_eq!(identity::peek_user_id().as_deref(), Some("user-123"));
@@ -70,7 +70,9 @@ async fn expired_jwt_is_refused_locally_without_a_request() {
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);
     assert_eq!(
-        m.store_session_token(&*EXPIRED_JWT, None).await.unwrap_err(),
+        m.store_session_token(&*EXPIRED_JWT, None)
+            .await
+            .unwrap_err(),
         SessionError::Expired
     );
     assert_eq!(backend.me_calls(), 0);

@@ -51,7 +51,7 @@ async fn consume_login_token_returns_jwt_and_sends_attribution_headers() {
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let client = SessionClient::new(&backend.url, &headers()).unwrap();
     let jwt = client.consume_login_token(" tok ").await.unwrap();
-    assert_eq!(jwt, &*LIVE_JWT);
+    assert_eq!(jwt, *LIVE_JWT);
     assert_eq!(backend.consume_calls(), vec![json!({ "token": "tok" })]);
 
     let user = client
