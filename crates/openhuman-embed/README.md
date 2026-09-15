@@ -221,6 +221,11 @@ are documented rather than hidden; each is a candidate follow-up in the core.
   modules (`ServiceSet::memory_queue`). Without it the open times out; leave
   the default (shared memory, per-agent transcripts) unless the module runs.
 - One API key (or session) is shared by all agents.
+- `IntegrationClient` (backend-proxied Composio/search/media tools) only
+  ever reads the app-session JWT (`api::jwt::get_session_token`), never the
+  runtime's API key. A library runtime that authenticates with only
+  `.api_key(...)` gets no integration tools at all rather than the key
+  being sent as the wrong header.
 
 Other invariants worth knowing before wiring any entry point:
 
