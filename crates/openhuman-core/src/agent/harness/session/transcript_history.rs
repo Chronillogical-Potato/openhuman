@@ -259,6 +259,21 @@ pub(crate) trait SessionHistoryLocator: Send + Sync {
     /// ambiguous.
     fn root_for_thread(&self, thread_id: &str) -> Option<Arc<dyn SessionTranscriptRead>>;
 
+    /// [`Self::root_for_thread`], additionally scoped to `agent_id` when
+    /// given — see
+    /// [`transcript::find_root_transcript_for_thread_scoped`](super::transcript::find_root_transcript_for_thread_scoped)
+    /// for why. Defaults to the unscoped lookup so an implementor that never
+    /// serves several distinct agents over the same `thread_id` (this test
+    /// double, notably) does not have to know about agent scoping at all.
+    fn root_for_thread_scoped(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<Arc<dyn SessionTranscriptRead>> {
+        let _ = agent_id;
+        self.root_for_thread(thread_id)
+    }
+
     /// Binds (creating on first write) this session's own write handle for
     /// `stem`, with `seed` used only when no file exists yet.
     fn open_stem(
