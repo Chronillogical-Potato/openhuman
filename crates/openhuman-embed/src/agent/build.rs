@@ -203,6 +203,7 @@ pub(crate) fn check_tool_groups_narrow(
     }
 }
 
+#[cfg(feature = "skills")]
 fn map_harness_err(err: crate::HarnessError) -> AgentError {
     match err {
         crate::HarnessError::Workspace { what, source } => AgentError::Workspace { what, source },
