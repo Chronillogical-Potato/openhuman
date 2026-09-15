@@ -11,10 +11,9 @@
 
 mod common;
 
-use common::{
-    chat_completion, offline_config, runtime, stub_backend, tool_call_completion,
-    tool_results,
-};
+#[cfg(feature = "mcp")]
+use common::tool_results;
+use common::{chat_completion, offline_config, runtime, stub_backend, tool_call_completion};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentError, AgentSpec, Provider, Runtime, SandboxModeSpec,
     Workspace,
