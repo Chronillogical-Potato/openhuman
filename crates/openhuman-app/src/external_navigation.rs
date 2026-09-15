@@ -26,18 +26,26 @@ const MAIN_WINDOW: &str = "main";
 /// App origins that stay in the webview:
 /// - any non-`http(s)` scheme: `tauri://localhost` (macOS/Linux), `about:`,
 ///   `blob:`, `data:`;
-/// - `http(s)://tauri.localhost` on its default port (Windows); any other port
-///   is a different origin, e.g. a loopback service, and is handed off;
+/// - `<windows_scheme>://tauri.localhost` on its default port (Windows), where
+///   `windows_scheme` is `https` only when the window sets `useHttpsScheme`;
+///   the other scheme or any other port is a different origin (e.g. a loopback
+///   service) and is handed off;
 /// - the dev server origin, passed as `dev_url` only under `tauri dev`.
-pub(crate) fn navigation_handoff(label: &str, url: &Url, dev_url: Option<&Url>) -> Option<Url> {
+pub(crate) fn navigation_handoff(
+    label: &str,
+    url: &Url,
+    windows_scheme: &str,
+    dev_url: Option<&Url>,
+) -> Option<Url> {
     if label != MAIN_WINDOW || !matches!(url.scheme(), "http" | "https") {
         return None;
     }
     // `Url` drops a scheme's default port, so `port()` is `None` only for the
-    // canonical `http(s)://tauri.localhost` origins.
-    if (url.host_str() == Some("tauri.localhost") && url.port().is_none())
-        || dev_url.is_some_and(|dev| dev.origin() == url.origin())
-    {
+    // canonical origin.
+    let is_windows_app_origin = url.scheme() == windows_scheme
+        && url.host_str() == Some("tauri.localhost")
+        && url.port().is_none();
+    if is_windows_app_origin || dev_url.is_some_and(|dev| dev.origin() == url.origin()) {
         return None;
     }
     Some(url.clone())
@@ -51,7 +59,16 @@ pub(crate) fn init<R: Runtime>() -> TauriPlugin<R> {
             } else {
                 None
             };
-            let Some(target) = navigation_handoff(webview.label(), url, dev_url.as_ref()) else {
+            let https = webview
+                .config()
+                .app
+                .windows
+                .iter()
+                .any(|w| w.label == webview.label() && w.use_https_scheme);
+            let windows_scheme = if https { "https" } else { "http" };
+            let Some(target) =
+                navigation_handoff(webview.label(), url, windows_scheme, dev_url.as_ref())
+            else {
                 return true;
             };
             // Origin only: the path and query can carry tokens or user content.
