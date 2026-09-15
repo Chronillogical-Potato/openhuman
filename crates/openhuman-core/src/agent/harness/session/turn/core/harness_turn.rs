@@ -134,6 +134,9 @@ impl Agent {
         let context_mw = crate::agent::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
+            // The raw user message (the date-stamped copy lives in history):
+            // what the summarizer should keep facts for (#6283).
+            task_hint: Some(user_message.to_string()),
             artifact_store,
             tokenjuice_compaction_enabled: self.context.compaction_enabled(),
             tokenjuice_compression: self.tokenjuice_compression,

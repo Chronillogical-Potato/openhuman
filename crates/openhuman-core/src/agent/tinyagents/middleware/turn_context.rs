@@ -36,6 +36,9 @@ pub(crate) struct TurnContextMiddleware {
     pub(crate) tool_result_budget_bytes: usize,
     /// Optional semantic tool-output summarizer (progressive disclosure).
     pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// The user's request for this turn, passed to the payload summarizer as
+    /// its task hint. `None` when the turn has no user message to offer.
+    pub(crate) task_hint: Option<String>,
     /// Optional action-workspace artifact sink for oversized tool results.
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     /// Whether TokenJuice content-aware compaction runs before output caps.
@@ -241,6 +244,7 @@ impl TurnContextMiddleware {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
+            task_hint: None,
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -304,6 +308,7 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
+                task_hint: self.task_hint,
                 artifact_store: self.artifact_store,
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,

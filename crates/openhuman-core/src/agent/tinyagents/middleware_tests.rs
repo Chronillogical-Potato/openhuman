@@ -76,6 +76,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         // tests observe the summarizer stage alone.
         budget_bytes: 10_000_000,
         payload_summarizer: Some(ps),
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
@@ -168,6 +169,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: 1_000_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: true,
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
@@ -215,6 +217,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,

@@ -311,6 +311,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 100,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -332,6 +333,7 @@ async fn tool_output_leaves_small_results_untouched() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -362,6 +364,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -404,6 +407,7 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
         payload_summarizer: Some(StubSummarizer::ok(SummarizeOutcome::Unavailable(
             UnavailableReason::Failed,
         ))),
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
@@ -458,6 +462,7 @@ async fn tool_output_honors_a_tools_own_cap() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 100_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -636,5 +641,84 @@ async fn get_tool_contract_is_compaction_exempt() {
     assert_eq!(
         result.content, payload,
         "get_tool_contract's response must not be tokenjuice-tabulated"
+    );
+}
+
+/// #6283: the summarizer used to be called with a hard-coded `None` hint, so
+/// it compressed every payload blind to what the user asked for.
+#[tokio::test]
+async fn the_turns_task_hint_reaches_the_payload_summarizer() {
+    struct HintRecorder(std::sync::Mutex<Option<Option<String>>>);
+    #[async_trait]
+    impl PayloadSummarizer for HintRecorder {
+        async fn maybe_summarize_in_parent(
+            &self,
+            _parent_ctx: &RunContext<()>,
+            _tool_name: &str,
+            parent_task_hint: Option<&str>,
+            _raw: &str,
+        ) -> anyhow::Result<SummarizeOutcome> {
+            *self.0.lock().expect("recorder lock") = Some(parent_task_hint.map(str::to_owned));
+            Ok(SummarizeOutcome::NotNeeded)
+        }
+    }
+
+    let recorder = Arc::new(HintRecorder(std::sync::Mutex::new(None)));
+    let mut mw = summarizer_mw(recorder.clone());
+    mw.task_hint = Some("find the release notes for v2".to_string());
+    let mut result = tool_result("use_skill", "RAW-TOOL-OUTPUT");
+
+    mw.after_tool(&mut ctx(), &(), &mut result)
+        .await
+        .expect("after_tool should not fail");
+
+    assert_eq!(
+        recorder.0.lock().expect("recorder lock").clone(),
+        Some(Some("find the release notes for v2".to_string())),
+        "the turn's task hint must be handed to the payload summarizer"
+    );
+}
+
+/// #6283 review: the authoritative size is stated after the output caps, so a
+/// tool cap shorter than the summary cannot cut it away.
+#[tokio::test]
+async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
+    let mut tool_policies = HashMap::new();
+    tool_policies.insert(
+        "terse".to_string(),
+        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+            timeout_ms: None,
+            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            max_retries: None,
+            idempotent: false,
+            cancelable: true,
+            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            max_result_bytes: Some(12),
+            streaming: false,
+        }),
+    );
+    let summary = "summary ".repeat(50);
+    let mut mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Summarized(
+        crate::agent::tinyagents::payload_summarizer::SummarizedPayload {
+            summary_bytes: summary.len(),
+            summary,
+            original_bytes: 119_796,
+        },
+    )));
+    mw.tool_policies = tool_policies;
+    let mut result = tool_result("terse", &"payload ".repeat(200));
+
+    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+
+    assert!(
+        result
+            .content
+            .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
+        "the real size must lead the content whatever the caps did, got {:?}",
+        result.content.chars().take(160).collect::<String>()
+    );
+    assert!(
+        result.content.contains("[truncated by tool cap:"),
+        "the summary itself is still bound by the tool's cap"
     );
 }
