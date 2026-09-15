@@ -291,13 +291,21 @@ impl Runtime {
     }
 
     pub(crate) fn core_ref(&self) -> &Core {
-        self.core
+        self.guard
+            .core
             .as_ref()
-            .expect("runtime core is present until drop")
+            .expect("runtime core is present until the last guard owner drops")
     }
 
     pub(crate) fn core_runtime(&self) -> &Arc<CoreRuntime> {
         self.core_ref().raw()
+    }
+
+    /// The shared teardown guard, cloned into every [`AgentInner`] so the
+    /// core and an ephemeral workspace outlive whichever of `Runtime` or its
+    /// agents is dropped last. See [`CoreGuard`].
+    pub(crate) fn guard(&self) -> Arc<CoreGuard> {
+        Arc::clone(&self.guard)
     }
 
     pub(crate) fn base_config(&self) -> &Config {
@@ -329,8 +337,10 @@ impl Runtime {
         has_api_key: bool,
     ) -> Self {
         Self {
-            core: Some(core),
-            workspace,
+            guard: Arc::new(CoreGuard {
+                core: Some(core),
+                workspace,
+            }),
             base_config,
             inherited,
             domains,
@@ -340,41 +350,6 @@ impl Runtime {
             has_api_key,
             agents: Mutex::new(HashMap::new()),
         }
-    }
-}
-
-impl Drop for Runtime {
-    fn drop(&mut self) {
-        // Drop the core while the process slot is still claimed. Releasing it
-        // first lets another builder initialize process-scoped state while
-        // this runtime's keyring, bearer, event bus and subscribers are live.
-        drop(self.core.take());
-        // For an ephemeral workspace, take ownership of the temp path and
-        // remove it with a short retry. The core's memory/session writers keep
-        // running a moment after a turn returns and can recreate workspace
-        // subdirectories while `TempDir`'s own drop-time removal is racing
-        // them, leaving an empty directory behind. A bounded retry lets those
-        // writes settle before giving up.
-        if let Some(temp) = self.workspace._temp.take() {
-            let root = temp.keep();
-            let mut quiet_passes = 0;
-            for _ in 0..20 {
-                match std::fs::remove_dir_all(&root) {
-                    Ok(()) => quiet_passes += 1,
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        quiet_passes += 1;
-                    }
-                    Err(_) => quiet_passes = 0,
-                }
-                if quiet_passes >= 5 {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            let _ = std::fs::remove_dir_all(&root);
-        }
-        RUNTIME_LIVE.store(false, std::sync::atomic::Ordering::Release);
-        log::debug!("[embed][runtime] released");
     }
 }
 
