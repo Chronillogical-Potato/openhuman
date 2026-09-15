@@ -3239,10 +3239,13 @@ fn tool_result_text(requests: &[Value], tool_name: &str) -> Option<String> {
         })
 }
 
+#[cfg(feature = "skills")]
 const REGISTRY_SKILL_ID: &str = "harness-registry-skill";
+#[cfg(feature = "skills")]
 const SKILL_BODY_CANARY: &str = "SKILL_BODY_CANARY_7f3a";
 
 /// A one-entry skill catalog plus the SKILL.md its download URL points at.
+#[cfg(feature = "skills")]
 async fn serve_skill_registry_fixture() -> (
     SocketAddr,
     tokio::task::JoinHandle<Result<(), std::io::Error>>,
@@ -3274,6 +3277,10 @@ async fn serve_skill_registry_fixture() -> (
 /// A skill found in the registry is installed by the agent (behind the approval
 /// gate), lands on disk, and is then loaded by the skill executor, with its body
 /// reaching the model.
+// `skills` off drops `skill_setup`/`skill_executor` from the builtins, and this
+// target declares no `required-features`, so an ungated skill test would run
+// and fail instead of being skipped.
+#[cfg(feature = "skills")]
 #[test]
 fn agent_installs_a_registry_skill_then_runs_it() {
     run_on_agent_stack(
@@ -3282,6 +3289,7 @@ fn agent_installs_a_registry_skill_then_runs_it() {
     );
 }
 
+#[cfg(feature = "skills")]
 async fn agent_installs_a_registry_skill_then_runs_it_inner() {
     let _lock = env_lock();
     let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");
@@ -3566,6 +3574,7 @@ async fn wait_for_terminal_without_approval(
 
 /// Skill requests reach `skill_setup` and `skill_executor` through their
 /// hand-offs, called directly.
+#[cfg(feature = "skills")]
 #[test]
 fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly() {
     run_on_agent_stack(
@@ -3574,6 +3583,7 @@ fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly() {
     );
 }
 
+#[cfg(feature = "skills")]
 async fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly_inner() {
     let _lock = env_lock();
     reset_script(Vec::new());
@@ -3610,6 +3620,7 @@ async fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly_inn
 /// With `setup_skills` on its belt, the orchestrator cannot install a skill
 /// itself through `use_skill`: the gate refuses the raw tool and names the
 /// hand-off even once the user has approved the call, and nothing lands on disk.
+#[cfg(feature = "skills")]
 #[test]
 fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool() {
     run_on_agent_stack(
@@ -3618,6 +3629,7 @@ fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool() {
     );
 }
 
+#[cfg(feature = "skills")]
 async fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool_inner() {
     let _lock = env_lock();
     let _ttl = EnvVarGuard::set("OPENHUMAN_APPROVAL_TTL_SECS", "120");

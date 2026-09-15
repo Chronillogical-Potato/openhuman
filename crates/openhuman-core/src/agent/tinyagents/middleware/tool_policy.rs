@@ -207,23 +207,18 @@ impl ToolPolicyMiddleware {
                 .render(),
             );
         }
-        let tool = self.resolve_tool(&call.name)?;
-        let call_required = tool.permission_level_with_args(&call.arguments);
-        if call_required > decision.allowed_permission {
-            return Some(
-                PolicyDenial::PermissionTooLow {
-                    tool: &call.name,
-                    required: call_required,
-                    allowed: decision.allowed_permission,
-                    channel: &self.channel,
-                }
-                .render(),
-            );
-        }
-        // For `use_skill`, also validate the resolved inner tool against the
-        // session allowlist. Role-hidden packed tools are not checked by the
-        // outer policy name; without this check `use_skill` would bypass the
+        // For `use_skill`, validate the resolved inner tool against the session
+        // allowlist. Role-hidden packed tools are not checked by the outer
+        // policy name; without this check `use_skill` would bypass the
         // session's effective allowlist for any packed tool.
+        //
+        // This runs BEFORE the argument-level permission check below, and the
+        // order is load-bearing. That check asks
+        // `UseSkillTool::permission_level_with_args`, which reports the
+        // pack-wide CEILING for an inner name it cannot resolve — so on a
+        // channel sitting under that ceiling, an invented name came back as
+        // `PermissionTooLow`: a permission denial for a tool that does not
+        // exist. Existence is not a policy question (#6302).
         if call.name == "use_skill" {
             if let Some(inner_tool) = call
                 .arguments
@@ -234,14 +229,17 @@ impl ToolPolicyMiddleware {
                 // in `skills`) is not a policy problem, and answering it with a
                 // denial reads as "installs are forbidden" (#6302). A tool the
                 // named skill does not contain gets that answer, with what this
-                // session can call in the skill instead.
+                // session can call in the skill instead — and so does a pack
+                // member this core never registered (feature gate, or an
+                // embedder's `ToolGroups::Off`), which is equally absent no
+                // matter what the static pack table says.
                 if let Some(pack) = call
                     .arguments
                     .get("skill")
                     .and_then(serde_json::Value::as_str)
                     .and_then(crate::tools::toolpacks::pack)
                 {
-                    if !pack.owns(inner_tool) {
+                    if !pack.owns(inner_tool) || self.resolve_tool(inner_tool).is_none() {
                         return Some(self.no_such_pack_tool(pack, inner_tool).render());
                     }
                 }
@@ -267,6 +265,24 @@ impl ToolPolicyMiddleware {
                     ));
                 }
             }
+        }
+
+        // Per-call permission ceiling, last: an unregistered tool has no level
+        // to compare, and for `use_skill` the level comes from the INNER tool
+        // (`permission_level_with_args`), which the block above has already
+        // proved to exist and to be reachable in this session.
+        let tool = self.resolve_tool(&call.name)?;
+        let call_required = tool.permission_level_with_args(&call.arguments);
+        if call_required > decision.allowed_permission {
+            return Some(
+                PolicyDenial::PermissionTooLow {
+                    tool: &call.name,
+                    required: call_required,
+                    allowed: decision.allowed_permission,
+                    channel: &self.channel,
+                }
+                .render(),
+            );
         }
         None
     }

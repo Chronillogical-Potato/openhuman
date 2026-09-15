@@ -98,7 +98,6 @@ impl AgentBuilder {
         crate::tools::toolpacks::close_handed_off_packs(
             &mut tool_policy_session,
             &agent_definition_name,
-            &visible_names,
             &all_tools,
         );
 

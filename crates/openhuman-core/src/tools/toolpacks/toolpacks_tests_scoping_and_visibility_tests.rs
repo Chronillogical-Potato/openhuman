@@ -353,13 +353,9 @@ fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
         .map(|t| t.as_ref())
         .chain(delegates.iter().map(|t| t.as_ref()))
         .collect();
-    // `setup_skills` is on the belt; `create_skill` and `do_crypto` are packed.
-    let visible: HashSet<String> = ["setup_skills", USE_SKILL]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-
-    let closed = closed_by_direct_handoff("orchestrator", &visible, &tools);
+    // `setup_skills` is unpacked, so the orchestrator advertises it by
+    // construction; `create_skill` and `do_crypto` are packed.
+    let closed = closed_by_direct_handoff("orchestrator", &tools);
     assert!(
         closed.contains(&"skill_registry_install"),
         "a raw tool of the pack `setup_skills` hands off to must close: {closed:?}"
@@ -378,11 +374,83 @@ fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
     );
 
     assert!(
-        closed_by_direct_handoff("skill_setup", &visible, &tools).is_empty(),
+        closed_by_direct_handoff("skill_setup", &tools).is_empty(),
         "a pack's owner keeps its own belt"
     );
+
+    // The live regression (#6302): a `ToolScope::Named` agent is built with
+    // `visible` = its named list, which never contains a synthesised delegate.
+    // Keyed on the visible set, this closed nothing on a real session while
+    // every test passed. Pack membership is knowable as soon as the tools are,
+    // so the raw tools close with no visible set in the picture at all.
+    let named_only: Vec<&dyn crate::tools::traits::Tool> = raw.iter().map(|t| t.as_ref()).collect();
     assert!(
-        closed_by_direct_handoff("orchestrator", &HashSet::new(), &tools).is_empty(),
-        "an empty visible set withholds nothing, so nothing closes"
+        closed_by_direct_handoff("orchestrator", &named_only).is_empty(),
+        "with no hand-off among the tools there is nothing to close: the rule \
+         must key on a hand-off existing, not on a pack existing"
+    );
+}
+
+/// The live session shape, which the rule test above cannot catch.
+///
+/// This is the regression the first cut shipped (#6302): a `ToolScope::Named`
+/// agent is built with `visible` = the list its `agent.toml` names, and a
+/// *synthesised* delegate like `setup_skills` is by definition not in it — those
+/// names arrive later, when `refresh_delegation_tools` inserts them. Keyed on
+/// `visible`, the closing rule did nothing on a real chat session: the live
+/// orchestrator went on calling `use_skill skills/skill_registry_search` and
+/// `skill_registry_install` for real, while every harness test passed, because a
+/// harness agent's empty visible set is seeded from every tool, synthesised ones
+/// included.
+///
+/// Asserts `blocks_execution`, not `is_denied`: a merely withheld packed tool is
+/// `HideFromPrompt`, for which `is_denied()` answers true, so an `is_denied`
+/// assertion would pass without the fix.
+#[test]
+fn a_named_scope_session_closes_the_pack_its_visible_list_never_mentions() {
+    use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
+    use crate::tools::agent_policy::ToolPolicyEngine;
+
+    let delegate: Box<dyn crate::tools::traits::Tool> = Box::new(ArchetypeDelegationTool {
+        tool_name: "setup_skills".to_string(),
+        agent_id: DelegationTarget("skill_setup".to_string()),
+        tool_description: String::new(),
+    });
+    let raw = registry_with_all(&["skill_registry_install"]);
+    let tools: Vec<&dyn crate::tools::traits::Tool> = raw
+        .iter()
+        .map(|t| t.as_ref())
+        .chain(std::iter::once(delegate.as_ref()))
+        .collect();
+
+    // Exactly what the builder hands a Named agent: its own list. No delegate.
+    let visible: HashSet<String> = ["shell", USE_SKILL].iter().map(|s| s.to_string()).collect();
+    let build = || {
+        ToolPolicyEngine::build_session_from_refs(
+            "orchestrator",
+            "web_chat",
+            "session",
+            &Default::default(),
+            &tools,
+            &visible,
+        )
+    };
+
+    assert!(
+        !build()
+            .decision_for("skill_registry_install")
+            .blocks_execution(),
+        "precondition: withheld-but-callable is the pack default, so this test \
+         can only fail for the right reason if closing is what blocks it"
+    );
+
+    let mut session = build();
+    close_handed_off_packs(&mut session, "orchestrator", &tools);
+    assert!(
+        session
+            .decision_for("skill_registry_install")
+            .blocks_execution(),
+        "`setup_skills` is unpacked, so the orchestrator advertises it and the \
+         raw registry tool must close — even though `visible` never named it"
     );
 }

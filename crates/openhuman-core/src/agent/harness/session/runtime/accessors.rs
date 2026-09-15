@@ -456,7 +456,6 @@ impl Agent {
         crate::tools::toolpacks::close_handed_off_packs(
             &mut session,
             &self.agent_definition_name,
-            &self.visible_tool_names,
             &all_tools,
         );
         self.tool_policy_session = session;

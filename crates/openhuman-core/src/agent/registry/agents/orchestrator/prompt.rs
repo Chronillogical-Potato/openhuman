@@ -43,7 +43,18 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    out.push_str(ARCHETYPE.trim_end());
+    // Resolved once: the same three routes decide both the static rows below
+    // and the generated sections further down, and they must agree (#6302).
+    let skill_run = hand_off_route(ctx, "skill_executor");
+    let skill_install = hand_off_route(ctx, "skill_setup");
+    let mcp_route = hand_off_route(ctx, "mcp_agent");
+
+    let archetype = strip_route_lines(
+        ARCHETYPE,
+        skill_run.is_some() || skill_install.is_some(),
+        mcp_route.is_some(),
+    );
+    out.push_str(archetype.trim_end());
     out.push_str("\n\n");
 
     let user_files = render_user_files(ctx)?;
@@ -60,8 +71,8 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 
     let skills = render_installed_skills(
         ctx.workflows,
-        hand_off_route(ctx, "skill_executor").as_deref(),
-        hand_off_route(ctx, "skill_setup").as_deref(),
+        skill_run.as_deref(),
+        skill_install.as_deref(),
     );
     if !skills.trim().is_empty() {
         out.push_str(skills.trim_end());
@@ -80,7 +91,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    let mcp_servers = render_connected_mcp_servers(hand_off_route(ctx, "mcp_agent").as_deref());
+    let mcp_servers = render_connected_mcp_servers(mcp_route.as_deref());
     if !mcp_servers.trim().is_empty() {
         out.push_str(mcp_servers.trim_end());
         out.push_str("\n\n");
@@ -236,12 +247,46 @@ fn hand_off_route(ctx: &PromptContext<'_>, specialist: &str) -> Option<String> {
     if ctx.visible_tool_names.is_empty() || ctx.visible_tool_names.contains(&tool) {
         return Some(format!("`{tool}`"));
     }
+    // A packed route is only a route if this session can call `use_skill`
+    // itself. A filtered belt holding neither the delegate nor `use_skill` has
+    // no way to reach the specialist, and naming one anyway is the same "call a
+    // tool you do not have" failure this whole block exists to end (#6302).
+    if !ctx.visible_tool_names.contains(toolpacks::USE_SKILL) {
+        return None;
+    }
     toolpacks::pack_for_tool(&tool).map(|pack| {
         format!(
             "`use_skill {{ \"skill\": \"{}\", \"tool\": \"{tool}\" }}`",
             pack.id
         )
     })
+}
+
+/// `prompt.md` with the route-tagged rows this build cannot honour removed.
+///
+/// A row tagged `<!--route:skills-->` or `<!--route:mcp-->` names a hand-off
+/// that exists only while that family is compiled in: with `skills` off the
+/// loader drops `skill_setup` and `skill_executor` from the builtins, so no
+/// delegate is synthesised and the static row would order the model to call a
+/// tool nobody has — the very failure this issue is about (#6302). The tag is
+/// stripped from every row that stays, so it never reaches the model.
+fn strip_route_lines(archetype: &str, skills: bool, mcp: bool) -> String {
+    const SKILLS_TAG: &str = "<!--route:skills-->";
+    const MCP_TAG: &str = "<!--route:mcp-->";
+    archetype
+        .lines()
+        .filter(|line| {
+            if line.contains(SKILLS_TAG) {
+                skills
+            } else if line.contains(MCP_TAG) {
+                mcp
+            } else {
+                true
+            }
+        })
+        .map(|line| line.replace(SKILLS_TAG, "").replace(MCP_TAG, ""))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// The registry entry behind `agent_id`, tolerating the web channel's rename.

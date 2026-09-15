@@ -151,26 +151,31 @@ pub fn is_withheld_from(agent_id: &str, tool: &str) -> bool {
 ///
 /// A pack closes only when all of this holds:
 /// * it is withheld from `agent_id` (a pack's owner keeps its own belt),
-/// * a tool in `visible` delegates to one of the pack's owners
-///   ([`crate::tools::traits::delegation_target`]).
+/// * one of the pack's owners is the [`delegation_target`] of a hand-off this
+///   agent carries **unpacked** — a delegate no pack withholds, and therefore
+///   one it advertises by construction.
+///
+/// [`delegation_target`]: crate::tools::traits::delegation_target
 ///
 /// Inside a closed pack, a tool that is itself a hand-off (e.g. `create_skill`)
 /// stays reachable: it is a route, not a raw tool. A tool whose group an embedder
 /// advertised is on the wire, not withheld, and is left alone too.
 ///
-/// Empty `visible` is the "everything visible" sentinel: nothing is withheld, so
-/// nothing closes.
-pub fn closed_by_direct_handoff(
-    agent_id: &str,
-    visible: &HashSet<String>,
-    tools: &[&dyn Tool],
-) -> Vec<&'static str> {
-    if visible.is_empty() {
-        return Vec::new();
-    }
+/// **Deliberately not keyed on the visible set.** It used to be, and that made
+/// the rule true in tests and false in production. An agent with
+/// `ToolScope::Named` is built with `visible` = its named list, which cannot
+/// contain a *synthesised* delegate like `setup_skills`; those names arrive
+/// later, when `refresh_delegation_tools` inserts them. So at build time no
+/// hand-off looked reachable and nothing closed, while a harness agent — whose
+/// empty visible set is seeded from every tool, synthesised ones included —
+/// closed correctly. The live orchestrator kept its raw `skill_registry_*` /
+/// `mcp_registry_*` route the whole time (#6302). Pack membership is knowable
+/// the moment the tools exist, so the answer no longer depends on when the
+/// visible set is filled in.
+pub fn closed_by_direct_handoff(agent_id: &str, tools: &[&dyn Tool]) -> Vec<&'static str> {
     let reachable_owners: HashSet<&str> = tools
         .iter()
-        .filter(|tool| visible.contains(tool.name()))
+        .filter(|tool| registry::pack_for_tool(tool.name()).is_none())
         .filter_map(|tool| crate::tools::traits::delegation_target(*tool))
         .collect();
     if reachable_owners.is_empty() {
@@ -202,10 +207,9 @@ pub fn closed_by_direct_handoff(
 pub fn close_handed_off_packs(
     session: &mut crate::tools::agent_policy::ToolPolicySession,
     agent_id: &str,
-    visible: &HashSet<String>,
     tools: &[&dyn Tool],
 ) {
-    let closed = closed_by_direct_handoff(agent_id, visible, tools);
+    let closed = closed_by_direct_handoff(agent_id, tools);
     if closed.is_empty() {
         return;
     }
