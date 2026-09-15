@@ -2065,30 +2065,37 @@ fn register_domain_subscribers(
         // battery-powered hosts).
         crate::cron::scheduler_gate::init_global(&config);
 
-        // Seed the scheduler-gate signed-out override from the on-disk session.
-        // Without this, a sidecar that boots with no stored JWT would happily
-        // spin up cron / channel loops and fire LLM requests that all 401.
-        match crate::api::jwt::get_session_token(&config) {
-            Ok(Some(_)) => {
-                crate::cron::scheduler_gate::set_signed_out(false);
-            }
-            Ok(None) => {
-                log::info!(
-                    "[auth] no session token at startup — scheduler gate set to signed_out \
-                     (config_path={}, keyring_backend={})",
-                    config.config_path.display(),
-                    crate::security::keyring::backend_name(),
-                );
-                crate::cron::scheduler_gate::set_signed_out(true);
-            }
-            Err(err) => {
-                log::warn!(
-                    "[auth] failed to read session token at startup ({err}) — assuming signed_out \
-                     (config_path={}, keyring_backend={})",
-                    config.config_path.display(),
-                    crate::security::keyring::backend_name(),
-                );
-                crate::cron::scheduler_gate::set_signed_out(true);
+        // Seed the scheduler-gate signed-out override from the on-disk
+        // credential — an API key (library runtime) or the app session.
+        // Without this, a sidecar that boots with no stored credential would
+        // happily spin up cron / channel loops and fire LLM requests that all
+        // 401.
+        if crate::security::credentials::api_key::has_api_key(&config) {
+            log::info!("[auth] api-key credential present at startup — scheduler gate signed in");
+            crate::cron::scheduler_gate::set_signed_out(false);
+        } else {
+            match crate::api::jwt::get_session_token(&config) {
+                Ok(Some(_)) => {
+                    crate::cron::scheduler_gate::set_signed_out(false);
+                }
+                Ok(None) => {
+                    log::info!(
+                        "[auth] no session token at startup — scheduler gate set to signed_out \
+                         (config_path={}, keyring_backend={})",
+                        config.config_path.display(),
+                        crate::security::keyring::backend_name(),
+                    );
+                    crate::cron::scheduler_gate::set_signed_out(true);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "[auth] failed to read session token at startup ({err}) — assuming signed_out \
+                         (config_path={}, keyring_backend={})",
+                        config.config_path.display(),
+                        crate::security::keyring::backend_name(),
+                    );
+                    crate::cron::scheduler_gate::set_signed_out(true);
+                }
             }
         }
 

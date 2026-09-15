@@ -878,6 +878,10 @@ pub fn all_tools_with_runtime(
                 None => Arc::new(base),
             }
         };
+        log::debug!(
+            "[tools::ops][mcp_client] static servers={}",
+            mcp_registry.list().len()
+        );
         if !mcp_registry.is_empty() {
             tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
             tools.push(Box::new(McpListToolsTool::new(Arc::clone(&mcp_registry))));

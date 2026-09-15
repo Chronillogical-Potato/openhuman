@@ -21,9 +21,13 @@ use super::super::types::{
     reencode, ComposioRefreshIdentitiesResponse, ComposioUserProfile, ComposioUserProfileRequest,
 };
 use super::connections::resolve_toolkit_for_connection;
+use super::connector_runs::{self, ConnectorRun};
 use super::error_utils::{report_composio_op_error, OpResult};
+use super::pass_failure::{pass_failure, retry_after_failure};
+use super::source_rows::source_sync_depth_days;
 use crate::memory::api::provider::types::SourceItem;
 use crate::memory::api::types::MemoryTaint;
+use crate::memory::sources::run_history::completed_sync_detail;
 use tinyconnectors_bus::records::{ConnectorSyncRequest, ConnectorSyncResponse};
 
 /// The source kind every connector record is ingested under.
@@ -32,7 +36,7 @@ use tinyconnectors_bus::records::{ConnectorSyncRequest, ConnectorSyncResponse};
 /// and answers `Invalid` for a kind it does not know, so it is a literal here
 /// rather than something derived from the toolkit. Records from Gmail and from
 /// Slack are both Composio records; the *toolkit* lives in the source id.
-const SOURCE_KIND: &str = "composio";
+pub(super) const SOURCE_KIND: &str = "composio";
 
 /// Per-pass item budget handed to the connector's `Sync` member.
 ///
@@ -65,34 +69,6 @@ pub(crate) fn next_pass_budget(source_max_items: Option<u32>, total_written: u64
             }
         }
     }
-}
-
-/// The `completed` stage's detail string.
-///
-/// A parse contract, not prose: the Sources UI extracts the count with
-/// `/ingested\s+(\d+)\s+item/i` and falls back to a generic "up to date"
-/// when it cannot (#3295). Pinned by a unit test against that exact pattern.
-///
-/// `note` is what the module said about a run that stopped short — today's
-/// request budget being spent, above all. It rides *after* the count, never
-/// inside it, so the regex keeps matching and everything past the count is
-/// free text the UI can show. Without it a spent budget wrote zero items and
-/// read back as "Up to date", the opposite of what happened.
-pub(crate) fn completed_sync_detail(
-    total_written: u64,
-    more_pending: bool,
-    note: Option<&str>,
-) -> String {
-    let mut detail = if more_pending {
-        format!("ingested {total_written} item(s), more pending — Sync again to continue")
-    } else {
-        format!("ingested {total_written} item(s)")
-    };
-    if let Some(note) = note.map(str::trim).filter(|note| !note.is_empty()) {
-        detail.push_str("; ");
-        detail.push_str(note);
-    }
-    detail
 }
 
 /// Aggregate result of [`composio_refresh_all_identities`].
@@ -306,6 +282,8 @@ pub async fn composio_sync_budgeted(
     let connection_for_task = connection_id.to_string();
     let reason_for_task = reason.as_str().to_string();
     let source_for_task = source_id.clone();
+    let source_for_record = source_id.clone();
+    let started = std::time::Instant::now();
 
     let trigger_for_task = reason.as_str().to_string();
     let publish_stage = move |stage: &str, detail: Option<String>| {
@@ -346,6 +324,9 @@ pub async fn composio_sync_budgeted(
         // absent: it describes the state the run ended in, and a pass that
         // completes cleanly must not inherit the note of an earlier one.
         let mut stop_note: Option<String> = None;
+        // Consecutive passes the connector reported as failed (openhuman#6255).
+        // A clean pass resets it; `retry_delay` decides when to stop asking.
+        let mut failed_attempts = 0u32;
         let outcome = loop {
             passes += 1;
             // The source's configured per-run cap wins over the pass ceiling:
@@ -366,6 +347,34 @@ pub async fn composio_sync_budgeted(
             {
                 Ok(pass) => {
                     total_written = total_written.saturating_add(u64::from(pass.written));
+                    // A failed pass keeps what it read (counted above); the run
+                    // waits, then asks again a bounded number of times (openhuman#6255).
+                    // Not when that pass filled the item cap: the cap check would
+                    // end the run next and report the failure as a success.
+                    if let Some(reason) = pass.failure {
+                        failed_attempts += 1;
+                        let cap_left = next_pass_budget(source_max_items, total_written).is_some();
+                        let Some(delay) = retry_after_failure(failed_attempts, cap_left) else {
+                            break Err(reason);
+                        };
+                        tracing::info!(
+                            toolkit = %toolkit_for_log,
+                            connection_id = %connection_for_log,
+                            attempt = failed_attempts,
+                            retry_in_secs = delay.as_secs(),
+                            "[composio] connector sync pass failed; retrying"
+                        );
+                        publish_stage(
+                            "running",
+                            Some(format!(
+                                "attempt {failed_attempts} failed, retrying in {}s",
+                                delay.as_secs()
+                            )),
+                        );
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    failed_attempts = 0;
                     more_pending = pass.more_pending;
                     stop_note = pass
                         .message
@@ -384,6 +393,11 @@ pub async fn composio_sync_budgeted(
                         "[composio] background sync pass ok"
                     );
                     if !pass.more_pending {
+                        break Ok(());
+                    }
+                    // A pass that read nothing cannot make progress, whatever it
+                    // says about more (the same rule as `pass_budget`'s drain).
+                    if pass.records_read == 0 {
                         break Ok(());
                     }
                     if passes >= MAX_PASSES {
@@ -412,8 +426,22 @@ pub async fn composio_sync_budgeted(
                 Err(error) => break Err(error),
             }
         };
+        // The history row goes down before the terminal stage goes out: the
+        // Sync History panel refetches when that stage arrives (openhuman#6257).
         match outcome {
             Ok(()) => {
+                connector_runs::record(
+                    &config_for_run,
+                    &ConnectorRun {
+                        toolkit: &toolkit_for_log,
+                        connection_id: &connection_for_log,
+                        source_id: source_for_record.as_deref(),
+                        reason: &reason_for_task,
+                        started,
+                        written: total_written,
+                        error: None,
+                    },
+                );
                 // The detail is a parse contract, not prose: the Sources UI
                 // extracts the count with `/ingested\s+(\d+)\s+item/i` and
                 // falls back to a generic "up to date" when it cannot (#3295).
@@ -433,6 +461,18 @@ pub async fn composio_sync_budgeted(
                     connection_id = %connection_for_log,
                     error = %error,
                     "[composio] background sync failed"
+                );
+                connector_runs::record(
+                    &config_for_run,
+                    &ConnectorRun {
+                        toolkit: &toolkit_for_log,
+                        connection_id: &connection_for_log,
+                        source_id: source_for_record.as_deref(),
+                        reason: &reason_for_task,
+                        started,
+                        written: total_written,
+                        error: Some(error.as_str()),
+                    },
                 );
                 publish_stage("failed", Some(error.clone()));
             }
@@ -476,6 +516,10 @@ pub(crate) struct SyncPassOutcome {
     /// budget being spent, above all. Carried so the completed-stage detail
     /// can say *why* zero items arrived instead of reading as "up to date".
     pub message: Option<String>,
+    /// Why the connector stopped this pass on an error (openhuman#6255). The
+    /// counts above still stand; the caller ends or retries the run on this
+    /// instead of asking again as if the connector had only paused.
+    pub failure: Option<String>,
 }
 
 /// Read one connection through the module and ingest what it returns.
@@ -484,6 +528,10 @@ pub(crate) struct SyncPassOutcome {
 /// commits: the module already decides what a page is and where the cursor
 /// stands, and re-deciding that here would give the run two opinions about
 /// what has been read.
+///
+/// A pass the connector reports as failed still ingests the pages it read and
+/// comes back as `Ok`, with [`SyncPassOutcome::failure`] set and nothing
+/// pending: whether to ask again is the caller's decision (openhuman#6255).
 ///
 /// `pub(crate)` — also driven by `pass_budget::run_sync_within_budget` for
 /// the entry points that sync once per invocation (periodic tick, manual
@@ -524,14 +572,22 @@ pub(crate) async fn run_sync_pass(
     )
     .await?;
 
+    // A failed pass keeps what it read but is not "more pending": read as
+    // incomplete, a failing connector was asked again fifty times a click with
+    // its reason logged nowhere (openhuman#6255). Its message is the failure.
+    let failure = pass_failure(&response, toolkit, connection_id);
+    let more_pending = failure.is_none() && !response.batch.complete;
+    let message = response.message.filter(|_| failure.is_none());
+
     let count = response.batch.records.len();
     if count == 0 {
         return Ok(SyncPassOutcome {
             records_read: 0,
             written: 0,
             already_ingested: false,
-            more_pending: !response.batch.complete,
-            message: response.message,
+            more_pending,
+            message,
+            failure,
         });
     }
 
@@ -601,11 +657,7 @@ pub(crate) async fn run_sync_pass(
     // into a failed one. Safe to call unconditionally, too: the contract makes
     // an empty scope `Ok(0)` rather than an error.
     if outcome.written > 0 {
-        let scope = format!(
-            "{}:{}",
-            toolkit.trim().to_ascii_lowercase(),
-            connection_id.trim()
-        );
+        let scope = connector_runs::connector_scope(toolkit, connection_id);
         match binding.provider().as_tree() {
             Some(tree) => match tree.flush_source_tree(&scope).await {
                 Ok(seals) => tracing::debug!(
@@ -627,7 +679,7 @@ pub(crate) async fn run_sync_pass(
         }
     }
 
-    if !response.batch.complete {
+    if more_pending {
         // The module keeps its own cursor, so the next call resumes where this
         // one stopped. Saying so is worth a line: a partial run that looked
         // complete is how a user concludes half their mail is missing.
@@ -650,79 +702,10 @@ pub(crate) async fn run_sync_pass(
         records_read: count,
         written: outcome.written,
         already_ingested: outcome.already_ingested,
-        more_pending: !response.batch.complete,
-        message: response.message,
+        more_pending,
+        message,
+        failure,
     })
-}
-
-/// The per-source "Sync depth (days)" cap for one connection, from the
-/// memory-sources registry the pass's own `config` names.
-///
-/// Resolved here rather than threaded through every caller because there are
-/// five of them (the row button, All In, the periodic loop, the connection
-/// bootstrap, Slack's own RPC), and `max_items` already showed what happens
-/// when each open-codes the same rule: two of the five disagreed
-/// (openhuman#6007). Read through `config`, not the process environment: a
-/// pass is bound to one workspace, and the global registry path would answer a
-/// caller bound to workspace B with workspace A's rows — the cross-workspace
-/// leak the registry's `_in` variants exist to prevent. `None` when the row is
-/// missing, carries no cap, or the registry cannot be read — each means "no
-/// lower bound", which is what every release before the field existed did, so
-/// a registry hiccup degrades to the old behaviour rather than to a failed
-/// sync.
-fn source_sync_depth_days(config: &Config, toolkit: &str, connection_id: &str) -> Option<u32> {
-    let sources = match crate::memory::sources::registry::list_sources_in(config) {
-        Ok(sources) => sources,
-        Err(error) => {
-            tracing::warn!(
-                toolkit = %toolkit,
-                connection_id = %connection_id,
-                error = %error,
-                "[composio] memory-sources registry unreadable for the sync depth; \
-                 syncing without a lower bound"
-            );
-            return None;
-        }
-    };
-    pick_source_sync_depth_days(
-        sources
-            .iter()
-            .filter(|source| source.kind == crate::memory::sources::SourceKind::Composio)
-            .map(|source| {
-                (
-                    source.toolkit.as_deref(),
-                    source.connection_id.as_deref(),
-                    source.sync_depth_days,
-                )
-            }),
-        toolkit,
-        connection_id,
-    )
-}
-
-/// The cap of the row matching `toolkit` and `connection_id`, if any.
-///
-/// Matched the way the engine keys the rows — toolkit case-insensitively and
-/// trimmed, connection trimmed — and a cap of zero reads as none: the settings
-/// field stores "unlimited" as an empty value, and a zero typed by hand would
-/// otherwise ask Gmail for mail newer than today.
-pub(crate) fn pick_source_sync_depth_days<'a>(
-    rows: impl IntoIterator<Item = (Option<&'a str>, Option<&'a str>, Option<u32>)>,
-    toolkit: &str,
-    connection_id: &str,
-) -> Option<u32> {
-    let toolkit = toolkit.trim();
-    let connection_id = connection_id.trim();
-    rows.into_iter()
-        .find_map(|(row_toolkit, row_connection, depth)| {
-            let same_toolkit =
-                row_toolkit.is_some_and(|slug| slug.trim().eq_ignore_ascii_case(toolkit));
-            let same_connection = row_connection.is_some_and(|id| id.trim() == connection_id);
-            (same_toolkit && same_connection)
-                .then_some(depth)
-                .flatten()
-                .filter(|days| *days > 0)
-        })
 }
 
 /// Parse the optional `reason` parameter into a [`SyncReason`].

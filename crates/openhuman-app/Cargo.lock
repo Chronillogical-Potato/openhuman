@@ -4238,7 +4238,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.63.25"
+version = "0.63.28"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-app"
-version = "0.63.25"
+version = "0.63.28"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4398,7 +4398,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.63.25"
+version = "0.63.28"
 dependencies = [
  "log",
  "reqwest 0.12.28",
@@ -7184,7 +7184,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-bus"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "serde",
  "serde_json",

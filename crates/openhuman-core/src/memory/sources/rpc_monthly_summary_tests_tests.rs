@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 
 use crate::memory::api::provider::sync::SyncAuditEntry;
-use crate::memory::sources::rpc::cost_reporting::summarise_month;
+use crate::memory::sources::rpc::cost_reporting::{summarise_logs, summarise_month};
+use crate::memory::sources::run_history::KEEP_ROWS;
 /// One audit row, dated `stamp`, costing `estimated` with no real charge.
 fn row(stamp: &str, items: u32, input: u64, output: u64, estimated: f64) -> SyncAuditEntry {
     SyncAuditEntry {
@@ -118,4 +119,51 @@ fn a_future_stamped_row_is_skipped_and_proves_nothing() {
         !summary.totals_complete,
         "a newer row says nothing about how far back the read reached"
     );
+}
+
+/// The host's runs add to the driver's (openhuman#6257), and a host log short
+/// of a compaction's worth of rows has dropped none, so it cannot make the
+/// totals a floor.
+#[test]
+fn both_logs_are_totalled_and_a_short_host_log_is_complete() {
+    let driver = vec![
+        row("2026-08-20T10:00:00Z", 3, 100, 20, 0.5),
+        row("2026-07-31T23:59:59Z", 1, 1, 1, 1.0),
+    ];
+    let host = vec![row("2026-08-21T10:00:00Z", 4, 0, 0, 0.0)];
+
+    let summary = summarise_logs(&driver, &host, "2026-08");
+
+    assert_eq!(summary.month, "2026-08");
+    assert_eq!(summary.total_syncs, 2);
+    assert_eq!(summary.total_items, 7);
+    assert_eq!(summary.total_input_tokens, 100);
+    assert_eq!(summary.total_output_tokens, 20);
+    assert!(close(summary.total_cost_usd, 0.5));
+    assert!(
+        summary.totals_complete,
+        "the driver read reached past August and the host log never compacted"
+    );
+}
+
+/// Completeness needs both halves: a driver read cut off at its cap leaves
+/// the totals a floor however complete the host log is, and a host log at a
+/// compaction's size has to prove its own reach the way the driver's does.
+#[test]
+fn either_log_can_leave_the_totals_a_floor() {
+    let driver_capped = vec![row("2026-08-20T10:00:00Z", 1, 0, 0, 0.0)];
+    let host_short = vec![row("2026-08-21T10:00:00Z", 1, 0, 0, 0.0)];
+    assert!(!summarise_logs(&driver_capped, &host_short, "2026-08").totals_complete);
+
+    let driver_complete = vec![row("2026-07-01T00:00:00Z", 1, 0, 0, 0.0)];
+    let mut host_full: Vec<SyncAuditEntry> = (0..KEEP_ROWS)
+        .map(|_| row("2026-08-21T10:00:00Z", 1, 0, 0, 0.0))
+        .collect();
+    assert!(
+        !summarise_logs(&driver_complete, &host_full, "2026-08").totals_complete,
+        "a compacted host log holding only this month's rows may have dropped some"
+    );
+
+    host_full.push(row("2026-07-30T00:00:00Z", 1, 0, 0, 0.0));
+    assert!(summarise_logs(&driver_complete, &host_full, "2026-08").totals_complete);
 }

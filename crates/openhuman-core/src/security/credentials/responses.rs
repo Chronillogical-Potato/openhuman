@@ -9,7 +9,17 @@ pub struct AuthStateResponse {
     pub user_id: Option<String>,
     pub user: Option<serde_json::Value>,
     pub profile_id: Option<String>,
+    /// Which credential backs `is_authenticated`: `"session"` for an app
+    /// session JWT, `"api-key"` for a TinyHumans API key (library runtimes,
+    /// no user identity), absent when signed out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential: Option<String>,
 }
+
+/// `AuthStateResponse::credential` value for an app-session JWT.
+pub const CREDENTIAL_SESSION: &str = "session";
+/// `AuthStateResponse::credential` value for a TinyHumans API key.
+pub const CREDENTIAL_API_KEY: &str = "api-key";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

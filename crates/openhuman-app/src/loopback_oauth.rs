@@ -205,6 +205,33 @@ const SUCCESS_BODY: &str = "<!doctype html><meta charset=utf-8><title>Signed in<
 <p style=\"margin:0;color:#6e6e73\">You can close this tab and return to OpenHuman.</p></div>\
 <script>setTimeout(function(){window.close()},250)</script></body>";
 
+const FAILURE_BODY: &str = "<!doctype html><meta charset=utf-8><title>Sign-in not completed</title>\
+<body style=\"font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1c1c1e;background:#f5f5f7\">\
+<div style=\"text-align:center\"><h2 style=\"margin:0 0 8px\">Sign-in was not completed.</h2>\
+<p style=\"margin:0;color:#6e6e73\">No credentials were received. Return to OpenHuman to try again.</p></div></body>";
+
+/// Whether a state-matched callback actually delivered a credential. OpenRouter's
+/// Deny redirects back with nothing but the echoed `state=`, and an OAuth error
+/// carries `error=`; neither may show the "signed in" page. Only a non-empty
+/// `code` (OAuth / PKCE) or `token` (backend login) counts as a credential.
+fn callback_carries_credential(query: &str) -> bool {
+    let pairs: Vec<(&str, &str)> = query.split('&').filter_map(|p| p.split_once('=')).collect();
+    !pairs.iter().any(|(k, _)| *k == "error")
+        && pairs
+            .iter()
+            .any(|(k, v)| matches!(*k, "code" | "token") && !v.is_empty())
+}
+
+/// Page served for a state-matched callback: success only when it carried a credential.
+fn callback_body(query: &str) -> &'static str {
+    if callback_carries_credential(query) {
+        SUCCESS_BODY
+    } else {
+        log::warn!("[loopback-oauth] callback carried no credential (denied or error)");
+        FAILURE_BODY
+    }
+}
+
 fn http_response(status: &str, body: &str) -> Vec<u8> {
     format!(
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {len}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}",
@@ -350,7 +377,11 @@ async fn run_accept_loop(
                             .await;
                     }
                     RequestOutcome::AuthCallback { callback_url } => {
-                        let _ = socket.write_all(&http_response("200 OK", SUCCESS_BODY)).await;
+                        let query = callback_url.split_once('?').map_or("", |(_, q)| q);
+                        let body = callback_body(query);
+                        // Still emit: the frontend must leave its pending state and
+                        // report the failure instead of waiting for the timeout.
+                        let _ = socket.write_all(&http_response("200 OK", body)).await;
                         let _ = socket.flush().await;
                         if let Err(err) =
                             app.emit(LOOPBACK_CALLBACK_EVENT, CallbackPayload { url: callback_url })

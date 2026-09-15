@@ -199,6 +199,11 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'حدث خطأ ما في هذا الإجراء.',
   'conversations.toolFailure.unknown.next':
     'حاول مرة أخرى؛ وإذا استمر الفشل، شغّل التشخيص من الإعدادات.',
+  'conversations.toolFailure.notFound.cause': 'ما طلبه هذا الإجراء غير موجود أو غير متاح هنا.',
+  'conversations.toolFailure.notFound.next':
+    'لا حاجة لأي إجراء. يمكن للمساعد البحث عن الاسم الصحيح والمحاولة مرة أخرى.',
+  'conversations.toolFailure.unsupported.cause': 'لا يستطيع OpenHuman القيام بذلك تلقائيًا بعد.',
+  'conversations.toolFailure.unsupported.next': 'قم بذلك يدويًا، أو اطلب خيارًا آخر.',
   'conversations.backgroundTasks.title': 'مهام الخلفية',
   'nav.feedback': 'شارك ملاحظاتك',
   'feedback.board': 'لوحة الملاحظات',
@@ -366,6 +371,8 @@ const messages: TranslationMap = {
   'sync.status.success': 'نجاح',
   'sync.status.failed': 'فشل',
   'sync.status.partial': 'تم الجلب، وفشل الإدراج في الذاكرة',
+  'sync.nowSyncing.title': 'قيد المزامنة الآن',
+  'sync.nowSyncing.empty': 'لا تجري أي مزامنة الآن.',
   'common.error': 'خطأ',
   'common.success': 'نجاح',
   'common.back': 'رجوع',
@@ -637,6 +644,10 @@ const messages: TranslationMap = {
   'home.askAssistant': 'اسأل مساعدك أي شيء...',
   'home.statusOk': 'مساعدك جاهز متى كنت مستعدًا. اكتب شيئًا في الأسفل للبدء.',
   'home.statusBackendOnly': 'جارٍ إعادة الاتصال بالخادم… سيتوفر وكيلك قريبًا.',
+  'home.statusHostedDegraded':
+    'جارٍ إعادة الاتصال بالسحابة… تستمر المحادثة في العمل؛ وستُستأنف عمليات التكامل والقنوات فور عودة الاتصال.',
+  'home.statusHostedStopped':
+    'توقف الاتصال بالسحابة: سجّل الدخول مرة أخرى لاستئناف عمليات التكامل والقنوات. تستمر المحادثة في العمل.',
   'home.statusCoreUnreachable':
     'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
   'home.statusInternetOffline':
@@ -945,6 +956,8 @@ const messages: TranslationMap = {
   'memoryTree.status.retryFailedDone': 'تمت إعادة إدراج المهام الفاشلة',
   'memoryTree.status.retryFailedCount': 'تمت جدولة {count} مهمة للتشغيل من جديد.',
   'memoryTree.status.retryFailedError': 'تعذّرت إعادة إدراج المهام الفاشلة',
+  'memoryTree.status.jobQueue':
+    'مهام الذاكرة: {ready} قيد الانتظار، {running} قيد التشغيل، {failed} فاشلة',
   'memoryTree.status.toggleFailed': 'لا يمكن أن نهز السيرة الذاتية',
   'memoryTree.status.justNow': 'الآن',
   'memoryTree.status.secondsAgo': 'اكساكسوكس قبل',
@@ -2576,8 +2589,6 @@ const messages: TranslationMap = {
   'memorySources.kind.twitter_query': 'Xqx0x',
   'memorySources.kind.rss_feed': 'Xqx0xq',
   'memorySources.kind.web_page': 'الصفحة',
-  'memorySources.sync.successTitle': 'الموسم',
-  'memorySources.sync.successMessage': 'وسيظهر التقدم قريبا.',
   'memorySources.sync.failedTitle': 'لقد فشل (سينك)',
   'memorySources.sync.completeTitle': 'تمت المزامنة',
   'memorySources.sync.itemsSynced': 'عناصر تمت مزامنتها',
@@ -2585,6 +2596,13 @@ const messages: TranslationMap = {
   'memorySources.sync.failedLabel': 'فشل',
   'memorySources.sync.morePending': 'يوجد المزيد للمزامنة. انقر على «مزامنة» مرة أخرى',
   'memorySources.sync.budgetSpent': 'استُنفدت ميزانية الطلبات لليوم. حاول مرة أخرى غدًا',
+  'memorySources.stage.requested': 'جارٍ البدء',
+  'memorySources.stage.running': 'جارٍ المزامنة',
+  'memorySources.stage.fetching': 'جارٍ الجلب',
+  'memorySources.stage.stored': 'جارٍ الحفظ',
+  'memorySources.stage.queued': 'جارٍ المعالجة في الذاكرة',
+  'memorySources.stage.ingesting': 'جارٍ المعالجة في الذاكرة',
+  'memorySources.stage.unknown': 'جارٍ المزامنة',
   'time.justNow': 'للتو',
   'time.secondsAgoSuffix': 'ثانية مضت',
   'time.minutesAgoSuffix': 'دقيقة مضت',

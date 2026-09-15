@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OpenHuman",
-  "version": "0.63.25",
+  "version": "0.63.28",
   "identifier": "com.openhuman.app",
   "build": {
     "beforeDevCommand": "pnpm --dir ../app run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm --dir ../../app run build:app",
+    "beforeBuildCommand": "pnpm --dir ../app run build:app",
     "frontendDist": "../../app/dist"
   },
   "app": {
@@ -25,7 +25,8 @@
           "y": 28
         },
         "resizable": true,
-        "center": false
+        "center": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {

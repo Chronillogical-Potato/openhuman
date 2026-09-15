@@ -478,6 +478,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             events.subscribe(CapPauser::new(
                 handle.clone(),
                 max_iterations,
+                ctx.run_id().as_str(),
                 dispatch_guard,
             ));
         }

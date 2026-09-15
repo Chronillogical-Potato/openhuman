@@ -76,6 +76,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         // tests observe the summarizer stage alone.
         budget_bytes: 10_000_000,
         payload_summarizer: Some(ps),
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
@@ -168,6 +169,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: 1_000_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: true,
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
@@ -215,6 +217,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
@@ -314,13 +317,16 @@ async fn run_successful_repeat_cycle(
     mw: &RepeatProgressMiddleware,
     tool: &str,
     args: serde_json::Value,
+    output: &str,
     error: Option<&str>,
 ) {
     let mut response = repeated_success_response(tool, args);
     mw.after_model(&mut ctx(), &(), &mut response)
         .await
         .unwrap();
-    let mut result = tool_result(tool, "ok");
+    let mut result = tool_result(tool, output);
+    // Answer the call `repeated_success_response` issued.
+    result.call_id = "repeat-1".into();
     result.error = error.map(str::to_string);
     mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
 }
@@ -414,6 +420,8 @@ fn embedder_hook_mw(
 
 #[path = "middleware_loop_guard_tests.rs"]
 mod loop_guard_tests;
+#[path = "middleware_repeat_progress_tests.rs"]
+mod repeat_progress_tests;
 #[path = "middleware_tool_output_tests.rs"]
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]

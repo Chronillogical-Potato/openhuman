@@ -126,7 +126,8 @@ pub use paths::{
 };
 pub use reader::{read_transcript, read_transcript_display};
 pub use thread_lookup::{
-    find_root_transcript_for_thread, find_root_transcripts_for_thread, read_thread_usage_summary,
+    find_root_transcript_for_thread, find_root_transcript_for_thread_scoped,
+    find_root_transcripts_for_thread, read_thread_usage_summary,
 };
 pub use types::{
     CompactionMarker, DisplayMessage, DisplayRecord, MessageUsage, SessionTranscript,

@@ -538,6 +538,10 @@ fn tool_calls_envelope(id: &str) -> String {
 mod turn_auto_recall_tests;
 #[path = "turn_checkpoint_and_wrapup_tests.rs"]
 mod turn_checkpoint_and_wrapup_tests;
+#[path = "turn_failed_turn_history_tests.rs"]
+mod turn_failed_turn_history_tests;
+#[path = "turn_final_reply_grounding_tests.rs"]
+mod turn_final_reply_grounding_tests;
 #[path = "turn_history_and_context_tests.rs"]
 mod turn_history_and_context_tests;
 #[path = "turn_learned_context_and_announcements_tests.rs"]

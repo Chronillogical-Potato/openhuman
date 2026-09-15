@@ -31,7 +31,11 @@ impl Agent {
     /// harness event stream via `OpenhumanEventBridge` (tinyagents harness),
     /// `[IMAGE:…]`/`[FILE:…]` markers are expanded for the provider, and history
     /// is trimmed to the provider's context window.
-    pub(super) async fn run_turn_via_tinyagents_session(
+    ///
+    /// Called through [`Agent::run_turn_via_tinyagents_session`], which records
+    /// a failed turn from `transcript_snapshot` (#6281).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) async fn run_turn_via_tinyagents_session_inner(
         &mut self,
         user_message: &str,
         effective_model: &str,
@@ -41,6 +45,7 @@ impl Agent {
             crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore,
         >,
         suppress_tools: bool,
+        transcript_snapshot: crate::agent::tinyagents::TranscriptSnapshotSink,
     ) -> Result<String> {
         let turn_started = std::time::Instant::now();
         // This turn's stamped user message is already the last entry in
@@ -93,6 +98,12 @@ impl Agent {
         .await
         .map(|prepared| prepared.messages)
         .unwrap_or(messages);
+        // The rounds this run produces start after the transcript it is seeded
+        // with; a failed turn records only those (#6281).
+        transcript_snapshot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .request_base_len = messages.len();
 
         // Per-turn tool scope (#1725). A chat / small-talk turn runs with an
         // EMPTY tool set: the provider request carries no tool schema, so the
@@ -123,6 +134,9 @@ impl Agent {
         let context_mw = crate::agent::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
+            // The raw user message (the date-stamped copy lives in history):
+            // what the summarizer should keep facts for (#6283).
+            task_hint: Some(user_message.to_string()),
             artifact_store,
             tokenjuice_compaction_enabled: self.context.compaction_enabled(),
             tokenjuice_compression: self.tokenjuice_compression,
@@ -135,9 +149,9 @@ impl Agent {
             // Progressive-disclosure handoff is a sub-agent (integrations_agent)
             // concern; the top-level chat turn never sets it.
             handoff: None,
-            // Live transcript snapshotting is a sub-agent error-recovery concern
-            // (#4466); the chat path persists its transcript post-run.
-            transcript_snapshot: None,
+            // The harness drops its working transcript on `Err`; the snapshot
+            // is how a failed turn still keeps the rounds it completed (#6281).
+            transcript_snapshot: Some(transcript_snapshot.clone()),
         };
 
         // Gather any sub-agent spend delegated during this turn (synchronous
@@ -185,11 +199,10 @@ impl Agent {
                     // Scope direct Master-Agent calls under its declared
                     // sandbox. `agent_definition_name` can carry a thread
                     // suffix, so resolve with the stable definition id.
-                    sandbox_mode:
-                        crate::agent::harness::definition::AgentDefinitionRegistry::global()
-                            .and_then(|registry| registry.get(&self.agent_definition_id))
-                            .map(|definition| definition.sandbox_mode)
-                            .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
+                    sandbox_mode: self
+                        .resolved_definition()
+                        .map(|definition| definition.sandbox_mode)
+                        .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
                 }),
             ),
         );
@@ -201,6 +214,13 @@ impl Agent {
             )
             .await;
         let outcome = outcome?;
+        // The run handed back its own transcript, folded into history below, so
+        // an error after this point must not replay the snapshot's rounds again.
+        transcript_snapshot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .messages
+            .clear();
 
         // Record whether this turn paused at the tool-call cap (vs. finishing
         // naturally) BEFORE anything below can early-return, so a caller
@@ -273,6 +293,7 @@ impl Agent {
                     effective_model,
                     outcome.model_calls as u32 + 1,
                     turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION,
+                    true,
                 )
                 .await;
             if let Some(u) = summary_usage {
@@ -328,61 +349,31 @@ impl Agent {
                     iteration: outcome.model_calls,
                 },
             ));
-        } else if outcome.text.trim().is_empty() {
-            // #4093: the loop ran tool calls (tool_calls > 0, so the branch
-            // above did not fire) and then yielded a terminating response with
-            // no final text — the turn did work but would otherwise end
-            // silently, leaving the user with nothing. Enforce the
-            // "must produce a final response" terminal step: re-prompt the
-            // model (tools disabled) for a closing summary of what it did,
-            // falling back to a deterministic summary of the tool calls so the
-            // synthesized message is never itself empty. Fold the extra call's
-            // usage into the turn accounting, exactly like the cap path above.
-            let base = self.tool_dispatcher.to_provider_messages(&self.history);
-            let (summary, summary_usage) = self
-                .summarize_turn_wrapup(
-                    &base,
-                    effective_model,
-                    outcome.model_calls as u32 + 1,
-                    turn_checkpoint::FINAL_ANSWER_INSTRUCTION,
-                )
+        } else if outcome.breaker_halt.is_some() || outcome.text.trim().is_empty() {
+            // Two ways a turn reaches here without a reply it can ship:
+            //
+            // * #4093: the loop ran tool calls (tool_calls > 0, so the branch
+            //   above did not fire) and then ended with no final text — the
+            //   turn did work but would otherwise end silently.
+            // * #6279: the no-progress breaker halted the run. `outcome.text`
+            //   then holds the breaker's stop note, which is worded for a model
+            //   ("Report this back instead of retrying") and must not be the
+            //   user's reply.
+            //
+            // Both close from the turn's tool records: a grounded wrap-up, a
+            // check that rejects intent narration or claims the records
+            // contradict (#6278), and a deterministic fallback that quotes the
+            // failures. Fold the extra calls' usage into the turn accounting,
+            // exactly like the cap path above.
+            let (final_answer, close_usage) = self
+                .close_turn_from_records(&outcome, user_message, effective_model)
                 .await;
-            if let Some(u) = summary_usage {
+            for u in close_usage {
                 input_tokens += u.input_tokens;
                 output_tokens += u.output_tokens;
                 cached_input_tokens += u.cached_input_tokens;
                 charged_amount_usd += u.charged_amount_usd;
             }
-            let final_answer = if summary.trim().is_empty() {
-                turn_checkpoint::build_deterministic_final_summary(&tool_records_from_conversation(
-                    &outcome.conversation,
-                    &outcome.tool_outcomes,
-                ))
-            } else {
-                summary
-            };
-            log::info!(
-                "[agent_loop] turn produced no final text after {} tool call(s); synthesized a closing summary ({} chars) — #4093",
-                outcome.tool_calls,
-                final_answer.chars().count()
-            );
-            // The empty terminal assistant response was already folded into
-            // `self.history` via `outcome.conversation` above (an empty
-            // `Chat(assistant(""))` — see `messages_to_conversation`). Drop that
-            // blank turn before appending the synthesized answer so the
-            // transcript and the next prompt don't carry a dangling empty
-            // assistant message immediately before the real reply (Codex review).
-            if matches!(
-                self.history.last(),
-                Some(ConversationMessage::Chat(msg))
-                    if msg.role == "assistant" && msg.content.trim().is_empty()
-            ) {
-                self.history.pop();
-            }
-            self.history
-                .push(ConversationMessage::Chat(ChatMessage::assistant(
-                    final_answer.clone(),
-                )));
             final_answer
         } else if outcome.early_exit_tool.is_some() {
             // Paused on `ask_user_clarification`. The run stopped right after the

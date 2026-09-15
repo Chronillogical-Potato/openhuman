@@ -170,13 +170,6 @@ pub(crate) fn verify_session_active(config: &Config) -> anyhow::Result<()> {
 /// in a Library host. Library mode exempts caller-owned provider credentials;
 /// it cannot manufacture a TinyHumans account credential.
 pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<()> {
-    // Fast path: the scheduler gate already knows the session is dead.
-    if crate::cron::scheduler_gate::is_signed_out() {
-        anyhow::bail!(
-            "SESSION_EXPIRED: backend session not active — sign in to use custom providers"
-        );
-    }
-    // Verify the app-session JWT actually exists in auth-profiles.
     let state_dir = config
         .config_path
         .parent()
@@ -186,6 +179,21 @@ pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<(
                 .map(|d| d.home_dir().join(".openhuman"))
                 .unwrap_or_else(|| std::path::PathBuf::from(".openhuman"))
         });
+    // An API key is a standing credential: no session to be active, nothing
+    // for the scheduler gate to have expired.
+    if crate::security::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt) {
+        log::debug!(
+            "[providers][access-gate] api-key credential satisfies the backend session gate"
+        );
+        return Ok(());
+    }
+    // Fast path: the scheduler gate already knows the session is dead.
+    if crate::cron::scheduler_gate::is_signed_out() {
+        anyhow::bail!(
+            "SESSION_EXPIRED: backend session not active — sign in to use custom providers"
+        );
+    }
+    // Verify the app-session JWT actually exists in auth-profiles.
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
         .get_provider_bearer_token(crate::security::credentials::APP_SESSION_PROVIDER, None)?

@@ -54,8 +54,9 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, LazyLock, Mutex};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
 use tinyagents_harness::subagent::SubAgent;
@@ -318,6 +319,22 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 UnavailableReason::PayloadTooLarge,
             ));
         }
+        // Checked before the breaker: a summary we already have costs nothing,
+        // so a broken summarizer is no reason to withhold it.
+        let cache_key = summary_cache_key(tool_name, parent_task_hint, raw);
+        if let Some(summary) = cached_summary(&cache_key) {
+            info!(
+                tool = tool_name,
+                bytes = raw.len(),
+                summary_bytes = summary.len(),
+                "[payload_summarizer] reusing the summary of an identical payload"
+            );
+            return Ok(SummarizeOutcome::Summarized(SummarizedPayload {
+                summary_bytes: summary.len(),
+                summary,
+                original_bytes: raw.len(),
+            }));
+        }
         if self.breaker_tripped() {
             warn!(
                 tool = tool_name,
@@ -341,7 +358,7 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         let outcome = self
             .invoke_tinyagents_summarizer_in_parent(parent_ctx, prompt)
             .await;
-        self.handle_summarizer_result(tool_name, raw, started, outcome)
+        self.handle_summarizer_result(tool_name, raw, started, outcome, cache_key)
     }
 }
 
@@ -411,7 +428,7 @@ impl SubagentPayloadSummarizer {
         // (`run_child(.., streaming = false)`), which per its own contract
         // "leav[es] the parent's event stream unchanged", while still sharing
         // the sink so the sub-agent lifecycle events (started/completed) keep
-        // reaching observers. Mirrors `reprompt_for_required_block`, which is
+        // reaching observers. Mirrors `silent_completion`, which is
         // likewise deliberately silent about an internal repair call.
         //
         // Two bits of config that `invoke_in_parent` threaded are dropped by
@@ -487,10 +504,11 @@ impl SubagentPayloadSummarizer {
         raw: &str,
         started: std::time::Instant,
         outcome: Result<String>,
+        cache_key: SummaryCacheKey,
     ) -> Result<SummarizeOutcome> {
         match outcome {
             Ok(output) => {
-                let summary = output.trim().to_string();
+                let summary = output.trim();
                 if summary.is_empty() {
                     warn!(
                         tool = tool_name,
@@ -499,6 +517,10 @@ impl SubagentPayloadSummarizer {
                     self.record_failure();
                     return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
                 }
+                // No size is written into the summary. The size is the runtime's
+                // to state, and `ToolOutputMiddleware` states it after the output
+                // caps, so a cap that cuts the summary cannot cut the size too.
+                let summary = summary.to_string();
                 if summary.len() >= raw.len() {
                     warn!(
                         tool = tool_name,
@@ -525,6 +547,7 @@ impl SubagentPayloadSummarizer {
                     elapsed_ms = started.elapsed().as_millis() as u64,
                     "[payload_summarizer] compressed successfully"
                 );
+                remember_summary(cache_key, summary.clone());
                 Ok(SummarizeOutcome::Summarized(SummarizedPayload {
                     summary,
                     original_bytes,
@@ -552,20 +575,110 @@ fn estimate_tokens(text: &str) -> usize {
     text.len().div_ceil(4)
 }
 
+/// Identity of one summarization: thread, tool, task hint and payload bytes.
+type SummaryCacheKey = [u8; 32];
+
+/// How many summaries the process keeps. Oldest out first.
+// ponytail: FIFO eviction, move to LRU if hit rates on long threads show it matters.
+const SUMMARY_CACHE_ENTRIES: usize = 64;
+
+/// Summaries already produced, reused when the same tool returns the same
+/// payload for the same task in the same thread.
+///
+/// Process-wide rather than a field: a `SubagentPayloadSummarizer` is built per
+/// turn (`AgentBuilder`), so a per-instance cache would die before the repeat
+/// it exists for — in a live session one 119,796-byte payload was summarized
+/// five times across four turns at ~40-60 s each.
+static SUMMARY_CACHE: LazyLock<Mutex<SummaryCache>> = LazyLock::new(Default::default);
+
+#[derive(Default)]
+struct SummaryCache {
+    entries: HashMap<SummaryCacheKey, String>,
+    order: VecDeque<SummaryCacheKey>,
+}
+
+/// Key a summary by everything that shapes it. The thread scopes reuse to a
+/// conversation; the hint is included because a summary written for one goal
+/// can drop exactly the facts another goal needs. Fields are length-prefixed
+/// so no two different tuples hash the same byte stream.
+fn summary_cache_key(
+    tool_name: &str,
+    parent_task_hint: Option<&str>,
+    raw: &str,
+) -> SummaryCacheKey {
+    let thread = super::thread_context::current_thread_id().unwrap_or_default();
+    let mut hasher = Sha256::new();
+    for part in [
+        thread.as_str(),
+        tool_name,
+        parent_task_hint.unwrap_or(""),
+        raw,
+    ] {
+        hasher.update((part.len() as u64).to_le_bytes());
+        hasher.update(part.as_bytes());
+    }
+    hasher.finalize().into()
+}
+
+fn cached_summary(key: &SummaryCacheKey) -> Option<String> {
+    SUMMARY_CACHE.lock().ok()?.entries.get(key).cloned()
+}
+
+fn remember_summary(key: SummaryCacheKey, summary: String) {
+    let Ok(mut cache) = SUMMARY_CACHE.lock() else {
+        return;
+    };
+    if cache.entries.insert(key, summary).is_none() {
+        cache.order.push_back(key);
+    }
+    while cache.order.len() > SUMMARY_CACHE_ENTRIES {
+        if let Some(oldest) = cache.order.pop_front() {
+            cache.entries.remove(&oldest);
+        }
+    }
+}
+
+/// Upper bound on the task hint carried into the prompt. It is the user's
+/// message for the turn, which can be a pasted document; the summarizer needs
+/// the intent, not the whole thing.
+const TASK_HINT_MAX_CHARS: usize = 2_000;
+
+/// Bound a task hint to [`TASK_HINT_MAX_CHARS`], keeping both ends. A pasted
+/// log or document usually carries the actual request at the end ("…find the
+/// authentication failure"), so a prefix-only cut drops the one part the
+/// summarizer needs.
+fn clip_task_hint(hint: &str) -> String {
+    let chars: Vec<char> = hint.chars().collect();
+    if chars.len() <= TASK_HINT_MAX_CHARS {
+        return hint.to_string();
+    }
+    let half = TASK_HINT_MAX_CHARS / 2;
+    let head: String = chars[..half].iter().collect();
+    let tail: String = chars[chars.len() - half..].iter().collect();
+    format!(
+        "{head}\n[... {} characters omitted ...]\n{tail}",
+        chars.len() - 2 * half
+    )
+}
+
 /// Build the user-message prompt fed into the summarizer sub-agent.
 ///
 /// Wraps the raw payload in `--- BEGIN ---` / `--- END ---` markers so
 /// the sub-agent can unambiguously distinguish the payload boundary
 /// from other prompt scaffolding. The tool name and optional parent
 /// task hint are surfaced before the payload so the summarizer can
-/// prioritize facts relevant to the parent's intent.
+/// prioritize facts relevant to the parent's intent, and the exact byte
+/// count is stated so the model never has to guess the payload's size or
+/// whether it was cut.
 fn build_summarizer_prompt(tool_name: &str, parent_task_hint: Option<&str>, raw: &str) -> String {
     let hint_line = parent_task_hint
-        .map(|h| format!("Parent task hint: {}\n\n", h))
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+        .map(|h| format!("Parent task hint: {}\n\n", clip_task_hint(h)))
         .unwrap_or_default();
     format!(
-        "Tool name: {}\n\n{}Raw tool output (summarize per the extraction contract in your system prompt):\n\n--- BEGIN ---\n{}\n--- END ---",
-        tool_name, hint_line, raw
+        "Tool name: {tool_name}\n\n{hint_line}Raw tool output: {} bytes, complete, all of it between the markers below (summarize per the extraction contract in your system prompt):\n\n--- BEGIN ---\n{raw}\n--- END ---",
+        raw.len()
     )
 }
 
