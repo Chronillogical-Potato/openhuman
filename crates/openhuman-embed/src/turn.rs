@@ -1,9 +1,11 @@
-//! Agent sub-facade — running one turn, typed.
+//! One agent turn, typed.
 //!
-//! Follows the shape [`super::config`] established (a borrowed newtype over the
-//! runtime, methods delegating to [`call`](super::call::call)) and adds the two
-//! things a turn needs that a plain config read does not: **ambient scopes** and
-//! a **session identity**.
+//! A [`Turn`] is built by [`Agent::turn`](crate::Agent::turn) (a runtime-owned
+//! agent, dispatched natively under that agent's own context) or by
+//! [`CoreAgent::turn`](crate::CoreAgent::turn) (the orchestrator of a runtime
+//! the caller built themselves, dispatched as the `inference.agent_chat` RPC).
+//! Both add the two things a turn needs that a plain config read does not:
+//! **ambient scopes** and a **session identity**.
 //!
 //! # Why the params are a struct rather than `json!`
 //!
@@ -171,6 +173,10 @@ pub struct TurnRequest {
     /// Bearer half of the per-call route. Paired with `inference_url`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    /// The agent definition the turn runs as. Set by
+    /// [`Agent::turn`](crate::Agent::turn); absent runs the orchestrator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
 }
 
 impl TurnRequest {
@@ -184,6 +190,7 @@ impl TurnRequest {
             cwd: None,
             inference_url: None,
             api_key: None,
+            agent_id: None,
         }
     }
 }
@@ -199,17 +206,32 @@ pub struct TurnOutcome {
     pub session_id: String,
 }
 
-/// Typed access to the agent harness.
-///
-/// Obtained from [`Core::agent`](super::Core::agent); never constructed
-/// directly.
-pub struct Agent<'a>(pub(super) &'a Arc<CoreRuntime>);
+/// Where a [`Turn`] is dispatched.
+pub(crate) enum TurnTarget {
+    /// The orchestrator of a caller-built runtime, via the
+    /// `inference.agent_chat` RPC.
+    Runtime(Arc<CoreRuntime>),
+    /// A runtime-owned [`Agent`](crate::Agent), natively, under that agent's
+    /// own [`CoreContext`](openhuman_core::core::runtime::CoreContext).
+    Agent(Arc<crate::agent::AgentInner>),
+}
 
-impl<'a> Agent<'a> {
-    /// Begin a turn. Nothing runs until [`Turn::send`].
-    pub fn turn(&self, message: impl Into<String>) -> Turn<'a> {
-        Turn {
-            rt: self.0,
+/// One pending turn. Configure, then [`send`](Self::send).
+///
+/// Owned rather than borrowed: it holds an `Arc` to whatever it dispatches
+/// on, so a host can build it in one place and send it from another.
+pub struct Turn {
+    target: TurnTarget,
+    request: TurnRequest,
+    session_id: Option<String>,
+    origin: Option<AgentTurnOrigin>,
+    progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+}
+
+impl Turn {
+    pub(crate) fn new(target: TurnTarget, message: impl Into<String>) -> Self {
+        Self {
+            target,
             request: TurnRequest::new(message),
             session_id: None,
             origin: None,
@@ -217,22 +239,11 @@ impl<'a> Agent<'a> {
         }
     }
 
-    /// Run a turn with no options — the shortest path from a prompt to a reply.
-    pub async fn run(&self, message: impl Into<String>) -> Result<TurnOutcome, CoreError> {
-        self.turn(message).send().await
+    pub(crate) fn with_agent_id(mut self, id: &str) -> Self {
+        self.request.agent_id = Some(id.to_string());
+        self
     }
-}
 
-/// One pending turn. Configure, then [`send`](Self::send).
-pub struct Turn<'a> {
-    rt: &'a Arc<CoreRuntime>,
-    request: TurnRequest,
-    session_id: Option<String>,
-    origin: Option<AgentTurnOrigin>,
-    progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
-}
-
-impl Turn<'_> {
     /// Continue an existing conversation. Without this a fresh session id is
     /// minted and returned in [`TurnOutcome::session_id`].
     pub fn session(mut self, session_id: impl Into<String>) -> Self {
@@ -347,7 +358,7 @@ impl Turn<'_> {
             }
         }
 
-        let dispatch = call::<_, String>(self.rt, AGENT_CHAT, &self.request);
+        let dispatch = dispatch(self.target, self.request);
 
         let reply = match (self.origin, self.progress) {
             (Some(origin), Some(sink)) => {
@@ -393,6 +404,56 @@ impl Turn<'_> {
     }
 }
 
+/// Run `request` on `target`.
+///
+/// The RPC target goes through [`call`], so the `{result, logs}` envelope,
+/// [`DomainSet`](openhuman_core::core::runtime::DomainSet) gating and error
+/// classification are handled like every other facade method. The agent
+/// target reaches `agent_chat_for` natively under the agent's own context —
+/// the definition it carries cannot travel as JSON — so it applies the
+/// DomainSet gate itself before touching the core.
+async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, CoreError> {
+    match target {
+        TurnTarget::Runtime(rt) => call::<_, String>(&rt, AGENT_CHAT, &request).await,
+        TurnTarget::Agent(agent) => {
+            if !agent.ctx.domains().inference {
+                return Err(CoreError::Unavailable { method: AGENT_CHAT });
+            }
+            let ctx = agent.ctx.clone();
+            let inner = agent.clone();
+            let runtime = agent.runtime.clone();
+            runtime
+                .run_in(ctx, async move {
+                    use openhuman_core::inference::local::ops::{agent_chat_for, AgentChatTarget};
+                    let mut config = inner.config.clone();
+                    let route = openhuman_core::config::schema::EphemeralRoute::from_params(
+                        request.inference_url,
+                        request.api_key,
+                    );
+                    let target = AgentChatTarget::Definition {
+                        definition: &inner.definition,
+                        profile: Some(&inner.profile),
+                        profile_prompt_suffix: inner.profile.system_prompt_suffix.as_deref(),
+                    };
+                    agent_chat_for(
+                        &mut config,
+                        target,
+                        &request.message,
+                        request.model_override,
+                        request.temperature,
+                        request.thread_id,
+                        request.cwd,
+                        route,
+                    )
+                    .await
+                    .map(|outcome| outcome.value)
+                    .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                })
+                .await
+        }
+    }
+}
+
 fn validate_route(request: &TurnRequest) -> Result<(), CoreError> {
     let route_requested = request.inference_url.is_some() || request.api_key.is_some();
     if route_requested
@@ -422,5 +483,5 @@ pub fn absolute(dir: impl AsRef<Path>) -> std::io::Result<PathBuf> {
 }
 
 #[cfg(test)]
-#[path = "agent_tests.rs"]
+#[path = "turn_tests.rs"]
 mod tests;
