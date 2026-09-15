@@ -314,6 +314,7 @@ impl TurnContextMiddleware {
                 tokenjuice_compression: self.tokenjuice_compression,
                 runtime_config: self.runtime_config,
                 tool_policies,
+                artifact_reads: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the

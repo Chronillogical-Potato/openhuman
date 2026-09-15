@@ -10,12 +10,111 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::agent::dispatcher::ToolExecutionResult;
-use crate::memory::safety::{sanitize_text, SanitizationReport};
+use crate::memory::safety::{sanitize_text, SanitizationReport, Sanitized};
 use async_trait::async_trait;
 use serde_json::Value;
 use tinyagents_harness::store::Store;
 
 const ARTIFACT_ROOT: &str = "artifacts/tool-results";
+
+/// A read of a persisted artifact, recognised from a tool call's arguments.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ArtifactRead {
+    pub path: String,
+    pub offset: usize,
+}
+
+/// The only tool whose result is a read of an artifact's content.
+const FILE_READ_TOOL: &str = "file_read";
+
+/// The artifact a tool call reads, if any.
+///
+/// Only a `file_read` counts, because only its result *is* the stored body:
+/// `file_write`, `glob`, `list` or `apply_patch` can name an artifact path too,
+/// and their output must still take the normal ladder. The read may arrive
+/// wrapped in `use_skill`, reported under that name
+/// (`use_skill {"skill":"files","tool":"file_read","args":{"path":…}}`), so
+/// `use_skill` — and only `use_skill`, the one tool whose result *is* the
+/// wrapped tool's result — is followed into the tool it runs (#6284). Any
+/// other tool that happens to carry `tool`/`args` fields is not a wrapper.
+pub(crate) fn artifact_read_target(tool_name: &str, args: &Value) -> Option<ArtifactRead> {
+    if tool_name == crate::tools::toolpacks::USE_SKILL {
+        let inner_tool = args.get("tool").and_then(Value::as_str)?;
+        return artifact_read_target(inner_tool, args.get("args")?);
+    }
+    if tool_name != FILE_READ_TOOL {
+        return None;
+    }
+    let path = args.get("path").and_then(Value::as_str)?;
+    // A path component match: `artifacts/tool-results-backup/…` shares the
+    // prefix but is not the artifact directory.
+    let under_root = path
+        .trim_start_matches("./")
+        .strip_prefix(ARTIFACT_ROOT)
+        .is_some_and(|rest| rest.starts_with('/'));
+    under_root.then(|| ArtifactRead {
+        path: path.to_string(),
+        offset: args
+            .get("offset")
+            .and_then(Value::as_u64)
+            .and_then(|o| usize::try_from(o).ok())
+            .unwrap_or(0),
+    })
+}
+
+/// Bound one page of an artifact read to `budget_bytes`, naming the exact
+/// `offset` the next read continues from. Never persists: re-persisting a read
+/// of an artifact creates a new artifact whose preview is the same bounded
+/// head, and the model can loop between previews without ever reaching the
+/// body.
+pub(crate) fn page_artifact_read(
+    content: String,
+    read: &ArtifactRead,
+    budget_bytes: usize,
+) -> String {
+    if budget_bytes == 0 {
+        return content;
+    }
+    // A page is useless without its continuation, so a budget too small to
+    // carry one is raised to the floor a persisted envelope already takes for
+    // the same reason (`MIN_ENVELOPE_ALLOWANCE_BYTES`). Every page therefore
+    // fits `max(budget_bytes, MIN_ENVELOPE_ALLOWANCE_BYTES)` and advances.
+    let budget_bytes = budget_bytes.max(MIN_ENVELOPE_ALLOWANCE_BYTES);
+    if content.len() <= budget_bytes {
+        return content;
+    }
+    let start = read.offset;
+    let total = start + content.len();
+    let with_path = |next: usize| {
+        format!(
+            "\n\n[artifact page: bytes {start}..{next} of {total}. Continue with file_read {{\"path\":\"{}\",\"offset\":{next}}}]",
+            read.path
+        )
+    };
+    // Without the path (the caller already has it). At most ~100 bytes, so it
+    // always leaves body room under the floor.
+    let without_path = |next: usize| {
+        format!(
+            "\n\n[artifact page: bytes {start}..{next} of {total}. Continue with file_read at \"offset\":{next}]"
+        )
+    };
+    // Sized from the trailer this page will actually carry, not a fixed
+    // reservation. `next` never has more digits than `total`, so a trailer
+    // rendered with `total` is its longest form.
+    let use_path = with_path(total).len() + 4 <= budget_bytes;
+    let longest = if use_path {
+        with_path(total).len()
+    } else {
+        without_path(total).len()
+    };
+    let cut = crate::util::floor_char_boundary(&content, budget_bytes - longest);
+    let trailer = if use_path {
+        with_path(start + cut)
+    } else {
+        without_path(start + cut)
+    };
+    format!("{}{trailer}", &content[..cut])
+}
 const AGGREGATE_PREVIEW_BUDGET_BYTES: usize = 512;
 /// #4469 item 6: floor for how tightly a persisted `[tool_result_preview]`
 /// envelope may be bounded during aggregate spill. `allowed_len` can saturate to
@@ -194,15 +293,25 @@ impl ToolResultArtifactStore {
         )
     }
 
+    /// Store `content` and return an envelope previewing it. When `content`
+    /// would be unreadable once sanitized (see [`readable_body`]) and a
+    /// `fallback` is given, the fallback is stored instead; when neither fits,
+    /// this errors and the caller truncates inline rather than writing an
+    /// artifact nobody can read.
     async fn persist(
         &self,
         tool_name: &str,
         call_id: Option<&str>,
         content: &str,
+        fallback: Option<&str>,
         preview_budget_bytes: usize,
         reason: &str,
     ) -> anyhow::Result<PersistedToolResult> {
-        let sanitized = sanitize_text(content);
+        let (content, sanitized) = readable_body(
+            content,
+            fallback,
+            crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES,
+        )?;
         let relative_path = self.path_for_read_tool(tool_name, call_id);
         let absolute_path = self.action_dir.join(&relative_path);
         assert_within_action_dir(&self.action_dir, &absolute_path)?;
@@ -234,7 +343,7 @@ impl ToolResultArtifactStore {
              original_bytes: {}\n\
              stored_bytes: {}\n\
              artifact_path: {relative_path}\n\
-             read_with: file_read {{\"path\":\"{relative_path}\"}}\n\
+             read_with: file_read {{\"path\":\"{relative_path}\"}} (a long read returns one page and names the \"offset\" to continue from)\n\
              notes: Full scrubbed output was persisted under the action workspace.{redaction_note}{truncation_note}\n\n\
              [preview]\n{preview}",
             content.len(),
@@ -251,8 +360,42 @@ impl ToolResultArtifactStore {
     }
 }
 
+/// The body to store: `primary` if its sanitized form fits `limit`, else
+/// `fallback` if *its* sanitized form does, else an error. Both checks are on
+/// the sanitized size, the bytes actually written, because redaction can grow a
+/// body (`+15551234567` becomes `[REDACTED_PII_PHONE]`): a raw body under the
+/// limit can still produce an artifact `file_read` refuses to open.
+fn readable_body<'a>(
+    primary: &'a str,
+    fallback: Option<&'a str>,
+    limit: u64,
+) -> anyhow::Result<(&'a str, Sanitized<String>)> {
+    let sanitized = sanitize_text(primary);
+    if sanitized.value.len() as u64 <= limit {
+        return Ok((primary, sanitized));
+    }
+    if let Some(fallback) = fallback {
+        let sanitized_fallback = sanitize_text(fallback);
+        if sanitized_fallback.value.len() as u64 <= limit {
+            return Ok((fallback, sanitized_fallback));
+        }
+    }
+    anyhow::bail!(
+        "tool result would not be readable once stored: {} sanitized bytes exceed the {limit}-byte file_read limit",
+        sanitized.value.len()
+    )
+}
+
+/// Persist an over-budget result and return its envelope.
+///
+/// `full_output` is the tool's output before any earlier stage rewrote it
+/// (summarizer, TokenJuice). When given, *that* is what gets stored, so the
+/// artifact holds what the tool returned rather than a compacted copy of it;
+/// `content` still decides whether the budget was exceeded and is what the
+/// model would otherwise have seen.
 pub(crate) async fn apply_per_result_persistence(
     content: String,
+    full_output: Option<String>,
     store: Option<&ToolResultArtifactStore>,
     tool_name: &str,
     call_id: Option<&str>,
@@ -271,7 +414,8 @@ pub(crate) async fn apply_per_result_persistence(
             .persist(
                 tool_name,
                 call_id,
-                &content,
+                full_output.as_deref().unwrap_or(&content),
+                full_output.as_ref().map(|_| content.as_str()),
                 budget_bytes,
                 "per-result budget exceeded",
             )
@@ -304,7 +448,10 @@ pub(crate) async fn apply_per_result_persistence(
                 return (
                     output,
                     ToolResultArtifactOutcome {
-                        original_bytes,
+                        // The size of what was stored, which `full_output` can
+                        // make larger than `content`; the artifact index and its
+                        // contents list read this number.
+                        original_bytes: persisted.original_bytes,
                         final_bytes,
                         persisted: true,
                         artifact_path: Some(persisted.path),
@@ -390,6 +537,7 @@ pub(crate) async fn spill_aggregate_tool_results(
                     &results[idx].name,
                     results[idx].tool_call_id.as_deref(),
                     &original,
+                    None,
                     allowed_len.min(AGGREGATE_PREVIEW_BUDGET_BYTES),
                     "aggregate tool-result budget exceeded",
                 )
