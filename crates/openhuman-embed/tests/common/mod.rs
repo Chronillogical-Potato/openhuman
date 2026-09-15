@@ -77,6 +77,50 @@ pub async fn stub_backend() -> wiremock::MockServer {
     backend
 }
 
+/// An OpenAI-compatible chat completion asking the harness to call `tool`.
+pub fn tool_call_completion(tool: &str, arguments: &str) -> serde_json::Value {
+    json!({
+        "id": "chatcmpl-embed-test-tool",
+        "object": "chat.completion",
+        "created": 1_700_000_000_u64,
+        "model": "embed-test-model",
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_embed_test_1",
+                    "type": "function",
+                    "function": { "name": tool, "arguments": arguments }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }],
+        "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+    })
+}
+
+/// The concatenated `tool`-role message contents of a recorded request.
+pub fn tool_results(request: &wiremock::Request) -> String {
+    let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap_or_default();
+    body.get("messages")
+        .and_then(|m| m.as_array())
+        .map(|messages| {
+            messages
+                .iter()
+                .filter(|m| m.get("role").and_then(|r| r.as_str()) == Some("tool"))
+                .filter_map(|m| m.get("content"))
+                .map(|c| match c {
+                    serde_json::Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
+}
+
 /// An OpenAI-compatible provider answering `/v1/chat/completions` with `reply`.
 pub async fn provider(reply: &str) -> wiremock::MockServer {
     let server = wiremock::MockServer::start().await;

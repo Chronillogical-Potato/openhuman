@@ -11,9 +11,10 @@
 
 mod common;
 
-#[cfg(feature = "mcp")]
-use common::tool_names;
-use common::{chat_completion, offline_config, provider, runtime, stub_backend};
+use common::{
+    chat_completion, offline_config, provider, runtime, stub_backend, tool_call_completion,
+    tool_results,
+};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentError, AgentSpec, Provider, Runtime, SandboxModeSpec,
     Workspace,
@@ -64,8 +65,32 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .mount(&backend)
                 .await;
 
-            let provider_a = provider("alpha-ok").await;
-            let provider_b = provider("beta-ok").await;
+            // Each provider first asks for `mcp_list_servers` once, so the
+            // tool's result — which names the servers the agent can see —
+            // comes back in the second request of that first turn.
+            let provider_a = wiremock::MockServer::start().await;
+            let provider_b = wiremock::MockServer::start().await;
+            for server in [&provider_a, &provider_b] {
+                Mock::given(method("POST"))
+                    .and(path("/v1/chat/completions"))
+                    .respond_with(
+                        ResponseTemplate::new(200)
+                            .set_body_json(tool_call_completion("mcp_list_servers", "{}")),
+                    )
+                    .up_to_n_times(1)
+                    .mount(server)
+                    .await;
+            }
+            Mock::given(method("POST"))
+                .and(path("/v1/chat/completions"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(chat_completion("alpha-ok")))
+                .mount(&provider_a)
+                .await;
+            Mock::given(method("POST"))
+                .and(path("/v1/chat/completions"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(chat_completion("beta-ok")))
+                .mount(&provider_b)
+                .await;
             #[allow(unused_variables)]
             let skills = skills_fixture();
             let beta_action = tempfile::tempdir().expect("beta action dir");
@@ -188,35 +213,46 @@ fn one_runtime_hosts_independently_configured_agents() {
             assert!(alpha.access().turn_origin().is_none());
             assert!(beta.access().turn_origin().is_some());
 
-            // Turns land on each agent's own provider.
+            // Turns land on each agent's own provider. The first turn on each
+            // is the `mcp_list_servers` probe: two requests (tool call, then
+            // the final text).
+            let a0 = alpha.run("which mcp servers?").await.expect("alpha probe");
+            assert!(a0.reply.contains("alpha-ok"), "{:?}", a0.reply);
+            assert_eq!(provider_a.received_requests().await.unwrap().len(), 2);
+            assert_eq!(provider_b.received_requests().await.unwrap().len(), 0);
+            let b0 = beta.run("which mcp servers?").await.expect("beta probe");
+            assert!(b0.reply.contains("beta-ok"), "{:?}", b0.reply);
+            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2);
+
             let a1 = alpha.run("hello from alpha").await.expect("alpha turn");
             assert!(a1.reply.contains("alpha-ok"), "{:?}", a1.reply);
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 1);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 0);
+            assert_eq!(provider_a.received_requests().await.unwrap().len(), 3);
+            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2);
 
-            let b1 = beta.run("hello from beta").await.expect("beta turn");
-            assert!(b1.reply.contains("beta-ok"), "{:?}", b1.reply);
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 1);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 1);
-
-            // The request bodies carry each agent's own model and tool surface.
-            let a_req = provider_a.received_requests().await.unwrap().remove(0);
-            let b_req = provider_b.received_requests().await.unwrap().remove(0);
-            let a_body: serde_json::Value = serde_json::from_slice(&a_req.body).unwrap();
-            let b_body: serde_json::Value = serde_json::from_slice(&b_req.body).unwrap();
+            // The request bodies carry each agent's own model, and the MCP
+            // servers each agent can list are its own (plus the host-seeded
+            // documentation server every agent gets, as on the desktop).
+            let a_reqs = provider_a.received_requests().await.unwrap();
+            let b_reqs = provider_b.received_requests().await.unwrap();
+            let a_body: serde_json::Value = serde_json::from_slice(&a_reqs[0].body).unwrap();
+            let b_body: serde_json::Value = serde_json::from_slice(&b_reqs[0].body).unwrap();
             assert_eq!(a_body["model"], "alpha-model");
             assert_eq!(b_body["model"], "beta-model");
             #[cfg(feature = "mcp")]
             {
-                let a_tools = tool_names(&a_req);
-                let b_tools = tool_names(&b_req);
+                let a_servers = tool_results(&a_reqs[1]);
+                let b_servers = tool_results(&b_reqs[1]);
                 assert!(
-                    a_tools.iter().any(|t| t == "mcp_list_servers"),
-                    "alpha declared an MCP server, so its bridge tools must be on the wire: {a_tools:?}"
+                    a_servers.contains("alpha-mcp"),
+                    "alpha must see the server it declared: {a_servers}"
                 );
                 assert!(
-                    !b_tools.iter().any(|t| t == "mcp_list_servers"),
-                    "beta declared no MCP server: {b_tools:?}"
+                    !b_servers.contains("alpha-mcp"),
+                    "beta must not see alpha's server: {b_servers}"
+                );
+                assert!(
+                    a_servers.contains("gitbooks") && b_servers.contains("gitbooks"),
+                    "both see the host-seeded docs server: {a_servers} / {b_servers}"
                 );
             }
 
@@ -241,7 +277,7 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .await
                 .expect("alpha second turn");
             assert_eq!(a2.session_id, a1.session_id);
-            let a2_req = provider_a.received_requests().await.unwrap().remove(1);
+            let a2_req = provider_a.received_requests().await.unwrap().remove(3);
             let a2_body: serde_json::Value = serde_json::from_slice(&a2_req.body).unwrap();
             let a2_messages = a2_body["messages"].as_array().cloned().unwrap_or_default();
             assert!(
@@ -292,8 +328,8 @@ fn one_runtime_hosts_independently_configured_agents() {
                 }
             }
             assert_eq!((a_count, b_count), (25, 25));
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 2 + 25);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 1 + 25);
+            assert_eq!(provider_a.received_requests().await.unwrap().len(), 4 + 25);
+            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2 + 25);
 
             // Ids are unique while alive, and validated.
             let err = runtime
