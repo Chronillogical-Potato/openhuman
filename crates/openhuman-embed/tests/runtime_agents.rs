@@ -12,7 +12,7 @@
 mod common;
 
 use common::{
-    chat_completion, offline_config, provider, runtime, stub_backend, tool_call_completion,
+    chat_completion, offline_config, runtime, stub_backend, tool_call_completion,
     tool_results,
 };
 use openhuman_embed::{
