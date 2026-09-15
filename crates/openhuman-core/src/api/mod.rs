@@ -25,8 +25,7 @@ pub use product::{
     ProductIdentity, DEFAULT_PRODUCT_IDENTITY, PRODUCT_IDENTITY_HEADER,
 };
 pub use rest::{
-    decrypt_handoff_blob, flatten_authed_error, user_id_from_auth_me_payload,
-    user_id_from_profile_payload, BackendApiError, BackendOAuthClient, ConnectResponse,
-    IntegrationSummary, IntegrationTokensHandoff,
+    decrypt_handoff_blob, flatten_authed_error, user_id_from_profile_payload, BackendApiError,
+    BackendOAuthClient, ConnectResponse, IntegrationSummary, IntegrationTokensHandoff,
 };
 pub use socket::websocket_url;
