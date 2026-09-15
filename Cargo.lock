@@ -378,6 +378,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -396,6 +397,7 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -4244,6 +4246,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "openhuman-session"
+version = "0.63.28"
+dependencies = [
+ "async-trait",
+ "axum",
+ "chrono",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinyhumans-sdk",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "openhuman-tui"
 version = "0.63.28"
 dependencies = [
@@ -7121,6 +7140,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -7159,6 +7179,7 @@ version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
