@@ -30,9 +30,6 @@
 //! Endpoints exempt from auth (checked by [`rpc_auth_middleware`]):
 //! - `GET /`              — public info page
 //! - `GET /health`        — liveness probe
-//! - `GET /auth`          — desktop login callback fallback; consumes only
-//!                          one-time login tokens, never raw session JWTs
-//! - `GET /auth/telegram` — external browser callback (carries its own token)
 //! - `GET /schema`        — read-only schema discovery
 //! - `GET /events`        — SSE stream; browser `EventSource` cannot set
 //!                          headers, so the handler enforces a bind-token /
@@ -104,8 +101,6 @@ static RPC_TOKEN: OnceLock<String> = OnceLock::new();
 const PUBLIC_PATHS: &[&str] = &[
     "/",
     "/health",
-    "/auth",
-    "/auth/telegram",
     // External browser OAuth redirect for HTTP-remote MCP servers — the
     // authorization server posts back here with `?code=…&state=…` and no
     // bearer; the one-time `state` (minted in `oauth_begin`) is the guard.

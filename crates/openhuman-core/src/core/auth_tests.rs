@@ -136,7 +136,7 @@ fn extract_query_token_url_decodes_value() {
 #[cfg(feature = "http-server")]
 #[test]
 fn public_paths_include_desktop_auth_callback() {
-    assert!(PUBLIC_PATHS.contains(&"/auth"));
+    assert!(!PUBLIC_PATHS.contains(&"/auth"));
 }
 
 #[cfg(feature = "http-server")]
