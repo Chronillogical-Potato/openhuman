@@ -59,22 +59,16 @@ describe('tauriCommands', () => {
     expect(response).toEqual({ is_authenticated: true, user: { id: 'u1' } });
   });
 
-  test('storeSession calls expected RPC method and params', async () => {
+  test('storeSession hands the token to the shell session owner on the desktop', async () => {
     await storeSession('jwt-token', { id: 'u1' });
 
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.auth_store_session',
-      params: { token: 'jwt-token', user: { id: 'u1' } },
+    // The shell (openhuman-session) validates the JWT and installs it in the
+    // core; the renderer never calls a core auth RPC for this.
+    expect(mockInvoke).toHaveBeenCalledWith('auth_store_session', {
+      token: 'jwt-token',
+      user: { id: 'u1' },
     });
-  });
-
-  test('storeSession can request deferred backend validation for trusted callbacks', async () => {
-    await storeSession('jwt-token', {}, { allowPendingBackendValidation: true });
-
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.auth_store_session',
-      params: { token: 'jwt-token', user: {}, allowPendingBackendValidation: true },
-    });
+    expect(mockCallCoreRpc).not.toHaveBeenCalled();
   });
 
   test('resetOpenHumanDataAndRestartCore invokes the destructive Tauri command', async () => {
