@@ -207,7 +207,7 @@ impl Tool for SkillRegistryInstallTool {
             "properties": {
                 "entry_id": {
                     "type": "string",
-                    "description": "The skill entry id (slug) to install."
+                    "description": "The `id` of the entry to install, exactly as returned by skill_registry_search (e.g. 'clawhub/apple-design')."
                 }
             },
             "required": ["entry_id"]
@@ -240,12 +240,8 @@ impl Tool for SkillRegistryInstallTool {
             .await
             .map_err(|e| anyhow::anyhow!("failed to load catalog: {e}"))?;
 
-        let entry = catalog.iter().find(|e| e.id == entry_id).ok_or_else(|| {
-            anyhow::anyhow!(
-                "{NOT_FOUND_MARKER} skill '{entry_id}' not found in catalog. \
-                     Run skill_registry_browse first to refresh."
-            )
-        })?;
+        let entry = ops::find_catalog_entry(&catalog, entry_id)
+            .map_err(|e| anyhow::anyhow!("{NOT_FOUND_MARKER} {e}"))?;
 
         match ops::install_from_catalog(&self.workspace_dir, entry).await {
             Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&json!({

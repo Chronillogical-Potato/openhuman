@@ -796,6 +796,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Instalada',
   'skills.explorer.install': 'Instalar',
   'skills.explorer.installing': 'Instalando…',
+  'skills.explorer.notInstallable': 'No instalable',
+  'skills.explorer.notInstallableHint':
+    'Esta entrada no tiene un SKILL.md para descargar, así que no se puede instalar desde aquí.',
   'skills.integrations': 'Integraciones de Composio',
   'skills.integrationsSubtitle':
     'Conexiones OAuth en la nube: inicia sesión con tu cuenta y Composio gestiona los tokens para que los agentes puedan leer y actuar en tu nombre. Sin claves de API que administrar.',

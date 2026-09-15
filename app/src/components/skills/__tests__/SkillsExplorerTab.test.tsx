@@ -624,6 +624,27 @@ describe('SkillsExplorerTab', () => {
     });
   });
 
+  it('marks an entry with no SKILL.md download as not installable instead of offering Install', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([
+      {
+        ...MOCK_CATALOG_ENTRY,
+        id: 'lobehub/prompt-agent',
+        name: 'Prompt Agent',
+        source: 'LobeHub',
+        download_url: '',
+      },
+    ]);
+
+    render(<SkillsExplorerTab />);
+
+    const badge = await screen.findByTestId('registry-not-installable-lobehub/prompt-agent');
+    expect(badge).toHaveTextContent('Not installable');
+    expect(screen.queryByTestId('registry-install-lobehub/prompt-agent')).toBeNull();
+  });
+
   it('shows error toast when registry install fails', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');

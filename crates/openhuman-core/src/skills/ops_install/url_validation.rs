@@ -47,8 +47,13 @@ pub(crate) fn normalize_install_url(raw: &str) -> Result<String, String> {
 
     let check = url::Url::parse(&normalized)
         .map_err(|e| format!("unsupported url form: parse normalized {normalized:?}: {e}"))?;
-    let path_lower = check.path().to_ascii_lowercase();
-    if !path_lower.ends_with(".md") {
+    let names_md_file = check.path().to_ascii_lowercase().ends_with(".md")
+        // A file API names the file in its query instead (ClawHub's
+        // `/skills/<slug>/file?path=SKILL.md`).
+        || check
+            .query_pairs()
+            .any(|(key, value)| key == "path" && value.to_ascii_lowercase().ends_with(".md"));
+    if !names_md_file {
         return Err(format!(
             "unsupported url form: path must end in .md, got {normalized:?}"
         ));

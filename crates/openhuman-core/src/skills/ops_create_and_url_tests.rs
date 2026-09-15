@@ -431,6 +431,15 @@ fn normalize_install_url_rejects_whole_repo() {
 }
 
 #[test]
+fn normalize_install_url_accepts_a_file_api_that_names_the_md_in_its_query() {
+    let url = "https://clawhub.ai/api/v1/skills/apple-design/file?path=SKILL.md";
+    assert_eq!(normalize_install_url(url).unwrap(), url);
+    let err =
+        normalize_install_url("https://clawhub.ai/api/v1/skills/x/file?path=run.sh").unwrap_err();
+    assert!(err.contains(".md"), "{err}");
+}
+
+#[test]
 fn normalize_install_url_rejects_non_md_suffix() {
     let err = normalize_install_url("https://example.com/skill.txt").unwrap_err();
     assert!(err.contains("unsupported url form"), "{err}");
