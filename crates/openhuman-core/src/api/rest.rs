@@ -9,6 +9,8 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
+use crate::security::credentials::session_support::BackendCredential;
+
 /// Typed errors surfaced by `authed_json` for expected backend states that
 /// callers should recover from in-flow rather than funnel into Sentry.
 #[derive(Debug, thiserror::Error)]
