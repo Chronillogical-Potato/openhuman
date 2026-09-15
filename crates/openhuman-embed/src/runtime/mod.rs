@@ -285,9 +285,17 @@ impl Runtime {
         self.core_ref().raw().services()
     }
 
-    /// Whether a TinyHumans API key was installed.
+    /// Whether a TinyHumans API key is currently installed.
+    ///
+    /// Reads the credential store live (a cheap local file read, not an
+    /// RPC) rather than a construction-time snapshot: a host that calls
+    /// [`HarnessCore::auth`]'s [`Auth::store_api_key`](crate::Auth::store_api_key)
+    /// or [`Auth::clear_api_key`](crate::Auth::clear_api_key) on a running
+    /// runtime — both exposed via [`Runtime::core`] — must see this reflect
+    /// that change immediately. A cached bool would otherwise report `false`
+    /// right after a key was stored, or `true` right after it was cleared.
     pub fn has_api_key(&self) -> bool {
-        self.has_api_key
+        openhuman_core::security::credentials::api_key::has_api_key(&self.base_config)
     }
 
     pub(crate) fn core_ref(&self) -> &Core {
