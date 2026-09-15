@@ -367,3 +367,32 @@ async fn a_prompt_hidden_delegate_is_not_offered_as_a_direct_route() {
         "the hint must fall back to naming the owning agent: {route}"
     );
 }
+
+/// #6302: an invented tool name inside `use_skill` is "no such tool", not a
+/// permission denial. The expected text comes from the same typed value the gate
+/// renders, so the two cannot drift.
+#[tokio::test]
+async fn an_invented_tool_name_in_a_skill_is_not_reported_as_a_denial() {
+    let mw = non_owner_middleware();
+    let message = mw
+        .channel_permission_block(&call(
+            "use_skill",
+            json!({ "skill": "workflows", "tool": "install_workflow" }),
+        ))
+        .expect("an invented tool must be answered, not dispatched");
+
+    let workflows = crate::tools::toolpacks::pack("workflows").expect("workflows pack");
+    assert_eq!(
+        message,
+        mw.no_such_pack_tool(workflows, "install_workflow").render(),
+        "the gate must answer an invented name with the typed not-found message"
+    );
+    assert!(
+        !message.contains("not allowed"),
+        "an invented name must not read as a permission denial: {message}"
+    );
+    assert!(
+        message.contains("`build_workflow`"),
+        "the answer must name what this session can call in the skill: {message}"
+    );
+}

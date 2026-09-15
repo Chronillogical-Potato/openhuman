@@ -443,7 +443,7 @@ impl Agent {
         // registry alone would leave every `delegate_*` tool with no decision
         // at all.
         let all_tools = self.all_tool_refs();
-        self.tool_policy_session = ToolPolicyEngine::build_session_from_refs(
+        let mut session = ToolPolicyEngine::build_session_from_refs(
             &self.agent_definition_name,
             &self.event_channel,
             "session",
@@ -451,6 +451,15 @@ impl Agent {
             &all_tools,
             &self.visible_tool_names,
         );
+        // Same narrowing as the builder, re-applied on every rebuild so a
+        // delegation refresh cannot reopen a closed pack (#6302).
+        crate::tools::toolpacks::close_handed_off_packs(
+            &mut session,
+            &self.agent_definition_name,
+            &self.visible_tool_names,
+            &all_tools,
+        );
+        self.tool_policy_session = session;
         let visible_specs = super::super::builder::visible_tool_specs_for_policy(
             self.tool_specs.as_slice(),
             &self.visible_tool_names,

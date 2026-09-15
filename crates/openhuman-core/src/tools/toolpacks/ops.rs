@@ -138,3 +138,81 @@ pub fn is_withheld_from(agent_id: &str, tool: &str) -> bool {
             .into_iter()
             .any(|name| name == tool)
 }
+
+/// Pack tools `agent_id` must not reach through `use_skill`, because it can hand
+/// the whole family to the pack's owner directly (#6302).
+///
+/// A pack's raw tools are the owning specialist's belt. When the caller also
+/// holds a direct hand-off to that specialist, offering the same raw tools one
+/// `use_skill` away gives the model two routes to the same work, and a live
+/// account showed which one it takes: it searched and installed skills itself,
+/// guessed at tool names, and never handed off. Closing the raw tools leaves the
+/// hand-off as the route, and the pack listing then names it (`route_sentence`).
+///
+/// A pack closes only when all of this holds:
+/// * it is withheld from `agent_id` (a pack's owner keeps its own belt),
+/// * a tool in `visible` delegates to one of the pack's owners
+///   ([`crate::tools::traits::delegation_target`]).
+///
+/// Inside a closed pack, a tool that is itself a hand-off (e.g. `create_skill`)
+/// stays reachable: it is a route, not a raw tool. A tool whose group an embedder
+/// advertised is on the wire, not withheld, and is left alone too.
+///
+/// Empty `visible` is the "everything visible" sentinel: nothing is withheld, so
+/// nothing closes.
+pub fn closed_by_direct_handoff(
+    agent_id: &str,
+    visible: &HashSet<String>,
+    tools: &[&dyn Tool],
+) -> Vec<&'static str> {
+    if visible.is_empty() {
+        return Vec::new();
+    }
+    let reachable_owners: HashSet<&str> = tools
+        .iter()
+        .filter(|tool| visible.contains(tool.name()))
+        .filter_map(|tool| crate::tools::traits::delegation_target(*tool))
+        .collect();
+    if reachable_owners.is_empty() {
+        return Vec::new();
+    }
+    let handoffs: HashSet<&str> = tools
+        .iter()
+        .filter(|tool| crate::tools::traits::delegation_target(**tool).is_some())
+        .map(|tool| tool.name())
+        .collect();
+    let groups = super::groups::current();
+    registry::PACKS
+        .iter()
+        .filter(|pack| !pack.is_owner(agent_id))
+        .filter(|pack| {
+            pack.owners
+                .iter()
+                .any(|owner| reachable_owners.contains(owner))
+        })
+        .flat_map(|pack| pack.tools.iter().copied())
+        .filter(|name| !handoffs.contains(name))
+        .filter(|name| groups.mode_for_tool(name) == super::groups::GroupMode::Withheld)
+        .collect()
+}
+
+/// Apply [`closed_by_direct_handoff`] to a freshly built policy session: every
+/// closed tool becomes `Deny`, so the `use_skill` gate, the pack listing and the
+/// bare-call router all refuse it from one decision.
+pub fn close_handed_off_packs(
+    session: &mut crate::tools::agent_policy::ToolPolicySession,
+    agent_id: &str,
+    visible: &HashSet<String>,
+    tools: &[&dyn Tool],
+) {
+    let closed = closed_by_direct_handoff(agent_id, visible, tools);
+    if closed.is_empty() {
+        return;
+    }
+    session.deny(closed.iter().copied());
+    tracing::debug!(
+        agent = %agent_id,
+        closed = closed.len(),
+        "[toolpacks] closed pack tools whose owner is one direct hand-off away"
+    );
+}

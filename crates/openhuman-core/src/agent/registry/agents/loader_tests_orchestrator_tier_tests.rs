@@ -245,29 +245,36 @@ fn orchestrator_tolerates_absent_mcp_agent() {
     );
 }
 
-/// The orchestrator gets lightweight MCP discovery (`mcp_registry_status`,
-/// like `composio_list_connections`) but must NOT carry the per-server
-/// enumerate/execute tools — those belong to `mcp_agent`, keeping the
-/// chat agent's schema from ballooning with every connected server's
-/// full toolset (#3495).
+/// The orchestrator reaches MCP servers and skills only through the specialists
+/// that own those families (#6302): no raw `mcp_registry_*` or
+/// `skill_registry_*` tool on its belt, and all four hand-off specialists in its
+/// sub-agent allowlist, so their hand-offs are synthesised. Enumerating and
+/// calling a connected server's tools stays `mcp_agent`'s job, which also keeps
+/// the chat agent's schema from ballooning with every server's toolset (#3495).
 #[test]
-fn orchestrator_has_mcp_discovery_but_not_execution() {
+fn orchestrator_reaches_mcp_and_skills_through_hand_offs_not_registry_tools() {
     let def = find("orchestrator");
     match &def.tools {
         ToolScope::Named(tools) => {
+            let raw: Vec<&String> = tools
+                .iter()
+                .filter(|t| t.starts_with("mcp_registry_") || t.starts_with("skill_registry_"))
+                .collect();
             assert!(
-                tools.iter().any(|t| t == "mcp_registry_status"),
-                "orchestrator must have mcp_registry_status for lightweight MCP discovery"
+                raw.is_empty(),
+                "orchestrator must not carry raw registry tools {raw:?}: it hands the task to \
+                 the specialist that owns the family"
             );
-            for forbidden in ["mcp_registry_list_tools", "mcp_registry_tool_call"] {
-                assert!(
-                    !tools.iter().any(|t| t == forbidden),
-                    "orchestrator must NOT have `{forbidden}` — enumerating/calling \
-                     connected MCP tools is mcp_agent's job (keeps the chat schema small)"
-                );
-            }
         }
         ToolScope::Wildcard => panic!("orchestrator must have a Named tool scope"),
+    }
+    for specialist in ["mcp_setup", "mcp_agent", "skill_setup", "skill_executor"] {
+        assert!(
+            def.subagents
+                .iter()
+                .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == specialist)),
+            "orchestrator must list `{specialist}` so its hand-off tool is synthesised"
+        );
     }
 }
 

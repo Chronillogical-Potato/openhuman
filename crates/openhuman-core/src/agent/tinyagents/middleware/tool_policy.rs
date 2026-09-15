@@ -113,6 +113,30 @@ impl ToolPolicyMiddleware {
         found
     }
 
+    /// The answer to a `use_skill` call naming a tool `pack` does not contain:
+    /// the tools in it this session can call, or the pack's route when none.
+    pub(crate) fn no_such_pack_tool<'a>(
+        &self,
+        pack: &'static crate::tools::toolpacks::ToolPack,
+        tool: &'a str,
+    ) -> crate::tools::toolpacks::NoSuchPackTool<'a> {
+        let callable = pack
+            .tools
+            .iter()
+            .copied()
+            .filter(|name| {
+                self.resolve_tool(name).is_some()
+                    && !self.session.decision_for(name).blocks_execution()
+            })
+            .collect();
+        crate::tools::toolpacks::NoSuchPackTool {
+            skill: pack.id,
+            tool,
+            callable,
+            route: self.route_for_pack(pack),
+        }
+    }
+
     /// The route sentence for a pack, resolved against THIS session.
     pub(crate) fn route_for_pack(&self, pack: &crate::tools::toolpacks::ToolPack) -> String {
         crate::tools::toolpacks::route_sentence(
@@ -206,6 +230,21 @@ impl ToolPolicyMiddleware {
                 .get("tool")
                 .and_then(serde_json::Value::as_str)
             {
+                // Existence before permission. An invented name (`install_skill`
+                // in `skills`) is not a policy problem, and answering it with a
+                // denial reads as "installs are forbidden" (#6302). A tool the
+                // named skill does not contain gets that answer, with what this
+                // session can call in the skill instead.
+                if let Some(pack) = call
+                    .arguments
+                    .get("skill")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(crate::tools::toolpacks::pack)
+                {
+                    if !pack.owns(inner_tool) {
+                        return Some(self.no_such_pack_tool(pack, inner_tool).render());
+                    }
+                }
                 // `blocks_execution`, NOT `is_denied`. Every withheld packed
                 // tool is `HideFromPrompt`, and `use_skill` is the only route it
                 // has — gating that route on `is_denied` refused all of them.

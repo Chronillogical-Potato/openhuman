@@ -310,3 +310,79 @@ fn the_workflows_pack_is_still_owned_by_the_flow_agents() {
         pack.tools
     );
 }
+
+// ── #6302: the MCP and skill hand-offs, and the packs they close ───────────
+
+/// The four hand-offs stay direct tools. See `DELIBERATELY_UNPACKED_HANDOFFS`.
+#[test]
+fn the_mcp_and_skill_hand_offs_are_never_packed() {
+    for name in registry::DELIBERATELY_UNPACKED_HANDOFFS {
+        assert!(
+            registry::pack_for_tool(name).is_none(),
+            "`{name}` is the orchestrator's route into its family and must stay a direct tool"
+        );
+    }
+}
+
+/// A pack whose owner this agent can hand off to directly is closed to it
+/// through `use_skill`; a hand-off inside that pack, a pack the agent owns, and
+/// a pack whose hand-off is itself withheld all stay open.
+#[test]
+fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
+    use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
+
+    let delegate = |name: &str, target: &str| -> Box<dyn crate::tools::traits::Tool> {
+        Box::new(ArchetypeDelegationTool {
+            tool_name: name.to_string(),
+            agent_id: DelegationTarget(target.to_string()),
+            tool_description: String::new(),
+        })
+    };
+    let delegates = vec![
+        delegate("setup_skills", "skill_setup"),
+        delegate("create_skill", "skill_creator"),
+        delegate("do_crypto", "crypto_agent"),
+    ];
+    let raw = registry_with_all(&[
+        "skill_registry_install",
+        "wallet_status",
+        "mcp_registry_tool_call",
+    ]);
+    let tools: Vec<&dyn crate::tools::traits::Tool> = raw
+        .iter()
+        .map(|t| t.as_ref())
+        .chain(delegates.iter().map(|t| t.as_ref()))
+        .collect();
+    // `setup_skills` is on the belt; `create_skill` and `do_crypto` are packed.
+    let visible: HashSet<String> = ["setup_skills", USE_SKILL]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    let closed = closed_by_direct_handoff("orchestrator", &visible, &tools);
+    assert!(
+        closed.contains(&"skill_registry_install"),
+        "a raw tool of the pack `setup_skills` hands off to must close: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"create_skill"),
+        "a hand-off inside a closed pack is a route and stays open: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"wallet_status"),
+        "`do_crypto` is withheld, so the crypto pack stays open: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"mcp_registry_tool_call"),
+        "no MCP hand-off is on the belt, so integrations stays open: {closed:?}"
+    );
+
+    assert!(
+        closed_by_direct_handoff("skill_setup", &visible, &tools).is_empty(),
+        "a pack's owner keeps its own belt"
+    );
+    assert!(
+        closed_by_direct_handoff("orchestrator", &HashSet::new(), &tools).is_empty(),
+        "an empty visible set withholds nothing, so nothing closes"
+    );
+}
