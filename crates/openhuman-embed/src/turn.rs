@@ -422,8 +422,13 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
             let ctx = agent.ctx.clone();
             let inner = agent.clone();
             let runtime = agent.runtime.clone();
-            runtime
-                .run_in(ctx, async move {
+            // Boxed: the native turn future is the entire tinyagents harness
+            // inlined, and nesting it inside `Turn::send`'s own state machine
+            // pushes rustc's layout query past its depth limit. One heap
+            // allocation per turn is nothing next to the turn itself.
+            let turn: std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<String, CoreError>> + Send>,
+            > = Box::pin(async move {
                     use openhuman_core::inference::local::ops::{agent_chat_for, AgentChatTarget};
                     let mut config = inner.config.clone();
                     let route = openhuman_core::config::schema::EphemeralRoute::from_params(
@@ -448,8 +453,8 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
                     .await
                     .map(|outcome| outcome.value)
                     .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
-                })
-                .await
+            });
+            runtime.run_in(ctx, turn).await
         }
     }
 }
