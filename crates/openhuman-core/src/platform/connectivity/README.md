@@ -1,10 +1,10 @@
 # connectivity
 
-Diagnostics for the local core's reachability and the live backend Socket.IO state, plus the listen-port selection logic the core uses when it boots its embedded HTTP listener. The frontend has three independent connectivity channels — browser internet, backend Socket.IO websocket, and the local core HTTP — and issue #1527 split them in the UI so users see *which* channel is broken instead of one conflated "Disconnected" pill. This module exposes a cheap `openhuman.connectivity_diag` RPC that snapshots in-memory backend-socket state plus the local core's PID and listening port (no I/O beyond a single TCP probe), suitable for poll-based health checks.
+Diagnostics for the local core's reachability and the live backend Socket.IO state, plus the listen-port selection logic the core uses when it boots its embedded HTTP listener. The frontend has four independent connectivity channels — browser internet, the local core HTTP, the renderer's Socket.IO link to that core, and (via this module's diag snapshot, #6256) the core's own Socket.IO link to the hosted backend — and issue #1527 split them in the UI so users see *which* channel is broken instead of one conflated "Disconnected" pill. This module exposes a cheap `openhuman.connectivity_diag` RPC that snapshots in-memory backend-socket state plus the local core's PID and listening port (no I/O beyond a single TCP probe), suitable for poll-based health checks.
 
 ## Responsibilities
 
-- Answer `openhuman.connectivity_diag` with a flat snapshot: backend socket state, last websocket error, sidecar PID, configured listen port, and whether that port currently has a listener bound.
+- Answer `openhuman.connectivity_diag` with a flat snapshot: backend socket state, last websocket error, whether the backend reconnect loop is running and whether it stopped on a terminal failure (`socket_loop_active` / `socket_loop_stopped_on_failure`, #6270), sidecar PID, configured listen port, and whether that port currently has a listener bound.
 - Resolve the configured core RPC port from the environment (`OPENHUMAN_CORE_RPC_URL` then `OPENHUMAN_CORE_PORT`, defaulting to `7788`).
 - Snapshot the backend Socket.IO connection state from the global `SocketManager` (reports `"uninitialized"` when the manager singleton isn't registered yet).
 - Probe whether a TCP port on loopback is already bound (`is_port_in_use`).

@@ -166,6 +166,11 @@ pub(crate) async fn ws_loop(
         *shared.status.write() = ConnectionStatus::Connecting;
         emit_state_change(&shared);
 
+        // Taken before the attempt so a stalled first dial counts toward the
+        // outage it starts: `Failed` lands only after the connect deadline has
+        // run out, and dating the outage from then would hide that whole wait
+        // from the `Connected after …` line (Codex review on #6270).
+        let attempt_started = Instant::now();
         let outcome = run_connection(
             &mut ws_url,
             &token,
@@ -220,7 +225,7 @@ pub(crate) async fn ws_loop(
             }
             ConnectionOutcome::Failed(_) => {
                 if reconnect.outage_started.is_none() {
-                    reconnect.outage_started = Some(Instant::now());
+                    reconnect.outage_started = Some(attempt_started);
                 }
                 reconnect.failed_attempts = reconnect.failed_attempts.saturating_add(1);
             }

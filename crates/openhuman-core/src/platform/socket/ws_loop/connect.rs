@@ -53,8 +53,9 @@ pub(super) const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct ReconnectContext {
     /// When the outage began: the moment the previous connection was lost,
-    /// or the first failed attempt if there was no connection yet. `None`
-    /// on a first connect that has not failed.
+    /// or the moment the first failed attempt *started* if there was no
+    /// connection yet — so a dial that stalled for the whole connect deadline
+    /// is counted. `None` on a first connect that has not failed.
     pub(super) outage_started: Option<Instant>,
     /// Whether a live connection preceded this outage — distinguishes
     /// "reconnected" from "connected after initial failures" in the log.
