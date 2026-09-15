@@ -276,13 +276,17 @@ OPENHUMAN_EXAMPLE_INHERIT=1 cargo run -p openhuman-embed --example run_turn -- "
 Optional: `OPENHUMAN_EXAMPLE_BACKEND_URL` points non-inference backend calls
 somewhere specific, and `OPENHUMAN_EXAMPLE_SKILLS_DIR` supplies skill bundles.
 
-Two agents on one runtime, with the same variables plus an optional
-`OPENHUMAN_EXAMPLE_API_KEY` for managed inference:
+Two agents on one runtime — BYOK with the same variables as above, or managed
+inference with `OPENHUMAN_EXAMPLE_TINYHUMANS_API_KEY`:
 
 ```bash
 OPENHUMAN_EXAMPLE_BASE_URL=https://api.openai.com/v1 \
 OPENHUMAN_EXAMPLE_API_KEY=sk-… \
 OPENHUMAN_EXAMPLE_MODEL=gpt-5 \
+  cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
+
+# Or managed inference, no BYOK endpoint needed:
+OPENHUMAN_EXAMPLE_TINYHUMANS_API_KEY=th_… \
   cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
 ```
 
