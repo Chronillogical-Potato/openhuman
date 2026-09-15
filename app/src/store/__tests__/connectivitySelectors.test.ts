@@ -47,6 +47,14 @@ describe('selectBlockingState', () => {
     expect(selectBlockingState(make({ hosted: 'disconnected' }))).toBe('hosted-degraded');
   });
 
+  it('reports hosted-stopped when the core loop exited on an unusable session (#6270)', () => {
+    expect(selectBlockingState(make({ hosted: 'stopped' }))).toBe('hosted-stopped');
+    // Still below every other channel.
+    expect(selectBlockingState(make({ backend: 'disconnected', hosted: 'stopped' }))).toBe(
+      'backend-only'
+    );
+  });
+
   it('does not read a server error event on a live link as an outage', () => {
     // The core keeps the transport open and emits keep working after a server
     // `error` event, so "reconnecting" copy would be wrong here.
@@ -80,6 +88,7 @@ describe('isHostedDegraded', () => {
     expect(isHostedDegraded('connecting')).toBe(true);
     expect(isHostedDegraded('reconnecting')).toBe(true);
     expect(isHostedDegraded('disconnected')).toBe(true);
+    expect(isHostedDegraded('stopped')).toBe(true);
     expect(isHostedDegraded('error')).toBe(false);
     expect(isHostedDegraded('connected')).toBe(false);
     expect(isHostedDegraded('unknown')).toBe(false);

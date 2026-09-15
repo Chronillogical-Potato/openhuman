@@ -480,6 +480,8 @@ const en: TranslationMap = {
   'home.statusBackendOnly': 'Reconnecting to backend… your agent will be available again shortly.',
   'home.statusHostedDegraded':
     "Reconnecting to the cloud… chat keeps working; integrations and channels resume once it's back.",
+  'home.statusHostedStopped':
+    'The cloud link has stopped: sign in again to resume integrations and channels. Chat keeps working.',
   'home.statusCoreUnreachable':
     "The OpenHuman core isn't responding. The background process may have crashed or failed to start.",
   'home.statusInternetOffline':

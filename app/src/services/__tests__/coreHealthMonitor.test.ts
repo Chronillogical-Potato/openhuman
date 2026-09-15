@@ -310,6 +310,34 @@ describe('hostedStateFromDiag', () => {
     expect(hostedStateFromDiag({ socket_state: 'disconnected' })).toEqual({ value: 'unknown' });
   });
 
+  it('reports a loop that stopped on an unusable session as stopped, with its reason (#6270)', async () => {
+    const { hostedStateFromDiag } = await import('../coreHealthMonitor');
+    expect(
+      hostedStateFromDiag({
+        socket_state: 'disconnected',
+        socket_loop_active: false,
+        socket_loop_stopped_on_failure: true,
+        last_ws_error: 'session expired — please sign in again',
+      })
+    ).toEqual({ value: 'stopped', error: 'session expired — please sign in again' });
+    // A loop that is not running for any other reason is still not an outage.
+    expect(
+      hostedStateFromDiag({
+        socket_state: 'disconnected',
+        socket_loop_active: false,
+        socket_loop_stopped_on_failure: false,
+      })
+    ).toEqual({ value: 'unknown' });
+    // The failure flag only means something while the loop is not running.
+    expect(
+      hostedStateFromDiag({
+        socket_state: 'connected',
+        socket_loop_active: true,
+        socket_loop_stopped_on_failure: true,
+      })
+    ).toEqual({ value: 'connected' });
+  });
+
   it('peels the handler envelope and the log envelope the RPC layer adds (#6080)', async () => {
     const { hostedStateFromDiag } = await import('../coreHealthMonitor');
     // Bare handler answer.

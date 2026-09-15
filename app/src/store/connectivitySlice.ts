@@ -38,6 +38,10 @@ export type BackendState = 'connected' | 'disconnected' | 'connecting';
  * - `error` — the server sent an `error` event on a transport that stays
  *   live and keeps emitting; not an outage, so it gets no chip until it has
  *   its own presentation. Stored so the state is observable.
+ * - `stopped` — the loop exited for good because the stored session is
+ *   unusable (no token, or the backend rejected it and nothing fresher
+ *   existed): `socket_loop_stopped_on_failure`. Integrations and channels
+ *   stay off until the user signs in again (degraded, with its own copy).
  */
 export type HostedState =
   | 'connected'
@@ -45,6 +49,7 @@ export type HostedState =
   | 'reconnecting'
   | 'disconnected'
   | 'error'
+  | 'stopped'
   | 'unknown';
 
 export interface ConnectivityState {

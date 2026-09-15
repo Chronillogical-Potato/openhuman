@@ -672,6 +672,8 @@ const messages: TranslationMap = {
     'Ponowne łączenie z backendem… Twój agent będzie dostępny ponownie za chwilę.',
   'home.statusHostedDegraded':
     'Ponowne łączenie z chmurą… czat nadal działa; integracje i kanały wznowią się, gdy tylko połączenie wróci.',
+  'home.statusHostedStopped':
+    'Połączenie z chmurą zostało zatrzymane: zaloguj się ponownie, aby wznowić integracje i kanały. Czat nadal działa.',
   'home.statusCoreUnreachable':
     'Rdzeń OpenHuman nie odpowiada. Proces w tle mógł ulec awarii lub nie uruchomić się.',
   'home.statusInternetOffline':

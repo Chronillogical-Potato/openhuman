@@ -687,6 +687,8 @@ const messages: TranslationMap = {
     'Reconnexion au backend… ton agent sera de nouveau disponible dans quelques instants.',
   'home.statusHostedDegraded':
     'Reconnexion au cloud… le chat continue de fonctionner ; les intégrations et les canaux reprendront dès son retour.',
+  'home.statusHostedStopped':
+    "La liaison cloud s'est arrêtée : reconnecte-toi pour réactiver les intégrations et les canaux. Le chat continue de fonctionner.",
   'home.statusCoreUnreachable':
     "Le processus local OpenHuman ne répond pas. Il a peut-être planté ou n'a pas démarré correctement.",
   'home.statusInternetOffline':

@@ -385,6 +385,7 @@ fn emit_state_change_is_safe_to_call_on_empty_shared() {
         error: RwLock::new(None),
         connection_identity: RwLock::new(None),
         loop_active: std::sync::atomic::AtomicBool::new(false),
+        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
     };
     // Must not panic even with all default state.
     emit_state_change(&shared);
@@ -400,6 +401,7 @@ fn emit_server_event_is_safe_without_subscribers() {
         error: RwLock::new(None),
         connection_identity: RwLock::new(None),
         loop_active: std::sync::atomic::AtomicBool::new(false),
+        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
     };
     // Pure logging — must not touch state or panic.
     emit_server_event(&shared, "any.event", json!({}));

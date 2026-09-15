@@ -641,6 +641,8 @@ const messages: TranslationMap = {
   'home.statusBackendOnly': 'جارٍ إعادة الاتصال بالخادم… سيتوفر وكيلك قريبًا.',
   'home.statusHostedDegraded':
     'جارٍ إعادة الاتصال بالسحابة… تستمر المحادثة في العمل؛ وستُستأنف عمليات التكامل والقنوات فور عودة الاتصال.',
+  'home.statusHostedStopped':
+    'توقف الاتصال بالسحابة: سجّل الدخول مرة أخرى لاستئناف عمليات التكامل والقنوات. تستمر المحادثة في العمل.',
   'home.statusCoreUnreachable':
     'العملية الأساسية المحلية لا تستجيب. قد تكون عملية OpenHuman في الخلفية قد تعطلت أو فشلت في البدء.',
   'home.statusInternetOffline':

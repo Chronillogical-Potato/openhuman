@@ -614,6 +614,7 @@ const messages: TranslationMap = {
   'home.statusBackendOnly': '正在重新连接后端…你的智能体很快将再次可用。',
   'home.statusHostedDegraded':
     '正在重新连接云端…聊天仍可正常使用；连接恢复后，集成和频道将继续工作。',
+  'home.statusHostedStopped': '云端连接已停止：请重新登录以恢复集成和频道。聊天仍可正常使用。',
   'home.statusCoreUnreachable': '本地核心 sidecar 无响应。OpenHuman 后台进程可能已崩溃或未能启动。',
   'home.statusInternetOffline': '你的设备当前处于离线状态。请检查网络或重启应用以重新连接。',
   'home.restartCore': '重启核心',

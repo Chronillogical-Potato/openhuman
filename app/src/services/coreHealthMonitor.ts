@@ -63,11 +63,14 @@ function unwrapDiag(reply: unknown): Record<string, unknown> {
  *
  * The core says whether anyone is retrying: `socket_loop_active` is `false`
  * when its reconnect loop is not running (never connected, signed out, local
- * session, stopped after a terminal failure), and that is `unknown` here — not
- * an outage — whatever `socket_state` says. While the loop is alive the status
- * passes through verbatim, including `disconnected`, which then means the
- * server closed the Socket.IO namespace on a transport it left open. A reply
- * with no `socket_state` is `unknown` too.
+ * session), and that is `unknown` here — not an outage — whatever
+ * `socket_state` says. The one exception is a loop that stopped for good on
+ * an unusable session (`socket_loop_stopped_on_failure`), which is `stopped`:
+ * integrations and channels are off until the user signs in again, and the
+ * chip must say so. While the loop is alive the status passes through
+ * verbatim, including `disconnected`, which then means the server closed the
+ * Socket.IO namespace on a transport it left open. A reply with no
+ * `socket_state` is `unknown` too.
  *
  * A core that predates `socket_loop_active` cannot say who is retrying, so
  * its `disconnected` — most often a loop that is not running — stays
@@ -78,10 +81,12 @@ export function hostedStateFromDiag(reply: unknown): { value: HostedState; error
   const record = unwrapDiag(reply);
   const socketState = record.socket_state;
   const loopActive = record.socket_loop_active;
+  const stoppedOnFailure = record.socket_loop_stopped_on_failure;
   const lastError = record.last_ws_error;
   let value: HostedState = 'unknown';
-  if (
-    loopActive !== false &&
+  if (loopActive === false) {
+    if (stoppedOnFailure === true) value = 'stopped';
+  } else if (
     typeof socketState === 'string' &&
     HOSTED_STATES.has(socketState) &&
     !(loopActive === undefined && socketState === 'disconnected')

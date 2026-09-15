@@ -89,6 +89,14 @@ describe('connectivitySlice', () => {
     expect(state.hosted).toBe('disconnected');
     expect(state.lastError.hosted).toBe('io server disconnect');
 
+    // A loop that stopped for good keeps its user-visible reason too.
+    state = connectivityReducer(
+      state,
+      setHosted({ value: 'stopped', error: 'session expired — please sign in again' })
+    );
+    expect(state.hosted).toBe('stopped');
+    expect(state.lastError.hosted).toBe('session expired — please sign in again');
+
     // Recovery clears it…
     state = connectivityReducer(state, setHosted({ value: 'connected' }));
     expect(state.hosted).toBe('connected');

@@ -86,6 +86,16 @@ const ConnectionIndicator = ({
               : t('app.connectionIndicator.reconnecting'),
           pulse: false,
         };
+      case 'hosted-stopped':
+        // The core's loop stopped for good on an unusable session: nothing is
+        // retrying, so no "reconnecting" wording — the Home copy says to sign
+        // in again (#6270).
+        return {
+          color: 'bg-amber-500',
+          textColor: 'text-amber-500',
+          text: t('app.connectionIndicator.disconnected'),
+          pulse: false,
+        };
     }
   })();
 

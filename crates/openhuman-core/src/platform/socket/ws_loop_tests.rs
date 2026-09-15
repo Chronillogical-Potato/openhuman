@@ -20,6 +20,7 @@ fn make_shared() -> Arc<SharedState> {
         error: RwLock::new(None),
         connection_identity: RwLock::new(None),
         loop_active: std::sync::atomic::AtomicBool::new(false),
+        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
     })
 }
 

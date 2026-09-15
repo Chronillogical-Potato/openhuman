@@ -131,6 +131,66 @@ async fn ws_loop_reports_reconnecting_between_attempts() {
             .load(std::sync::atomic::Ordering::Acquire),
         "loop_active must be lowered once the loop task has exited"
     );
+    assert!(
+        !shared
+            .loop_stopped_on_failure
+            .load(std::sync::atomic::Ordering::Acquire),
+        "a requested shutdown is not a failure"
+    );
+}
+
+/// A loop that stops for good — the backend rejects the stored token and the
+/// provider has nothing fresher — lowers `loop_active` and raises
+/// `loop_stopped_on_failure`, so `connectivity_diag` can tell "stopped, sign
+/// in again" from "never wanted" (Codex review on #6270).
+#[tokio::test]
+async fn ws_loop_marks_a_terminal_stop_as_failure() {
+    let addr = spawn_mock_invalid_token_server().await;
+
+    let shared = make_shared();
+    *shared.status.write() = ConnectionStatus::Disconnected;
+    let (_emit_tx, emit_rx) = mpsc::unbounded_channel::<String>();
+    // Kept alive: a dropped sender would make `shutdown_rx.changed()` fire.
+    let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+    let (internal_tx, _internal_rx) = mpsc::unbounded_channel::<String>();
+
+    let loop_shared = Arc::clone(&shared);
+    let handle = tokio::spawn(async move {
+        ws_loop(
+            http_base_for(addr),
+            static_token_provider("dead-token".to_string()),
+            loop_shared,
+            emit_rx,
+            shutdown_rx,
+            internal_tx,
+            Arc::new(Mutex::new(false)),
+        )
+        .await;
+    });
+
+    tokio::time::timeout(tokio::time::Duration::from_secs(10), handle)
+        .await
+        .expect("loop must stop on its own once the token is provably dead")
+        .expect("loop task must not panic");
+
+    assert_eq!(*shared.status.read(), ConnectionStatus::Disconnected);
+    assert!(!shared
+        .loop_active
+        .load(std::sync::atomic::Ordering::Acquire));
+    assert!(
+        shared
+            .loop_stopped_on_failure
+            .load(std::sync::atomic::Ordering::Acquire),
+        "a dead session token is a terminal failure"
+    );
+    assert!(
+        shared
+            .error
+            .read()
+            .as_deref()
+            .is_some_and(|e| e.contains("session expired")),
+        "the stop reason must be user-visible"
+    );
 }
 
 /// Spawn an EIO server that answers two connections and reports each client

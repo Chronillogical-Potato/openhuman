@@ -111,6 +111,23 @@ describe('ConnectionIndicator', () => {
     expect(container.querySelector('.animate-pulse')).toBeNull();
   });
 
+  it("shows an amber dot and 'Disconnected' when the core's loop stopped on an unusable session", () => {
+    const { container } = renderWithProviders(<ConnectionIndicator />, {
+      preloadedState: {
+        connectivity: {
+          internet: 'online',
+          core: 'reachable',
+          backend: 'connected',
+          hosted: 'stopped',
+          lastError: { hosted: 'session expired — please sign in again' },
+        },
+        socket: { byUser: {} },
+      },
+    });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(container.querySelector('.bg-amber-500')).not.toBeNull();
+  });
+
   it('stays green on a server error event, which leaves the hosted link live', () => {
     const { container } = renderWithProviders(<ConnectionIndicator />, {
       preloadedState: {

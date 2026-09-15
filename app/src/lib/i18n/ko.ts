@@ -650,6 +650,8 @@ const messages: TranslationMap = {
     '백엔드에 다시 연결하는 중입니다… 곧 에이전트를 다시 사용할 수 있습니다.',
   'home.statusHostedDegraded':
     '클라우드에 다시 연결하는 중… 채팅은 계속 사용할 수 있으며, 연결이 복구되면 통합과 채널이 다시 동작합니다.',
+  'home.statusHostedStopped':
+    '클라우드 연결이 중단되었습니다. 통합과 채널을 다시 사용하려면 다시 로그인하세요. 채팅은 계속 사용할 수 있습니다.',
   'home.statusCoreUnreachable':
     '로컬 코어 사이드카가 응답하지 않습니다. OpenHuman 백그라운드 프로세스가 중단되었거나 시작하지 못했을 수 있습니다.',
   'home.statusInternetOffline':

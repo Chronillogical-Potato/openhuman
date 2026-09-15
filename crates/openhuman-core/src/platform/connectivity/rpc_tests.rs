@@ -323,10 +323,14 @@ fn snapshot_socket_state_is_uninitialized_without_manager() {
         );
         return;
     }
-    let (state, err, loop_active) = snapshot_socket_state();
+    let (state, err, loop_active, stopped_on_failure) = snapshot_socket_state();
     assert_eq!(state, "uninitialized");
     assert!(err.is_none());
     assert!(!loop_active, "no manager means nobody is retrying");
+    assert!(
+        !stopped_on_failure,
+        "no manager means nothing has failed either"
+    );
 }
 
 #[test]
@@ -457,6 +461,12 @@ async fn diag_returns_serializable_payload() {
             .and_then(|v| v.as_bool())
             .is_some(),
         "socket_loop_active must be a bool on the wire (#6256)"
+    );
+    assert!(
+        diag.get("socket_loop_stopped_on_failure")
+            .and_then(|v| v.as_bool())
+            .is_some(),
+        "socket_loop_stopped_on_failure must be a bool on the wire (#6270)"
     );
     assert!(diag.get("listen_port").is_some());
     assert!(diag.get("listen_port_in_use").is_some());

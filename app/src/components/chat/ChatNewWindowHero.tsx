@@ -48,6 +48,7 @@ export default function ChatNewWindowHero() {
     ok: t('home.statusOk'),
     'backend-only': t('home.statusBackendOnly'),
     'hosted-degraded': t('home.statusHostedDegraded'),
+    'hosted-stopped': t('home.statusHostedStopped'),
     'core-unreachable': t('home.statusCoreUnreachable'),
     'internet-offline': t('home.statusInternetOffline'),
   }[blocking];
