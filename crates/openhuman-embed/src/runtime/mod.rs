@@ -333,6 +333,3 @@ impl std::fmt::Debug for Runtime {
             .finish_non_exhaustive()
     }
 }
-
-/// `Workspace` re-exported next to the builder that takes it.
-pub use crate::harness::Workspace as RuntimeWorkspace;
