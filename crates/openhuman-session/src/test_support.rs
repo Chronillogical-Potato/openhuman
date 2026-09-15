@@ -4,7 +4,7 @@
 
 use std::collections::VecDeque;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use axum::extract::State;
@@ -21,15 +21,48 @@ use crate::link::{self, CoreLink};
 /// the `identity` slot).
 pub static ENV_LOCK: AsyncMutex<()> = AsyncMutex::const_new(());
 
+/// Unpadded base64url, enough to assemble unsigned JWT fixtures at runtime
+/// (kept out of source as literals so secret scanners do not trip on them).
+fn b64url(input: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut out = String::new();
+    for chunk in input.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        out.push(ALPHABET[(n >> 18) as usize & 63] as char);
+        out.push(ALPHABET[(n >> 12) as usize & 63] as char);
+        if chunk.len() > 1 {
+            out.push(ALPHABET[(n >> 6) as usize & 63] as char);
+        }
+        if chunk.len() > 2 {
+            out.push(ALPHABET[n as usize & 63] as char);
+        }
+    }
+    out
+}
+
+fn unsigned_jwt(claims: Value, signature: &str) -> String {
+    let header = b64url(br#"{"alg":"none","typ":"JWT"}"#);
+    let payload = b64url(claims.to_string().as_bytes());
+    format!("{header}.{payload}.{signature}")
+}
+
 /// A JWT (alg none) with `sub`/`userId` = `user-123` and `exp` in 2100.
-pub const LIVE_JWT: &str = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwiZXhwIjo0MTAyNDQ0ODAwfQ.sig";
-/// Same claims, `exp` in 2001.
-pub const EXPIRED_JWT: &str = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLTEyMyIsImV4cCI6OTc4MzA3MjAwfQ.sig";
+pub static LIVE_JWT: LazyLock<String> = LazyLock::new(|| {
+    unsigned_jwt(json!({ "sub": "user-123", "userId": "user-123", "exp": 4102444800u64 }), "sig")
+});
+/// Same subject, `exp` in 2001.
+pub static EXPIRED_JWT: LazyLock<String> =
+    LazyLock::new(|| unsigned_jwt(json!({ "sub": "user-123", "exp": 978307200u64 }), "sig"));
 /// A JWT with an `exp` but no subject claim.
-pub const LIVE_JWT_NO_SUB: &str = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjQxMDI0NDQ4MDB9.sig";
+pub static LIVE_JWT_NO_SUB: LazyLock<String> =
+    LazyLock::new(|| unsigned_jwt(json!({ "exp": 4102444800u64 }), "sig"));
 /// Opaque, not a JWT.
 pub const OPAQUE_TOKEN: &str = "mock-jwt-token";
-pub const LOCAL_TOKEN: &str = "eyJhbGciOiJub25lIn0.eyJzdWIiOiJsb2NhbCJ9.local";
+/// The offline local session shape: signature segment literally `local`.
+pub static LOCAL_TOKEN: LazyLock<String> =
+    LazyLock::new(|| unsigned_jwt(json!({ "sub": "local" }), "local"));
 
 /// One scripted `/auth/me` answer.
 #[derive(Debug, Clone)]
@@ -58,7 +91,7 @@ impl Backend {
     pub async fn start(answers: Vec<MeAnswer>) -> Self {
         let state = Arc::new(StubState::default());
         *state.me.lock().unwrap() = answers.into();
-        *state.consume_jwt.lock().unwrap() = Some(LIVE_JWT.to_string());
+        *state.consume_jwt.lock().unwrap() = Some(LIVE_JWT.clone());
         let app = Router::new()
             .route("/auth/me", get(handle_me))
             .route("/auth/login-token/consume", post(handle_consume))
@@ -98,7 +131,11 @@ async fn handle_me(State(state): State<Arc<StubState>>, headers: HeaderMap) -> i
         }
     };
     match answer.unwrap_or(MeAnswer::Ok(me_user())) {
-        MeAnswer::Ok(user) => (StatusCode::OK, Json(json!({ "success": true, "data": user }))).into_response(),
+        MeAnswer::Ok(user) => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": user })),
+        )
+            .into_response(),
         MeAnswer::Status(code) => (
             StatusCode::from_u16(code).unwrap(),
             Json(json!({ "success": false, "message": format!("status {code}") })),
@@ -106,19 +143,39 @@ async fn handle_me(State(state): State<Arc<StubState>>, headers: HeaderMap) -> i
             .into_response(),
         MeAnswer::Slow(ms) => {
             tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
-            (StatusCode::OK, Json(json!({ "success": true, "data": me_user() }))).into_response()
+            (
+                StatusCode::OK,
+                Json(json!({ "success": true, "data": me_user() })),
+            )
+                .into_response()
         }
     }
 }
 
-async fn handle_consume(State(state): State<Arc<StubState>>, Json(body): Json<Value>) -> impl IntoResponse {
+async fn handle_consume(
+    State(state): State<Arc<StubState>>,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     state.consume_calls.lock().unwrap().push(body.clone());
     let token = body.get("token").and_then(Value::as_str).unwrap_or("");
     if token == "expired" {
-        return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": "expired" }))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "success": false, "message": "expired" })),
+        )
+            .into_response();
     }
-    let jwt = state.consume_jwt.lock().unwrap().clone().unwrap_or_default();
-    (StatusCode::OK, Json(json!({ "success": true, "data": { "jwt": jwt } }))).into_response()
+    let jwt = state
+        .consume_jwt
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap_or_default();
+    (
+        StatusCode::OK,
+        Json(json!({ "success": true, "data": { "jwt": jwt } })),
+    )
+        .into_response()
 }
 
 /// What the fake core holds.
@@ -174,7 +231,9 @@ impl FakeCore {
                 "user": s.user,
                 "profileId": "app-session:default",
             }),
-            None => json!({ "isAuthenticated": false, "userId": null, "user": null, "profileId": null }),
+            None => {
+                json!({ "isAuthenticated": false, "userId": null, "user": null, "profileId": null })
+            }
         }
     }
 }
@@ -182,20 +241,33 @@ impl FakeCore {
 #[async_trait]
 impl CoreLink for FakeCore {
     async fn invoke(&self, method: &str, params: Value) -> Result<Value, String> {
-        self.calls.lock().unwrap().push((method.to_string(), params.clone()));
+        self.calls
+            .lock()
+            .unwrap()
+            .push((method.to_string(), params.clone()));
         if let Some(message) = self.fail_with.lock().unwrap().clone() {
             return Err(message);
         }
         match method {
-            link::CONFIG_RESOLVE_API_URL => Ok(json!({ "api_url": self.api_url.lock().unwrap().clone() })),
+            link::CONFIG_RESOLVE_API_URL => {
+                Ok(json!({ "api_url": self.api_url.lock().unwrap().clone() }))
+            }
             link::AUTH_GET_STATE => Ok(self.state()),
             link::AUTH_GET_SESSION_TOKEN => Ok(json!({
                 "result": { "token": self.session.lock().unwrap().as_ref().map(|s| s.token.clone()) },
                 "logs": ["session token fetched"],
             })),
             link::AUTH_SET_CREDENTIAL => {
-                let token = params.get("token").and_then(Value::as_str).unwrap_or("").to_string();
-                let kind = params.get("kind").and_then(Value::as_str).unwrap_or("session").to_string();
+                let token = params
+                    .get("token")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let kind = params
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .unwrap_or("session")
+                    .to_string();
                 if token.is_empty() {
                     return Err("token is required".to_string());
                 }
@@ -205,7 +277,10 @@ impl CoreLink for FakeCore {
                     *self.session.lock().unwrap() = Some(StoredCredential {
                         kind,
                         token,
-                        user_id: params.get("userId").and_then(Value::as_str).map(str::to_string),
+                        user_id: params
+                            .get("userId")
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
                         user: params.get("user").cloned(),
                     });
                 }

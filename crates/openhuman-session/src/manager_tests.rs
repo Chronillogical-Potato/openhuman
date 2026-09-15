@@ -38,7 +38,7 @@ async fn login_with_token_exchanges_validates_and_stores() {
 
     let stored = core.session().unwrap();
     assert_eq!(stored.kind, "session");
-    assert_eq!(stored.token, LIVE_JWT);
+    assert_eq!(stored.token, &*LIVE_JWT);
     assert_eq!(stored.user_id.as_deref(), Some("user-123"));
     assert_eq!(stored.user.unwrap()["_id"], "user-123");
     assert_eq!(identity::peek_user_id().as_deref(), Some("user-123"));
@@ -54,7 +54,7 @@ async fn rejected_jwt_is_never_stored() {
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);
     assert!(matches!(
-        m.store_session_token(LIVE_JWT, None).await,
+        m.store_session_token(&*LIVE_JWT, None).await,
         Err(SessionError::Rejected(_))
     ));
     assert_eq!(core.session(), None);
@@ -70,7 +70,7 @@ async fn expired_jwt_is_refused_locally_without_a_request() {
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);
     assert_eq!(
-        m.store_session_token(EXPIRED_JWT, None).await.unwrap_err(),
+        m.store_session_token(&*EXPIRED_JWT, None).await.unwrap_err(),
         SessionError::Expired
     );
     assert_eq!(backend.me_calls(), 0);
@@ -81,7 +81,7 @@ async fn expired_jwt_is_refused_locally_without_a_request() {
 async fn unreachable_backend_stores_a_pending_session_when_the_jwt_can_be_trusted() {
     let core = FakeCore::new("http://127.0.0.1:9");
     let m = manager(&core);
-    let state = m.store_session_token(LIVE_JWT, None).await.unwrap();
+    let state = m.store_session_token(&*LIVE_JWT, None).await.unwrap();
     assert!(state.core.is_authenticated);
     let stored = core.session().unwrap();
     assert_eq!(stored.user_id.as_deref(), Some("user-123"));
@@ -100,7 +100,7 @@ async fn unreachable_backend_refuses_tokens_without_exp_or_subject() {
         Err(SessionError::Transient(_))
     ));
     assert_eq!(
-        m.store_session_token(LIVE_JWT_NO_SUB, None)
+        m.store_session_token(&*LIVE_JWT_NO_SUB, None)
             .await
             .unwrap_err(),
         SessionError::UserIdUnavailable
@@ -113,7 +113,7 @@ async fn caller_supplied_user_id_rescues_a_subjectless_jwt_offline() {
     let core = FakeCore::new("http://127.0.0.1:9");
     let m = manager(&core);
     let user = serde_json::json!({ "id": "from-caller" });
-    m.store_session_token(LIVE_JWT_NO_SUB, Some(user))
+    m.store_session_token(&*LIVE_JWT_NO_SUB, Some(user))
         .await
         .unwrap();
     assert_eq!(
@@ -129,11 +129,11 @@ async fn local_session_is_stored_without_touching_the_backend() {
     let core = FakeCore::new(&backend.url);
     let m = manager(&core);
     assert!(matches!(
-        m.store_session_token(LOCAL_TOKEN, None).await,
+        m.store_session_token(&*LOCAL_TOKEN, None).await,
         Err(SessionError::Invalid(_))
     ));
     let state = m
-        .store_session_token(LOCAL_TOKEN, Some(serde_json::json!({ "name": "Me" })))
+        .store_session_token(&*LOCAL_TOKEN, Some(serde_json::json!({ "name": "Me" })))
         .await
         .unwrap();
     assert_eq!(backend.me_calls(), 0);
@@ -222,7 +222,7 @@ async fn current_user_confirms_a_pending_session_once_the_backend_answers() {
     let core = FakeCore::new(&backend.url);
     *core.session.lock().unwrap() = Some(crate::test_support::StoredCredential {
         kind: "session".into(),
-        token: LIVE_JWT.into(),
+        token: LIVE_JWT.clone(),
         user_id: Some("user-123".into()),
         user: Some(serde_json::json!({ PENDING_BACKEND_VALIDATION_FIELD: true })),
     });
@@ -268,7 +268,7 @@ async fn core_failures_surface_as_core_errors() {
     assert!(matches!(m.state().await, Err(SessionError::Core(_))));
     assert!(matches!(m.logout().await, Err(SessionError::Core(_))));
     assert!(matches!(
-        m.store_session_token(LIVE_JWT, None).await,
+        m.store_session_token(&*LIVE_JWT, None).await,
         Err(SessionError::Backend(_))
     ));
 }

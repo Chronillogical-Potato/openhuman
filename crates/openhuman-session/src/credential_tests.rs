@@ -4,12 +4,12 @@ use serde_json::json;
 
 #[test]
 fn classify_recognises_the_local_session_shape() {
-    let local = Credential::classify(LOCAL_TOKEN);
+    let local = Credential::classify(&*LOCAL_TOKEN);
     assert_eq!(local.kind, CredentialKind::Local);
     assert!(local.is_local());
     assert_eq!(local.expires_at, None);
 
-    let session = Credential::classify(LIVE_JWT);
+    let session = Credential::classify(&*LIVE_JWT);
     assert_eq!(session.kind, CredentialKind::Session);
     assert!(session.expires_at.is_some());
 
@@ -53,30 +53,30 @@ fn constructors_trim_and_keep_kind() {
     assert_eq!(key.secret, "sk-1");
     assert_eq!(key.kind, CredentialKind::ApiKey);
     assert_eq!(key.expires_at, None);
-    let local = Credential::local(format!(" {LOCAL_TOKEN} "));
-    assert_eq!(local.secret, LOCAL_TOKEN);
+    let local = Credential::local(format!(" {} ", &*LOCAL_TOKEN));
+    assert_eq!(local.secret, &*LOCAL_TOKEN);
 }
 
 #[test]
 fn jwt_exp_decoding_and_liveness() {
     let now = chrono::Utc::now();
-    assert!(decode_jwt_exp(LIVE_JWT).unwrap() > now);
-    assert!(decode_jwt_exp(EXPIRED_JWT).unwrap() < now);
+    assert!(decode_jwt_exp(&*LIVE_JWT).unwrap() > now);
+    assert!(decode_jwt_exp(&*EXPIRED_JWT).unwrap() < now);
     assert_eq!(decode_jwt_exp(OPAQUE_TOKEN), None);
-    assert_eq!(decode_jwt_exp(LOCAL_TOKEN), None);
+    assert_eq!(decode_jwt_exp(&*LOCAL_TOKEN), None);
 
-    assert!(jwt_is_live(LIVE_JWT, now).is_some());
-    assert!(jwt_is_live(EXPIRED_JWT, now).is_none());
+    assert!(jwt_is_live(&*LIVE_JWT, now).is_some());
+    assert!(jwt_is_live(&*EXPIRED_JWT, now).is_none());
     assert!(jwt_is_live(OPAQUE_TOKEN, now).is_none());
 }
 
 #[test]
 fn user_id_from_jwt_claims_prefers_sub() {
     assert_eq!(
-        user_id_from_jwt_claims(LIVE_JWT).as_deref(),
+        user_id_from_jwt_claims(&*LIVE_JWT).as_deref(),
         Some("user-123")
     );
-    assert_eq!(user_id_from_jwt_claims(LIVE_JWT_NO_SUB), None);
+    assert_eq!(user_id_from_jwt_claims(&*LIVE_JWT_NO_SUB), None);
     assert_eq!(user_id_from_jwt_claims(OPAQUE_TOKEN), None);
 }
 
