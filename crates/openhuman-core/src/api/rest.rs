@@ -124,6 +124,14 @@ pub fn flatten_authed_error(err: anyhow::Error) -> String {
         Some(BackendApiError::Unauthorized { method, path }) => {
             format!("SESSION_EXPIRED: backend rejected session token on {method} {path}")
         }
+        // Deliberately NOT the `SESSION_EXPIRED` sentinel: this runtime
+        // authenticates with an API key, not a session, so there is no
+        // session to expire and `core/jsonrpc.rs`'s `SessionExpired` publish
+        // (clear the session, prompt re-sign-in) would be the wrong
+        // recovery. See `BackendApiError::ApiKeyRejected`.
+        Some(BackendApiError::ApiKeyRejected { method, path }) => {
+            format!("API_KEY_REJECTED: backend rejected api key on {method} {path}")
+        }
         _ => format!("{err:#}"),
     }
 }
