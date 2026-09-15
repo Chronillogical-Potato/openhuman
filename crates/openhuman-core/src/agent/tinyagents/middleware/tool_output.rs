@@ -92,6 +92,9 @@ pub(crate) struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     pub(crate) budget_bytes: usize,
     pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// What the user asked for this turn, handed to the payload summarizer so
+    /// it keeps the facts that matter to the task. `None` off the chat path.
+    pub(crate) task_hint: Option<String>,
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     pub(crate) tokenjuice_compaction_enabled: bool,
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
@@ -180,7 +183,12 @@ impl Middleware<()> for ToolOutputMiddleware {
         if !compaction_exempt {
             if let Some(ps) = &self.payload_summarizer {
                 match ps
-                    .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
+                    .maybe_summarize_in_parent(
+                        ctx,
+                        &result.name,
+                        self.task_hint.as_deref(),
+                        &result.content,
+                    )
                     .await
                 {
                     Ok(SummarizeOutcome::Summarized(payload)) => {

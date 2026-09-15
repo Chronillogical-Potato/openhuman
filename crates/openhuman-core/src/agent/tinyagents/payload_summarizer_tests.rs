@@ -209,3 +209,99 @@ fn record_success_resets_breaker() {
     summarizer.record_failure();
     assert!(!summarizer.breaker_tripped());
 }
+
+// ── summary reuse and the real payload size (#6283) ─────────────────────
+
+fn low_threshold_summarizer() -> SubagentPayloadSummarizer {
+    SubagentPayloadSummarizer::new(dummy_definition(), 1, TEST_MAX_TOKENS)
+}
+
+#[tokio::test]
+async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching() {
+    let raw = "identical payload for the reuse test ".repeat(64);
+    let hint = Some("reuse-test goal");
+    remember_summary(
+        summary_cache_key("reuse_tool", hint, &raw),
+        "CACHED SUMMARY".to_string(),
+    );
+
+    // No parent execution context is installed, so a real dispatch fails and
+    // reports `Unavailable`; only reuse can produce a summary here.
+    let outcome = low_threshold_summarizer()
+        .maybe_summarize_in_parent(&dummy_parent_ctx(), "reuse_tool", hint, &raw)
+        .await
+        .expect("summarization never errors here");
+
+    match outcome {
+        SummarizeOutcome::Summarized(payload) => {
+            assert_eq!(payload.summary, "CACHED SUMMARY");
+            assert_eq!(payload.original_bytes, raw.len());
+        }
+        other => panic!(
+            "an identical payload must reuse the stored summary instead of dispatching \
+             the summarizer again; got {other:?}"
+        ),
+    }
+}
+
+#[tokio::test]
+async fn a_summary_written_for_another_goal_is_not_reused() {
+    let raw = "payload shared across two goals ".repeat(64);
+    remember_summary(
+        summary_cache_key("goal_tool", Some("goal A"), &raw),
+        "SUMMARY FOR GOAL A".to_string(),
+    );
+
+    let outcome = low_threshold_summarizer()
+        .maybe_summarize_in_parent(&dummy_parent_ctx(), "goal_tool", Some("goal B"), &raw)
+        .await
+        .expect("summarization never errors here");
+
+    assert!(
+        !matches!(outcome, SummarizeOutcome::Summarized(_)),
+        "a summary shaped for one goal must not be served for another; got {outcome:?}"
+    );
+}
+
+#[test]
+fn a_successful_summary_is_remembered_and_states_the_real_size() {
+    let summarizer = low_threshold_summarizer();
+    let raw = "x".repeat(50_000);
+    let key = summary_cache_key("size_tool", Some("size goal"), &raw);
+
+    let outcome = summarizer
+        .handle_summarizer_result(
+            "size_tool",
+            &raw,
+            std::time::Instant::now(),
+            Ok("model note: original was ~9,000 bytes (truncated payload)".to_string()),
+            key,
+        )
+        .expect("a usable summary is not an error");
+
+    let SummarizeOutcome::Summarized(payload) = outcome else {
+        panic!("a non-empty, smaller summary must be accepted");
+    };
+    assert!(
+        payload
+            .summary
+            .contains("50000 bytes of tool output, complete"),
+        "the size the orchestrator reads must come from the real byte count, got: {}",
+        payload.summary
+    );
+    assert_eq!(
+        cached_summary(&key).as_deref(),
+        Some(payload.summary.as_str()),
+        "a successful summary must be stored for reuse"
+    );
+}
+
+#[test]
+fn build_summarizer_prompt_states_the_real_byte_count() {
+    let raw = "abc".repeat(1_000);
+    let prompt = build_summarizer_prompt("size_tool", None, &raw);
+    assert!(
+        prompt.contains("Raw tool output: 3000 bytes, complete"),
+        "the summarizer must be told the payload's exact size, got: {prompt}"
+    );
+}
