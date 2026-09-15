@@ -91,7 +91,7 @@ jobs:
           touch .env app/.env before/.env before/app/.env
 
       # The core is built once, for the head, and shared with the merge-base
-      # side through TS_SHARED_CORE_BIN — see scripts/ui-preview/serve.sh for
+      # side through TS_SHARED_CORE_BIN — see .github/tinysweeper/serve.sh for
       # why. The web bundle is built per checkout by that script.
       - name: Build the standalone core once
         id: core

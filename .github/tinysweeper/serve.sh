@@ -42,7 +42,7 @@ echo "[ui-preview :$TS_PORT] building the web bundle"
 (cd "$APP_DIR" && pnpm run build:web)
 
 # The bootstrap page the action opens first (`auth.visit` in
-# .tinysweeper/ui-preview.json). Same job as the dev server's `/__dev-connect`
+# .github/tinysweeper/ui-preview.json). Same job as the dev server's `/__dev-connect`
 # route: seed the runtime endpoint, its bearer and the cloud mode into
 # localStorage, then go to the app. Written here because the RPC URL depends
 # on this side's core port, which only this script knows.
