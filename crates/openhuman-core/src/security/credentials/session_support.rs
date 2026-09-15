@@ -133,15 +133,26 @@ fn session_user_value(
 }
 
 pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
-    let profile = load_app_session_profile(config)?;
-    let mut state = session_state_from_profile(profile.as_ref());
-    // An API key authenticates the runtime without a user: report it so a
-    // host can tell "signed in as nobody" from "signed out".
-    if !state.is_authenticated && super::api_key::has_api_key(config) {
-        state.is_authenticated = true;
-        state.credential = Some(super::responses::CREDENTIAL_API_KEY.to_string());
+    // The API key wins whenever both are present — same precedence as
+    // `resolve_backend_credential`, which every backend request actually
+    // authenticates with. Checked before the session profile loads: a host
+    // that holds both (a runtime built with `.session(...)` and
+    // `.api_key(...)`, or an inherited workspace carrying a prior session)
+    // must see `credential: "api-key"`, not "session", or `auth.get_state`
+    // would misidentify what's actually authenticating its requests. An API
+    // key carries no user identity, so `user_id`/`user` stay `None` rather
+    // than leaking the session's.
+    if super::api_key::has_api_key(config) {
+        return Ok(AuthStateResponse {
+            is_authenticated: true,
+            user_id: None,
+            user: None,
+            profile_id: None,
+            credential: Some(super::responses::CREDENTIAL_API_KEY.to_string()),
+        });
     }
-    Ok(state)
+    let profile = load_app_session_profile(config)?;
+    Ok(session_state_from_profile(profile.as_ref()))
 }
 
 pub fn get_session_token(config: &Config) -> Result<Option<String>, String> {
