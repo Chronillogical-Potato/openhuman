@@ -21,7 +21,9 @@ fn placeholder_payloads_yield_no_identity() {
 fn slot_round_trip_ignores_empty_objects() {
     set_current_user(Some(json!({ "id": "slot-user" })));
     assert_eq!(
-        peek_credential_user_identity().and_then(|i| i.id).as_deref(),
+        peek_credential_user_identity()
+            .and_then(|i| i.id)
+            .as_deref(),
         Some("slot-user")
     );
     set_current_user(Some(json!({})));

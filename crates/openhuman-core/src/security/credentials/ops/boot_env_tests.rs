@@ -29,11 +29,17 @@ fn api_key_env_seeds_only_an_empty_store() {
 
     unsafe { std::env::set_var(BACKEND_API_KEY_ENV, "  ") };
     seed_api_key_from_env(&config);
-    assert!(!api_key::has_api_key(&config), "blank env must not install a key");
+    assert!(
+        !api_key::has_api_key(&config),
+        "blank env must not install a key"
+    );
 
     unsafe { std::env::set_var(BACKEND_API_KEY_ENV, "sk-boot") };
     seed_api_key_from_env(&config);
-    assert_eq!(api_key::get_api_key(&config).unwrap().as_deref(), Some("sk-boot"));
+    assert_eq!(
+        api_key::get_api_key(&config).unwrap().as_deref(),
+        Some("sk-boot")
+    );
 
     unsafe { std::env::set_var(BACKEND_API_KEY_ENV, "sk-rotated") };
     seed_api_key_from_env(&config);

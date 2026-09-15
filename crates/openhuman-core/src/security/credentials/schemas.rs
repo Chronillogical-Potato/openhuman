@@ -213,9 +213,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "Backend user id. Optional when `user` carries one or the JWT has a \
                      subject claim.",
                 ),
-                optional_json("user", "User payload (the host's /auth/me answer, or the local user)."),
+                optional_json(
+                    "user",
+                    "User payload (the host's /auth/me answer, or the local user).",
+                ),
             ],
-            outputs: vec![json_output("state", "Auth state after installing the credential.")],
+            outputs: vec![json_output(
+                "state",
+                "Auth state after installing the credential.",
+            )],
         },
         "auth_clear_credential" => ControllerSchema {
             namespace: "auth",
@@ -236,7 +242,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_json("user_id", "Optional user id hint."),
                 optional_json("user", "Optional user payload."),
             ],
-            outputs: vec![json_output("state", "Auth state after installing the credential.")],
+            outputs: vec![json_output(
+                "state",
+                "Auth state after installing the credential.",
+            )],
         },
         "auth_clear_session" => ControllerSchema {
             namespace: "auth",
@@ -374,7 +383,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_auth_set_credential(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let payload = deserialize_params::<crate::security::credentials::SetCredentialRequest>(params)?;
+        let payload =
+            deserialize_params::<crate::security::credentials::SetCredentialRequest>(params)?;
         to_json(crate::security::credentials::rpc::set_credential(&config, payload).await?)
     })
 }
@@ -383,7 +393,12 @@ fn handle_auth_clear_credential(params: Map<String, Value>) -> ControllerFuture 
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<AuthClearCredentialParams>(params)?;
-        let kind = match payload.kind.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        let kind = match payload
+            .kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+        {
             Some(raw) => Some(
                 crate::security::credentials::session_support::CredentialKind::parse(raw)
                     .ok_or_else(|| format!("unknown credential kind {raw:?}"))?,

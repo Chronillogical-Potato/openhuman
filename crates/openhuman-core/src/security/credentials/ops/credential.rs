@@ -17,8 +17,8 @@ use crate::config::Config;
 use crate::rpc::RpcOutcome;
 use crate::security::credentials::responses::AuthStateResponse;
 use crate::security::credentials::session_support::{
-    build_session_state, load_app_session_profile, local_session_user_id, session_token_from_profile,
-    user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
+    build_session_state, load_app_session_profile, local_session_user_id,
+    session_token_from_profile, user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
 };
 use crate::security::credentials::{
     api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
@@ -44,7 +44,8 @@ pub const PENDING_BACKEND_VALIDATION_FIELD: &str = "pendingBackendValidation";
 
 /// Serialises credential mutations so two hosts' callbacks cannot interleave
 /// their activation / teardown side effects.
-pub(crate) static CREDENTIAL_MUTATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static CREDENTIAL_MUTATION_LOCK: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 /// `auth.set_credential` parameters.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -101,9 +102,15 @@ fn resolve(request: SetCredentialRequest) -> Result<Resolved, String> {
     if token.is_empty() {
         return Err("token is required".to_string());
     }
-    let kind = match request.kind.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
-        Some(raw) => CredentialKind::parse(raw)
-            .ok_or_else(|| format!("unknown credential kind {raw:?}; expected session, api-key or local"))?,
+    let kind = match request
+        .kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+    {
+        Some(raw) => CredentialKind::parse(raw).ok_or_else(|| {
+            format!("unknown credential kind {raw:?}; expected session, api-key or local")
+        })?,
         None => CredentialKind::classify(&token),
     };
     let explicit_user_id = request
@@ -178,7 +185,11 @@ pub async fn set_credential(
     if resolved.kind == CredentialKind::ApiKey {
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
         crate::cron::scheduler_gate::set_signed_out(false);
-        tracing::info!(domain = "credentials", operation = "set_credential", "{LOG_PREFIX} api key stored");
+        tracing::info!(
+            domain = "credentials",
+            operation = "set_credential",
+            "{LOG_PREFIX} api key stored"
+        );
         let state = build_session_state(config)?;
         return Ok(RpcOutcome::single_log(state, "api key stored"));
     }
@@ -237,8 +248,12 @@ pub async fn set_credential(
         let effective = reload_config_or(config).await;
         if resolved.kind == CredentialKind::Local {
             match crate::config::ops::set_onboarding_completed(false).await {
-                Ok(_) => logs.push("onboarding left incomplete for local session setup".to_string()),
-                Err(error) => logs.push(format!("onboarding setup warning for local session: {error}")),
+                Ok(_) => {
+                    logs.push("onboarding left incomplete for local session setup".to_string())
+                }
+                Err(error) => logs.push(format!(
+                    "onboarding setup warning for local session: {error}"
+                )),
             }
             logs.push("local session accepted without backend validation".to_string());
         }
@@ -257,10 +272,17 @@ pub async fn set_credential(
     logs.push(format!("{} credential stored", resolved.kind.as_str()));
 
     if !refresh {
-        logs.extend(rebind_after_credential_change(&effective_config, "credential installed"));
+        logs.extend(rebind_after_credential_change(
+            &effective_config,
+            "credential installed",
+        ));
         start_credential_gated_services(&effective_config).await;
         logs.push("credential-gated services started".to_string());
-        crate::memory::ops::maintenance::reembed_best_effort(&effective_config, "credential stored").await;
+        crate::memory::ops::maintenance::reembed_best_effort(
+            &effective_config,
+            "credential stored",
+        )
+        .await;
         logs.push("memory re-embed backfill checked".to_string());
     }
 
@@ -269,12 +291,12 @@ pub async fn set_credential(
     crate::cron::scheduler_gate::set_signed_out(false);
     // Scope Sentry and the prompt-layer identity to this user (#3135, #926).
     sentry_scope::bind(&user_id);
-    identity::set_current_user(
-        resolved
-            .user
-            .clone()
-            .or_else(|| existing.as_ref().and_then(|p| p.metadata.get("user_json").cloned()).and_then(|raw| serde_json::from_str(&raw).ok())),
-    );
+    identity::set_current_user(resolved.user.clone().or_else(|| {
+        existing
+            .as_ref()
+            .and_then(|p| p.metadata.get("user_json").cloned())
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+    }));
     tracing::info!(
         domain = "credentials",
         operation = "set_credential",
@@ -299,7 +321,10 @@ pub async fn clear_credential(
     let mut removed_session = false;
     let mut removed_api_key = false;
 
-    if matches!(kind, None | Some(CredentialKind::Session) | Some(CredentialKind::Local)) {
+    if matches!(
+        kind,
+        None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
+    ) {
         let outcome = clear_session_credential(config).await?;
         removed_session = outcome.value;
         logs.extend(outcome.logs);
@@ -356,7 +381,10 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
     // context until the process restarts.
     match crate::config::load_config_with_timeout().await {
         Ok(signed_out_config) => {
-            logs.extend(rebind_after_credential_change(&signed_out_config, "credential cleared"));
+            logs.extend(rebind_after_credential_change(
+                &signed_out_config,
+                "credential cleared",
+            ));
             logs.push(format!(
                 "process globals rebound to signed-out workspace {}",
                 signed_out_config.workspace_dir.display()

@@ -13,7 +13,7 @@
 
 use crate::config::Config;
 use crate::security::credentials::api_key;
-use crate::security::credentials::session_support::{CredentialKind, get_session_token};
+use crate::security::credentials::session_support::{get_session_token, CredentialKind};
 
 use super::credential::{set_credential, SetCredentialRequest};
 
@@ -40,7 +40,9 @@ pub fn seed_api_key_from_env(config: &Config) {
     }
     match api_key::store_api_key(config, &key) {
         Ok(_) => log::info!("[auth][boot] api key installed from {BACKEND_API_KEY_ENV}"),
-        Err(error) => log::warn!("[auth][boot] failed to install api key from {BACKEND_API_KEY_ENV}: {error}"),
+        Err(error) => {
+            log::warn!("[auth][boot] failed to install api key from {BACKEND_API_KEY_ENV}: {error}")
+        }
     }
 }
 
