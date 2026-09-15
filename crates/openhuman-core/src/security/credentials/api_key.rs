@@ -78,8 +78,31 @@ pub fn get_api_key(config: &Config) -> Result<Option<String>> {
 
 /// [`get_api_key`] against an explicit credential state directory — for
 /// callers that hold `ProviderRuntimeOptions` rather than a `Config`.
+///
+/// Requires the [`API_KEY_KIND_META`] marker, not just a profile named
+/// [`API_KEY_PROVIDER`]. The generic `auth_store_provider_credentials`
+/// RPC and CLI let a caller store an ordinary provider profile under any
+/// name, `"api-key"` included; without the marker check, such a profile
+/// would be accepted here as a TinyHumans runtime key and its bearer sent to
+/// the managed backend as one.
 pub fn get_api_key_in(state_dir: &Path, encrypt: bool) -> Result<Option<String>> {
-    AuthService::new(state_dir, encrypt).get_provider_bearer_token(API_KEY_PROVIDER, None)
+    let service = AuthService::new(state_dir, encrypt);
+    let Some(profile) = service.get_profile(API_KEY_PROVIDER, None)? else {
+        return Ok(None);
+    };
+    if profile.metadata.get(API_KEY_KIND_META).map(String::as_str) != Some(API_KEY_KIND) {
+        log::debug!(
+            "[credentials][api-key] provider profile {:?} exists but lacks the {API_KEY_KIND_META}={API_KEY_KIND} \
+             marker — treating as absent, not a TinyHumans api key",
+            API_KEY_PROVIDER
+        );
+        return Ok(None);
+    }
+    let credential = match profile.kind {
+        super::profiles::AuthProfileKind::Token => profile.token,
+        super::profiles::AuthProfileKind::OAuth => profile.token_set.map(|t| t.access_token),
+    };
+    Ok(credential.filter(|t| !t.trim().is_empty()))
 }
 
 /// Whether an API key is stored. Errors reading the store count as "no key"
