@@ -23,6 +23,10 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
         // `wait_for_capacity()` call instead of firing requests at a backend
         // we're about to invalidate. Idempotent.
         crate::cron::scheduler_gate::set_signed_out(true);
+        // Local/CLI model authentication can outlive an OpenHuman account.
+        // The old account's listeners and workspace-bound channel state cannot.
+        #[cfg(feature = "channels")]
+        crate::channels::session::invalidate_channel_session();
 
         // Invalidate before removing the profile so a pending revalidation cannot
         // recreate it after logout has finished the removal.

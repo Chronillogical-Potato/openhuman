@@ -1,8 +1,7 @@
 //! Subprocess-backed providers: the Claude Agent SDK and the Claude Code CLI.
 
 use super::*;
-#[cfg(not(test))]
-use crate::inference::provider::factory::access_gates::verify_session_active;
+use crate::inference::provider::factory::access_gates::verify_provider_session;
 
 /// Build the Claude Agent SDK subprocess directly as a crate model. This is a
 /// prompt-guided model: TinyAgents owns its text-tool protocol, while the
@@ -41,8 +40,7 @@ pub(super) fn prepare_claude_agent_sdk_chat_model(
     if let Err(error) = enforce_local_only_inference(role, provider) {
         return Some(Err(error));
     }
-    #[cfg(not(test))]
-    if let Err(error) = verify_session_active(config) {
+    if let Err(error) = verify_provider_session(config, provider) {
         return Some(Err(error));
     }
     Some(Ok(model))
@@ -99,8 +97,7 @@ pub(super) fn try_create_claude_code_chat_model_from_string(
     if let Err(error) = enforce_local_only_inference(role, provider) {
         return Some(Err(error));
     }
-    #[cfg(not(test))]
-    if let Err(error) = verify_session_active(config) {
+    if let Err(error) = verify_provider_session(config, provider) {
         return Some(Err(error));
     }
     let workspace = crate::inference::provider::claude_code::workspace_dir_from_config(config);

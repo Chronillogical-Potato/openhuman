@@ -89,7 +89,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 
 | ID    | Feature            | Layer | Test path(s)                        | Status | Notes                              |
 | ----- | ------------------ | ----- | ----------------------------------- | ------ | ---------------------------------- |
-| 1.4.1 | Session Logout     | WD    | `logout-relogin-onboarding.spec.ts` | ✅     |                                    |
+| 1.4.1 | Session Logout | RU+WD | `logout-relogin-onboarding.spec.ts`, `crates/openhuman-core/src/channels/runtime/session_tests.rs`, `crates/openhuman-core/src/security/credentials/ops_provider_oauth_tests.rs` | ✅ | Logout invalidates channel lifetimes, including pending startup; local inference remains independent of backend login. |
 | 1.4.2 | Global Logout      | WD    | _missing_ — tracked #968            | ❌     | Multi-session invalidation         |
 | 1.4.3 | Token Invalidation | WD    | _missing_ — tracked #968            | ❌     | Server-side revocation propagation |
 
@@ -132,7 +132,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 
 | ID    | Feature                            | Layer | Test path(s)                                                                    | Status | Notes                                                    |
 | ----- | ---------------------------------- | ----- | ------------------------------------------------------------------------------- | ------ | -------------------------------------------------------- |
-| 3.2.1 | Local Inference Execution          | WD    | `local-model-runtime.spec.ts`                                                   | ✅     |                                                          |
+| 3.2.1 | Local Inference Execution | RU+WD | `local-model-runtime.spec.ts`, `crates/openhuman-core/src/inference/provider/factory_crate_native_tests.rs`, `crates/openhuman-core/src/flows/ops_agent_binding_tests.rs` | ✅ | Caller-owned model construction and local agent-flow readiness work without an OpenHuman session; cloud session refusal is retained. Harness readiness shares runtime role selection and tests local/cloud routes against an opposing summarization route. |
 | 3.2.2 | Resource Handling (CPU/GPU/Memory) | RU    | `crates/openhuman-core/src/inference/device.rs`                                              | 🟡     | Detection unit; runtime constraint manual                |
 | 3.2.3 | Runtime Failure Handling           | RU+WD | `local-model-runtime.spec.ts`                                                   | ✅     |                                                          |
 | 3.2.4 | LM Studio Chat Completions         | RU+RI | `crates/openhuman-core/src/inference/local/service/public_infer_tests.rs`, `tests/json_rpc_e2e.rs` | ✅     | Covers prompt/chat success and non-success status errors |

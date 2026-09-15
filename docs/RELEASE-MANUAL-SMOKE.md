@@ -46,6 +46,7 @@ Applies to every release, all platforms.
 
 - [ ] **SmartScreen does not block install** — Run the installer from a fresh download. Expected: SmartScreen passes (signed binary). If `Windows protected your PC` appears, the EV signature is missing or the reputation has not built up — escalate before shipping.
 - [ ] **Installer creates Start Menu + Desktop shortcuts** — Defaults preserved. Expected: both shortcuts launch the app.
+- [ ] **Logout retires external channel listeners** — With a channel configured for a local or Claude CLI model, log out while leaving the core process running, then send a channel message. Expected: the old listener no longer processes the message or returns prior-account memory. Start a fresh local workspace/runtime separately and verify local model use still works without backend login.
 - [ ] **App registers `openhuman://` URL scheme** — From a browser, click an `openhuman://oauth/success?...` link. Expected: OS prompts to open in OpenHuman; clicking through delivers the deep link.
 
 ### Linux
@@ -57,6 +58,8 @@ Applies to every release, all platforms.
 - [ ] **Headless supervisor update stages without self-exit** — On a Linux service deployment with `[update] restart_strategy = "supervisor"` and `rpc_mutations_enabled = false`, stage a new core binary through the documented operator flow. Expected: the running process stays up until the supervisor restart, the staged binary is present on disk, and `systemctl restart openhuman` (or equivalent) picks up the new version.
 
 ### Cross-platform
+
+- [ ] **Caller-owned inference works without an OpenHuman session** — In a local workspace without an OpenHuman login, configure Ollama/LM Studio/MLX/oMLX/local-openai or an independently authenticated Claude Code/Agent SDK provider. Run chat and an agent flow routed entirely to that provider. For a named harness agent, also configure the summarization route to managed inference and verify that the agent still uses its local route; reversing those routes must retain the managed agent's session requirement. Expected: no OpenHuman session requirement. Select managed inference instead: it must still require a backend session. With LocalOnly privacy enabled, local runtimes remain allowed and Claude subprocesses remain blocked as external inference.
 
 - [ ] **Chat links open in the default browser and the app stays on the chat** — Ask the agent for a GitHub URL and click the link in its reply. Expected: the default browser opens the page and OpenHuman stays on the same conversation (no remote page inside the app window, no stranded screen). Then click a link in Settings > About. Expected: same result, and in-app navigation (Chat, Settings) still works.
 - [ ] **ChatGPT sign-in works after onboarding** — In desktop Settings > AI > Providers, add OpenAI and complete ChatGPT sign-in from its provider dialog. Expected: OpenAI is registered without an API key and existing workload routes are preserved. Reopen the provider dialog and disconnect. Expected: the connected badge clears, OpenAI is removed, and workloads no longer reference it. A failed callback shows a localized error without logging the redirect URL.
