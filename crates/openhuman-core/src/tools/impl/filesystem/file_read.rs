@@ -14,6 +14,10 @@ pub struct FileReadTool {
 }
 
 impl FileReadTool {
+    /// Largest file this tool will open. Anything that must stay readable
+    /// through it (a persisted tool-result artifact) has to fit.
+    pub const MAX_FILE_SIZE_BYTES: u64 = MAX_FILE_SIZE_BYTES;
+
     pub fn new(security: Arc<SecurityPolicy>) -> Self {
         Self { security }
     }
@@ -39,6 +43,11 @@ impl Tool for FileReadTool {
                 "path": {
                     "type": "string",
                     "description": "Relative path to the file within the workspace"
+                },
+                "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Byte offset to start reading from. Use the offset a paged read reports to continue it."
                 }
             },
             "required": ["path"]
@@ -124,7 +133,39 @@ impl FileReadTool {
                         .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
                     file_state::record_read(&agent_id, resolved_path, mtime, false);
                 }
-                Ok(ToolResult::success(contents))
+                // An absent or null offset reads from the start; anything else
+                // that is not a non-negative integer is rejected, so a
+                // malformed continuation never silently re-reads the file from
+                // byte 0.
+                let offset = match args.get("offset") {
+                    None | Some(serde_json::Value::Null) => 0,
+                    Some(value) => match value.as_u64().and_then(|o| usize::try_from(o).ok()) {
+                        Some(offset) => offset,
+                        None => {
+                            return Ok(ToolResult::error(format!(
+                                "offset must be a non-negative integer byte offset, got {value}"
+                            )))
+                        }
+                    },
+                };
+                if offset == 0 {
+                    return Ok(ToolResult::success(contents));
+                }
+                if offset > contents.len() {
+                    return Ok(ToolResult::error(format!(
+                        "offset {offset} is past the end of the file ({} bytes)",
+                        contents.len()
+                    )));
+                }
+                // Rejected rather than snapped to a boundary: a caller paging
+                // from `offset` computes the next offset from where it asked to
+                // start, so a silent move backwards would skip or repeat bytes.
+                if !contents.is_char_boundary(offset) {
+                    return Ok(ToolResult::error(format!(
+                        "offset {offset} falls inside a multi-byte character; continue from the offset a paged read reports"
+                    )));
+                }
+                Ok(ToolResult::success(contents[offset..].to_string()))
             }
             Err(e) => Ok(ToolResult::error(format!("Failed to read file: {e}"))),
         }

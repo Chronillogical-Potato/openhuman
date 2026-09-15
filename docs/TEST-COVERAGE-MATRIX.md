@@ -254,7 +254,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 | ID    | Feature                      | Layer | Test path(s)                                                                                           | Status | Notes                                                                |
 | ----- | ---------------------------- | ----- | ------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------- |
-| 6.1.1 | File Read Access             | RU+WD | `crates/openhuman-core/src/tools/impl/filesystem/file_read.rs`, `app/test/e2e/specs/tool-filesystem-flow.spec.ts`  | ✅     | Was 🟡 — WDIO drives memory_read_file + asserts via Node fs          |
+| 6.1.1 | File Read Access             | RU+WD | `crates/openhuman-core/src/tools/impl/filesystem/file_read.rs`, `app/test/e2e/specs/tool-filesystem-flow.spec.ts`  | ✅     | Was 🟡 — WDIO drives memory_read_file + asserts via Node fs. Byte `offset` paging (continues a paged artifact read, #6284): `file_read_tests.rs::file_read_offset_continues_from_the_given_byte` |
 | 6.1.2 | File Write Access            | RU+WD | `crates/openhuman-core/src/tools/impl/filesystem/file_write.rs`, `app/test/e2e/specs/tool-filesystem-flow.spec.ts` | ✅     | Was 🟡 — WDIO drives memory_write_file + asserts bytes match on disk |
 | 6.1.3 | Path Restriction Enforcement | RU+WD | `crates/openhuman-core/src/tools/impl/filesystem/file_read.rs`, `app/test/e2e/specs/tool-filesystem-flow.spec.ts`  | ✅     | Was 🟡 — WDIO asserts traversal + absolute-path denial envelope      |
 
