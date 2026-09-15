@@ -161,8 +161,8 @@ use crate::agent::messages::ChatMessage;
 
 use super::transcript::{
     append_transcript_turn, find_latest_transcript_in_subdir, find_root_transcript_for_thread,
-    read_transcript, resolve_keyed_transcript_path, resolve_keyed_transcript_path_in_dir,
-    SessionTranscript, TranscriptMeta, TurnUsage,
+    find_root_transcript_for_thread_scoped, read_transcript, resolve_keyed_transcript_path,
+    resolve_keyed_transcript_path_in_dir, SessionTranscript, TranscriptMeta, TurnUsage,
 };
 
 /// One turn's worth of transcript write, borrowed.
