@@ -142,7 +142,7 @@ impl Access {
     }
 
     /// Write this access level into `config`.
-    pub(super) fn apply(&self, config: &mut openhuman_core::config::Config) {
+    pub(crate) fn apply(&self, config: &mut openhuman_core::config::Config) {
         config.autonomy.level = self.level;
         config.autonomy.allow_tool_install = self.allow_tool_install;
         config

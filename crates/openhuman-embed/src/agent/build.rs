@@ -13,7 +13,6 @@ use openhuman_core::core::runtime::{ContextOverlay, DomainSet};
 use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
 
 use super::{AgentError, AgentInner, AgentLayout, AgentSpec};
-use crate::harness::Provider;
 use crate::runtime::Runtime;
 
 pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInner, AgentError> {
@@ -152,14 +151,10 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         config,
         definition,
         profile,
-        provider: normalize_provider(provider),
+        provider,
         access,
         layout,
     })
-}
-
-fn normalize_provider(provider: Provider) -> Provider {
-    provider
 }
 
 /// Every family the agent asks for must be one the runtime registered.

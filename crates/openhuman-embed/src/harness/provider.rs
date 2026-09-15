@@ -83,7 +83,7 @@ impl Provider {
     /// Whether the route would survive [`EphemeralRoute::from_params`]'s
     /// normalization. Kept separate from [`Self::is_routed`], which describes
     /// the caller's syntactic choice for diagnostics.
-    pub(super) fn has_usable_route(&self) -> bool {
+    pub(crate) fn has_usable_route(&self) -> bool {
         self.route.as_ref().is_some_and(|route| {
             !route.base_url.trim().is_empty() && !route.api_key.trim().is_empty()
         })
