@@ -15,8 +15,8 @@
 //!   `action_dir`, the default model, and the `agents_md_enabled` gate.
 //! * [`crate::security::credentials::identity::peek_credential_user_identity`] — the
 //!   non-secret `id`/`name`/`email` triple. Deliberately read through the
-//!   *cache peek*, which is the accessor that strips credential material; this
-//!   adapter must not reach for a richer user record to fill the prompt.
+//!   *identity peek*, which is the accessor that strips credential material;
+//!   this adapter must not reach for a richer user record to fill the prompt.
 //!
 //! Prompt assembly is **not** reimplemented here. Everything this file does is
 //! translate a [`TurnContextRequest`] into a `PromptContext` and hand it to the
