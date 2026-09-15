@@ -47,6 +47,37 @@ fn clear_removes_the_profile() {
     assert!(!clear_api_key(&config).expect("clear again"));
 }
 
+/// Regression: an ordinary provider profile named `"api-key"` — the generic
+/// `auth_store_provider_credentials` RPC/CLI allow that provider name like
+/// any other — must not be accepted as the TinyHumans runtime key just
+/// because it lives under the same provider id. Only a profile carrying the
+/// [`API_KEY_KIND_META`]`=`[`API_KEY_KIND`] marker (written by
+/// [`store_api_key`]) counts.
+#[test]
+fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
+    use crate::security::credentials::AuthService;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = config_in(dir.path());
+    // Simulates the generic provider-credentials path: no `kind` metadata.
+    AuthService::from_config(&config)
+        .store_provider_token(
+            API_KEY_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "not-actually-a-tinyhumans-key",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store unmarked provider profile");
+
+    assert_eq!(
+        get_api_key(&config).expect("get"),
+        None,
+        "an unmarked provider profile named api-key must not be read back as the runtime key"
+    );
+    assert!(!has_api_key(&config));
+}
+
 #[test]
 fn api_key_wins_over_an_expired_session() {
     use crate::security::credentials::session_support::SESSION_EXPIRES_AT_META;
