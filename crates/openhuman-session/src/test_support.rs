@@ -270,6 +270,9 @@ impl CoreLink for FakeCore {
         if let Some(message) = self.fail_with.lock().unwrap().clone() {
             return Err(message);
         }
+        if self.fail_method.lock().unwrap().as_deref() == Some(method) {
+            return Err(format!("{method} failed (test-injected)"));
+        }
         match method {
             link::CONFIG_RESOLVE_API_URL => {
                 Ok(json!({ "api_url": self.api_url.lock().unwrap().clone() }))
