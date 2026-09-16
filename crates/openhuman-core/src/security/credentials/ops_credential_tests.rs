@@ -378,6 +378,74 @@ async fn clearing_the_session_preserves_a_coexisting_api_key() {
         "auth.get_state must see the preserved api key after session sign-out"
     );
     assert_eq!(state.credential.as_deref(), Some("api-key"));
+
+    // The key must have moved, not been copied: the deactivated user-scoped
+    // location must no longer carry it, or clearing the copy (or logging
+    // back into this user) would resurrect a duplicate (#6318 review follow-up).
+    assert!(
+        !api_key::has_api_key(&user_scoped),
+        "the source user-scoped location must no longer hold the api key after it was carried forward"
+    );
+}
+
+// #6318 (review follow-up) — `clear_credential(None)` promises to remove
+// every credential. The API key was stored beside the user-scoped config
+// while the session was active; the session teardown rebinds every process
+// global to the pre-login config before the api-key clear runs, so clearing
+// against that new location alone would miss the key at its real, original
+// location and leave it clearable/resurrectable later.
+#[tokio::test]
+async fn clearing_without_a_kind_removes_a_user_scoped_api_key_at_its_source() {
+    let _env_guard = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let config = test_config(&tmp);
+
+    let exp = chrono::Utc::now() + chrono::Duration::hours(1);
+    let token = jwt_with_payload(json!({ "sub": "user-77", "exp": exp.timestamp() }));
+    store_session(&config, &token, None, Some(json!({ "id": "user-77" })))
+        .await
+        .unwrap();
+
+    let user_scoped = crate::config::load_config_with_timeout().await.unwrap();
+    set_credential(
+        &user_scoped,
+        SetCredentialRequest {
+            token: "sk-live".into(),
+            kind: Some("api-key".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert!(api_key::has_api_key(&user_scoped));
+
+    let cleared = clear_credential(&user_scoped, None).await.unwrap().value;
+    assert_eq!(cleared["removed"], true);
+    assert_eq!(cleared["removedSession"], true);
+    assert_eq!(
+        cleared["removedApiKey"], true,
+        "clearing everything must report the api key as removed even though it lived \
+         beside the now-deactivated user-scoped config"
+    );
+
+    assert!(
+        !api_key::has_api_key(&user_scoped),
+        "the api key must be gone from its real (user-scoped) location, not just the \
+         post-teardown config clear_credential ends up using"
+    );
+    let signed_out = crate::config::load_config_with_timeout().await.unwrap();
+    assert!(!api_key::has_api_key(&signed_out));
+    assert!(
+        !auth_get_state(&signed_out)
+            .await
+            .unwrap()
+            .value
+            .is_authenticated
+    );
 }
 
 #[tokio::test]
