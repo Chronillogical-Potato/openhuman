@@ -177,7 +177,11 @@ impl FetchMeError {
 }
 
 fn error_body_shape(body: &str) -> &'static str {
-    if body.trim().is_empty() { "empty response body" } else { "non-empty response body" }
+    if body.trim().is_empty() {
+        "empty response body"
+    } else {
+        "non-empty response body"
+    }
 }
 
 impl std::fmt::Display for FetchMeError {
