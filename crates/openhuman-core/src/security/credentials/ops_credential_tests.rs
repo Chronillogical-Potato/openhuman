@@ -388,6 +388,78 @@ async fn clearing_the_session_preserves_a_coexisting_api_key() {
     );
 }
 
+// #6318 (review follow-up) — a stale key already sitting at the pre-login
+// workspace must never outrank the key that was actually the active
+// credential a moment ago. This RPC only removes the session; it must not
+// let an unrelated leftover key silently become the effective one.
+#[tokio::test]
+async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_key() {
+    let _env_guard = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let config = test_config(&tmp);
+
+    // Key A already sits at the pre-login/signed-out scope — e.g. left over
+    // from an earlier api-key-only run before any session existed.
+    set_credential(
+        &config,
+        SetCredentialRequest {
+            token: "sk-stale-a".into(),
+            kind: Some("api-key".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let pre_login = crate::config::load_config_with_timeout().await.unwrap();
+    assert_eq!(
+        api_key::get_api_key(&pre_login).unwrap().as_deref(),
+        Some("sk-stale-a")
+    );
+
+    // Install a session: this activates the user-scoped directory, distinct
+    // from the pre-login one key A lives beside.
+    let exp = chrono::Utc::now() + chrono::Duration::hours(1);
+    let token = jwt_with_payload(json!({ "sub": "user-99", "exp": exp.timestamp() }));
+    store_session(&config, &token, None, Some(json!({ "id": "user-99" })))
+        .await
+        .unwrap();
+
+    // Key B is the one actually active while the session is up.
+    let user_scoped = crate::config::load_config_with_timeout().await.unwrap();
+    set_credential(
+        &user_scoped,
+        SetCredentialRequest {
+            token: "sk-live-b".into(),
+            kind: Some("api-key".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        api_key::get_api_key(&user_scoped).unwrap().as_deref(),
+        Some("sk-live-b")
+    );
+
+    // A session-only clear must preserve key B as the effective credential,
+    // not let the stale key A at the destination win by default.
+    clear_credential(&user_scoped, Some(session_support::CredentialKind::Session))
+        .await
+        .unwrap();
+
+    let signed_out = crate::config::load_config_with_timeout().await.unwrap();
+    assert_eq!(
+        api_key::get_api_key(&signed_out).unwrap().as_deref(),
+        Some("sk-live-b"),
+        "the key that was actually active before sign-out must remain effective, \
+         not a stale key that happened to already sit at the destination"
+    );
+}
+
 // #6318 (review follow-up) — `clear_credential(None)` promises to remove
 // every credential. The API key was stored beside the user-scoped config
 // while the session was active; the session teardown rebinds every process
