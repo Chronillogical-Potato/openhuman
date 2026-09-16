@@ -76,6 +76,7 @@ function makeInvite(id: string) {
 describe('coreStateApi.fetchCoreAppSnapshot', () => {
   beforeEach(() => {
     mockCallCoreRpc.mockReset();
+    mockFetchCurrentUser.mockReset();
   });
 
   it('calls the correct RPC method with the slow-snapshot timeout override (#2156)', async () => {
