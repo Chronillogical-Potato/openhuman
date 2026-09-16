@@ -256,13 +256,6 @@ impl<L: CoreLink> SessionManager<L> {
                 );
                 Err(SessionError::Rejected(reason))
             }
-            Err(FetchMeError::Superseded) => {
-                log::debug!(
-                    "{LOG_PREFIX} current-user refresh was superseded; retrying with the current core credential"
-                );
-                let current = self.core_state().await?;
-                self.current_user_for(&current, force).await
-            }
             Err(error) => {
                 let reason = error.message().to_string();
                 if jwt_is_live(&credential.secret, now).is_none() {
@@ -520,6 +513,13 @@ impl<L: CoreLink> SessionManager<L> {
                 );
                 self.clear_session_credential("auth/me").await;
                 Err(SessionError::Rejected(reason))
+            }
+            Err(FetchMeError::Superseded) => {
+                log::debug!(
+                    "{LOG_PREFIX} current-user refresh was superseded; retrying with the current core credential"
+                );
+                let current = self.core_state().await?;
+                self.current_user_for(&current, force).await
             }
             Err(error) => {
                 log::debug!("{LOG_PREFIX} serving stored user; refresh failed: {error}");

@@ -278,7 +278,7 @@ impl CurrentUserCache {
         // (including forced refreshes) wait for it, then reuse its result.
         // This avoids multiplying `/auth/me` requests during startup/polling.
         let waited_for_refresh = self.inner.inflight.try_lock().is_err();
-        let refresh_guard = self.inner.inflight.lock().await;
+        let _refresh_guard = self.inner.inflight.lock().await;
         if waited_for_refresh {
             if let Some((user, _)) = self.cached(&key) {
                 return Ok(self.with_result(&key, Some(user)));
