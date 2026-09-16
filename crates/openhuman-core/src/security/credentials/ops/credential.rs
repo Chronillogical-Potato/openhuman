@@ -355,9 +355,8 @@ pub async fn clear_credential(
     // post-teardown config.
     let api_key_to_preserve = if matches!(
         kind,
-        None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
-    ) && !matches!(kind, None)
-    {
+        Some(CredentialKind::Session) | Some(CredentialKind::Local)
+    ) {
         api_key::get_api_key(config).map_err(|e| e.to_string())?
     } else {
         None
