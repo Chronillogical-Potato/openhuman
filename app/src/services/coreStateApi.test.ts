@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCallCoreRpc = vi.fn();
+const mockFetchCurrentUser = vi.fn();
 
 vi.mock('./coreRpcClient', () => ({
   callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args),
+}));
+
+vi.mock('./session/sessionOwner', () => ({
+  fetchCurrentUser: (...args: unknown[]) => mockFetchCurrentUser(...args),
 }));
 
 // Minimal fixtures -----------------------------------------------------------------
