@@ -267,14 +267,8 @@ impl CurrentUserCache {
         let generation = self.lock().generation;
 
         if !force {
-            // A rejection is authoritative regardless of what else is cached:
-            // a stale-while-revalidate caller cannot observe a background
-            // rejection directly, so it must be surfaced now rather than
-            // served through on a positive entry that predates it.
-            if let Some((error, _, _)) = self.suppressed(&key) {
-                if matches!(error, FetchMeError::Rejected(_)) {
-                    return Err(error);
-                }
+            if let Some(error) = self.suppressed_error(&key) {
+                return Err(error);
             }
             if let Some((user, age)) = self.cached(&key) {
                 if age < REFRESH_TTL {
@@ -286,13 +280,6 @@ impl CurrentUserCache {
                     age.as_millis()
                 );
                 return Ok(self.with_result(&key, Some(user)));
-            }
-            // No positive entry to fall back on: only now does an open
-            // availability-backoff window turn into an error, instead of
-            // pre-empting perfectly good cached data for the whole window
-            // (#6318 review follow-up).
-            if let Some(error) = self.suppressed_error(&key) {
-                return Err(error);
             }
         }
 
