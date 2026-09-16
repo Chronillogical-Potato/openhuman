@@ -184,8 +184,18 @@ async fn a_failed_confirmation_handoff_keeps_the_revalidation_loop_retrying() {
     // Let the loop's first attempt (after REVALIDATION_INITIAL_DELAY) run.
     tokio::time::sleep(REVALIDATION_INITIAL_DELAY + Duration::from_millis(500)).await;
 
+    // `revalidation` only clears on an explicit `cancel_revalidation()`, so
+    // `is_some()` alone would stay true even after the spawned task itself
+    // returned; check `is_finished()` on the stored handle to know whether
+    // the loop is still actually running.
+    let still_running = m
+        .revalidation
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|handle| !handle.is_finished());
     assert!(
-        m.revalidation.lock().unwrap().is_some(),
+        still_running,
         "a failed confirmation handoff must not exit the revalidation loop"
     );
     assert_eq!(
