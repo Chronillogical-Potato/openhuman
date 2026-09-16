@@ -58,6 +58,8 @@ pub mod ops_create;
 #[cfg(feature = "skills")]
 pub mod ops_discover;
 #[cfg(feature = "skills")]
+mod ops_discover_resource;
+#[cfg(feature = "skills")]
 pub mod ops_install;
 #[cfg(feature = "skills")]
 pub mod ops_parse;

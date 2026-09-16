@@ -16,7 +16,7 @@ The domain only _defines connectors and reads from them_. The ingestion engine a
 
 ## Source kinds
 
-Every source is a single flat `MemorySourceEntry` (`crates/openhuman-core/src/memory/sources/types.rs`) whose `kind` discriminator (the `SourceKind` enum) decides which fields are required. Validation is enforced at add/update time by `validate()`, not the type system. The kinds:
+Every source is a single flat `MemorySourceEntry` (defined in `crates/tinymemory-sources/src/types.rs` under `vendor/tinymemory`, and re-exported through `tinymemory-core`'s `sources/types.rs`) whose `kind` discriminator (the `SourceKind` enum) decides which fields are required. Validation is enforced at add/update time by `validate()`, not the type system. The kinds:
 
 | Kind              | `SourceKind`   | What it ingests                                                                                     |
 | ----------------- | -------------- | --------------------------------------------------------------------------------------------------- |

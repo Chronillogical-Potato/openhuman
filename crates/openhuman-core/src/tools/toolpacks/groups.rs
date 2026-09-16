@@ -29,11 +29,15 @@
 //! the reason the `flows` compile gate already documents — a tool the model can
 //! see teaches it the capability exists and makes it retry.
 //!
-//! **The default is exactly today's behaviour.** [`ToolGroups::default`] puts
-//! every pack in `Withheld`, which is what the compiled-in table meant before
-//! this type existed, so a host that never calls
+//! **The default is fail-closed, which is not the same as inert.**
+//! [`ToolGroups::default`] puts every pack in `Withheld`. That was identical to
+//! the compiled-in table when this type was introduced, and it stops being
+//! identical every time a family moves into a pack: a host that never calls
 //! [`CoreBuilder::tool_groups`](crate::core::runtime::CoreBuilder::tool_groups)
-//! is unaffected.
+//! loses that family silently on its next bump. An embedder that packs nothing
+//! on purpose says so with [`set_process_default`], which needs no
+//! `CoreContext` and so is reachable from the synchronous paths that actually
+//! read this — a roster build, an agent build, a host's own test fixtures.
 //!
 //! **This axis does not widen what a build contains.** A group whose tools are
 //! compiled out (`--no-default-features`) or whose `DomainGroup` is off under
@@ -70,8 +74,15 @@ pub struct ToolGroups {
 }
 
 impl Default for ToolGroups {
-    /// Every group withheld — byte-identical to the behaviour before this type
-    /// existed.
+    /// Every group withheld.
+    ///
+    /// This was "byte-identical to the behaviour before this type existed" when
+    /// written, and that held only while the packs were empty of anything a
+    /// host actually used. It is no longer true: every family moved into a pack
+    /// since is one this default withholds from a host that never asked for
+    /// packing. It is a deliberate fail-closed floor, not a no-op — a host that
+    /// wants the other posture says so via
+    /// [`set_process_default`](super::set_process_default) or a `CoreContext`.
     fn default() -> Self {
         Self {
             modes: [GroupMode::Withheld; GROUP_COUNT],
@@ -146,13 +157,64 @@ impl ToolGroups {
     }
 }
 
-/// The ambient groups for the running core, or the default when there is no
-/// [`CoreContext`](crate::core::runtime::context::CoreContext) — unit tests and
-/// pre-boot CLI paths, which must behave as they did before.
+/// The process-wide posture for a host that establishes no [`CoreContext`].
+///
+/// Set by [`set_process_default`]; consulted by [`current`] only when there is
+/// no context to read.
+///
+/// [`CoreContext`]: crate::core::runtime::context::CoreContext
+static PROCESS_GROUPS: std::sync::OnceLock<ToolGroups> = std::sync::OnceLock::new();
+
+/// Declare the process-wide groups without standing up a [`CoreContext`].
+///
+/// For an **embedder that does its own tool routing**: a host which registers
+/// its own tools and gates them itself gains nothing from pack withholding and
+/// pays the capability for it. That is the audience
+/// [`ToolGroups::advertised`] already names, and until this existed it was the
+/// one audience that could not reach it — the only public way to set the groups
+/// is [`CoreContext::init_with_config`], which is `async`, while the places
+/// that read them are not: a roster build, an agent build (packs are stripped
+/// in `builder_build`, long before any turn), and an embedder's own synchronous
+/// test fixtures.
+///
+/// First call wins, matching `DEFAULT_CONTEXT`'s own rule. A scoped context
+/// still takes precedence in [`current`], so multi-tenant dispatch is
+/// unaffected: this changes only what a caller with **no** context resolves to.
+///
+/// [`CoreContext`]: crate::core::runtime::context::CoreContext
+/// [`CoreContext::init_with_config`]: crate::core::runtime::context::CoreContext::init_with_config
+pub fn set_process_default(groups: ToolGroups) {
+    let _ = PROCESS_GROUPS.set(groups);
+}
+
+/// The ambient groups for the running core.
+///
+/// Resolution order: the scoped [`CoreContext`], then the process default from
+/// [`set_process_default`], then [`ToolGroups::default`] — every group
+/// withheld.
+///
+/// That last step is a **fail-closed** default, and it is load-bearing for a
+/// host that packs deliberately (the desktop app). It is the wrong answer for an
+/// embedder that packs nothing on purpose, which is why the middle step exists:
+/// an embedder had no way to say so, so filling a pack silently removed
+/// capability from it on the next bump.
+///
+/// [`CoreContext`]: crate::core::runtime::context::CoreContext
 pub fn current() -> ToolGroups {
-    crate::core::runtime::context::CoreContext::current()
-        .map(|c| c.tool_groups())
-        .unwrap_or_default()
+    resolve(
+        crate::core::runtime::context::CoreContext::current().map(|c| c.tool_groups()),
+        PROCESS_GROUPS.get().cloned(),
+    )
+}
+
+/// The precedence itself, as a pure function of its two inputs.
+///
+/// Split out so the ordering is testable without touching process state:
+/// `PROCESS_GROUPS` is a `OnceLock`, so a test that set it would decide the
+/// posture for every other test sharing the binary — including the ones
+/// asserting that packed tools *are* withheld.
+fn resolve(scoped: Option<ToolGroups>, process: Option<ToolGroups>) -> ToolGroups {
+    scoped.or(process).unwrap_or_default()
 }
 
 #[cfg(test)]

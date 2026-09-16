@@ -160,6 +160,24 @@ fn classifies_wave4_socket_transport_wire_shapes() {
 }
 
 #[test]
+fn classifies_socket_connect_deadline_as_network_unreachable() {
+    // #6256: `connect_with_redirects_within` renders its per-hop deadline as
+    // an `io::ErrorKind::TimedOut` carrying the `operation timed out` phrase,
+    // wrapped by `run_connection` and the supervisor's sustained-outage
+    // escalation like every other connect-stage failure. A path that keeps
+    // blackholing the upgrade is user-environment / edge state the reconnect
+    // loop already retries — it must demote, never page.
+    assert_eq!(
+        expected_error_kind(
+            "[socket] Connection failed (sustained outage after 5 attempts): \
+             WebSocket connect: IO error: operation timed out after 10s waiting \
+             for the WebSocket upgrade"
+        ),
+        Some(ExpectedErrorKind::NetworkUnreachable)
+    );
+}
+
+#[test]
 fn http_200_classifier_does_not_silence_unrelated_log_lines() {
     // The captive-portal arm anchors on `"http error: 200 ok"` (the
     // exact tungstenite `WsError::Http(200)` Display rendering).

@@ -5,6 +5,7 @@ use serde_json::json;
 
 use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 
+use super::helpers::read_required_str;
 use crate::skills::ops_install::{uninstall_workflow, UninstallWorkflowParams};
 
 /// Uninstall a user skill. **Deletes from disk** — default-OFF.
@@ -37,7 +38,7 @@ impl Tool for WorkflowUninstallTool {
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][skills] uninstall invoked");
-        let name = super::read_required_str(&args, "name")?;
+        let name = read_required_str(&args, "name")?;
         let outcome = uninstall_workflow(UninstallWorkflowParams { name }, None)
             .map_err(|e| anyhow::anyhow!("uninstall_workflow: {e}"))?;
         Ok(ToolResult::success(serde_json::to_string(&outcome)?))

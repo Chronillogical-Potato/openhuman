@@ -16,8 +16,10 @@ use crate::rpc::RpcOutcome;
 
 /// Canonical authed-session guard — rejects an expired token locally instead of
 /// firing a doomed backend 401 (see `billing/ops.rs` / #3297).
-fn require_token(config: &Config) -> Result<String, String> {
-    crate::security::credentials::session_support::require_live_session_token(config)
+fn require_token(
+    config: &Config,
+) -> Result<crate::security::credentials::session_support::BackendCredential, String> {
+    crate::security::credentials::session_support::resolve_backend_credential(config)
 }
 
 /// `true` when `err` is the typed `BackendApiError::AnnouncementNotFound` 404

@@ -34,6 +34,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 name: "diag",
                 ty: TypeSchema::Json,
                 comment: "Snapshot containing socket_state, last_ws_error, \
+                          socket_loop_active, socket_loop_stopped_on_failure, \
                           sidecar_pid, listen_port, listen_port_in_use.",
                 required: true,
             }],

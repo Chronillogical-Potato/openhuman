@@ -161,8 +161,8 @@ use crate::agent::messages::ChatMessage;
 
 use super::transcript::{
     append_transcript_turn, find_latest_transcript_in_subdir, find_root_transcript_for_thread,
-    read_transcript, resolve_keyed_transcript_path, resolve_keyed_transcript_path_in_dir,
-    SessionTranscript, TranscriptMeta, TurnUsage,
+    find_root_transcript_for_thread_scoped, read_transcript, resolve_keyed_transcript_path,
+    resolve_keyed_transcript_path_in_dir, SessionTranscript, TranscriptMeta, TurnUsage,
 };
 
 /// One turn's worth of transcript write, borrowed.
@@ -259,6 +259,21 @@ pub(crate) trait SessionHistoryLocator: Send + Sync {
     /// ambiguous.
     fn root_for_thread(&self, thread_id: &str) -> Option<Arc<dyn SessionTranscriptRead>>;
 
+    /// [`Self::root_for_thread`], additionally scoped to `agent_id` when
+    /// given — see
+    /// [`transcript::find_root_transcript_for_thread_scoped`](super::transcript::find_root_transcript_for_thread_scoped)
+    /// for why. Defaults to the unscoped lookup so an implementor that never
+    /// serves several distinct agents over the same `thread_id` (this test
+    /// double, notably) does not have to know about agent scoping at all.
+    fn root_for_thread_scoped(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<Arc<dyn SessionTranscriptRead>> {
+        let _ = agent_id;
+        self.root_for_thread(thread_id)
+    }
+
     /// Binds (creating on first write) this session's own write handle for
     /// `stem`, with `seed` used only when no file exists yet.
     fn open_stem(
@@ -330,6 +345,28 @@ impl SessionHistoryLocator for FileTranscriptLocator {
         let path = find_root_transcript_for_thread(&self.workspace_dir, thread_id)?;
         log::debug!(
             "[transcript-history] locator root_for_thread thread={thread_id} path={}",
+            path.display()
+        );
+        Some(Arc::new(SessionTranscriptHistory::opened_at(
+            path,
+            seed_meta_for_discovered(thread_id),
+        )))
+    }
+
+    fn root_for_thread_scoped(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<Arc<dyn SessionTranscriptRead>> {
+        // Same cross-dir, newest-wins scan as `root_for_thread`, additionally
+        // filtered on `_meta.agent_id` so one runtime agent's resume cannot
+        // pick up a different agent's transcript for a caller-reused
+        // `thread_id` — see `find_root_transcript_for_thread_scoped`.
+        let path =
+            find_root_transcript_for_thread_scoped(&self.workspace_dir, thread_id, agent_id)?;
+        log::debug!(
+            "[transcript-history] locator root_for_thread_scoped thread={thread_id} \
+             agent_id={agent_id:?} path={}",
             path.display()
         );
         Some(Arc::new(SessionTranscriptHistory::opened_at(

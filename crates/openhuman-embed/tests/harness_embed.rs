@@ -17,71 +17,15 @@
 //! also what makes the routing assertion possible — if the turn had gone
 //! anywhere else, the mock would have recorded no request.
 
-use openhuman_core::config::Config;
-use openhuman_core::core::runtime::{AGENT_WORKER_STACK_BYTES, MAX_BLOCKING_THREADS};
+mod common;
+
+use common::{chat_completion, offline_config, runtime};
 use openhuman_embed::{Access, Harness, Provider, Workspace};
 use serde_json::json;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const REPLY: &str = "harness-embed-ok";
-
-/// An OpenAI-compatible chat completion carrying `content`.
-fn chat_completion(content: &str) -> serde_json::Value {
-    json!({
-        "id": "chatcmpl-harness-embed",
-        "object": "chat.completion",
-        "created": 1_700_000_000_u64,
-        "model": "harness-embed-model",
-        "choices": [{
-            "index": 0,
-            "message": { "role": "assistant", "content": content },
-            "finish_reason": "stop"
-        }],
-        "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
-    })
-}
-
-/// A config that keeps the turn offline: no local runtimes, no spaCy, no
-/// embeddings endpoint. Mirrors `crates/openhuman-core/src/bin/library_profile/harness.rs::fixture()`,
-/// which is the recipe already proven against real turns.
-fn offline_config() -> Config {
-    let mut config = Config::default();
-    config.local_ai.runtime_enabled = false;
-    config.runtime_python.enabled = false;
-    config.memory_tree.spacy_enabled = false;
-    config.memory_tree.embedding_endpoint = None;
-    config.memory_tree.embedding_model = None;
-    config.memory_tree.embedding_strict = false;
-    // User-message memory autosave is intentionally fire-and-forget. It can
-    // still be writing after a turn returns, which is useful in the product but
-    // unrelated to this test's provider/session/concurrency contract and would
-    // race the final ephemeral-workspace cleanup assertion.
-    config.memory.auto_save = false;
-    // Session-store dual writes and shadow reads are also deliberately
-    // fire-and-forget. This test already verifies the authoritative session
-    // database; leaving the migration mirrors enabled makes their detached
-    // filesystem work race the harness's synchronous ephemeral cleanup after
-    // the 100-turn stress case.
-    config.agent.session_dual_write = false;
-    config.agent.session_shadow_reads = false;
-    config.default_temperature = 0.0;
-    config
-}
-
-/// The tuned runtime the harness documents as the caller's responsibility.
-///
-/// A default 2 MiB worker stack overflows on a turn that delegates to a
-/// sub-agent and aborts the whole process, so building it the documented way is
-/// both what the test needs and a check that the documented way works.
-fn runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .thread_stack_size(AGENT_WORKER_STACK_BYTES)
-        .max_blocking_threads(MAX_BLOCKING_THREADS)
-        .build()
-        .expect("tokio runtime")
-}
 
 #[test]
 fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
@@ -144,6 +88,23 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 !harness.action_dir().starts_with(&workspace_dir),
                 "action_dir must not sit inside the workspace, or every agent write \
              is blocked by is_workspace_internal_path"
+            );
+            // Regression: the harness agent's action directory must be the
+            // resolved workspace's own action dir — `<root>/action`, a
+            // sibling of `<root>/workspace` — not `agent::build`'s per-agent
+            // default of `<root>/agents/harness/action`. The latter is right
+            // for a multi-agent `Runtime::agent` caller narrowing its own
+            // subdirectory, but a `Harness` (one runtime, one agent) must
+            // keep writing to the directory `ResolvedWorkspace::resolve`
+            // already created, or a caller reading `Workspace::Dir`'s sibling
+            // `action/` directly would see nothing the agent ever wrote to.
+            let root_dir = workspace_dir
+                .parent()
+                .expect("workspace_dir has a root parent");
+            assert_eq!(
+                harness.action_dir(),
+                root_dir.join("action"),
+                "harness action_dir must be the resolved workspace's own action dir"
             );
 
             // No listener was bound: `ServiceSet` selects nothing that binds, and
@@ -236,8 +197,17 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 "sessions were not persisted under the harness workspace"
             );
 
-            // A second harness in this process must be refused rather than silently
-            // sharing process-global core state with the first.
+            // The harness is one runtime plus one agent, and says so.
+            assert_eq!(harness.agent().id(), "harness");
+            assert_eq!(harness.runtime().workspace_dir(), harness.workspace_dir());
+            assert_eq!(harness.runtime().agent_ids(), vec!["harness".to_string()]);
+            assert!(
+                harness.agent().transcripts_dir().is_dir(),
+                "the harness agent's transcripts were written"
+            );
+
+            // A second harness — a second runtime — in this process must be
+            // refused rather than silently sharing process-global core state.
             let err = Harness::builder()
                 .workspace(Workspace::Ephemeral)
                 .build()
@@ -245,6 +215,15 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 .expect_err("a second harness must be refused");
             assert!(
                 matches!(err, openhuman_embed::HarnessError::AlreadyRunning),
+                "got {err:?}"
+            );
+            let err = openhuman_embed::Runtime::builder()
+                .workspace(Workspace::Ephemeral)
+                .build()
+                .await
+                .expect_err("a second runtime must be refused");
+            assert!(
+                matches!(err, openhuman_embed::RuntimeError::AlreadyRunning),
                 "got {err:?}"
             );
 

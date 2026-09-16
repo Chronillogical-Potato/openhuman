@@ -5,9 +5,15 @@ use crate::config::rpc as config_rpc;
 use crate::memory::api::provider::sync::SyncAuditEntry;
 use crate::memory::sources::readers;
 use crate::memory::sources::registry;
+use crate::memory::sources::run_history;
 use crate::rpc::RpcOutcome;
 
 // ── Sync Audit Log ──
+
+/// The most rows the history returns once both logs are merged: the driver's
+/// own default ceiling, so the host's runs do not grow the response past what
+/// the panel was already sized for.
+const HISTORY_ROWS: usize = 1_000;
 
 #[derive(Debug, serde::Serialize)]
 pub struct SyncAuditLogResponse {
@@ -15,6 +21,14 @@ pub struct SyncAuditLogResponse {
 }
 
 /// Past sync runs, newest first.
+///
+/// # Two logs, one history (openhuman#6257)
+///
+/// The driver's audit log holds the runs the driver schedules itself. The
+/// host's run log ([`run_history`]) holds the runs this host drives — the
+/// Sources Sync button, Apply all, and every Composio run. Either alone is a
+/// history with holes in it, which is what Brain › Sync showed: nothing, for
+/// every sync a user started. Both are read and merged by timestamp.
 ///
 /// # This is now the driver's most recent rows, not the whole log
 ///
@@ -30,6 +44,7 @@ pub struct SyncAuditLogResponse {
 /// A read failure is now an error rather than an empty log. The engine wrapper
 /// ended in `unwrap_or_default()`, so an unreadable file was reported as "no
 /// syncs have run" — the one answer a caller cannot distinguish from the truth.
+/// The host's log follows the same rule.
 pub async fn sync_audit_log_rpc() -> Result<RpcOutcome<SyncAuditLogResponse>, String> {
     tracing::debug!("[memory_sources] sync_audit_log_rpc: entry");
     let config = config_rpc::load_config_with_timeout().await?;
@@ -41,13 +56,19 @@ pub async fn sync_audit_log_rpc() -> Result<RpcOutcome<SyncAuditLogResponse>, St
     // `None` = the driver's own cap. A caller cannot raise it by asking for
     // more, so passing a number here would only be this host inventing a
     // ceiling the driver then clamps anyway.
-    let entries = sync
+    let driver_entries = sync
         .sync_audit_log(None)
         .await
         .map_err(|error| format!("sync audit log: {error}"))?;
+    let host_entries = run_history::read_runs(&config.workspace_dir, run_history::KEEP_ROWS)
+        .map_err(|error| format!("sync run log: {error}"))?;
+    let (driver_rows, host_rows) = (driver_entries.len(), host_entries.len());
+    let entries = run_history::merge_newest_first(driver_entries, host_entries, HISTORY_ROWS);
 
     tracing::debug!(
         driver = %binding.driver_id(),
+        driver_rows,
+        host_rows,
         entries = entries.len(),
         "[memory_sources] sync_audit_log_rpc: exit"
     );
@@ -208,6 +229,40 @@ pub(super) fn summarise_month(
     summary
 }
 
+/// [`summarise_month`] over the driver's log and the host's run log together
+/// (openhuman#6257).
+///
+/// The totals add. Completeness needs both halves: the driver's rows prove
+/// theirs the usual way, and the host's log is complete for any month when it
+/// holds fewer rows than a compaction keeps — it has never dropped one — or
+/// when it reaches back past the month the way the driver's does.
+pub(super) fn summarise_logs(
+    driver: &[SyncAuditEntry],
+    host: &[SyncAuditEntry],
+    month: &str,
+) -> MonthlyCostSummaryResponse {
+    let driver_summary = summarise_month(driver, month);
+    let host_summary = summarise_month(host, month);
+    let host_complete = host.len() < run_history::KEEP_ROWS || host_summary.totals_complete;
+    MonthlyCostSummaryResponse {
+        month: month.to_string(),
+        total_cost_usd: driver_summary.total_cost_usd + host_summary.total_cost_usd,
+        total_syncs: driver_summary
+            .total_syncs
+            .saturating_add(host_summary.total_syncs),
+        total_items: driver_summary
+            .total_items
+            .saturating_add(host_summary.total_items),
+        total_input_tokens: driver_summary
+            .total_input_tokens
+            .saturating_add(host_summary.total_input_tokens),
+        total_output_tokens: driver_summary
+            .total_output_tokens
+            .saturating_add(host_summary.total_output_tokens),
+        totals_complete: driver_summary.totals_complete && host_complete,
+    }
+}
+
 pub async fn monthly_cost_summary_rpc() -> Result<RpcOutcome<MonthlyCostSummaryResponse>, String> {
     tracing::debug!("[memory_sources] monthly_cost_summary_rpc: entry");
     let config = config_rpc::load_config_with_timeout().await?;
@@ -216,18 +271,21 @@ pub async fn monthly_cost_summary_rpc() -> Result<RpcOutcome<MonthlyCostSummaryR
         return Err(unserved(&binding, "source sync", "monthly_cost_summary"));
     };
 
-    let entries = sync
+    let driver_entries = sync
         .sync_audit_log(None)
         .await
         .map_err(|error| format!("sync audit log: {error}"))?;
+    let host_entries = run_history::read_runs(&config.workspace_dir, run_history::KEEP_ROWS)
+        .map_err(|error| format!("sync run log: {error}"))?;
 
     let month = chrono::Utc::now().format("%Y-%m").to_string();
-    let summary = summarise_month(&entries, &month);
+    let summary = summarise_logs(&driver_entries, &host_entries, &month);
 
     tracing::debug!(
         driver = %binding.driver_id(),
         month = %summary.month,
-        rows_read = entries.len(),
+        driver_rows = driver_entries.len(),
+        host_rows = host_entries.len(),
         syncs = summary.total_syncs,
         totals_complete = summary.totals_complete,
         "[memory_sources] monthly_cost_summary_rpc: exit"

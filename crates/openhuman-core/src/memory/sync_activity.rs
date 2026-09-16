@@ -51,8 +51,22 @@ const STALE_AFTER_MS: i64 = 30 * 60 * 1_000;
 static LIVE: OnceLock<Mutex<HashMap<String, LiveSync>>> = OnceLock::new();
 static HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
+/// When each source's run last finished, epoch milliseconds.
+///
+/// A run that has ended must not be reopened by a stage describing one of its
+/// items. The sync-stage bridge re-emits the module's per-document events as
+/// `stored`, `queued` and `ingesting`, and that stream can deliver after the
+/// host has published the run's `completed` — which put a finished row back on
+/// "Queued" for the whole [`STALE_AFTER_MS`] with nothing running
+/// (openhuman#6257). A marker ages out with the same ceiling.
+static FINISHED: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
+
 fn live() -> &'static Mutex<HashMap<String, LiveSync>> {
     LIVE.get_or_init(Default::default)
+}
+
+fn finished() -> &'static Mutex<HashMap<String, i64>> {
+    FINISHED.get_or_init(Default::default)
 }
 
 fn now_ms() -> i64 {
@@ -62,6 +76,12 @@ fn now_ms() -> i64 {
 /// The two stages after which a source is no longer in flight.
 pub(crate) fn is_terminal(stage: &str) -> bool {
     matches!(stage, "completed" | "failed")
+}
+
+/// The stages that describe one item inside a run rather than the run itself,
+/// and so the ones a finished run ignores until a new run starts.
+pub(crate) fn is_item_stage(stage: &str) -> bool {
+    matches!(stage, "stored" | "queued" | "ingesting")
 }
 
 /// Record one stage for `source_id`.
@@ -79,28 +99,65 @@ fn prune_stale_at(map: &mut HashMap<String, LiveSync>, now_ms: i64) {
     map.retain(|_, entry| now_ms.saturating_sub(entry.updated_at_ms) <= STALE_AFTER_MS);
 }
 
+/// Drop every finished marker older than the ceiling.
+fn prune_finished_at(map: &mut HashMap<String, i64>, now_ms: i64) {
+    map.retain(|_, finished_at_ms| now_ms.saturating_sub(*finished_at_ms) <= STALE_AFTER_MS);
+}
+
 /// Sweep stale entries now. The status list calls it on a batch with no
 /// sources, the one shape that would otherwise never touch the map.
 pub fn prune_stale() {
+    let now = now_ms();
     let mut map = live().lock().unwrap_or_else(PoisonError::into_inner);
-    prune_stale_at(&mut map, now_ms());
+    prune_stale_at(&mut map, now);
+    let mut done = finished().lock().unwrap_or_else(PoisonError::into_inner);
+    prune_finished_at(&mut done, now);
 }
 
 fn note_stage_at(source_id: &str, stage: &str, detail: Option<&str>, at_ms: i64) {
     let mut map = live().lock().unwrap_or_else(PoisonError::into_inner);
-    prune_stale_at(&mut map, at_ms);
+    let mut done = finished().lock().unwrap_or_else(PoisonError::into_inner);
+    apply_stage(&mut map, &mut done, source_id, stage, detail, at_ms);
+}
+
+/// One stage applied to the in-flight map and the finished markers.
+///
+/// Pure over the two maps, so the rules are testable without the
+/// process-global state every other test in this module shares.
+fn apply_stage(
+    in_flight: &mut HashMap<String, LiveSync>,
+    finished_at: &mut HashMap<String, i64>,
+    source_id: &str,
+    stage: &str,
+    detail: Option<&str>,
+    at_ms: i64,
+) {
+    prune_stale_at(in_flight, at_ms);
+    prune_finished_at(finished_at, at_ms);
     if is_terminal(stage) {
-        map.remove(source_id);
-    } else {
-        map.insert(
-            source_id.to_string(),
-            LiveSync {
-                stage: stage.to_string(),
-                detail: detail.map(str::to_string),
-                updated_at_ms: at_ms,
-            },
-        );
+        in_flight.remove(source_id);
+        finished_at.insert(source_id.to_string(), at_ms);
+        return;
     }
+    if is_item_stage(stage) && finished_at.contains_key(source_id) {
+        tracing::debug!(
+            source_id = %source_id,
+            stage = %stage,
+            "[memory_sync:activity] item stage after the run finished; not reopening it"
+        );
+        return;
+    }
+    // Anything else starts or continues a run, so an earlier run's marker no
+    // longer applies.
+    finished_at.remove(source_id);
+    in_flight.insert(
+        source_id.to_string(),
+        LiveSync {
+            stage: stage.to_string(),
+            detail: detail.map(str::to_string),
+            updated_at_ms: at_ms,
+        },
+    );
 }
 
 /// The run in flight for `source_id`, if the stream has one that is not stale.

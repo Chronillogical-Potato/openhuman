@@ -85,13 +85,20 @@ impl AgentBuilder {
             .chain(synthesized_tools.iter())
             .map(|tool| tool.as_ref())
             .collect();
-        let tool_policy_session = ToolPolicyEngine::build_session_from_refs(
+        let mut tool_policy_session = ToolPolicyEngine::build_session_from_refs(
             &agent_definition_name,
             &event_channel,
             "session",
             &config.channel_permissions,
             &all_tools,
             &visible_names,
+        );
+        // A pack whose owner this agent can hand off to directly is that
+        // specialist's belt, not this agent's: close it (#6302).
+        crate::tools::toolpacks::close_handed_off_packs(
+            &mut tool_policy_session,
+            &agent_definition_name,
+            &all_tools,
         );
 
         // A child agent inherits explicit profile and channel restrictions, but
@@ -281,6 +288,7 @@ impl AgentBuilder {
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
             runtime_config: None,
+            definition: None,
             // Default to `true` (omit) so legacy / custom agents built
             // without a definition stay lean. Opt-in agents thread their
             // `omit_profile = false` through the builder.

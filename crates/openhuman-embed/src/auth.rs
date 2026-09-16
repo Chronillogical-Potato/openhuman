@@ -96,6 +96,19 @@ pub struct AuthState {
     /// The signed-in user id, when there is one.
     #[serde(default, rename = "userId")]
     pub user_id: Option<String>,
+    /// Which credential backs `is_authenticated`: `"session"` for an app
+    /// session, `"api-key"` for a TinyHumans API key (no user), absent when
+    /// signed out.
+    #[serde(default)]
+    pub credential: Option<String>,
+}
+
+impl AuthState {
+    /// Whether the runtime authenticates with a TinyHumans API key rather
+    /// than a user session.
+    pub fn is_api_key(&self) -> bool {
+        self.credential.as_deref() == Some("api-key")
+    }
 }
 
 /// Typed access to the session store.
@@ -155,6 +168,35 @@ impl Auth<'_> {
         // A stored-but-blank token is the signed-out state spelled differently;
         // handing one back would have callers authenticate with an empty bearer.
         Ok(payload.token.filter(|token| !token.trim().is_empty()))
+    }
+
+    /// Store a TinyHumans API key as the runtime's backend credential.
+    ///
+    /// [`RuntimeBuilder::api_key`](crate::RuntimeBuilder::api_key) is the
+    /// usual path — it installs the key before the core boots. This is the
+    /// same operation on a running core, for a host that obtains the key
+    /// later.
+    pub async fn store_api_key(&self, key: impl Into<crate::ApiKey>) -> Result<(), CoreError> {
+        let key = key.into();
+        log::debug!("[embed][auth] storing api key blank={}", key.is_blank());
+        let _: serde_json::Value = call(
+            self.0,
+            "openhuman.auth_store_api_key",
+            serde_json::json!({ "key": key.expose() }),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Remove the stored TinyHumans API key.
+    pub async fn clear_api_key(&self) -> Result<(), CoreError> {
+        let _: serde_json::Value = call(
+            self.0,
+            "openhuman.auth_clear_api_key",
+            serde_json::json!({}),
+        )
+        .await?;
+        Ok(())
     }
 
     /// Remove the stored session.

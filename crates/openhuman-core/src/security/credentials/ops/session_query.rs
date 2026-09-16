@@ -23,6 +23,10 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
         // `wait_for_capacity()` call instead of firing requests at a backend
         // we're about to invalidate. Idempotent.
         crate::cron::scheduler_gate::set_signed_out(true);
+        // Local/CLI model authentication can outlive an OpenHuman account.
+        // The old account's listeners and workspace-bound channel state cannot.
+        #[cfg(feature = "channels")]
+        crate::channels::session::invalidate_channel_session();
 
         // Invalidate before removing the profile so a pending revalidation cannot
         // recreate it after logout has finished the removal.
@@ -101,6 +105,32 @@ pub async fn auth_get_state(
 ) -> Result<RpcOutcome<super::super::responses::AuthStateResponse>, String> {
     let state = build_session_state(config)?;
     Ok(RpcOutcome::single_log(state, "session state fetched"))
+}
+
+/// Store the TinyHumans API key as the runtime's backend credential. Library
+/// runtimes install it before boot through `api_key::store_api_key_in`; this
+/// RPC is the same operation for a running core.
+pub async fn auth_store_api_key(
+    config: &Config,
+    key: &str,
+) -> Result<RpcOutcome<super::super::responses::AuthStateResponse>, String> {
+    super::super::api_key::store_api_key(config, key).map_err(|e| e.to_string())?;
+    crate::cron::scheduler_gate::set_signed_out(false);
+    let state = build_session_state(config)?;
+    Ok(RpcOutcome::single_log(state, "api key stored"))
+}
+
+/// Remove the stored TinyHumans API key. The scheduler gate follows whatever
+/// credential remains.
+pub async fn auth_clear_api_key(config: &Config) -> Result<RpcOutcome<serde_json::Value>, String> {
+    let removed = super::super::api_key::clear_api_key(config).map_err(|e| e.to_string())?;
+    if !super::super::session_support::has_backend_credential(config) {
+        crate::cron::scheduler_gate::set_signed_out(true);
+    }
+    Ok(RpcOutcome::single_log(
+        json!({ "removed": removed }),
+        "api key cleared",
+    ))
 }
 
 pub async fn auth_get_session_token_json(

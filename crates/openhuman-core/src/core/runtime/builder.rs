@@ -411,6 +411,41 @@ impl DomainSet {
             DomainGroup::Platform => self.platform,
         }
     }
+
+    /// Field-wise AND with `other`: a family is on in the result only if it
+    /// was on in both.
+    ///
+    /// Used to clamp a derived context's requested domains to what the
+    /// parent context actually registered — see
+    /// [`CoreContext::derive_with`](crate::core::runtime::CoreContext::derive_with).
+    /// A derived overlay is meant to *narrow* the parent, never state a
+    /// family the parent never registered back into existence.
+    #[must_use]
+    pub fn intersect(&self, other: &DomainSet) -> DomainSet {
+        DomainSet {
+            agent: self.agent && other.agent,
+            memory: self.memory && other.memory,
+            threads: self.threads && other.threads,
+            config: self.config && other.config,
+            security: self.security && other.security,
+            flows: self.flows && other.flows,
+            skills: self.skills && other.skills,
+            mcp: self.mcp && other.mcp,
+            channels: self.channels && other.channels,
+            web3: self.web3 && other.web3,
+            voice: self.voice && other.voice,
+            media: self.media && other.media,
+            medulla: self.medulla && other.medulla,
+            inference: self.inference && other.inference,
+            integrations: self.integrations && other.integrations,
+            automation: self.automation && other.automation,
+            runtimes: self.runtimes && other.runtimes,
+            desktop: self.desktop && other.desktop,
+            hosted: self.hosted && other.hosted,
+            modules: self.modules && other.modules,
+            platform: self.platform && other.platform,
+        }
+    }
 }
 
 /// How the per-process RPC bearer token is seeded.
@@ -653,11 +688,34 @@ impl CoreRuntime {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
+        self.invoke_in(Arc::clone(&self.ctx), method, params).await
+    }
+
+    /// [`invoke`](Self::invoke) under a caller-supplied context instead of the
+    /// runtime's own — typically a per-agent child from
+    /// [`CoreContext::derive_with`], so the handler's config loader, DomainSet
+    /// gate and tool-group filter all read that agent's overlay.
+    pub async fn invoke_in(
+        &self,
+        ctx: Arc<CoreContext>,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        log::trace!("[core-runtime] invoke_in method={method}");
         CoreContext::scope(
-            Arc::clone(&self.ctx),
+            ctx,
             jsonrpc::invoke_method(jsonrpc::default_state(), method, params),
         )
         .await
+    }
+
+    /// Run an arbitrary future with `ctx` as the ambient [`CoreContext`] — the
+    /// native (non-RPC) counterpart of [`invoke_in`](Self::invoke_in) for
+    /// callers that reach a domain operation directly, such as an embedded
+    /// agent turn. Bypasses the registered-RPC dispatch gate, so the caller is
+    /// responsible for honouring `ctx.domains()` itself.
+    pub async fn run_in<F: std::future::Future>(&self, ctx: Arc<CoreContext>, fut: F) -> F::Output {
+        CoreContext::scope(ctx, fut).await
     }
 
     /// Spawn the selected background services and, when `rpc_http` is set, bind

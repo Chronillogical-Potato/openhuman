@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
+use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
 use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
@@ -66,6 +67,14 @@ impl Tool for SkillRegistryBrowseTool {
 
 pub struct SkillRegistrySearchTool;
 
+/// Matches returned per `skill_registry_search` call when the caller does not
+/// say: enough candidates to compare and pick from in one read. A broad query
+/// over the ~100k-entry catalog matches hundreds, and returning them all makes
+/// every search a payload the harness has to summarize first (#6286).
+const SEARCH_DEFAULT_LIMIT: usize = 20;
+/// Largest page a caller may ask for.
+const SEARCH_MAX_LIMIT: usize = 100;
+
 #[async_trait]
 impl Tool for SkillRegistrySearchTool {
     fn name(&self) -> &str {
@@ -74,7 +83,9 @@ impl Tool for SkillRegistrySearchTool {
 
     fn description(&self) -> &str {
         "Search available skills by keyword. Matches against name, description, \
-         tags, category, and author. Optionally filter by source or category."
+         tags, category, and author. Optionally filter by source or category. \
+         Returns one page of matches (`limit`, default 20) with the `total` \
+         match count; pass `next_offset` as `offset` to read the next page."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -92,6 +103,19 @@ impl Tool for SkillRegistrySearchTool {
                 "category": {
                     "type": "string",
                     "description": "Filter by category."
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": SEARCH_MAX_LIMIT,
+                    "default": SEARCH_DEFAULT_LIMIT,
+                    "description": "Maximum number of matches to return."
+                },
+                "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 0,
+                    "description": "Number of matches to skip. Pass `next_offset` from the previous page."
                 }
             },
             "required": ["query"]
@@ -102,19 +126,46 @@ impl Tool for SkillRegistrySearchTool {
         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
         let source_filter = args.get("source").and_then(|v| v.as_str());
         let category_filter = args.get("category").and_then(|v| v.as_str());
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map_or(SEARCH_DEFAULT_LIMIT, |n| {
+                usize::try_from(n).map_or(SEARCH_MAX_LIMIT, |n| n.clamp(1, SEARCH_MAX_LIMIT))
+            });
+        let offset = args
+            .get("offset")
+            .and_then(|v| v.as_u64())
+            .map_or(0, |n| usize::try_from(n).unwrap_or(usize::MAX));
 
         tracing::debug!(
             query = %query,
             source = ?source_filter,
             category = ?category_filter,
+            limit,
+            offset,
             "[tool][skill_registry] search"
         );
 
         match ops::search_catalog(query, source_filter, category_filter).await {
-            Ok(entries) => Ok(ToolResult::success(serde_json::to_string(&json!({
-                "count": entries.len(),
-                "entries": entries,
-            }))?)),
+            Ok(entries) => {
+                let total = entries.len();
+                let page: Vec<_> = entries.into_iter().skip(offset).take(limit).collect();
+                let end = offset.saturating_add(page.len());
+                let next_offset = (end < total).then_some(end);
+                tracing::debug!(
+                    total,
+                    returned = page.len(),
+                    next_offset = ?next_offset,
+                    "[tool][skill_registry] search page"
+                );
+                Ok(ToolResult::success(serde_json::to_string(&json!({
+                    "total": total,
+                    "offset": offset,
+                    "count": page.len(),
+                    "next_offset": next_offset,
+                    "entries": page,
+                }))?))
+            }
             Err(e) => Ok(ToolResult::error(format!(
                 "Failed to search skill catalog: {e}"
             ))),
@@ -156,7 +207,7 @@ impl Tool for SkillRegistryInstallTool {
             "properties": {
                 "entry_id": {
                     "type": "string",
-                    "description": "The skill entry id (slug) to install."
+                    "description": "The `id` of the entry to install, exactly as returned by skill_registry_search (e.g. 'clawhub/apple-design')."
                 }
             },
             "required": ["entry_id"]
@@ -189,12 +240,8 @@ impl Tool for SkillRegistryInstallTool {
             .await
             .map_err(|e| anyhow::anyhow!("failed to load catalog: {e}"))?;
 
-        let entry = catalog.iter().find(|e| e.id == entry_id).ok_or_else(|| {
-            anyhow::anyhow!(
-                "skill '{entry_id}' not found in catalog. \
-                     Run skill_registry_browse first to refresh."
-            )
-        })?;
+        let entry = ops::find_catalog_entry(&catalog, entry_id)
+            .map_err(|e| anyhow::anyhow!("{NOT_FOUND_MARKER} {e}"))?;
 
         match ops::install_from_catalog(&self.workspace_dir, entry).await {
             Ok(outcome) => Ok(ToolResult::success(serde_json::to_string(&json!({
@@ -203,9 +250,18 @@ impl Tool for SkillRegistryInstallTool {
                 "stderr": outcome.stderr,
                 "new_skills": outcome.new_skills,
             }))?)),
-            Err(e) => Ok(ToolResult::error(format!(
-                "Failed to install skill '{entry_id}': {e}"
-            ))),
+            Err(e) => {
+                // Tagged from the entry, not sniffed from `e`: an entry with no
+                // direct download can never install, whatever the message says.
+                let tag = if entry.has_direct_download() {
+                    String::new()
+                } else {
+                    format!("{UNSUPPORTED_MARKER} ")
+                };
+                Ok(ToolResult::error(format!(
+                    "{tag}Failed to install skill '{entry_id}': {e}"
+                )))
+            }
         }
     }
 }
