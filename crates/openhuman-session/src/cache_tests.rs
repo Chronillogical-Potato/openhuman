@@ -141,7 +141,7 @@ async fn availability_failure_opens_a_backoff_window() {
 }
 
 #[tokio::test]
-async fn rejection_is_never_cached() {
+async fn rejection_is_retained_until_the_owner_observes_it() {
     let backend = Backend::start(vec![MeAnswer::Status(401)]).await;
     let cache = CurrentUserCache::new();
     let cred = Credential::session(LIVE_JWT.as_str());
@@ -152,7 +152,7 @@ async fn rejection_is_never_cached() {
             Err(FetchMeError::Rejected(_))
         ));
     }
-    assert_eq!(backend.me_calls(), 2);
+    assert_eq!(backend.me_calls(), 1);
 }
 
 #[tokio::test]

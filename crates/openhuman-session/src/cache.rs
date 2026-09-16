@@ -205,11 +205,6 @@ impl CurrentUserCache {
     }
 
     fn record_failure(&self, generation: u64, key: &Key, error: FetchMeError) {
-        // Credential rejection is authoritative and must be handed to the
-        // owner immediately; caching it delays logout behind backoff.
-        if matches!(error, FetchMeError::Rejected(_)) {
-            return;
-        }
         let mut state = self.lock();
         if state.generation != generation {
             log::debug!("{LOG_PREFIX} discarding failure that raced sign-out");
@@ -255,6 +250,12 @@ impl CurrentUserCache {
 
         if !force {
             if let Some((error, consecutive, retry_in)) = self.suppressed(&key) {
+                // Rejections are authoritative. A stale-while-revalidate
+                // caller cannot observe the background result directly, so
+                // retain it until the next read can hand it to the owner.
+                if matches!(error, FetchMeError::Rejected(_)) {
+                    return Err(error);
+                }
                 return Err(FetchMeError::Suppressed {
                     message: error.message().to_string(),
                     consecutive,

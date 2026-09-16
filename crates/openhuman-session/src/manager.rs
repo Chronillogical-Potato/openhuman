@@ -347,10 +347,14 @@ impl<L: CoreLink> SessionManager<L> {
                         log::warn!(
                             "{LOG_PREFIX} pending session rejected by backend; clearing: {reason}"
                         );
-                        manager
+                        if manager
                             .clear_session_credential("pending-revalidation")
-                            .await;
-                        return;
+                            .await
+                        {
+                            return;
+                        }
+                        drop(guard);
+                        delay = (delay * 2).min(REVALIDATION_MAX_DELAY);
                     }
                     Err(error) => {
                         drop(guard);
@@ -379,9 +383,14 @@ impl<L: CoreLink> SessionManager<L> {
         self.emit(SessionEvent::Expired {
             source: source.to_string(),
         });
-        // The credential is gone, so the signed-out state is known without
-        // asking the core again (and `state()` would recurse into here).
-        self.emit(SessionEvent::Changed(SessionState::default()));
+        // Re-read the core after clearing the session. An API key profile may
+        // still be active and must not be reported as a signed-out state.
+        match self.state().await {
+            Ok(state) => self.emit(SessionEvent::Changed(state)),
+            Err(error) => log::warn!(
+                "{LOG_PREFIX} cleared rejected session but could not read the post-clear state: {error}"
+            ),
+        }
         true
     }
 
