@@ -84,6 +84,22 @@ async fn force_bypasses_the_cache() {
 }
 
 #[tokio::test]
+async fn concurrent_cache_misses_share_one_refresh() {
+    let backend = Backend::start(vec![MeAnswer::Slow(50)]).await;
+    let cache = CurrentUserCache::new();
+    let credential = Credential::session(LIVE_JWT.as_str());
+    let client = client(&backend);
+
+    let (first, second) = tokio::join!(
+        cache.get_or_refresh(&client, &credential, false),
+        cache.get_or_refresh(&client, &credential, false),
+    );
+
+    assert_eq!(first.unwrap().user, second.unwrap().user);
+    assert_eq!(backend.me_calls(), 1, "cache misses must share one /auth/me request");
+}
+
+#[tokio::test]
 async fn availability_failure_opens_a_backoff_window() {
     let backend = Backend::start(vec![MeAnswer::Status(503)]).await;
     let cache = CurrentUserCache::new();
