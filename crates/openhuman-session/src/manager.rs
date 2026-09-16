@@ -208,7 +208,6 @@ impl<L: CoreLink> SessionManager<L> {
         user: Option<Value>,
     ) -> Result<SessionState, SessionError> {
         let guard = self.mutation.lock().await;
-        self.cancel_revalidation();
         let credential = Credential::classify(token);
         if credential.secret.is_empty() {
             return Err(SessionError::Invalid("token is required".to_string()));
@@ -221,6 +220,7 @@ impl<L: CoreLink> SessionManager<L> {
                     "local session requires a user payload".to_string(),
                 ));
             }
+            self.cancel_revalidation();
             self.push(&credential, None, user.as_ref()).await?;
             self.cache.forget();
             drop(guard);
@@ -244,6 +244,7 @@ impl<L: CoreLink> SessionManager<L> {
                     "{LOG_PREFIX} session JWT verified via GET /auth/me on {}",
                     client.base_url()
                 );
+                self.cancel_revalidation();
                 self.push(&credential, user_id.as_deref(), Some(&me))
                     .await?;
                 self.cache.seed(&client, &credential, me);
@@ -271,6 +272,7 @@ impl<L: CoreLink> SessionManager<L> {
                     "{LOG_PREFIX} backend unreachable ({reason}); storing pending session for user_id={user_id} and revalidating in the background"
                 );
                 let pending = json!({ PENDING_BACKEND_VALIDATION_FIELD: true });
+                self.cancel_revalidation();
                 self.push(&credential, Some(&user_id), Some(&pending))
                     .await?;
                 self.cache.forget();
@@ -288,6 +290,7 @@ impl<L: CoreLink> SessionManager<L> {
         if credential.secret.is_empty() {
             return Err(SessionError::Invalid("api key is required".to_string()));
         }
+        self.cancel_revalidation();
         self.push(&credential, None, None).await?;
         drop(guard);
         self.changed().await
@@ -531,20 +534,27 @@ impl<L: CoreLink> SessionManager<L> {
 
     /// Core state plus the current user, in one shape.
     pub async fn state(&self) -> Result<SessionState, SessionError> {
-        let core = self.core_state().await?;
-        let current = match self.current_user_for(&core, false).await {
-            Ok(current) => current,
-            Err(SessionError::Rejected(_)) => {
-                return Ok(SessionState::default());
+        loop {
+            let core = self.core_state().await?;
+            let current = match self.current_user_for(&core, false).await {
+                Ok(current) => current,
+                Err(SessionError::Rejected(_)) => return Ok(SessionState::default()),
+                Err(error) => return Err(error),
+            };
+            // `current_user_for` retries with a new credential when a refresh
+            // is superseded. Do not combine that retried user with the core
+            // snapshot from before the credential change.
+            if self.core_state().await? != core {
+                log::debug!("{LOG_PREFIX} session state changed while reading current user; retrying");
+                continue;
             }
-            Err(error) => return Err(error),
-        };
-        Ok(SessionState {
-            current_user: current.user.or_else(|| core.user.clone()),
-            current_user_stale: current.stale,
-            current_user_stale_seconds: current.stale_seconds,
-            core,
-        })
+            return Ok(SessionState {
+                current_user: current.user.or_else(|| core.user.clone()),
+                current_user_stale: current.stale,
+                current_user_stale_seconds: current.stale_seconds,
+                core,
+            });
+        }
     }
 }
 

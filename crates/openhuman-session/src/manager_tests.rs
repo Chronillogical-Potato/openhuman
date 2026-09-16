@@ -109,6 +109,24 @@ async fn unreachable_backend_refuses_tokens_without_exp_or_subject() {
 }
 
 #[tokio::test]
+async fn rejected_replacement_keeps_pending_session_revalidation_running() {
+    let core = FakeCore::new("http://127.0.0.1:9");
+    let m = manager(&core);
+    m.store_session_token(&LIVE_JWT, None).await.unwrap();
+    assert!(m.revalidation.lock().unwrap().is_some());
+
+    assert_eq!(
+        m.store_session_token(&EXPIRED_JWT, None).await.unwrap_err(),
+        SessionError::Expired
+    );
+    assert!(
+        m.revalidation.lock().unwrap().is_some(),
+        "a rejected replacement must not abandon the stored pending session"
+    );
+    m.cancel_revalidation();
+}
+
+#[tokio::test]
 async fn caller_supplied_user_id_rescues_a_subjectless_jwt_offline() {
     let core = FakeCore::new("http://127.0.0.1:9");
     let m = manager(&core);
@@ -274,6 +292,33 @@ async fn rejection_of_a_superseded_token_leaves_the_new_session_alone() {
         .await
         .iter()
         .all(|e| !matches!(e, SessionEvent::Expired { .. })));
+}
+
+#[tokio::test]
+async fn state_retries_its_core_snapshot_after_a_superseded_refresh() {
+    let backend = Backend::start(vec![
+        MeAnswer::Ok(me_user()),
+        MeAnswer::Slow(300),
+        MeAnswer::Ok(serde_json::json!({ "_id": "user-456", "email": "b@example.com" })),
+    ])
+    .await;
+    let core = FakeCore::new(&backend.url);
+    let m = manager(&core);
+    m.login_with_token("tok").await.unwrap();
+    m.cache().forget();
+
+    let reading = {
+        let m = Arc::clone(&m);
+        tokio::spawn(async move { m.state().await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    m.store_session_token(&LIVE_JWT_NO_SUB, Some(serde_json::json!({ "id": "user-456" })))
+        .await
+        .unwrap();
+
+    let state = reading.await.unwrap().unwrap();
+    assert_eq!(state.core.user_id.as_deref(), Some("user-456"));
+    assert_eq!(state.current_user.as_ref().unwrap()["_id"], "user-456");
 }
 
 #[tokio::test]
