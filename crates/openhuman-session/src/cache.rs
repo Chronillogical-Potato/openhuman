@@ -274,6 +274,16 @@ impl CurrentUserCache {
             if let Some((user, _)) = self.cached(&key) {
                 return Ok(self.with_result(&key, Some(user)));
             }
+            // The caller we waited behind may have failed rather than
+            // succeeded — its failure is recorded under the same lock this
+            // caller just acquired. Recheck suppression before starting a
+            // second sequential request: without this, every waiter behind a
+            // failed first refresh redoes the same doomed call instead of
+            // observing the backoff window that call just opened, turning
+            // one outage into N serialized timeouts (#6318).
+            if let Some(error) = self.suppressed_error(&key) {
+                return Err(error);
+            }
         }
         let timeout = fetch_timeout();
         match tokio::time::timeout(
