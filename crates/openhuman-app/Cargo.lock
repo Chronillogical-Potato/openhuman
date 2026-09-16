@@ -4410,7 +4410,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-session"
-version = "0.63.28"
+version = "0.63.29"
 dependencies = [
  "async-trait",
  "chrono",
