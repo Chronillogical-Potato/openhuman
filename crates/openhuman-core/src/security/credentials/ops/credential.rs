@@ -345,6 +345,25 @@ pub async fn clear_credential(
     let mut removed_session = false;
     let mut removed_api_key = false;
 
+    // The API key is persisted beside `config`'s state dir, which is the
+    // user-scoped directory while a session is active. Deactivating that
+    // session moves every process global to the pre-login/signed-out
+    // workspace, so a key left in place would be stranded under
+    // `users/<id>` while the rest of the process reads `users/local` and
+    // reports signed out (#6318). Snapshot it before teardown and, if the
+    // clear isn't also removing the key, carry it forward to the
+    // post-teardown config.
+    let api_key_to_preserve = if matches!(
+        kind,
+        None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
+    ) && !matches!(kind, None)
+    {
+        api_key::get_api_key(config).map_err(|e| e.to_string())?
+    } else {
+        None
+    };
+
+    let mut effective_config = config.clone();
     if matches!(
         kind,
         None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
@@ -352,7 +371,24 @@ pub async fn clear_credential(
         let outcome = clear_session_credential(config).await?;
         removed_session = outcome.value;
         logs.extend(outcome.logs);
+
+        if removed_session {
+            // Follow the same process globals the teardown just rebound to,
+            // so the api-key checks below agree with `auth.get_state`.
+            effective_config = reload_config_or(config).await?;
+            if let Some(key) = api_key_to_preserve.as_deref() {
+                if !api_key::has_api_key(&effective_config) {
+                    api_key::store_api_key(&effective_config, key)
+                        .map_err(|e| e.to_string())?;
+                    logs.push(
+                        "api key carried forward to the signed-out workspace".to_string(),
+                    );
+                }
+            }
+        }
     }
+    let config = &effective_config;
+
     if matches!(kind, None | Some(CredentialKind::ApiKey)) {
         removed_api_key = api_key::clear_api_key(config).map_err(|e| e.to_string())?;
         if removed_api_key {
