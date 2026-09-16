@@ -139,6 +139,23 @@ export const fetchCoreAppSnapshot = async (): Promise<AppStateSnapshotResult> =>
     try {
       const current = await fetchCurrentUser(false);
       if (current.user) {
+        // A logout, or an A→B login, can land while the session owner's
+        // `/auth/me` request above is in flight: `current.user` would then
+        // belong to a different identity than the `auth`/`sessionToken`
+        // already captured from `app_state_snapshot`. `CoreStateProvider`
+        // scopes identity off `auth.userId`, so merging here could pair A's
+        // auth/token with B's live user (or A's after a logout). Re-read the
+        // active credential and retry the whole snapshot rather than merge a
+        // stale pairing (#6318).
+        const latestAuth = await callCoreRpc<{
+          result: { isAuthenticated: boolean; userId: string | null };
+        }>({ method: 'openhuman.auth_get_state' });
+        if (
+          latestAuth.result.isAuthenticated !== result.auth.isAuthenticated ||
+          latestAuth.result.userId !== result.auth.userId
+        ) {
+          return fetchCoreAppSnapshot();
+        }
         result.currentUser = current.user as User;
         result.currentUserStale = current.stale;
         result.currentUserStaleSeconds = current.staleSeconds ?? undefined;
