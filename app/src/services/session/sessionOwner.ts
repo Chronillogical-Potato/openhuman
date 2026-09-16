@@ -286,13 +286,18 @@ export const logoutSession = async (): Promise<void> => {
     return;
   }
   browserCurrentUserCache = null;
-  const state = await callCoreRpc<{
-    result: { credential?: 'session' | 'local' | 'api-key' | null };
-  }>({ method: 'openhuman.auth_get_state' });
-  const kind = state.result.credential;
-  if (kind === 'session' || kind === 'local') {
-    await callCoreRpc({ method: 'openhuman.auth_clear_credential', params: { kind } });
-  }
+  // Always clear the session/local credential, even when an API key is also
+  // stored and is the *effective* one `auth.get_state` reports: gating this
+  // on the currently-effective credential left a hidden session behind
+  // whenever both were stored, and clearing the API key later would
+  // silently restore that supposedly logged-out session (#6318). `kind:
+  // 'session'` clears whichever of session or local is actually stored —
+  // both live under the same app-session profile — without touching the
+  // API key, unlike omitting `kind` entirely.
+  await callCoreRpc({
+    method: 'openhuman.auth_clear_credential',
+    params: { kind: 'session' },
+  });
 };
 
 /**
