@@ -391,13 +391,8 @@ pub async fn clear_credential(
                     // an unrelated, stale key sitting at the pre-login
                     // workspace must never silently outrank the key that was
                     // the effective credential a moment ago (#6318).
-                    if !api_key::has_api_key(&effective_config) {
-                        api_key::store_api_key(&effective_config, key)
-                            .map_err(|e| e.to_string())?;
-                        logs.push(
-                            "api key carried forward to the signed-out workspace".to_string(),
-                        );
-                    }
+                    api_key::store_api_key(&effective_config, key).map_err(|e| e.to_string())?;
+                    logs.push("api key carried forward to the signed-out workspace".to_string());
                 }
                 // Either the key was just moved to the post-teardown config
                 // above, or `kind` is `None` and it must be removed outright.
