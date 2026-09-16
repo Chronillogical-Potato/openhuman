@@ -1129,7 +1129,6 @@ async fn scheduling_clarification_flow_inner() {
     );
 
     let requests = with_captured(|c| c.clone());
-    let serialized = serde_json::to_string(&requests).unwrap_or_default();
 
     // ── No unknown-tool result in any captured request ──
     // Proves schedule_task was recognised by the orchestrator. This is the guard
@@ -1701,10 +1700,9 @@ async fn subagent_with_approval_gate_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — run_code delegation was not synthesised; requests: {}",
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result — run_code delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
