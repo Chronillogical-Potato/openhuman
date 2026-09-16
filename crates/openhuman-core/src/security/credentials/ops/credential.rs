@@ -383,16 +383,16 @@ pub async fn clear_credential(
                     kind,
                     Some(CredentialKind::Session) | Some(CredentialKind::Local)
                 ) {
-                    // A session/local-only clear preserves the key: carry it
-                    // forward to the post-teardown workspace before the
-                    // source copy is removed below.
-                    if !api_key::has_api_key(&effective_config) {
-                        api_key::store_api_key(&effective_config, key)
-                            .map_err(|e| e.to_string())?;
-                        logs.push(
-                            "api key carried forward to the signed-out workspace".to_string(),
-                        );
-                    }
+                    // A session/local-only clear preserves the key that was
+                    // actually active (the source): carry it forward to the
+                    // post-teardown workspace before the source copy is
+                    // removed below, overwriting whatever the destination
+                    // already held. This RPC is only removing the session —
+                    // an unrelated, stale key sitting at the pre-login
+                    // workspace must never silently outrank the key that was
+                    // the effective credential a moment ago (#6318).
+                    api_key::store_api_key(&effective_config, key).map_err(|e| e.to_string())?;
+                    logs.push("api key carried forward to the signed-out workspace".to_string());
                 }
                 // Either the key was just moved to the post-teardown config
                 // above, or `kind` is `None` and it must be removed outright.
