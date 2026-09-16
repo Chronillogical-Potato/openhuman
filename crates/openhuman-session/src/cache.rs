@@ -249,18 +249,8 @@ impl CurrentUserCache {
         let generation = self.lock().generation;
 
         if !force {
-            if let Some((error, consecutive, retry_in)) = self.suppressed(&key) {
-                // Rejections are authoritative. A stale-while-revalidate
-                // caller cannot observe the background result directly, so
-                // retain it until the next read can hand it to the owner.
-                if matches!(error, FetchMeError::Rejected(_)) {
-                    return Err(error);
-                }
-                return Err(FetchMeError::Suppressed {
-                    message: error.message().to_string(),
-                    consecutive,
-                    retry_in,
-                });
+            if let Some(error) = self.suppressed_error(&key) {
+                return Err(error);
             }
             if let Some((user, age)) = self.cached(&key) {
                 if age < REFRESH_TTL {
