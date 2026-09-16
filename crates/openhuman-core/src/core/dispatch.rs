@@ -59,7 +59,9 @@ pub async fn dispatch(
         // its canonical successor accepts an omitted kind to clear all kinds.
         let mut params = params;
         if let Value::Object(ref mut object) = params {
-            object.entry("kind".to_string()).or_insert_with(|| json!("session"));
+            object
+                .entry("kind".to_string())
+                .or_insert_with(|| json!("session"));
         }
         params
     } else {

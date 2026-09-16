@@ -270,23 +270,26 @@ pub async fn set_credential(
     };
 
     let auth = AuthService::from_config(&effective_config);
-    auth
-        .store_provider_token(
-            APP_SESSION_PROVIDER,
-            DEFAULT_AUTH_PROFILE_NAME,
-            &resolved.token,
-            metadata,
-            true,
-        )
-        .map_err(|e| e.to_string())?;
+    auth.store_provider_token(
+        APP_SESSION_PROVIDER,
+        DEFAULT_AUTH_PROFILE_NAME,
+        &resolved.token,
+        metadata,
+        true,
+    )
+    .map_err(|e| e.to_string())?;
     logs.push(format!("{} credential stored", resolved.kind.as_str()));
 
     if !refresh {
-        if let Err(error) = rebind_after_credential_change(&effective_config, "credential installed") {
+        if let Err(error) =
+            rebind_after_credential_change(&effective_config, "credential installed")
+        {
             // A retry of the same credential takes the refresh fast-path, so
             // leaving its profile behind would let it skip this required bind.
             auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
-                .map_err(|rollback| format!("credential rebind failed: {error}; rollback failed: {rollback}"))?;
+                .map_err(|rollback| {
+                    format!("credential rebind failed: {error}; rollback failed: {rollback}")
+                })?;
             return Err(error);
         }
         logs.push("process globals rebound after credential install".to_string());
