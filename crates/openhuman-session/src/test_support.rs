@@ -289,7 +289,9 @@ impl CoreLink for FakeCore {
                 }
                 if kind == "api-key" {
                     *self.api_key.lock().unwrap() = Some(token);
+                    *self.session.lock().unwrap() = None;
                 } else {
+                    *self.api_key.lock().unwrap() = None;
                     *self.session.lock().unwrap() = Some(StoredCredential {
                         kind,
                         token,

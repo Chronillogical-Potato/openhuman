@@ -215,7 +215,6 @@ const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> =
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith('REJECTED:')) {
-      browserCurrentUserCache = null;
       // A login may have published a newer token while this request was in
       // flight. Never clear that newer browser-owned session on an old
       // request's rejection.
@@ -223,12 +222,13 @@ const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> =
         method: 'openhuman.auth_get_session_token',
       }).catch(() => null);
       if (latest?.result.token === token) {
+        browserCurrentUserCache = null;
         await callCoreRpc({
           method: 'openhuman.auth_clear_credential',
           params: { kind: 'session' },
         }).catch(() => undefined);
       } else {
-        return { user: core.user, stale: true, staleSeconds: null };
+        return browserCurrentUser(false);
       }
       // Same confirmed-expiry signal the shell owner raises through
       // `auth://expired`: the credential is gone, so the core-state layer
@@ -280,7 +280,13 @@ export const logoutSession = async (): Promise<void> => {
     return;
   }
   browserCurrentUserCache = null;
-  await callCoreRpc({ method: 'openhuman.auth_clear_credential', params: { kind: 'session' } });
+  const state = await callCoreRpc<{
+    result: { credential?: 'session' | 'local' | 'api-key' | null };
+  }>({ method: 'openhuman.auth_get_state' });
+  const kind = state.result.credential;
+  if (kind === 'session' || kind === 'local') {
+    await callCoreRpc({ method: 'openhuman.auth_clear_credential', params: { kind } });
+  }
 };
 
 /**

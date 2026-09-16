@@ -437,7 +437,7 @@ elsewhere and hand it to the core at boot:
 
 Either installs the credential only when the store has none of that kind; to
 rotate, clear first (`openhuman-core auth clear_credential --kind api-key`).
-The same operation is available over RPC as `openhuman.auth_set_credential`.
+The same operation is available over RPC as `openhuman.auth_clear_credential`.
 
 ---
 

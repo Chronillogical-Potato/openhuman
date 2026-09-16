@@ -152,6 +152,7 @@ export const fetchCoreAppSnapshot = async (): Promise<AppStateSnapshotResult> =>
   }
   if (!result.currentUser && result.auth?.user) {
     result.currentUser = result.auth.user as User;
+    result.currentUserStale = true;
   }
   return result;
 };
