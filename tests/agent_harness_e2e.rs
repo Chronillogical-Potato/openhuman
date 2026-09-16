@@ -1010,10 +1010,21 @@ async fn subagent_delegation_happy_path_inner() {
 
 // ─── Task 4: Scheduling clarification flow ────────────────────────────────────
 //
-// Actual LLM request ordering (3 upstream calls total):
-//   request[0] = orchestrator turn 1 → schedule_task tool call
-//   request[1] = orchestrator → ask_user_clarification ends turn 1
-//   request[2] = orchestrator turn 2 with "version 2" user reply in full context →
+// `schedule_task` is scheduler_agent's synthesised delegate (its `agent.toml`
+// `delegate_name`), and `ask_user_clarification` IS in that agent's named tools.
+// So a blocking delegation that needs a detail pauses the *child*, and
+// `dispatch_subagent` hands the parent a `[SUBAGENT_AWAITING_USER]` envelope as
+// the `schedule_task` tool result (#4291). That envelope is an ordinary tool
+// result to the orchestrator — `schedule_task` is not in its `early_exit_tools`
+// — so the orchestrator relays the question in its OWN next reply, and turn 1
+// ends on that text.
+//
+// Actual LLM request ordering (4 upstream calls total):
+//   request[0] = orchestrator turn 1 → schedule_task (blocking) tool call
+//   request[1] = scheduler_agent → ask_user_clarification pauses the child
+//   request[2] = orchestrator, with the awaiting-user envelope in context →
+//                relays the question as text; turn 1 ends (chat_done)
+//   request[3] = orchestrator turn 2 with "version 2" user reply in full context →
 //                synthesis; turn 2 ends (chat_done with ANSWER_CANARY_V2)
 
 /// A scheduling request that needs clarification surfaces its question in turn 1,
@@ -1030,18 +1041,23 @@ async fn scheduling_clarification_flow_inner() {
     let _lock = env_lock();
     reset_script(vec![
         // ── turn 1 ──
-        // request[0]: Orchestrator calls schedule_task.
+        // request[0]: Orchestrator delegates to scheduler_agent via schedule_task.
         tool_call_completion(
             "schedule_task",
             json!({ "prompt": "Schedule a weekly reminder", "blocking": true }),
         ),
-        // request[1]: Orchestrator asks the user for the missing detail.
+        // request[1]: scheduler_agent asks for the missing detail. This pauses
+        //   the child; the question comes back to the orchestrator inside the
+        //   `[SUBAGENT_AWAITING_USER]` envelope as the schedule_task result.
         tool_call_completion(
             "ask_user_clarification",
             json!({ "question": "WHICH_VERSION_CANARY?" }),
         ),
+        // request[2]: Orchestrator relays the sub-agent's question to the user,
+        //   as the envelope instructs; turn 1 ends on this text.
+        text_completion("The scheduler needs one detail: WHICH_VERSION_CANARY?"),
         // ── turn 2 (user replied "version 2") ──
-        // request[2]: Orchestrator processes user reply with full turn-1 context →
+        // request[3]: Orchestrator processes user reply with full turn-1 context →
         //   synthesizes final answer; turn 2 ends here.
         text_completion("Final: ANSWER_CANARY_V2"),
     ]);
@@ -1062,22 +1078,6 @@ async fn scheduling_clarification_flow_inner() {
     )
     .await;
     let first = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
-    // DIAG-TEMP
-    {
-        let reqs = with_captured(|c| c.clone());
-        for (i, r) in reqs.iter().enumerate() {
-            let msgs = r.pointer("/body/messages").and_then(Value::as_array).cloned().unwrap_or_default();
-            let tools: Vec<String> = r.pointer("/body/tools").and_then(Value::as_array).into_iter().flatten().filter_map(|t| t.pointer("/function/name").and_then(Value::as_str).map(str::to_string)).collect();
-            eprintln!("DIAG req[{i}] model={:?} ntools={} has_schedule_task={} has_use_skill={}", r.get("model"), tools.len(), tools.iter().any(|t| t=="schedule_task"), tools.iter().any(|t| t=="use_skill"));
-            for m in msgs.iter() {
-                let role = m.get("role").and_then(Value::as_str).unwrap_or("?");
-                let content = m.get("content").and_then(Value::as_str).unwrap_or("");
-                let tc = m.get("tool_calls").map(|v| v.to_string()).unwrap_or_default();
-                let sys_snip: String = content.chars().take(if role=="system" {80} else {400}).collect();
-                eprintln!("DIAG   {role}: {sys_snip:?} tool_calls={tc}");
-            }
-        }
-    }
     assert_eq!(
         first.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -1128,22 +1128,49 @@ async fn scheduling_clarification_flow_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── Both turns traversed the expected three upstream requests ──
+    // ── Both turns traversed the expected four upstream requests ──
     // request[0] = orchestrator (schedule_task call),
-    // request[1] = orchestrator (ask_user_clarification),
-    // request[2] = orchestrator turn-2 synthesis (turn-2 end).
+    // request[1] = scheduler_agent (ask_user_clarification pause),
+    // request[2] = orchestrator (relays the question; turn-1 end),
+    // request[3] = orchestrator turn-2 synthesis (turn-2 end).
     assert!(
-        requests.len() >= 3,
-        "expected ≥3 upstream requests (schedule + clarification + turn-2 synthesis), \
-         got {};\nall requests: {}",
+        requests.len() >= 4,
+        "expected ≥4 upstream requests (schedule + child clarification + relay + \
+         turn-2 synthesis), got {};\nall requests: {}",
         requests.len(),
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── Some turn-2 request's messages must contain the clarification question ──
-    // Proves the clarification was persisted in thread history and appears in
-    // turn-2 context.
-    let turn2_messages_contain_question = requests.iter().any(|req| {
+    // ── request[1] went to scheduler_agent, not the orchestrator ──
+    // Proves the blocking delegate really ran (the child's system prompt is
+    // scheduler-specific; both agents share the project-context prefix, so
+    // message 0 alone cannot tell them apart). Without this the flow degrades
+    // to "orchestrator asks the user itself", which never exercises the pause.
+    let scheduler_request = requests.get(1).map(Value::to_string).unwrap_or_default();
+    assert!(
+        scheduler_request.contains("Scheduler Agent"),
+        "request[1] did not carry the scheduler_agent prompt — schedule_task did not \
+         delegate; request: {scheduler_request}"
+    );
+
+    // ── request[2] saw the child's pause as a `[SUBAGENT_AWAITING_USER]` envelope ──
+    // Proves `dispatch_subagent` surfaced the pause the #4291 way (structured
+    // envelope carrying the question, as the schedule_task tool result) rather
+    // than as a plain success the model could read as "answered".
+    let relay_request = requests.get(2).map(Value::to_string).unwrap_or_default();
+    assert!(
+        relay_request.contains("[SUBAGENT_AWAITING_USER]")
+            && relay_request.contains("WHICH_VERSION_CANARY"),
+        "request[2] did not carry the awaiting-user envelope with the child's question; \
+         request: {relay_request}"
+    );
+
+    // ── The turn-2 request's messages must contain the clarification question ──
+    // Proves the relayed question was persisted in thread history and appears in
+    // turn-2 context. Scoped to the turn-2 request on purpose: request[2]
+    // trivially contains the canary via the envelope, so an `any()` over every
+    // request would pass without persistence.
+    let turn2_messages_contain_question = requests.iter().skip(3).any(|req| {
         req.pointer("/body/messages")
             .and_then(Value::as_array)
             .map(|msgs| {
@@ -1166,7 +1193,7 @@ async fn scheduling_clarification_flow_inner() {
     });
     assert!(
         turn2_messages_contain_question,
-        "WHICH_VERSION_CANARY not found in any turn-2 request messages — \
+        "WHICH_VERSION_CANARY not found in the turn-2 request messages — \
          turn-1 clarification question was not persisted in thread history; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
