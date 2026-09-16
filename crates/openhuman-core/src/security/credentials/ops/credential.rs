@@ -183,10 +183,16 @@ pub async fn set_credential(
     let _mutation = CREDENTIAL_MUTATION_LOCK.lock().await;
 
     if resolved.kind == CredentialKind::ApiKey {
+        let was_authenticated =
+            crate::security::credentials::session_support::has_backend_credential(config);
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
         // API-key-backed runs must not retain a previous session identity in
         // prompt composition or observability scope.
         identity::clear_current_user();
+        sentry_scope::clear();
+        if !was_authenticated {
+            start_credential_gated_services(config).await;
+        }
         crate::cron::scheduler_gate::set_signed_out(false);
         tracing::info!(
             domain = "credentials",
@@ -361,6 +367,17 @@ pub async fn clear_credential(
                 );
             }
         }
+    }
+
+    // A session-only clear may leave an API key behind. The session teardown
+    // deliberately stops the gated services and closes the scheduler gate, so
+    // restore the surviving key's runtime after that teardown has completed.
+    if removed_session && api_key::has_api_key(config) {
+        start_credential_gated_services(config).await;
+        crate::cron::scheduler_gate::set_signed_out(false);
+        sentry_scope::clear();
+        identity::clear_current_user();
+        logs.push("credential-gated services restarted for api key".to_string());
     }
 
     Ok(RpcOutcome::new(

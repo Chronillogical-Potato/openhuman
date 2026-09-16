@@ -398,22 +398,26 @@ impl<L: CoreLink> SessionManager<L> {
     /// Sign out: clear the session (or local) credential in the core and
     /// forget the current user.
     pub async fn logout(&self) -> Result<SessionState, SessionError> {
-        let _guard = self.mutation.lock().await;
-        self.cancel_revalidation();
-        link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session))
-            .await
-            .map_err(SessionError::Core)?;
-        self.cache.forget();
-        identity::clear();
+        {
+            let _guard = self.mutation.lock().await;
+            self.cancel_revalidation();
+            link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session))
+                .await
+                .map_err(SessionError::Core)?;
+            self.cache.forget();
+            identity::clear();
+        }
         self.changed().await
     }
 
     /// Remove a stored API key.
     pub async fn clear_api_key(&self) -> Result<SessionState, SessionError> {
-        let _guard = self.mutation.lock().await;
-        link::clear_credential(self.link.as_ref(), Some(CredentialKind::ApiKey))
-            .await
-            .map_err(SessionError::Core)?;
+        {
+            let _guard = self.mutation.lock().await;
+            link::clear_credential(self.link.as_ref(), Some(CredentialKind::ApiKey))
+                .await
+                .map_err(SessionError::Core)?;
+        }
         self.changed().await
     }
 
