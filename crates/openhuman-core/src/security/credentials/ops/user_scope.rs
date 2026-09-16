@@ -32,27 +32,19 @@ pub(super) fn operator_user_activation_allowed() -> bool {
 /// anonymous pre-login conversation store is purged so a fresh account never
 /// inherits demo or scratch threads from the pre-login bucket (#1157).
 /// Returns human-readable log lines for the RPC outcome.
-pub(super) fn activate_user_scope(user_id: &str) -> Vec<String> {
+pub(super) fn activate_user_scope(user_id: &str) -> Result<Vec<String>, String> {
     let mut logs = Vec::new();
     if !operator_user_activation_allowed() {
         log::debug!("{LOG_PREFIX} embedder host; skipping global user activation for {user_id}");
-        return logs;
+        return Ok(logs);
     }
-    let Ok(root_dir) = default_root_openhuman_dir() else {
-        return logs;
-    };
+    let root_dir = default_root_openhuman_dir().map_err(|error| error.to_string())?;
     // Snapshot before overwriting `active_user.toml` so first activation can be
     // told apart from an in-place account switch.
     let previous_active = read_active_user_id(&root_dir);
     let user_dir = user_openhuman_dir(&root_dir, user_id);
-    if let Err(e) = std::fs::create_dir_all(&user_dir) {
-        tracing::warn!(user_id = %user_id, error = %e, "{LOG_PREFIX} failed to create user directory");
-        return logs;
-    }
-    if let Err(e) = write_active_user_id(&root_dir, user_id) {
-        tracing::warn!(user_id = %user_id, error = %e, "{LOG_PREFIX} failed to write active_user.toml");
-        return logs;
-    }
+    std::fs::create_dir_all(&user_dir).map_err(|error| error.to_string())?;
+    write_active_user_id(&root_dir, user_id).map_err(|error| error.to_string())?;
     logs.push(format!("user directory activated for {user_id}"));
     tracing::info!(user_id = %user_id, user_dir = %user_dir.display(), "{LOG_PREFIX} user-scoped directory activated");
 
@@ -82,58 +74,42 @@ pub(super) fn activate_user_scope(user_id: &str) -> Vec<String> {
             ),
         }
     }
-    logs
+    Ok(logs)
 }
 
 /// Clear `active_user.toml` so subsequent config loads fall back to the
 /// default (unauthenticated) openhuman directory.
-pub(super) fn deactivate_user_scope() {
+pub(super) fn deactivate_user_scope() -> Result<(), String> {
     if !operator_user_activation_allowed() {
-        return;
+        return Ok(());
     }
-    if let Ok(root_dir) = default_root_openhuman_dir() {
-        if let Err(e) = crate::config::clear_active_user(&root_dir) {
-            tracing::warn!(error = %e, "{LOG_PREFIX} failed to clear active_user.toml");
-        }
-    }
+    let root_dir = default_root_openhuman_dir().map_err(|error| error.to_string())?;
+    crate::config::clear_active_user(&root_dir).map_err(|error| error.to_string())
 }
 
 /// The config that reflects the current `active_user.toml` — reloaded after an
 /// activation so credentials, keys and workspaces land in the user-scoped
 /// location — or `fallback` when the reload fails.
-pub(super) async fn reload_config_or(fallback: &Config) -> Config {
-    match crate::config::load_config_with_timeout().await {
-        Ok(config) => config,
-        Err(error) => {
-            tracing::warn!(error = %error, "{LOG_PREFIX} config reload failed; keeping caller config");
-            fallback.clone()
-        }
-    }
+pub(super) async fn reload_config_or(_fallback: &Config) -> Result<Config, String> {
+    crate::config::load_config_with_timeout().await.map_err(|error| error.to_string())
 }
 
 /// Point every process-global store at `config`'s workspace after a
 /// credential change: cron seeds, the core context (which carries the memory
 /// binding — see `CoreContext::memory_binding`, #5560), and conversation
 /// persistence. Returns log lines for the RPC outcome.
-pub(super) fn rebind_after_credential_change(config: &Config, reason: &str) -> Vec<String> {
+pub(super) fn rebind_after_credential_change(config: &Config, _reason: &str) -> Result<Vec<String>, String> {
     let mut logs = Vec::new();
-    if let Err(error) = crate::cron::seed::prune_retired_jobs(config) {
-        tracing::warn!(error = %error, "{LOG_PREFIX} failed to prune retired cron jobs ({reason})");
-    }
-    match crate::core::runtime::context::CoreContext::rebind_default_workspace(
+    crate::cron::seed::prune_retired_jobs(config).map_err(|error| error.to_string())?;
+    crate::core::runtime::context::CoreContext::rebind_default_workspace(
         &config.workspace_dir,
         config.subsystems.memory.clone(),
-    ) {
-        Ok(_) => logs.push(format!(
+    ).map_err(|error| error.to_string())?;
+    logs.push(format!(
             "core context bound to workspace {}",
             config.workspace_dir.display()
-        )),
-        Err(e) => {
-            tracing::warn!(error = %e, "{LOG_PREFIX} failed to rebind core context ({reason})");
-            logs.push(format!("core context bind warning: {e}"));
-        }
-    }
+        ));
     conversations::register_conversation_persistence_subscriber(config.workspace_dir.clone());
     logs.push("conversation persistence bound to active workspace".to_string());
-    logs
+    Ok(logs)
 }

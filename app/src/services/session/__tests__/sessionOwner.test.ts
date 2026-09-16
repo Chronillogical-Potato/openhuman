@@ -144,9 +144,11 @@ describe('sessionOwner (browser / cloud owner)', () => {
   });
 
   it('logs out through auth.clear_credential', async () => {
-    mockCallCoreRpc.mockResolvedValue({ result: {} });
+    mockCallCoreRpc.mockResolvedValueOnce({ result: { credential: 'session' } }).mockResolvedValue({
+      result: {},
+    });
     await owner.logoutSession();
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+    expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
       method: 'openhuman.auth_clear_credential',
       params: { kind: 'session' },
     });

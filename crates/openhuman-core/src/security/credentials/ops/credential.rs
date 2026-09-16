@@ -245,10 +245,10 @@ pub async fn set_credential(
         logs.push("credential refreshed (same secret, same user)".to_string());
         config.clone()
     } else {
-        logs.extend(activate_user_scope(&user_id));
+        logs.extend(activate_user_scope(&user_id)?);
         // Reload so auth-profiles.json, the encryption key and the workspace
         // resolve to the user-scoped location before the profile is written.
-        let effective = reload_config_or(config).await;
+        let effective = reload_config_or(config).await?;
         if resolved.kind == CredentialKind::Local {
             match crate::config::ops::set_onboarding_completed(false).await {
                 Ok(_) => {
@@ -278,7 +278,7 @@ pub async fn set_credential(
         logs.extend(rebind_after_credential_change(
             &effective_config,
             "credential installed",
-        ));
+        )?);
         start_credential_gated_services(&effective_config).await;
         logs.push("credential-gated services started".to_string());
         crate::memory::ops::maintenance::reembed_best_effort(
@@ -292,15 +292,21 @@ pub async fn set_credential(
     // Open the scheduler gate now that a live credential is in place; workers
     // sleeping in the paused poll loop resume at their next iteration.
     crate::cron::scheduler_gate::set_signed_out(false);
-    // Scope Sentry and the prompt-layer identity to this user (#3135, #926).
-    sentry_scope::bind(&user_id);
-    identity::set_current_user(resolved.user.clone().or_else(|| {
-        existing
-            .as_ref()
-            .filter(|_| refresh)
-            .and_then(|p| p.metadata.get("user_json").cloned())
-            .and_then(|raw| serde_json::from_str(&raw).ok())
-    }));
+    // An API key wins over a session for every backend request. Keep the
+    // process identity aligned with that effective credential.
+    if api_key::has_api_key(&effective_config) {
+        sentry_scope::clear();
+        identity::clear_current_user();
+    } else {
+        sentry_scope::bind(&user_id);
+        identity::set_current_user(resolved.user.clone().or_else(|| {
+            existing
+                .as_ref()
+                .filter(|_| refresh)
+                .and_then(|p| p.metadata.get("user_json").cloned())
+                .and_then(|raw| serde_json::from_str(&raw).ok())
+        }));
+    }
     tracing::info!(
         domain = "credentials",
         operation = "set_credential",
@@ -340,6 +346,20 @@ pub async fn clear_credential(
         }
         if !crate::security::credentials::session_support::has_backend_credential(config) {
             crate::cron::scheduler_gate::set_signed_out(true);
+        } else if removed_api_key {
+            // Clearing the preferred API key exposes the surviving session.
+            // Restore the session's process identity immediately.
+            if let Some(profile) = load_app_session_profile(config)? {
+                if let Some(user_id) = profile.metadata.get("user_id") {
+                    sentry_scope::bind(user_id);
+                }
+                identity::set_current_user(
+                    profile
+                        .metadata
+                        .get("user_json")
+                        .and_then(|raw| serde_json::from_str(raw).ok()),
+                );
+            }
         }
     }
 
@@ -381,7 +401,7 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
     }
     crate::platform::socket::medulla::workflows::clear_workflow_bridge();
 
-    deactivate_user_scope();
+    deactivate_user_scope()?;
     stop_credential_gated_services(config).await;
 
     // Every process-global store must follow the now-active pre-login
@@ -392,16 +412,13 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
             logs.extend(rebind_after_credential_change(
                 &signed_out_config,
                 "credential cleared",
-            ));
+            )?);
             logs.push(format!(
                 "process globals rebound to signed-out workspace {}",
                 signed_out_config.workspace_dir.display()
             ));
         }
-        Err(error) => {
-            tracing::warn!(%error, "{LOG_PREFIX} failed to resolve signed-out workspace");
-            logs.push(format!("signed-out workspace rebind warning: {error}"));
-        }
+        Err(error) => return Err(format!("failed to resolve signed-out workspace: {error}")),
     }
 
     sentry_scope::clear();
