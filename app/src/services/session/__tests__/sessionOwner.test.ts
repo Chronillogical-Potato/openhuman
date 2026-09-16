@@ -168,6 +168,7 @@ describe('sessionOwner (browser / cloud owner)', () => {
       .mockResolvedValueOnce({
         result: { isAuthenticated: true, credential: 'session', user: { id: 'old' } },
       })
+      .mockResolvedValueOnce({ result: { token: 'jwt' } })
       .mockResolvedValueOnce({ result: { token: 'jwt' } });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true, user: { id: 'fresh' } }));
     expect(await owner.fetchCurrentUser()).toEqual({
@@ -213,9 +214,11 @@ describe('sessionOwner (browser / cloud owner)', () => {
     mockCallCoreRpc
       .mockResolvedValueOnce(coreState)
       .mockResolvedValueOnce(token)
+      .mockResolvedValueOnce(token)
       .mockResolvedValueOnce(coreState)
       .mockResolvedValueOnce(token)
       .mockResolvedValueOnce(coreState)
+      .mockResolvedValueOnce(token)
       .mockResolvedValueOnce(token);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { success: true, user: { id: 'first' } }))
