@@ -294,10 +294,7 @@ export const logoutSession = async (): Promise<void> => {
   // 'session'` clears whichever of session or local is actually stored —
   // both live under the same app-session profile — without touching the
   // API key, unlike omitting `kind` entirely.
-  await callCoreRpc({
-    method: 'openhuman.auth_clear_credential',
-    params: { kind: 'session' },
-  });
+  await callCoreRpc({ method: 'openhuman.auth_clear_credential', params: { kind: 'session' } });
 };
 
 /**
