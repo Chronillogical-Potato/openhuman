@@ -77,6 +77,8 @@ pub enum MeAnswer {
     Status(u16),
     /// Sleep this long before answering OK (for timeout tests).
     Slow(u64),
+    /// Sleep this long before answering with a status (for race tests).
+    SlowStatus(u64, u16),
 }
 
 #[derive(Default)]
@@ -152,6 +154,14 @@ async fn handle_me(State(state): State<Arc<StubState>>, headers: HeaderMap) -> i
             (
                 StatusCode::OK,
                 Json(json!({ "success": true, "data": me_user() })),
+            )
+                .into_response()
+        }
+        MeAnswer::SlowStatus(ms, code) => {
+            tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            (
+                StatusCode::from_u16(code).unwrap(),
+                Json(json!({ "success": false, "message": format!("status {code}") })),
             )
                 .into_response()
         }

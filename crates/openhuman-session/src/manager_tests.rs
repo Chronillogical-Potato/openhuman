@@ -238,6 +238,94 @@ async fn current_user_confirms_a_pending_session_once_the_backend_answers() {
 }
 
 #[tokio::test]
+async fn rejection_of_a_superseded_token_leaves_the_new_session_alone() {
+    // Token A's refresh is in flight when the user signs in as B; A's 401
+    // must not clear B.
+    let backend = Backend::start(vec![
+        MeAnswer::Ok(me_user()),
+        MeAnswer::SlowStatus(300, 401),
+        MeAnswer::Ok(me_user()),
+    ])
+    .await;
+    let core = FakeCore::new(&backend.url);
+    let m = manager(&core);
+    m.login_with_token("tok").await.unwrap();
+    let mut rx = m.subscribe();
+    let refresh = {
+        let m = Arc::clone(&m);
+        tokio::spawn(async move { m.current_user(true).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let replacement = crate::test_support::StoredCredential {
+        kind: "session".into(),
+        token: crate::test_support::LIVE_JWT_NO_SUB.clone(),
+        user_id: Some("user-456".into()),
+        user: Some(serde_json::json!({ "_id": "user-456" })),
+    };
+    *core.session.lock().unwrap() = Some(replacement.clone());
+    let current = refresh.await.unwrap().unwrap();
+    assert!(current.stale, "a superseded verdict is served as stale");
+    assert_eq!(core.session(), Some(replacement));
+    assert!(!core.methods().iter().any(|m| m == link::AUTH_CLEAR_CREDENTIAL));
+    assert!(drain(&mut rx)
+        .await
+        .iter()
+        .all(|e| !matches!(e, SessionEvent::Expired { .. })));
+}
+
+#[tokio::test]
+async fn pending_confirmation_after_logout_does_not_restore_the_session() {
+    let backend = Backend::start(vec![MeAnswer::Slow(300)]).await;
+    let core = FakeCore::new(&backend.url);
+    *core.session.lock().unwrap() = Some(crate::test_support::StoredCredential {
+        kind: "session".into(),
+        token: LIVE_JWT.clone(),
+        user_id: Some("user-123".into()),
+        user: Some(serde_json::json!({ PENDING_BACKEND_VALIDATION_FIELD: true })),
+    });
+    let m = manager(&core);
+    let refresh = {
+        let m = Arc::clone(&m);
+        tokio::spawn(async move { m.current_user(true).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    m.logout().await.unwrap();
+    let calls_after_logout = core.calls().len();
+    refresh.await.unwrap().unwrap();
+    assert_eq!(core.session(), None, "the confirmation must not reinstall the token");
+    assert!(!core.calls()[calls_after_logout..]
+        .iter()
+        .any(|(m, _)| m == link::AUTH_SET_CREDENTIAL));
+}
+
+#[tokio::test]
+async fn background_revalidation_stops_when_the_token_is_replaced_mid_flight() {
+    let _env = ENV_LOCK.lock().await;
+    // Store offline (503), then the revalidation loop's /auth/me is slow and
+    // a logout lands while it is in flight.
+    let backend = Backend::start(vec![MeAnswer::Status(503), MeAnswer::Slow(400)]).await;
+    let core = FakeCore::new(&backend.url);
+    let m = manager(&core);
+    m.store_session_token(&LIVE_JWT, None).await.unwrap();
+    assert!(core.session().is_some());
+    // Wait for the loop to issue its first request, then sign out under it.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while backend.me_calls() < 2 && std::time::Instant::now() < deadline {
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(backend.me_calls(), 2, "revalidation loop should be in flight");
+    // `logout` cancels the loop handle; drive the race with an external clear
+    // instead so the in-flight future runs to completion.
+    *core.session.lock().unwrap() = None;
+    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+    assert_eq!(core.session(), None);
+    assert!(!core
+        .calls()
+        .iter()
+        .any(|(m, p)| m == link::AUTH_SET_CREDENTIAL && p.get("user").and_then(|u| u.get("email")).is_some()));
+}
+
+#[tokio::test]
 async fn state_for_a_signed_out_core_needs_no_backend() {
     let core = FakeCore::new("http://127.0.0.1:9");
     let m = manager(&core);
