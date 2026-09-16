@@ -99,6 +99,10 @@ describe('sessionOwner (browser / cloud owner)', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ token: 'login-tok' });
     expect(fetchMock.mock.calls[1][0]).toBe('https://api.test/auth/me');
     expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer jwt-1');
+    for (const call of fetchMock.mock.calls) {
+      expect(call[1].headers['x-sdk-name']).toBe('openhuman');
+      expect(call[1].headers['x-tauri-version']).toBe('1.0.0');
+    }
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.auth_set_credential',
       params: { token: 'jwt-1', kind: 'session', userId: 'u9', user: { _id: 'u9', email: 'a@b' } },
@@ -179,11 +183,22 @@ describe('sessionOwner (browser / cloud owner)', () => {
       .mockResolvedValueOnce({ result: { token: 'jwt' } })
       .mockResolvedValueOnce({ result: {} });
     fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
+    const expired = vi.fn();
+    window.addEventListener('openhuman:session-expired', expired as EventListener);
 
-    await expect(owner.fetchCurrentUser()).rejects.toThrow(/^REJECTED:/);
+    try {
+      await expect(owner.fetchCurrentUser()).rejects.toThrow(/^REJECTED:/);
+    } finally {
+      window.removeEventListener('openhuman:session-expired', expired as EventListener);
+    }
     expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
       method: 'openhuman.auth_clear_credential',
       params: { kind: 'session' },
+    });
+    expect(expired).toHaveBeenCalledTimes(1);
+    expect((expired.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      source: 'browser-owner.auth/me',
+      reason: 'confirmed',
     });
   });
 

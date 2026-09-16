@@ -45,6 +45,14 @@ export interface SessionOwnerState {
 const AUTH_ME_TIMEOUT_MS = 12_000;
 
 /**
+ * Product attribution for TinyHumans backend requests, mirroring the
+ * `x-sdk-name` the Rust hosts send. The browser and cloud owners are always
+ * OpenHuman's own renderer, so the default identity applies.
+ */
+export const PRODUCT_IDENTITY_HEADER = 'x-sdk-name';
+export const PRODUCT_IDENTITY = 'openhuman';
+
+/**
  * Whether the Tauri shell is the session owner for the core the renderer is
  * talking to. Cloud mode points the renderer at a remote core through its own
  * stored RPC endpoint, which the shell does not know about, so the browser
@@ -72,7 +80,12 @@ const backendFetch = async (path: string, init: RequestInit): Promise<Response> 
   return withTimeout(
     fetch(`${backendUrl}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...versionHeaders, ...(init.headers ?? {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        [PRODUCT_IDENTITY_HEADER]: PRODUCT_IDENTITY,
+        ...versionHeaders,
+        ...(init.headers ?? {}),
+      },
     }),
     AUTH_ME_TIMEOUT_MS,
     path
@@ -207,6 +220,15 @@ const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> =
         method: 'openhuman.auth_clear_credential',
         params: { kind: 'session' },
       }).catch(() => undefined);
+      // Same confirmed-expiry signal the shell owner raises through
+      // `auth://expired`: the credential is gone, so the core-state layer
+      // must sign out now rather than keep a stale signed-in snapshot until
+      // the next poll.
+      window.dispatchEvent(
+        new CustomEvent('openhuman:session-expired', {
+          detail: { source: 'browser-owner.auth/me', reason: 'confirmed' },
+        })
+      );
       throw error;
     }
     return {
