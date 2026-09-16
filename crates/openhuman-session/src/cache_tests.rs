@@ -139,6 +139,48 @@ async fn a_failed_first_refresh_suppresses_the_waiter_queued_behind_it() {
     );
 }
 
+// #6318 (review follow-up) — a positive entry that is stale-while-revalidate
+// eligible (past `REFRESH_TTL`) must still be served when a background
+// refresh has already recorded an availability failure for the same key;
+// pre-empting it with the suppressed error for the whole backoff window
+// would throw away perfectly good cached data. A rejection (see
+// `rejection_is_retained_until_the_owner_observes_it`) is the one case that
+// must still win over a stale cache — this test's failure is a plain
+// availability outage, not a rejection.
+#[tokio::test]
+async fn stale_cache_is_served_through_an_availability_backoff_window() {
+    let backend = Backend::start(vec![MeAnswer::Status(503)]).await;
+    let cache = CurrentUserCache::new();
+    let cred = Credential::session(LIVE_JWT.as_str());
+    let c = client(&backend);
+    let key = CurrentUserCache::key(&c, &cred);
+
+    // A positive entry older than REFRESH_TTL, plus the failure a background
+    // refresh for it would have recorded — as if `spawn_refresh` had already
+    // run once and hit the outage.
+    {
+        let mut state = cache.lock();
+        state.positive = Some(Positive {
+            key: key.clone(),
+            fetched_at: Instant::now() - REFRESH_TTL - Duration::from_secs(1),
+            user: me_user(),
+        });
+        state.failure = Some(Failure {
+            key: key.clone(),
+            failed_at: Instant::now(),
+            consecutive: 1,
+            error: FetchMeError::Transient("boom".to_string()),
+        });
+    }
+
+    let result = cache
+        .get_or_refresh(&c, &cred, false)
+        .await
+        .expect("a stale positive entry must still be served during an availability outage");
+    assert_eq!(result.user.as_ref().unwrap()["_id"], "user-123");
+    assert!(result.stale, "the entry is past its outage-free TTL");
+}
+
 #[tokio::test]
 async fn availability_failure_opens_a_backoff_window() {
     let backend = Backend::start(vec![MeAnswer::Status(503)]).await;
