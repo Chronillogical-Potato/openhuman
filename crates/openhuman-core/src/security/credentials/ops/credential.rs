@@ -377,11 +377,8 @@ pub async fn clear_credential(
             effective_config = reload_config_or(config).await?;
             if let Some(key) = api_key_to_preserve.as_deref() {
                 if !api_key::has_api_key(&effective_config) {
-                    api_key::store_api_key(&effective_config, key)
-                        .map_err(|e| e.to_string())?;
-                    logs.push(
-                        "api key carried forward to the signed-out workspace".to_string(),
-                    );
+                    api_key::store_api_key(&effective_config, key).map_err(|e| e.to_string())?;
+                    logs.push("api key carried forward to the signed-out workspace".to_string());
                 }
             }
         }
