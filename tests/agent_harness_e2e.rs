@@ -163,6 +163,19 @@ fn error_completion(status: u16, message: &str) -> Value {
     json!({ "status": status, "error": message })
 }
 
+/// True when any captured upstream request carries the engine's unknown-tool
+/// result (`tinyagents-harness` `agent_loop/tools.rs`: "unknown tool `name`
+/// (arguments: …); valid tools: […]"). Matched case-insensitively on purpose:
+/// the guards below used to look for a literal `"Unknown tool:"` that nothing
+/// emits, so a delegate that failed to resolve went unnoticed and the
+/// orchestrator quietly consumed the child's scripted completions itself.
+fn captured_requests_mention_unknown_tool(requests: &[Value]) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains("unknown tool")
+}
+
 // ─── Fan-out overlap barrier ────────────────────────────────────────────────
 //
 // Only `parallel_subagent_fanout` arms this; every other test leaves it empty
@@ -975,12 +988,11 @@ async fn subagent_delegation_happy_path_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" anywhere — proves the delegation tool was synthesised
-    // and executed (registry init worked).
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result anywhere — proves the delegation tool was synthesised
+    // (registry init worked) and the orchestrator could actually call it.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation tool was not synthesised; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation tool was not synthesised; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -1119,11 +1131,15 @@ async fn scheduling_clarification_flow_inner() {
     let requests = with_captured(|c| c.clone());
     let serialized = serde_json::to_string(&requests).unwrap_or_default();
 
-    // ── No "Unknown tool:" in any captured request ──
-    // Proves schedule_task was recognised by the orchestrator.
+    // ── No unknown-tool result in any captured request ──
+    // Proves schedule_task was recognised by the orchestrator. This is the guard
+    // that let the 3-completion version of this test pass vacuously: with the
+    // delegate unresolved, the engine's lowercase "unknown tool `schedule_task`"
+    // result never matched the old `"Unknown tool:"` literal, and the
+    // orchestrator consumed the child's clarification completion itself.
     assert!(
-        !serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation was broken; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation was broken; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
