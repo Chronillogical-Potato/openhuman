@@ -160,6 +160,46 @@ async fn failed_core_handoff_keeps_the_prior_pending_session_revalidation_runnin
     m.cancel_revalidation();
 }
 
+// #6318 (review follow-up) — the background revalidation loop's confirmation
+// arm used to exit on any outcome of a confirmed `/auth/me`, even when the
+// subsequent core handoff (`push`) failed. That left `pendingBackendValidation`
+// stuck forever despite a confirmed backend answer, with no loop left to
+// retry it. Real time: the loop's first attempt fires after
+// `REVALIDATION_INITIAL_DELAY` (5s), so this test waits past that.
+#[tokio::test]
+async fn a_failed_confirmation_handoff_keeps_the_revalidation_loop_retrying() {
+    let _global = ENV_LOCK.lock().await;
+
+    let core = FakeCore::new("http://127.0.0.1:9");
+    let m = manager(&core);
+    m.store_session_token(&LIVE_JWT, None).await.unwrap();
+    assert!(m.revalidation.lock().unwrap().is_some());
+
+    // The backend becomes reachable and will confirm the token, but the
+    // core handoff itself fails.
+    let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
+    *core.api_url.lock().unwrap() = backend.url.clone();
+    *core.fail_method.lock().unwrap() = Some(link::AUTH_SET_CREDENTIAL.to_string());
+
+    // Let the loop's first attempt (after REVALIDATION_INITIAL_DELAY) run.
+    tokio::time::sleep(REVALIDATION_INITIAL_DELAY + Duration::from_millis(500)).await;
+
+    assert!(
+        m.revalidation.lock().unwrap().is_some(),
+        "a failed confirmation handoff must not exit the revalidation loop"
+    );
+    assert_eq!(
+        core.session()
+            .unwrap()
+            .user
+            .unwrap()
+            .get(PENDING_BACKEND_VALIDATION_FIELD),
+        Some(&serde_json::Value::Bool(true)),
+        "the session must remain pending — the confirmed profile was never pushed"
+    );
+    m.cancel_revalidation();
+}
+
 #[tokio::test]
 async fn caller_supplied_user_id_rescues_a_subjectless_jwt_offline() {
     let core = FakeCore::new("http://127.0.0.1:9");
