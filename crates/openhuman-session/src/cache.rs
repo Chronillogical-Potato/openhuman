@@ -193,6 +193,24 @@ impl CurrentUserCache {
         (elapsed < window).then(|| (entry.error.clone(), entry.consecutive, window - elapsed))
     }
 
+    /// [`Self::suppressed`], mapped to the error a caller should see: a
+    /// rejection is authoritative and returned as-is (a stale-while-revalidate
+    /// caller cannot observe a background result directly, so it must be
+    /// retained until the next read hands it to the owner); anything else
+    /// suppressed under the backoff window comes back as
+    /// [`FetchMeError::Suppressed`].
+    fn suppressed_error(&self, key: &Key) -> Option<FetchMeError> {
+        let (error, consecutive, retry_in) = self.suppressed(key)?;
+        if matches!(error, FetchMeError::Rejected(_)) {
+            return Some(error);
+        }
+        Some(FetchMeError::Suppressed {
+            message: error.message().to_string(),
+            consecutive,
+            retry_in,
+        })
+    }
+
     fn staleness(&self, key: &Key) -> (bool, Option<u64>) {
         let state = self.lock();
         let stale = state.failure.as_ref().is_some_and(|f| f.key == *key);
