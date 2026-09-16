@@ -346,6 +346,7 @@ impl<L: CoreLink> SessionManager<L> {
                         return;
                     }
                     Err(error) => {
+                        drop(guard);
                         log::debug!(
                             "{LOG_PREFIX} pending-session revalidation still failing ({}); retrying in {}s",
                             error.message(),
