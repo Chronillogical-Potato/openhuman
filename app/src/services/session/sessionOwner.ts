@@ -210,6 +210,12 @@ const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> =
   }
   try {
     const user = await browserFetchMe(token);
+    // Do not publish a response obtained with an old credential after a
+    // concurrent login or logout installed a new one.
+    const latest = await callCoreRpc<{ result: { token: string | null } }>({
+      method: 'openhuman.auth_get_session_token',
+    });
+    if (latest.result.token !== token) return browserCurrentUser(force);
     browserCurrentUserCache = { token, fetchedAt: Date.now(), user };
     return { user, stale: false, staleSeconds: 0 };
   } catch (error) {
@@ -222,11 +228,11 @@ const browserCurrentUser = async (force: boolean): Promise<SessionCurrentUser> =
         method: 'openhuman.auth_get_session_token',
       }).catch(() => null);
       if (latest?.result.token === token) {
-        browserCurrentUserCache = null;
         await callCoreRpc({
           method: 'openhuman.auth_clear_credential',
           params: { kind: 'session' },
-        }).catch(() => undefined);
+        });
+        browserCurrentUserCache = null;
       } else {
         return browserCurrentUser(false);
       }

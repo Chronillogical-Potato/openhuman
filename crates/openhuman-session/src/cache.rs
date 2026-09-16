@@ -274,6 +274,16 @@ impl CurrentUserCache {
             }
         }
 
+        // The first caller owns the network refresh. Concurrent cache misses
+        // (including forced refreshes) wait for it, then reuse its result.
+        // This avoids multiplying `/auth/me` requests during startup/polling.
+        let waited_for_refresh = self.inner.inflight.try_lock().is_err();
+        let refresh_guard = self.inner.inflight.lock().await;
+        if waited_for_refresh {
+            if let Some((user, _)) = self.cached(&key) {
+                return Ok(self.with_result(&key, Some(user)));
+            }
+        }
         let timeout = fetch_timeout();
         match tokio::time::timeout(
             timeout,
@@ -391,7 +401,11 @@ impl CurrentUserCache {
                 "{LOG_PREFIX} discarding refresh that raced sign-out or an identity switch"
             );
         }
-        Ok(fetched)
+        if committed {
+            Ok(fetched)
+        } else {
+            Err(FetchMeError::Superseded)
+        }
     }
 }
 

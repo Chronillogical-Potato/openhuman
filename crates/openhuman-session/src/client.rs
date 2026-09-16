@@ -126,6 +126,10 @@ pub enum FetchMeError {
     Transient(String),
     /// The request never got an answer (connect/timeout/TLS/read failure).
     Transport(String),
+    /// A refresh completed after its credential was replaced or cleared.
+    /// Callers must read the current core credential and retry instead of
+    /// applying this response to the prior session.
+    Superseded,
     /// Replayed from the current-user cache's backoff window instead of going
     /// to the network. Carries the failure that opened the window.
     Suppressed {
@@ -139,6 +143,7 @@ impl FetchMeError {
     pub fn message(&self) -> &str {
         match self {
             Self::Rejected(m) | Self::Transient(m) | Self::Transport(m) => m,
+            Self::Superseded => "refresh superseded by a credential change",
             Self::Suppressed { message, .. } => message,
         }
     }

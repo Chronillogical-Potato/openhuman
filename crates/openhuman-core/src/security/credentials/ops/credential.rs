@@ -269,7 +269,8 @@ pub async fn set_credential(
         effective
     };
 
-    AuthService::from_config(&effective_config)
+    let auth = AuthService::from_config(&effective_config);
+    auth
         .store_provider_token(
             APP_SESSION_PROVIDER,
             DEFAULT_AUTH_PROFILE_NAME,
@@ -281,10 +282,14 @@ pub async fn set_credential(
     logs.push(format!("{} credential stored", resolved.kind.as_str()));
 
     if !refresh {
-        logs.extend(rebind_after_credential_change(
-            &effective_config,
-            "credential installed",
-        )?);
+        if let Err(error) = rebind_after_credential_change(&effective_config, "credential installed") {
+            // A retry of the same credential takes the refresh fast-path, so
+            // leaving its profile behind would let it skip this required bind.
+            auth.remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+                .map_err(|rollback| format!("credential rebind failed: {error}; rollback failed: {rollback}"))?;
+            return Err(error);
+        }
+        logs.push("process globals rebound after credential install".to_string());
         start_credential_gated_services(&effective_config).await;
         logs.push("credential-gated services started".to_string());
         crate::memory::ops::maintenance::reembed_best_effort(
