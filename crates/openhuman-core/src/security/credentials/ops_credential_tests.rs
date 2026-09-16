@@ -400,12 +400,17 @@ async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
-    let config = test_config(&tmp);
+    // `test_config` also binds the memory diagnostics `store_session` below
+    // needs; its own config_path is a plain tmp fixture unrelated to the real
+    // pre-login layout, so it is not where the RPC dispatcher would actually
+    // read/write the pre-login api-key profile from.
+    let _diagnostics = test_config(&tmp);
 
-    // Key A already sits at the pre-login/signed-out scope — e.g. left over
-    // from an earlier api-key-only run before any session existed.
+    // Key A already sits at the real pre-login/signed-out scope — e.g. left
+    // over from an earlier api-key-only run before any session existed.
+    let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     set_credential(
-        &config,
+        &pre_login,
         SetCredentialRequest {
             token: "sk-stale-a".into(),
             kind: Some("api-key".into()),
@@ -414,7 +419,6 @@ async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_
     )
     .await
     .unwrap();
-    let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     assert_eq!(
         api_key::get_api_key(&pre_login).unwrap().as_deref(),
         Some("sk-stale-a")
@@ -424,7 +428,7 @@ async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_
     // from the pre-login one key A lives beside.
     let exp = chrono::Utc::now() + chrono::Duration::hours(1);
     let token = jwt_with_payload(json!({ "sub": "user-99", "exp": exp.timestamp() }));
-    store_session(&config, &token, None, Some(json!({ "id": "user-99" })))
+    store_session(&pre_login, &token, None, Some(json!({ "id": "user-99" })))
         .await
         .unwrap();
 
