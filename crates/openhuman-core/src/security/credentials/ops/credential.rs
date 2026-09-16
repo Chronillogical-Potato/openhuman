@@ -184,6 +184,9 @@ pub async fn set_credential(
 
     if resolved.kind == CredentialKind::ApiKey {
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
+        // API-key-backed runs must not retain a previous session identity in
+        // prompt composition or observability scope.
+        identity::clear_current_user();
         crate::cron::scheduler_gate::set_signed_out(false);
         tracing::info!(
             domain = "credentials",
@@ -294,6 +297,7 @@ pub async fn set_credential(
     identity::set_current_user(resolved.user.clone().or_else(|| {
         existing
             .as_ref()
+            .filter(|_| refresh)
             .and_then(|p| p.metadata.get("user_json").cloned())
             .and_then(|raw| serde_json::from_str(&raw).ok())
     }));

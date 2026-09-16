@@ -152,8 +152,10 @@ impl FetchMeError {
     fn from_sdk(error: tinyhumans_sdk::Error) -> Self {
         match error {
             tinyhumans_sdk::Error::Status { status, body } => {
-                let message = format!("http {status}: {body}");
-                if TRANSIENT_STATUSES.contains(&status) {
+                // Error bodies are controlled by the backend or an intervening
+                // proxy.  Do not carry them into the manager's logs.
+                let message = format!("http {status}: {}", error_body_shape(&body));
+                if TRANSIENT_STATUSES.contains(&status) || (500..=599).contains(&status) {
                     Self::Transient(message)
                 } else {
                     Self::Rejected(message)
@@ -165,11 +167,17 @@ impl FetchMeError {
                 if contains_transient_transport_phrase(&message) {
                     Self::Transport(message)
                 } else {
-                    Self::Rejected(message)
+                    // A decoding or SDK failure provides no authoritative
+                    // evidence that the credential was refused.
+                    Self::Transport("unexpected backend client failure".to_string())
                 }
             }
         }
     }
+}
+
+fn error_body_shape(body: &str) -> &'static str {
+    if body.trim().is_empty() { "empty response body" } else { "non-empty response body" }
 }
 
 impl std::fmt::Display for FetchMeError {

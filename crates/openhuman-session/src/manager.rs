@@ -207,7 +207,7 @@ impl<L: CoreLink> SessionManager<L> {
         token: &str,
         user: Option<Value>,
     ) -> Result<SessionState, SessionError> {
-        let _guard = self.mutation.lock().await;
+        let guard = self.mutation.lock().await;
         self.cancel_revalidation();
         let credential = Credential::classify(token);
         if credential.secret.is_empty() {
@@ -223,6 +223,7 @@ impl<L: CoreLink> SessionManager<L> {
             }
             self.push(&credential, None, user.as_ref()).await?;
             self.cache.forget();
+            drop(guard);
             return self.changed().await;
         }
 
@@ -246,6 +247,7 @@ impl<L: CoreLink> SessionManager<L> {
                 self.push(&credential, user_id.as_deref(), Some(&me))
                     .await?;
                 self.cache.seed(&client, &credential, me);
+                drop(guard);
                 self.changed().await
             }
             Err(FetchMeError::Rejected(reason)) => {
@@ -273,6 +275,7 @@ impl<L: CoreLink> SessionManager<L> {
                     .await?;
                 self.cache.forget();
                 self.spawn_revalidation(credential);
+                drop(guard);
                 self.changed().await
             }
         }
@@ -280,12 +283,13 @@ impl<L: CoreLink> SessionManager<L> {
 
     /// Store a TinyHumans API key. No user identity, no backend round trip.
     pub async fn store_api_key(self: &Arc<Self>, key: &str) -> Result<SessionState, SessionError> {
-        let _guard = self.mutation.lock().await;
+        let guard = self.mutation.lock().await;
         let credential = Credential::api_key(key);
         if credential.secret.is_empty() {
             return Err(SessionError::Invalid("api key is required".to_string()));
         }
         self.push(&credential, None, None).await?;
+        drop(guard);
         self.changed().await
     }
 
@@ -360,11 +364,12 @@ impl<L: CoreLink> SessionManager<L> {
         *self.revalidation.lock().unwrap_or_else(|p| p.into_inner()) = Some(handle);
     }
 
-    async fn clear_session_credential(&self, source: &str) {
+    async fn clear_session_credential(&self, source: &str) -> bool {
         if let Err(e) =
             link::clear_credential(self.link.as_ref(), Some(CredentialKind::Session)).await
         {
             log::warn!("{LOG_PREFIX} failed to clear rejected session credential: {e}");
+            return false;
         }
         self.cache.forget();
         identity::clear();
@@ -374,6 +379,7 @@ impl<L: CoreLink> SessionManager<L> {
         // The credential is gone, so the signed-out state is known without
         // asking the core again (and `state()` would recurse into here).
         self.emit(SessionEvent::Changed(SessionState::default()));
+        true
     }
 
     /// Whether the core still holds `secret` as its session token.
