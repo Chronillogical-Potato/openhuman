@@ -144,14 +144,31 @@ describe('sessionOwner (browser / cloud owner)', () => {
   });
 
   it('logs out through auth.clear_credential', async () => {
-    mockCallCoreRpc
-      .mockResolvedValueOnce({ result: { credential: 'session' } })
-      .mockResolvedValue({ result: {} });
+    mockCallCoreRpc.mockResolvedValue({ result: {} });
     await owner.logoutSession();
-    expect(mockCallCoreRpc).toHaveBeenLastCalledWith({
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.auth_clear_credential',
       params: { kind: 'session' },
     });
+  });
+
+  // #6318 — an API key stored alongside the session makes `auth.get_state`
+  // report `credential: 'api-key'` as the effective one (it wins over a
+  // session for backend requests). Logout must still clear the hidden
+  // session rather than skip it because it isn't the currently-effective
+  // credential — leaving it would let clearing the API key later silently
+  // restore the "logged out" session.
+  it('clears the session even when an API key is the effective credential', async () => {
+    mockCallCoreRpc.mockResolvedValue({ result: {} });
+    await owner.logoutSession();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.auth_clear_credential',
+      params: { kind: 'session' },
+    });
+    // No `auth.get_state` gate before the clear.
+    expect(mockCallCoreRpc).not.toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'openhuman.auth_get_state' })
+    );
   });
 
   it('serves the stored user for non-session credentials and refreshes sessions', async () => {
