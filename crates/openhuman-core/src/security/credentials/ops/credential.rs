@@ -350,12 +350,14 @@ pub async fn clear_credential(
     // session moves every process global to the pre-login/signed-out
     // workspace, so a key left in place would be stranded under
     // `users/<id>` while the rest of the process reads `users/local` and
-    // reports signed out (#6318). Snapshot it before teardown and, if the
-    // clear isn't also removing the key, carry it forward to the
-    // post-teardown config.
-    let api_key_to_preserve = if matches!(
+    // reports signed out (#6318). Snapshot it before teardown so it can
+    // either be carried forward (a session/local-only clear) or removed
+    // outright at its real location (`kind: None` clears everything, but
+    // the API-key clear below runs against the post-teardown config and
+    // would otherwise miss it).
+    let source_api_key = if matches!(
         kind,
-        Some(CredentialKind::Session) | Some(CredentialKind::Local)
+        None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
     ) {
         api_key::get_api_key(config).map_err(|e| e.to_string())?
     } else {
@@ -363,6 +365,7 @@ pub async fn clear_credential(
     };
 
     let mut effective_config = config.clone();
+    let mut cleared_source_api_key = false;
     if matches!(
         kind,
         None | Some(CredentialKind::Session) | Some(CredentialKind::Local)
@@ -375,18 +378,39 @@ pub async fn clear_credential(
             // Follow the same process globals the teardown just rebound to,
             // so the api-key checks below agree with `auth.get_state`.
             effective_config = reload_config_or(config).await?;
-            if let Some(key) = api_key_to_preserve.as_deref() {
-                if !api_key::has_api_key(&effective_config) {
-                    api_key::store_api_key(&effective_config, key).map_err(|e| e.to_string())?;
-                    logs.push("api key carried forward to the signed-out workspace".to_string());
+            if let Some(key) = source_api_key.as_deref() {
+                if matches!(
+                    kind,
+                    Some(CredentialKind::Session) | Some(CredentialKind::Local)
+                ) {
+                    // A session/local-only clear preserves the key: carry it
+                    // forward to the post-teardown workspace before the
+                    // source copy is removed below.
+                    if !api_key::has_api_key(&effective_config) {
+                        api_key::store_api_key(&effective_config, key)
+                            .map_err(|e| e.to_string())?;
+                        logs.push(
+                            "api key carried forward to the signed-out workspace".to_string(),
+                        );
+                    }
                 }
+                // Either the key was just moved to the post-teardown config
+                // above, or `kind` is `None` and it must be removed outright.
+                // `config` here is still the pre-teardown, user-scoped
+                // reference, so this clears the *source* location — never
+                // leave that copy behind, or a later login to the same
+                // account (or an api-key clear against the wrong location)
+                // would silently resurrect it (#6318).
+                cleared_source_api_key =
+                    api_key::clear_api_key(config).map_err(|e| e.to_string())?;
             }
         }
     }
     let config = &effective_config;
 
     if matches!(kind, None | Some(CredentialKind::ApiKey)) {
-        removed_api_key = api_key::clear_api_key(config).map_err(|e| e.to_string())?;
+        removed_api_key =
+            api_key::clear_api_key(config).map_err(|e| e.to_string())? || cleared_source_api_key;
         if removed_api_key {
             logs.push("api key cleared".to_string());
         }
