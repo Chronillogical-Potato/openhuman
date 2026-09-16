@@ -183,6 +183,7 @@ describe('sessionOwner (browser / cloud owner)', () => {
         result: { isAuthenticated: true, credential: 'session', user: null },
       })
       .mockResolvedValueOnce({ result: { token: 'jwt' } })
+      .mockResolvedValueOnce({ result: { token: 'jwt' } })
       .mockResolvedValueOnce({ result: {} });
     fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
     const expired = vi.fn();
