@@ -2196,9 +2196,8 @@ async fn parallel_subagent_fanout_inner() {
     // The spawn tool must actually be in scope. If the orchestrator's tool list
     // drifts again, this is the assertion that says so in one line instead of
     // leaving a canary mismatch to be decoded.
-    let all = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all.contains("Unknown tool:"),
+        !captured_requests_mention_unknown_tool(&requests),
         "no tool call may be rejected as unknown; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -2293,11 +2292,10 @@ async fn multi_hop_delegation_chain_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" for `research` — delegation was synthesised correctly.
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result for `research` — delegation was synthesised correctly.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — `research` delegation was not synthesised; requests: {}",
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result — `research` delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
