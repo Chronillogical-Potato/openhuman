@@ -344,18 +344,27 @@ impl<L: CoreLink> SessionManager<L> {
                         // instead of leaving `pendingBackendValidation` stuck
                         // forever despite a confirmed backend answer (#6318
                         // review follow-up).
-                        if let Err(e) = manager
+                        match manager
                             .push(&credential, user_id.as_deref(), Some(&me))
                             .await
                         {
-                            log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
+                            Ok(_) => {
+                                manager.cache.seed(&client, &credential, me);
+                                drop(guard);
+                                if let Ok(state) = manager.state().await {
+                                    manager.emit(SessionEvent::Changed(state));
+                                }
+                                return;
+                            }
+                            Err(e) => {
+                                drop(guard);
+                                log::warn!(
+                                    "{LOG_PREFIX} failed to store revalidated session ({e}); retrying in {}s",
+                                    delay.as_secs()
+                                );
+                                delay = (delay * 2).min(REVALIDATION_MAX_DELAY);
+                            }
                         }
-                        manager.cache.seed(&client, &credential, me);
-                        drop(guard);
-                        if let Ok(state) = manager.state().await {
-                            manager.emit(SessionEvent::Changed(state));
-                        }
-                        return;
                     }
                     Err(FetchMeError::Rejected(reason)) => {
                         log::warn!(
