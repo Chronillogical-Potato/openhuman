@@ -308,7 +308,17 @@ impl<L: CoreLink> SessionManager<L> {
                         return;
                     }
                 }
-                match client.fetch_me(&credential).await {
+                let verdict = client.fetch_me(&credential).await;
+                // Re-check under the mutation lock: a logout or a newer login
+                // may have landed while `/auth/me` was in flight, and neither
+                // a confirmation nor a rejection of the old token may touch
+                // the credential the core holds now.
+                let guard = manager.mutation.lock().await;
+                if !manager.core_still_holds(&credential.secret).await {
+                    log::debug!("{LOG_PREFIX} pending-session revalidation stopped; token replaced during GET /auth/me");
+                    return;
+                }
+                match verdict {
                     Ok(me) => {
                         let user_id = user_id_from_profile_payload(&me)
                             .or_else(|| user_id_from_jwt_claims(&credential.secret));
@@ -320,6 +330,7 @@ impl<L: CoreLink> SessionManager<L> {
                             log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
                         }
                         manager.cache.seed(&client, &credential, me);
+                        drop(guard);
                         if let Ok(state) = manager.state().await {
                             manager.emit(SessionEvent::Changed(state));
                         }
@@ -362,6 +373,19 @@ impl<L: CoreLink> SessionManager<L> {
         // The credential is gone, so the signed-out state is known without
         // asking the core again (and `state()` would recurse into here).
         self.emit(SessionEvent::Changed(SessionState::default()));
+    }
+
+    /// Whether the core still holds `secret` as its session token.
+    ///
+    /// Refreshes read the token, then await the network, then persist what
+    /// they learned; a login or logout can land in between. Callers take
+    /// `mutation` and re-check with this before acting on a result, so a
+    /// verdict about a superseded token never touches the current one.
+    async fn core_still_holds(&self, secret: &str) -> bool {
+        matches!(
+            link::core_session_token(self.link.as_ref()).await,
+            Ok(Some(stored)) if stored == secret
+        )
     }
 
     /// Sign out: clear the session (or local) credential in the core and
@@ -440,17 +464,39 @@ impl<L: CoreLink> SessionManager<L> {
                 if cached.user.is_some() && user_is_pending(core.user.as_ref()) {
                     // The shell (or a previous process) accepted this token
                     // while the backend was down; the confirmation just came in.
-                    let user_id = cached.user.as_ref().and_then(user_id_from_profile_payload);
-                    if let Err(e) = self
-                        .push(&credential, user_id.as_deref(), cached.user.as_ref())
-                        .await
-                    {
-                        log::warn!("{LOG_PREFIX} failed to store confirmed pending session: {e}");
+                    let _guard = self.mutation.lock().await;
+                    if self.core_still_holds(&credential.secret).await {
+                        let user_id = cached.user.as_ref().and_then(user_id_from_profile_payload);
+                        if let Err(e) = self
+                            .push(&credential, user_id.as_deref(), cached.user.as_ref())
+                            .await
+                        {
+                            log::warn!(
+                                "{LOG_PREFIX} failed to store confirmed pending session: {e}"
+                            );
+                        }
+                    } else {
+                        log::debug!(
+                            "{LOG_PREFIX} pending session confirmed after the token was replaced or cleared; not stored"
+                        );
                     }
                 }
                 Ok(cached)
             }
             Err(FetchMeError::Rejected(reason)) => {
+                let _guard = self.mutation.lock().await;
+                if !self.core_still_holds(&credential.secret).await {
+                    // The rejection is for a token the core no longer holds
+                    // (a newer login or a logout raced this refresh); the
+                    // current credential is untouched and the caller polls
+                    // again.
+                    log::debug!(
+                        "{LOG_PREFIX} GET /auth/me rejected a superseded session token; ignoring: {reason}"
+                    );
+                    let mut fallback = stored();
+                    fallback.stale = true;
+                    return Ok(fallback);
+                }
                 log::warn!(
                     "{LOG_PREFIX} GET /auth/me rejected the stored session; signing out: {reason}"
                 );
