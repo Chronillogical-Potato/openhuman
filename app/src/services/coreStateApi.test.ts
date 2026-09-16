@@ -122,12 +122,20 @@ describe('coreStateApi.fetchCoreAppSnapshot', () => {
   it('retries the whole snapshot when the active credential changed underneath the current-user fetch', async () => {
     mockCallCoreRpc
       // 1) app_state_snapshot for user A.
-      .mockResolvedValueOnce({ result: makeSnapshotResult({ auth: { isAuthenticated: true, userId: 'user-a', user: null, profileId: 'p-a' } }) })
+      .mockResolvedValueOnce({
+        result: makeSnapshotResult({
+          auth: { isAuthenticated: true, userId: 'user-a', user: null, profileId: 'p-a' },
+        }),
+      })
       // 2) re-check: userId moved on to user B (or signed out and back in)
       //    while `fetchCurrentUser` was in flight.
       .mockResolvedValueOnce({ result: { isAuthenticated: true, userId: 'user-b' } })
       // 3) the retried app_state_snapshot, now consistently for user B.
-      .mockResolvedValueOnce({ result: makeSnapshotResult({ auth: { isAuthenticated: true, userId: 'user-b', user: null, profileId: 'p-b' } }) })
+      .mockResolvedValueOnce({
+        result: makeSnapshotResult({
+          auth: { isAuthenticated: true, userId: 'user-b', user: null, profileId: 'p-b' },
+        }),
+      })
       // 4) re-check for the retry: matches this time.
       .mockResolvedValueOnce({ result: { isAuthenticated: true, userId: 'user-b' } });
     mockFetchCurrentUser
