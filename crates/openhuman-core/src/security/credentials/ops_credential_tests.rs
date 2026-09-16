@@ -313,6 +313,72 @@ async fn set_and_clear_api_key_credential() {
     );
 }
 
+// #6318 — a user with both a session and an API key must keep the key
+// usable after the session-only sign-out deactivates the user-scoped
+// directory the key was stored beside.
+#[tokio::test]
+async fn clearing_the_session_preserves_a_coexisting_api_key() {
+    let _env_guard = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let config = test_config(&tmp);
+
+    // Install the session first: this activates the user-scoped directory.
+    let exp = chrono::Utc::now() + chrono::Duration::hours(1);
+    let token = jwt_with_payload(json!({ "sub": "user-42", "exp": exp.timestamp() }));
+    store_session(&config, &token, None, Some(json!({ "id": "user-42" })))
+        .await
+        .unwrap();
+
+    // Store the API key against the now-active user-scoped config, exactly
+    // as the dispatcher would for a follow-up `auth.set_credential` call.
+    let user_scoped = crate::config::load_config_with_timeout().await.unwrap();
+    set_credential(
+        &user_scoped,
+        SetCredentialRequest {
+            token: "sk-live".into(),
+            kind: Some("api-key".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        api_key::has_api_key(&user_scoped),
+        "api key must be stored beside the user-scoped config before sign-out"
+    );
+
+    // Sign the session out only — the API key must not be cleared.
+    let cleared = clear_credential(&user_scoped, Some(session_support::CredentialKind::Session))
+        .await
+        .unwrap()
+        .value;
+    assert_eq!(cleared["removedSession"], true);
+    assert_eq!(cleared["removedApiKey"], false);
+
+    // The process is now back on the pre-login/signed-out config. The key
+    // must be readable — and `auth.get_state` must report it — from there,
+    // not stranded under the deactivated user directory.
+    let signed_out = crate::config::load_config_with_timeout().await.unwrap();
+    assert_ne!(
+        signed_out.config_path, user_scoped.config_path,
+        "sign-out must have rebound to a different (pre-login) config"
+    );
+    assert!(
+        api_key::has_api_key(&signed_out),
+        "the API key must survive under the post sign-out config"
+    );
+    let state = auth_get_state(&signed_out).await.unwrap().value;
+    assert!(
+        state.is_authenticated,
+        "auth.get_state must see the preserved api key after session sign-out"
+    );
+    assert_eq!(state.credential.as_deref(), Some("api-key"));
+}
+
 #[tokio::test]
 async fn clear_credential_without_a_kind_removes_everything() {
     let _env_guard = crate::config::TEST_ENV_LOCK
