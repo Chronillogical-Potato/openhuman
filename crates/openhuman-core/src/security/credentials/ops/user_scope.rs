@@ -91,24 +91,30 @@ pub(super) fn deactivate_user_scope() -> Result<(), String> {
 /// activation so credentials, keys and workspaces land in the user-scoped
 /// location — or `fallback` when the reload fails.
 pub(super) async fn reload_config_or(_fallback: &Config) -> Result<Config, String> {
-    crate::config::load_config_with_timeout().await.map_err(|error| error.to_string())
+    crate::config::load_config_with_timeout()
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Point every process-global store at `config`'s workspace after a
 /// credential change: cron seeds, the core context (which carries the memory
 /// binding — see `CoreContext::memory_binding`, #5560), and conversation
 /// persistence. Returns log lines for the RPC outcome.
-pub(super) fn rebind_after_credential_change(config: &Config, _reason: &str) -> Result<Vec<String>, String> {
+pub(super) fn rebind_after_credential_change(
+    config: &Config,
+    _reason: &str,
+) -> Result<Vec<String>, String> {
     let mut logs = Vec::new();
     crate::cron::seed::prune_retired_jobs(config).map_err(|error| error.to_string())?;
     crate::core::runtime::context::CoreContext::rebind_default_workspace(
         &config.workspace_dir,
         config.subsystems.memory.clone(),
-    ).map_err(|error| error.to_string())?;
+    )
+    .map_err(|error| error.to_string())?;
     logs.push(format!(
-            "core context bound to workspace {}",
-            config.workspace_dir.display()
-        ));
+        "core context bound to workspace {}",
+        config.workspace_dir.display()
+    ));
     conversations::register_conversation_persistence_subscriber(config.workspace_dir.clone());
     logs.push("conversation persistence bound to active workspace".to_string());
     Ok(logs)
