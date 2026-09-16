@@ -291,9 +291,9 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
 /// only need "the secret string" use [`into_secret`](Self::into_secret).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackendCredential {
-    /// The app-session JWT stored by `auth_store_session`.
+    /// The app-session JWT stored by `auth_set_credential {kind: "session"}`.
     Session(String),
-    /// The TinyHumans API key stored by `auth_store_api_key`
+    /// The TinyHumans API key stored by `auth_set_credential {kind: "api-key"}`
     /// (see [`super::api_key`]).
     ApiKey(String),
 }
