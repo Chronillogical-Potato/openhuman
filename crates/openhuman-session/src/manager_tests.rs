@@ -126,6 +126,40 @@ async fn rejected_replacement_keeps_pending_session_revalidation_running() {
     m.cancel_revalidation();
 }
 
+// #6318 (review follow-up) — the successful-validation arm used to cancel
+// the prior pending credential's revalidation loop *before* the fallible
+// core handoff (`push`). If that handoff fails (or the core restarts
+// mid-call), the prior credential must not be left provisional with no
+// revalidation task running.
+#[tokio::test]
+async fn failed_core_handoff_keeps_the_prior_pending_session_revalidation_running() {
+    let _global = ENV_LOCK.lock().await;
+
+    // A is stored pending because the backend is unreachable; its own
+    // background revalidation loop starts.
+    let core = FakeCore::new("http://127.0.0.1:9");
+    let m = manager(&core);
+    m.store_session_token(&LIVE_JWT, None).await.unwrap();
+    assert!(m.revalidation.lock().unwrap().is_some());
+
+    // The backend becomes reachable and confirms the token via /auth/me
+    // (the successful-validation arm), but the core handoff itself fails.
+    let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
+    *core.api_url.lock().unwrap() = backend.url.clone();
+    *core.fail_method.lock().unwrap() = Some(link::AUTH_SET_CREDENTIAL.to_string());
+
+    assert!(matches!(
+        m.store_session_token(&LIVE_JWT, None).await,
+        Err(SessionError::Core(_))
+    ));
+
+    assert!(
+        m.revalidation.lock().unwrap().is_some(),
+        "a failed core handoff must not cancel the prior pending session's revalidation loop"
+    );
+    m.cancel_revalidation();
+}
+
 #[tokio::test]
 async fn caller_supplied_user_id_rescues_a_subjectless_jwt_offline() {
     let core = FakeCore::new("http://127.0.0.1:9");
