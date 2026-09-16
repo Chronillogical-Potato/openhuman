@@ -518,8 +518,7 @@ impl<L: CoreLink> SessionManager<L> {
                 log::debug!(
                     "{LOG_PREFIX} current-user refresh was superseded; retrying with the current core credential"
                 );
-                let current = self.core_state().await?;
-                self.current_user_for(&current, force).await
+                Box::pin(self.current_user(force)).await
             }
             Err(error) => {
                 log::debug!("{LOG_PREFIX} serving stored user; refresh failed: {error}");

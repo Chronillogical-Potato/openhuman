@@ -195,6 +195,7 @@ impl std::fmt::Display for FetchMeError {
             Self::Rejected(m) => write!(f, "backend rejected the credential: {m}"),
             Self::Transient(m) => write!(f, "backend temporarily unavailable: {m}"),
             Self::Transport(m) => write!(f, "backend unreachable: {m}"),
+            Self::Superseded => write!(f, "refresh superseded by a credential change"),
             Self::Suppressed {
                 message,
                 consecutive,
