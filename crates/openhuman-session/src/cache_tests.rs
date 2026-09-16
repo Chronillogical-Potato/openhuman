@@ -96,7 +96,11 @@ async fn concurrent_cache_misses_share_one_refresh() {
     );
 
     assert_eq!(first.unwrap().user, second.unwrap().user);
-    assert_eq!(backend.me_calls(), 1, "cache misses must share one /auth/me request");
+    assert_eq!(
+        backend.me_calls(),
+        1,
+        "cache misses must share one /auth/me request"
+    );
 }
 
 #[tokio::test]
