@@ -2,8 +2,8 @@ use super::*;
 use crate::client::ClientHeaders;
 use crate::test_support::ENV_LOCK;
 use crate::test_support::{
-    me_user, Backend, FakeCore, MeAnswer, EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB, LOCAL_TOKEN,
-    OPAQUE_TOKEN,
+    me_user, Backend, FakeCore, MeAnswer, StoredCredential, EXPIRED_JWT, LIVE_JWT,
+    LIVE_JWT_NO_SUB, LOCAL_TOKEN, OPAQUE_TOKEN,
 };
 use std::sync::Arc;
 
@@ -216,6 +216,28 @@ async fn current_user_rejection_signs_out_and_emits_expired() {
         .any(|e| matches!(e, SessionEvent::Changed(s) if !s.core.is_authenticated)));
     let state = m.state().await.unwrap();
     assert!(!state.core.is_authenticated);
+}
+
+#[tokio::test]
+async fn clearing_a_rejected_session_reports_a_surviving_api_key() {
+    let backend = Backend::start(vec![]).await;
+    let core = FakeCore::new(&backend.url);
+    *core.session.lock().unwrap() = Some(StoredCredential {
+        kind: "session".to_string(),
+        token: LIVE_JWT.clone(),
+        user_id: Some("user-123".to_string()),
+        user: Some(me_user()),
+    });
+    *core.api_key.lock().unwrap() = Some("sk-fallback".to_string());
+    let m = manager(&core);
+    let mut rx = m.subscribe();
+
+    assert!(m.clear_session_credential("test").await);
+    let events = drain(&mut rx).await;
+    assert!(events.iter().any(|event| matches!(
+        event,
+        SessionEvent::Changed(state) if state.core.credential.as_deref() == Some("api-key")
+    )));
 }
 
 #[tokio::test]
