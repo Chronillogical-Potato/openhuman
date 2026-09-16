@@ -54,6 +54,19 @@ pub async fn dispatch(
             resolved
         );
     }
+    let params = if method == "openhuman.auth_clear_session" {
+        // The legacy method was session-only. Keep that contract even though
+        // its canonical successor accepts an omitted kind to clear all kinds.
+        let mut params = params;
+        if let Value::Object(ref mut object) = params {
+            object
+                .entry("kind".to_string())
+                .or_insert_with(|| json!("session"));
+        }
+        params
+    } else {
+        params
+    };
     let method = resolved;
 
     // Tier 1: Internal core methods.

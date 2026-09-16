@@ -8,23 +8,6 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
 
 #[derive(Debug, Deserialize)]
-struct AuthStoreSessionParams {
-    token: String,
-    #[serde(default, alias = "userId")]
-    user_id: Option<String>,
-    #[serde(default)]
-    user: Option<serde_json::Value>,
-    #[serde(default, alias = "allowPendingBackendValidation")]
-    allow_pending_backend_validation: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AuthConsumeLoginTokenParams {
-    login_token: String,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AuthCreateChannelLinkTokenParams {
     channel: String,
@@ -84,9 +67,11 @@ struct AuthOauthFetchClientKeyParams {
     integration_id: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct AuthStoreApiKeyParams {
-    key: String,
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct AuthClearCredentialParams {
+    #[serde(default)]
+    kind: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,14 +82,10 @@ struct AuthOauthRevokeParams {
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
-        schemas("auth_store_session"),
-        schemas("auth_clear_session"),
+        schemas("auth_set_credential"),
+        schemas("auth_clear_credential"),
         schemas("auth_get_state"),
-        schemas("auth_store_api_key"),
-        schemas("auth_clear_api_key"),
         schemas("auth_get_session_token"),
-        schemas("auth_get_me"),
-        schemas("auth_consume_login_token"),
         schemas("auth_create_channel_link_token"),
         schemas("auth_store_provider_credentials"),
         schemas("auth_remove_provider_credentials"),
@@ -120,36 +101,20 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     vec![
         RegisteredController {
-            schema: schemas("auth_store_session"),
-            handler: handle_auth_store_session,
+            schema: schemas("auth_set_credential"),
+            handler: handle_auth_set_credential,
         },
         RegisteredController {
-            schema: schemas("auth_clear_session"),
-            handler: handle_auth_clear_session,
+            schema: schemas("auth_clear_credential"),
+            handler: handle_auth_clear_credential,
         },
         RegisteredController {
             schema: schemas("auth_get_state"),
             handler: handle_auth_get_state,
         },
         RegisteredController {
-            schema: schemas("auth_store_api_key"),
-            handler: handle_auth_store_api_key,
-        },
-        RegisteredController {
-            schema: schemas("auth_clear_api_key"),
-            handler: handle_auth_clear_api_key,
-        },
-        RegisteredController {
             schema: schemas("auth_get_session_token"),
             handler: handle_auth_get_session_token,
-        },
-        RegisteredController {
-            schema: schemas("auth_get_me"),
-            handler: handle_auth_get_me,
-        },
-        RegisteredController {
-            schema: schemas("auth_consume_login_token"),
-            handler: handle_auth_consume_login_token,
         },
         RegisteredController {
             schema: schemas("auth_create_channel_link_token"),
@@ -192,27 +157,47 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 
 pub fn schemas(function: &str) -> ControllerSchema {
     match function {
-        "auth_store_session" => ControllerSchema {
+        "auth_set_credential" => ControllerSchema {
             namespace: "auth",
-            function: "store_session",
-            description: "Store and validate app session JWT.",
+            function: "set_credential",
+            description: "Install the backend credential the core authenticates with: a \
+                          session JWT, a TinyHumans API key, or the offline local token. The \
+                          core never validates it against the backend; the host that obtained \
+                          it supplies the user id and payload it already knows.",
             inputs: vec![
-                required_string("token", "Session JWT token."),
-                optional_json("user_id", "Optional user id hint."),
-                optional_json("user", "Optional user payload."),
-                optional_bool(
-                    "allowPendingBackendValidation",
-                    "Allow trusted callback flows to defer backend validation after transient auth/me failure.",
+                required_string("token", "Session JWT, API key, or local session token."),
+                optional_string(
+                    "kind",
+                    "\"session\", \"api-key\" or \"local\". Defaults to classifying the token \
+                     by shape; an API key must be named explicitly.",
+                ),
+                optional_string(
+                    "userId",
+                    "Backend user id. Optional when `user` carries one or the JWT has a \
+                     subject claim.",
+                ),
+                // Accepted spelling for callers that still send the historical
+                // `auth_store_session` shape through the legacy alias.
+                optional_string("user_id", "Alias of `userId`."),
+                optional_json(
+                    "user",
+                    "User payload (the host's /auth/me answer, or the local user).",
                 ),
             ],
-            outputs: vec![json_output("profile", "Stored auth profile summary.")],
+            outputs: vec![json_output(
+                "state",
+                "Auth state after installing the credential.",
+            )],
         },
-        "auth_clear_session" => ControllerSchema {
+        "auth_clear_credential" => ControllerSchema {
             namespace: "auth",
-            function: "clear_session",
-            description: "Remove stored app session credentials.",
-            inputs: vec![],
-            outputs: vec![json_output("result", "Session clear result payload.")],
+            function: "clear_credential",
+            description: "Remove the stored backend credential of one kind, or every kind.",
+            inputs: vec![optional_string(
+                "kind",
+                "\"session\", \"api-key\" or \"local\"; omit to clear every credential.",
+            )],
+            outputs: vec![json_output("result", "Which credentials were removed.")],
         },
         "auth_get_state" => ControllerSchema {
             namespace: "auth",
@@ -221,41 +206,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output("state", "Current auth state response.")],
         },
-        "auth_store_api_key" => ControllerSchema {
-            namespace: "auth",
-            function: "store_api_key",
-            description: "Store a TinyHumans API key as the backend credential (no user \
-                          session; managed inference sends it as a bearer, REST as x-api-key).",
-            inputs: vec![required_string("key", "TinyHumans API key.")],
-            outputs: vec![json_output("state", "Auth state after storing the key.")],
-        },
-        "auth_clear_api_key" => ControllerSchema {
-            namespace: "auth",
-            function: "clear_api_key",
-            description: "Remove the stored TinyHumans API key.",
-            inputs: vec![],
-            outputs: vec![json_output("result", "Whether a key was removed.")],
-        },
         "auth_get_session_token" => ControllerSchema {
             namespace: "auth",
             function: "get_session_token",
             description: "Read stored app session token.",
             inputs: vec![],
             outputs: vec![json_output("token", "Session token payload.")],
-        },
-        "auth_get_me" => ControllerSchema {
-            namespace: "auth",
-            function: "get_me",
-            description: "Fetch the current authenticated backend user profile.",
-            inputs: vec![],
-            outputs: vec![json_output("user", "Current authenticated user payload.")],
-        },
-        "auth_consume_login_token" => ControllerSchema {
-            namespace: "auth",
-            function: "consume_login_token",
-            description: "Consume login handoff token and return session JWT.",
-            inputs: vec![required_string("loginToken", "One-time login token.")],
-            outputs: vec![json_output("result", "Consumed login token result.")],
         },
         "auth_create_channel_link_token" => ControllerSchema {
             namespace: "auth",
@@ -355,36 +311,32 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn handle_auth_store_session(params: Map<String, Value>) -> ControllerFuture {
+fn handle_auth_set_credential(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let payload = deserialize_params::<AuthStoreSessionParams>(params)?;
-        let allow_pending_backend_validation =
-            payload.allow_pending_backend_validation.unwrap_or(false);
-        to_json(if allow_pending_backend_validation {
-            crate::security::credentials::rpc::store_session_with_deferred_validation(
-                &config,
-                &payload.token,
-                payload.user_id,
-                payload.user,
-            )
-            .await?
-        } else {
-            crate::security::credentials::rpc::store_session(
-                &config,
-                &payload.token,
-                payload.user_id,
-                payload.user,
-            )
-            .await?
-        })
+        let payload =
+            deserialize_params::<crate::security::credentials::SetCredentialRequest>(params)?;
+        to_json(crate::security::credentials::rpc::set_credential(&config, payload).await?)
     })
 }
 
-fn handle_auth_clear_session(_params: Map<String, Value>) -> ControllerFuture {
+fn handle_auth_clear_credential(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::security::credentials::rpc::clear_session(&config).await?)
+        let payload = deserialize_params::<AuthClearCredentialParams>(params)?;
+        let kind = match payload
+            .kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+        {
+            Some(raw) => Some(
+                crate::security::credentials::session_support::CredentialKind::parse(raw)
+                    .ok_or_else(|| format!("unknown credential kind {raw:?}"))?,
+            ),
+            None => None,
+        };
+        to_json(crate::security::credentials::rpc::clear_credential(&config, kind).await?)
     })
 }
 
@@ -395,46 +347,10 @@ fn handle_auth_get_state(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn handle_auth_store_api_key(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let payload = deserialize_params::<AuthStoreApiKeyParams>(params)?;
-        to_json(crate::security::credentials::rpc::auth_store_api_key(&config, &payload.key).await?)
-    })
-}
-
-fn handle_auth_clear_api_key(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::security::credentials::rpc::auth_clear_api_key(&config).await?)
-    })
-}
-
 fn handle_auth_get_session_token(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(crate::security::credentials::rpc::auth_get_session_token_json(&config).await?)
-    })
-}
-
-fn handle_auth_get_me(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::security::credentials::rpc::auth_get_me(&config).await?)
-    })
-}
-
-fn handle_auth_consume_login_token(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let payload = deserialize_params::<AuthConsumeLoginTokenParams>(params)?;
-        to_json(
-            crate::security::credentials::rpc::consume_login_token(
-                &config,
-                payload.login_token.trim(),
-            )
-            .await?,
-        )
     })
 }
 

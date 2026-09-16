@@ -175,21 +175,6 @@ fn main() {
             // filter catches any future call site that re-emits the same
             // shape — keeping OPENHUMAN-TAURI-25 / -1Q / -27 / -1G off
             // Sentry permanently (~185 events/day combined).
-            // Defense-in-depth: drop opaque "GET /auth/me" events from the
-            // `openhuman.auth_get_me` RPC. The primary fix in
-            // `credentials::ops::auth_get_me` walks the full anyhow context
-            // chain so `is_transient_message_failure` can demote transient
-            // transport failures at the rpc dispatcher. This catches any
-            // future regression where a sibling call site collapses the
-            // chain via `e.to_string()` and reproduces TAURI-RUST-10
-            // (~409 events / 17 users).
-            if openhuman_core::core::observability::is_auth_get_me_opaque_transport_event(&event) {
-                log::debug!(
-                    "[sentry-auth-get-me-opaque-filter] dropping opaque transport event_id={:?}",
-                    event.event_id
-                );
-                return None;
-            }
             // Defense-in-depth: drop user-config provider errors that
             // slipped past the call-site classifiers — 4xx client errors,
             // subscription/payment issues, embedding API authorization
@@ -249,21 +234,22 @@ fn main() {
             //
             // Issue #3135: the primary source for `event.user` is now the
             // Sentry scope, bound proactively at session boundaries
-            // (credentials::store_session / clear_session) and at server boot
-            // (run_server_inner). The `app_state_snapshot` cache is kept as a
-            // fallback so any pre-boot / pre-login event that still rides
+            // (credentials::set_credential / clear_credential) and at server
+            // boot (run_server_inner). The credential identity slot is kept as
+            // a fallback so any pre-boot / pre-login event that still rides
             // the legacy path retains its previous attribution behaviour —
             // but we only consult it when the scope hasn't already bound a
             // user, otherwise we'd silently clobber the scope binding when
-            // the cache is empty (root cause of the original userCount=0).
+            // the slot is empty (root cause of the original userCount=0).
             if event.user.is_none() {
                 event.user =
-                    openhuman_core::desktop::app_state::peek_cached_current_user_identity()
-                        .and_then(|identity| identity.id)
-                        .map(|id| sentry::User {
-                            id: Some(id),
-                            ..Default::default()
-                        });
+                    openhuman_core::security::credentials::identity::peek_credential_user_identity(
+                    )
+                    .and_then(|identity| identity.id)
+                    .map(|id| sentry::User {
+                        id: Some(id),
+                        ..Default::default()
+                    });
             }
             // Scrub secrets from exception values and top-level message.
             for exc in &mut event.exception.values {

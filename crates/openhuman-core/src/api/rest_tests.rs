@@ -168,14 +168,14 @@ impl CapturedHeaders {
 }
 
 async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
-    async fn capture_consume(
+    async fn capture_me(
         State(captured): State<CapturedHeaders>,
         headers: HeaderMap,
     ) -> Json<Value> {
         captured.push(&headers);
         Json(json!({
             "success": true,
-            "data": { "jwt": "mock-jwt-token" }
+            "data": { "_id": "user-123" }
         }))
     }
 
@@ -189,7 +189,7 @@ async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
 
     let captured = CapturedHeaders::default();
     let app = Router::new()
-        .route("/auth/login-token/consume", post(capture_consume))
+        .route("/auth/me", get(capture_me))
         .route("/probe", get(capture_probe))
         .with_state(captured.clone());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -206,8 +206,8 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
 
-    let jwt = client.consume_login_token("test-token").await.unwrap();
-    assert_eq!(jwt, "mock-jwt-token");
+    let profile = client.fetch_profile("test-jwt").await.unwrap();
+    assert_eq!(profile["_id"], "user-123");
 
     let headers = captured.take();
     let request_headers = headers.last().unwrap();

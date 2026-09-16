@@ -21,6 +21,20 @@
 /// Order doesn't matter for correctness, but is kept alphabetical by legacy
 /// key for easier diffing against the frontend table.
 const LEGACY_ALIASES: &[(&str, &str)] = &[
+    // The session RPCs became the kind-agnostic credential pair once the
+    // core stopped validating sessions itself (`auth.set_credential` /
+    // `auth.clear_credential`). A pre-migration bundle's `store_session`
+    // params (`token`, `userId`, `user`) are a subset of `set_credential`'s;
+    // its `clear_session` maps to a clear of every kind, which on a desktop
+    // (never an API-key holder) is the same thing.
+    (
+        "openhuman.auth_clear_session",
+        "openhuman.auth_clear_credential",
+    ),
+    (
+        "openhuman.auth_store_session",
+        "openhuman.auth_set_credential",
+    ),
     // #3565: old desktop clients called the channels controller with a dotted
     // namespace/function spelling before the canonical
     // `openhuman.<namespace>_<function>` form was established.
