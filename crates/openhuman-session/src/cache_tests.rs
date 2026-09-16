@@ -103,6 +103,42 @@ async fn concurrent_cache_misses_share_one_refresh() {
     );
 }
 
+// #6318 — a caller that queues behind a cold-cache refresh must observe the
+// backoff window that refresh's *failure* just opened, not repeat the same
+// doomed request. Before the fix, a waiter rechecked only the positive cache
+// after acquiring `inflight`, so a failed first refresh sent every waiter to
+// the network again.
+#[tokio::test]
+async fn a_failed_first_refresh_suppresses_the_waiter_queued_behind_it() {
+    let backend = Backend::start(vec![MeAnswer::SlowStatus(50, 503), MeAnswer::Status(503)]).await;
+    let cache = CurrentUserCache::new();
+    let cred = Credential::session(LIVE_JWT.as_str());
+    let c = client(&backend);
+
+    let (first, second) = tokio::join!(
+        cache.get_or_refresh(&c, &cred, false),
+        cache.get_or_refresh(&c, &cred, false),
+    );
+
+    // Whichever caller lost the race to own the refresh must see the outage
+    // too (never a silent success), but must not have paid for its own
+    // request — the point of coalescing behind `inflight` at all.
+    for outcome in [first, second] {
+        assert!(
+            matches!(
+                outcome,
+                Err(FetchMeError::Transient(_)) | Err(FetchMeError::Suppressed { .. })
+            ),
+            "expected an outage error, got {outcome:?}"
+        );
+    }
+    assert_eq!(
+        backend.me_calls(),
+        1,
+        "the caller queued behind the failed refresh must not issue a second request"
+    );
+}
+
 #[tokio::test]
 async fn availability_failure_opens_a_backoff_window() {
     let backend = Backend::start(vec![MeAnswer::Status(503)]).await;
