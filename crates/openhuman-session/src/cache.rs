@@ -205,9 +205,6 @@ impl CurrentUserCache {
     }
 
     fn record_failure(&self, generation: u64, key: &Key, error: FetchMeError) {
-        if !error.is_availability_failure() {
-            return;
-        }
         let mut state = self.lock();
         if state.generation != generation {
             log::debug!("{LOG_PREFIX} discarding failure that raced sign-out");
@@ -252,6 +249,18 @@ impl CurrentUserCache {
         let generation = self.lock().generation;
 
         if !force {
+            // A background rejection is authoritative. Surface it before a
+            // stale positive entry so the owning manager can clear the token.
+            if let Some((error, consecutive, retry_in)) = self.suppressed(&key) {
+                if matches!(error, FetchMeError::Rejected(_)) {
+                    return Err(error);
+                }
+                return Err(FetchMeError::Suppressed {
+                    message: error.message().to_string(),
+                    consecutive,
+                    retry_in,
+                });
+            }
             if let Some((user, age)) = self.cached(&key) {
                 if age < REFRESH_TTL {
                     return Ok(self.with_result(&key, Some(user)));
@@ -262,13 +271,6 @@ impl CurrentUserCache {
                     age.as_millis()
                 );
                 return Ok(self.with_result(&key, Some(user)));
-            }
-            if let Some((error, consecutive, retry_in)) = self.suppressed(&key) {
-                return Err(FetchMeError::Suppressed {
-                    message: error.message().to_string(),
-                    consecutive,
-                    retry_in,
-                });
             }
         }
 
