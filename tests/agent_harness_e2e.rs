@@ -176,6 +176,16 @@ fn captured_requests_mention_unknown_tool(requests: &[Value]) -> bool {
         .contains("unknown tool")
 }
 
+/// Same check, narrowed to one tool name — for tests whose script *relies* on
+/// some other call being rejected (e.g. a child calling a tool outside its
+/// named list) and only need to prove that a specific delegate resolved.
+fn captured_requests_reject_tool_as_unknown(requests: &[Value], tool: &str) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains(&format!("unknown tool `{tool}`"))
+}
+
 // ─── Fan-out overlap barrier ────────────────────────────────────────────────
 //
 // Only `parallel_subagent_fanout` arms this; every other test leaves it empty
@@ -2293,8 +2303,11 @@ async fn multi_hop_delegation_chain_inner() {
     );
 
     // No unknown-tool result for `research` — delegation was synthesised correctly.
+    // Scoped to `research`: the researcher's `ask_user_clarification` call IS
+    // rejected as unknown by design (see the ordering note above), so a blanket
+    // check would fail on the very mechanic this test exercises.
     assert!(
-        !captured_requests_mention_unknown_tool(&requests),
+        !captured_requests_reject_tool_as_unknown(&requests, "research"),
         "found an unknown-tool result — `research` delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
