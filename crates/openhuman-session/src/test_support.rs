@@ -213,6 +213,12 @@ pub struct FakeCore {
     pub calls: Mutex<Vec<(String, Value)>>,
     /// When set, every invoke fails with this message.
     pub fail_with: Mutex<Option<String>>,
+    /// When set, only an invoke of this method name fails (with
+    /// `fail_with`'s message, or a default when that is unset) — every other
+    /// method still behaves normally. Lets a test fail just the core handoff
+    /// (`AUTH_SET_CREDENTIAL`) without also breaking the API-URL resolution
+    /// `client()` performs on every call.
+    pub fail_method: Mutex<Option<String>>,
 }
 
 impl FakeCore {
