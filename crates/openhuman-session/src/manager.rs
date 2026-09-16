@@ -545,7 +545,9 @@ impl<L: CoreLink> SessionManager<L> {
             // is superseded. Do not combine that retried user with the core
             // snapshot from before the credential change.
             if self.core_state().await? != core {
-                log::debug!("{LOG_PREFIX} session state changed while reading current user; retrying");
+                log::debug!(
+                    "{LOG_PREFIX} session state changed while reading current user; retrying"
+                );
                 continue;
             }
             return Ok(SessionState {

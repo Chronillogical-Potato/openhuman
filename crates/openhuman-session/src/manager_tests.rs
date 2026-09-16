@@ -312,9 +312,12 @@ async fn state_retries_its_core_snapshot_after_a_superseded_refresh() {
         tokio::spawn(async move { m.state().await })
     };
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    m.store_session_token(&LIVE_JWT_NO_SUB, Some(serde_json::json!({ "id": "user-456" })))
-        .await
-        .unwrap();
+    m.store_session_token(
+        &LIVE_JWT_NO_SUB,
+        Some(serde_json::json!({ "id": "user-456" })),
+    )
+    .await
+    .unwrap();
 
     let state = reading.await.unwrap().unwrap();
     assert_eq!(state.core.user_id.as_deref(), Some("user-456"));
