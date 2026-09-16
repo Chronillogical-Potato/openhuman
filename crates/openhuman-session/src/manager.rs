@@ -244,9 +244,16 @@ impl<L: CoreLink> SessionManager<L> {
                     "{LOG_PREFIX} session JWT verified via GET /auth/me on {}",
                     client.base_url()
                 );
-                self.cancel_revalidation();
+                // Hand the new credential to the core before cancelling the
+                // old one's revalidation loop: if `push` fails (or the core
+                // restarts mid-call), the prior pending credential must keep
+                // its background revalidation running rather than being left
+                // provisional with nothing to confirm it, possibly
+                // indefinitely for an idle TUI or host (#6318 review
+                // follow-up).
                 self.push(&credential, user_id.as_deref(), Some(&me))
                     .await?;
+                self.cancel_revalidation();
                 self.cache.seed(&client, &credential, me);
                 drop(guard);
                 self.changed().await
