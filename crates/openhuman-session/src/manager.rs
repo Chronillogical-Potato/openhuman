@@ -385,8 +385,13 @@ impl<L: CoreLink> SessionManager<L> {
         });
         // Re-read the core after clearing the session. An API key profile may
         // still be active and must not be reported as a signed-out state.
-        match self.state().await {
-            Ok(state) => self.emit(SessionEvent::Changed(state)),
+        match self.core_state().await {
+            Ok(core) => self.emit(SessionEvent::Changed(SessionState {
+                current_user: core.user.clone(),
+                current_user_stale: false,
+                current_user_stale_seconds: None,
+                core,
+            })),
             Err(error) => log::warn!(
                 "{LOG_PREFIX} cleared rejected session but could not read the post-clear state: {error}"
             ),
