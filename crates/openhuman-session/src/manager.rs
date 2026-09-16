@@ -337,18 +337,34 @@ impl<L: CoreLink> SessionManager<L> {
                         let user_id = user_id_from_profile_payload(&me)
                             .or_else(|| user_id_from_jwt_claims(&credential.secret));
                         log::info!("{LOG_PREFIX} pending session confirmed via GET /auth/me");
-                        if let Err(e) = manager
+                        // The backend confirmed the token, but the core
+                        // handoff is itself fallible (RPC failure, a core
+                        // restart mid-call). Only a successful `push` retires
+                        // this loop — on failure, keep retrying with backoff
+                        // instead of leaving `pendingBackendValidation` stuck
+                        // forever despite a confirmed backend answer (#6318
+                        // review follow-up).
+                        match manager
                             .push(&credential, user_id.as_deref(), Some(&me))
                             .await
                         {
-                            log::warn!("{LOG_PREFIX} failed to store revalidated session: {e}");
+                            Ok(_) => {
+                                manager.cache.seed(&client, &credential, me);
+                                drop(guard);
+                                if let Ok(state) = manager.state().await {
+                                    manager.emit(SessionEvent::Changed(state));
+                                }
+                                return;
+                            }
+                            Err(e) => {
+                                drop(guard);
+                                log::warn!(
+                                    "{LOG_PREFIX} failed to store revalidated session ({e}); retrying in {}s",
+                                    delay.as_secs()
+                                );
+                                delay = (delay * 2).min(REVALIDATION_MAX_DELAY);
+                            }
                         }
-                        manager.cache.seed(&client, &credential, me);
-                        drop(guard);
-                        if let Ok(state) = manager.state().await {
-                            manager.emit(SessionEvent::Changed(state));
-                        }
-                        return;
                     }
                     Err(FetchMeError::Rejected(reason)) => {
                         log::warn!(
