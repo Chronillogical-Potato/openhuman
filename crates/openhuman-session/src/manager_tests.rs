@@ -2,8 +2,8 @@ use super::*;
 use crate::client::ClientHeaders;
 use crate::test_support::ENV_LOCK;
 use crate::test_support::{
-    me_user, Backend, FakeCore, MeAnswer, StoredCredential, EXPIRED_JWT, LIVE_JWT,
-    LIVE_JWT_NO_SUB, LOCAL_TOKEN, OPAQUE_TOKEN,
+    me_user, Backend, FakeCore, MeAnswer, StoredCredential, EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB,
+    LOCAL_TOKEN, OPAQUE_TOKEN,
 };
 use std::sync::Arc;
 
