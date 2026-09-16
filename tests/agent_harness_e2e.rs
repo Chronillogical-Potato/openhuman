@@ -1062,6 +1062,22 @@ async fn scheduling_clarification_flow_inner() {
     )
     .await;
     let first = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    // DIAG-TEMP
+    {
+        let reqs = with_captured(|c| c.clone());
+        for (i, r) in reqs.iter().enumerate() {
+            let msgs = r.pointer("/body/messages").and_then(Value::as_array).cloned().unwrap_or_default();
+            let tools: Vec<String> = r.pointer("/body/tools").and_then(Value::as_array).into_iter().flatten().filter_map(|t| t.pointer("/function/name").and_then(Value::as_str).map(str::to_string)).collect();
+            eprintln!("DIAG req[{i}] model={:?} ntools={} has_schedule_task={} has_use_skill={}", r.get("model"), tools.len(), tools.iter().any(|t| t=="schedule_task"), tools.iter().any(|t| t=="use_skill"));
+            for m in msgs.iter() {
+                let role = m.get("role").and_then(Value::as_str).unwrap_or("?");
+                let content = m.get("content").and_then(Value::as_str).unwrap_or("");
+                let tc = m.get("tool_calls").map(|v| v.to_string()).unwrap_or_default();
+                let sys_snip: String = content.chars().take(if role=="system" {80} else {400}).collect();
+                eprintln!("DIAG   {role}: {sys_snip:?} tool_calls={tc}");
+            }
+        }
+    }
     assert_eq!(
         first.get("event").and_then(Value::as_str),
         Some("chat_done"),
