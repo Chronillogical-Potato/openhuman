@@ -176,11 +176,11 @@ impl FetchMeError {
     }
 }
 
-fn error_body_shape(body: &str) -> &'static str {
-    if body.trim().is_empty() {
-        "empty response body"
-    } else {
-        "non-empty response body"
+fn error_body_shape(body: &Value) -> &'static str {
+    match body {
+        Value::Null => "empty response body",
+        Value::String(value) if value.trim().is_empty() => "empty response body",
+        _ => "non-empty response body",
     }
 }
 
