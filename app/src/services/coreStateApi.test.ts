@@ -140,7 +140,7 @@ describe('coreStateApi.fetchCoreAppSnapshot', () => {
     // The final result is entirely user B's — never A's auth paired with B's
     // live user (or vice versa).
     expect(out.auth.userId).toBe('user-b');
-    expect((out.currentUser as { _id: string }))._id === 'user-b';
+    expect((out.currentUser as { _id: string })._id).toBe('user-b');
     expect(mockCallCoreRpc).toHaveBeenCalledTimes(4);
   });
 
