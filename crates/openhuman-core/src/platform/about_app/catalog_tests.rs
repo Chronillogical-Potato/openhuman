@@ -123,6 +123,26 @@ fn persona_pack_reports_github_mascot_manifest_destination() {
 }
 
 #[test]
+fn workflow_install_discloses_the_skill_download_hosts() {
+    let cap = lookup("workflows.install").expect("workflow install capability exists");
+    let privacy = cap.privacy.expect("workflow install is privacy-annotated");
+
+    assert!(
+        privacy.leaves_device,
+        "installing fetches SKILL.md from a remote host"
+    );
+    assert_eq!(privacy.data_kind, PrivacyDataKind::Metadata);
+    let haystack = privacy.destinations.join(" | ").to_lowercase();
+    assert!(
+        haystack.contains("clawhub.ai")
+            && haystack.contains("raw.githubusercontent.com")
+            && haystack.contains("api.github.com"),
+        "destinations must name the registry download hosts, got: {:?}",
+        privacy.destinations
+    );
+}
+
+#[test]
 fn unannotated_capability_serializes_without_privacy_field() {
     let cap = lookup("conversation.create").expect("capability exists");
     assert!(cap.privacy.is_none());

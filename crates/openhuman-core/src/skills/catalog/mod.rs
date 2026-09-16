@@ -14,6 +14,8 @@
 #[cfg(feature = "skills")]
 pub mod agent;
 #[cfg(feature = "skills")]
+mod download;
+#[cfg(feature = "skills")]
 pub mod ops;
 #[cfg(feature = "skills")]
 pub mod schemas;

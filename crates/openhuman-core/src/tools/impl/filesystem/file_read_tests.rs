@@ -294,3 +294,89 @@ async fn file_read_reports_invalid_utf8_as_an_error_not_a_panic() {
 
     let _ = tokio::fs::remove_dir_all(&dir).await;
 }
+
+#[tokio::test]
+async fn file_read_offset_continues_from_the_given_byte() {
+    let dir = tempfile::tempdir().unwrap();
+    tokio::fs::write(dir.path().join("paged.txt"), "hello world")
+        .await
+        .unwrap();
+    let tool = FileReadTool::new(test_security(dir.path().to_path_buf()));
+
+    let page = tool
+        .execute(json!({"path": "paged.txt", "offset": 6}))
+        .await
+        .unwrap();
+    assert!(!page.is_error, "{}", page.output());
+    assert_eq!(
+        page.output(),
+        "world",
+        "a read with an offset must start at that byte"
+    );
+
+    let past_end = tool
+        .execute(json!({"path": "paged.txt", "offset": 99}))
+        .await
+        .unwrap();
+    assert!(
+        past_end.is_error,
+        "an offset past the end must be reported, not returned as an empty read"
+    );
+}
+
+#[tokio::test]
+async fn file_read_rejects_an_offset_inside_a_multibyte_character() {
+    let dir = tempfile::tempdir().unwrap();
+    // "é" is two bytes, so byte 1 is inside it.
+    tokio::fs::write(dir.path().join("utf8.txt"), "é world")
+        .await
+        .unwrap();
+    let tool = FileReadTool::new(test_security(dir.path().to_path_buf()));
+
+    let inside = tool
+        .execute(json!({"path": "utf8.txt", "offset": 1}))
+        .await
+        .unwrap();
+    assert!(
+        inside.is_error,
+        "an offset inside a character must be rejected, not moved, or paging skips bytes: {}",
+        inside.output()
+    );
+
+    let boundary = tool
+        .execute(json!({"path": "utf8.txt", "offset": 2}))
+        .await
+        .unwrap();
+    assert_eq!(boundary.output(), " world");
+}
+
+#[tokio::test]
+async fn file_read_rejects_an_offset_that_is_not_a_non_negative_integer() {
+    let dir = tempfile::tempdir().unwrap();
+    tokio::fs::write(dir.path().join("offsets.txt"), "hello world")
+        .await
+        .unwrap();
+    let tool = FileReadTool::new(test_security(dir.path().to_path_buf()));
+
+    for bad in [json!(-5), json!("6"), json!(1.5)] {
+        let result = tool
+            .execute(json!({"path": "offsets.txt", "offset": bad.clone()}))
+            .await
+            .unwrap();
+        assert!(
+            result.is_error,
+            "offset {bad} must be rejected, not treated as 0: got {:?}",
+            result.output()
+        );
+    }
+
+    let null_offset = tool
+        .execute(json!({"path": "offsets.txt", "offset": null}))
+        .await
+        .unwrap();
+    assert_eq!(
+        null_offset.output(),
+        "hello world",
+        "a null offset reads from the start"
+    );
+}

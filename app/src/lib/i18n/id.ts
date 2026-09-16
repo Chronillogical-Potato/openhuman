@@ -786,6 +786,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Terpasang',
   'skills.explorer.install': 'Pasang',
   'skills.explorer.installing': 'Memasang…',
+  'skills.explorer.notInstallable': 'Tidak dapat dipasang',
+  'skills.explorer.notInstallableHint':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh, jadi tidak dapat dipasang dari sini.',
   'skills.integrations': 'Integrasi Composio',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud: masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',

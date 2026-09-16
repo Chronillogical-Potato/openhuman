@@ -314,6 +314,7 @@ impl TurnContextMiddleware {
                 tokenjuice_compression: self.tokenjuice_compression,
                 runtime_config: self.runtime_config,
                 tool_policies,
+                artifact_reads: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the
@@ -322,11 +323,7 @@ impl TurnContextMiddleware {
         // budget can shrink it below the 50k-token handoff threshold and defeat the
         // drill-in.
         if let Some(handoff) = self.handoff {
-            harness.push_middleware(Arc::new(HandoffMiddleware {
-                cache: handoff.cache,
-                agent_id: handoff.agent_id,
-                task_id: handoff.task_id,
-            }));
+            harness.push_middleware(Arc::new(HandoffMiddleware::new(handoff)));
         }
     }
 }
@@ -338,10 +335,29 @@ impl TurnContextMiddleware {
 /// `SubagentToolSource` ran on every tool result (via `apply_handoff`), which the
 /// agent_graph rewrite dropped. Errors and `extract_from_result`'s own output
 /// pass through unchanged (handled inside `apply_handoff`).
+///
+/// A read of a persisted tool-result artifact also passes through: this hook
+/// runs before `ToolOutputMiddleware`'s, so stashing the read here would hand
+/// the artifact pager a short `extract_from_result` pointer instead of the
+/// bytes the model asked for (#6284).
 pub(crate) struct HandoffMiddleware {
     cache: Arc<crate::agent::harness::subagent_runner::ResultHandoffCache>,
     agent_id: String,
     task_id: String,
+    /// Call ids of artifact reads, recorded in `before_tool` (where the
+    /// arguments are visible) and consumed in `after_tool`.
+    artifact_reads: std::sync::Mutex<std::collections::HashSet<String>>,
+}
+
+impl HandoffMiddleware {
+    pub(crate) fn new(config: HandoffConfig) -> Self {
+        Self {
+            cache: config.cache,
+            agent_id: config.agent_id,
+            task_id: config.task_id,
+            artifact_reads: Default::default(),
+        }
+    }
 }
 
 #[async_trait]
@@ -350,12 +366,45 @@ impl Middleware<()> for HandoffMiddleware {
         "result_handoff"
     }
 
+    async fn before_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        call: &mut tinyinference::tool::ToolCall,
+    ) -> TaResult<()> {
+        if crate::agent::harness::tool_result_artifacts::artifact_read_target(
+            &call.name,
+            &call.arguments,
+        )
+        .is_some()
+        {
+            if let Ok(mut reads) = self.artifact_reads.lock() {
+                reads.insert(call.id.clone());
+            }
+        }
+        Ok(())
+    }
+
     async fn after_tool(
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let artifact_read = self
+            .artifact_reads
+            .lock()
+            .map(|mut reads| reads.remove(&result.call_id))
+            .unwrap_or(false);
+        if artifact_read {
+            tracing::debug!(
+                tool = %result.name,
+                call_id = %result.call_id,
+                task_id = %self.task_id,
+                "[tinyagents::mw] artifact read: skipping result handoff so the artifact pager sees the bytes"
+            );
+            return Ok(());
+        }
         result.content = crate::agent::harness::subagent_runner::apply_handoff(
             &self.cache,
             &result.name,

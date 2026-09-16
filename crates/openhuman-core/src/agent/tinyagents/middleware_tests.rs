@@ -82,6 +82,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
         runtime_config: None,
         tool_policies: HashMap::new(),
+        artifact_reads: Default::default(),
     }
 }
 
@@ -175,6 +176,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
         runtime_config: None,
         tool_policies: HashMap::new(),
+        artifact_reads: Default::default(),
     }
 }
 
@@ -223,6 +225,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
         runtime_config: None,
         tool_policies: HashMap::new(),
+        artifact_reads: Default::default(),
     }
 }
 
@@ -422,6 +425,8 @@ fn embedder_hook_mw(
 mod loop_guard_tests;
 #[path = "middleware_repeat_progress_tests.rs"]
 mod repeat_progress_tests;
+#[path = "middleware_tool_output_artifact_tests.rs"]
+mod tool_output_artifact_tests;
 #[path = "middleware_tool_output_tests.rs"]
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]

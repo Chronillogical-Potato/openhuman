@@ -25,6 +25,7 @@ pub(crate) mod convert;
 pub(crate) mod delegation;
 mod embeddings;
 mod harness_assembly;
+mod harness_context_ladder;
 mod harness_tool_registration;
 pub mod host;
 pub(crate) mod journal;
