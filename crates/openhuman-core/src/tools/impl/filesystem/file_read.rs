@@ -12,6 +12,7 @@ const MAX_FILE_SIZE_BYTES: u64 = 10 * 1024 * 1024;
 /// relying on that middleware to truncate it loses the next offset and makes a
 /// model repeat the same read forever.
 const MAX_PAGE_BYTES: usize = 12 * 1024;
+const MAX_TOOL_OUTPUT_BYTES: usize = 16 * 1024;
 
 /// Read file contents with path sandboxing
 pub struct FileReadTool {
@@ -168,28 +169,59 @@ impl FileReadTool {
                         "offset {offset} falls inside a multi-byte character; continue from the offset a paged read reports"
                     )));
                 }
-                let mut end = offset.saturating_add(MAX_PAGE_BYTES).min(contents.len());
-                while end > offset && !contents.is_char_boundary(end) {
-                    end -= 1;
-                }
-
-                if end == contents.len() {
-                    return Ok(ToolResult::success(contents[offset..end].to_string()));
-                }
-
-                let mut page = contents[offset..end].to_string();
-                let path_json = serde_json::to_string(path)
-                    .unwrap_or_else(|_| "\"<unrenderable path>\"".to_string());
-                page.push_str(&format!(
-                    "\n\n[file_read page: bytes {offset}..{end} of {}; continue with \
-                     file_read {{\"path\":{path_json},\"offset\":{end}}}]",
-                    contents.len()
-                ));
-                Ok(ToolResult::success(page))
+                Ok(ToolResult::success(page_contents(&contents, path, offset)))
             }
             Err(e) => Ok(ToolResult::error(format!("Failed to read file: {e}"))),
         }
     }
+}
+
+fn page_contents(contents: &str, path: &str, offset: usize) -> String {
+    let initial_end = offset.saturating_add(MAX_PAGE_BYTES).min(contents.len());
+    if initial_end == contents.len() {
+        return contents[offset..].to_string();
+    }
+
+    let path_json =
+        serde_json::to_string(path).unwrap_or_else(|_| "\"<unrenderable path>\"".to_string());
+    let marker_with_path = |end: usize| {
+        format!(
+            "\n\n[file_read page: bytes {offset}..{end} of {}; continue with file_read \
+             {{\"path\":{path_json},\"offset\":{end}}}]",
+            contents.len()
+        )
+    };
+    let marker_without_path = |end: usize| {
+        format!(
+            "\n\n[file_read page: bytes {offset}..{end} of {}; continue with file_read at \
+             \"offset\":{end}]",
+            contents.len()
+        )
+    };
+
+    // Size against the longest offset this page can report. If the escaped path
+    // consumes too much of the middleware budget, omit it: the caller already
+    // has the path and the continuation offset is the irreplaceable part.
+    let longest_with_path = marker_with_path(initial_end);
+    let include_path = longest_with_path.len() + 4 <= MAX_TOOL_OUTPUT_BYTES;
+    let marker_len = if include_path {
+        longest_with_path.len()
+    } else {
+        marker_without_path(initial_end).len()
+    };
+    let content_budget = MAX_PAGE_BYTES.min(MAX_TOOL_OUTPUT_BYTES.saturating_sub(marker_len));
+    let mut end = offset.saturating_add(content_budget).min(contents.len());
+    while end > offset && !contents.is_char_boundary(end) {
+        end -= 1;
+    }
+    let marker = if include_path {
+        marker_with_path(end)
+    } else {
+        marker_without_path(end)
+    };
+    let mut page = contents[offset..end].to_string();
+    page.push_str(&marker);
+    page
 }
 
 #[cfg(test)]

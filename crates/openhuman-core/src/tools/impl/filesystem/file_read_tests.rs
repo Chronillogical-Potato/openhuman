@@ -364,6 +364,21 @@ async fn file_read_pages_long_files_and_reports_a_working_continuation() {
     );
 }
 
+#[test]
+fn file_read_reserves_the_continuation_marker_for_a_long_escaped_path() {
+    let contents = "x".repeat(MAX_PAGE_BYTES * 2);
+    let path = format!("{}quoted\\\"name.txt", "nested\\\\".repeat(900));
+    let page = page_contents(&contents, &path, 0);
+
+    assert!(page.len() <= MAX_TOOL_OUTPUT_BYTES, "{}", page.len());
+    assert!(page.contains("continue with file_read"));
+    assert!(page.contains("\"offset\":"));
+    assert!(
+        !page.contains(&path),
+        "an oversized escaped path should be omitted so the offset survives"
+    );
+}
+
 #[tokio::test]
 async fn file_read_rejects_an_offset_inside_a_multibyte_character() {
     let dir = tempfile::tempdir().unwrap();
