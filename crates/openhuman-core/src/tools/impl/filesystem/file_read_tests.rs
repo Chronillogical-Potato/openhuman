@@ -325,6 +325,46 @@ async fn file_read_offset_continues_from_the_given_byte() {
 }
 
 #[tokio::test]
+async fn file_read_pages_long_files_and_reports_a_working_continuation() {
+    let dir = tempfile::tempdir().unwrap();
+    let contents = format!("{}éTAIL", "x".repeat(MAX_PAGE_BYTES - 1));
+    tokio::fs::write(dir.path().join("long.txt"), &contents)
+        .await
+        .unwrap();
+    let tool = FileReadTool::new(test_security(dir.path().to_path_buf()));
+
+    let first = tool.execute(json!({"path": "long.txt"})).await.unwrap();
+    assert!(!first.is_error, "{}", first.output());
+    assert!(
+        first.output().contains("continue with file_read"),
+        "a truncated page must tell the caller exactly how to continue: {}",
+        first.output()
+    );
+    assert!(
+        first.output().len() < 16 * 1024,
+        "the page and marker must survive the harness's per-result budget"
+    );
+    let marker = first
+        .output()
+        .split("\"offset\":")
+        .nth(1)
+        .and_then(|tail| tail.split('}').next())
+        .and_then(|value| value.parse::<usize>().ok())
+        .expect("continuation offset in marker");
+    assert!(contents.is_char_boundary(marker));
+
+    let second = tool
+        .execute(json!({"path": "long.txt", "offset": marker}))
+        .await
+        .unwrap();
+    assert!(!second.is_error, "{}", second.output());
+    assert_eq!(
+        format!("{}{}", &first.output()[..marker], second.output()),
+        contents
+    );
+}
+
+#[tokio::test]
 async fn file_read_rejects_an_offset_inside_a_multibyte_character() {
     let dir = tempfile::tempdir().unwrap();
     // "é" is two bytes, so byte 1 is inside it.
