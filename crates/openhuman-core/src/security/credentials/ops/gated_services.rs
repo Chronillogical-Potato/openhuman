@@ -17,8 +17,8 @@ pub(super) fn is_embedder_host() -> bool {
 
 /// Start all login-gated background services (local AI and voice). Called both
 /// from the initial boot path (when an existing
-/// session is detected) and from `store_session()` on fresh login.
-pub async fn start_login_gated_services(config: &Config) {
+/// session is detected) and from `set_credential()` when a credential is installed.
+pub async fn start_credential_gated_services(config: &Config) {
     // These login-gated services are mutually independent — the ONLY ordering
     // constraint is voice-server → standalone-dictation-listener (they contend
     // for the single rdev global listener on macOS). Previously each was
@@ -144,9 +144,9 @@ pub async fn start_login_gated_services(config: &Config) {
     }
 }
 
-/// Stop all login-gated background services.  Called from `clear_session()`
+/// Stop all login-gated background services.  Called from `clear_credential()`
 /// on logout so orphan processes don't consume resources.
-pub async fn stop_login_gated_services(config: &Config) {
+pub async fn stop_credential_gated_services(config: &Config) {
     // 2. Voice server
     if let Some(server) = crate::voice::server::try_global_server() {
         server.stop().await;
@@ -173,3 +173,7 @@ pub async fn stop_login_gated_services(config: &Config) {
 
     log::info!("[services] all login-gated services stopped");
 }
+
+/// Historical names, kept for call sites outside this module.
+pub use start_credential_gated_services as start_login_gated_services;
+pub use stop_credential_gated_services as stop_login_gated_services;

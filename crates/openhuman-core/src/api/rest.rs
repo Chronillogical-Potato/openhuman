@@ -380,11 +380,6 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-/// Alias for [`user_id_from_profile_payload`] for semantic clarity in auth flows.
-pub fn user_id_from_auth_me_payload(payload: &Value) -> Option<String> {
-    user_id_from_profile_payload(payload)
-}
-
 /// JSON body returned by the backend when an OAuth connection process is initiated.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectResponse {
@@ -472,15 +467,6 @@ impl BackendOAuthClient {
             .with_context(|| format!("build URL for {path}"))
     }
 
-    /// Returns the URL for initiating a login flow for a specific provider.
-    pub fn login_url(&self, provider: &str) -> Result<Url> {
-        let p = provider.trim().trim_matches('/');
-        anyhow::ensure!(!p.is_empty(), "provider is required");
-        self.base
-            .join(&format!("auth/{p}/login"))
-            .context("build login URL")
-    }
-
     /// Initiates an OAuth connection flow for the current user and a specific provider.
     pub async fn connect(
         &self,
@@ -530,45 +516,13 @@ impl BackendOAuthClient {
         Ok(ConnectResponse { oauth_url, state })
     }
 
-    /// Fetches the current authenticated user profile using the provided JWT.
-    pub async fn fetch_current_user(&self, bearer_jwt: &str) -> Result<Value> {
+    /// `GET /auth/me` with the stored session JWT — the backend user profile,
+    /// bearer-only. Used by channel link checks to see whether a channel id has
+    /// been attached to the account; it does not establish or validate a
+    /// session (the host that owns the session does that).
+    pub async fn fetch_profile(&self, bearer_jwt: &str) -> Result<Value> {
         self.authed_json(bearer_jwt, Method::GET, "auth/me", None)
             .await
-    }
-
-    /// Exchanges a one-time login token (e.g. from Telegram) for a long-lived JWT.
-    pub async fn consume_login_token(&self, login_token: &str) -> Result<String> {
-        let token = login_token.trim();
-        anyhow::ensure!(!token.is_empty(), "login token is required");
-
-        // Backend serves `POST /auth/login-token/consume` with the token in a JSON
-        // body `{ token, audience? }` and returns `{ success, data: { jwt } }`
-        // (see backend `routes/auth.ts`). The legacy
-        // `telegram/login-tokens/{token}/consume` path-param route was removed, so
-        // the old call 404'd and Telegram/OAuth-token login could never complete
-        // (WIRING_GAPS_AUDIT C1/C2).
-        let response = self
-            .sdk
-            .auth()
-            .consume_login_token(&tinyhumans_sdk::api::types::LoginTokenRequest {
-                token: token.to_string(),
-            })
-            .await
-            .context("consume login token through TinyHumans SDK")?;
-        let jwt = response
-            .get("jwt")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        anyhow::ensure!(!jwt.is_empty(), "consume login token response missing jwt");
-        Ok(jwt)
-    }
-
-    /// Validates that the provided session token is still active and accepted.
-    pub async fn validate_session_token(&self, bearer_jwt: &str) -> Result<()> {
-        let _ = self.fetch_current_user(bearer_jwt).await?;
-        Ok(())
     }
 
     /// Creates a short-lived link token for connecting a specific communication channel.

@@ -163,6 +163,29 @@ fn error_completion(status: u16, message: &str) -> Value {
     json!({ "status": status, "error": message })
 }
 
+/// True when any captured upstream request carries the engine's unknown-tool
+/// result (`tinyagents-harness` `agent_loop/tools.rs`: "unknown tool `name`
+/// (arguments: …); valid tools: […]"). Matched case-insensitively on purpose:
+/// the guards below used to look for a literal `"Unknown tool:"` that nothing
+/// emits, so a delegate that failed to resolve went unnoticed and the
+/// orchestrator quietly consumed the child's scripted completions itself.
+fn captured_requests_mention_unknown_tool(requests: &[Value]) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains("unknown tool")
+}
+
+/// Same check, narrowed to one tool name — for tests whose script *relies* on
+/// some other call being rejected (e.g. a child calling a tool outside its
+/// named list) and only need to prove that a specific delegate resolved.
+fn captured_requests_reject_tool_as_unknown(requests: &[Value], tool: &str) -> bool {
+    serde_json::to_string(requests)
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains(&format!("unknown tool `{tool}`"))
+}
+
 // ─── Fan-out overlap barrier ────────────────────────────────────────────────
 //
 // Only `parallel_subagent_fanout` arms this; every other test leaves it empty
@@ -975,12 +998,11 @@ async fn subagent_delegation_happy_path_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" anywhere — proves the delegation tool was synthesised
-    // and executed (registry init worked).
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result anywhere — proves the delegation tool was synthesised
+    // (registry init worked) and the orchestrator could actually call it.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation tool was not synthesised; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation tool was not synthesised; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -1010,10 +1032,21 @@ async fn subagent_delegation_happy_path_inner() {
 
 // ─── Task 4: Scheduling clarification flow ────────────────────────────────────
 //
-// Actual LLM request ordering (3 upstream calls total):
-//   request[0] = orchestrator turn 1 → schedule_task tool call
-//   request[1] = orchestrator → ask_user_clarification ends turn 1
-//   request[2] = orchestrator turn 2 with "version 2" user reply in full context →
+// `schedule_task` is scheduler_agent's synthesised delegate (its `agent.toml`
+// `delegate_name`), and `ask_user_clarification` IS in that agent's named tools.
+// So a blocking delegation that needs a detail pauses the *child*, and
+// `dispatch_subagent` hands the parent a `[SUBAGENT_AWAITING_USER]` envelope as
+// the `schedule_task` tool result (#4291). That envelope is an ordinary tool
+// result to the orchestrator — `schedule_task` is not in its `early_exit_tools`
+// — so the orchestrator relays the question in its OWN next reply, and turn 1
+// ends on that text.
+//
+// Actual LLM request ordering (4 upstream calls total):
+//   request[0] = orchestrator turn 1 → schedule_task (blocking) tool call
+//   request[1] = scheduler_agent → ask_user_clarification pauses the child
+//   request[2] = orchestrator, with the awaiting-user envelope in context →
+//                relays the question as text; turn 1 ends (chat_done)
+//   request[3] = orchestrator turn 2 with "version 2" user reply in full context →
 //                synthesis; turn 2 ends (chat_done with ANSWER_CANARY_V2)
 
 /// A scheduling request that needs clarification surfaces its question in turn 1,
@@ -1030,18 +1063,23 @@ async fn scheduling_clarification_flow_inner() {
     let _lock = env_lock();
     reset_script(vec![
         // ── turn 1 ──
-        // request[0]: Orchestrator calls schedule_task.
+        // request[0]: Orchestrator delegates to scheduler_agent via schedule_task.
         tool_call_completion(
             "schedule_task",
             json!({ "prompt": "Schedule a weekly reminder", "blocking": true }),
         ),
-        // request[1]: Orchestrator asks the user for the missing detail.
+        // request[1]: scheduler_agent asks for the missing detail. This pauses
+        //   the child; the question comes back to the orchestrator inside the
+        //   `[SUBAGENT_AWAITING_USER]` envelope as the schedule_task result.
         tool_call_completion(
             "ask_user_clarification",
             json!({ "question": "WHICH_VERSION_CANARY?" }),
         ),
+        // request[2]: Orchestrator relays the sub-agent's question to the user,
+        //   as the envelope instructs; turn 1 ends on this text.
+        text_completion("The scheduler needs one detail: WHICH_VERSION_CANARY?"),
         // ── turn 2 (user replied "version 2") ──
-        // request[2]: Orchestrator processes user reply with full turn-1 context →
+        // request[3]: Orchestrator processes user reply with full turn-1 context →
         //   synthesizes final answer; turn 2 ends here.
         text_completion("Final: ANSWER_CANARY_V2"),
     ]);
@@ -1101,33 +1139,63 @@ async fn scheduling_clarification_flow_inner() {
     );
 
     let requests = with_captured(|c| c.clone());
-    let serialized = serde_json::to_string(&requests).unwrap_or_default();
 
-    // ── No "Unknown tool:" in any captured request ──
-    // Proves schedule_task was recognised by the orchestrator.
+    // ── No unknown-tool result in any captured request ──
+    // Proves schedule_task was recognised by the orchestrator. This is the guard
+    // that let the 3-completion version of this test pass vacuously: with the
+    // delegate unresolved, the engine's lowercase "unknown tool `schedule_task`"
+    // result never matched the old `"Unknown tool:"` literal, and the
+    // orchestrator consumed the child's clarification completion itself.
     assert!(
-        !serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' in captured requests — delegation was broken; \
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result in captured requests — delegation was broken; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── Both turns traversed the expected three upstream requests ──
+    // ── Both turns traversed the expected four upstream requests ──
     // request[0] = orchestrator (schedule_task call),
-    // request[1] = orchestrator (ask_user_clarification),
-    // request[2] = orchestrator turn-2 synthesis (turn-2 end).
+    // request[1] = scheduler_agent (ask_user_clarification pause),
+    // request[2] = orchestrator (relays the question; turn-1 end),
+    // request[3] = orchestrator turn-2 synthesis (turn-2 end).
     assert!(
-        requests.len() >= 3,
-        "expected ≥3 upstream requests (schedule + clarification + turn-2 synthesis), \
-         got {};\nall requests: {}",
+        requests.len() >= 4,
+        "expected ≥4 upstream requests (schedule + child clarification + relay + \
+         turn-2 synthesis), got {};\nall requests: {}",
         requests.len(),
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // ── Some turn-2 request's messages must contain the clarification question ──
-    // Proves the clarification was persisted in thread history and appears in
-    // turn-2 context.
-    let turn2_messages_contain_question = requests.iter().any(|req| {
+    // ── request[1] went to scheduler_agent, not the orchestrator ──
+    // Proves the blocking delegate really ran (the child's system prompt is
+    // scheduler-specific; both agents share the project-context prefix, so
+    // message 0 alone cannot tell them apart). Without this the flow degrades
+    // to "orchestrator asks the user itself", which never exercises the pause.
+    let scheduler_request = requests.get(1).map(Value::to_string).unwrap_or_default();
+    assert!(
+        scheduler_request.contains("Scheduler Agent"),
+        "request[1] did not carry the scheduler_agent prompt — schedule_task did not \
+         delegate; request: {scheduler_request}"
+    );
+
+    // ── request[2] saw the child's pause as a `[SUBAGENT_AWAITING_USER]` envelope ──
+    // Proves `dispatch_subagent` surfaced the pause the #4291 way (structured
+    // envelope carrying the question, as the schedule_task tool result) rather
+    // than as a plain success the model could read as "answered".
+    let relay_request = requests.get(2).map(Value::to_string).unwrap_or_default();
+    assert!(
+        relay_request.contains("[SUBAGENT_AWAITING_USER]")
+            && relay_request.contains("WHICH_VERSION_CANARY"),
+        "request[2] did not carry the awaiting-user envelope with the child's question; \
+         request: {relay_request}"
+    );
+
+    // ── The turn-2 request's messages must contain the clarification question ──
+    // Proves the relayed question was persisted in thread history and appears in
+    // turn-2 context. Scoped to the turn-2 request on purpose: request[2]
+    // trivially contains the canary via the envelope, so an `any()` over every
+    // request would pass without persistence.
+    let turn2_messages_contain_question = requests.iter().skip(3).any(|req| {
         req.pointer("/body/messages")
             .and_then(Value::as_array)
             .map(|msgs| {
@@ -1150,7 +1218,7 @@ async fn scheduling_clarification_flow_inner() {
     });
     assert!(
         turn2_messages_contain_question,
-        "WHICH_VERSION_CANARY not found in any turn-2 request messages — \
+        "WHICH_VERSION_CANARY not found in the turn-2 request messages — \
          turn-1 clarification question was not persisted in thread history; \
          requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
@@ -1642,10 +1710,9 @@ async fn subagent_with_approval_gate_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — run_code delegation was not synthesised; requests: {}",
+        !captured_requests_mention_unknown_tool(&requests),
+        "found an unknown-tool result — run_code delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
@@ -2139,9 +2206,8 @@ async fn parallel_subagent_fanout_inner() {
     // The spawn tool must actually be in scope. If the orchestrator's tool list
     // drifts again, this is the assertion that says so in one line instead of
     // leaving a canary mismatch to be decoded.
-    let all = serde_json::to_string(&requests).unwrap_or_default();
     assert!(
-        !all.contains("Unknown tool:"),
+        !captured_requests_mention_unknown_tool(&requests),
         "no tool call may be rejected as unknown; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
@@ -2236,11 +2302,13 @@ async fn multi_hop_delegation_chain_inner() {
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    // No "Unknown tool:" for `research` — delegation was synthesised correctly.
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    // No unknown-tool result for `research` — delegation was synthesised correctly.
+    // Scoped to `research`: the researcher's `ask_user_clarification` call IS
+    // rejected as unknown by design (see the ordering note above), so a blanket
+    // check would fail on the very mechanic this test exercises.
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — `research` delegation was not synthesised; requests: {}",
+        !captured_requests_reject_tool_as_unknown(&requests, "research"),
+        "found an unknown-tool result — `research` delegation was not synthesised; requests: {}",
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 

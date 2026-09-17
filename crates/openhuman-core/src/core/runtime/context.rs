@@ -908,6 +908,10 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
             if let Some(uid) = state.user_id.as_deref() {
                 crate::security::credentials::sentry_scope::bind(uid);
             }
+            // The host-supplied user payload survives restarts in the profile
+            // store; seed the identity slot from it so prompt composition sees
+            // the signed-in user before any host RPC runs.
+            crate::security::credentials::identity::set_current_user(state.user);
         }
         Err(e) => {
             log::debug!("[boot] sentry scope user bind skipped — build_session_state failed: {e}")

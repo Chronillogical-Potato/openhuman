@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{header::AUTHORIZATION, HeaderMap};
-use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use reqwest::StatusCode;
@@ -50,9 +49,6 @@ use openhuman_core::platform::connectivity::{
     connectivity_controller_schema,
 };
 use openhuman_core::security::credentials::bus::SessionExpiredSubscriber;
-use openhuman_core::security::credentials::cli::{
-    cli_auth_list, cli_auth_login, cli_auth_logout, cli_auth_status, parse_field_equals_entries,
-};
 use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use openhuman_core::security::credentials::session_support::{
     build_session_state, get_session_token, is_local_session_token, load_app_session_profile,
@@ -162,11 +158,6 @@ async fn serve_mock_backend() -> (
     let app = Router::new()
         .route("/auth/me", get(mock_auth_me))
         .route("/api/auth/me", get(mock_auth_me))
-        .route("/auth/login-token/consume", post(mock_consume_login_token))
-        .route(
-            "/api/auth/login-token/consume",
-            post(mock_consume_login_token),
-        )
         .route(
             "/auth/channels/{channel}/link-token",
             post(mock_channel_link_token),
@@ -212,78 +203,6 @@ async fn serve_mock_backend() -> (
     (format!("http://{addr}"), state, join)
 }
 
-#[derive(Clone, Default)]
-struct SequenceAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone, Default)]
-struct NullAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-}
-
-#[derive(Clone)]
-struct StaticAuthBackendState {
-    auth_me_hits: Arc<AtomicUsize>,
-    user: Arc<Value>,
-}
-
-async fn serve_sequence_auth_backend() -> (
-    String,
-    SequenceAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = SequenceAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(sequence_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind sequence auth backend");
-    let addr = listener.local_addr().expect("sequence auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_null_auth_backend() -> (
-    String,
-    NullAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = NullAuthBackendState::default();
-    let app = Router::new()
-        .route("/auth/me", get(null_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind null auth backend");
-    let addr = listener.local_addr().expect("null auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
-async fn serve_static_auth_backend(
-    user: Value,
-) -> (
-    String,
-    StaticAuthBackendState,
-    tokio::task::JoinHandle<Result<(), std::io::Error>>,
-) {
-    let state = StaticAuthBackendState {
-        auth_me_hits: Arc::new(AtomicUsize::new(0)),
-        user: Arc::new(user),
-    };
-    let app = Router::new()
-        .route("/auth/me", get(static_auth_me))
-        .with_state(state.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind static auth backend");
-    let addr = listener.local_addr().expect("static auth backend addr");
-    let join = tokio::spawn(async move { axum::serve(listener, app).await });
-    (format!("http://{addr}"), state, join)
-}
-
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(AUTHORIZATION)
@@ -301,91 +220,6 @@ async fn mock_auth_me(State(state): State<MockBackendState>, headers: HeaderMap)
             "name": "Remote Worker",
             "email": "remote-worker@example.test",
             "authHeader": auth
-        }
-    }))
-}
-
-async fn sequence_auth_me(
-    State(state): State<SequenceAuthBackendState>,
-    headers: HeaderMap,
-) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "sequence-user",
-                    "name": "Sequence Worker",
-                    "email": "sequence-worker@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        2 => Json(json!({
-            "success": true,
-            "data": {}
-        }))
-        .into_response(),
-        _ => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "success": false,
-                "error": "forced auth/me failure"
-            })),
-        )
-            .into_response(),
-    }
-}
-
-async fn null_auth_me(State(state): State<NullAuthBackendState>, headers: HeaderMap) -> Response {
-    let hit = state.auth_me_hits.fetch_add(1, Ordering::SeqCst) + 1;
-    match hit {
-        1 => {
-            let auth = bearer(&headers).unwrap_or_default();
-            Json(json!({
-                "success": true,
-                "data": {
-                    "id": "null-sequence-user",
-                    "name": "Null Sequence Worker",
-                    "email": "null-sequence@example.test",
-                    "authHeader": auth
-                }
-            }))
-            .into_response()
-        }
-        _ => Json(json!({
-            "success": true,
-            "data": null
-        }))
-        .into_response(),
-    }
-}
-
-async fn static_auth_me(
-    State(state): State<StaticAuthBackendState>,
-    _headers: HeaderMap,
-) -> Json<Value> {
-    state.auth_me_hits.fetch_add(1, Ordering::SeqCst);
-    Json(json!({
-        "success": true,
-        "data": (*state.user).clone()
-    }))
-}
-
-async fn mock_consume_login_token(Json(body): Json<Value>) -> Json<Value> {
-    // Token now arrives in the JSON body (`{ token }`), not the URL path, and the
-    // response field is `jwt` (matches backend `routes/auth.ts`).
-    let token = body
-        .get("token")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    Json(json!({
-        "success": true,
-        "data": {
-            "jwt": format!("jwt-from-{token}")
         }
     }))
 }
@@ -1543,15 +1377,10 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
 #[tokio::test]
 async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
     let _lock = env_lock();
-    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
-        "id": "session-expired-user",
-        "name": "Session Expired Worker",
-        "email": "session-expired@example.test"
-    }))
-    .await;
     let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
 
+    // The host hands the core an already-obtained session; no backend is
+    // consulted to store it.
     let remote_session = rpc(
         &harness.rpc_base,
         18_101,
@@ -1569,9 +1398,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     .await;
     assert_eq!(
         payload(&remote_session, "auth_store_session before SessionExpired")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("session")
     );
 
     let subscriber = SessionExpiredSubscriber::new();
@@ -1616,9 +1445,9 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
             &local_session,
             "auth_store_session local before SessionExpired"
         )
-        .get("provider")
+        .get("credential")
         .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     subscriber
@@ -1644,7 +1473,6 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
     );
 
     harness.join.abort();
-    backend_join.abort();
 }
 
 #[tokio::test]
@@ -2678,100 +2506,6 @@ async fn credentials_secret_helpers_round_trip_with_file_keyring_backend() {
 }
 
 #[tokio::test]
-async fn auth_cli_flows_cover_app_session_and_provider_storage_paths() {
-    let _lock = env_lock();
-    let harness = setup().await;
-
-    let fields = parse_field_equals_entries(&[
-        "scope=repo".to_string(),
-        "refresh_token=refresh-1".to_string(),
-    ])
-    .expect("parse cli fields");
-    assert_eq!(fields.get("scope").and_then(Value::as_str), Some("repo"));
-    assert!(parse_field_equals_entries(&["not-key-value".to_string()]).is_err());
-    assert!(parse_field_equals_entries(&[" =blank".to_string()]).is_err());
-
-    let provider_login = cli_auth_login(
-        " github ".to_string(),
-        "provider-token".to_string(),
-        None,
-        None,
-        fields,
-        Some("work".to_string()),
-        true,
-    )
-    .await
-    .expect("provider cli login");
-    assert!(
-        provider_login.to_string().contains("github"),
-        "provider login should mention provider: {provider_login}"
-    );
-
-    let provider_status = cli_auth_status("github".to_string(), None)
-        .await
-        .expect("provider status");
-    assert!(
-        provider_status.to_string().contains("github"),
-        "provider status should include github profile: {provider_status}"
-    );
-
-    let provider_list = cli_auth_list(Some(" github ".to_string()))
-        .await
-        .expect("provider list");
-    assert!(
-        provider_list.to_string().contains("github"),
-        "provider list should include github profile: {provider_list}"
-    );
-
-    let provider_logout = cli_auth_logout("github".to_string(), Some("work".to_string()))
-        .await
-        .expect("provider logout");
-    assert!(
-        provider_logout.to_string().contains("removed")
-            || provider_logout.to_string().contains("true"),
-        "provider logout should report removal: {provider_logout}"
-    );
-
-    let session_login = cli_auth_login(
-        APP_SESSION_PROVIDER.to_string(),
-        "header.payload.local".to_string(),
-        Some("cli-user".to_string()),
-        Some(json!({ "id": "cli-user", "name": "CLI User" })),
-        Value::Object(Default::default()),
-        None,
-        true,
-    )
-    .await
-    .expect("app-session cli login");
-    assert!(
-        session_login.to_string().contains("app-session")
-            && session_login.to_string().contains("session stored"),
-        "session login should store app session profile: {session_login}"
-    );
-
-    let session_status = cli_auth_status(APP_SESSION_PROVIDER.to_string(), None)
-        .await
-        .expect("session status");
-    assert!(
-        session_status.to_string().contains("isAuthenticated")
-            || session_status.to_string().contains("cli-user"),
-        "session status should expose auth state: {session_status}"
-    );
-
-    let session_logout = cli_auth_logout(APP_SESSION_PROVIDER.to_string(), None)
-        .await
-        .expect("session logout");
-    assert!(
-        session_logout.to_string().contains("isAuthenticated")
-            || session_logout.to_string().contains("false")
-            || session_logout.to_string().contains("removed"),
-        "session logout should clear auth state: {session_logout}"
-    );
-
-    harness.join.abort();
-}
-
-#[tokio::test]
 async fn worker_a_controller_schemas_are_fully_exposed() {
     let _lock = env_lock();
     let harness = setup().await;
@@ -2829,11 +2563,8 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
         (
             "auth",
             vec![
-                "openhuman.auth_clear_api_key",
-                "openhuman.auth_clear_session",
-                "openhuman.auth_consume_login_token",
+                "openhuman.auth_clear_credential",
                 "openhuman.auth_create_channel_link_token",
-                "openhuman.auth_get_me",
                 "openhuman.auth_get_session_token",
                 "openhuman.auth_get_state",
                 "openhuman.auth_list_provider_credentials",
@@ -2843,9 +2574,8 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.auth_oauth_list_integrations",
                 "openhuman.auth_oauth_revoke_integration",
                 "openhuman.auth_remove_provider_credentials",
-                "openhuman.auth_store_api_key",
+                "openhuman.auth_set_credential",
                 "openhuman.auth_store_provider_credentials",
-                "openhuman.auth_store_session",
             ],
         ),
         (
@@ -3714,27 +3444,29 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "session token read should return a token field even when empty: {token}"
     );
 
+    // The core no longer talks to the backend's auth endpoints: a session JWT
+    // arrives already obtained, and one that is not tied to a user is refused.
     assert_error_contains(
         &rpc(
             &harness.rpc_base,
             20_003,
-            "openhuman.auth_get_me",
-            json!({}),
+            "openhuman.auth_set_credential",
+            json!({ "token": "opaque-jwt" }),
         )
         .await,
-        "auth_get_me without session",
-        "session JWT required",
+        "auth_set_credential without a user id",
+        "userId required",
     );
     assert_error_contains(
         &rpc(
             &harness.rpc_base,
             20_004,
-            "openhuman.auth_consume_login_token",
-            json!({ "loginToken": "" }),
+            "openhuman.auth_set_credential",
+            json!({ "token": "sk-1", "kind": "jwt" }),
         )
         .await,
-        "auth_consume_login_token empty",
-        "loginToken is required",
+        "auth_set_credential unknown kind",
+        "unknown credential kind",
     );
     assert_error_contains(
         &rpc(
@@ -3915,9 +3647,9 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
     .await;
     assert_eq!(
         payload(&session, "auth_store_session")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     let authed = rpc(
@@ -3973,9 +3705,9 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
     .await;
     assert_eq!(
         payload(&session, "auth_store_session local")
-            .get("provider")
+            .get("credential")
             .and_then(Value::as_str),
-        Some("app-session")
+        Some("local")
     );
 
     let state = rpc(
@@ -4060,67 +3792,46 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
 }
 
 #[tokio::test]
-async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip() {
+async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_session() {
     let _lock = env_lock();
     let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
     let harness = setup().await;
     let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
 
+    // The host hands over an already-obtained session with the user it
+    // resolved; the core stores it without consulting the backend.
     let session = rpc(
         &harness.rpc_base,
         22_001,
-        "openhuman.auth_store_session",
+        "openhuman.auth_set_credential",
         json!({
             "token": "remote-jwt",
-            "user_id": "remote-user-1",
+            "userId": "remote-user-1",
             "user": {
-                "id": "stale-renderer-user",
-                "name": "Renderer Cache",
-                "email": "renderer-cache@example.test"
+                "id": "remote-user-1",
+                "name": "Remote Worker",
+                "email": "remote-worker@example.test"
             }
         }),
     )
     .await;
+    let state = payload(&session, "auth_set_credential remote");
     assert_eq!(
-        payload(&session, "auth_store_session remote")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
+        state.get("credential").and_then(Value::as_str),
+        Some("session")
+    );
+    assert_eq!(
+        state.get("userId").and_then(Value::as_str),
+        Some("remote-user-1")
     );
     assert_eq!(
         backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the JWT once"
+        0,
+        "installing a credential must not touch GET /auth/me"
     );
 
-    let me = rpc(
-        &harness.rpc_base,
-        22_002,
-        "openhuman.auth_get_me",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&me, "auth_get_me remote")
-            .get("email")
-            .and_then(Value::as_str),
-        Some("remote-worker@example.test")
-    );
-
-    let consumed = rpc(
-        &harness.rpc_base,
-        22_003,
-        "openhuman.auth_consume_login_token",
-        json!({ "loginToken": "telegram-login-token" }),
-    )
-    .await;
-    assert_eq!(
-        payload(&consumed, "auth_consume_login_token remote")
-            .get("jwtToken")
-            .and_then(Value::as_str),
-        Some("jwt-from-telegram-login-token")
-    );
-
+    // Every remaining auth.* backend call is bearer-only and keeps working
+    // against the stored session.
     let link = rpc(
         &harness.rpc_base,
         22_004,
@@ -4163,12 +3874,6 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
     .await;
     assert_eq!(
         payload(&oauth_connect, "auth_oauth_connect remote")
-            .get("state")
-            .and_then(Value::as_str),
-        Some("worker-a-state")
-    );
-    assert_eq!(
-        payload(&oauth_connect, "auth_oauth_connect remote")
             .get("oauthUrl")
             .and_then(Value::as_str),
         Some("https://github.example.test/oauth?state=worker-a-state")
@@ -4192,15 +3897,6 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
         .get("accessToken")
         .and_then(Value::as_str),
         Some("gh-access-token")
-    );
-    assert_eq!(
-        payload(
-            &integration_tokens,
-            "auth_oauth_fetch_integration_tokens remote"
-        )
-        .get("refreshToken")
-        .and_then(Value::as_str),
-        Some("gh-refresh-token")
     );
 
     let client_key = rpc(
@@ -4243,6 +3939,7 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
         "integrationId must be a 24-char hex id",
     );
 
+    // The snapshot reports the handed-over user and never refreshes it.
     let snapshot = rpc(
         &harness.rpc_base,
         22_009,
@@ -4256,479 +3953,51 @@ async fn auth_remote_backend_paths_and_app_state_current_user_cache_round_trip()
             .and_then(Value::as_str),
         Some("remote-worker@example.test")
     );
-    let hits_after_first_snapshot = backend_state.auth_me_hits.load(Ordering::SeqCst);
-    assert!(
-        hits_after_first_snapshot >= 3,
-        "store_session, auth_get_me, and snapshot should all touch /auth/me at least once"
+    assert_eq!(
+        backend_state.auth_me_hits.load(Ordering::SeqCst),
+        0,
+        "the snapshot must not call GET /auth/me; the host owns that"
     );
 
-    let cached_snapshot = rpc(
+    // Re-handing the same token for the same user is a cheap refresh that
+    // replaces the stored payload.
+    let refreshed = rpc(
         &harness.rpc_base,
-        22_010,
-        "openhuman.app_state_snapshot",
-        json!({}),
+        22_013,
+        "openhuman.auth_set_credential",
+        json!({
+            "token": "remote-jwt",
+            "userId": "remote-user-1",
+            "user": { "id": "remote-user-1", "name": "Renamed Worker" }
+        }),
     )
     .await;
     assert_eq!(
-        payload(&cached_snapshot, "app_state_snapshot remote cached")
-            .pointer("/currentUser/name")
+        payload(&refreshed, "auth_set_credential refresh")
+            .pointer("/user/name")
             .and_then(Value::as_str),
-        Some("Remote Worker")
+        Some("Renamed Worker")
     );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        hits_after_first_snapshot,
-        "the second snapshot should reuse the current-user cache"
-    );
-
-    let identity = openhuman_core::desktop::app_state::peek_cached_current_user_identity()
-        .expect("snapshot should seed cached identity");
+    let identity = openhuman_core::security::credentials::identity::peek_credential_user_identity()
+        .expect("set_credential should seed the identity slot");
     assert_eq!(identity.id.as_deref(), Some("remote-user-1"));
-    assert_eq!(identity.name.as_deref(), Some("Remote Worker"));
-    assert_eq!(
-        identity.email.as_deref(),
-        Some("remote-worker@example.test")
-    );
+    assert_eq!(identity.name.as_deref(), Some("Renamed Worker"));
 
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn auth_remote_backend_path_prefix_is_preserved_for_app_state_refresh() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &format!("{backend_base}/api"));
-
-    let session = rpc(
+    let cleared = rpc(
         &harness.rpc_base,
-        22_051,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "remote-path-prefix-jwt",
-            "user_id": "remote-user-1",
-            "user": {
-                "id": "stale-path-prefix-user",
-                "name": "Path Prefix Renderer",
-                "email": "path-prefix-renderer@example.test"
-            }
-        }),
+        22_014,
+        "openhuman.auth_clear_credential",
+        json!({ "kind": "session" }),
     )
     .await;
     assert_eq!(
-        payload(&session, "auth_store_session with backend path prefix")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_052,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "app_state_snapshot with backend path prefix")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("remote-worker@example.test"),
-        "app_state should join auth/me below the configured backend path prefix"
+        payload(&cleared, "auth_clear_credential")
+            .get("removedSession")
+            .and_then(Value::as_bool),
+        Some(true)
     );
     assert!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst) >= 2,
-        "store_session and app_state snapshot should both hit the prefixed backend"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_clears_empty_current_user_cache_and_falls_back_to_stored_user() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_sequence_auth_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_101,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "sequence-remote-jwt",
-            "user_id": "stored-sequence-user",
-            "user": {
-                "id": "stored-sequence-user",
-                "name": "Stored Sequence Worker",
-                "email": "stored-sequence@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session sequence")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the sequence JWT once"
-    );
-
-    let empty_user_snapshot = rpc(
-        &harness.rpc_base,
-        22_102,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "first snapshot should refresh and receive the empty user payload"
-    );
-    assert_eq!(
-        payload(&empty_user_snapshot, "empty current-user snapshot")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-sequence@example.test"),
-        "empty backend users should clear the cache and fall back to stored identity"
-    );
-    assert!(
-        openhuman_core::desktop::app_state::peek_cached_current_user_identity().is_none(),
-        "empty backend user should clear the process current-user cache"
-    );
-
-    let failed_user_snapshot = rpc(
-        &harness.rpc_base,
-        22_103,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        3,
-        "second snapshot should retry after the empty-user cache clear"
-    );
-    assert_eq!(
-        payload(&failed_user_snapshot, "failed current-user snapshot")
-            .pointer("/currentUser/name")
-            .and_then(Value::as_str),
-        Some("Stored Sequence Worker"),
-        "failed backend user fetches should preserve stored session identity"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_falls_back_to_stored_user_when_current_user_refresh_errors() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "id": "refresh-error-user",
-        "name": "Refresh Error Worker",
-        "email": "refresh-error@example.test"
-    }))
-    .await;
-    let harness = setup().await;
-    let backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_121,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "refresh-error-remote-jwt",
-            "user_id": "stored-refresh-error-user",
-            "user": {
-                "id": "stored-refresh-error-user",
-                "name": "Stored Refresh Error Worker",
-                "email": "stored-refresh-error@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session refresh-error")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the remote JWT once"
-    );
-
-    drop(backend_guard);
-    let _broken_backend = EnvVarGuard::set("BACKEND_URL", "http://127.0.0.1:1");
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_122,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "app_state_snapshot refresh-error")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-refresh-error@example.test"),
-        "backend refresh transport failures should preserve stored session identity"
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "snapshot should use the broken backend URL instead of hitting the original backend"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_snapshot_clears_null_current_user_cache_and_falls_back_to_stored_user() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_null_auth_backend().await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_151,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "null-sequence-remote-jwt",
-            "user_id": "stored-null-sequence-user",
-            "user": {
-                "id": "stored-null-sequence-user",
-                "name": "Stored Null Sequence Worker",
-                "email": "stored-null-sequence@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session null sequence")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        1,
-        "store_session should validate the null-sequence JWT once"
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_152,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "snapshot should refresh and receive the null user payload"
-    );
-    assert_eq!(
-        payload(&snapshot, "null current-user snapshot")
-            .pointer("/currentUser/email")
-            .and_then(Value::as_str),
-        Some("stored-null-sequence@example.test"),
-        "null backend users should clear the cache and fall back to stored identity"
-    );
-    assert!(
-        openhuman_core::desktop::app_state::peek_cached_current_user_identity().is_none(),
-        "null backend user should clear the process current-user cache"
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_accepts_legacy_current_user_fields() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "user_id": "legacy-user-id",
-        "displayName": "Legacy Display",
-        "email": "legacy-display@example.test"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_201,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "legacy-field-remote-jwt",
-            "user_id": "stored-legacy-user",
-            "user": {
-                "id": "stored-legacy-user",
-                "name": "Stored Legacy Worker",
-                "email": "stored-legacy@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session legacy fields")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_202,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "legacy-field current-user snapshot")
-            .pointer("/currentUser/user_id")
-            .and_then(Value::as_str),
-        Some("legacy-user-id")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "store_session and snapshot should each fetch the static backend once"
-    );
-    let identity = openhuman_core::desktop::app_state::peek_cached_current_user_identity()
-        .expect("legacy current-user keys should produce a prompt identity");
-    assert_eq!(identity.id.as_deref(), Some("legacy-user-id"));
-    assert_eq!(identity.name.as_deref(), Some("Legacy Display"));
-    assert_eq!(
-        identity.email.as_deref(),
-        Some("legacy-display@example.test")
-    );
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_accepts_camel_case_fallback_fields() {
-    let _lock = env_lock();
-    let (backend_base, _backend_state, backend_join) = serve_static_auth_backend(json!({
-        "userId": "camel-user-id",
-        "fullName": "Camel Full Name"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_301,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "camel-field-remote-jwt",
-            "user_id": "stored-camel-user",
-            "user": {
-                "id": "stored-camel-user",
-                "name": "Stored Camel Worker",
-                "email": "stored-camel@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session camel fields")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_302,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "camel-field current-user snapshot")
-            .pointer("/currentUser/userId")
-            .and_then(Value::as_str),
-        Some("camel-user-id")
-    );
-    let identity = openhuman_core::desktop::app_state::peek_cached_current_user_identity()
-        .expect("camel-case current-user keys should produce a prompt identity");
-    assert_eq!(identity.id.as_deref(), Some("camel-user-id"));
-    assert_eq!(identity.name.as_deref(), Some("Camel Full Name"));
-    assert_eq!(identity.email, None);
-
-    harness.join.abort();
-    backend_join.abort();
-}
-
-#[tokio::test]
-async fn app_state_cached_identity_peek_ignores_current_user_without_identity_fields() {
-    let _lock = env_lock();
-    let (backend_base, backend_state, backend_join) = serve_static_auth_backend(json!({
-        "metadata": "present-but-not-identity"
-    }))
-    .await;
-    let harness = setup().await;
-    let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
-
-    let session = rpc(
-        &harness.rpc_base,
-        22_351,
-        "openhuman.auth_store_session",
-        json!({
-            "token": "identity-empty-remote-jwt",
-            "user_id": "stored-empty-identity-user",
-            "user": {
-                "id": "stored-empty-identity-user",
-                "name": "Stored Empty Identity Worker",
-                "email": "stored-empty-identity@example.test"
-            }
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&session, "auth_store_session identity-empty")
-            .get("provider")
-            .and_then(Value::as_str),
-        Some("app-session")
-    );
-
-    let snapshot = rpc(
-        &harness.rpc_base,
-        22_352,
-        "openhuman.app_state_snapshot",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        payload(&snapshot, "identity-empty current-user snapshot")
-            .pointer("/currentUser/metadata")
-            .and_then(Value::as_str),
-        Some("present-but-not-identity")
-    );
-    assert_eq!(
-        backend_state.auth_me_hits.load(Ordering::SeqCst),
-        2,
-        "store_session and snapshot should each fetch the no-identity backend once"
-    );
-    assert!(
-        openhuman_core::desktop::app_state::peek_cached_current_user_identity().is_none(),
-        "current-user objects without id/name/email should not produce prompt identity"
+        openhuman_core::security::credentials::identity::peek_credential_user_identity().is_none()
     );
 
     harness.join.abort();
