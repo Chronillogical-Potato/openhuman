@@ -11,7 +11,9 @@
 
 use crate::config::Config;
 use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
-use crate::inference::vision_models::{self, VISION_MODEL_SUGGESTIONS};
+
+const VISION_MODEL_SUGGESTIONS: &[&str] =
+    &["moondream:1.8b-v2-q4_K_S", "llava:7b", "gemma3:4b-it-qat"];
 
 pub(crate) const DEFAULT_OLLAMA_MODEL: &str = "gemma3:1b-it-qat";
 
@@ -120,7 +122,7 @@ fn enforce_mvp_chat_allowlist(resolved: &str) -> String {
 /// came about. Both that bug and its replacement failed the same way: they
 /// answered "which model?" with something the user never asked for.
 fn enforce_vision_capability(resolved: &str) -> Result<String, String> {
-    if vision_models::is_vision_capable(resolved) {
+    if tinyinference::model::model_id_supports_vision(resolved) {
         return Ok(resolved.to_string());
     }
     tracing::warn!(
@@ -248,7 +250,7 @@ pub(crate) fn effective_vision_model_id(config: &Config) -> String {
         return String::new();
     }
     let resolved = apply_vision_alias(raw);
-    if vision_models::is_vision_capable(resolved) {
+    if tinyinference::model::model_id_supports_vision(resolved) {
         resolved.to_string()
     } else {
         String::new()

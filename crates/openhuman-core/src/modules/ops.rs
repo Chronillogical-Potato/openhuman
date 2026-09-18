@@ -509,7 +509,7 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
         "cloud_embedding_dimensions":
             crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
         "models_supporting_dimensions":
-            crate::inference::embeddings::MODELS_SUPPORTING_DIMENSIONS,
+            tinyinference::embeddings::MODELS_SUPPORTING_DIMENSIONS,
         // The periodic composio and workspace-source sync loops run INSIDE the
         // module now (tinymemory#100), and these three are what let them run at
         // all. Without the cadence the module answers manual-only and skips

@@ -1,27 +1,6 @@
 use super::*;
 
 #[test]
-fn maps_every_host_auth_style_one_to_one() {
-    assert_eq!(map_auth_style(HostAuthStyle::None), CrateAuthStyle::None);
-    assert_eq!(
-        map_auth_style(HostAuthStyle::Bearer),
-        CrateAuthStyle::Bearer
-    );
-    assert_eq!(
-        map_auth_style(HostAuthStyle::XApiKey),
-        CrateAuthStyle::XApiKey
-    );
-    assert_eq!(
-        map_auth_style(HostAuthStyle::Anthropic),
-        CrateAuthStyle::Anthropic
-    );
-    assert_eq!(
-        map_auth_style(HostAuthStyle::Custom("x-key".to_string())),
-        CrateAuthStyle::Custom("x-key".to_string())
-    );
-}
-
-#[test]
 fn builds_a_chat_model_with_the_configured_profile() {
     let model = build_crate_openai_model(CrateOpenAiConfig {
         provider_name: "deepseek",

@@ -1,6 +1,7 @@
-//! Unified inference domain.
+//! OpenHuman inference integration domain.
 //!
-//! This module is the canonical home for all inference concerns:
+//! TinyInference owns reusable model/provider behavior. This module owns the
+//! product-facing configuration, policy, process lifecycle, and RPC seams:
 //! - `local/`    — Ollama / LM Studio / Piper runtime management
 //!                 (was `local_ai/`)
 //! - `provider/` — native chat models, cloud/local routing, auth and errors
@@ -38,10 +39,8 @@ pub mod presets;
 pub mod provider;
 mod schemas;
 pub mod sentiment;
-pub mod temperature;
 pub mod tokenjuice;
 pub mod types;
-pub mod vision_models;
 pub mod voice;
 
 pub use ops as rpc;

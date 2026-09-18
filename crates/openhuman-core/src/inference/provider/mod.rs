@@ -5,10 +5,7 @@
 //! inference concerns (local runtime, cloud providers, HTTP endpoint) share
 //! a single domain root.
 
-pub mod auth;
 pub mod billing_error;
-/// Chat-template rejections from local serving runtimes (issue #5291).
-pub mod chat_template;
 pub mod claude_agent_sdk;
 pub mod claude_code;
 pub mod config_rejection;
@@ -34,7 +31,6 @@ pub use types::{
 };
 
 pub use billing_error::is_budget_exhausted_message;
-pub use chat_template::is_chat_template_rejection_message;
 pub use config_rejection::{
     is_openai_compatible_unknown_model_message, is_provider_config_rejection_message,
 };

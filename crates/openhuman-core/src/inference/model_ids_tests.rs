@@ -168,7 +168,9 @@ fn chat_only_vision_model_resolves_to_nothing_usable() {
 #[test]
 fn default_vision_model_is_vision_capable() {
     assert!(!DEFAULT_LOW_VISION_MODEL.is_empty());
-    assert!(vision_models::is_vision_capable(DEFAULT_LOW_VISION_MODEL));
+    assert!(tinyinference::model::model_id_supports_vision(
+        DEFAULT_LOW_VISION_MODEL
+    ));
 }
 
 /// #5146 §Part 1: an unconfigured vision model must produce an actionable
@@ -211,7 +213,7 @@ fn resolve_vision_model_id_still_applies_the_moondream_alias() {
         let resolved = resolve_vision_model_id(&config)
             .unwrap_or_else(|e| panic!("alias {alias} must resolve, got: {e}"));
         assert_eq!(resolved, DEFAULT_LOW_VISION_MODEL);
-        assert!(vision_models::is_vision_capable(&resolved));
+        assert!(tinyinference::model::model_id_supports_vision(&resolved));
     }
 }
 

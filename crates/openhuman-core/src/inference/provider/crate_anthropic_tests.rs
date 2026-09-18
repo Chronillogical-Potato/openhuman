@@ -33,24 +33,3 @@ fn builds_a_native_anthropic_model_with_the_configured_profile() {
     assert!(identity.contains("api.anthropic.com"));
     assert!(!identity.contains("sk-ant-secret"));
 }
-
-#[test]
-fn temperature_override_follows_the_effective_model() {
-    let patterns = vec!["claude-3-5-*".to_string()];
-    assert_eq!(
-        temperature_for_model("claude-3-5-sonnet", Some(0.7), &patterns, Some(0.2)),
-        None
-    );
-    assert_eq!(
-        temperature_for_model("claude-sonnet-4-6", Some(0.7), &patterns, Some(0.2)),
-        Some(0.2)
-    );
-    assert_eq!(
-        temperature_for_model("claude-sonnet-4-6", Some(0.7), &patterns, None),
-        Some(0.7)
-    );
-    assert_eq!(
-        temperature_for_model("claude-sonnet-4-6", None, &patterns, None),
-        None
-    );
-}

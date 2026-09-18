@@ -46,21 +46,6 @@ pub use factory::{
     create_embedding_provider_with_credentials, default_embedding_provider,
     default_embedding_provider_with_config, default_local_embedding_provider,
 };
-// `pub(crate)` helper — reused by the memory-tree OpenAI-compat adapter to gate
-// configs whose dimension the fixed-1024 tree can't store (#4056). Not part of
-// the public surface, so it can't ride the `pub use` above (E0364).
-// Read only by `modules::ops`, so gated with it — otherwise every feature set
-// without `modules` (the `flows` lane among them) carries an unused-import
-// warning. Pre-dates #5560; fixed here because the line next to it moved.
-#[cfg(feature = "modules")]
-pub(crate) use factory::MODELS_SUPPORTING_DIMENSIONS;
-// `model_supports_dimensions` used to be re-exported here beside it, for
-// `memory::host_impls`. That file is gone with the in-process engine
-// (openhuman#6161), and so is the re-export — the function is not test-only,
-// and `factory` and `embeddings::rpc` both reach it directly through
-// `super::factory::`, so nothing else had to move.
-// #002 FR-015: the memory-tree OpenAI-compat embedder reuses the same key
-// resolution the embeddings RPC uses, so there is one source of truth.
 pub use noop::NoopEmbedding;
 pub use provider_trait::{
     format_embedding_signature, EmbeddingProvider, TinyAgentsEmbeddingProvider,

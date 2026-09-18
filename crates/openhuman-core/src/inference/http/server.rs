@@ -130,8 +130,12 @@ async fn chat_completions_handler(
     // check on the outbound body, so this is belt-and-suspenders for logging.
     let temperature = {
         let raw = req.temperature.unwrap_or(config.default_temperature);
-        let suppressed =
-            crate::inference::temperature::temperature_for_model(&model_id, raw, &config);
+        let suppressed = tinyinference::model::effective_temperature(
+            &model_id,
+            Some(raw),
+            None,
+            &config.temperature_unsupported_models,
+        );
         if suppressed.is_none() && req.temperature.is_some() {
             tracing::warn!(
                 model = %model_id,

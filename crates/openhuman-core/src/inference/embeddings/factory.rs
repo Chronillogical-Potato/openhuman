@@ -8,26 +8,16 @@ use super::cloud::{
 };
 use super::provider_trait::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::config::Config;
-use tinyinference::embeddings::EmbeddingModel;
 use tinyinference::embeddings::{
-    CohereEmbeddingModel, NoopEmbeddingModel, OllamaEmbeddingModel, OpenAiEmbeddingModel,
-    VoyageEmbeddingModel,
+    model_supports_dimensions, CohereEmbeddingModel, NoopEmbeddingModel, OllamaEmbeddingModel,
+    OpenAiEmbeddingModel, VoyageEmbeddingModel,
 };
 
 /// Build the provider for an OpenAI-compatible custom endpoint.
 ///
-/// `dims == 0` is the dimension-agnostic PROBE mode (issue #4056): send no
-/// `dimensions` param, accept whatever length comes back, let the caller adopt
-/// it. tinyinference's `OpenAiEmbeddingModel::embed` used to implement exactly
-/// that (its `parse_vectors` still skips the length guard when
-/// `dimensions == 0`), but the tinyagents pointer refresh brought a version
-/// whose `embed()` rejects `dimensions == 0` outright before the request is
-/// built — the two halves of that file now contradict, and the refusal breaks
-/// the Test-connection and save-time probes for every model outside the
-/// `text-embedding-3-*` family. Until that is reconciled upstream, the probe
-/// mode is served host-side by [`DimensionAgnosticOpenAiProbe`]; delete that
-/// type and route `dims == 0` back through `openai_model` once upstream
-/// honours it again.
+/// `dims == 0` is the TinyInference dimension-discovery mode (issue #4056):
+/// send no `dimensions` parameter, accept the returned vector length, and let
+/// the caller adopt it.
 fn custom_openai_provider(
     base_url: &str,
     api_key: &str,
@@ -35,127 +25,9 @@ fn custom_openai_provider(
     dims: usize,
 ) -> anyhow::Result<Box<dyn EmbeddingProvider>> {
     let base_url = validate_custom_endpoint(base_url, !api_key.is_empty())?;
-    if dims == 0 {
-        Ok(Box::new(DimensionAgnosticOpenAiProbe::new(
-            openai_model(&base_url, api_key, model, 0, false),
-            api_key,
-        )))
-    } else {
-        Ok(TinyAgentsEmbeddingProvider::boxed(openai_model(
-            &base_url, api_key, model, dims, false,
-        )))
-    }
-}
-
-/// The dimension-agnostic probe for an OpenAI-compatible endpoint.
-///
-/// Exists only because upstream's `embed()` refuses `dimensions == 0` (see
-/// [`custom_openai_provider`]). One request shape, deliberately minimal: POST
-/// `{model, input}` — never a `dimensions` param — bearer auth when a key is
-/// present, and no vector-length guard, because learning the endpoint's real
-/// length is the entire point of the call.
-struct DimensionAgnosticOpenAiProbe {
-    /// Used for URL building, naming and the signature — not for `embed`.
-    inner: OpenAiEmbeddingModel,
-    /// Kept host-side because the inner model does not expose its key.
-    api_key: String,
-}
-
-impl DimensionAgnosticOpenAiProbe {
-    fn new(inner: OpenAiEmbeddingModel, api_key: &str) -> Self {
-        Self {
-            inner,
-            api_key: api_key.to_owned(),
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl EmbeddingProvider for DimensionAgnosticOpenAiProbe {
-    fn name(&self) -> &str {
-        self.inner.name()
-    }
-
-    fn model_id(&self) -> &str {
-        self.inner.model_id()
-    }
-
-    fn dimensions(&self) -> usize {
-        0
-    }
-
-    fn signature(&self) -> String {
-        self.inner.signature()
-    }
-
-    async fn embed(&self, texts: &[&str]) -> anyhow::Result<Vec<Vec<f32>>> {
-        if texts.is_empty() {
-            return Ok(Vec::new());
-        }
-        let url = self.inner.embeddings_url();
-        let mut request = reqwest::Client::new().post(&url).json(&serde_json::json!({
-            "model": self.inner.model(),
-            "input": texts,
-        }));
-        if !self.api_key.is_empty() {
-            request = request.header("Authorization", format!("Bearer {}", self.api_key));
-        }
-        let response = request
-            .send()
-            .await
-            .map_err(|e| anyhow::anyhow!("openai embeddings request to {url} failed: {e}"))?;
-        let status = response.status();
-        let text = response
-            .text()
-            .await
-            .map_err(|e| anyhow::anyhow!("openai embeddings body read failed: {e}"))?;
-        if !status.is_success() {
-            anyhow::bail!("openai embeddings returned HTTP {status}: {text}");
-        }
-        let value: serde_json::Value = serde_json::from_str(&text)?;
-        let data = value
-            .get("data")
-            .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| anyhow::anyhow!("openai embeddings response missing `data` array"))?;
-        if data.len() != texts.len() {
-            anyhow::bail!(
-                "openai embed count mismatch: sent {} texts, got {} embeddings",
-                texts.len(),
-                data.len()
-            );
-        }
-        let mut vectors: Vec<Option<Vec<f32>>> = vec![None; texts.len()];
-        for item in data {
-            let index = item
-                .get("index")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|v| usize::try_from(v).ok())
-                .filter(|i| *i < texts.len())
-                .ok_or_else(|| anyhow::anyhow!("openai embedding is missing a valid `index`"))?;
-            let embedding = item
-                .get("embedding")
-                .and_then(serde_json::Value::as_array)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("openai embeddings response missing `embedding` array")
-                })?;
-            let vector = embedding
-                .iter()
-                .map(|n| {
-                    n.as_f64().map(|v| v as f32).ok_or_else(|| {
-                        anyhow::anyhow!("openai embeddings response contains a non-numeric value")
-                    })
-                })
-                .collect::<anyhow::Result<Vec<f32>>>()?;
-            vectors[index] = Some(vector);
-        }
-        vectors
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| {
-                v.ok_or_else(|| anyhow::anyhow!("openai embeddings response is missing index {i}"))
-            })
-            .collect()
-    }
+    Ok(TinyAgentsEmbeddingProvider::boxed(openai_model(
+        &base_url, api_key, model, dims, false,
+    )))
 }
 
 fn openai_model(
@@ -204,27 +76,6 @@ fn validate_custom_endpoint(endpoint: &str, has_credentials: bool) -> anyhow::Re
 
     Ok(endpoint.to_owned())
 }
-
-/// Whether to send the OpenAI `dimensions` request-body parameter for this
-/// model. Only the `text-embedding-3-*` family honors it (it's how 3-large is
-/// pinned to 1024 = `EMBEDDING_DIM`). Sending it to other models or to
-/// arbitrary OpenAI-compatible servers (vLLM, text-embeddings-inference,
-/// stricter LocalAI builds) makes those servers 400 on an unknown field, so we
-/// gate on the model id rather than the provider kind. (Reviewer sanil-23, #3076.)
-pub(crate) fn model_supports_dimensions(model: &str) -> bool {
-    model.starts_with("text-embedding-3-")
-}
-
-/// The members of that family, by name, for a consumer that cannot call the
-/// predicate.
-///
-/// The tinymemory module's `EmbeddingHost::model_supports_dimensions` is
-/// synchronous and runs inside the module, so it is told a list at load time
-/// (`modules::ops::module_config`) rather than asking over the bus. Absent from
-/// the list means "does not support it", the safe direction: the engine omits
-/// the parameter instead of writing a batch the provider rejects halfway.
-pub(crate) const MODELS_SUPPORTING_DIMENSIONS: [&str; 2] =
-    ["text-embedding-3-small", "text-embedding-3-large"];
 
 /// Creates an embedding provider based on the specified name and configuration.
 ///

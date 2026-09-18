@@ -115,7 +115,6 @@ mod factory_tests;
 
 use crate::config::schema::cloud_providers::AuthStyle;
 use crate::config::Config;
-use crate::inference::provider::auth::AuthStyle as CompatAuthStyle;
 use crate::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
 use crate::inference::provider::openai_codex::{
     openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
@@ -126,6 +125,7 @@ use crate::inference::provider::ProviderRuntimeOptions;
 use crate::security::credentials::AuthService;
 use std::sync::Arc;
 use tinyinference::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
+use tinyinference::providers::openai::AuthStyle as CompatAuthStyle;
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";

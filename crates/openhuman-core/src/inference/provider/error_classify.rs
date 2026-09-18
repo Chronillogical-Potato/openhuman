@@ -1,7 +1,7 @@
-//! OpenHuman-specific policy layered on TinyAgents' provider-neutral retry classifier.
+//! OpenHuman-specific policy layered on TinyInference's provider-neutral classifier.
 
-use tinyagents_harness::retry::{
-    classify_provider_failure, parse_retry_after_ms as parse_tinyagents_retry_after,
+use tinyinference::failure::{
+    classify_provider_failure, parse_retry_after_ms as parse_inference_retry_after,
     ProviderFailureClass,
 };
 
@@ -44,7 +44,7 @@ pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
 }
 
 pub(crate) fn parse_retry_after_ms(err: &anyhow::Error) -> Option<u64> {
-    parse_tinyagents_retry_after(&err.to_string())
+    parse_inference_retry_after(&err.to_string())
 }
 
 #[cfg(test)]

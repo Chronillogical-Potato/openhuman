@@ -15,27 +15,13 @@
 //! (`/v1/responses` + query-param auth) — stay as host `ChatModel` impls and do
 //! **not** route through here.
 //!
-//! The builder + auth mapping are the factory's default construction path and
-//! are covered by the provider wire-parity suite.
+//! The builder is the factory's default construction path and consumes
+//! TinyInference's auth style directly.
 
 use std::sync::Arc;
 
 use tinyinference::model::ChatModel;
-use tinyinference::providers::openai::{AuthStyle as CrateAuthStyle, OpenAiModel};
-
-use super::auth::AuthStyle as HostAuthStyle;
-
-/// Map the host [`AuthStyle`](HostAuthStyle) to the crate's `AuthStyle`. The
-/// variants are 1:1 (both were derived from the same OpenHuman provider catalog).
-pub(crate) fn map_auth_style(host: HostAuthStyle) -> CrateAuthStyle {
-    match host {
-        HostAuthStyle::None => CrateAuthStyle::None,
-        HostAuthStyle::Bearer => CrateAuthStyle::Bearer,
-        HostAuthStyle::XApiKey => CrateAuthStyle::XApiKey,
-        HostAuthStyle::Anthropic => CrateAuthStyle::Anthropic,
-        HostAuthStyle::Custom(header) => CrateAuthStyle::Custom(header),
-    }
-}
+use tinyinference::providers::openai::{AuthStyle as HostAuthStyle, OpenAiModel};
 
 /// The resolved config for one OpenAI-compatible provider, mirroring the inputs
 /// the host [`build_compatible_provider`](super::factory) helper takes. Kept as a
@@ -119,7 +105,7 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
         config.endpoint,
         config.model,
     )
-    .with_auth_style(map_auth_style(config.auth_style));
+    .with_auth_style(config.auth_style);
 
     if !config.temperature_unsupported_models.is_empty() {
         model = model
