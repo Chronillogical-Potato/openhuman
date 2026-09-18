@@ -50,7 +50,7 @@ domain.
 - `crate::security::live_policy` + `crate::security::egress` — Privacy-Mode
   `LocalOnly` refusal and `EgressDescriptor` emission at the factory chokepoint
   (`factory/access_gates.rs`).
-- `crate::inference::local` — `profile::is_local_provider_string`, Ollama /
+- `crate::inference::host_runtime` — `profile::is_local_provider_string`, Ollama /
   LM Studio base-url resolution for local provider strings.
 - `crate::inference::auth_error_registry` — surfaces OpenHuman per-provider auth errors
   back to the UI.

@@ -8,7 +8,7 @@ use log::{debug, info, warn};
 use std::time::Instant;
 
 use crate::config::Config;
-use crate::inference::local as local_ai;
+use crate::inference::host_runtime as local_ai;
 
 const LOG_PREFIX: &str = "[voice_postprocess]";
 
@@ -70,7 +70,7 @@ pub async fn cleanup_transcription(
     }
 
     let service = local_ai::global(config);
-    let llm_state = service.status.lock().state.clone();
+    let llm_state = service.status().state;
     let llm_ready = matches!(llm_state.as_str(), "ready" | "degraded");
 
     info!(
@@ -118,8 +118,9 @@ pub async fn cleanup_transcription(
     // `inference_interactive` so a long-running memory backfill does
     // not push the cleanup past the 3s timeout. Mirrors the autocomplete
     // bypass pattern (`inline_complete_interactive`).
+    let runtime = crate::inference::local_runtime_config(config);
     let inference_fut =
-        service.inference_interactive(config, CLEANUP_SYSTEM_PROMPT, &prompt, Some(512), true);
+        service.inference_interactive(&runtime, CLEANUP_SYSTEM_PROMPT, &prompt, Some(512), true);
     let result: Result<String, String> =
         match tokio::time::timeout(std::time::Duration::from_secs(3), inference_fut).await {
             Ok(r) => r,

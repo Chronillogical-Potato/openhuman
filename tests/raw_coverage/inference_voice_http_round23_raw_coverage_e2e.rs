@@ -25,7 +25,7 @@ use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::inference::http;
-use openhuman_core::inference::local::{
+use openhuman_core::inference::host_runtime::{
     local_ai_assets_status, local_ai_downloads_progress, LocalAiService,
 };
 use openhuman_core::inference::voice::streaming::handle_dictation_ws;

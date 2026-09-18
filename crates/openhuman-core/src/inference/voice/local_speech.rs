@@ -34,7 +34,7 @@
 //!
 //! **Easy path:** click "Install Piper" in `Settings → Voice → Voice
 //! Providers`. That triggers
-//! [`crate::inference::local::install_piper`] which downloads the
+//! [`crate::inference::host_runtime::install_piper`] which downloads the
 //! Piper binary archive (`.zip` on Windows, `.tar.gz` on macOS / Linux)
 //! into `~/.openhuman/bin/piper/`, extracts it, and stages the bundled
 //! `en_US-lessac-medium` voice (`.onnx` + `.onnx.json`) alongside via a
@@ -67,7 +67,6 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use log::debug;
 
 use crate::config::Config;
-use crate::inference::paths::{resolve_piper_binary_with_config, resolve_tts_voice_path};
 use crate::rpc::RpcOutcome;
 
 use crate::voice::reply_speech::{ReplySpeechResult, VisemeFrame};
@@ -112,16 +111,19 @@ pub async fn synthesize_piper(
         return Err("text is required".to_string());
     }
 
-    let piper_bin = resolve_piper_binary_with_config(config).ok_or_else(|| {
-        format!(
-            "{LOG_PREFIX} piper binary not found. \
+    let runtime = crate::inference::local_runtime_config(config);
+    let piper_bin = tinyinference_local::service::paths::resolve_piper_binary_with_config(&runtime)
+        .ok_or_else(|| {
+            format!(
+                "{LOG_PREFIX} piper binary not found. \
              Set PIPER_BIN to the absolute path of piper, or install piper on \
              PATH (download from https://github.com/rhasspy/piper/releases)."
-        )
-    })?;
+            )
+        })?;
     debug!("{LOG_PREFIX} resolved piper binary={}", piper_bin.display());
 
-    let voice_path = resolve_tts_voice_path(config).map_err(|e| format!("{LOG_PREFIX} {e}"))?;
+    let voice_path = tinyinference_local::service::paths::resolve_tts_voice_path(&runtime)
+        .map_err(|e| format!("{LOG_PREFIX} {e}"))?;
     let voice_id = opts
         .voice
         .as_deref()

@@ -3538,20 +3538,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "motosan-ai-oauth"
-version = "0.2.1"
-dependencies = [
- "base64 0.22.1",
- "percent-encoding",
- "rand 0.9.5",
- "reqwest 0.12.28",
- "serde",
- "sha2 0.10.9",
- "thiserror 2.0.20",
- "tokio",
-]
-
-[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4275,7 +4261,6 @@ dependencies = [
  "lettre",
  "libc",
  "log",
- "motosan-ai-oauth",
  "nu-ansi-term 0.46.0",
  "once_cell",
  "openhuman-rpc",
@@ -4319,6 +4304,7 @@ dependencies = [
  "tinyinference-embeddings",
  "tinyinference-llm",
  "tinyinference-local",
+ "tinyinference-providers",
  "tinyjuice-bus",
  "tinymcp",
  "tinymcp-bus",
@@ -7358,11 +7344,15 @@ dependencies = [
 name = "tinyinference-local"
 version = "0.2.1"
 dependencies = [
+ "base64 0.22.1",
  "bytes",
  "flate2",
  "futures",
+ "futures-util",
  "hex",
+ "log",
  "once_cell",
+ "parking_lot",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -7371,11 +7361,32 @@ dependencies = [
  "tar",
  "thiserror 2.0.20",
  "tinyinference-core",
+ "tinyinference-embeddings",
  "tinyinference-llm",
  "tokio",
  "tracing",
  "url",
+ "uuid",
  "zip 2.4.2",
+]
+
+[[package]]
+name = "tinyinference-providers"
+version = "0.2.1"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "rand 0.9.5",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror 2.0.20",
+ "tinyinference-core",
+ "tinyinference-llm",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

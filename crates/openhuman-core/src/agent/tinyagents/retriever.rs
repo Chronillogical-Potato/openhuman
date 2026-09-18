@@ -49,7 +49,7 @@ use tinyinference_embeddings::{
 };
 
 use super::ProviderEmbeddingModel;
-use crate::embeddings::EmbeddingProvider;
+use crate::inference::embedding_host::EmbeddingProvider;
 use crate::memory::{Memory, MemoryEntry, RecallOpts};
 
 /// Process-global [`EventSink`] the facade emits [`AgentEvent::MemoryLoaded`]

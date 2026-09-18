@@ -419,6 +419,7 @@ tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crat
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
 # TinyTools — the tool vocabulary: the `Tool` trait, `ToolResult`, and the
 # permission / scope / timeout classifications this host enforces around a call.
 #
@@ -692,7 +693,6 @@ tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi", "env-filter"] }
 tracing-appender = { version = "0.2", optional = true }
 urlencoding = "2.1"
-motosan-ai-oauth = { version = "0.2", features = ["codex"] }
 thiserror = "2.0"
 chrono-tz = "0.10"
 dotenvy = "0.15"

@@ -10,7 +10,7 @@ use serde_json::json;
 use std::fmt::Write;
 
 use crate::config::rpc as config_rpc;
-use crate::embeddings::provider_from_config;
+use crate::inference::embedding_host::provider_from_config;
 use crate::memory::api::chunks::SourceKind;
 use crate::memory::api::provider::ChunkQuery;
 use crate::memory::api::provider::MemoryProvider;

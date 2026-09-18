@@ -15,7 +15,7 @@ This is deliberate scoping. The previous design tried to put every modality on-d
 
 | Workload                  | Default model                     | Implementation                                                                                                                 |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built in `crates/openhuman-core/src/embeddings/factory.rs` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
+| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built by `crates/tinyinference-embeddings/src/factory.rs` in `vendor/tinyagents/vendor/tinyinference` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
 | **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `crates/tinymemory-core/src/tree/summarise.rs` in `vendor/tinymemory` - source / topic / global summary builders for the Memory Tree.      |
 | **Learning / reflection** | small chat model                  | `crates/openhuman-core/src/agent/learning/reflection.rs` - passes that consolidate what was learned.                                       |
 | **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `crates/openhuman-core/src/inference/provider/factory/routing.rs` handles hint routing.        |

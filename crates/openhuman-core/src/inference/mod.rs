@@ -2,8 +2,8 @@
 //!
 //! TinyInference owns reusable model/provider behavior. This module owns the
 //! product-facing configuration, policy, process lifecycle, and RPC seams:
-//! - `local/`    — Ollama / LM Studio / Piper runtime management
-//!                 (was `local_ai/`)
+//! - `host_runtime/` — OpenHuman policy, RPC, and speech bindings around
+//!                     `tinyinference-local`
 //! - `provider/` — native chat models, cloud/local routing, auth and errors
 //!                 (was `providers/`)
 //! - `voice/`    — transcription (STT) and TTS inference implementations
@@ -24,16 +24,14 @@
 pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
 pub mod auth_error_registry;
+pub mod embedding_host;
+pub mod host_runtime;
 pub mod http;
-pub mod local;
 pub mod model_context;
-pub mod openai_oauth;
 pub mod ops;
-pub mod paths;
 pub mod provider;
 mod schemas;
 pub mod tokenjuice;
-pub mod types;
 pub mod voice;
 
 pub use ops as rpc;
@@ -43,13 +41,60 @@ pub use schemas::{
 };
 
 // Re-export the types that external callers (voice, agent, etc.) import from inference
-pub use local::all_local_inference_controller_schemas;
-pub use local::all_local_inference_registered_controllers;
+pub use host_runtime::all_local_inference_controller_schemas;
+pub use host_runtime::all_local_inference_registered_controllers;
 pub use model_context::context_window_for_model;
-pub use types::{
+pub use tinyinference_local::status::{
     LocalAiAssetStatus, LocalAiAssetsStatus, LocalAiDownloadProgressItem, LocalAiDownloadsProgress,
     LocalAiEmbeddingResult, LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult,
 };
+
+/// Builds the TinyInference disabled snapshot from OpenHuman's configured tier.
+pub fn disabled_local_ai_status(config: &crate::config::Config) -> LocalAiStatus {
+    let vision_mode =
+        crate::config::ops::local_ai_presets::vision_mode_for_config(&config.local_ai);
+    LocalAiStatus::disabled(config, &format!("{vision_mode:?}"))
+}
+
+/// Projects OpenHuman configuration into TinyInference's local-runtime input.
+pub(crate) fn local_runtime_config(
+    config: &crate::config::Config,
+) -> tinyinference_local::service::RuntimeConfig {
+    let local = &config.local_ai;
+    tinyinference_local::service::RuntimeConfig {
+        local_ai: tinyinference_local::service::LocalRuntimeSettings {
+            runtime_enabled: local.runtime_enabled,
+            provider: local.provider.clone(),
+            base_url: local.base_url.clone(),
+            api_key: local.api_key.clone(),
+            model_id: local.model_id.clone(),
+            chat_model_id: local.chat_model_id.clone(),
+            vision_model_id: local.vision_model_id.clone(),
+            embedding_model_id: local.embedding_model_id.clone(),
+            stt_model_id: local.stt_model_id.clone(),
+            stt_download_url: local.stt_download_url.clone(),
+            tts_voice_id: local.tts_voice_id.clone(),
+            tts_download_url: local.tts_download_url.clone(),
+            tts_config_download_url: local.tts_config_download_url.clone(),
+            quantization: local.quantization.clone(),
+            preload_vision_model: local.preload_vision_model,
+            preload_embedding_model: local.preload_embedding_model,
+            preload_stt_model: local.preload_stt_model,
+            preload_tts_voice: local.preload_tts_voice,
+            download_url: local.download_url.clone(),
+            autosummary_debounce_ms: local.autosummary_debounce_ms,
+            selected_tier: local.selected_tier.clone(),
+            opt_in_confirmed: local.opt_in_confirmed,
+            ollama_binary_path: local.ollama_binary_path.clone(),
+            num_ctx: local.num_ctx,
+        },
+        workspace_dir: config.workspace_dir.clone(),
+        config_path: config.config_path.clone(),
+        shared_root_dir: crate::config::default_root_openhuman_dir()
+            .unwrap_or_else(|_| config.workspace_dir.clone()),
+        default_temperature: config.default_temperature,
+    }
+}
 
 impl tinyinference_local::models::LocalModelConfig for crate::config::Config {
     fn local_provider_name(&self) -> &str {
@@ -81,5 +126,5 @@ impl tinyinference_local::models::LocalModelConfig for crate::config::Config {
 // Test helpers (re-exported for sibling test files that use inference_test_guard)
 #[cfg(test)]
 pub(crate) fn inference_test_guard() -> std::sync::MutexGuard<'static, ()> {
-    local::inference_test_guard()
+    host_runtime::inference_test_guard()
 }

@@ -365,7 +365,7 @@ impl Agent {
     /// for callers that construct the agent through
     /// [`Agent::from_config`](crate::agent::Agent::from_config) and
     /// therefore never see the builder — notably the per-turn `cwd` of
-    /// [`agent_chat`](crate::inference::local::ops::agent_chat).
+    /// [`agent_chat`](crate::inference::host_runtime::ops::agent_chat).
     ///
     /// The descriptor is threaded onto the turn's run context, so it also
     /// propagates to sub-agents spawned from this session (the same deliberate

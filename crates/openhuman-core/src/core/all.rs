@@ -630,7 +630,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Inference,
-        crate::embeddings::all_embeddings_registered_controllers(),
+        crate::inference::embedding_host::all_embeddings_registered_controllers(),
     );
     // People resolution and interaction scoring
     push_cap(

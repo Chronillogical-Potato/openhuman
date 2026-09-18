@@ -275,7 +275,7 @@ fn classifies_openhuman_invalid_token_401_as_session_expired() {
 }
 
 /// TAURI-RUST-4K5 (118 events, escalating on 0.56.0): the embedding
-/// client at `crates/openhuman-core/src/embeddings/openai.rs:139` wraps the same
+/// client in `tinyinference-embeddings/src/cloud.rs` wraps the same
 /// OpenHuman backend `{"success":false,"error":"Invalid token"}` 401
 /// envelope as 4P0, but with the `"Embedding API error"` prefix
 /// instead of `"OpenHuman API error"` (different emit-site format

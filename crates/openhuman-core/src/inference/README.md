@@ -114,11 +114,14 @@ Also exposes a non-RPC HTTP router (`http::router()`) nested at `/v1` by `crates
 - `crate::core::observability` — `expected_error_kind` for Sentry-noise classification.
 - `crate::core::jsonrpc` — endpoint mounting reference for `/v1`.
 - `crate::core::auth` — bearer auth for the OpenAI-compatible endpoint.
-- External: `motosan_ai_oauth` (Codex OAuth), `sysinfo` (device profile), `reqwest`.
+- External: `sysinfo` (device profile), `reqwest`.
 
 ## Used by
 
-Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`, `agent/tools`, `agent/triage`, `agent/harness/subagent_runner`, `agent/learning`, `agent/context`, `agent/tinyagents`), `voice`, `memory/tree/tree_runtime`, `channels`, `web_chat`, `flows/tinyflows/caps`, `cron/scheduler`, `embeddings` (Ollama base-url resolution from `local`), `threads`, `security/credentials` (`local::global`), `core/runtime/builder` (`local::try_global` on shutdown), and `config/migrations`/`config/schema`. `grep -rn 'inference::provider::\|inference::local::' crates/openhuman-core/src` is the authoritative list.
+Widely depended on by the agent layer, voice, memory, channels, web chat,
+flows, scheduling, threads, credentials, runtime shutdown, and configuration.
+Reusable embedding and local-runtime behavior is consumed directly from the
+TinyInference crates; `host_runtime` retains OpenHuman policy and RPC wiring.
 
 ## Notes / gotchas
 

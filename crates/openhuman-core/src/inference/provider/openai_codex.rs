@@ -14,17 +14,17 @@ pub(crate) fn resolve_openai_codex_routing(
         return Ok(OpenAiCodexRouting::standard(endpoint));
     }
 
-    let credentials = match crate::inference::openai_oauth::lookup_openai_oauth_credentials(config)
-    {
-        Ok(credentials) => credentials,
-        Err(err) if !bearer_key.trim().is_empty() => {
-            log::warn!(
+    let credentials =
+        match crate::security::credentials::openai_oauth::lookup_openai_oauth_credentials(config) {
+            Ok(credentials) => credentials,
+            Err(err) if !bearer_key.trim().is_empty() => {
+                log::warn!(
                 "[providers][openai-codex] oauth metadata unavailable; continuing with standard bearer key: {err}"
             );
-            None
-        }
-        Err(err) => return Err(format!("[chat-factory] openai oauth lookup failed: {err}")),
-    };
+                None
+            }
+            Err(err) => return Err(format!("[chat-factory] openai oauth lookup failed: {err}")),
+        };
 
     let using_oauth = bearer_is_oauth && credentials.is_some();
     let account_id = credentials

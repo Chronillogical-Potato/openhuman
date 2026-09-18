@@ -291,7 +291,7 @@ fn classifies_provider_config_rejection() {
 fn classifies_embedding_endpoint_absent_as_config_rejection() {
     // TAURI-RUST-5JR — custom embeddings provider pointed at a chat-only
     // base URL (DeepSeek) that has no `/embeddings` route. Verbatim shape
-    // produced by `crates/openhuman-core/src/embeddings/openai.rs` (prefix preserved
+    // produced by `tinyinference-embeddings/src/cloud.rs` (prefix preserved
     // even after the actionable-hint suffix is appended).
     assert_eq!(
         expected_error_kind(

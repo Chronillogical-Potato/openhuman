@@ -8,8 +8,7 @@ use log::{debug, warn};
 use std::time::Instant;
 
 use crate::config::Config;
-use crate::inference::local as local_ai;
-use crate::inference::local::paths::{resolve_piper_binary, resolve_tts_voice_path};
+use crate::inference::host_runtime as local_ai;
 use crate::rpc::RpcOutcome;
 use tinyinference_local::models as model_ids;
 
@@ -25,8 +24,9 @@ const LOG_PREFIX: &str = "[voice]";
 pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, String> {
     debug!("{LOG_PREFIX} checking voice status");
 
-    let piper_bin = resolve_piper_binary();
-    let tts_voice = resolve_tts_voice_path(config).ok();
+    let runtime = crate::inference::local_runtime_config(config);
+    let piper_bin = tinyinference_local::service::paths::resolve_piper_binary_with_config(&runtime);
+    let tts_voice = tinyinference_local::service::paths::resolve_tts_voice_path(&runtime).ok();
 
     // STT is hosted now, so "available" means the configured engine actually
     // resolves to a provider: the backend proxy always does, a third-party slug
@@ -100,10 +100,14 @@ pub async fn voice_transcribe(
     let service = local_ai::global(config);
     let transcribe_started = Instant::now();
     // Context is forwarded as a vocabulary-bias hint where the engine has one.
-    let output = service
-        .transcribe_with_prompt(config, audio_path.trim(), context)
-        .await
-        .map_err(|e| e.to_string())?;
+    let output = local_ai::service::transcribe_with_prompt(
+        service.as_ref(),
+        config,
+        audio_path.trim(),
+        context,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     let transcribe_elapsed = transcribe_started.elapsed();
 
     let raw_text = output.text.clone();
@@ -176,9 +180,13 @@ pub async fn voice_transcribe_bytes(
 
     let transcribe_started = Instant::now();
     // Context is forwarded as a vocabulary-bias hint where the engine has one.
-    let output = service
-        .transcribe_with_prompt(config, file_path.to_string_lossy().as_ref(), context)
-        .await;
+    let output = local_ai::service::transcribe_with_prompt(
+        service.as_ref(),
+        config,
+        file_path.to_string_lossy().as_ref(),
+        context,
+    )
+    .await;
     let transcribe_elapsed = transcribe_started.elapsed();
     if let Err(e) = tokio::fs::remove_file(&file_path).await {
         warn!(
@@ -260,8 +268,7 @@ pub async fn voice_tts(
     );
 
     let service = local_ai::global(config);
-    let output = service
-        .tts(config, text.trim(), output_path)
+    let output = local_ai::service::tts(service.as_ref(), config, text.trim(), output_path)
         .await
         .map_err(|e| e.to_string())?;
 

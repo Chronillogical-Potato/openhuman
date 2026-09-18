@@ -113,11 +113,11 @@ use openhuman_core::config::{
 use openhuman_core::security::credentials::profiles::{AuthProfile, TokenSet};
 use openhuman_core::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::inference::context_window_for_model;
-use openhuman_core::inference::local::{
+use openhuman_core::inference::host_runtime::{
     global as local_ai_global, model_artifact_path, try_global as local_ai_try_global,
     LocalAiService,
 };
-use openhuman_core::inference::openai_oauth::{
+use openhuman_core::security::credentials::openai_oauth::{
     lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
 use openhuman_core::config::ops::local_ai_presets::{

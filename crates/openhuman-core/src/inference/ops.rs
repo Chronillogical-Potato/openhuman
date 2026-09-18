@@ -3,8 +3,8 @@
 use crate::config::ops::local_ai_presets;
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
-use crate::inference::local as local_runtime;
-use crate::inference::local::ops::ReactionDecision;
+use crate::inference::host_runtime as local_runtime;
+use crate::inference::host_runtime::ops::ReactionDecision;
 use crate::inference::provider as providers;
 use crate::inference::{LocalAiEmbeddingResult, LocalAiStatus};
 use crate::rpc::RpcOutcome;
@@ -267,7 +267,14 @@ pub async fn inference_analyze_sentiment(
          CONFIDENCE is a number from 0.0 to 1.0\n\n\
          User message: {message}"
     );
-    let result = match service.prompt(config, &prompt, Some(8), true).await {
+    let runtime = crate::inference::local_runtime_config(config);
+    let Some(_permit) = crate::cron::scheduler_gate::wait_for_capacity().await else {
+        return Ok(RpcOutcome::single_log(
+            SentimentResult::neutral(),
+            "local inference paused while signed out",
+        ));
+    };
+    let result = match service.prompt(&runtime, &prompt, Some(8), true).await {
         Ok(raw) => parse_sentiment_response(&raw.trim().to_lowercase()),
         Err(error) => {
             debug!(%error, "{LOG_PREFIX} sentiment inference failed; returning neutral");
@@ -506,16 +513,17 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
 
 pub async fn inference_openai_oauth_start(config: &Config) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} openai_oauth_start:start");
-    let result = crate::inference::openai_oauth::start_openai_oauth(config).map(|start| {
-        RpcOutcome::single_log(
-            json!({
-                "authUrl": start.auth_url,
-                "state": start.state,
-                "redirectUri": start.redirect_uri,
-            }),
-            "openai oauth authorize url ready",
-        )
-    });
+    let result =
+        crate::security::credentials::openai_oauth::start_openai_oauth(config).map(|start| {
+            RpcOutcome::single_log(
+                json!({
+                    "authUrl": start.auth_url,
+                    "state": start.state,
+                    "redirectUri": start.redirect_uri,
+                }),
+                "openai oauth authorize url ready",
+            )
+        });
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} openai_oauth_start:ok"),
         Err(err) => warn!(error = %err, "{LOG_PREFIX} openai_oauth_start:error"),
@@ -531,9 +539,10 @@ pub async fn inference_openai_oauth_complete(
         callback_len = callback_url.len(),
         "{LOG_PREFIX} openai_oauth_complete:start"
     );
-    let result = crate::inference::openai_oauth::complete_openai_oauth(config, callback_url)
-        .await
-        .map(|payload| RpcOutcome::single_log(payload, "openai oauth connected"));
+    let result =
+        crate::security::credentials::openai_oauth::complete_openai_oauth(config, callback_url)
+            .await
+            .map(|payload| RpcOutcome::single_log(payload, "openai oauth connected"));
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} openai_oauth_complete:ok"),
         Err(err) => warn!(error = %err, "{LOG_PREFIX} openai_oauth_complete:error"),
@@ -545,8 +554,9 @@ pub async fn inference_openai_oauth_import_codex_cli(
     config: &Config,
 ) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} openai_oauth_import_codex_cli:start");
-    let result = crate::inference::openai_oauth::import_openai_oauth_from_codex_cli(config)
-        .map(|payload| RpcOutcome::single_log(payload, "openai oauth imported from codex cli"));
+    let result =
+        crate::security::credentials::openai_oauth::import_openai_oauth_from_codex_cli(config)
+            .map(|payload| RpcOutcome::single_log(payload, "openai oauth imported from codex cli"));
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} openai_oauth_import_codex_cli:ok"),
         // Most failures here are expected user-state (no `~/.codex/auth.json`,
@@ -566,17 +576,18 @@ pub async fn inference_openai_oauth_import_codex_cli(
 
 pub async fn inference_openai_oauth_status(config: &Config) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} openai_oauth_status:start");
-    let result = crate::inference::openai_oauth::openai_oauth_status(config).map(|status| {
-        RpcOutcome::single_log(
-            json!({
-                "connected": status.connected,
-                "profileId": status.profile_id,
-                "expiresAt": status.expires_at,
-                "authMethod": status.auth_method,
-            }),
-            "openai oauth status",
-        )
-    });
+    let result =
+        crate::security::credentials::openai_oauth::openai_oauth_status(config).map(|status| {
+            RpcOutcome::single_log(
+                json!({
+                    "connected": status.connected,
+                    "profileId": status.profile_id,
+                    "expiresAt": status.expires_at,
+                    "authMethod": status.auth_method,
+                }),
+                "openai oauth status",
+            )
+        });
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} openai_oauth_status:ok"),
         Err(err) => warn!(error = %err, "{LOG_PREFIX} openai_oauth_status:error"),
@@ -588,7 +599,7 @@ pub async fn inference_openai_oauth_disconnect(
     config: &Config,
 ) -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} openai_oauth_disconnect:start");
-    let result = crate::inference::openai_oauth::disconnect_openai_oauth(config)
+    let result = crate::security::credentials::openai_oauth::disconnect_openai_oauth(config)
         .map(|payload| RpcOutcome::single_log(payload, "openai oauth disconnected"));
     match &result {
         Ok(_) => debug!("{LOG_PREFIX} openai_oauth_disconnect:ok"),
@@ -604,8 +615,9 @@ pub async fn inference_diagnostics(config: &Config) -> Result<RpcOutcome<Value>,
     // callers (UI + json_rpc_e2e tests) can read `provider`, `lm_studio_running`,
     // etc. straight off the response — mirrors the legacy
     // `local_ai_diagnostics` shape that the test asserts against.
+    let runtime = crate::inference::local_runtime_config(config);
     let result = service
-        .diagnostics(config)
+        .diagnostics(&runtime)
         .await
         .map(|value| RpcOutcome::new(value, Vec::new()));
     match &result {

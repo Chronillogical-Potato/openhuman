@@ -32,9 +32,8 @@ use tinyinference_core::sanitize::sanitize_api_error;
 
 pub use auth_failure::{
     is_backend_auth_failure, is_byo_provider_auth_failure_http,
-    is_openai_oauth_session_expired_http, is_openai_oauth_session_expired_message,
-    log_byo_provider_auth_failure, log_openai_oauth_session_expired,
-    publish_backend_session_expired,
+    is_openai_oauth_session_expired_http, log_byo_provider_auth_failure,
+    log_openai_oauth_session_expired, publish_backend_session_expired,
 };
 pub use context_window::{is_context_window_exceeded_message, log_context_window_exceeded};
 pub use dispatch::{api_error, should_report_provider_http_failure};

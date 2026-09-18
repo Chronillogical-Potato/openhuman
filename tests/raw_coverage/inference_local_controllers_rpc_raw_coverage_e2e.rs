@@ -58,7 +58,7 @@ use std::sync::{Mutex, OnceLock};
 
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::config::Config;
-use openhuman_core::inference::local::all_local_inference_registered_controllers;
+use openhuman_core::inference::host_runtime::all_local_inference_registered_controllers;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 

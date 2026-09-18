@@ -202,18 +202,16 @@ impl ReflectionHook {
                     );
                     return Ok(String::new());
                 }
-                // Local reflection acquires the scheduler_gate LLM
-                // permit transitively through `service.prompt` →
-                // `inference_with_temperature_internal`. Cloud
-                // reflection skips the gate (#1073 intentionally
-                // gates only local routes; cloud rate limiting is
-                // tracked separately).
-                log::debug!(
-                    "[learning::reflection] local route — gate permit acquired via LocalAiService"
-                );
-                let service = crate::inference::local::global(&self.full_config);
+                // Scheduler policy belongs to OpenHuman; TinyInference owns
+                // only the local runtime and transport.
+                let Some(_permit) = crate::cron::scheduler_gate::wait_for_capacity().await else {
+                    return Ok(String::new());
+                };
+                log::debug!("[learning::reflection] local route — gate permit acquired");
+                let service = crate::inference::host_runtime::global(&self.full_config);
+                let runtime = crate::inference::local_runtime_config(&self.full_config);
                 service
-                    .prompt(&self.full_config, prompt, Some(512), true)
+                    .prompt(&runtime, prompt, Some(512), true)
                     .await
                     .map_err(|e| anyhow::anyhow!("local reflection failed: {e}"))
             }

@@ -46,7 +46,7 @@ The **adapter seam** between OpenHuman and the vendored [`tinyagents`](../../../
 | `steering_forwarder.rs` | `SteeringForwarderGuard`: forwards `RunQueue` steer/collect messages into the harness `SteeringHandle`; abort-on-drop so drop-based cancellation always deregisters it (issue #4456). |
 | `stop_hooks.rs` | `StopHookMiddleware`: evaluates OpenHuman `StopHook`s after each model call and pauses the run via steering on the first `Stop` decision. |
 | `summarize.rs` | `ModelSummarizer` / `FaultTolerantCachingSummarizer` plus a context-window-aware `SummarizationPolicy` driving the crate's `ContextCompressionMiddleware`. |
-| `embeddings.rs` | `ProviderEmbeddingModel`: adapts `crate::embeddings::EmbeddingProvider` onto the crate's `EmbeddingModel` trait. |
+| `embeddings.rs` | `ProviderEmbeddingModel`: adapts `crate::inference::embedding_host::EmbeddingProvider` onto the crate's `EmbeddingModel` trait. |
 | `retriever.rs` | `recall_through_facade` / `build_retriever`: wraps `Memory::recall`, projects onto the crate's `ScoredDoc`, applies the `path_scope` dedupe rule, emits `MemoryLoaded`. |
 | `thread_context.rs` | Task-local ambient `thread_id` (`with_thread_id`, `current_thread_id`) read by the OpenAI-compatible provider when serialising request bodies. |
 | `todos.rs` | `todos_store` / `scratch_todos_store` (the crate `Store` behind per-thread task boards, `tinyagents_graph::todos`) and `migrate_legacy_task_boards`, the one-shot import run at startup. |

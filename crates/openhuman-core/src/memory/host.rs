@@ -18,7 +18,7 @@
 //!   spans agents, channels, cron and tools as well as memory.
 //! - The embedding provider trait is not implemented here — it is *defined* in
 //!   `tinymemory_api::host` and re-exported from
-//!   [`crate::embeddings`], so our existing providers
+//!   [`crate::inference::embedding_host`], so our existing providers
 //!   already implement it.
 //!
 //! Call [`install_memory_event_sink`] once during startup, before any memory

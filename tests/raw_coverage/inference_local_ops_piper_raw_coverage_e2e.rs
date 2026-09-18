@@ -17,7 +17,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::config::Config;
-use openhuman_core::inference::local::{
+use openhuman_core::inference::host_runtime::{
     all_local_inference_registered_controllers, local_ai_transcribe_bytes,
 };
 use serde_json::{json, Value};

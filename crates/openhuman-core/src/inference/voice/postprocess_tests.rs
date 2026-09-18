@@ -37,8 +37,7 @@ where
     Fut: std::future::Future<Output = R>,
 {
     let service = local_ai::global(config);
-    let previous = service.status.lock().state.clone();
-    service.status.lock().state = "ready".into();
+    let previous = service.replace_status_state("ready");
     unsafe {
         std::env::set_var("OPENHUMAN_OLLAMA_BASE_URL", &base);
     }
@@ -46,7 +45,7 @@ where
     unsafe {
         std::env::remove_var("OPENHUMAN_OLLAMA_BASE_URL");
     }
-    service.status.lock().state = previous;
+    service.replace_status_state(previous);
     out
 }
 
@@ -70,10 +69,9 @@ async fn disabled_cleanup_returns_raw_text() {
     let mut config = Config::default();
     config.local_ai.voice_llm_cleanup_enabled = false;
     let service = local_ai::global(&config);
-    let previous = service.status.lock().state.clone();
-    service.status.lock().state = "not_ready".into();
+    let previous = service.replace_status_state("not_ready");
     let result = cleanup_transcription(&config, "um hello uh world", None).await;
-    service.status.lock().state = previous;
+    service.replace_status_state(previous);
     assert_eq!(result, "um hello uh world");
 }
 
@@ -85,10 +83,9 @@ async fn enabled_but_llm_not_ready_returns_raw_text() {
     let _g = crate::inference::inference_test_guard();
     let config = Config::default(); // voice_llm_cleanup_enabled = true by default
     let service = local_ai::global(&config);
-    let previous = service.status.lock().state.clone();
-    service.status.lock().state = "not_ready".into();
+    let previous = service.replace_status_state("not_ready");
     let result = cleanup_transcription(&config, "raw whisper output", None).await;
-    service.status.lock().state = previous;
+    service.replace_status_state(previous);
     assert_eq!(result, "raw whisper output");
 }
 

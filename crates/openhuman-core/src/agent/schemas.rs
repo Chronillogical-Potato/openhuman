@@ -10,7 +10,7 @@ use crate::rpc::RpcOutcome;
 /// Params for `agent.chat` and `agent.chat_simple`.
 ///
 /// A near-copy of the params in
-/// [`crate::inference::local::schemas`], which backs the
+/// [`crate::inference::host_runtime::schemas`], which backs the
 /// `inference.agent_chat*` namespace over the same ops. That surface carries
 /// two fields this one does not — a per-call `inference_url` + `api_key` —
 /// because `agent.chat` describes a turn on the account's own configured
@@ -233,7 +233,7 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let mut config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::inference::local::rpc::agent_chat(
+            crate::inference::host_runtime::rpc::agent_chat(
                 &mut config,
                 &p.message,
                 p.model_override,
@@ -256,7 +256,7 @@ fn handle_chat_simple(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::inference::local::rpc::agent_chat_simple(
+            crate::inference::host_runtime::rpc::agent_chat_simple(
                 &config,
                 &p.message,
                 p.model_override,
