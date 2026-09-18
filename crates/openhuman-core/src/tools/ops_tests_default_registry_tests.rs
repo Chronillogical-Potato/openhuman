@@ -69,14 +69,17 @@ fn all_tools_registers_collapsed_memory_and_search_tools() {
         .iter()
         .find(|tool| tool.name() == crate::memory::tools::MEMORY_TOOL_NAME)
         .expect("collapsed memory tool must be registered");
-    assert_eq!(tool_group(memory.name()), crate::core::all::DomainGroup::Memory);
+    assert_eq!(
+        tool_group(memory.name()),
+        crate::core::all::DomainGroup::Memory
+    );
     assert_eq!(
         tool_capability(memory.name()),
         Some(tinymemory_api::capabilities::Capability::Core)
     );
-    assert!(tools.iter().any(|tool| {
-        tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME
-    }));
+    assert!(tools
+        .iter()
+        .any(|tool| { tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME }));
 }
 
 /// The three `whatsapp_data_*` agent tools are gone, in every build.

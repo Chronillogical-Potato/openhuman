@@ -24,13 +24,16 @@ fn resetting_wildcard_visibility_keeps_collapsed_exposure() {
         .get("tools_agent")
         .cloned()
         .expect("tools_agent built-in definition");
-    let mut agent = crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
-        .expect("build tools agent");
+    let mut agent =
+        crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
+            .expect("build tools agent");
 
     agent.set_visible_tool_names(std::collections::HashSet::new());
 
     let visible = agent.visible_tool_specs_arc();
-    assert!(visible.iter().any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
+    assert!(visible
+        .iter()
+        .any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
     assert!(!visible.iter().any(|spec| spec.name == "memory_store"));
 }
 
@@ -42,14 +45,17 @@ fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
         .get("tools_agent")
         .cloned()
         .expect("tools_agent built-in definition");
-    let mut agent = crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
-        .expect("build tools agent");
+    let mut agent =
+        crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
+            .expect("build tools agent");
 
     agent.set_visible_tool_names(std::collections::HashSet::new());
     agent.hide_tools(&[crate::memory::tools::MEMORY_TOOL_NAME]);
 
     let visible = agent.visible_tool_specs_arc();
-    assert!(!visible.iter().any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
+    assert!(!visible
+        .iter()
+        .any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
     assert!(!visible.iter().any(|spec| spec.name == "memory_store"));
 }
 
