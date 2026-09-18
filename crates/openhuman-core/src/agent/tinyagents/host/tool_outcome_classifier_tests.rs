@@ -130,6 +130,8 @@ fn no_failure_class_ever_maps_to_success() {
         ToolFailureClass::BlockedByPolicy,
         ToolFailureClass::Denied,
         ToolFailureClass::ApprovalExpired,
+        ToolFailureClass::NotFound,
+        ToolFailureClass::Unsupported,
         ToolFailureClass::Unknown,
     ] {
         assert!(

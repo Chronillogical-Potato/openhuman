@@ -469,10 +469,10 @@ async fn successful_repeat_tracker_halt_maps_to_summary_and_pause() {
     let mw = RepeatProgressMiddleware::new(handle.clone(), summary.clone());
 
     for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
-        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), "ok", None).await;
         assert_eq!(drain_pause_count(&handle), 0);
     }
-    run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+    run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), "ok", None).await;
 
     assert_eq!(drain_pause_count(&handle), 1);
     assert!(
@@ -493,12 +493,23 @@ async fn successful_repeat_tracker_resets_failed_and_exempt_batches() {
         std::sync::Arc::new(std::sync::Mutex::new(None)),
     );
 
-    for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
-        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+    // Distinct outputs keep the run-wide recurrence ledger out of this test: it
+    // pins the adjacent-batch streak, which a failure resets.
+    for i in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+        let output = format!("before-{i}");
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), &output, None).await;
     }
-    run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), Some("temporary failure")).await;
-    for _ in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
-        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), None).await;
+    run_successful_repeat_cycle(
+        &mw,
+        "lookup",
+        json!({"id": 1}),
+        "ok",
+        Some("temporary failure"),
+    )
+    .await;
+    for i in 0..DEFAULT_REPEAT_CALL_THRESHOLD - 1 {
+        let output = format!("after-{i}");
+        run_successful_repeat_cycle(&mw, "lookup", json!({"id": 1}), &output, None).await;
     }
     assert_eq!(
         drain_pause_count(&handle),
@@ -507,7 +518,8 @@ async fn successful_repeat_tracker_resets_failed_and_exempt_batches() {
     );
 
     for _ in 0..DEFAULT_REPEAT_OUTPUT_THRESHOLD + 1 {
-        run_successful_repeat_cycle(&mw, "wait_subagent", json!({"task_id": "t"}), None).await;
+        run_successful_repeat_cycle(&mw, "wait_subagent", json!({"task_id": "t"}), "ok", None)
+            .await;
     }
     assert_eq!(
         drain_pause_count(&handle),

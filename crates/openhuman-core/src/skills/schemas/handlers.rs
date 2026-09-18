@@ -36,7 +36,7 @@ pub(super) fn handle_skills_list(params: Map<String, Value>) -> ControllerFuture
         tracing::debug!(include_skills, "[skills][rpc] list automations");
         let workspace = resolve_workspace_dir().await;
         let trusted = is_workspace_trusted(&workspace);
-        let home = dirs::home_dir();
+        let home = crate::skills::ops_discover::discovery_home_dir();
         // Default: automations-only (`workflows/` roots) so capability skills
         // don't masquerade as task templates in the Automations UI. The Skills
         // Explorer passes `include_skills=true` to also surface `skills/`-root

@@ -2927,55 +2927,6 @@ pub fn is_session_expired_event(event: &sentry::protocol::Event<'_>) -> bool {
     false
 }
 
-/// Defense-in-depth `before_send` filter for opaque `openhuman.auth_get_me`
-/// RPC failures whose message body has been collapsed to just the bare
-/// HTTP method + path (`"GET /auth/me"`) with no underlying transport error.
-///
-/// Pairs with the primary fix at `crate::security::credentials::ops::auth_get_me`,
-/// which replaced `e.to_string()` with `format!("{e:#}")` so the full
-/// `anyhow` context chain reaches the rpc dispatcher. Before that
-/// fix, every transient network failure under this RPC — reqwest timeout,
-/// connection reset, TLS handshake EOF, DNS hiccup — fingerprinted to one
-/// opaque "GET /auth/me" Sentry group (TAURI-RUST-10, ~409 events / 17
-/// users) because `is_transient_message_failure` could not see the
-/// stripped transport phrases.
-///
-/// This filter is the catch-all if anyone re-introduces the same anyhow
-/// `.to_string()` collapse at another call site that eventually reaches
-/// `report_error_or_expected` with the same shape, OR if the existing fix
-/// regresses. Genuine `auth_get_me` errors that carry the underlying
-/// context chain (`"GET /auth/me: error sending request for url (...): …"`)
-/// still page — only the bare path-only body is dropped.
-///
-/// Match criteria (all required):
-/// - tag `domain == "rpc"`
-/// - tag `operation == "invoke_method"`
-/// - tag `method == "openhuman.auth_get_me"`
-/// - `event.message` (or last exception `value`) trims to **exactly**
-///   `"GET /auth/me"` — strict equality, not `contains`, so a body with
-///   the chain appended still surfaces.
-#[cfg(feature = "crash-reporting")]
-pub fn is_auth_get_me_opaque_transport_event(event: &sentry::protocol::Event<'_>) -> bool {
-    let tags = &event.tags;
-    if tags.get("domain").map(String::as_str) != Some("rpc") {
-        return false;
-    }
-    if tags.get("operation").map(String::as_str) != Some("invoke_method") {
-        return false;
-    }
-    if tags.get("method").map(String::as_str) != Some("openhuman.auth_get_me") {
-        return false;
-    }
-
-    const OPAQUE_BODY: &str = "GET /auth/me";
-    let direct = event.message.as_deref();
-    let from_exception = event.exception.last().and_then(|e| e.value.as_deref());
-    [direct, from_exception]
-        .into_iter()
-        .flatten()
-        .any(|body| body.trim() == OPAQUE_BODY)
-}
-
 pub fn is_transient_http_status(status: &str) -> bool {
     TRANSIENT_HTTP_STATUSES.contains(&status)
 }

@@ -34,3 +34,35 @@ fn relay_result_maps_message_id_and_failures() {
         .unwrap_err();
     assert_eq!(err.to_string(), "relay outbound failed: denied");
 }
+
+#[tokio::test]
+async fn relay_teardown_removes_only_its_own_transport() {
+    use tinychannels::relay::*;
+    struct NoNetwork;
+    #[async_trait::async_trait]
+    impl RelayFrameIo for NoNetwork {
+        async fn send(&self, _: GatewayToConnectorFrame) -> Result<(), RelayTransportError> {
+            panic!("registry lifecycle must not send network traffic")
+        }
+        async fn recv(&self) -> Result<Option<ConnectorToGatewayFrame>, RelayTransportError> {
+            panic!("registry lifecycle must not receive network traffic")
+        }
+    }
+    let make_transport = || {
+        Arc::new(RelayTransport::new(
+            vec![],
+            Arc::new(NoNetwork),
+            RelayTransportTimeouts::default(),
+        ))
+    };
+    let old = make_transport();
+    let newer = make_transport();
+    register_relay_transport(old.clone());
+    register_relay_transport(newer.clone());
+    unregister_relay_transport(&old);
+    assert!(Arc::ptr_eq(&current_relay_transport().unwrap(), &newer));
+    unregister_relay_transport(&newer);
+    assert!(current_relay_transport().is_none());
+    unregister_relay_transport(&newer);
+    assert!(current_relay_transport().is_none());
+}

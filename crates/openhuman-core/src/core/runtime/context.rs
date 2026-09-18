@@ -86,6 +86,64 @@ pub struct CoreContext {
     /// the model. Defaults to every group withheld, which is what the
     /// compiled-in pack table meant before the type existed.
     tool_groups: crate::tools::toolpacks::ToolGroups,
+    /// Whether skill discovery under this context scans the operator's
+    /// user-scope roots (`~/.openhuman/skills`, `~/.agents/skills`).
+    ///
+    /// `true` for every booted context — the desktop, CLI and a plain library
+    /// embedder all run as the operator. A per-agent context derived through
+    /// [`CoreContext::derive_with`] can turn it off so an embedded agent sees
+    /// only the skills its host installed for it, never the operator's.
+    user_skill_roots: bool,
+}
+
+/// Per-agent overrides layered onto a booted context by
+/// [`CoreContext::derive_with`].
+///
+/// This is the seam a library host uses to run many independently configured
+/// agents on one booted core: each agent gets its own `Config` (provider
+/// routes, MCP servers, autonomy tier, `action_dir`), its own
+/// [`DomainSet`](crate::core::runtime::DomainSet), its own
+/// [`ToolGroups`](crate::tools::toolpacks::ToolGroups) and its own skill-root
+/// policy, while sharing the host identity, keyring, bus and RPC bearer of the
+/// context it derives from.
+#[derive(Debug, Clone)]
+pub struct ContextOverlay {
+    /// The config every handler dispatched under the derived context reads
+    /// through `config::ops::load_config_with_timeout()`. Keep `config_path`
+    /// equal to the parent's: credentials, auth profiles and the keyring file
+    /// backend all resolve against its parent directory.
+    pub config: crate::config::Config,
+    /// Domain families live for the derived context. Only narrowing the parent
+    /// is meaningful: controllers a booted core never registered stay absent
+    /// no matter what this says.
+    pub domains: crate::core::runtime::DomainSet,
+    /// Tool-group disclosure for the derived context.
+    pub tool_groups: crate::tools::toolpacks::ToolGroups,
+    /// Scan the operator's user-scope skill roots (`true` = today's behaviour).
+    pub user_skill_roots: bool,
+}
+
+impl ContextOverlay {
+    /// An overlay that keeps user-scope skill roots visible.
+    pub fn new(
+        config: crate::config::Config,
+        domains: crate::core::runtime::DomainSet,
+        tool_groups: crate::tools::toolpacks::ToolGroups,
+    ) -> Self {
+        Self {
+            config,
+            domains,
+            tool_groups,
+            user_skill_roots: true,
+        }
+    }
+
+    /// Hide the operator's `~/.openhuman/skills` / `~/.agents/skills` from
+    /// skill discovery under the derived context.
+    pub fn without_user_skill_roots(mut self) -> Self {
+        self.user_skill_roots = false;
+        self
+    }
 }
 
 /// The complete input to a workspace-scoped memory binding.
@@ -282,6 +340,7 @@ impl CoreContext {
             domains,
             tool_groups,
             embedder_config,
+            user_skill_roots: true,
         });
 
         // Register the process default context (first build wins). Dispatch
@@ -306,6 +365,72 @@ impl CoreContext {
 
     pub fn domains(&self) -> crate::core::runtime::DomainSet {
         self.domains
+    }
+
+    /// Whether skill discovery under this context scans the operator's
+    /// user-scope roots. See [`ContextOverlay::user_skill_roots`].
+    pub fn user_skill_roots(&self) -> bool {
+        self.user_skill_roots
+    }
+
+    /// [`user_skill_roots`](Self::user_skill_roots) of the ambient context, or
+    /// `true` when nothing is scoped and no default context exists — the
+    /// pre-existing behaviour for every non-embedded caller.
+    pub fn current_user_skill_roots() -> bool {
+        Self::current().is_none_or(|ctx| ctx.user_skill_roots())
+    }
+
+    /// A child context sharing this one's host identity, with its own config,
+    /// domain set, tool groups and skill-root policy.
+    ///
+    /// **No boot runs.** No stores are initialised, no registry, gate or live
+    /// policy is (re)installed, and the process default context is untouched.
+    /// The child is only useful inside [`CoreContext::scope`] (or
+    /// `CoreRuntime::invoke_in` / `run_in`), where every reader that goes
+    /// through [`CoreContext::current`] — the config loader, the DomainSet
+    /// dispatch gate, the tool-group filter, skill discovery — sees the
+    /// overlay instead of the parent.
+    ///
+    /// The workspace binding is anchored to `overlay.config.workspace_dir`, so
+    /// an agent with its own workspace subdirectory resolves its own memory
+    /// binding lazily, exactly as an embedder-supplied config does at boot.
+    pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+        // Clamped to what this context can already dispatch. A derived
+        // overlay may only narrow: callers outside this crate (embed's
+        // `Runtime::agent`, for one) already refuse a spec that names a
+        // family the runtime never registered, but that check lives at the
+        // call site. Enforcing it here too means a future or third-party
+        // caller of `derive_with` cannot widen a restricted parent's domains
+        // just by omitting that check.
+        let domains = self.domains.intersect(&overlay.domains);
+        if domains != overlay.domains {
+            log::warn!(
+                "[core-context] derive: overlay requested domains={:?} wider than \
+                 parent domains={:?}; clamped to {:?}",
+                overlay.domains,
+                self.domains,
+                domains
+            );
+        }
+        log::debug!(
+            "[core-context] derive: workspace_dir={} domains={:?} tool_groups={:?} \
+             user_skill_roots={}",
+            overlay.config.workspace_dir.display(),
+            domains,
+            overlay.tool_groups,
+            overlay.user_skill_roots
+        );
+        Arc::new(CoreContext {
+            host_kind: self.host_kind,
+            workspace_binding: RwLock::new(WorkspaceBinding {
+                workspace_dir: Some(overlay.config.workspace_dir.clone()),
+                memory_subsystem: overlay.config.subsystems.memory.clone(),
+            }),
+            domains,
+            tool_groups: overlay.tool_groups,
+            embedder_config: Some(overlay.config),
+            user_skill_roots: overlay.user_skill_roots,
+        })
     }
 
     /// The resolved per-user workspace directory this context is bound to.
@@ -558,6 +683,7 @@ impl CoreContext {
             domains,
             tool_groups: Default::default(),
             embedder_config: None,
+            user_skill_roots: true,
         })
     }
 
@@ -585,6 +711,7 @@ impl CoreContext {
             domains,
             tool_groups: Default::default(),
             embedder_config: Some(config),
+            user_skill_roots: true,
         })
     }
 }
@@ -781,6 +908,10 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
             if let Some(uid) = state.user_id.as_deref() {
                 crate::security::credentials::sentry_scope::bind(uid);
             }
+            // The host-supplied user payload survives restarts in the profile
+            // store; seed the identity slot from it so prompt composition sees
+            // the signed-in user before any host RPC runs.
+            crate::security::credentials::identity::set_current_user(state.user);
         }
         Err(e) => {
             log::debug!("[boot] sentry scope user bind skipped — build_session_state failed: {e}")

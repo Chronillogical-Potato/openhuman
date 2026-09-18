@@ -72,9 +72,17 @@ impl Agent {
                     && matches!(entry, ConversationMessage::Chat(chat) if chat.role == "system")
             })
             .collect();
+        // Every absorbed row belongs to an earlier turn. Mark it as replayed so
+        // persisting it with this turn keeps the request it was written under
+        // (or none) instead of taking this turn's request id (#6282). This is
+        // the one place every resume path (thread transcript, agent
+        // transcript, conversation-log seed) enters `history`.
         self.history = cached
             .into_iter()
-            .map(ConversationMessage::Chat)
+            .map(|mut message| {
+                crate::agent::harness::session::transcript::mark_replayed_if_unmarked(&mut message);
+                ConversationMessage::Chat(message)
+            })
             .chain(tail)
             .collect();
     }

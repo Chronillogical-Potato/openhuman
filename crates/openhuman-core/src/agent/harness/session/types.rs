@@ -370,6 +370,14 @@ pub struct Agent {
     /// re-run `Config::load_or_init()` on the hot path just to key into
     /// the Composio cache.
     pub(super) runtime_config: Option<Arc<crate::config::Config>>,
+    /// The definition this session was built from, when the factory had one.
+    ///
+    /// Read back through [`Agent::resolved_definition`] by the in-turn sites
+    /// that need the definition's `sandbox_mode` or `subagents` — so an agent
+    /// built from an explicit definition (a library host's per-agent spec)
+    /// keeps those settings instead of having them silently replaced by
+    /// whatever the process-global registry holds under the same id.
+    pub(super) definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     /// Mirrors the agent definition's `omit_profile` flag. Threaded into
     /// [`PromptContext::include_profile`] in `turn::build_system_prompt`
     /// so only user-facing agents (welcome, orchestrator, triggers)

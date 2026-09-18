@@ -9,13 +9,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::sync::Mutex;
 
+use super::download::{self, SkillsShRef};
 use super::store;
 use super::store::CachedCatalog;
 use super::types::CatalogEntry;
 
 const CATALOG_URL: &str = "https://hermes-agent.nousresearch.com/docs/api/skills.json";
 const CATALOG_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL";
-const DOWNLOAD_BASE_URL_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL";
 const REFRESH_ON_BOOT_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_REFRESH_ON_BOOT";
 const FETCH_TIMEOUT_SECS: u64 = 180;
 
@@ -292,7 +292,7 @@ pub async fn search_catalog(
     let catalog = browse_catalog_fresh().await?;
     let q = query.to_lowercase();
 
-    let filtered: Vec<CatalogEntry> = catalog
+    let mut filtered: Vec<CatalogEntry> = catalog
         .into_iter()
         .filter(|entry| {
             if let Some(src) = source_filter {
@@ -319,6 +319,9 @@ pub async fn search_catalog(
                     .unwrap_or(false)
         })
         .collect();
+    // Entries install cannot fetch go last, so find-and-install reaches a
+    // working hit first. The sort is stable: match order is otherwise kept.
+    filtered.sort_by_key(|entry| !entry.has_direct_download());
 
     tracing::debug!(
         result_count = filtered.len(),
@@ -366,7 +369,7 @@ pub async fn install_from_catalog(
         "[skill_registry] installing from catalog"
     );
 
-    if entry.download_url.trim().is_empty() {
+    if !entry.has_direct_download() {
         let where_to_find = entry
             .source_url
             .as_deref()
@@ -378,12 +381,110 @@ pub async fn install_from_catalog(
         ));
     }
 
+    // A skills.sh entry's `download_url` is the most common location, not a
+    // verified one: find where this repo keeps the skill before fetching.
+    let url = match entry.source_url.as_deref().and_then(SkillsShRef::parse) {
+        Some(skill) if skill.candidate_urls().first() == Some(&entry.download_url) => {
+            skill.resolve().await?
+        }
+        _ => entry.download_url.clone(),
+    };
+
     let params = crate::skills::ops_install::InstallWorkflowFromUrlParams {
-        url: entry.download_url.clone(),
+        url,
         timeout_secs: Some(60),
     };
 
-    crate::skills::ops_install::install_workflow_from_url(workspace_dir, params).await
+    crate::skills::ops_install::install_workflow_from_url(workspace_dir, params)
+        .await
+        .map_err(|error| {
+            // ClawHub answers a slug that several authors publish under with
+            // 409, and the catalog does not record which author's skill this is.
+            if entry.source.eq_ignore_ascii_case("clawhub") && error.ends_with("returned status 409")
+            {
+                format!(
+                    "'{}' is published on ClawHub by more than one author and the catalog does not say which one, so it can't be installed automatically.",
+                    entry.name
+                )
+            } else {
+                error
+            }
+        })
+}
+
+/// How many alternative ids an install error lists.
+const MAX_SUGGESTED_IDS: usize = 5;
+
+/// Resolve an install request to exactly one catalog entry.
+///
+/// `entry_id` is matched against [`CatalogEntry::id`]. Ids used to be display
+/// names, which many entries share, so a name is still accepted when exactly
+/// one entry carries it; otherwise the error names real ids to use instead.
+pub fn find_catalog_entry<'a>(
+    catalog: &'a [CatalogEntry],
+    entry_id: &str,
+) -> Result<&'a CatalogEntry, String> {
+    let entry_id = entry_id.trim();
+    if let Some(entry) = catalog.iter().find(|e| e.id == entry_id) {
+        return Ok(entry);
+    }
+    let named: Vec<&CatalogEntry> = catalog.iter().filter(|e| e.name == entry_id).collect();
+    match named.as_slice() {
+        [entry] => Ok(*entry),
+        [] => {
+            let closest = closest_entry_ids(catalog, entry_id);
+            tracing::debug!(
+                entry_id = %entry_id,
+                suggestions = closest.len(),
+                "[skill_registry] install id not in catalog"
+            );
+            let hint = if closest.is_empty() {
+                "Use an id returned by skill_registry_search.".to_string()
+            } else {
+                format!("Closest ids: {}.", closest.join(", "))
+            };
+            Err(format!("no catalog entry has id '{entry_id}'. {hint}"))
+        }
+        many => Err(format!(
+            "{} catalog entries are named '{entry_id}'; install one by its id, e.g. {}.",
+            many.len(),
+            many.iter()
+                .take(MAX_SUGGESTED_IDS)
+                .map(|e| e.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+    }
+}
+
+/// Ids sharing the most words with `wanted`; installable and shorter ids win ties.
+fn closest_entry_ids(catalog: &[CatalogEntry], wanted: &str) -> Vec<String> {
+    let words: Vec<String> = wanted
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    let mut scored: Vec<(usize, bool, &str)> = catalog
+        .iter()
+        .filter_map(|entry| {
+            let haystack = format!("{} {}", entry.id, entry.name).to_lowercase();
+            let score = words
+                .iter()
+                .filter(|w| haystack.contains(w.as_str()))
+                .count();
+            (score > 0).then_some((score, entry.has_direct_download(), entry.id.as_str()))
+        })
+        .collect();
+    scored.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then(b.1.cmp(&a.1))
+            .then(a.2.len().cmp(&b.2.len()))
+    });
+    scored
+        .into_iter()
+        .take(MAX_SUGGESTED_IDS)
+        .map(|(_, _, id)| id.to_string())
+        .collect()
 }
 
 pub(crate) fn parse_hermes_entry(item: &serde_json::Value) -> Option<CatalogEntry> {
@@ -478,16 +579,22 @@ pub(crate) fn parse_hermes_entry(item: &serde_json::Value) -> Option<CatalogEntr
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
-    let download_url = derive_download_url(
+    let identifier = item
+        .get("identifier")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let download_url = download::derive_download_url(
         &source,
-        &category,
+        identifier,
         &name,
         docs_path.as_deref(),
         source_url.as_deref(),
     );
 
     Some(CatalogEntry {
-        id: name.clone(),
+        id: catalog_entry_id(&source, identifier, &name),
         name,
         description,
         source,
@@ -505,102 +612,20 @@ pub(crate) fn parse_hermes_entry(item: &serde_json::Value) -> Option<CatalogEntr
     })
 }
 
-/// Resolve a fetchable `SKILL.md` URL for a catalog entry.
+/// Stable, unique entry id.
 ///
-/// Precedence:
-/// 1. `OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL` test override.
-/// 2. `docsPath` — Hermes' own bundled / optional skills, which live in the
-///    `NousResearch/hermes-agent` repo under `skills/` / `optional-skills/`.
-/// 3. `sourceUrl` — community skills (ClawHub / LobeHub / skills.sh / browse.sh
-///    / NVIDIA). When it points at a GitHub blob/tree it is rewritten to the
-///    `raw.githubusercontent.com` `SKILL.md`; non-GitHub portals have no raw
-///    download.
-///
-/// Returns an empty string when no direct download can be derived (portal-only
-/// community skills). [`install_from_catalog`] turns that into an actionable
-/// error rather than fetching a guaranteed-404 URL. Previously every community
-/// skill was force-templated onto a `NousResearch/hermes-agent` path it never
-/// lived at, so virtually all community installs 404'd — issue #3741.
-fn derive_download_url(
-    _source: &str,
-    _category: &str,
-    name: &str,
-    docs_path: Option<&str>,
-    source_url: Option<&str>,
-) -> String {
-    if let Ok(base) = std::env::var(DOWNLOAD_BASE_URL_ENV) {
-        let base = base.trim().trim_end_matches('/');
-        if !base.is_empty() {
-            return format!("{base}/{name}/SKILL.md");
-        }
+/// Hermes publishes a unique `identifier` per entry. Most are already
+/// source-qualified paths (`skills-sh/o/r/s`, `lobehub/x`, `owner/repo/path`),
+/// but ClawHub's is a bare slug that can equal another source's skill name, so
+/// a bare identifier is prefixed with its source. Bundled and optional Hermes
+/// skills carry no identifier; their names are unique among themselves and
+/// contain no `/`, so they cannot collide with a qualified id.
+fn catalog_entry_id(source: &str, identifier: Option<&str>, name: &str) -> String {
+    match identifier {
+        Some(identifier) if identifier.contains('/') => identifier.to_string(),
+        Some(slug) => format!("{}/{slug}", source.to_ascii_lowercase()),
+        None => name.to_string(),
     }
-    if let Some(url) = docs_path.and_then(download_url_from_docs_path) {
-        return url;
-    }
-    if let Some(url) = source_url.and_then(download_url_from_source_url) {
-        return url;
-    }
-    // No resolvable direct download (portal-only community skill).
-    String::new()
-}
-
-/// Rewrite a GitHub `sourceUrl` (blob or tree view) into the raw
-/// `SKILL.md` download URL. Returns `None` for non-GitHub hosts (portal pages
-/// that serve HTML, not raw markdown).
-///
-/// - blob: `…/github.com/{owner}/{repo}/blob/{branch}/{path}` →
-///   `…/raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}`
-/// - tree (directory): same rewrite, then append `/SKILL.md`.
-fn download_url_from_source_url(source_url: &str) -> Option<String> {
-    let rest = source_url
-        .strip_prefix("https://github.com/")
-        .or_else(|| source_url.strip_prefix("http://github.com/"))?;
-
-    // {owner}/{repo}/{blob|tree}/{branch}/{path...}
-    let parts: Vec<&str> = rest.splitn(5, '/').collect();
-    if parts.len() < 5 {
-        return None;
-    }
-    let (owner, repo, kind, branch, path) = (parts[0], parts[1], parts[2], parts[3], parts[4]);
-    if owner.is_empty() || repo.is_empty() || branch.is_empty() || path.is_empty() {
-        return None;
-    }
-
-    let path = path.trim_end_matches('/');
-    let raw = format!("https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}");
-    match kind {
-        // blob points directly at a file; only append SKILL.md if it isn't one.
-        "blob" => {
-            if raw.ends_with("/SKILL.md") || raw.ends_with(".md") {
-                Some(raw)
-            } else {
-                Some(format!("{raw}/SKILL.md"))
-            }
-        }
-        // tree points at a directory — the skill's SKILL.md lives inside it.
-        "tree" => Some(format!("{raw}/SKILL.md")),
-        _ => None,
-    }
-}
-
-fn download_url_from_docs_path(docs_path: &str) -> Option<String> {
-    let parts: Vec<&str> = docs_path.split('/').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let root = match parts[0] {
-        "bundled" => "skills",
-        "optional" => "optional-skills",
-        _ => return None,
-    };
-    let category = parts[1];
-    let prefixed_slug = parts[2];
-    let skill = prefixed_slug
-        .strip_prefix(&format!("{category}-"))
-        .unwrap_or(prefixed_slug);
-    Some(format!(
-        "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/{root}/{category}/{skill}/SKILL.md"
-    ))
 }
 
 #[cfg(test)]

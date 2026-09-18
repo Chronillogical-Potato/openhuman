@@ -2,8 +2,7 @@
 //! local-openai) as crate-native `ChatModel`s.
 
 use super::*;
-#[cfg(not(test))]
-use crate::inference::provider::factory::access_gates::verify_session_active;
+use crate::inference::provider::factory::access_gates::verify_provider_session;
 use tinyinference::providers::openai::build_local_runtime_chat_model;
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
@@ -16,8 +15,8 @@ use tinyinference::providers::openai::build_local_runtime_chat_model;
 /// `ollama_base_url_from_override` / `lm_studio_base_url` / profile helpers. It
 /// runs the host access gates for custom/local providers —
 /// [`enforce_local_only_inference`] (privacy mode) +
-/// [`verify_session_active`] (session requirement) — so routing a local runtime
-/// here cannot bypass either. Temperature rides the per-call `ModelRequest` on
+/// [`verify_provider_session`] (provider-specific authentication). Local runtimes
+/// do not require an OpenHuman account. Temperature rides the per-call `ModelRequest` on
 /// the crate path (parity with the managed-backend cutover; the `@<temp>` suffix
 /// still bakes a fixed override).
 ///
@@ -30,37 +29,33 @@ pub(super) fn try_create_local_runtime_chat_model(
     config: &Config,
 ) -> OptionalChatModelResult {
     let resolved = provider_for_role(role, config);
-    try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+    try_create_local_runtime_chat_model_from_string(role, &resolved, config)
 }
 
 pub(super) fn try_create_local_runtime_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
-    require_session: bool,
 ) -> OptionalChatModelResult {
     use tinyinference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
 
-    let p = provider.trim().to_string();
-    let is_local = p.starts_with(OLLAMA_PROVIDER_PREFIX)
-        || p.starts_with(LM_STUDIO_PROVIDER_PREFIX)
-        || p.starts_with(MLX_PROVIDER_PREFIX)
-        || p.starts_with(OMLX_PROVIDER_PREFIX)
-        || p.starts_with(LOCAL_OPENAI_PROVIDER_PREFIX);
-    if !is_local {
-        return None;
-    }
+    // Use the same classifier as privacy and session policy. Canonicalize only
+    // the provider prefix: model IDs (including tags and temperature suffixes)
+    // remain case-sensitive and must reach the runtime unchanged.
+    let kind = tinyinference::local::profile::kind_from_provider_string(provider)?;
+    let model = provider
+        .trim()
+        .split_once(':')
+        .map_or("", |(_, model)| model);
+    let p = format!("{}:{model}", kind.as_str());
 
-    // Preserve host privacy-mode refusal + the session requirement for
-    // custom/local providers.
+    // Preserve privacy policy; local runtime authentication does not depend on
+    // an OpenHuman backend session.
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    if require_session {
-        #[cfg(not(test))]
-        if let Err(e) = verify_session_active(config) {
-            return Some(Err(e));
-        }
+    if let Err(e) = verify_provider_session(config, provider) {
+        return Some(Err(e));
     }
 
     // Egress spine (privacy epic S2, #4436): committed to a local runtime here
@@ -205,6 +200,6 @@ pub(crate) fn create_local_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    try_create_local_runtime_chat_model_from_string("chat", provider, config, false)
+    try_create_local_runtime_chat_model_from_string("chat", provider, config)
         .ok_or_else(|| anyhow::anyhow!("unsupported local provider string '{provider}'"))?
 }

@@ -42,6 +42,35 @@ use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
 
+/// Whether `endpoint` is safe to carry the TinyHumans API key as a bearer.
+///
+/// `https://` always qualifies; plain `http://` only for loopback, matching
+/// `openhuman_embed::turn::is_safe_endpoint_for_bearer`'s allowance for local
+/// testing against a dev server. Anything else — a plaintext non-loopback
+/// endpoint — would put the key on the wire in the clear (CWE-319), so
+/// [`OpenHumanBackendModel::resolve_bearer`] refuses before it gets there.
+/// Deliberately narrow to the managed-key bearer path: `normalize_api_base_url`
+/// itself must stay permissive, because a library host's BYOK/local `api_url`
+/// can legitimately be plain HTTP.
+fn is_safe_endpoint_for_managed_bearer(endpoint: &str) -> bool {
+    let Ok(url) = url::Url::parse(endpoint) else {
+        return false;
+    };
+    if url.scheme() == "https" {
+        return true;
+    }
+    if url.scheme() != "http" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    matches!(
+        host,
+        "127.0.0.1" | "localhost" | "::1" | "[::1]" | "[0:0:0:0:0:0:0:1]" | "0:0:0:0:0:0:0:1"
+    ) || host.starts_with("127.")
+}
+
 /// The managed OpenHuman backend as a crate [`ChatModel`]. Holds the backend
 /// connection settings (for JWT + base-URL resolution) and the default model id
 /// sent when a request doesn't override it.
@@ -110,6 +139,33 @@ impl OpenHumanBackendModel {
             classify_session_token, SessionTokenCheck,
         };
 
+        // A stored API key (library runtime) is the bearer outright: the
+        // OpenAI-compatible managed endpoint accepts it as `Bearer <key>`,
+        // and there is no session — so no `exp` and no signed-out state — to
+        // consult.
+        if let Some(key) = crate::security::credentials::api_key::get_api_key_in(
+            &self.state_dir(),
+            self.options.secrets_encrypt,
+        )? {
+            // Refuse to send the key over a plaintext channel it could leak
+            // from. Scoped to this managed-key path only — `base_url()`
+            // comes from `effective_api_url`, which a library host can point
+            // at anything (a BYOK/local endpoint legitimately runs over
+            // plain HTTP on loopback), so this cannot tighten
+            // `normalize_api_base_url` itself without breaking those.
+            let endpoint = self.base_url();
+            if !is_safe_endpoint_for_managed_bearer(&endpoint) {
+                anyhow::bail!(
+                    "refusing to send the TinyHumans API key as a bearer over a non-HTTPS, \
+                     non-loopback endpoint: {endpoint} — set a https:// api_url or a loopback \
+                     one for local testing"
+                );
+            }
+            log::debug!(
+                "[providers][openhuman-backend] authenticating managed inference with api-key"
+            );
+            return Ok(key);
+        }
         if crate::cron::scheduler_gate::is_signed_out() {
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"

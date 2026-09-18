@@ -13,10 +13,10 @@
 //!   never reads them itself.
 //! * [`crate::config::Config`] — supplies `workspace_dir`,
 //!   `action_dir`, the default model, and the `agents_md_enabled` gate.
-//! * [`crate::desktop::app_state::peek_cached_current_user_identity`] — the
+//! * [`crate::security::credentials::identity::peek_credential_user_identity`] — the
 //!   non-secret `id`/`name`/`email` triple. Deliberately read through the
-//!   *cache peek*, which is the accessor that strips credential material; this
-//!   adapter must not reach for a richer user record to fill the prompt.
+//!   *identity peek*, which is the accessor that strips credential material;
+//!   this adapter must not reach for a richer user record to fill the prompt.
 //!
 //! Prompt assembly is **not** reimplemented here. Everything this file does is
 //! translate a [`TurnContextRequest`] into a `PromptContext` and hand it to the
@@ -289,7 +289,7 @@ impl ContextComposer for OpenHumanContextComposer {
             // files sections fall back to the workspace files, which is the
             // documented `None` behaviour.
             curated_snapshot: None,
-            user_identity: crate::desktop::app_state::peek_cached_current_user_identity(),
+            user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
             personality_soul_md: None,
             personality_memory_md: None,
             // TODO(phase4): the master agent's personality roster is built

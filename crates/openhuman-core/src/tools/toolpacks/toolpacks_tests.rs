@@ -477,8 +477,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         (
             "integrations",
             &[
-                "use_mcp_server",
-                "setup_mcp_server",
                 "mcp_registry_status",
                 "mcp_registry_search",
                 "mcp_registry_get",
@@ -513,8 +511,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 // withheld — 748 B on every wildcard agent for a doorway to a
                 // locked room.
                 "skill_search",
-                "run_skill",
-                "setup_skills",
                 "skill_registry_browse",
                 "skill_registry_search",
                 "skill_registry_install",

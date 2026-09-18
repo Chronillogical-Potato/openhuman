@@ -283,6 +283,10 @@ name = "skill_registry_e2e"
 path = "../../tests/skill_registry_e2e.rs"
 
 [[test]]
+name = "skills_mcp_registry_live"
+path = "../../tests/skills_mcp_registry_live.rs"
+
+[[test]]
 name = "transcript_search_e2e"
 path = "../../tests/transcript_search_e2e.rs"
 
