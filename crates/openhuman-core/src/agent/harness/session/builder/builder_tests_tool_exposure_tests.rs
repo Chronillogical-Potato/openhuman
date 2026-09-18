@@ -1,16 +1,56 @@
 use super::*;
 
 fn visible_names(agent_id: &str) -> std::collections::HashSet<String> {
-    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins().unwrap();
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let agent = crate::agent::Agent::from_config_for_agent(&config, agent_id)
+    let definition = crate::agent::harness::AgentDefinitionRegistry::builtins_only()
+        .get(agent_id)
+        .cloned()
+        .unwrap_or_else(|| panic!("built-in agent definition not found: {agent_id}"));
+    let agent = crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
         .unwrap_or_else(|e| panic!("{agent_id} session build: {e}"));
     agent
         .visible_tool_specs_arc()
         .iter()
         .map(|spec| spec.name.clone())
         .collect()
+}
+
+#[test]
+fn resetting_wildcard_visibility_keeps_collapsed_exposure() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let definition = crate::agent::harness::AgentDefinitionRegistry::builtins_only()
+        .get("tools_agent")
+        .cloned()
+        .expect("tools_agent built-in definition");
+    let mut agent = crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
+        .expect("build tools agent");
+
+    agent.set_visible_tool_names(std::collections::HashSet::new());
+
+    let visible = agent.visible_tool_specs_arc();
+    assert!(visible.iter().any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
+    assert!(!visible.iter().any(|spec| spec.name == "memory_store"));
+}
+
+#[test]
+fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let definition = crate::agent::harness::AgentDefinitionRegistry::builtins_only()
+        .get("tools_agent")
+        .cloned()
+        .expect("tools_agent built-in definition");
+    let mut agent = crate::agent::Agent::from_config_with_definition(&config, &definition, None, None)
+        .expect("build tools agent");
+
+    agent.set_visible_tool_names(std::collections::HashSet::new());
+    agent.hide_tools(&[crate::memory::tools::MEMORY_TOOL_NAME]);
+
+    let visible = agent.visible_tool_specs_arc();
+    assert!(!visible.iter().any(|spec| spec.name == crate::memory::tools::MEMORY_TOOL_NAME));
+    assert!(!visible.iter().any(|spec| spec.name == "memory_store"));
 }
 
 /// A wildcard belt advertises the collapsed tool, never its `Hidden` members.

@@ -47,6 +47,38 @@ fn all_tools_includes_spawn_subagent() {
     );
 }
 
+#[test]
+fn all_tools_registers_collapsed_memory_and_search_tools() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let cfg = test_config(&tmp);
+    let browser = BrowserConfig::default();
+    let http = crate::config::HttpRequestConfig::default();
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+
+    let memory = tools
+        .iter()
+        .find(|tool| tool.name() == crate::memory::tools::MEMORY_TOOL_NAME)
+        .expect("collapsed memory tool must be registered");
+    assert_eq!(tool_group(memory.name()), crate::core::all::DomainGroup::Memory);
+    assert_eq!(
+        tool_capability(memory.name()),
+        Some(tinymemory_api::capabilities::Capability::Core)
+    );
+    assert!(tools.iter().any(|tool| {
+        tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME
+    }));
+}
+
 /// The three `whatsapp_data_*` agent tools are gone, in every build.
 ///
 /// They queried a shell-side SQLite store whose only writer was the CDP

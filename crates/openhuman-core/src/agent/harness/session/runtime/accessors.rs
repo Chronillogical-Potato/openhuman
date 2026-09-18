@@ -396,7 +396,28 @@ impl Agent {
     /// still subject to the configured channel permission policy.
     pub fn set_visible_tool_names(&mut self, names: HashSet<String>) {
         self.visible_tool_names = names;
+        if self.visible_tool_names.is_empty() {
+            self.seed_wildcard_visible_tools();
+        }
         self.rebuild_tool_policy_session();
+    }
+
+    /// Materialise the wildcard visibility sentinel while preserving the
+    /// exposure filters applied during the initial session build.
+    fn seed_wildcard_visible_tools(&mut self) {
+        self.visible_tool_names = self
+            .tool_specs
+            .iter()
+            .map(|spec| spec.name.clone())
+            .collect();
+        let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
+            &mut self.visible_tool_names,
+            self.tools.as_slice(),
+        );
+        crate::tools::toolpacks::strip_packed_from_visible(
+            &mut self.visible_tool_names,
+            &self.agent_definition_name,
+        );
     }
 
     /// Remove `names` from the main agent's callable set for this session,
@@ -418,31 +439,13 @@ impl Agent {
     /// a handful of tools from a much larger belt, where that can't happen.
     pub fn hide_tools(&mut self, names: &[&str]) {
         if self.visible_tool_names.is_empty() {
-            self.visible_tool_names = self
-                .tool_specs
-                .iter()
-                .map(|spec| spec.name.clone())
-                .collect();
-            // Seeding a wildcard belt re-admits the durable Hidden/Deferred
-            // tools the builder withheld; drop them again. Durable registry
-            // only — the synthesised delegates report `Hidden` too and are
-            // this belt's hand-off routes (see `AgentBuilder::build`). The
-            // deferred specs were already indexed at build time.
-            let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
-                &mut self.visible_tool_names,
-                self.tools.as_slice(),
-            );
+            // Durable registry only — synthesised delegates report `Hidden`
+            // too and are this belt's hand-off routes.
+            self.seed_wildcard_visible_tools();
         }
         for name in names {
             self.visible_tool_names.remove(*name);
         }
-        // Seeding from `tool_specs` above materialises the "all visible"
-        // sentinel into a concrete set, which would re-admit packed tools that
-        // the builder withheld. Re-apply the withholding.
-        crate::tools::toolpacks::strip_packed_from_visible(
-            &mut self.visible_tool_names,
-            &self.agent_definition_name,
-        );
         self.rebuild_tool_policy_session();
     }
 
