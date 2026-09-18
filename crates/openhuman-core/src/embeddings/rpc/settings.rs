@@ -286,7 +286,7 @@ pub async fn update_settings(
         let api_key = resolve_api_key(&config, "custom");
         let probe = tokio::time::timeout(
             std::time::Duration::from_secs(10),
-            probe_custom_embeddings(endpoint, &api_key, &new_model),
+            probe_custom_embeddings(endpoint, &api_key, &new_model, new_dims),
         )
         .await;
         {
@@ -374,7 +374,8 @@ pub async fn update_settings(
             // we probed dimension-agnostically — the user can't be expected to
             // know it, and storing the actual size is what keeps the live embed
             // path's length guard from rejecting future embeds (issue #4056).
-            // `text-embedding-3-*` keeps the requested size (server honoured it).
+            // Models with configurable output widths were probed with the
+            // requested size and rejected if the server ignored it.
             let detected_dims = final_probe_dims(&new_model, new_dims, probe_actual_dims);
             if detected_dims != new_dims {
                 tracing::info!(

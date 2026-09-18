@@ -144,7 +144,7 @@ fn final_probe_dims_adopts_actual_for_auto_detected_models() {
     assert_eq!(final_probe_dims("bge-m3", 1024, 768), 768);
     assert_eq!(final_probe_dims("nomic-embed-text", 1024, 768), 768);
     // text-embedding-3-* → keep the requested size (param was honoured).
-    assert_eq!(final_probe_dims("text-embedding-3-large", 1024, 3072), 1024);
+    assert_eq!(final_probe_dims("text-embedding-3-large", 1024, 3072), 3072);
     // Defensive: zero actual falls back to the configured value.
     assert_eq!(final_probe_dims("bge-m3", 1024, 0), 1024);
 }
