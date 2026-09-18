@@ -143,10 +143,6 @@ impl HarnessCore<'_> {
         self.core.auth()
     }
 
-    #[cfg(feature = "medulla")]
-    pub fn medulla(&self) -> crate::Medulla<'_> {
-        self.core.medulla()
-    }
 }
 
 impl Harness {

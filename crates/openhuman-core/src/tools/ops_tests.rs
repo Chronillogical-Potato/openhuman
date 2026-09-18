@@ -381,7 +381,6 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     &[
         G::Config,
         G::Security,
-        G::Medulla,
         G::Modules,
         G::Channels,
         G::Hosted,

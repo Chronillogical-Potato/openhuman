@@ -1012,7 +1012,7 @@ proptest = "1"
 # (`modules`: Contrib=ON, Product=ON) and with `scripts/ci/product-features.txt`,
 # which already lists it. This does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "medulla", "http-server", "scheduler-gate", "file-logging", "modules"]
+default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -1374,7 +1374,6 @@ crash-reporting = ["dep:sentry"]
 # gate's value is compile-time surface and RPC/tool reach, not binary size.
 # Verify before ever claiming otherwise:
 #   cargo tree -i reqwest --no-default-features
-medulla = []
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,

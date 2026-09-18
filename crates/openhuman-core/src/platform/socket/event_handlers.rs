@@ -60,19 +60,8 @@ pub(super) fn handle_sio_event(
     match event_name {
         "ready" => {
             log::info!("[socket] Server ready — auth successful");
-            super::medulla::workflows::begin_connection_generation();
             *shared.status.write() = ConnectionStatus::Connected;
             emit_state_change(shared);
-            // Advertise this core's agent roster to the backend so a medulla
-            // operator can delegate `medulla:task_run` to a named agent. The
-            // backend clears the roster on socket disconnect.
-            super::medulla::emit_register_agents();
-            // Advertise the saved workflow graphs this host can be asked to run,
-            // so the orchestrator can name one when delegating. Same
-            // per-connection lifetime as the roster: rebuilt on every reconnect,
-            // dropped server-side on disconnect. A no-op until a host installs a
-            // `WorkflowBridge`.
-            super::medulla::workflows::emit_register_workflows();
         }
         "error" => {
             log::error!("[socket] Server error event: {}", data);
@@ -264,88 +253,6 @@ pub(super) fn handle_sio_event(
                 {
                     let _ = messages;
                     log::warn!("[socket] voice:harness ignored — voice feature disabled");
-                }
-            }
-        }
-
-        // ── Medulla harness plane ────────────────────────────────────────
-        // A medulla operator (running in the backend) drives an openhuman agent
-        // session as a delegated sub-agent. See `socket::medulla`.
-        "medulla:task_run" => {
-            match serde_json::from_value::<super::medulla::payloads::TaskRun>(data) {
-                Ok(run) => {
-                    log::info!(
-                        "[socket] medulla:task_run task_id={} cycle_id={} agent_id={:?}",
-                        run.task_id,
-                        run.cycle_id,
-                        run.agent_id
-                    );
-                    super::medulla::manager().start_task(run);
-                }
-                Err(e) => log::warn!("[socket] failed to parse medulla:task_run: {e}"),
-            }
-        }
-        "medulla:task_send" => {
-            match serde_json::from_value::<super::medulla::payloads::TaskSend>(data) {
-                Ok(send) => {
-                    log::info!("[socket] medulla:task_send task_id={}", send.task_id);
-                    super::medulla::manager().steer_task(send);
-                }
-                Err(e) => log::warn!("[socket] failed to parse medulla:task_send: {e}"),
-            }
-        }
-        "medulla:task_abort" => {
-            match serde_json::from_value::<super::medulla::payloads::TaskAbort>(data) {
-                Ok(abort) => {
-                    log::info!("[socket] medulla:task_abort task_id={}", abort.task_id);
-                    super::medulla::manager().abort_task(abort);
-                }
-                Err(e) => log::warn!("[socket] failed to parse medulla:task_abort: {e}"),
-            }
-        }
-        // Capability handshake. The backend waits 10s per probe, so an
-        // unanswered one is not a graceful degradation — it is a stall on the
-        // first delegation to this agent.
-        "medulla:capabilities_request" => {
-            match serde_json::from_value::<super::medulla::payloads::CapabilitiesRequest>(
-                data.clone(),
-            ) {
-                Ok(request) => {
-                    log::info!(
-                        "[socket] medulla:capabilities_request probe_id={} agent_id={}",
-                        request.probe_id,
-                        request.agent_id
-                    );
-                    super::medulla::handle_capabilities_request(request);
-                }
-                // An undecodable probe still has to be answered when it named
-                // itself, for the same reason a decodable one does: silence
-                // spends the backend's whole 10s window.
-                Err(e) => {
-                    log::warn!("[socket] failed to parse medulla:capabilities_request: {e}");
-                    super::medulla::reject_unparsed_capabilities_request(&data, &e.to_string());
-                }
-            }
-        }
-        // Workflow round trip: a read of, or an authoring turn on, this host's
-        // own workflow store.
-        "medulla:workflow_request" => {
-            match serde_json::from_value::<super::medulla::payloads::WorkflowRequest>(data.clone())
-            {
-                Ok(request) => {
-                    log::info!(
-                        "[socket] medulla:workflow_request request_id={} op={:?}",
-                        request.request_id,
-                        request.op
-                    );
-                    super::medulla::workflows::handle_workflow_request(request);
-                }
-                // An undecodable frame still has to be answered when it named
-                // itself: staying silent would cost the backend the op's whole
-                // deadline (up to ten minutes for `copilot`).
-                Err(e) => {
-                    log::warn!("[socket] failed to parse medulla:workflow_request: {e}");
-                    super::medulla::workflows::reject_unparsed_request(&data, &e.to_string());
                 }
             }
         }

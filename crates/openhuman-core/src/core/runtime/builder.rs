@@ -198,9 +198,6 @@ pub struct DomainSet {
     /// future backing controller would stay live. Fold the media-generation
     /// controller into this group when it lands.
     pub media: bool,
-    /// Medulla integration: cloud client, session runtime, chat store, and
-    /// authored harness workflows.
-    pub medulla: bool,
     /// Model inference: providers, routing, local engines, embeddings.
     pub inference: bool,
     /// External connectors (Composio, calendar, file storage, task sources).
@@ -236,7 +233,6 @@ impl DomainSet {
             web3: true,
             voice: true,
             media: true,
-            medulla: true,
             inference: true,
             integrations: true,
             automation: true,
@@ -265,7 +261,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -311,7 +306,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: true,
             inference: true,
             integrations: true,
             automation: true,
@@ -346,7 +340,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -373,7 +366,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -400,7 +392,6 @@ impl DomainSet {
             DomainGroup::Web3 => self.web3,
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
-            DomainGroup::Medulla => self.medulla,
             DomainGroup::Inference => self.inference,
             DomainGroup::Integrations => self.integrations,
             DomainGroup::Automation => self.automation,

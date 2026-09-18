@@ -41,7 +41,6 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
             tracing::warn!(%error, "failed to disconnect backend socket on logout");
         }
     }
-    crate::platform::socket::medulla::workflows::clear_workflow_bridge();
 
     // Clear the active user marker so subsequent config loads fall back to the
     // default (unauthenticated) openhuman directory.

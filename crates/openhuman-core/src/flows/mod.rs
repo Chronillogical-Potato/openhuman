@@ -37,7 +37,6 @@ mod draft_store;
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod import_tests;
-pub mod medulla_bridge;
 pub mod memory_tools;
 pub mod node_contracts;
 pub mod ops;
