@@ -90,9 +90,7 @@ pub(crate) use turn_outcome::{
 };
 #[cfg(test)]
 pub(crate) use turn_policy::is_subagent_spawn_or_delegate_tool;
-pub(crate) use turn_policy::{
-    agent_turn_wall_clock_ms, ToolPolicyEnforcement,
-};
+pub(crate) use turn_policy::{agent_turn_wall_clock_ms, ToolPolicyEnforcement};
 pub(crate) use turn_runner::run_turn_via_tinyagents_shared;
 
 // Test-only glue so `tinyagents_tests.rs`'s `use super::*;` sees the
