@@ -505,9 +505,9 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
         // the cloud fallback ask the managed embedder for `nomic-embed-text`
         // (openhuman#5820).
         "cloud_embedding_model":
-            crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_MODEL,
+            crate::embeddings::DEFAULT_CLOUD_EMBEDDING_MODEL,
         "cloud_embedding_dimensions":
-            crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+            crate::embeddings::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
         "models_supporting_dimensions":
             tinyinference_embeddings::MODELS_SUPPORTING_DIMENSIONS,
         // The periodic composio and workspace-source sync loops run INSIDE the

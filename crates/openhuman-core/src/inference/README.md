@@ -118,7 +118,7 @@ Also exposes a non-RPC HTTP router (`http::router()`) nested at `/v1` by `crates
 
 ## Used by
 
-Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`, `agent/tools`, `agent/triage`, `agent/harness/subagent_runner`, `agent/learning`, `agent/context`, `agent/tinyagents`), `voice`, `memory/tree/tree_runtime`, `channels`, `web_chat`, `flows/tinyflows/caps`, `cron/scheduler`, `inference/embeddings` (Ollama base-url resolution from `local`), `threads`, `security/credentials` (`local::global`), `core/runtime/builder` (`local::try_global` on shutdown), and `config/migrations`/`config/schema`. `grep -rn 'inference::provider::\|inference::local::' crates/openhuman-core/src` is the authoritative list.
+Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`, `agent/tools`, `agent/triage`, `agent/harness/subagent_runner`, `agent/learning`, `agent/context`, `agent/tinyagents`), `voice`, `memory/tree/tree_runtime`, `channels`, `web_chat`, `flows/tinyflows/caps`, `cron/scheduler`, `embeddings` (Ollama base-url resolution from `local`), `threads`, `security/credentials` (`local::global`), `core/runtime/builder` (`local::try_global` on shutdown), and `config/migrations`/`config/schema`. `grep -rn 'inference::provider::\|inference::local::' crates/openhuman-core/src` is the authoritative list.
 
 ## Notes / gotchas
 

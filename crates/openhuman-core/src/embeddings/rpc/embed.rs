@@ -3,9 +3,9 @@
 use crate::config::Config;
 use crate::rpc::RpcOutcome;
 
-use super::probe::probe_custom_embeddings;
 use super::{resolve_api_key, LOG_PREFIX};
-use crate::inference::embeddings::factory::create_embedding_provider_with_config;
+use crate::embeddings::factory::create_embedding_provider_with_config;
+use tinyinference_embeddings::probe::probe_custom_embeddings;
 
 /// Generates embeddings for the given input texts using the currently
 /// configured provider.

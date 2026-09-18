@@ -6,8 +6,6 @@ mod tests;
 
 mod api_keys;
 mod embed;
-mod probe;
-mod served_models;
 mod settings;
 
 pub use api_keys::{clear_api_key, set_api_key};
@@ -15,17 +13,17 @@ pub use embed::{embed, test_connection};
 pub use settings::{get_settings, update_settings};
 
 #[cfg(test)]
-use probe::redact_secrets;
+use tinyinference_embeddings::probe::redact_secrets;
 
 #[cfg(test)]
-use probe::{classify_embed_probe, EmbedProbe};
+use settings::remember_active_custom_profile;
 #[cfg(test)]
-use served_models::{
+use tinyinference_embeddings::probe::{classify_embed_probe, EmbedProbe};
+#[cfg(test)]
+use tinyinference_embeddings::served_models::{
     check_requested_model_served, fetch_served_model_ids, normalize_embed_model_id,
     reject_model_not_served,
 };
-#[cfg(test)]
-use settings::remember_active_custom_profile;
 
 use crate::config::Config;
 use crate::security::credentials::AuthService;

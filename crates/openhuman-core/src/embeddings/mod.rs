@@ -12,7 +12,6 @@
 //! - **Custom**: Any OpenAI-compatible endpoint.
 //! - **Noop**: A fallback provider for keyword-only search.
 
-pub mod catalog;
 #[path = "cloud_adapter.rs"]
 pub mod cloud;
 mod factory;
@@ -46,6 +45,7 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
+pub use tinyinference_embeddings::catalog;
 pub use tinyinference_embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 /// The **intended** embedding selection — `(provider, model, dimensions)`.
@@ -67,22 +67,11 @@ pub fn effective_embedding_settings(
     memory: &crate::config::schema::MemoryConfig,
     local_embedding_model: Option<&str>,
 ) -> (String, String, usize) {
-    if let Some(raw) = local_embedding_model {
-        // Trim once and reuse — the emptiness check and the final model
-        // string must agree, otherwise a value like "  bge-m3  " would pass
-        // through to Ollama with surrounding whitespace and 404.
-        let trimmed = raw.trim();
-        let model = if trimmed.is_empty() {
-            DEFAULT_OLLAMA_MODEL.to_string()
-        } else {
-            trimmed.to_string()
-        };
-        return ("ollama".to_string(), model, DEFAULT_OLLAMA_DIMENSIONS);
-    }
-    (
-        memory.embedding_provider.clone(),
-        memory.embedding_model.clone(),
+    tinyinference_embeddings::catalog::effective_embedding_settings(
+        &memory.embedding_provider,
+        &memory.embedding_model,
         memory.embedding_dimensions,
+        local_embedding_model,
     )
 }
 

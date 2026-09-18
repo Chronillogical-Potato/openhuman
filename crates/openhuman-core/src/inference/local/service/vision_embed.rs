@@ -3,7 +3,7 @@ use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::types::LocalAiEmbeddingResult;
 use tinyinference_embeddings::{
-    EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
+    known_ollama_embedding_dimensions, EmbeddingModel, OllamaEmbeddingModel,
     RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
 };
 use tinyinference_local::models as model_ids;
@@ -14,19 +14,6 @@ use tinyinference_local::ollama::{
 use tinyinference_local::presets::VisionMode;
 
 use super::LocalAiService;
-
-fn embedding_dimensions(model_id: &str) -> Option<usize> {
-    let normalized = model_id.trim().to_ascii_lowercase();
-    if normalized.starts_with("all-minilm") {
-        Some(384)
-    } else if normalized.contains("bge-m3") || normalized.starts_with("mxbai-embed-large") {
-        Some(DEFAULT_OLLAMA_DIMENSIONS)
-    } else if normalized.starts_with("nomic-embed-text") {
-        Some(768)
-    } else {
-        None
-    }
-}
 
 impl LocalAiService {
     pub async fn vision_prompt(
@@ -235,7 +222,7 @@ impl LocalAiService {
         let _gate_permit = crate::cron::scheduler_gate::wait_for_capacity().await;
 
         let embed_base = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
-        let dimensions = embedding_dimensions(&embedding_model);
+        let dimensions = known_ollama_embedding_dimensions(&embedding_model);
         log::debug!(
             "[local_ai:embed] embed: using model={} dimensions={} base_url={}",
             embedding_model,

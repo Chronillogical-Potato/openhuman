@@ -25,7 +25,7 @@ use async_trait::async_trait;
 use tinyinference_embeddings::EmbeddingModel as TaEmbeddingModel;
 use tinyinference_embeddings::{Error as TiError, Result as TaResult};
 
-use crate::inference::embeddings::EmbeddingProvider;
+use crate::embeddings::EmbeddingProvider;
 
 /// Wraps an OpenHuman [`EmbeddingProvider`] as a `tinyagents`
 /// [`EmbeddingModel`](TaEmbeddingModel).
@@ -109,8 +109,8 @@ impl TaEmbeddingModel for ProviderEmbeddingModel {
             // exact value only affects the catalog price when an embedding rate
             // exists; embedding models are usually uncatalogued, in which case
             // the recorded cost is zero regardless.
-            let total_chars: usize = texts.iter().map(|t| t.chars().count()).sum();
-            let approx_input_tokens = (total_chars as u64).div_ceil(4);
+            let approx_input_tokens =
+                tinyinference_embeddings::estimate_embedding_input_tokens(texts);
             crate::platform::cost::record_embedding_usage(
                 self.provider.name(),
                 self.provider.model_id(),

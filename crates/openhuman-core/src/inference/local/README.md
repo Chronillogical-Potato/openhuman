@@ -65,7 +65,7 @@ into `local::rpc` (`ops.rs`).
 callers outside this module: `agent/schemas.rs` (registers `agent.chat` /
 `agent.chat_simple` over `local::rpc::agent_chat*`), `inference/ops.rs` and
 `inference/provider/factory/` (`profile::is_local_provider_string`,
-base-url resolution when routing into a local runtime), `inference/embeddings/factory.rs`
+base-url resolution when routing into a local runtime), `embeddings/factory.rs`
 (Ollama embedding base url), `agent/learning/reflection.rs` and
 `security/credentials/ops/login_services.rs` (`local::global`), `core/runtime/builder.rs`
 (`local::try_global` on shutdown), `config/ops/model.rs` (`provider::normalize_provider`,

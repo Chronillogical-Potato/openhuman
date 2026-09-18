@@ -99,14 +99,6 @@ async fn embed_disabled_returns_error() {
     assert!(err.contains("local ai is disabled"));
 }
 
-#[test]
-fn embedding_dimensions_match_supported_legacy_models() {
-    assert_eq!(embedding_dimensions("bge-m3"), Some(1024));
-    assert_eq!(embedding_dimensions("all-minilm:latest"), Some(384));
-    assert_eq!(embedding_dimensions("nomic-embed-text"), Some(768));
-    assert_eq!(embedding_dimensions("user-managed-model"), None);
-}
-
 #[tokio::test]
 async fn vision_prompt_disabled_returns_error() {
     let mut config = Config::default();

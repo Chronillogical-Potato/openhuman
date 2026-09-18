@@ -5,10 +5,36 @@ use crate::config::Config;
 use crate::rpc::RpcOutcome;
 use crate::security::credentials::AuthService;
 
-use super::probe::{classify_embed_probe, final_probe_dims, probe_custom_embeddings, EmbedProbe};
-use super::served_models::{check_requested_model_served, fetch_served_model_ids};
 use super::{resolve_api_key, LOG_PREFIX};
-use crate::inference::embeddings::catalog;
+use tinyinference_embeddings::catalog;
+use tinyinference_embeddings::probe::{
+    classify_embed_probe, final_probe_dims, probe_custom_embeddings, EmbedProbe,
+    EmbeddingProbeRejection,
+};
+use tinyinference_embeddings::served_models::{
+    check_requested_model_served, fetch_served_model_ids, ModelNotServed,
+};
+
+fn probe_rejection_outcome(reject: EmbeddingProbeRejection) -> RpcOutcome<serde_json::Value> {
+    let mut body = serde_json::json!({ "error": reject.error, "message": reject.message });
+    if let Some(detail) = reject.detail {
+        body["detail"] = serde_json::Value::String(detail);
+    }
+    RpcOutcome::new(body, vec![reject.summary.to_string()])
+}
+
+fn model_rejection_outcome(reject: ModelNotServed) -> RpcOutcome<serde_json::Value> {
+    let mut body = serde_json::json!({
+        "error": reject.error,
+        "message": reject.message,
+        "requested_model": reject.requested_model,
+        "available_models": reject.available_models,
+    });
+    if let Some(suggestion) = reject.suggested_model {
+        body["suggested_model"] = serde_json::Value::String(suggestion);
+    }
+    RpcOutcome::new(body, vec![reject.summary.to_string()])
+}
 
 /// Slug naming the embedder ingestion will actually use, resolved host-side
 /// from the `Config` fields the resolution ladder reads.
@@ -198,7 +224,7 @@ pub async fn update_settings(
     confirm_wipe: bool,
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     use crate::config::ops as config_rpc;
-    use crate::inference::embeddings::format_embedding_signature;
+    use crate::embeddings::format_embedding_signature;
 
     let mut config = config_rpc::load_config_with_timeout().await?;
 
@@ -286,11 +312,7 @@ pub async fn update_settings(
                 // Log the classified error code (never the raw detail — it can
                 // carry endpoint response bodies) so support can distinguish
                 // auth vs wrong-model vs unreachable failures (issue #5017).
-                let reject_code = reject
-                    .value
-                    .get("error")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("EMBEDDINGS_VERIFICATION_FAILED");
+                let reject_code = reject.error;
                 tracing::warn!(
                         provider = effective_provider.as_str(),
                         reject_code,
@@ -327,7 +349,7 @@ pub async fn update_settings(
                                         served = served.len(),
                                         "{LOG_PREFIX} update_settings: model not in served list — returning name-mismatch guidance"
                                     );
-                                return Ok(better);
+                                return Ok(model_rejection_outcome(better));
                             }
                             None => {
                                 tracing::debug!(
@@ -346,7 +368,7 @@ pub async fn update_settings(
                         }
                     }
                 }
-                return Ok(reject);
+                return Ok(probe_rejection_outcome(reject));
             }
             // Passed. Adopt the endpoint's real vector length for every model
             // we probed dimension-agnostically — the user can't be expected to

@@ -63,7 +63,7 @@ impl EmbeddingCallbacks {
         dimensions: usize,
         texts: Vec<String>,
     ) -> tinybus::Result<Vec<Vec<f32>>> {
-        let api_key = crate::inference::embeddings::resolve_api_key(&self.0, &provider);
+        let api_key = crate::embeddings::resolve_api_key(&self.0, &provider);
         let endpoint = self
             .0
             .cloud_providers
@@ -71,7 +71,7 @@ impl EmbeddingCallbacks {
             .find(|candidate| candidate.slug == provider)
             .map(|candidate| candidate.endpoint.as_str())
             .filter(|endpoint| !endpoint.is_empty());
-        let embedder = crate::inference::embeddings::create_embedding_provider_with_config(
+        let embedder = crate::embeddings::create_embedding_provider_with_config(
             &self.0, &provider, &model, dimensions, &api_key, endpoint,
         )
         .map_err(method_error)?;

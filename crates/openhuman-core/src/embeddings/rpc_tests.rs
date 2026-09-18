@@ -1,6 +1,6 @@
 use super::*;
-use crate::inference::embeddings::rpc::probe::final_probe_dims;
 use std::collections::HashMap;
+use tinyinference_embeddings::probe::final_probe_dims;
 // Production code now routes managed construction through
 // `create_embedding_provider_with_config`; this low-level custom-endpoint
 // regression test still drives the credentialed factory directly.
@@ -165,9 +165,12 @@ fn reject_model_not_served_suggests_normalized_match() {
     // the feedback names the exact served id to select (issue #3761).
     let served = vec!["text-embedding-bge-m3".to_string(), "qwen-chat".to_string()];
     let out = reject_model_not_served("bge-m3", &served);
-    assert_eq!(out.value["error"], "EMBEDDINGS_NO_MODEL_LOADED");
-    assert_eq!(out.value["suggested_model"], "text-embedding-bge-m3");
-    let msg = out.value["message"].as_str().unwrap();
+    assert_eq!(out.error, "EMBEDDINGS_NO_MODEL_LOADED");
+    assert_eq!(
+        out.suggested_model.as_deref(),
+        Some("text-embedding-bge-m3")
+    );
+    let msg = &out.message;
     assert!(msg.contains("text-embedding-bge-m3"));
 }
 
@@ -175,9 +178,9 @@ fn reject_model_not_served_suggests_normalized_match() {
 fn reject_model_not_served_without_match_lists_available() {
     let served = vec!["qwen-chat".to_string(), "llama-3".to_string()];
     let out = reject_model_not_served("bge-m3", &served);
-    assert_eq!(out.value["error"], "EMBEDDINGS_NO_MODEL_LOADED");
-    assert!(out.value.get("suggested_model").is_none());
-    let msg = out.value["message"].as_str().unwrap();
+    assert_eq!(out.error, "EMBEDDINGS_NO_MODEL_LOADED");
+    assert!(out.suggested_model.is_none());
+    let msg = &out.message;
     assert!(msg.contains("qwen-chat") && msg.contains("llama-3"));
 }
 
@@ -193,7 +196,7 @@ fn check_requested_model_served_decisions() {
     assert!(check_requested_model_served("bge-m3", &[]).is_none());
     // Non-empty list without the model → reject with feedback.
     let reject = check_requested_model_served("bge-m3", &["text-embedding-bge-m3".to_string()]);
-    assert_eq!(reject.unwrap().value["error"], "EMBEDDINGS_NO_MODEL_LOADED");
+    assert_eq!(reject.unwrap().error, "EMBEDDINGS_NO_MODEL_LOADED");
 }
 
 #[tokio::test]
@@ -223,13 +226,7 @@ async fn fetch_served_model_ids_parses_openai_models_list() {
 
 /// Helper: pull the `error` code out of a reject payload.
 fn reject_code(outcome: EmbedProbe) -> Option<String> {
-    classify_embed_probe(outcome).map(|rpc| {
-        rpc.value
-            .get("error")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string()
-    })
+    classify_embed_probe(outcome).map(|reject| reject.error.to_string())
 }
 
 /// A usable vector is the ONLY thing that passes the setup-time gate — the
@@ -263,12 +260,9 @@ fn classify_embed_probe_rejects_empty_vectors() {
 fn classify_embed_probe_rejects_no_model_loaded() {
     let body = r#"Embedding API error (400 Bad Request): {"error":"No models loaded. Please load a model in the developer page or use the 'lms load' command."}"#;
     let rpc = classify_embed_probe(EmbedProbe::Failed(body.to_string())).unwrap();
-    assert_eq!(
-        rpc.value.get("error").and_then(|v| v.as_str()),
-        Some("EMBEDDINGS_NO_MODEL_LOADED")
-    );
+    assert_eq!(Some(rpc.error), Some("EMBEDDINGS_NO_MODEL_LOADED"));
     // The raw provider detail is preserved for the UI.
-    assert_eq!(rpc.value.get("detail").and_then(|v| v.as_str()), Some(body));
+    assert_eq!(rpc.detail.as_deref(), Some(body));
 }
 
 /// A 404/405 (no `/embeddings` route) keeps its dedicated code.
@@ -370,20 +364,19 @@ fn classify_embed_probe_401_bad_key_is_auth_and_redacts_key() {
     let rpc = classify_embed_probe(EmbedProbe::Failed(detail.into()))
         .expect("bad key must reject the save");
     assert_eq!(
-        rpc.value.get("error").and_then(|v| v.as_str()),
+        Some(rpc.error),
         Some("EMBEDDINGS_AUTH_FAILED"),
         "a genuine 401 bad key must stay classified as auth"
     );
     // Nothing in the surfaced payload may leak the key.
-    let surfaced = serde_json::to_string(&rpc.value).unwrap();
+    let surfaced = format!("{} {} {:?}", rpc.error, rpc.message, rpc.detail);
     assert!(
         !surfaced.contains("sk-"),
         "surfaced payload must not contain any sk- key material: {surfaced}"
     );
     assert!(
-        rpc.value
-            .get("detail")
-            .and_then(|v| v.as_str())
+        rpc.detail
+            .as_deref()
             .map(|d| d.contains("[redacted-key]"))
             .unwrap_or(false),
         "the detail should keep a redaction marker for support diagnosis"

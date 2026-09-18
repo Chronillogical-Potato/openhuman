@@ -8,73 +8,26 @@ use super::cloud::{
 };
 use super::provider_trait::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::config::Config;
-use tinyinference_embeddings::{
-    model_supports_dimensions, CohereEmbeddingModel, NoopEmbeddingModel, OllamaEmbeddingModel,
-    OpenAiEmbeddingModel, VoyageEmbeddingModel,
-};
+use tinyinference_embeddings::factory::{create_embedding_model, validate_custom_endpoint};
+use tinyinference_embeddings::OllamaEmbeddingModel;
 
-/// Build the provider for an OpenAI-compatible custom endpoint.
-///
-/// `dims == 0` is the TinyInference dimension-discovery mode (issue #4056):
-/// send no `dimensions` parameter, accept the returned vector length, and let
-/// the caller adopt it.
-fn custom_openai_provider(
-    base_url: &str,
-    api_key: &str,
+fn standard_provider(
+    provider: &str,
     model: &str,
     dims: usize,
+    api_key: &str,
+    custom_endpoint: Option<&str>,
+    ollama_base_url: &str,
 ) -> anyhow::Result<Box<dyn EmbeddingProvider>> {
-    let base_url = validate_custom_endpoint(base_url, !api_key.is_empty())?;
-    Ok(TinyAgentsEmbeddingProvider::boxed(openai_model(
-        &base_url, api_key, model, dims, false,
-    )))
-}
-
-fn openai_model(
-    base_url: &str,
-    api_key: &str,
-    model: &str,
-    dims: usize,
-    required_key: bool,
-) -> OpenAiEmbeddingModel {
-    OpenAiEmbeddingModel::new(api_key)
-        .with_base_url(base_url)
-        .with_model(model)
-        .with_dimensions(dims)
-        .with_send_dimensions(model_supports_dimensions(model))
-        .with_required_api_key(required_key)
-}
-
-/// Validate a custom endpoint before a provider can send credentials to it.
-fn validate_custom_endpoint(endpoint: &str, has_credentials: bool) -> anyhow::Result<String> {
-    let endpoint = endpoint.trim().trim_end_matches('/');
-    if endpoint.is_empty() {
-        anyhow::bail!("custom embedding provider endpoint must not be empty");
-    }
-
-    let parsed = reqwest::Url::parse(endpoint)
-        .map_err(|_| anyhow::anyhow!("custom embedding provider endpoint is invalid"))?;
-    if !matches!(parsed.scheme(), "http" | "https") {
-        anyhow::bail!("custom embedding provider endpoint must use HTTP or HTTPS");
-    }
-
-    if has_credentials {
-        let loopback = parsed
-            .host()
-            .map(|host| match host {
-                url::Host::Domain(domain) => domain.eq_ignore_ascii_case("localhost"),
-                url::Host::Ipv4(address) => address.is_loopback(),
-                url::Host::Ipv6(address) => address.is_loopback(),
-            })
-            .unwrap_or(false);
-        if parsed.scheme() != "https" && !(parsed.scheme() == "http" && loopback) {
-            anyhow::bail!(
-                "credentialed custom embedding provider endpoints must use HTTPS or loopback HTTP"
-            );
-        }
-    }
-
-    Ok(endpoint.to_owned())
+    let model = create_embedding_model(
+        provider,
+        model,
+        dims,
+        api_key,
+        custom_endpoint,
+        ollama_base_url,
+    )?;
+    Ok(Box::new(TinyAgentsEmbeddingProvider::from_boxed(model)))
 }
 
 /// Creates an embedding provider based on the specified name and configuration.
@@ -100,42 +53,14 @@ pub fn create_embedding_provider(
         "cloud" | "managed" => Ok(Box::new(OpenHumanCloudEmbedding::new(
             None, None, true, model, dims,
         ))),
-        "voyage" => Ok(TinyAgentsEmbeddingProvider::boxed(
-            VoyageEmbeddingModel::with_options(
-                "",
-                model,
-                dims,
-                tinyinference_embeddings::VOYAGE_API_BASE,
-            ),
-        )),
-        "ollama" => {
-            let base_url = tinyinference_local::ollama::ollama_base_url();
-            Ok(TinyAgentsEmbeddingProvider::boxed(
-                OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
-            ))
-        }
-        "openai" => Ok(TinyAgentsEmbeddingProvider::boxed(openai_model(
-            "https://api.openai.com",
-            "",
+        other => standard_provider(
+            other,
             model,
             dims,
-            true,
-        ))),
-        "cohere" => Ok(TinyAgentsEmbeddingProvider::boxed(
-            CohereEmbeddingModel::new("")
-                .with_model(model)
-                .with_dimensions(dims),
-        )),
-        name if name.starts_with("custom:") => {
-            let base_url = name.strip_prefix("custom:").unwrap_or("");
-            custom_openai_provider(base_url, "", model, dims)
-        }
-        "none" => Ok(TinyAgentsEmbeddingProvider::boxed(NoopEmbeddingModel)),
-        unknown => Err(anyhow::anyhow!(
-            "unknown embedding provider: \"{unknown}\". \
-             Supported: \"managed\", \"voyage\", \"openai\", \"cohere\", \
-             \"ollama\", \"custom:<url>\", \"none\""
-        )),
+            "",
+            other.strip_prefix("custom:"),
+            &tinyinference_local::ollama::ollama_base_url(),
+        ),
     }
 }
 
@@ -154,46 +79,14 @@ pub fn create_embedding_provider_with_credentials(
         "cloud" | "managed" => Ok(Box::new(OpenHumanCloudEmbedding::new(
             None, None, true, model, dims,
         ))),
-        "voyage" => Ok(TinyAgentsEmbeddingProvider::boxed(
-            VoyageEmbeddingModel::with_options(
-                api_key,
-                model,
-                dims,
-                tinyinference_embeddings::VOYAGE_API_BASE,
-            ),
-        )),
-        "ollama" => {
-            let base_url = tinyinference_local::ollama::ollama_base_url();
-            Ok(TinyAgentsEmbeddingProvider::boxed(
-                OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
-            ))
-        }
-        "openai" => Ok(TinyAgentsEmbeddingProvider::boxed(openai_model(
-            "https://api.openai.com",
-            api_key,
+        other => standard_provider(
+            other,
             model,
             dims,
-            true,
-        ))),
-        "cohere" => Ok(TinyAgentsEmbeddingProvider::boxed(
-            CohereEmbeddingModel::new(api_key)
-                .with_model(model)
-                .with_dimensions(dims),
-        )),
-        "custom" => {
-            let url = custom_endpoint.unwrap_or("");
-            custom_openai_provider(url, api_key, model, dims)
-        }
-        name if name.starts_with("custom:") => {
-            let url = custom_endpoint.unwrap_or_else(|| name.strip_prefix("custom:").unwrap_or(""));
-            custom_openai_provider(url, api_key, model, dims)
-        }
-        "none" => Ok(TinyAgentsEmbeddingProvider::boxed(NoopEmbeddingModel)),
-        unknown => Err(anyhow::anyhow!(
-            "unknown embedding provider: \"{unknown}\". \
-             Supported: \"managed\", \"voyage\", \"openai\", \"cohere\", \
-             \"ollama\", \"custom\", \"none\""
-        )),
+            api_key,
+            custom_endpoint,
+            &tinyinference_local::ollama::ollama_base_url(),
+        ),
     }
 }
 
@@ -244,9 +137,7 @@ pub fn create_embedding_provider_with_config(
             let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
                 config.local_ai.base_url.as_deref(),
             );
-            Ok(TinyAgentsEmbeddingProvider::boxed(
-                OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
-            ))
+            standard_provider("ollama", model, dims, api_key, None, &base_url)
         }
         // Every other provider is credential-store-agnostic (BYO key or local
         // endpoint), so the existing construction is correct unchanged.
@@ -303,7 +194,9 @@ pub fn default_embedding_provider_with_config(config: &Config) -> Arc<dyn Embedd
         };
         let api_key = super::rpc::resolve_api_key(config, provider_slug);
         let custom_endpoint = match raw_custom_endpoint {
-            Some(endpoint) => validate_custom_endpoint(endpoint, !api_key.is_empty()).map(Some),
+            Some(endpoint) => validate_custom_endpoint(endpoint, !api_key.is_empty())
+                .map(Some)
+                .map_err(anyhow::Error::from),
             None if provider_slug == "custom" => Err(anyhow::anyhow!(
                 "custom embedding provider endpoint is missing"
             )),

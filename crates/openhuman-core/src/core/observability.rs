@@ -911,15 +911,13 @@ fn is_subconscious_schema_unavailable_message(lower: &str) -> bool {
 }
 
 fn is_embedding_backend_auth_failure(lower: &str) -> bool {
-    lower.contains("embedding api error")
-        && lower.contains("401")
-        && lower.contains("invalid token")
+    tinyinference_embeddings::probe::is_embedding_backend_auth_failure(lower)
 }
 
 /// Detect a custom embeddings endpoint that exposes **no embeddings API** —
 /// the `OpenAiEmbedding` client POSTed `/embeddings` and the host answered
 /// `404 Not Found` (route absent) or `405 Method Not Allowed`. Canonical wire
-/// shape from `crates/openhuman-core/src/inference/embeddings/openai.rs`:
+/// shape from `crates/openhuman-core/src/embeddings/openai.rs`:
 ///
 /// ```text
 /// Embedding API error (404 Not Found): <body>
@@ -939,15 +937,13 @@ fn is_embedding_backend_auth_failure(lower: &str) -> bool {
 /// `embeddings::rpc::update_settings` as the save-time hard-block signal so the
 /// two never drift.
 pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
-    (lower.contains("embedding api error") && (lower.contains("(404") || lower.contains("(405")))
-        || (lower.contains("embeddings returned http")
-            && (lower.contains("http 404") || lower.contains("http 405")))
+    tinyinference_embeddings::probe::is_embedding_endpoint_absent(lower)
 }
 
 /// Detect a custom/cloud embeddings endpoint that IS an embeddings API but
 /// **rejected the configured model id** — the user pasted a non-embedding
 /// (chat/reasoning) model into the embeddings model field. Canonical wire shape
-/// from `crates/openhuman-core/src/inference/embeddings/openai.rs` (TAURI-RUST-9SK, ~2205 events):
+/// from `crates/openhuman-core/src/embeddings/openai.rs` (TAURI-RUST-9SK, ~2205 events):
 ///
 /// ```text
 /// Embedding API error (400 Bad Request): {"error":{"message":"Model nvidia/nemotron-3-super-120b-a12b does not exist","code":400}}
@@ -967,22 +963,7 @@ pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
 /// from a valid embeddings endpoint is a real fault and must keep reaching
 /// Sentry, so this never fires on them.
 fn is_embedding_model_rejected(lower: &str) -> bool {
-    lower.contains("embedding api error")
-        && lower.contains("(400")
-        && (lower.contains("does not exist")
-            || lower.contains("does not support embeddings")
-            // Gemini's OpenAI-compat shim (generativelanguage.googleapis.com)
-            // maps `/v1/embeddings` → `BatchEmbedContents` and rejects a bare
-            // model id with `BatchEmbedContentsRequest.model: unexpected model
-            // name format` / `INVALID_ARGUMENT` on every re-embed (TAURI-RUST-4SA,
-            // 4,494 events / 1 user). The Custom-endpoint path now normalizes the
-            // id to `models/<name>` at the source; this demotes any that slip
-            // through (already-stored bad state, older releases, other compat
-            // hosts) so the per-embed flood stays out of Sentry. Distinct cause
-            // from the #4070/9SK `"does not exist"` family.
-            || lower.contains("unexpected model name format")
-            || (lower.contains("invalid_argument")
-                && lower.contains("batchembedcontentsrequest.model")))
+    tinyinference_embeddings::probe::is_embedding_model_rejected(lower)
 }
 
 /// Detect the memory-store chunk DB's circuit-breaker-open message that
@@ -1033,7 +1014,7 @@ fn is_memory_store_breaker_open(lower: &str) -> bool {
 /// - `"Embedding API error (401 Unauthorized): {…\"error\":\"Invalid token\"…}"`
 ///   — TAURI-RUST-4K5 (~118 events, escalating on 0.56.0). Same OpenHuman
 ///   backend session-expired envelope as 4P0, but the embedding client at
-///   `crates/openhuman-core/src/inference/embeddings/openai.rs:139` wraps it with the
+///   `crates/openhuman-core/src/embeddings/openai.rs:139` wraps it with the
 ///   `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
 ///   Uses the same conjunctive-anchor pattern so BYO-key embedding 401s
 ///   from third-party providers (OpenAI / Voyage / Cohere) still escalate
@@ -1076,7 +1057,7 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         || (msg.contains("OpenHuman API error (401")
             && msg.contains("\"error\":\"Invalid token\""))
         // TAURI-RUST-4K5 — same OpenHuman backend "Invalid token" envelope
-        // wrapped by `crates/openhuman-core/src/inference/embeddings/openai.rs:139` with the
+        // wrapped by `crates/openhuman-core/src/embeddings/openai.rs:139` with the
         // `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
         // Same conjunctive-anchor pattern as 4P0: the embedding-scoped
         // prefix gates the match so a third-party BYO-key embedding 401

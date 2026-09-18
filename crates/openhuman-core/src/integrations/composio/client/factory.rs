@@ -36,7 +36,7 @@ pub(crate) fn build_composio_client(config: &crate::config::Config) -> Option<Co
 
 // ── Direct-mode factory ─────────────────────────────────────────────
 //
-// Mirrors `crates/openhuman-core/src/inference/embeddings/factory.rs` so anyone reading both
+// Mirrors `crates/openhuman-core/src/embeddings/factory.rs` so anyone reading both
 // can pattern-match between domains: string-matched mode, explicit error
 // on unknown mode, explicit error when `direct` is selected without an
 // API key.

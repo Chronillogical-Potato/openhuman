@@ -6623,7 +6623,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-bus"
-version = "0.10.0"
+version = "0.9.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -6735,6 +6735,8 @@ name = "tinyinference-embeddings"
 version = "0.2.1"
 dependencies = [
  "async-trait",
+ "once_cell",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

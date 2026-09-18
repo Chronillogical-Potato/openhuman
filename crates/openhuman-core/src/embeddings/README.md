@@ -8,9 +8,9 @@ those models for OpenHuman.
 
 ## Host-owned responsibilities
 
-- `factory.rs`: provider slug/model/dimension selection and construction of
-  `tinyinference` embedding models. Also owns `MODELS_SUPPORTING_DIMENSIONS`,
-  the list of models allowed to request a non-default dimension.
+- `factory.rs`: resolves OpenHuman credentials, local-runtime URL overrides,
+  and managed-cloud session scope before delegating model construction to
+  `tinyinference_embeddings::factory`.
 - `provider_trait.rs`: re-exports the `EmbeddingProvider` contract and
   `format_embedding_signature` from `tinymemory_api::host`, and defines
   `TinyAgentsEmbeddingProvider`, the one adapter from a `tinyinference`
@@ -18,12 +18,12 @@ those models for OpenHuman.
 - `cloud_adapter.rs` (module `cloud`): `OpenHumanCloudEmbedding`, which wraps
   `tinyinference`'s `CloudEmbeddingModel` with OpenHuman session-token
   resolution, egress disclosure, and local-only privacy enforcement.
-- `catalog.rs`, `rpc.rs`, `schemas.rs`: Settings catalog, credentials, JSON-RPC,
-  connection tests, and re-embed/wipe policy.
+- `rpc.rs`, `schemas.rs`: OpenHuman credentials, JSON-RPC, config persistence,
+  and re-embed/wipe policy. Provider catalogs, endpoint verification, secret
+  redaction, model-list discovery, and dimension helpers live in
+  `tinyinference-embeddings`.
 - `noop.rs`: re-export of `tinymemory_api::host::NoopEmbedding` so the host and
   the memory module share one type when embeddings are switched off.
-- `rate_limit` and `retry_after` (in `mod.rs`): thin re-exports of the
-  `tinyinference` limiter and 429 backoff helpers under their older names.
 
 Provider HTTP behavior and its tests belong in `tinyinference`. Do not add new
 per-provider clients here.
@@ -49,7 +49,7 @@ stores fixed 1024-dimension vectors (`EMBEDDING_DIM` in tinymemory-core's
 - `schemas.rs` declares the `embeddings` namespace functions (`get_settings`,
   `update_settings`, `set_api_key`, `clear_api_key`, `embed`,
   `test_connection`) and dispatches to the handlers in `rpc.rs`
-  (`rpc/settings.rs`, `rpc/api_keys.rs`, `rpc/embed.rs`, `rpc/probe.rs`, `rpc/served_models.rs`).
+  (`rpc/settings.rs`, `rpc/api_keys.rs`, `rpc/embed.rs`).
 - See `mod.rs` for the current provider set (Managed default via the backend's
   `POST /openai/v1/embeddings`, Voyage, OpenAI, Cohere, Ollama, Custom, Noop)
   and `tinyinference_embeddings` for their concrete implementations.

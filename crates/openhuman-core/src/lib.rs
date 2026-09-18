@@ -58,6 +58,7 @@ pub mod config;
 pub mod core;
 pub mod cron;
 pub mod desktop;
+pub mod embeddings;
 #[cfg(feature = "flows")]
 pub mod flows;
 pub mod hooks;

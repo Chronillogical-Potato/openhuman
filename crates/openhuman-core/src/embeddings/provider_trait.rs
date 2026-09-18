@@ -7,7 +7,7 @@
 //! structurally identical ones, or the trait objects would not be
 //! interchangeable.
 //!
-//! Every existing `inference::embeddings::EmbeddingProvider` path in this crate
+//! Every existing `embeddings::EmbeddingProvider` path in this crate
 //! keeps resolving, and keeps naming the same type.
 //!
 //! # [`TinyAgentsEmbeddingProvider`] is the host's, not the engine's (#5560)
@@ -57,6 +57,10 @@ impl TinyAgentsEmbeddingProvider {
 
     pub fn boxed(model: impl EmbeddingModel + 'static) -> Box<dyn EmbeddingProvider> {
         Box::new(Self::new(model))
+    }
+
+    pub fn from_boxed(model: Box<dyn EmbeddingModel>) -> Self {
+        Self { model }
     }
 }
 
