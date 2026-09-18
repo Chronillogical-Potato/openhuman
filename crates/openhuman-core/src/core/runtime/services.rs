@@ -412,8 +412,8 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-/// Migrates legacy durable agent state before a built runtime can expose its
-/// crate-backed stores to in-process or HTTP callers.
+/// Migrates legacy goal, task-board, and run-ledger state before a built
+/// runtime can expose those crate-backed stores to in-process or HTTP callers.
 pub(crate) async fn run_legacy_migrations(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
         Ok(count) if count > 0 => {
