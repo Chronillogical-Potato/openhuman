@@ -570,9 +570,7 @@ async fn run_subagent_loads_workspace_prompt_runs_tool_and_returns_final() -> Re
 
 #[tokio::test]
 async fn native_parent_integrations_subagent_receives_text_tool_catalogue() -> Result<()> {
-    let _env = env_lock();
     let workspace = tempfile::tempdir()?;
-    let _workspace_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", workspace.path());
     let provider = ScriptedModel::new(vec![text_response("integration result")]);
 
     let mut parent_context = parent(workspace.path().to_path_buf(), provider.clone());
