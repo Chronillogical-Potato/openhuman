@@ -1,5 +1,4 @@
 use super::*;
-
 #[test]
 fn default_tools_has_three() {
     let security = Arc::new(SecurityPolicy::default());
@@ -78,6 +77,7 @@ fn all_tools_registers_collapsed_memory_and_search_tools() {
     assert!(tools
         .iter()
         .any(|tool| { tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME }));
+}
 /// The three `whatsapp_data_*` agent tools are gone, in every build.
 ///
 /// They queried a shell-side SQLite store whose only writer was the CDP
