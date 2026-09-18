@@ -3,13 +3,6 @@
 
 use super::*;
 
-fn signed_out_test_guard() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap()
-}
-
 #[tokio::test]
 async fn inference_gate_skips_when_no_agent_nodes() {
     // A tool_call-only graph never has an inference dependency to check — the
@@ -42,7 +35,6 @@ async fn run_builder_gates_does_not_reject_when_signed_out() {
     // Authoring is never blocked by inference readiness (design correction,
     // B45): a signed-out session must NOT appear among `run_builder_gates`'
     // errors for an otherwise-valid agent-node graph.
-    let _lock = signed_out_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
@@ -59,8 +51,9 @@ async fn run_builder_gates_does_not_reject_when_signed_out() {
         errors.is_empty(),
         "authoring must not be blocked by a signed-out session: {errors:?}"
     );
-    // `SignedOutTestGuard` restores the prior flag on drop at the end of this
-    // scope — no other test observes this override.
+    // Under cfg(test), `SignedOutTestGuard` stores the override by Tokio
+    // runtime ID and restores it on drop, so parallel async tests cannot
+    // observe this runtime's signed-out state.
 }
 
 #[tokio::test]
@@ -68,7 +61,6 @@ async fn proposal_surfaces_signed_out_inference_status() {
     // The proposal still WARNS about the signed-out state (advisory, never a
     // rejection) so the UI can render a "sign in" nudge alongside the built
     // workflow.
-    let _lock = signed_out_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
@@ -103,8 +95,9 @@ async fn proposal_surfaces_signed_out_inference_status() {
         message.to_ascii_lowercase().contains("signed out"),
         "message must tell the user they are signed out: {message}"
     );
-    // `SignedOutTestGuard` restores the prior flag on drop at the end of this
-    // scope — no other test observes this override.
+    // Under cfg(test), `SignedOutTestGuard` stores the override by Tokio
+    // runtime ID and restores it on drop, so parallel async tests cannot
+    // observe this runtime's signed-out state.
 }
 
 #[tokio::test]
@@ -114,8 +107,10 @@ async fn inference_gate_passes_when_model_constructs() {
     // (`ollama:...`), which `probe_inference_readiness` never probes over the
     // network at all — `resolves_to_managed_backend` is false for a local
     // provider, so construction succeeding is the whole check (no HTTP, no
-    // process-global test seam, so this can never race another test that
-    // installs `test_provider_override`).
+    // network at all. Construction still observes the process-global test
+    // provider seam, so serialize this probe with tests that install an
+    // override.
+    let _inference = crate::inference::inference_test_guard();
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     config.memory_provider = Some("ollama:llama3".to_string());
