@@ -6,7 +6,7 @@ use super::*;
 use crate::inference::provider::factory::access_gates::verify_backend_session_active;
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_session_active;
-use tinyinference::classification::fallback as fallback_diagnostics;
+use crate::inference::provider::fallback_diagnostics;
 use tinyinference::providers::anthropic::{
     build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
 };
@@ -146,12 +146,7 @@ pub(super) fn resolve_cloud_slug<'a>(
             entry.auth_style.as_str(),
             implicit_fallback
         );
-        fallback_diagnostics::missing_provider_credentials_message(
-            "OpenHuman",
-            role,
-            slug,
-            local_chat,
-        )
+        fallback_diagnostics::missing_provider_credentials_message(role, slug, local_chat)
     };
 
     let key = lookup_key_for_slug(slug, config)

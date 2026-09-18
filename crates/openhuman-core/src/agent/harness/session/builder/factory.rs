@@ -483,9 +483,10 @@ impl Agent {
         // about an image the model never saw. Log the actionable reason (which
         // model, and what to switch to) at the moment the decision is made.
         if !model_vision {
-            let reason = tinyinference::classification::fallback::local_vision_unsupported_message(
-                &model_name,
-            );
+            let reason =
+                crate::inference::provider::fallback_diagnostics::local_vision_unsupported_message(
+                    &model_name,
+                );
             log::info!("[vision-preflight] {reason}");
         }
 

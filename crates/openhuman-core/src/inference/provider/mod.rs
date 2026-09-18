@@ -9,6 +9,7 @@ pub mod config_rejection;
 pub mod error_classify;
 pub mod error_code;
 pub mod factory;
+pub(crate) mod fallback_diagnostics;
 pub(crate) mod openai_codex;
 /// Crate-native managed OpenHuman backend as a host `ChatModel` (issue #4727).
 pub mod openhuman_backend_model;

@@ -2,7 +2,7 @@
 //! managed-credits bypass check and the `<model>[@<temp>]` suffix parser.
 
 use super::*;
-use tinyinference::classification::fallback as fallback_diagnostics;
+use crate::inference::provider::fallback_diagnostics;
 
 /// The provider route a role has **explicitly** configured, before any
 /// fallback.
