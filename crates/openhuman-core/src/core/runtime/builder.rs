@@ -286,8 +286,8 @@ impl DomainSet {
     /// and todos, and leaves `channels` off — but `channel.web_chat` is tagged
     /// `DomainGroup::Channels` and an embedded host drives chat turns through it.
     ///
-    /// `flows: true` is load-bearing, not incidental: `medulla_workflows` runs
-    /// on the tinyflows engine and boot reconciliation keys off
+    /// `flows: true` is load-bearing, not incidental: workflow boot
+    /// reconciliation keys off
     /// `ctx.domains().flows` rather than a `ServiceSet` flag.
     ///
     /// An embedded host supplies its own harness wrappers, networking and

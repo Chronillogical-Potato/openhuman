@@ -101,8 +101,7 @@ fn embedded_domain_set_enables_the_host_families() {
 
 #[test]
 fn embedded_keeps_flows_on_for_workflow_boot_reconcile() {
-    // Not incidental: `medulla_workflows` runs on the tinyflows engine and
-    // boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
+    // Not incidental: boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
     // flag. Turning this off silently strands orphaned runs.
     assert!(DomainSet::embedded().allows(DomainGroup::Flows));
 }
