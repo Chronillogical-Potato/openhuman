@@ -222,7 +222,10 @@ def score(doc, case, ws, secs, run=1):
         "surface": case.get("surface", ""),
         "precondition": pre,
         "writes": case.get("writes", []),
-        "git_sha": subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
+        # The tree the measured binary was built from, and the scorer's own.
+        "git_sha": os.environ.get("PROMPT_EVAL_BIN_SHA", ""),
+        "eval_sha": subprocess.run(["git", "-C", os.path.dirname(os.path.abspath(__file__)), "rev-parse", "HEAD"],
+                                   capture_output=True, text=True).stdout.strip(),
         "models": models,
         "pass": not failures,
         "score": 0.0 if signals else round(max(passed_checks, 0) / max(checks, 1), 3),

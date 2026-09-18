@@ -61,6 +61,10 @@ elif [ -z "${OPENHUMAN_BACKEND_SESSION_TOKEN:-}${OPENHUMAN_BACKEND_API_KEY:-}" ]
 fi
 [ -x "$BIN" ] || { echo "prompt-eval: no binary at $BIN (cargo build --bin openhuman-core)" >&2; exit 2; }
 mkdir -p "$(dirname "$OUT")"
+# Every row records the tree the measured binary was built from.
+PROMPT_EVAL_BIN_SHA="$(git -C "$(dirname "$BIN")" rev-parse HEAD 2>/dev/null || echo unknown)"
+export PROMPT_EVAL_BIN_SHA
+echo "binary: $BIN @ $PROMPT_EVAL_BIN_SHA" >&2
 
 ids=$(python3 -c 'import json,sys; print("\n".join(c["id"] for c in json.load(open(sys.argv[1]))["cases"]))' "$CASES")
 [ -n "$ONLY" ] && { echo "$ids" | grep -qx "$ONLY" || { echo "no case $ONLY" >&2; exit 2; }; ids="$ONLY"; }
