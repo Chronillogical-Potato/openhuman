@@ -92,7 +92,8 @@
         "method": "openhuman.skills_list",
         "params": {},
         "expect_regex": "(?i)\"(id|name|slug)\"\\s*:\\s*\"notion\""
-      }
+      },
+      "_precondition_finding": "2026-09-18: ~/.openhuman/skills/notion exists on disk, but `openhuman-core call --method openhuman.skills_list` returns {\"workflows\": []}, so the CLI process does not see user skills. This case skips until that is understood; do not loosen the check to force it through."
     },
     {
       "id": "workflow-builder-news",
@@ -141,7 +142,7 @@
         "what": "gmail connected",
         "method": "openhuman.composio_list_connections",
         "params": {},
-        "expect_regex": "(?is)gmail.{0,200}active|active.{0,200}gmail"
+        "expect_regex": "(?s)\\{[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\\}|\\{[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\\}"
       },
       "_gate": "Do not run until a real transcript has shown a text-mode integrations_agent call in `calls` in a form these forbids match. Until then GMAIL_* forbids are unproven against the live inbox."
     },
