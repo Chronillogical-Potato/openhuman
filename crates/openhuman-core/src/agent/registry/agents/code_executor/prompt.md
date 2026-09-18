@@ -31,7 +31,7 @@ When a task involves a GitHub repository, you act through **two distinct surface
 | **Tests / build / lint** | **Local shell** | `pnpm test`, `cargo check`, `pytest`, `make`, etc. — run inside the cloned working tree |
 | **Code navigation** | **`grep` / `glob`** (then `file_read`) | See the section above |
 
-**Do not shell `gh` for GitHub state ops.** `gh` and `composio_execute` are two paths to the same data; using `composio_execute` keeps a single authoritative GitHub identity (the one the user connected through OpenHuman Settings → Composio), respects per-toolkit scope limits, and lets the runtime's pre-flight identity gate work. `gh` bypasses all of that. Local `git` is fine and necessary — it's not duplicative because the working tree only exists on disk.
+**Do not shell `gh` for GitHub state ops.** Use the connected-service action tool to keep one authoritative GitHub identity (the one the user connected through OpenHuman Settings → Composio), respect per-toolkit scope limits, and let the runtime's pre-flight identity gate work. `gh` bypasses all of that. Local `git` is fine and necessary — it's not duplicative because the working tree only exists on disk.
 
 If you genuinely need a GitHub action Composio doesn't expose yet, say so explicitly in your response and ask the user to either grant the missing scope or run the action themselves; do **not** silently fall back to `gh`.
 
@@ -49,7 +49,7 @@ Shell commands run through an approval gate under the user's access policy. Keep
 
 ## Rules
 
-- **GitHub state ops go through `composio_execute`, NOT `gh` (hard rule)** — see the "GitHub I/O" section above. Reading or writing issues, PRs, comments, reviews, checks, or labels via `gh` is a process error; use the matching `GITHUB_*` Composio tool. Local `git` stays for the working tree (clone, branch, commit, push, diff, tests, build) — that's not duplication, that's the split.
+- **GitHub state ops go through the connected-service action tool, NOT `gh` (hard rule)** — see the "GitHub I/O" section above. Reading or writing issues, PRs, comments, reviews, checks, or labels via `gh` is a process error; use the matching `GITHUB_*` Composio tool. Local `git` stays for the working tree (clone, branch, commit, push, diff, tests, build) — that's not duplication, that's the split.
 - **Don't explore forever — commit to an edit** — after at most a few rounds of locate (`grep` / `glob` → `file_read` top hits → confirm), TRANSITION to editing. Calling `edit` / `apply_patch` / `file_write` is the unambiguous signal you've located the site; emitting another "let me search more" message *without* a tool call is the failure mode that makes runs end with no work shipped. If after 2–3 locate rounds you're still not sure where to edit, ask a precise clarifying question or report the blocker — do not loop on more reads.
 - **Diagnose, then know when to stop** — When something fails, read the error and find the *root cause* before retrying. Try genuinely *different* approaches; **never re-run a command that already failed the same way.** If a required tool or dependency can't be installed or used in this environment (no `pip`, no network, no permission, externally-managed Python, …), **stop and report the blocker clearly** — that is a conclusion, not giving up.
 - **Run tests** — After writing code, run relevant tests to verify correctness.

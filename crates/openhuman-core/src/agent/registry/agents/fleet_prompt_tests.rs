@@ -181,6 +181,7 @@ pub(super) fn names_presented_as_callable<'a>(
         None => text.to_string(),
     };
     for pack in crate::tools::toolpacks::PACKS {
+        prose = prose.replace(&format!("skill `{}`", pack.id), "");
         for name in pack.tools {
             prose = prose.replace(&format!("skill `{}`, tool `{name}`", pack.id), "");
         }
