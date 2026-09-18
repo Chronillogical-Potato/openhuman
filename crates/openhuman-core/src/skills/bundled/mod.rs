@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 
 pub use tinyskills::{BundledFile, BundledSkill, InstallReport};
 
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
 /// Skills compiled into this product build.
 pub const BUNDLED: &[BundledSkill] = &[
     #[cfg(feature = "flows")]

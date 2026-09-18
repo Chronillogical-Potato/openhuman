@@ -228,7 +228,7 @@ pub(super) fn create_chat_model_from_string_with_model_id_inner(
             return result;
         }
         if let Some(result) =
-            try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+            try_create_local_runtime_chat_model_from_string(role, &resolved, config)
         {
             return result;
         }

@@ -100,6 +100,32 @@ fn trusted_roots_accumulate_and_keep_their_access_level() {
     assert_eq!(added[1].access, TrustedAccess::ReadWrite);
 }
 
+/// Regression for a narrower per-agent `Access` leaking a wider caller's
+/// trusted roots: `Runtime::agent` starts each agent's config from the
+/// runtime's base config, which already carries the runtime default
+/// `Access::apply`, then applies the agent's own `Access` on top. If `apply`
+/// extended rather than replaced `trusted_roots`, a supposedly `readonly()`
+/// agent would keep every root the runtime-wide default trusted.
+#[test]
+fn apply_replaces_trusted_roots_rather_than_extending_them() {
+    let mut config = Config::default();
+    Access::full()
+        .trust("/srv/wide", TrustedAccess::ReadWrite)
+        .apply(&mut config);
+    assert_eq!(config.autonomy.trusted_roots.len(), 1);
+
+    // A second, narrower `Access` applied to the same config (as happens when
+    // an agent overrides the runtime's default) must not keep the first
+    // access's trusted roots around.
+    Access::readonly().apply(&mut config);
+    assert!(
+        config.autonomy.trusted_roots.is_empty(),
+        "a readonly access must not inherit an earlier access's trusted roots, \
+         got {:?}",
+        config.autonomy.trusted_roots
+    );
+}
+
 #[test]
 fn an_explicit_origin_overrides_the_preset() {
     let access = Access::full().origin(AgentTurnOrigin::TrustedAutomation {

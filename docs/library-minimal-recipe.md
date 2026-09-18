@@ -33,6 +33,31 @@ cargo build --release \
 There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — see
 [Why no alias](#why-no-cargotoml-alias) below.
 
+Usage against this recipe is the two-step API: one `Runtime` per process,
+then agents on it. `DomainSet` families are registered at runtime build time
+and agents can only narrow them, so include `mcp` / `skills` in both the
+Cargo features **and** the runtime's `DomainSet` (the builder's default does)
+if any agent will declare servers or skills.
+
+```rust,no_run
+use openhuman_embed::{Access, AgentSpec, Runtime, Workspace};
+
+# async fn demo() -> Result<(), Box<dyn std::error::Error>> {
+let runtime = Runtime::builder()
+    .workspace(Workspace::dir("/var/lib/opencompany/openhuman"))
+    .api_key(std::env::var("TINYHUMANS_API_KEY")?)
+    .build()
+    .await?;
+let worker = runtime.agent(
+    AgentSpec::new("worker-1")
+        .access(Access::full())
+        .action_dir("/srv/jobs/1"),
+)?;
+println!("{}", worker.run("Start the job.").await?.reply);
+# Ok(())
+# }
+```
+
 ## Keep / drop table
 
 The single `default` list this session was written against no longer exists.

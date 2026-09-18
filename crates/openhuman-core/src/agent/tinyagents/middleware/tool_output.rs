@@ -3,7 +3,7 @@
 //! compaction, per-tool char cap, shared byte-budget backstop, disclosure.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
@@ -12,9 +12,11 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
+use tinyinference::tool::ToolCall as TaToolCall;
 
 use crate::agent::harness::tool_result_artifacts::{
-    apply_per_result_persistence, ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
+    apply_per_result_persistence, artifact_read_target, page_artifact_read, ArtifactRead,
+    ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
 use crate::agent::tinyagents::payload_summarizer::{
     PayloadSummarizer, SummarizeOutcome, UnavailableReason,
@@ -92,6 +94,9 @@ pub(crate) struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     pub(crate) budget_bytes: usize,
     pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// What the user asked for this turn, handed to the payload summarizer so
+    /// it keeps the facts that matter to the task. `None` off the chat path.
+    pub(crate) task_hint: Option<String>,
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     pub(crate) tokenjuice_compaction_enabled: bool,
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
@@ -102,6 +107,10 @@ pub(crate) struct ToolOutputMiddleware {
     /// `max_result_size_chars()` cap without re-querying the OpenHuman tool
     /// trait from `after_tool`.
     pub(crate) tool_policies: HashMap<String, TaToolPolicy>,
+    /// Calls that read a persisted artifact, keyed by call id. Filled in
+    /// `before_tool`, where the arguments are visible, and consumed in
+    /// `after_tool`, where they are not.
+    pub(crate) artifact_reads: Mutex<HashMap<String, ArtifactRead>>,
 }
 
 impl ToolOutputMiddleware {
@@ -121,12 +130,61 @@ impl Middleware<()> for ToolOutputMiddleware {
         "tool_output_budget"
     }
 
+    async fn before_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        call: &mut TaToolCall,
+    ) -> TaResult<()> {
+        if let Some(read) = artifact_read_target(&call.name, &call.arguments) {
+            tracing::debug!(
+                tool = %call.name,
+                call_id = %call.id,
+                path = %read.path,
+                offset = read.offset,
+                "[tinyagents::mw] call reads a persisted tool-result artifact"
+            );
+            if let Ok(mut reads) = self.artifact_reads.lock() {
+                reads.insert(call.id.clone(), read);
+            }
+        }
+        Ok(())
+    }
+
     async fn after_tool(
         &self,
         ctx: &mut RunContext<()>,
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // A read of a persisted artifact is the model following the envelope's
+        // `read_with` instruction. Every stage below would defeat it: the
+        // summarizer re-summarizes the body the model asked to see, TokenJuice
+        // compacts it, and the byte budget persists it as a *new* artifact with
+        // the same bounded preview — a loop that never reaches the data (#6284).
+        // Serve it verbatim, one bounded page at a time.
+        let artifact_read = self
+            .artifact_reads
+            .lock()
+            .ok()
+            .and_then(|mut reads| reads.remove(&result.call_id));
+        if let Some(read) = artifact_read {
+            tracing::info!(
+                tool = %result.name,
+                call_id = %result.call_id,
+                path = %read.path,
+                offset = read.offset,
+                bytes = result.content.len(),
+                "[tinyagents::mw] artifact read: skipping summarizer, compaction and re-persistence"
+            );
+            result.content = page_artifact_read(
+                std::mem::take(&mut result.content),
+                &read,
+                self.budget_bytes,
+            );
+            return Ok(());
+        }
+
         // Proposal-/persistence-emitting workflow tools return a self-describing
         // `{ "type": "workflow_proposal", … }` JSON payload that `flows::ops`'
         // `extract_workflow_proposal` (and the frontend's content-based
@@ -176,11 +234,35 @@ impl Middleware<()> for ToolOutputMiddleware {
         // tool's own output, which is what it is a contract about, rather than
         // openhuman's annotation about it.
         let mut pending_notice: Option<&'static str> = None;
+        // The byte count a summary replaced, stated in step 5 for the same
+        // reason as the notice: a cap that truncates the summary must not take
+        // the authoritative size with it (#6283).
+        let mut summarized_from_bytes: Option<usize> = None;
+
+        // The tool's own output, kept only when it could end up persisted (step
+        // 4 with a store), so the artifact stores what the tool returned rather
+        // than the summarized or compacted copy the stages below produce. The
+        // live artifact otherwise held 71,650 compacted bytes of a 119,796-byte
+        // result and reported the smaller number as `original_bytes`. Skipped
+        // when the raw body is larger than `file_read` will open: an artifact
+        // nobody can read back is worse than the processed copy.
+        let full_output = (!truncation_exempt
+            && self.tool_char_cap(&result.name).is_none()
+            && self.budget_bytes > 0
+            && self.artifact_store.is_some()
+            && result.content.len() > self.budget_bytes
+            && result.content.len() as u64 <= crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES)
+            .then(|| result.content.clone());
 
         if !compaction_exempt {
             if let Some(ps) = &self.payload_summarizer {
                 match ps
-                    .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
+                    .maybe_summarize_in_parent(
+                        ctx,
+                        &result.name,
+                        self.task_hint.as_deref(),
+                        &result.content,
+                    )
                     .await
                 {
                     Ok(SummarizeOutcome::Summarized(payload)) => {
@@ -194,6 +276,7 @@ impl Middleware<()> for ToolOutputMiddleware {
                             from_tokens: estimate_output_tokens(payload.original_bytes),
                             to_tokens: estimate_output_tokens(payload.summary_bytes),
                         });
+                        summarized_from_bytes = Some(payload.original_bytes);
                         result.content = payload.summary;
                     }
                     // The payload was fine as it was. Say nothing: a notice on
@@ -286,6 +369,7 @@ impl Middleware<()> for ToolOutputMiddleware {
         if !truncation_exempt && tool_cap.is_none() && self.budget_bytes > 0 {
             let (capped, outcome) = apply_per_result_persistence(
                 std::mem::take(&mut result.content),
+                full_output,
                 self.artifact_store.as_ref(),
                 &result.name,
                 Some(&result.call_id),
@@ -350,6 +434,12 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    because it still looks like tool output.
         if let Some(notice) = pending_notice {
             result.content = format!("{notice}\n\n{}", result.content);
+        }
+        if let Some(bytes) = summarized_from_bytes {
+            result.content = format!(
+                "[openhuman: summary of {bytes} bytes of tool output, complete]\n\n{}",
+                result.content
+            );
         }
 
         Ok(())

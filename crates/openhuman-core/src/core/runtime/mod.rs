@@ -47,3 +47,4 @@ pub mod context;
 pub mod services;
 
 pub use builder::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
+pub use context::{ContextOverlay, CoreContext};

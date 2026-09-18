@@ -105,7 +105,10 @@ impl Tool for WorkflowListTool {
 
     async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][workflows] list invoked");
-        let home = self.home_dir.clone().or_else(dirs::home_dir);
+        let home = self
+            .home_dir
+            .clone()
+            .or_else(crate::skills::ops_discover::discovery_home_dir);
         let trusted = is_workspace_trusted(&self.workspace_dir);
         let mut workflows = discover_workflows_with_profile(
             home.as_deref(),

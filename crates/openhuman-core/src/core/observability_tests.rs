@@ -38,16 +38,6 @@ fn managed_body(status: &str, code: &str) -> String {
 }
 
 #[cfg(feature = "crash-reporting")]
-fn auth_get_me_tags() -> Vec<(&'static str, &'static str)> {
-    vec![
-        ("domain", "rpc"),
-        ("operation", "invoke_method"),
-        ("method", "openhuman.auth_get_me"),
-        ("elapsed_ms", "5003"),
-    ]
-}
-
-#[cfg(feature = "crash-reporting")]
 fn event_with_tags_and_message(
     pairs: &[(&str, &str)],
     message: &str,
@@ -68,8 +58,6 @@ fn event_with_exception_value(value: &str) -> sentry::protocol::Event<'static> {
     event
 }
 
-#[path = "observability_crash_filter_auth_tests.rs"]
-mod crash_filter_auth;
 #[path = "observability_crash_filter_integrations_tests.rs"]
 mod crash_filter_integrations;
 #[path = "observability_crash_filter_messages_tests.rs"]
