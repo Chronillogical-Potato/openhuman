@@ -5,10 +5,10 @@
 //! neutral `ChatModel` interface.
 
 use crate::config::Config;
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{ChatModel, ModelRequest};
-use tinyinference_core::providers::openai::OpenAiModel;
-use tinyinference_core::providers::{ProviderKind, ProviderSpec};
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelRequest};
+use tinyinference_llm::providers::openai::OpenAiModel;
+use tinyinference_llm::providers::{ProviderKind, ProviderSpec};
 use tinyinference_local::lm_studio::lm_studio_base_url;
 use tinyinference_local::ollama::{ollama_base_url_from_override, redact_ollama_base_url};
 use tinyinference_local::provider::{provider_from_name, LocalAiProvider};
@@ -140,7 +140,7 @@ pub(super) async fn invoke(
 }
 
 fn model_outcome(
-    response: tinyinference_core::model::ModelResponse,
+    response: tinyinference_llm::model::ModelResponse,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
     let mut reply = response.text();
@@ -150,7 +150,7 @@ fn model_outcome(
             .content
             .iter()
             .filter_map(|block| match block {
-                tinyinference_core::message::ContentBlock::Thinking { text, .. } => {
+                tinyinference_llm::message::ContentBlock::Thinking { text, .. } => {
                     Some(text.as_str())
                 }
                 _ => None,

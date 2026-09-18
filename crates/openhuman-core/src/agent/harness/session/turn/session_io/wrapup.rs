@@ -7,7 +7,7 @@ use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::inference::provider::{ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS};
 use futures::StreamExt;
-use tinyinference_core::model::{ModelRequest, ModelStreamItem};
+use tinyinference_llm::model::{ModelRequest, ModelStreamItem};
 
 impl Agent {
     /// **disabled** so the model returns prose rather than another tool call.

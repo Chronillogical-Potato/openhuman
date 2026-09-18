@@ -31,12 +31,12 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
-use tinyinference_core::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
-use tinyinference_core::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference_core::tool::{ToolCall, ToolDelta};
-use tinyinference_core::usage::Usage;
+use tinyinference_llm::tool::{ToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 use tokio::time::{timeout, Duration};
 
@@ -167,12 +167,12 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.capture(&request, false);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_core::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
         self.capture(&request, true);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
@@ -193,16 +193,16 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference_core::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
         if let Some(message) = self.always_fail {
-            return Err(tinyinference_core::Error::Model(message.to_string()));
+            return Err(tinyinference_llm::Error::Model(message.to_string()));
         }
         self.responses
             .lock()
             .unwrap()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("default scripted final")))
-            .map_err(|error| tinyinference_core::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 

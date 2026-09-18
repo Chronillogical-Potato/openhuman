@@ -9,12 +9,12 @@ single-crate layout); see `../README.md` for the wider `inference` domain.
 
 | File / dir | Role |
 | --- | --- |
-| `mod.rs` | Exposes the host service and RPC surface; reusable local-runtime APIs are consumed directly from `tinyinference_core::local`. |
+| `mod.rs` | Exposes the host service and RPC surface; reusable local-runtime APIs are consumed directly from `tinyinference_local`. |
 | `core.rs` | `LocalAiService` singleton (`global`/`try_global`), `model_artifact_path`. |
 | `ops.rs` + `ops/` (`runtime_ops.rs`, `chat.rs`, `agent_chat.rs`, `reactions.rs`, `turn_guards.rs`) | RPC entry points: `local_ai_status/prompt/summarize/vision_prompt/embed/transcribe[_bytes]/tts/chat`, `agent_chat[_simple]`, `local_ai_should_react` (`ReactionDecision`), assets/downloads status. |
 | `schemas.rs` | Local-runtime `inference.*` controller schemas + handlers (see RPC below); exported as `all_local_inference_controller_schemas` / `all_local_inference_registered_controllers`. |
 | `install.rs`, `install_piper.rs`, `voice_install_common.rs` | Ollama/Piper download and install; shared download-progress plumbing. No Whisper install any more — local STT was retired (`config/migrations/retire_local_whisper_stt.rs`). |
-| `tinyinference_core::local` | Ollama/LM Studio wire contracts, URL validation, model requirements, profiles, provider selection, subprocess flags, and spawn markers. |
+| `tinyinference_local` | Ollama/LM Studio wire contracts, URL validation, model requirements, profiles, provider selection, subprocess flags, and spawn markers. |
 | `service/` | `LocalAiService` impl, split by concern (below). |
 
 ## `service/` split

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference_core::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 
 use crate::tools::Tool;
 

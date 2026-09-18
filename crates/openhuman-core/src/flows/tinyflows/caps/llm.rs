@@ -15,7 +15,7 @@ use tinyflows::error::{EngineError, Result};
 use super::*;
 use crate::config::Config;
 use crate::inference::provider::{create_chat_model_with_model_id, role_for_model_tier};
-use tinyinference_core::model::ModelRequest;
+use tinyinference_llm::model::ModelRequest;
 
 /// [`LlmProvider`] adapter over OpenHuman's inference stack
 /// (`crates/openhuman-core/src/inference/provider/`).

@@ -11,7 +11,7 @@ impl ChatModel<()> for SuccessfulModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant("ok"))
     }
 }
@@ -79,7 +79,7 @@ impl ChatModel<()> for IdentifiedModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant("ok"))
     }
 }

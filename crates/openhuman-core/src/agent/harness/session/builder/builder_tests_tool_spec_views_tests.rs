@@ -124,7 +124,7 @@ fn dedup_keeps_the_original_allocation_of_the_winning_spec() {
 /// spec views must be empty rather than desynchronised.
 #[test]
 fn spec_views_stay_consistent_for_a_tool_less_agent() {
-    let model: std::sync::Arc<dyn tinyinference_core::model::ChatModel<()>> =
+    let model: std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     let agent = crate::agent::AgentBuilder::new()
         .chat_model(model)

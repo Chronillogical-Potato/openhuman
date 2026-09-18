@@ -12,9 +12,9 @@ use tinyagents_harness::steering::SteeringPolicy;
 use tinyagents_harness::subagent::SubAgent;
 use tinyagents_harness::testkit::{FakeTool, ScriptedModel, SlowModel};
 use tinyagents_harness::tool::ToolResult;
-use tinyinference_core::message::{AssistantMessage, Message};
-use tinyinference_core::model::{ChatModel, ModelResponse};
-use tinyinference_core::tool::ToolCall;
+use tinyinference_llm::message::{AssistantMessage, Message};
+use tinyinference_llm::model::{ChatModel, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 const CAP: usize = 3;
 

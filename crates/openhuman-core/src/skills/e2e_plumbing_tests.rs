@@ -39,9 +39,9 @@ use crate::skills::registry::get_workflow;
 use crate::skills::run_log;
 use crate::skills::runtime::await_run_outcome;
 use crate::tools::traits::Tool;
-use tinyinference_core::message::AssistantMessage;
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference_core::tool::ToolCall;
+use tinyinference_llm::message::AssistantMessage;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 // ── Mock LLM ─────────────────────────────────────────────────────────────
 // Minimal scripted model: pops queued ModelResponses in order. Mirrors the
@@ -49,7 +49,7 @@ use tinyinference_core::tool::ToolCall;
 // `agent/harness/subagent_runner/ops_tests.rs`; kept local so this file is
 // self-contained).
 struct ScriptedModel {
-    responses: Mutex<Vec<tinyinference_core::Result<ModelResponse>>>,
+    responses: Mutex<Vec<tinyinference_llm::Result<ModelResponse>>>,
 }
 
 #[async_trait]
@@ -58,7 +58,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.responses.lock().remove(0)
     }
 }

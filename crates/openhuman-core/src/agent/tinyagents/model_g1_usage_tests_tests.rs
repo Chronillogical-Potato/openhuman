@@ -122,7 +122,7 @@ fn tool_enabled_response_still_extracts_tool_call_markup() {
 
 fn tool_request() -> ModelRequest {
     ModelRequest {
-        tools: vec![tinyinference_core::tool::ToolSchema::new(
+        tools: vec![tinyinference_llm::tool::ToolSchema::new(
             "lookup",
             "looks up a record",
             serde_json::json!({

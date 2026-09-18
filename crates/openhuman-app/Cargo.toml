@@ -321,6 +321,8 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
 # Crates in this world name tinyinference by git rev; without this the shell
 # world resolves TWO copies of the same types. Mirrors the root Cargo.toml.
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 
 [patch.crates-io]
@@ -335,9 +337,12 @@ motosan-ai-oauth = { path = "../../vendor/motosan-ai-oauth" }
 # match the one the core crate names, or cargo resolves two distinct packages
 # and the shell's `dyn Tool` stops being the core's. See the core manifest.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
-# tinymemory-core declares `tinyinference-core = "0.2"` (crates-io-shaped, unpublished),
-# so this world must patch it exactly as the root manifest does.
+# TinyMemory declares the focused TinyInference crates by version
+# (crates-io-shaped, unpublished), so this world must patch them exactly as
+# the root manifest does.
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 # TinyFlows and TinyChannels are vendored beside TinyAgents so integration
 # work can test crate changes against OpenHuman before publishing.

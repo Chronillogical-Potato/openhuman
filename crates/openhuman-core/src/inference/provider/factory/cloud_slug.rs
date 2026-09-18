@@ -7,10 +7,10 @@ use crate::inference::provider::factory::access_gates::verify_backend_session_ac
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
-use tinyinference_core::providers::anthropic::{
+use tinyinference_llm::providers::anthropic::{
     build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
 };
-use tinyinference_core::providers::openai::{
+use tinyinference_llm::providers::openai::{
     build_openai_model, endpoint_is_openrouter, OpenAiConfig,
 };
 
@@ -23,7 +23,7 @@ pub(super) struct CloudSlugResolution<'a> {
     entry: &'a crate::config::schema::cloud_providers::CloudProviderCreds,
     effective_model: String,
     key: String,
-    codex: tinyinference_core::providers::openai::codex::OpenAiCodexRouting,
+    codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
 }
 
 pub(super) fn resolve_cloud_slug<'a>(

@@ -7,7 +7,7 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{AgentRun, Middleware};
 use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference_core::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 /// Agents are told to follow a **read-index → dedupe → write → update-index**
 /// cycle around durable memory, but the contract was never enforced, so it was

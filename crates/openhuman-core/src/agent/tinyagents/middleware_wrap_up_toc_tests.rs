@@ -177,7 +177,7 @@ async fn wrap_up_withdraws_tools_and_appends_the_instruction_on_the_last_call() 
     let mut request = ModelRequest {
         messages: vec![TaMessage::user("hi")],
         tools: vec![ToolSchema::new("echo", "echo", serde_json::json!({}))],
-        tool_choice: tinyinference_core::model::ToolChoice::Required,
+        tool_choice: tinyinference_llm::model::ToolChoice::Required,
         ..Default::default()
     };
 
@@ -190,7 +190,7 @@ async fn wrap_up_withdraws_tools_and_appends_the_instruction_on_the_last_call() 
     assert!(
         matches!(
             request.tool_choice,
-            tinyinference_core::model::ToolChoice::None
+            tinyinference_llm::model::ToolChoice::None
         ),
         "a Required choice with no tools is a provider 400"
     );

@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc::Sender;
 
-use tinyinference_core::usage::Usage;
+use tinyinference_llm::usage::Usage;
 
 use crate::agent::progress::AgentProgress;
 use crate::inference::provider::UsageInfo;

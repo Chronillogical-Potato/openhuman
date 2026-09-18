@@ -25,7 +25,7 @@ fn arm_error_label(err: &ArmError) -> &'static str {
 // `provider_name` we inspect to disambiguate.
 
 fn unused_model_source() -> crate::agent::tinyagents::TurnModelSource {
-    let model: StdArc<dyn tinyinference_core::model::ChatModel<()>> =
+    let model: StdArc<dyn tinyinference_llm::model::ChatModel<()>> =
         StdArc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     crate::agent::tinyagents::TurnModelSource::from_model(model)
 }

@@ -5,8 +5,8 @@
 
 use std::hash::{Hash, Hasher};
 
-use tinyinference_core::message::Message;
-use tinyinference_core::model::ModelRequest;
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::ModelRequest;
 
 pub const THREAD_TITLE_LOG_PREFIX: &str = "[threads:title]";
 pub const THREAD_TITLE_SYSTEM_PROMPT: &str = "You name chat threads from the first user message and the assistant reply. Return only the name: at most 3 words, like Fix session handoff or Gmail OAuth retry. Lead with the verb or the subject and drop filler words. No quotes. No markdown. No punctuation.";

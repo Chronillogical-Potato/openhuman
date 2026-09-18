@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyinference_core::embeddings::{
+use tinyinference_embeddings::{
     BearerResolver, CloudEmbeddingModel, DEFAULT_CLOUD_DIMENSIONS, DEFAULT_CLOUD_MODEL,
 };
 
@@ -32,10 +32,10 @@ impl OpenHumanCloudEmbedding {
         let bearer: BearerResolver = Arc::new(move || {
             let auth = AuthService::new(&state_dir, secrets_encrypt);
             auth.get_provider_bearer_token(APP_SESSION_PROVIDER, None)
-                .map_err(|error| tinyinference_core::Error::Embedding(error.to_string()))?
+                .map_err(|error| tinyinference_embeddings::Error::Embedding(error.to_string()))?
                 .filter(|token| !token.trim().is_empty())
                 .ok_or_else(|| {
-                    tinyinference_core::Error::Validation(
+                    tinyinference_embeddings::Error::Validation(
                         "No backend session for cloud embeddings: log in to OpenHuman".into(),
                     )
                 })

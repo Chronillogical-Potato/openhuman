@@ -72,11 +72,11 @@ use crate::agent::harness::fork_context::with_parent_context;
 use crate::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use parking_lot::Mutex;
 use std::sync::Arc;
-use tinyinference_core::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
-use tinyinference_core::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference_core::tool::ToolCall;
+use tinyinference_llm::tool::ToolCall;
 
 /// Mock provider whose response queue can be inspected by the test
 /// to verify the bytes that arrive at the model.
@@ -151,7 +151,7 @@ impl ChatModel<()> for ScriptedProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(self.take_response(request))
     }
 
@@ -159,7 +159,7 @@ impl ChatModel<()> for ScriptedProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.take_response(request);
         let reasoning = response
             .message

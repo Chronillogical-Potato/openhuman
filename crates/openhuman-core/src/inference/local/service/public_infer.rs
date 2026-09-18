@@ -1,6 +1,6 @@
 use crate::config::Config;
-use tinyinference_core::completion::sanitize_inline_completion;
-use tinyinference_core::message::Message;
+use tinyinference_llm::completion::sanitize_inline_completion;
+use tinyinference_llm::message::Message;
 use tinyinference_local::models as model_ids;
 
 use super::LocalAiService;

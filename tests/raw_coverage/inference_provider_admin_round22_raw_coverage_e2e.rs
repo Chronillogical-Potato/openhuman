@@ -15,8 +15,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
-use tinyinference_core::message::Message;
-use tinyinference_core::model::ModelRequest;
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::ModelRequest;
 
 use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,

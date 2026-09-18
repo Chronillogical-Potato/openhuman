@@ -14,8 +14,8 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
@@ -507,7 +507,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let flattened = flatten_messages(&request.messages);
         self.seen.lock().push(flattened.clone());
         for (needle, answer) in &self.responses {
@@ -515,7 +515,7 @@ impl ChatModel<()> for ScriptedModel {
                 return Ok(ModelResponse::assistant(*answer));
             }
         }
-        Err(tinyinference_core::Error::Model(format!(
+        Err(tinyinference_llm::Error::Model(format!(
             "unexpected model request: {flattened}"
         )))
     }

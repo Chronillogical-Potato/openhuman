@@ -22,9 +22,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{ChatModel, ModelRequest, ModelStreamItem};
-use tinyinference_core::providers::openai::{AuthStyle, OpenAiModel};
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelStreamItem};
+use tinyinference_llm::providers::openai::{AuthStyle, OpenAiModel};
 
 // ── Environment serialisation lock ───────────────────────────────────────────
 //
@@ -548,7 +548,7 @@ async fn openai_compat_bearer_auth_sends_authorization_header() {
 #[test]
 fn temperature_helper_suppresses_o1_by_default_config() {
     use openhuman_core::config::Config;
-    use tinyinference_core::model::effective_temperature;
+    use tinyinference_llm::model::effective_temperature;
 
     let config = Config::default();
 

@@ -8,7 +8,7 @@ use super::cloud::{
 };
 use super::provider_trait::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::config::Config;
-use tinyinference_core::embeddings::{
+use tinyinference_embeddings::{
     model_supports_dimensions, CohereEmbeddingModel, NoopEmbeddingModel, OllamaEmbeddingModel,
     OpenAiEmbeddingModel, VoyageEmbeddingModel,
 };
@@ -105,7 +105,7 @@ pub fn create_embedding_provider(
                 "",
                 model,
                 dims,
-                tinyinference_core::embeddings::VOYAGE_API_BASE,
+                tinyinference_embeddings::VOYAGE_API_BASE,
             ),
         )),
         "ollama" => {
@@ -159,7 +159,7 @@ pub fn create_embedding_provider_with_credentials(
                 api_key,
                 model,
                 dims,
-                tinyinference_core::embeddings::VOYAGE_API_BASE,
+                tinyinference_embeddings::VOYAGE_API_BASE,
             ),
         )),
         "ollama" => {

@@ -3,7 +3,7 @@
 
 use crate::rpc::RpcOutcome;
 
-use tinyinference_core::embeddings::model_supports_dimensions;
+use tinyinference_embeddings::model_supports_dimensions;
 
 /// Send one OpenAI-compatible embedding request without requesting or
 /// validating a vector width. This is intentionally separate from the live

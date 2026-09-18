@@ -141,8 +141,8 @@ use openhuman_core::inference::provider::{
 use openhuman_core::inference::provider::{
     ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
-use tinyinference_core::model::{effective_temperature, model_id_glob_match};
-use tinyinference_core::sentiment::parse_sentiment_response;
+use tinyinference_llm::model::{effective_temperature, model_id_glob_match};
+use tinyinference_llm::sentiment::parse_sentiment_response;
 use openhuman_core::inference::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
@@ -173,7 +173,7 @@ use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_
 use openhuman_core::threads::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -249,7 +249,7 @@ impl ChatModel<()> for EchoModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant(
             request
                 .messages
@@ -1989,8 +1989,8 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
 
 #[tokio::test]
 async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edges() {
-    use tinyinference_core::message::Message;
-    use tinyinference_core::model::{ChatModel, ModelRequest};
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::{ChatModel, ModelRequest};
 
     let state_dir = tempdir().expect("openhuman provider state");
     let provider = OpenHumanBackendModel::new(

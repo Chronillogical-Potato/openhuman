@@ -142,7 +142,7 @@ impl ChatModel<()> for EchoModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant(self.0))
     }
 }

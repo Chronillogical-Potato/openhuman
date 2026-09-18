@@ -12,8 +12,8 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{ModelRequest, ModelResponse};
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ModelRequest, ModelResponse};
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
 use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
@@ -370,7 +370,7 @@ impl Middleware<()> for HandoffMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        call: &mut tinyinference_core::tool::ToolCall,
+        call: &mut tinyinference_llm::tool::ToolCall,
     ) -> TaResult<()> {
         if crate::agent::harness::tool_result_artifacts::artifact_read_target(
             &call.name,

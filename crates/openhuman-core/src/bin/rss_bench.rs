@@ -39,7 +39,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
-use tinyinference_core::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 /// Roster sizes measured by default: the 1-agent baseline and the
 /// representative 8-agent company roster from #5046.
@@ -62,7 +62,7 @@ impl ChatModel<()> for MockModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant("ok"))
     }
 }

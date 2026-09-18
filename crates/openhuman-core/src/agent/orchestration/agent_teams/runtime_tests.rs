@@ -25,7 +25,7 @@ use tinyagents_session::run_ledger::{
     self, AgentTeamMemberStatus, AgentTeamMemberUpsert, AgentTeamStatus, AgentTeamTaskStatus,
     AgentTeamTaskUpsert, AgentTeamUpsert,
 };
-use tinyinference_core::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 // ── Mocks (mirror workflow_runs::engine_tests) ──────────────────────────────
 
@@ -97,9 +97,9 @@ impl ChatModel<()> for CannedModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         if self.fail {
-            return Err(tinyinference_core::Error::Model(
+            return Err(tinyinference_llm::Error::Model(
                 "mock model forced failure".to_string(),
             ));
         }

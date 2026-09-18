@@ -71,7 +71,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tinyagents_harness::error::{Result as TinyAgentsResult, TinyAgentsError};
 use tinyagents_harness::host::{ContextComposer, TurnContextRequest};
-use tinyinference_core::message::Message;
+use tinyinference_llm::message::Message;
 
 use crate::agent::prompts::{
     load_agents_md_layers, render_connected_identities, AgentsMdContent, ConnectedIntegration,

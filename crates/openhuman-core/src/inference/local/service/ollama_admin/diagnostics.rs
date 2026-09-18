@@ -16,8 +16,7 @@ use super::super::LocalAiService;
 use super::health::OllamaHealthStatus;
 use super::util::lm_studio_models_error_means_unreachable;
 
-const MIN_CONTEXT_TOKENS: u64 =
-    tinyinference_core::embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS as u64;
+const MIN_CONTEXT_TOKENS: u64 = tinyinference_embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS as u64;
 
 impl LocalAiService {
     /// Run full diagnostics: check Ollama server health, list installed models,

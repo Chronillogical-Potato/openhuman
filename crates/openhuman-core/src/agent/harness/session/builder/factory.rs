@@ -657,7 +657,7 @@ impl Agent {
                 let full_config = Arc::clone(&base_config);
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
-                let reflection_provider: Option<Arc<dyn tinyinference_core::model::ChatModel<()>>> =
+                let reflection_provider: Option<Arc<dyn tinyinference_llm::model::ChatModel<()>>> =
                     if config.learning.reflection_source == crate::config::ReflectionSource::Cloud {
                         let (model, resolved_model) =
                             provider::create_chat_model_with_model_id("reasoning", config, 0.3)?;

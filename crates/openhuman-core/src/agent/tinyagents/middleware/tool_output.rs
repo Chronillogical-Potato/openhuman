@@ -12,7 +12,7 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
-use tinyinference_core::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use crate::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, artifact_read_target, page_artifact_read, ArtifactRead,

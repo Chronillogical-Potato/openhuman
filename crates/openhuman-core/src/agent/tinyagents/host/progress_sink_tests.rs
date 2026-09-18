@@ -1,7 +1,7 @@
 use super::*;
 use std::sync::Arc;
 use tinyagents_harness::ids::{CallId, RunId, ThreadId};
-use tinyinference_core::usage::Usage;
+use tinyinference_llm::usage::Usage;
 use tokio::sync::mpsc;
 
 fn run() -> RunId {

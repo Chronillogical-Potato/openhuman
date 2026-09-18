@@ -119,9 +119,9 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::tempdir;
-use tinyinference_core::message::AssistantMessage;
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference_core::tool::ToolCall;
+use tinyinference_llm::message::AssistantMessage;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 // ── env serialisation (config-rs reads process env) ──────────────────
 
@@ -204,7 +204,7 @@ impl ChatModel<()> for StubModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let mut count = self.iter.lock();
         *count += 1;
         if *count == 1 {

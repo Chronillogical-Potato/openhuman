@@ -28,12 +28,12 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{
     ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ProviderError,
 };
-use tinyinference_core::providers::openai::OpenAiModel;
-use tinyinference_core::Error as TiError;
+use tinyinference_llm::providers::openai::OpenAiModel;
+use tinyinference_llm::Error as TiError;
 
 use super::ProviderRuntimeOptions;
 use crate::agent::tinyagents::thread_context;
@@ -211,7 +211,7 @@ impl OpenHumanBackendModel {
 
     /// Resolve the current JWT + base URL and build a fresh crate `OpenAiModel`
     /// (Bearer). Rebuilt per call because the session JWT rotates.
-    fn build_wire_model(&self) -> tinyinference_core::Result<OpenAiModel> {
+    fn build_wire_model(&self) -> tinyinference_llm::Result<OpenAiModel> {
         let token = self
             .resolve_bearer()
             .map_err(|e| TiError::Model(e.to_string()))?;
@@ -553,7 +553,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let model = self.build_wire_model()?;
         let response = match model.invoke(state, with_thread_id(request)).await {
             Ok(response) => response,
@@ -570,7 +570,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let model = self.build_wire_model()?;
         // NOTE (streaming billing parity): the crate SSE parser sets `raw: None`
         // on the terminal `Completed` response, so the `openhuman.billing` envelope

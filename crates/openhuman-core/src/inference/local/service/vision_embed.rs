@@ -2,7 +2,7 @@ use crate::agent::multimodal;
 use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::types::LocalAiEmbeddingResult;
-use tinyinference_core::embeddings::{
+use tinyinference_embeddings::{
     EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
     RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
 };

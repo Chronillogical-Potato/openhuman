@@ -4,7 +4,7 @@
 //! OpenHuman transcript record it adapts. This module remains until WP-4
 //! decides the host tool-trait boundary.
 
-use tinyinference_core::tool::ToolSchema;
+use tinyinference_llm::tool::ToolSchema;
 
 use crate::tools::ToolSpec;
 

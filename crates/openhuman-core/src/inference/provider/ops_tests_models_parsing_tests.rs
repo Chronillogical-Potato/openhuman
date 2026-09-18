@@ -1,5 +1,5 @@
 use super::*;
-use tinyinference_core::catalog::{
+use tinyinference_llm::catalog::{
     merge_openai_codex_model_hints, parse_models_response, ModelInfo,
 };
 

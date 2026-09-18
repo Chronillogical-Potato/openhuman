@@ -41,11 +41,15 @@ tinymemory-api = { path = "vendor/tinymemory/crates/tinymemory-api" }
 
 [patch."https://github.com/tinyhumansai/tinyinference"]
 tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 
 [patch.crates-io]
 motosan-ai-oauth = { path = "vendor/motosan-ai-oauth" }
 tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyflows = { path = "vendor/tinyflows/crates/tinyflows" }
 tinychannels = { path = "vendor/tinychannels" }

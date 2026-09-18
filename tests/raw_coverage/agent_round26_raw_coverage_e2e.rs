@@ -22,9 +22,9 @@ use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference_core::usage::Usage;
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::usage::Usage;
 
 struct EnvGuard {
     key: &'static str,
@@ -95,7 +95,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(CapturedRequest {
             messages: request.messages,
             tool_names: request.tools.iter().map(|tool| tool.name.clone()).collect(),

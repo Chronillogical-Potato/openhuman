@@ -70,9 +70,7 @@ use async_trait::async_trait;
 use tinyagents_harness::error::TinyAgentsError;
 use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
 use tinyagents_harness::Result as TaResult;
-use tinyinference_core::model::{
-    ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream,
-};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
 
 use crate::config::Config;
 use crate::inference::provider::{create_chat_model_with_model_id, role_for_model_tier};
@@ -231,7 +229,7 @@ impl<State: Send + Sync> ChatModel<State> for StatelessModel {
         &self,
         _state: &State,
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner.invoke(&(), request).await
     }
 
@@ -239,7 +237,7 @@ impl<State: Send + Sync> ChatModel<State> for StatelessModel {
         &self,
         _state: &State,
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner.stream(&(), request).await
     }
 }

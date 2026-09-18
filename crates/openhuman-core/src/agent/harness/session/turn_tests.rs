@@ -17,8 +17,8 @@ use async_trait::async_trait;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tinyinference_core::message::Message;
-use tinyinference_core::model::{
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tokio::sync::Mutex as AsyncMutex;
@@ -39,7 +39,7 @@ impl ChatModel<()> for DummyProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant("unused"))
     }
 }
@@ -65,7 +65,7 @@ impl ChatModel<()> for SequenceProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.tool_counts.lock().await.push(request.tools.len());
         self.requests.lock().await.push(
             request
@@ -99,7 +99,7 @@ impl ChatModel<()> for SequenceProvider {
                     &response, &request,
                 ),
             ),
-            Err(error) => Err(tinyinference_core::Error::Model(error.to_string())),
+            Err(error) => Err(tinyinference_llm::Error::Model(error.to_string())),
         }
     }
 
@@ -107,7 +107,7 @@ impl ChatModel<()> for SequenceProvider {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         // The legacy fixture implemented `chat` but did not write provider
         // deltas. Preserve that non-streaming wire behavior: the harness still
         // receives the authoritative completed response, while turn-owned

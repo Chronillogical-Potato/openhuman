@@ -2,9 +2,9 @@ use super::*;
 use crate::tools::ToolResult;
 use async_trait::async_trait;
 use tinyagents_harness::testkit::ScriptedModel;
-use tinyinference_core::message::AssistantMessage;
-use tinyinference_core::model::{ChatModel, ModelProfile, ModelResponse};
-use tinyinference_core::tool::ToolCall;
+use tinyinference_llm::message::AssistantMessage;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 struct PingTool;
 #[async_trait]

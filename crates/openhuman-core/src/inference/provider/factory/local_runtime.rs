@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::inference::provider::factory::access_gates::verify_provider_session;
-use tinyinference_core::providers::openai::build_local_runtime_chat_model;
+use tinyinference_llm::providers::openai::build_local_runtime_chat_model;
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] (issue #4727).

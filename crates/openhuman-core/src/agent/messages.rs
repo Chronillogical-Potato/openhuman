@@ -1,6 +1,6 @@
 //! Durable OpenHuman transcript records.
 //!
-//! Runtime model calls use [`tinyinference_core::message::Message`]. These
+//! Runtime model calls use [`tinyinference_llm::message::Message`]. These
 //! compact records preserve the stable JSONL/thread storage contract used by
 //! existing installations and carry OpenHuman-only message metadata.
 

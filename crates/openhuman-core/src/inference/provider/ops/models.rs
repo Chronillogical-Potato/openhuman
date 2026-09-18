@@ -14,17 +14,17 @@
 //!   [`ModelInfo`] entries.
 
 use super::super::openai_codex::resolve_openai_codex_routing;
-use tinyinference_core::providers::openai::codex::{
+use tinyinference_core::sanitize::sanitize_api_error;
+use tinyinference_llm::providers::openai::codex::{
     openai_codex_client_version, openai_codex_user_agent, OpenAiCodexRouting,
     OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
-use tinyinference_core::sanitize::sanitize_api_error;
 
 mod catalog_listing;
 mod local_runtime;
 mod managed_provider;
 mod openrouter;
-use tinyinference_core::catalog::{
+use tinyinference_llm::catalog::{
     merge_openai_codex_model_hints, parse_models_response, ModelInfo,
 };
 

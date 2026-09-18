@@ -12,8 +12,8 @@ use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference_core::message::Message as TaMessage;
-use tinyinference_core::tool::ToolCall as TaToolCall;
+use tinyinference_llm::message::Message as TaMessage;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use super::loop_guards::{
     is_recoverable_tool_failure, is_repeat_call_exempt, recoverable_identical_halt_summary,

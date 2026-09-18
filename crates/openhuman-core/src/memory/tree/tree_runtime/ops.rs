@@ -312,7 +312,7 @@ pub(crate) fn create_provider(
     config: &Config,
 ) -> Result<
     (
-        std::sync::Arc<dyn tinyinference_core::model::ChatModel<()>>,
+        std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,
         String,
     ),
     String,

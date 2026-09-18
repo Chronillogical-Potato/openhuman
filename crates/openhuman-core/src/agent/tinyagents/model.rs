@@ -3,12 +3,12 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinyinference_core::message::{AssistantMessage, ContentBlock, MessageDelta};
-use tinyinference_core::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference_core::tool::{ToolCall as TaToolCall, ToolDelta};
-use tinyinference_core::usage::Usage;
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::agent::messages::ChatMessage;
@@ -454,7 +454,7 @@ impl ChatModel<()> for RouteRecordingModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.record_route();
         self.inner.invoke(state, request).await
     }
@@ -463,7 +463,7 @@ impl ChatModel<()> for RouteRecordingModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.record_route();
         self.inner.stream(state, request).await
     }
@@ -519,7 +519,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner
             .invoke(state, self.pin_request_options(request))
             .await
@@ -529,7 +529,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner
             .stream(state, self.pin_request_options(request))
             .await
@@ -569,7 +569,7 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner.invoke(state, self.cap(request)).await
     }
 
@@ -577,7 +577,7 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference_core::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner.stream(state, self.cap(request)).await
     }
 }

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use tinyinference_core::providers::openai::codex::{
+use tinyinference_llm::providers::openai::codex::{
     OpenAiCodexRouting, OPENAI_CODEX_BACKEND_BASE_URL,
 };
 

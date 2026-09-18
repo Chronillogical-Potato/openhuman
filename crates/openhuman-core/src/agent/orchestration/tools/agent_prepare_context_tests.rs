@@ -352,7 +352,7 @@ fn parent_context_with_specs(
     // The context needs *a* memory to be constructed with and never reads one
     // back, which is exactly what `noop_memory` is for.
     let memory: Arc<dyn crate::memory::Memory> = crate::memory::test_support::noop_memory();
-    let model: Arc<dyn tinyinference_core::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     crate::agent::harness::fork_context::ParentExecutionContext {
         workspace_descriptor: None,
