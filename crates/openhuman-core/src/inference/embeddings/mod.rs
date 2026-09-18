@@ -12,6 +12,7 @@
 //! - **Custom**: Any OpenAI-compatible endpoint.
 //! - **Noop**: A fallback provider for keyword-only search.
 
+pub mod catalog;
 #[path = "cloud_adapter.rs"]
 pub mod cloud;
 mod factory;
@@ -45,7 +46,7 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
-use tinyinference_core::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
+pub use tinyinference_core::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 /// The **intended** embedding selection — `(provider, model, dimensions)`.
 ///

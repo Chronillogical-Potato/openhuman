@@ -291,7 +291,7 @@ fn parse_models_response_handles_non_object_body() {
         let err = parse_models_response(&body)
             .expect_err("non-object body must fail with a clear message");
         assert!(
-            !err.is_empty(),
+            !err.to_string().is_empty(),
             "non-object body error must be non-empty: {err}"
         );
     }

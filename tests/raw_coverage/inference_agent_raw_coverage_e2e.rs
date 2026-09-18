@@ -141,8 +141,8 @@ use openhuman_core::inference::provider::{
 use openhuman_core::inference::provider::{
     ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
-use openhuman_core::inference::sentiment::local_ai_analyze_sentiment;
-use openhuman_core::inference::temperature::{glob_match, temperature_for_model};
+use tinyinference_core::model::{effective_temperature, model_id_glob_match};
+use tinyinference_core::sentiment::parse_sentiment_response;
 use openhuman_core::inference::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
@@ -1748,12 +1748,10 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(context_window_for_model("unknown-model"), None);
     assert_eq!(context_window_for_model("   "), None);
 
-    let empty = local_ai_analyze_sentiment(&Config::default(), "   ")
-        .await
-        .expect("empty sentiment falls back to neutral");
-    assert_eq!(empty.value.emotion, "neutral");
-    assert_eq!(empty.value.valence, "neutral");
-    assert_eq!(empty.value.confidence, 1.0);
+    let empty = parse_sentiment_response("   ");
+    assert_eq!(empty.emotion, "neutral");
+    assert_eq!(empty.valence, "neutral");
+    assert_eq!(empty.confidence, 1.0);
 
     assert!(current_thread_id().is_none());
     let scoped = with_thread_id("  thread-coverage  ", async {
@@ -1907,16 +1905,37 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
     ));
     assert!(chain.contains("[REDACTED]"));
 
-    assert!(glob_match("moonshot*k2*", "moonshot/kimi-k2-instruct"));
-    assert!(!glob_match("gpt*mini", "gpt-4o-large"));
+    assert!(model_id_glob_match(
+        "moonshot*k2*",
+        "moonshot/kimi-k2-instruct"
+    ));
+    assert!(!model_id_glob_match("gpt*mini", "gpt-4o-large"));
     config.temperature_unsupported_models = vec!["gpt-5*".into(), "*kimi-k2*".into()];
-    assert_eq!(temperature_for_model("gpt-5.5", 0.7, &config), None);
     assert_eq!(
-        temperature_for_model("moonshot/kimi-k2-instruct", 0.7, &config),
+        effective_temperature(
+            "gpt-5.5",
+            Some(0.7),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         None
     );
     assert_eq!(
-        temperature_for_model("gpt-4o-mini", 0.3, &config),
+        effective_temperature(
+            "moonshot/kimi-k2-instruct",
+            Some(0.7),
+            None,
+            &config.temperature_unsupported_models,
+        ),
+        None
+    );
+    assert_eq!(
+        effective_temperature(
+            "gpt-4o-mini",
+            Some(0.3),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         Some(0.3)
     );
 

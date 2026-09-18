@@ -1,4 +1,5 @@
 use super::*;
+use tinyinference_core::model::ModelRequest;
 
 // #5359: a user turn whose text carries an inline `[IMAGE:data:…]` marker
 // (what the multimodal pipeline hands this bridge) must emit a typed

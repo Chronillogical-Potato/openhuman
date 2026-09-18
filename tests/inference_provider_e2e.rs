@@ -548,23 +548,40 @@ async fn openai_compat_bearer_auth_sends_authorization_header() {
 #[test]
 fn temperature_helper_suppresses_o1_by_default_config() {
     use openhuman_core::config::Config;
-    use openhuman_core::inference::temperature::temperature_for_model;
+    use tinyinference_core::model::effective_temperature;
 
     let config = Config::default();
 
     // Normal model → temperature returned
     assert_eq!(
-        temperature_for_model("gpt-4o-mini", 0.7, &config),
+        effective_temperature(
+            "gpt-4o-mini",
+            Some(0.7),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         Some(0.7)
     );
     assert_eq!(
-        temperature_for_model("claude-3-sonnet", 0.5, &config),
+        effective_temperature(
+            "claude-3-sonnet",
+            Some(0.5),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         Some(0.5)
     );
 
     // o1/o3/o4/gpt-5 → temperature suppressed
-    assert_eq!(temperature_for_model("o1-preview", 0.7, &config), None);
-    assert_eq!(temperature_for_model("o3-mini", 0.7, &config), None);
-    assert_eq!(temperature_for_model("o4-turbo", 0.7, &config), None);
-    assert_eq!(temperature_for_model("gpt-5-turbo", 0.7, &config), None);
+    for model in ["o1-preview", "o3-mini", "o4-turbo", "gpt-5-turbo"] {
+        assert_eq!(
+            effective_temperature(
+                model,
+                Some(0.7),
+                None,
+                &config.temperature_unsupported_models,
+            ),
+            None,
+        );
+    }
 }

@@ -317,9 +317,9 @@ pub async fn apply_memory_settings(
         // `embeddings::rpc::update_settings`), so a chat model id pasted here
         // would otherwise be stored unchecked and 400 "does not exist" on every
         // memory re-embed (2205 events from one user). Conservative check — see
-        // `tinyinference_core::embeddings::catalog::non_embedding_model_reason`.
+        // `inference::embeddings::catalog::non_embedding_model_reason`.
         if let Some(reason) =
-            tinyinference_core::embeddings::catalog::non_embedding_model_reason(&model)
+            crate::inference::embeddings::catalog::non_embedding_model_reason(&model)
         {
             return Err(format!("invalid embeddings model `{model}`: {reason}"));
         }
