@@ -58,13 +58,17 @@ struct EnvVarGuard {
 impl EnvVarGuard {
     fn set_to_path(key: &'static str, path: &Path) -> Self {
         let old = std::env::var(key).ok();
-        unsafe { std::env::set_var(key, path.as_os_str()); }
+        unsafe {
+            std::env::set_var(key, path.as_os_str());
+        }
         Self { key, old }
     }
 
     fn unset(key: &'static str) -> Self {
         let old = std::env::var(key).ok();
-        unsafe { std::env::remove_var(key); }
+        unsafe {
+            std::env::remove_var(key);
+        }
         Self { key, old }
     }
 }
@@ -182,7 +186,12 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
     // Text-mode requests use `Call as: NAME[...]` declarations.
     system_text(request)
         .lines()
-        .filter_map(|line| line.split_once("Call as:")?.1.split_once('[').map(|(n, _)| n.trim()))
+        .filter_map(|line| {
+            line.split_once("Call as:")?
+                .1
+                .split_once('[')
+                .map(|(n, _)| n.trim())
+        })
         .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
         .map(str::to_string)
         .collect()

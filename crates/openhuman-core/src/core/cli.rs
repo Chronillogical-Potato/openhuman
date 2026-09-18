@@ -433,10 +433,11 @@ fn run_call_command(args: &[String]) -> Result<()> {
                         "--params and --params-stdin are mutually exclusive"
                     ));
                 }
-                params = Some(args
-                    .get(i + 1)
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --params"))?
-                    .clone());
+                params = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow::anyhow!("missing value for --params"))?
+                        .clone(),
+                );
                 i += 2;
             }
             "--params-stdin" => {
@@ -465,8 +466,8 @@ fn run_call_command(args: &[String]) -> Result<()> {
             .map_err(|e| anyhow::anyhow!("failed to read --params-stdin: {e}"))?;
         params = Some(stdin_params);
     }
-    let params = parse_json_params(params.as_deref().unwrap_or("{}"))
-        .map_err(anyhow::Error::msg)?;
+    let params =
+        parse_json_params(params.as_deref().unwrap_or("{}")).map_err(anyhow::Error::msg)?;
 
     // Raw calls bypass namespace parsing, but not the configured memory-driver
     // binding. Without this gate an absent capability could still reach a
