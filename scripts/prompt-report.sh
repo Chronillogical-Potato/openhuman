@@ -4,8 +4,8 @@
 # not a cost: each prefix is paid only on the turns that agent runs).
 #
 # Report-only: nothing here fails on a number. The ratchet that does is
-# `scripts/check-prompt-budget.sh`, which measures through the same CLI, so the
-# two never disagree about a byte.
+# `scripts/check-prompt-budget.sh`; both consume the JSON from
+# `scripts/prompt-size-measure.sh`, so their setup cannot drift.
 #
 # Usage: scripts/prompt-report.sh [--workspace <dir>]
 #
@@ -32,13 +32,6 @@ while (( $# )); do
   esac
 done
 
-# Always build: cargo is a no-op when the binary is current, and it is the only
-# thing that notices a binary built from older source or a different feature
-# set. A default-feature build silently drops `presentation_agent`.
-BIN="${CARGO_TARGET_DIR:-target}/debug/openhuman-core"
-cargo build --quiet --manifest-path Cargo.toml --bin openhuman-core \
-  --features "$(bash scripts/ci/product-features.sh)" >&2
-
 # The divisor is read from the Rust constant so the two cannot drift.
 TOK="$(grep -oE 'EST_BYTES_PER_TOKEN: usize = [0-9]+' \
   crates/openhuman-core/src/agent/debug/prompt_size.rs | grep -oE '[0-9]+$')" \
@@ -46,18 +39,9 @@ TOK="$(grep -oE 'EST_BYTES_PER_TOKEN: usize = [0-9]+' \
 
 if [[ -n "$REAL_WORKSPACE" ]]; then
   echo "[prompt-report] measuring signed-in workspace $REAL_WORKSPACE" >&2
-  measured="$(RUST_LOG=error "$BIN" agent prompt-size --workspace "$REAL_WORKSPACE" --json)"
+  measured="$(bash scripts/prompt-size-measure.sh --workspace "$REAL_WORKSPACE")"
 else
-  # `--hermetic` puts config.toml beside the workspace dir (its parent), so the
-  # workspace must be a child of the temp dir — see check-prompt-budget.sh.
-  # HOME is emptied and OPENHUMAN_HOME dropped for the same reason as there:
-  # `--hermetic` does not stop skill and agent-definition discovery reading
-  # the user's ~/.openhuman (or $OPENHUMAN_HOME).
-  TMP="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-report.XXXXXX")"
-  trap 'rm -rf "$TMP"' EXIT
-  mkdir -p "$TMP/home" "$TMP/workspace"
-  echo "[prompt-report] measuring against hermetic workspace $TMP" >&2
-  measured="$(env -u OPENHUMAN_HOME HOME="$TMP/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json)"
+  measured="$(bash scripts/prompt-size-measure.sh)"
 fi
 
 TOK="$TOK" python3 - "$measured" <<'PY'

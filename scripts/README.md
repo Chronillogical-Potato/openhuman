@@ -40,7 +40,6 @@ comments of the scripts inside them.
 | `pnpm test:inventory` | `generate-test-inventory.mjs` |
 | `pnpm pr:checklist` | `check-pr-checklist.mjs` |
 | `pnpm prompt:report` | `prompt-report.sh` — every agent's fixed prefix (prompt + tool schemas), largest first; report-only |
-| `pnpm prompt:eval` | `prompt-eval.sh` — real-model prompt comprehension scenarios; report-only, never run in CI |
 
 See `package.json` for the full list, including `i18n:*`, `tauri:ios:*`,
 `tauri:android:*`, and the `shortcuts/`/`deep-work`/`agent-batch` commands
