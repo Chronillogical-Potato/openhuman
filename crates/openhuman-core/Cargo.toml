@@ -155,6 +155,10 @@ name = "agent_harness_e2e"
 path = "../../tests/agent_harness_e2e.rs"
 
 [[test]]
+name = "agent_prompt_comprehension_e2e"
+path = "../../tests/agent_prompt_comprehension_e2e.rs"
+
+[[test]]
 name = "agent_harness_public"
 path = "../../tests/agent_harness_public.rs"
 

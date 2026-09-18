@@ -1,0 +1,47 @@
+{
+  "_comment": "Tier-2 prompt evals: real model, scored, on demand only. Never wired into CI. See docs/prompt-evals.md.",
+  "judge": {
+    "_source": "Copied from close_verification_prompt in crates/openhuman-core/src/agent/harness/session/turn_checkpoint.rs (pub(super), deliberately not widened for this script). The Rust copy has a drift guard; if you edit the rules there, mirror them here.",
+    "preamble": "You are checking a reply before it is shown to a user. Below are the user's request, the records of the tool calls made while handling it, and the reply.",
+    "rules": [
+      "The reply only says what the assistant will do or is about to do, instead of reporting what happened.",
+      "The reply states something the tool records contradict, for example that something does not exist or did not work when a record shows it succeeded, or that something succeeded when its record shows it failed.",
+      "The request was not completed, a failed record gives the reason, and the reply does not pass that reason on."
+    ]
+  },
+  "cases": [
+    {
+      "id": "workflow-builder-news",
+      "_why": "The 2026-09-17 incident: 512,775 input tokens and 27 catalog searches in one turn, no propose_workflow.",
+      "entry": "flows_build",
+      "message": "Every morning at 8am, send me a digest of the latest sports news.",
+      "expect_calls": ["propose_workflow"],
+      "forbid_calls": [],
+      "max_consecutive": { "search_tool_catalog": 2 },
+      "max_input_tokens": 150000,
+      "judge": true
+    },
+    {
+      "id": "orchestrator-reminder",
+      "_why": "A scheduling request must reach scheduler_agent through schedule_task, not be answered in prose.",
+      "entry": "agent_chat",
+      "message": "Remind me to stretch every weekday at 3pm.",
+      "expect_calls": ["schedule_task"],
+      "forbid_calls": ["shell"],
+      "max_consecutive": {},
+      "max_input_tokens": 100000,
+      "judge": true
+    },
+    {
+      "id": "orchestrator-direct-answer",
+      "_why": "Direct-first: a trivial question must be answered without spawning a sub-agent.",
+      "entry": "agent_chat",
+      "message": "What is 17 times 23?",
+      "expect_calls": [],
+      "forbid_calls": ["research", "spawn_async_subagent", "schedule_task"],
+      "max_consecutive": {},
+      "max_input_tokens": 60000,
+      "judge": false
+    }
+  ]
+}
