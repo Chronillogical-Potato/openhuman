@@ -2,11 +2,7 @@ use super::*;
 
 #[test]
 fn bundled_skill_matches_the_portable_resource_list() {
-    let mut listed: Vec<&str> = FLOW_AUTHORING
-        .files
-        .iter()
-        .map(|f| f.path)
-        .collect();
+    let mut listed: Vec<&str> = FLOW_AUTHORING.files.iter().map(|f| f.path).collect();
     listed.sort();
     let mut portable: Vec<&str> = tinyflows_copilot::resources::FLOW_AUTHORING_FILES
         .iter()
