@@ -41,8 +41,8 @@ use tinyinference_llm::tool::ToolSchema;
 /// is only logged/emitted — not enforced — this slice.
 ///
 /// Ownership flip (making this crate selection the sole authority + deleting
-/// `agent/harness/tool_filter.rs` and `subagent_runner/tool_prep.rs`) is the
-/// GATED follow-up, once the `[tool-exposure]` divergence logs show parity.
+/// `subagent_runner/tool_prep.rs`) is the GATED follow-up, once the
+/// `[tool-exposure]` divergence logs show parity.
 pub(crate) struct OpenHumanToolExposureShadowMiddleware {
     /// Static allow guard (crate). Held for the fail-closed parity cross-check;
     /// NOT installed as a live `before_tool` execution guard this slice —

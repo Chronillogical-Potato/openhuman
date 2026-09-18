@@ -47,25 +47,10 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
-use super::observability::GraphTracingSink;
+use super::super::observability::GraphTracingSink;
 
-// The surface the core imports today, under its historical spellings.
-pub(crate) use tinyagents_graph::delegation::{
-    delegation_graph_topology, DelegationConfig, DelegationOutcome, DelegationStage,
-    DelegationStageOutput, DelegationState,
-};
-
-// The rest of the seam. These have no in-tree caller right now — their only
-// consumers were the unit tests, which moved upstream with the graph — but they
-// are kept re-exported rather than deleted so the durable-approval path
-// (`resume_delegation` + `deny_decision` + `PendingApproval`) and the state
-// vocabulary (`StepRecord`, `CURRENT_SCHEMA_VERSION`) are reachable under the
-// same names as before, and so a caller wiring that path up finds it here — on
-// the wrappers that attach the tracing sink — rather than calling the crate
-// directly and silently losing the journal.
-#[allow(unused_imports)]
-pub(crate) use tinyagents_graph::delegation::{
-    deny_decision, PendingApproval, StepRecord, CURRENT_SCHEMA_VERSION,
+use tinyagents_graph::delegation::{
+    DelegationConfig, DelegationOutcome, DelegationStage, DelegationStageOutput, DelegationState,
 };
 
 /// The `tracing` label every delegation graph run is journalled under. Stable —
@@ -88,7 +73,7 @@ fn with_tracing_sink(mut config: DelegationConfig) -> DelegationConfig {
 ///
 /// See [`tinyagents_graph::delegation::run_delegation`].
 #[allow(dead_code)]
-pub(crate) async fn run_delegation<F, Fut>(
+pub(crate) async fn run_with_tracing<F, Fut>(
     config: DelegationConfig,
     run_stage: F,
 ) -> Result<DelegationState, String>
@@ -104,7 +89,7 @@ where
 ///
 /// See [`tinyagents_graph::delegation::run_delegation_durable`].
 #[allow(dead_code)]
-pub(crate) async fn run_delegation_durable<F, Fut>(
+pub(crate) async fn run_durable_with_tracing<F, Fut>(
     config: DelegationConfig,
     run_stage: F,
 ) -> Result<DelegationOutcome, String>
@@ -124,7 +109,7 @@ where
 ///
 /// See [`tinyagents_graph::delegation::resume_delegation`].
 #[allow(dead_code)]
-pub(crate) async fn resume_delegation<F, Fut>(
+pub(crate) async fn resume_with_tracing<F, Fut>(
     config: DelegationConfig,
     decision: Value,
     run_stage: F,
@@ -142,7 +127,7 @@ where
 /// starting fresh.
 ///
 /// See [`tinyagents_graph::delegation::run_or_resume_delegation`].
-pub(crate) async fn run_or_resume_delegation<F, Fut>(
+pub(crate) async fn run_or_resume_with_tracing<F, Fut>(
     config: DelegationConfig,
     run_stage: F,
 ) -> Result<DelegationOutcome, String>
@@ -155,5 +140,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "delegation_tests.rs"]
+#[path = "../delegation_tests.rs"]
 mod tests;

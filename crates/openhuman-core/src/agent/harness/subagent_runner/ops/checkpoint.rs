@@ -56,7 +56,7 @@ impl SubagentCheckpoint {
             Ok(resp) => {
                 let usage = crate::agent::tinyagents::model::usage_info_from_response(&resp);
                 let raw = resp.text();
-                let (prose, _) = super::super::super::parse::parse_tool_calls(&raw);
+                let (prose, _) = tinytools_agent::parse_tool_calls(&raw);
                 let text = if prose.trim().is_empty() {
                     deterministic
                 } else {

@@ -6,7 +6,7 @@ use openhuman_core::agent::prompts::{
     PersonalityRosterEntry, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
     ToolCallFormat, UserIdentity,
 };
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
 use openhuman_core::agent::harness::definition::AgentTier;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{

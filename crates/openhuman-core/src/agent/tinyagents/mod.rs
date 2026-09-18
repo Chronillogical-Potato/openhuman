@@ -22,7 +22,7 @@
 pub(crate) mod abort_guard;
 pub mod config;
 pub(crate) mod convert;
-pub(crate) mod delegation;
+
 mod embeddings;
 mod harness_assembly;
 mod harness_context_ladder;

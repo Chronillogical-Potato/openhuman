@@ -1,7 +1,7 @@
 //! Production wiring for the multi-stage sub-agent delegation graph (issue
 //! #4249, Phase 3).
 //!
-//! [`tinyagents::delegation::run_delegation`](crate::agent::tinyagents::delegation::run_delegation)
+//! [`tinyagents_graph::delegation::run_delegation`](tinyagents_graph::delegation::run_delegation)
 //! is the durable plan→execute⇄review→finalize state machine, but it takes an
 //! *injected* per-stage worker so its orchestration mechanics can be unit-tested
 //! with a mock. This module supplies the **production** worker: every stage runs
@@ -21,12 +21,12 @@ use crate::agent::harness::definition::AgentDefinition;
 use crate::agent::harness::fork_context::{current_parent, with_parent_context};
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::agent::orchestration::parent_context::build_root_parent;
-use crate::agent::tinyagents::delegation::{
-    run_or_resume_delegation, DelegationConfig, DelegationStage, DelegationStageOutput,
-    DelegationState,
-};
+use crate::agent::tinyagents::host::delegation::run_or_resume_with_tracing;
 use crate::config::Config;
 use tinyagents_graph::checkpoint::Checkpointer;
+use tinyagents_graph::delegation::{
+    DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
+};
 use tinyagents_graph::SqliteCheckpointer;
 use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_harness::CancellationToken;
@@ -126,14 +126,14 @@ pub(crate) async fn run_subagent_delegation(
             cancel: CancellationToken::new(),
             // Automated (non-human-gated) delegation: the reviewer stage decides
             // approve/revise on its own. The durable human-approval interrupt
-            // (see `tinyagents::delegation::run_delegation_durable`) is opt-in and
+            // (see `tinyagents_graph::delegation::run_delegation_durable`) is opt-in and
             // stays off here until a human-review delegation surface wires it.
             ..DelegationConfig::default()
         };
         // Resume-aware entry (#3884): with today's fresh-per-run `thread_id` this
         // is always a fresh run; reusing a stable `thread_id` resumes from the
         // last checkpoint boundary instead of restarting.
-        run_or_resume_delegation(delegation_config, run_stage)
+        run_or_resume_with_tracing(delegation_config, run_stage)
             .await
             .map(|outcome| outcome.state)
     };

@@ -46,10 +46,10 @@ use crate::agent::prompts::{
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::memory::api::provider::retrieval::{FastRetrieveQuery, RetrievalResponse};
 use crate::memory::source_scope::as_bus_scope;
-use tinyagents_harness::tool::SandboxMode as TinyagentsSandboxMode;
-use tinytools::{Tool, ToolCategory, ToolSpec};
-
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool, MIN_CONFIDENT_HITS};
+use tinytools::{
+    SandboxMode as TinyagentsSandboxMode, Tool, ToolCategory, ToolSpec, WorkspaceDescriptor,
+};
 
 use super::prompt::{
     append_artifact_offload_contract, append_subagent_role_contract, dedup_tool_specs_by_name,
@@ -1085,14 +1085,15 @@ async fn run_typed_mode(
                 };
                 let integration = &integration;
                 let top_k = top_k_for_toolkit(tk);
-                let filter_hits = super::super::super::tool_filter::filter_actions_by_prompt(
-                    task_prompt,
-                    &integration.tools,
-                    top_k,
-                );
+                let candidates: Vec<_> = integration
+                    .tools
+                    .iter()
+                    .map(|tool| SelectableTool::new(&tool.name, &tool.description))
+                    .collect();
+                let filter_hits = rank_tools_by_prompt(task_prompt, &candidates, top_k);
                 let selected: Vec<&crate::agent::prompts::ConnectedIntegrationTool> = if filter_hits
                     .len()
-                    >= super::super::super::tool_filter::MIN_CONFIDENT_HITS
+                    >= MIN_CONFIDENT_HITS
                 {
                     // The ranker's verb gate can drop every content-returning
                     // action for a find/search prompt, so the toolkit's

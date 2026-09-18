@@ -16,7 +16,7 @@ use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, ParentExecutionContext, PromptSource,

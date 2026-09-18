@@ -7,6 +7,7 @@ use tinyinference_llm::model::{
 };
 use tinyinference_llm::tool::ToolCall;
 use tinytools::ToolResult;
+use tinytools::{Tool, ToolSpec};
 
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {

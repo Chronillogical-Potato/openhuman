@@ -3,12 +3,12 @@
 
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
-use crate::agent::dispatcher::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
 use crate::agent::harness::session::types::Agent;
 use crate::agent::host_runtime;
 use crate::agent::prompts::SystemPromptBuilder;
+use crate::agent::tool_dialect::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};
 use crate::config::Config;
 use crate::inference::provider;
 use crate::memory::tool_memory::capture::ToolMemoryCaptureHook;
@@ -17,7 +17,7 @@ use crate::security::SecurityPolicy;
 use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
-use tinytools::Tool;
+use tinytools::{PermissionLevel, Tool, ToolScope};
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
@@ -356,7 +356,7 @@ impl Agent {
         let base_config: Arc<Config> = Arc::new(config.clone());
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
-        let mut tools = tools::all_tools_with_runtime(
+        let mut tools = tools::ops::all_tools_with_runtime(
             Arc::clone(&tool_config),
             &security,
             runtime,
@@ -383,8 +383,8 @@ impl Agent {
         if read_only_tools_only {
             let before = tools.len();
             tools.retain(|tool| {
-                tool.permission_level() <= tools::PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), tools::ToolScope::CliRpcOnly)
+                tool.permission_level() <= PermissionLevel::ReadOnly
+                    && !matches!(tool.scope(), ToolScope::CliRpcOnly)
             });
             log::info!(
                 "[agent::builder] read-only tool filter applied: before={} after={}",
@@ -1062,7 +1062,7 @@ impl Agent {
         );
         let dispatcher_kind =
             resolve_dispatcher_kind(&dispatcher_choice, supports_native, agent_id);
-        let tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher> =
+        let tool_dispatcher: Box<dyn crate::agent::tool_dialect::ToolDispatcher> =
             match dispatcher_kind {
                 DispatcherKind::Native => Box::new(NativeToolDispatcher),
                 DispatcherKind::Xml => Box::new(XmlToolDispatcher),

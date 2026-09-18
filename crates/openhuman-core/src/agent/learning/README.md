@@ -103,7 +103,7 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 - `crate::agent::harness::session::transcript` — `SessionTranscript` parsing for transcript ingestion.
 - `crate::inference::provider::create_chat_model_from_string_with_model_id` (profile summarisation) and `crate::inference::host_runtime::global` (local reflection route); `ReflectionHook` also accepts an optional `tinyinference_llm::model::ChatModel` for the cloud fallback.
 - `crate::config` — `Config` / `LearningConfig` / `ReflectionSource` feature flags and `config::rpc` loader.
-- `crate::agent::context::prompt` — `PromptContext` / `PromptSection` / `LearnedContextData` for prompt injection.
+- `crate::agent::prompts` — `PromptContext` / `PromptSection` / `LearnedContextData` for prompt injection.
 - `crate::integrations::composio` — `composio::client` (Gmail fetch for enrichment) and `composio::profile_md` (`replace_managed_block` for `PROFILE.md`).
 - `crate::integrations` — `build_client` / `IntegrationClient` for the Apify scrape call.
 - `crate::core::bus` / `crate::core::events` / `tinybus` — `BUS.publish` / `BUS.subscribe`, `DomainEvent::CacheRebuilt`, and `tinybus::{EventHandler, SubscriptionHandle}`.

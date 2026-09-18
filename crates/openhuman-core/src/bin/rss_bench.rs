@@ -26,7 +26,7 @@
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use openhuman_core::platform::proc_metrics::{

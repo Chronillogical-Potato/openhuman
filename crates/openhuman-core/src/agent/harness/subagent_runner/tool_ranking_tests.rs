@@ -1,16 +1,28 @@
-//! Host-side coverage for the tool-filter adapter.
+//! Host-side coverage for direct tinyagents tool ranking.
 //!
 //! The ranking algorithm itself is tested upstream in
 //! `tinyagents_harness::tool::select`, against synthetic catalogues. What is
-//! tested here is the half that stayed: the `ConnectedIntegrationTool`
-//! adapter, exercised against the real Composio tool-list dumps in
+//! tested here is the host fixture conversion from `ConnectedIntegrationTool`,
+//! exercised against the real Composio tool-list dumps in
 //! `tests/fixtures/` (1000 actions across nine toolkits). Those fixtures are
 //! host data about a specific integration provider and have no business in a
 //! provider-neutral library crate, so this suite stays here rather than
 //! moving up with the algorithm.
 
-use super::*;
 use crate::agent::prompts::ConnectedIntegrationTool;
+use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool, MIN_CONFIDENT_HITS};
+
+fn rank_actions_by_prompt(
+    prompt: &str,
+    actions: &[ConnectedIntegrationTool],
+    max_results: usize,
+) -> Vec<usize> {
+    let candidates: Vec<_> = actions
+        .iter()
+        .map(|tool| SelectableTool::new(&tool.name, &tool.description))
+        .collect();
+    rank_tools_by_prompt(prompt, &candidates, max_results)
+}
 
 // ── Real-dataset integration tests ────────────────────────────────
 //
@@ -60,7 +72,7 @@ fn assert_in_top(actions: &[ConnectedIntegrationTool], hits: &[usize], wanted: &
 fn real_data_github_create_pr() {
     let actions = load_real_toolkit("github");
     assert!(actions.len() > 400, "github fixture should have ~500 tools");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Create a pull request from feature/auth-fix to main in the openhuman repo",
         &actions,
         15,
@@ -83,7 +95,7 @@ fn real_data_github_create_pr() {
 #[test]
 fn real_data_github_list_prs() {
     let actions = load_real_toolkit("github");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Find all open pull requests assigned to the current user in the openhuman repo",
         &actions,
         15,
@@ -100,7 +112,7 @@ fn real_data_github_list_prs() {
 #[test]
 fn real_data_gmail_send_email() {
     let actions = load_real_toolkit("gmail");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Send an email to john@example.com with subject 'Q2 Report' and body attached",
         &actions,
         10,
@@ -120,7 +132,7 @@ fn real_data_gmail_send_email() {
 #[test]
 fn real_data_gmail_delete_emails() {
     let actions = load_real_toolkit("gmail");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Delete all promotional emails received in the last week",
         &actions,
         10,
@@ -139,7 +151,7 @@ fn real_data_gmail_delete_emails() {
 #[test]
 fn real_data_slack_send_message() {
     let actions = load_real_toolkit("slack");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Post a message to the #general channel saying the deploy is complete",
         &actions,
         15,
@@ -151,7 +163,7 @@ fn real_data_slack_send_message() {
 #[test]
 fn real_data_notion_create_page() {
     let actions = load_real_toolkit("notion");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "Create a new page in the Engineering workspace titled 'Sprint Plan'",
         &actions,
         15,
@@ -191,7 +203,7 @@ fn real_data_full_funnel_report() {
     let mut total_out = 0usize;
     for (tk, q) in cases {
         let actions = load_real_toolkit(tk);
-        let hits = filter_actions_by_prompt(q, &actions, 15);
+        let hits = rank_actions_by_prompt(q, &actions, 15);
         let kept = if hits.len() >= MIN_CONFIDENT_HITS {
             hits.len()
         } else {
@@ -225,7 +237,7 @@ fn real_data_full_funnel_report() {
 #[test]
 fn repro_3152_create_page_reachable_in_top_k() {
     let actions = load_real_toolkit("notion");
-    let hits = filter_actions_by_prompt(
+    let hits = rank_actions_by_prompt(
         "create a notion page with the meeting notes and give me the link",
         &actions,
         12,
@@ -298,7 +310,7 @@ fn adapter_ranking_matches_the_pre_extraction_snapshot() {
     ];
     for (toolkit, prompt, top_k, expected) in cases {
         let actions = load_real_toolkit(toolkit);
-        let got: Vec<&str> = filter_actions_by_prompt(prompt, &actions, *top_k)
+        let got: Vec<&str> = rank_actions_by_prompt(prompt, &actions, *top_k)
             .into_iter()
             .take(expected.len())
             .map(|i| actions[i].name.as_str())

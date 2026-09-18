@@ -1,306 +1,5 @@
 [
   {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/agent_tests.rs",
-    "line": 27,
-    "text": "use crate::agent::dispatcher::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher_tests.rs",
-    "line": 2,
-    "text": "use crate::agent::pformat::PFormatToolParams;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher.rs",
-    "line": 38,
-    "text": "use crate::agent::pformat::PFormatRegistry;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/graph.rs",
-    "line": 168,
-    "text": "use crate::agent::dispatcher::ToolDispatcher;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/graph.rs",
-    "line": 170,
-    "text": "crate::agent::dispatcher::NativeToolDispatcher.to_provider_messages(&outcome.conversation)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/graph.rs",
-    "line": 175,
-    "text": "crate::agent::dispatcher::XmlToolDispatcher.to_provider_messages(&outcome.conversation)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 46,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 77,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 105,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 130,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 147,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 158,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/harness_gap_tests.rs",
-    "line": 177,
-    "text": "use crate::agent::harness::parse::parse_tool_calls;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/builder/builder_tests_tool_spec_views_tests.rs",
-    "line": 133,
-    "text": ".tool_dispatcher(Box::new(crate::agent::dispatcher::XmlToolDispatcher))",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 7,
-    "text": "use crate::agent::dispatcher::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1058,
-    "text": "let pformat_registry = crate::agent::pformat::build_registry_from_refs(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1066,
-    "text": "let tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher> =",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/builder/setters.rs",
-    "line": 149,
-    "text": "tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher>,",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/runtime_tests.rs",
-    "line": 2,
-    "text": "use crate::agent::dispatcher::XmlToolDispatcher;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/runtime_tests.rs",
-    "line": 171,
-    "text": "crate::agent::dispatcher::ParsedToolCall {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/runtime_tests.rs",
-    "line": 176,
-    "text": "crate::agent::dispatcher::ParsedToolCall {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/runtime/turn_helpers.rs",
-    "line": 5,
-    "text": "use crate::agent::dispatcher::ParsedToolCall;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/session_tests.rs",
-    "line": 9,
-    "text": "use crate::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn_checkpoint_and_wrapup_tests.rs",
-    "line": 42,
-    "text": "let first_block = crate::agent::harness::parse::extract_json_values(&response)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn_checkpoint_and_wrapup_tests.rs",
-    "line": 220,
-    "text": "let registry = crate::agent::pformat::build_registry(&tools);",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn_required_output_tests.rs",
-    "line": 335,
-    "text": "let first_block = crate::agent::harness::parse::extract_json_values(&response)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn_tests.rs",
-    "line": 2,
-    "text": "use crate::agent::dispatcher::{PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/mod.rs",
-    "line": 11,
-    "text": "use crate::agent::dispatcher::ParsedToolCall;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/session/types.rs",
-    "line": 11,
-    "text": "use crate::agent::dispatcher::ToolDispatcher;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/graph/dispatch.rs",
-    "line": 399,
-    "text": "use crate::agent::dispatcher::ToolDispatcher;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/graph/dispatch.rs",
-    "line": 401,
-    "text": "crate::agent::dispatcher::NativeToolDispatcher.to_provider_messages(&outcome.conversation)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/graph/dispatch.rs",
-    "line": 403,
-    "text": "crate::agent::dispatcher::XmlToolDispatcher.to_provider_messages(&outcome.conversation)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/tool_prep_tests.rs",
-    "line": 265,
-    "text": "let hits = crate::agent::harness::tool_filter::filter_actions_by_prompt(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/tool_prep.rs",
-    "line": 236,
-    "text": "use crate::agent::dispatcher::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/tool_prep.rs",
-    "line": 239,
-    "text": "use crate::agent::pformat::PFormatRegistry;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/harness/tool_result_artifacts/mod.rs",
-    "line": 12,
-    "text": "use crate::agent::dispatcher::ToolExecutionResult;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_parallel_agents_tests.rs",
-    "line": 3,
-    "text": "use crate::agent::dispatcher::NativeToolDispatcher;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model_g1_usage_tests_tests.rs",
-    "line": 7,
-    "text": "fn empty_registry() -> crate::agent::pformat::PFormatRegistry {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model_g1_usage_tests_tests.rs",
-    "line": 8,
-    "text": "crate::agent::pformat::PFormatRegistry::default()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 41,
-    "text": "fn pformat_registry_from_request(request: &ModelRequest) -> crate::agent::pformat::PFormatRegistry {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 48,
-    "text": "crate::agent::pformat::PFormatToolParams::from_schema(&t.parameters),",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 74,
-    "text": "pformat_registry: &crate::agent::pformat::PFormatRegistry,",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-agent-facade",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 170,
-    "text": "&crate::agent::pformat::PFormatRegistry::default(),",
-    "occurrence": 1
-  },
-  {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/harness/graph.rs",
     "line": 37,
@@ -387,7 +86,7 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 92,
+    "line": 91,
     "text": "pub(crate) use turn_runner::run_turn_via_tinyagents_shared;",
     "occurrence": 1
   },
@@ -506,28 +205,28 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 35,
+    "line": 36,
     "text": "use crate::agent::tinyagents::tools::ToolAdapter;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 79,
+    "line": 81,
     "text": "harness.register_tool(Arc::new(ToolAdapter::new(tool)));",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 201,
+    "line": 203,
     "text": "pub(crate) async fn run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 256,
+    "line": 258,
     "text": "} = assemble_turn_harness(",
     "occurrence": 1
   },
@@ -758,63 +457,63 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 40,
+    "line": 38,
     "text": "pub mod sandbox_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 42,
+    "line": 40,
     "text": "mod spawn_depth_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 44,
+    "line": 42,
     "text": "pub mod task_recency_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 47,
+    "line": 44,
     "text": "pub mod turn_attachments_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 48,
+    "line": 45,
     "text": "pub mod turn_dispatch_guard;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 49,
+    "line": 46,
     "text": "pub mod turn_subagent_usage;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 63,
+    "line": 60,
     "text": "pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 64,
+    "line": 61,
     "text": "pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 66,
+    "line": 63,
     "text": "pub use task_recency_context::{current_task_recency_window, with_task_recency_window};",
     "occurrence": 1
   },
@@ -856,7 +555,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1518,
+    "line": 1517,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
@@ -1080,7 +779,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 1731,
+    "line": 1729,
     "text": "crate::agent::harness::turn_subagent_usage::record_subagent_usage(",
     "occurrence": 1
   },
@@ -1213,28 +912,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 167,
+    "line": 169,
     "text": "let parent = current_parent().ok_or(OrchestrationError::NoParentContext)?;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 399,
+    "line": 401,
     "text": "let handle = tokio::spawn(crate::agent::turn_origin::propagate(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 400,
+    "line": 402,
     "text": "crate::agent::turn_workspace::propagate(async move {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 402,
+    "line": 404,
     "text": "let result = with_parent_context(parent, async move {",
     "occurrence": 1
   },
@@ -1717,28 +1416,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 51,
+    "line": 50,
     "text": "pub mod resolved_route;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 54,
+    "line": 53,
     "text": "pub(crate) mod run_cancellation_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 58,
+    "line": 57,
     "text": "pub mod thread_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 84,
+    "line": 83,
     "text": "pub(crate) use run_cancellation_context::current_run_cancellation;",
     "occurrence": 1
   },
@@ -1913,35 +1612,35 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 33,
+    "line": 34,
     "text": "use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 476,
+    "line": 478,
     "text": ".then(crate::agent::harness::turn_dispatch_guard::current)",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 509,
+    "line": 511,
     "text": "}) = crate::agent::turn_origin::current()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 530,
+    "line": 532,
     "text": ".or_else(|| match crate::agent::turn_origin::current() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 585,
+    "line": 587,
     "text": "let run_result = with_run_cancellation(cancellation.clone(), async {",
     "occurrence": 1
   },
@@ -2368,7 +2067,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/memory/agent/tools.rs",
-    "line": 121,
+    "line": 119,
     "text": "let parent = current_parent();",
     "occurrence": 1
   },
@@ -2562,76 +2261,6 @@
     "occurrence": 1
   },
   {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher.rs",
-    "line": 42,
-    "text": "use tinyagents_harness::tool_calling::dialect::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher.rs",
-    "line": 145,
-    "text": "calls: Vec<tinyagents_harness::tool_calling::ParsedToolCall>,",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher.rs",
-    "line": 260,
-    "text": "format: tinyagents_harness::tool_calling::dialect::ToolCallFormat,",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/dispatcher.rs",
-    "line": 262,
-    "text": "use tinyagents_harness::tool_calling::dialect::ToolCallFormat as Crate;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/harness/parse.rs",
-    "line": 15,
-    "text": "pub(crate) use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/harness/parse.rs",
-    "line": 24,
-    "text": "pub(crate) use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/harness/parse.rs",
-    "line": 34,
-    "text": "use tinyagents_harness::tool_calling::ParsedToolCall;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/pformat.rs",
-    "line": 23,
-    "text": "pub use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/pformat.rs",
-    "line": 51,
-    "text": "tinyagents_harness::tool_calling::build_registry(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-tool-calling-facade",
-    "path": "crates/openhuman-core/src/agent/prompts/sections.rs",
-    "line": 15,
-    "text": "use tinyagents_harness::tool_calling::dialect::render_pformat_catalogue;",
-    "occurrence": 1
-  },
-  {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/goals/mod.rs",
     "line": 15,
@@ -2654,20 +2283,6 @@
   },
   {
     "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/harness/parse.rs",
-    "line": 15,
-    "text": "pub(crate) use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/harness/parse.rs",
-    "line": 24,
-    "text": "pub(crate) use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/harness/run_queue/mod.rs",
     "line": 20,
     "text": "pub use tinyagents_harness::run_queue::QueueStatus;",
@@ -2678,13 +2293,6 @@
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/handoff.rs",
     "line": 37,
     "text": "pub(crate) use tinyagents_harness::handoff::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/harness/tool_filter.rs",
-    "line": 17,
-    "text": "pub use tinyagents_harness::tool::MIN_CONFIDENT_HITS;",
     "occurrence": 1
   },
   {
@@ -2706,62 +2314,6 @@
     "path": "crates/openhuman-core/src/agent/orchestration/worktree.rs",
     "line": 56,
     "text": "pub use tinyagents_harness::workspace::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/pformat.rs",
-    "line": 23,
-    "text": "pub use tinyagents_harness::tool_calling::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/delegation.rs",
-    "line": 53,
-    "text": "pub(crate) use tinyagents_graph::delegation::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/delegation.rs",
-    "line": 67,
-    "text": "pub(crate) use tinyagents_graph::delegation::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/orchestration.rs",
-    "line": 25,
-    "text": "pub(crate) use tinyagents_graph::orchestration::OrchestrationTaskStatus;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/orchestration.rs",
-    "line": 27,
-    "text": "pub(crate) use tinyagents_graph::orchestration::SteeringRegistry;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/orchestration.rs",
-    "line": 28,
-    "text": "pub(crate) use tinyagents_graph::orchestration::{",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/orchestration.rs",
-    "line": 35,
-    "text": "pub(crate) use tinyagents_harness::ids::TaskId;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/agent/tinyagents/orchestration.rs",
-    "line": 37,
-    "text": "pub(crate) use tinyagents_harness::steering::{",
     "occurrence": 1
   },
   {
@@ -2811,13 +2363,6 @@
     "path": "crates/openhuman-core/src/tools/schema.rs",
     "line": 6,
     "text": "pub use tinyagents_harness::tool::{CleaningStrategy, SchemaCleanr, GEMINI_UNSUPPORTED_KEYWORDS};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-upstream-reexport",
-    "path": "crates/openhuman-core/src/tools/traits.rs",
-    "line": 22,
-    "text": "pub use tinytools::{",
     "occurrence": 1
   },
   {
@@ -3075,7 +2620,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 783,
+    "line": 906,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
     "occurrence": 1
   },

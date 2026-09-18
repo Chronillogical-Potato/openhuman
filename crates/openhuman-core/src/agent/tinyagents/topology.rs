@@ -49,7 +49,7 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("agent_teams:member", &t));
     }
 
-    if let Ok(t) = super::delegation::delegation_graph_topology() {
+    if let Ok(t) = tinyagents_graph::delegation::delegation_graph_topology() {
         out.push(describe("delegation", &t));
     }
 

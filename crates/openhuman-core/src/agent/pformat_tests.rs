@@ -1,6 +1,6 @@
-use super::*;
-use tinytools::ToolResult;
 use async_trait::async_trait;
+use tinytools::{Tool, ToolResult};
+use tinytools_agent::{build_registry, parse_call, render_signature_from_schema};
 
 struct StubTool(&'static str);
 
@@ -32,7 +32,11 @@ impl Tool for StubTool {
 #[test]
 fn build_registry_keys_on_the_tools_own_names() {
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(StubTool("echo")), Box::new(StubTool("shell"))];
-    let reg = build_registry(&tools);
+    let reg = build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     assert!(reg.contains_key("echo"));
     assert!(reg.contains_key("shell"));
     assert_eq!(reg.len(), 2);
@@ -44,7 +48,11 @@ fn a_tool_absent_from_the_registry_cannot_be_called() {
     // tool it does not know, or a model could tunnel arbitrary JSON through
     // by guessing a name. This adapter is what decides what is "known".
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(StubTool("echo"))];
-    let reg = build_registry(&tools);
+    let reg = build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     assert!(parse_call("shell[rm -rf /]", &reg).is_none());
 }
 
@@ -53,7 +61,11 @@ fn a_registered_tool_parses_positionally_through_the_adapter() {
     // End-to-end through the adapter: schema comes from the Tool impl, and
     // arguments come back named and coerced.
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(StubTool("echo"))];
-    let reg = build_registry(&tools);
+    let reg = build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     let (name, args) = parse_call("echo[0|3|1|hi]", &reg).expect("known tool parses");
     assert_eq!(name, "echo");
     // Schema properties are ordered alphabetically: count, value.
@@ -67,7 +79,7 @@ fn signature_rendering_agrees_between_the_tool_and_schema_forms() {
     // catalogue would advertise a different argument order than the parser
     // reconstructs.
     let tool = StubTool("echo");
-    let from_tool = render_signature_from_tool(&tool);
+    let from_tool = render_signature_from_schema(tool.name(), &tool.parameters_schema());
     let from_schema = render_signature_from_schema("echo", &tool.parameters_schema());
     assert_eq!(from_tool, from_schema);
     assert_eq!(from_tool, "echo[0|<count>|1|<value>]");

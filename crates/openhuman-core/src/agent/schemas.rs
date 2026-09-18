@@ -576,7 +576,7 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
 
         // ── Tools: baseline registry (full per-agent surface deferred) ──────
         let security = std::sync::Arc::new(crate::security::SecurityPolicy::default());
-        let baseline_tools = crate::tools::default_tools(security);
+        let baseline_tools = crate::tools::ops::default_tools(security);
         let tool_count = baseline_tools.len();
         for tool in &baseline_tools {
             components.push(

@@ -28,6 +28,7 @@ use crate::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::agent::tinyagents::middleware::TurnContextMiddleware;
 use crate::agent::tinyagents::observability::{CapPauser, OpenhumanEventBridge, SubagentScope};
 use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;
@@ -38,7 +39,8 @@ use crate::agent::tinyagents::turn_outcome::TinyagentsTurnOutcome;
 use crate::agent::tinyagents::turn_policy::effective_max_iterations;
 use crate::agent::tinyagents::turn_run_error::map_turn_run_error;
 use crate::agent::tinyagents::turn_run_finalize::finalize_turn_outcome;
-use crate::agent::tinyagents::{journal, orchestration, routes, steering_forwarder};
+use crate::agent::tinyagents::{journal, routes, steering_forwarder};
+use tinyagents_harness::ids::TaskId;
 
 use super::ToolPolicyEnforcement;
 
@@ -550,8 +552,8 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // turn for the shared run queue.
     let steering_forwarder_guard = if let Some(handle) = handle {
         let registry_task_id = if let Some(scope) = &subagent_scope {
-            let task_id = orchestration::TaskId::new(scope.task_id.clone());
-            orchestration::shared_steering_registry().register(task_id.clone(), handle.clone());
+            let task_id = TaskId::new(scope.task_id.clone());
+            shared_steering_registry().register(task_id.clone(), handle.clone());
             tracing::debug!(
                 task_id = scope.task_id.as_str(),
                 "[tinyagents] registered subagent steering handle"

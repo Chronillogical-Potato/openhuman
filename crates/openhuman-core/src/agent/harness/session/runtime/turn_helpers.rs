@@ -2,9 +2,9 @@
 //! sanitisation, and tool-call id fallback / persistence shaping.
 
 use super::super::types::Agent;
-use crate::agent::dispatcher::ParsedToolCall;
 use crate::agent::error::AgentError;
 use crate::agent::messages::ConversationMessage;
+use crate::agent::tool_dialect::ParsedToolCall;
 use crate::inference::provider::ToolCall;
 use crate::util::truncate_with_ellipsis;
 

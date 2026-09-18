@@ -50,7 +50,9 @@ pub(crate) fn find_required_block(
     if keys.is_empty() {
         return None;
     }
-    let first = super::parse::extract_json_values(text).into_iter().next()?;
+    let first = tinytools_agent::extract_json_values(text)
+        .into_iter()
+        .next()?;
     let obj = first.as_object()?;
     let has_all = keys
         .iter()

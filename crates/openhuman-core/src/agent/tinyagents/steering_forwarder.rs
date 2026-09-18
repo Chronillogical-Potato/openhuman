@@ -28,6 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::message::Message as TaMessage;
 
@@ -35,7 +36,7 @@ use crate::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 
-use super::orchestration::{self, TaskId};
+use super::host::steering::shared_steering_registry;
 
 /// Framing prepended to a queued **steer** message when it is injected as a user
 /// turn. Kept as a shared const so the residual-requeue path can strip it and
@@ -210,7 +211,7 @@ impl Drop for SteeringForwarderGuard {
         // 2. Deregister the sub-agent steering handle so an aborted run does not
         //    leak a registry entry keyed by a dead handle.
         if let Some(task_id) = self.registry_task_id.take() {
-            orchestration::shared_steering_registry().deregister(&task_id);
+            shared_steering_registry().deregister(&task_id);
             tracing::debug!(
                 task_id = task_id.as_str(),
                 "[tinyagents] deregistered subagent steering handle (guard drop)"

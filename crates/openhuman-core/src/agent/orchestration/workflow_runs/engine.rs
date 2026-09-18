@@ -34,7 +34,7 @@
 //! checkpointer, resumed with `Command { resume: .. }`) instead of the ad-hoc
 //! `Interrupted`/cancel-flag bookkeeping used for stop/resume here. The
 //! mechanism is already implemented end-to-end for the delegation review gate in
-//! [`crate::agent::tinyagents::delegation`] (see `run_delegation_durable` /
+//! [`tinyagents_graph::delegation`] (see `run_delegation_durable` /
 //! `resume_delegation`); this engine should adopt the same
 //! interrupt→checkpoint→resume path once a human-review phase kind exists. The
 //! current between-phase cancellation bookkeeping is intentionally left in place

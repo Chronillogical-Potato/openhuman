@@ -157,7 +157,7 @@ what the harness exposes to the child.
 
 - `agent::harness` — `run_subagent`, `fork_context::ParentExecutionContext`,
   `definition::{AgentDefinition, AgentDefinitionRegistry}`.
-- `agent::tinyagents::orchestration` — `DetachedTaskRegistry`,
+- `tinyagents_graph::orchestration` — `DetachedTaskRegistry`,
   `OrchestrationTaskStatus`, `TaskId`.
 - `tinyagents_session::run_ledger` — durable storage for teams, workflow runs,
   and agent run rows.

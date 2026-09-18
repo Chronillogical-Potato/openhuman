@@ -34,10 +34,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
 
-use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
 use openhuman_core::agent::goals::{runtime as goal_runtime, store as goal_store};
 use openhuman_core::agent::harness::session::TurnOverrides;
 use openhuman_core::agent::tinyagents::thread_context::with_thread_id;
+use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
 use tinyinference_llm::message::Message;
@@ -232,7 +232,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::agent::dispatcher::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::agent::tool_dialect::ToolDispatcher>,
 ) -> Agent {
     Agent::builder()
         .chat_model(model)

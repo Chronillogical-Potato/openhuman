@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};

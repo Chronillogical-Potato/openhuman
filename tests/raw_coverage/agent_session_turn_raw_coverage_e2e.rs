@@ -2,7 +2,7 @@
 mod noop_memory;
 
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
 use openhuman_core::agent::harness::definition::AgentTier;
 use openhuman_core::agent::harness::subagent_runner::run_subagent;
 use openhuman_core::agent::harness::{
@@ -617,7 +617,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::agent::dispatcher::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::agent::tool_dialect::ToolDispatcher>,
     config: AgentConfig,
     context_config: ContextConfig,
 ) -> Agent {

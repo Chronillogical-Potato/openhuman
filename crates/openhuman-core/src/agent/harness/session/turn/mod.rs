@@ -8,7 +8,7 @@ mod recall_lanes;
 mod session_io;
 mod tools;
 
-use crate::agent::dispatcher::ParsedToolCall;
+use crate::agent::tool_dialect::ParsedToolCall;
 
 use std::borrow::Cow;
 

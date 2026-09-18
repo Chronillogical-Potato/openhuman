@@ -11,12 +11,11 @@
 //! The backend handles Twilio API credentials, billing, and rate limiting.
 
 use super::IntegrationClient;
-use crate::integrations::ToolScope;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope};
 
 /// Makes outbound phone calls via the backend Twilio integration.
 pub struct TwilioCallTool {

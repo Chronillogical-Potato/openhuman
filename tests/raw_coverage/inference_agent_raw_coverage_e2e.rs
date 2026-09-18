@@ -28,7 +28,7 @@ use openhuman_core::agent::bus::{
 use openhuman_core::agent::debug::{
     write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
-use openhuman_core::agent::dispatcher::{
+use openhuman_core::agent::tool_dialect::{
     NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
     XmlToolDispatcher,
 };

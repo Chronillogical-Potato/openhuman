@@ -351,9 +351,9 @@ pub(super) fn assemble_turn_harness(
     // `inheriting`) and run it in shadow: it emits the exposure decision
     // event-native (`AgentEvent::ToolsFiltered`) and logs any divergence between
     // the crate layer's decision and the set OpenHuman actually registered as
-    // callable — WITHOUT changing the callable set (byte-identical to today). The
-    // ownership flip + deletion of `tool_filter.rs`/`tool_prep.rs` is the gated
-    // follow-up once the `[tool-exposure]` divergence logs show parity. Tags encode
+    // callable — WITHOUT changing the callable set (byte-identical to today).
+    // Folding the remaining host selection policy in `tool_prep.rs` into the
+    // middleware is gated on `[tool-exposure]` divergence logs showing parity. Tags encode
     // the OpenHuman run context (agent id / channel / scope) for the flip; the
     // name-based `inheriting` predicate does not consult them yet.
     let exposure_tags: Vec<String> = {

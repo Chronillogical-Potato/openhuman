@@ -1,5 +1,6 @@
 use super::*;
 use crate::agent::harness::definition::{ModelSpec, ToolScope};
+use tinytools::{Tool, ToolSpec};
 
 fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
     AgentDefinition {

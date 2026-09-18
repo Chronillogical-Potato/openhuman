@@ -4,7 +4,7 @@ use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
 use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
-use openhuman_core::agent::dispatcher::XmlToolDispatcher;
+use openhuman_core::agent::tool_dialect::XmlToolDispatcher;
 use openhuman_core::agent::{Agent, AgentBuilder};
 use openhuman_core::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
 use openhuman_core::agent::prompts::LearnedContextData;

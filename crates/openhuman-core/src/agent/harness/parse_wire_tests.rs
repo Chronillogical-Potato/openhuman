@@ -12,16 +12,15 @@
 //! fixtures its own tests assert against, and they never compiled into a
 //! production build even before the move.
 
-pub(crate) use tinytools_agent::{
-    extract_json_values, parse_tool_calls, parse_tool_calls_with_pformat,
-};
+#[cfg(test)]
+use tinytools_agent::{extract_json_values, parse_tool_calls, parse_tool_calls_with_pformat};
 
 // The rest of the crate's re-exports are only reached from this module's own
 // tests (`tests.rs`) and `harness_gap_tests.rs`, not from any production call
 // site — gated so a non-test build doesn't warn (and fail `-D warnings`) on
 // them.
 #[cfg(test)]
-pub(crate) use tinytools_agent::{
+use tinytools_agent::{
     parse_arguments_value, parse_glm_style_tool_calls, parse_tool_call_value,
     parse_tool_calls_from_json_value,
 };

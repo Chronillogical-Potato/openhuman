@@ -37,8 +37,9 @@ use crate::agent::prompts::ConnectedIntegration;
 // temporarily disabled (see tinyhumansai/openhuman#1624).
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
-use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
+use super::{ArchetypeDelegationTool, SkillDelegationTool};
 use crate::agent::orchestration::tools::DelegationTarget;
+use tinytools::Tool;
 
 /// Synthesise the delegation tool list for an agent based on its
 /// declarative `subagents` field.

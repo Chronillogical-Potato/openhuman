@@ -62,7 +62,7 @@ fn all_topologies_names_do_not_collide_with_production_tools() {
     let http = crate::config::HttpRequestConfig::default();
     let agents = std::collections::HashMap::new();
 
-    let tools = crate::tools::all_tools(
+    let tools = crate::tools::ops::all_tools(
         config.clone(),
         &security,
         audit,
@@ -92,7 +92,7 @@ fn all_topologies_names_do_not_collide_with_production_tools() {
 
 #[test]
 fn delegation_topology_names_the_revision_loop_nodes() {
-    let t = super::super::delegation::delegation_graph_topology().expect("builds");
+    let t = tinyagents_graph::delegation::delegation_graph_topology().expect("builds");
     let names: Vec<&str> = t.nodes.iter().map(|n| n.id.as_str()).collect();
     for expected in ["plan", "execute", "review", "finalize"] {
         assert!(

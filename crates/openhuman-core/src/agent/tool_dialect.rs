@@ -449,5 +449,8 @@ impl ToolDispatcher for NativeToolDispatcher {
 }
 
 #[cfg(test)]
+#[path = "pformat_tests.rs"]
+mod pformat_tests;
+#[cfg(test)]
 #[path = "dispatcher_tests.rs"]
 mod tests;

@@ -58,6 +58,7 @@ fn unprefixed_delegate_name_overrides_are_treated_as_spawn_tools() {
 // ── Essential-action reservation (#6033) ────────────────────────────────
 
 use crate::agent::prompts::ConnectedIntegrationTool;
+use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool};
 
 fn action(name: &str) -> ConnectedIntegrationTool {
     ConnectedIntegrationTool {
@@ -262,9 +263,11 @@ fn gmail_read_prompt_keeps_a_content_returning_action() {
         "find job opportunities from the last 5 days",
         "Search the user's Gmail inbox for job opportunity emails from the last 5 days and summarize sender, subject and date",
     ] {
-        let hits = crate::agent::harness::tool_filter::filter_actions_by_prompt(
-            prompt, &actions, 12,
-        );
+        let candidates: Vec<_> = actions
+            .iter()
+            .map(|tool| SelectableTool::new(&tool.name, &tool.description))
+            .collect();
+        let hits = rank_tools_by_prompt(prompt, &candidates, 12);
         let selected = select_actions_with_essentials("gmail", &actions, &hits, 12);
         let names: Vec<&str> = selected.iter().map(|&i| actions[i].name.as_str()).collect();
 

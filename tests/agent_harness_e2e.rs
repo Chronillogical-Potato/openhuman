@@ -2359,7 +2359,7 @@ async fn multi_hop_delegation_chain_inner() {
 
 mod streaming_support {
     use async_trait::async_trait;
-    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+    use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::{AgentConfig, ContextConfig};
     use openhuman_core::memory::Memory;
@@ -4148,8 +4148,8 @@ async fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_
 mod tool_policy_boundary_placement {
     use anyhow::Result;
     use async_trait::async_trait;
-    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
     use openhuman_core::agent::prompts::LearnedContextData;
+    use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::AgentConfig;
     use openhuman_core::memory::{

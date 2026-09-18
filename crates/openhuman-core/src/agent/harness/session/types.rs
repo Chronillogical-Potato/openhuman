@@ -7,7 +7,6 @@
 //! crate gaining field access.
 
 use crate::agent::context::ContextManager;
-use crate::agent::dispatcher::ToolDispatcher;
 use crate::agent::harness::archivist::ArchivistHook;
 use crate::agent::harness::definition::TriggerMemoryAgent;
 use crate::agent::hooks::PostTurnHook;
@@ -15,6 +14,7 @@ use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::tinyagents::TurnModelSource;
+use crate::agent::tool_dialect::ToolDispatcher;
 use crate::agent::tool_policy::ToolPolicy;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicySession;

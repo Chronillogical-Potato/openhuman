@@ -1,8 +1,8 @@
 use super::super::types::Agent;
-use crate::agent::dispatcher::XmlToolDispatcher;
 use crate::agent::error::AgentError;
 use crate::agent::messages::ChatMessage;
 use crate::agent::messages::ConversationMessage;
+use crate::agent::tool_dialect::XmlToolDispatcher;
 use crate::core::events::DomainEvent;
 use crate::inference::provider::{ChatResponse, UsageInfo};
 use crate::memory::Memory;
@@ -168,12 +168,12 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
     assert!(!sanitized.contains('\t'));
 
     let calls = vec![
-        crate::agent::dispatcher::ParsedToolCall {
+        crate::agent::tool_dialect::ParsedToolCall {
             name: "a".into(),
             arguments: serde_json::json!({}),
             tool_call_id: None,
         },
-        crate::agent::dispatcher::ParsedToolCall {
+        crate::agent::tool_dialect::ParsedToolCall {
             name: "b".into(),
             arguments: serde_json::json!({"x":1}),
             tool_call_id: Some("keep".into()),

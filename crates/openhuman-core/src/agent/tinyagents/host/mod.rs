@@ -37,6 +37,7 @@ pub mod agent_memory;
 pub mod budget_gate;
 pub mod context_composer;
 pub mod definition_registry;
+pub mod delegation;
 pub mod experience_store;
 pub mod learning_sink;
 pub mod model_resolver;

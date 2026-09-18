@@ -1,5 +1,4 @@
 use super::*;
-use crate::agent::dispatcher::NativeToolDispatcher;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::definition::{
     AgentDefinition, AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
@@ -11,6 +10,7 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     WorkerDispatchMode,
 };
 use crate::agent::prompts::ToolCallFormat;
+use crate::agent::tool_dialect::NativeToolDispatcher;
 use crate::agent::Agent;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};

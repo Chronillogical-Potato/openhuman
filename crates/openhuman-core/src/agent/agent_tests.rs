@@ -24,11 +24,11 @@
 //!  19. Builder validation (missing required fields)
 //!  20. Idempotent system prompt insertion
 
-use crate::agent::dispatcher::{
-    NativeToolDispatcher, ToolDispatcher, ToolExecutionResult, XmlToolDispatcher,
-};
 use crate::agent::harness::session::Agent;
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
+use crate::agent::tool_dialect::{
+    NativeToolDispatcher, ToolDispatcher, ToolExecutionResult, XmlToolDispatcher,
+};
 use crate::config::AgentConfig;
 use crate::inference::provider::{ChatResponse, ToolCall};
 use crate::memory::Memory;

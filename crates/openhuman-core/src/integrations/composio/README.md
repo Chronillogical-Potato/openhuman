@@ -172,10 +172,10 @@ Published from `ops/` via `crate::core::bus::BUS.publish` (`crate::core::events:
 - `crate::memory::binding` — the workspace's bound memory driver. Connection-scoped cleanup deletes through `MemorySourceSink::forget_matching`; identity facets and user-scope prefs are also read/written through this binding.
 - `crate::memory::sync::composio` — still owns the trigger/config-change bus subscribers (this module re-exports them via `bus.rs`) and the `slack` RPC layer re-exported from `providers/mod.rs`.
 - `crate::agent::harness` — sandbox mode (`current_sandbox_mode` / `SandboxMode`) for tool gating; `current_task_recency_window` consumed by `task_window.rs`.
-- `crate::tools::traits` — `Tool`, `ToolResult`, `ToolCategory`, `PermissionLevel`, `ToolCallOptions`.
+- `tinytools` — `Tool`, `ToolResult`, `ToolCategory`, `PermissionLevel`, `ToolCallOptions`.
 - `crate::security` — `SecurityPolicy` / `ToolOperation` for direct-tool gating.
 - `crate::security::credentials` — encrypted store for the direct-mode API key.
-- `crate::agent::context::prompt`, `agent::prompts` — prompt/profile injection of connected identities.
+- `crate::agent::prompts`, `agent::prompts` — prompt/profile injection of connected identities.
 - `crate::core::all` — `ControllerFuture` / `RegisteredController` registry types.
 - `crate::core::bus` (`BUS`) / `crate::core::events::DomainEvent` — event publish/subscribe.
 - `crate::core::observability` — Sentry error classification/reporting.

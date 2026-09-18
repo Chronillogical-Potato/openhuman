@@ -167,7 +167,7 @@ pub(super) fn select_actions_with_essentials(
 
 /// Format the tool-use protocol block appended to the system prompt in text
 /// mode. Teaches **P-Format** first (the same protocol
-/// [`crate::agent::dispatcher::PFormatToolDispatcher`] renders and
+/// [`crate::agent::tool_dialect::PFormatToolDispatcher`] renders and
 /// the tinyagents adapter parses via `parse_tool_calls_with_pformat`), with
 /// the legacy JSON-in-tag form as the documented fallback for nested
 /// arguments. The `## Tools` catalogue already renders `Call as:` p-format
@@ -232,10 +232,10 @@ pub(crate) fn subagent_prompt_protocol(
     parent_format: crate::agent::prompts::ToolCallFormat,
     text_mode: bool,
 ) -> (crate::agent::prompts::ToolCallFormat, String) {
-    use crate::agent::dispatcher::{
+    use crate::agent::prompts::ToolCallFormat;
+    use crate::agent::tool_dialect::{
         NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
     };
-    use crate::agent::prompts::ToolCallFormat;
     use tinytools_agent::PFormatRegistry;
     if text_mode {
         return (ToolCallFormat::PFormat, String::new());

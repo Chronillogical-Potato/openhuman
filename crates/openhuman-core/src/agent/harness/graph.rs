@@ -165,14 +165,14 @@ pub(crate) async fn run_channel_turn_via_graph(
     // Using `outcome.conversation` (the typed messages-since-last-user) avoids
     // indexing into a post-trim `outcome.history` with the pre-trim `prior_len`,
     // which could drop current-turn messages when compaction reshaped the run.
-    use crate::agent::dispatcher::ToolDispatcher;
+    use crate::agent::tool_dialect::ToolDispatcher;
     let suffix = if native_tools {
-        crate::agent::dispatcher::NativeToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::tool_dialect::NativeToolDispatcher.to_provider_messages(&outcome.conversation)
     } else {
         // History serialization is format-independent for prompt-guided providers
         // (tool calls already ride the visible assistant text); the XML dispatcher
         // renders the flat `[Tool results]` shape.
-        crate::agent::dispatcher::XmlToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::tool_dialect::XmlToolDispatcher.to_provider_messages(&outcome.conversation)
     };
     history.extend(suffix);
     if outcome.early_exit_tool.is_some() {

@@ -40,7 +40,6 @@ pub mod session;
 mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
-pub(crate) mod tool_filter;
 pub(crate) mod tool_result_artifacts;
 pub mod turn_attachments_context;
 pub mod turn_dispatch_guard;
@@ -69,7 +68,7 @@ pub(crate) use graph::run_channel_turn_via_graph;
 #[cfg(test)]
 mod harness_gap_tests;
 #[cfg(test)]
-#[path = "parse.rs"]
+#[path = "parse_wire_tests.rs"]
 mod parse_tests;
 #[cfg(test)]
 #[path = "harness_tests.rs"]

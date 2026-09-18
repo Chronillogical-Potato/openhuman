@@ -73,12 +73,11 @@ appears in prompts comes from the curated-memory snapshot
 Editing these files changes the shipped default agent's persona/style without
 a code change.
 
-## Compat shim
+## Canonical module
 
-`agent::context::prompt` (`agent/context/prompt.rs`) is `pub use
-crate::agent::prompts::*` — prompt plumbing used to live there and was moved
-here so it sits next to the agents that consume it. The shim is a stable
-import path only; do not add logic to it.
+`agent::prompts` is the canonical prompt-plumbing module. Prompt logic lives
+here so it sits next to the agents that consume it; do not add a forwarding
+module for this API.
 
 ## Extension points (owned elsewhere)
 
@@ -151,4 +150,3 @@ rather than "N days ago".
 - `agent/debug/` — `dump_agent_prompt` / `dump_all_agent_prompts` (`mod.rs`)
   build the same `PromptContext` to render each agent's prompt,
   `dump_writer.rs` writes it to disk, `prompt_size.rs` measures it.
-- `agent/context/prompt.rs` — compat re-export shim (see above).

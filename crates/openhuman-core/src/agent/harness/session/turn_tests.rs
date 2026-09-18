@@ -1,10 +1,10 @@
 use super::*;
-use crate::agent::dispatcher::{PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher};
 use crate::agent::experience::{
     AgentExperience, AgentExperienceStore, ExperienceOutcome, ExperienceSource,
 };
 use crate::agent::hooks::{PostTurnHook, TurnContext};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
+use crate::agent::tool_dialect::{PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher};
 use crate::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,

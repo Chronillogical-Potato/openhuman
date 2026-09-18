@@ -146,7 +146,7 @@ impl AgentBuilder {
     /// Sets the tool dispatcher for the agent.
     pub fn tool_dispatcher(
         mut self,
-        tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher>,
+        tool_dispatcher: Box<dyn crate::agent::tool_dialect::ToolDispatcher>,
     ) -> Self {
         self.tool_dispatcher = Some(tool_dispatcher);
         self
@@ -323,7 +323,7 @@ impl AgentBuilder {
     ///   inspecting transcripts after the fact.
     /// * **[`PromptContext::agent_id`]** at prompt-build time (see
     ///   `turn.rs`). Today only one prompt section reads this field —
-    ///   the `Connected Integrations` branch in `context/prompt.rs`
+    ///   the `Connected Integrations` branch in `agent/prompts`
     ///   that special-cases `integrations_agent` vs every other agent — so
     ///   the current user-visible impact of a wrong id is limited to
     ///   the two bullets above. The stamped `prompt_builder` injected
