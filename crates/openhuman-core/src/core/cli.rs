@@ -413,7 +413,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
 /// * `args` - Command-line arguments specifying the method and parameters.
 fn run_call_command(args: &[String]) -> Result<()> {
     let mut method: Option<String> = None;
-    let mut params = "{}".to_string();
+    let mut params = None;
     let mut params_stdin = false;
 
     let mut i = 0usize;
@@ -433,14 +433,14 @@ fn run_call_command(args: &[String]) -> Result<()> {
                         "--params and --params-stdin are mutually exclusive"
                     ));
                 }
-                params = args
+                params = Some(args
                     .get(i + 1)
                     .ok_or_else(|| anyhow::anyhow!("missing value for --params"))?
-                    .clone();
+                    .clone());
                 i += 2;
             }
             "--params-stdin" => {
-                if params != "{}" {
+                if params.is_some() {
                     return Err(anyhow::anyhow!(
                         "--params and --params-stdin are mutually exclusive"
                     ));
@@ -460,10 +460,13 @@ fn run_call_command(args: &[String]) -> Result<()> {
 
     let method = method.ok_or_else(|| anyhow::anyhow!("--method is required"))?;
     if params_stdin {
-        std::io::Read::read_to_string(&mut std::io::stdin(), &mut params)
+        let mut stdin_params = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin_params)
             .map_err(|e| anyhow::anyhow!("failed to read --params-stdin: {e}"))?;
+        params = Some(stdin_params);
     }
-    let params = parse_json_params(&params).map_err(anyhow::Error::msg)?;
+    let params = parse_json_params(params.as_deref().unwrap_or("{}"))
+        .map_err(anyhow::Error::msg)?;
 
     // Raw calls bypass namespace parsing, but not the configured memory-driver
     // binding. Without this gate an absent capability could still reach a

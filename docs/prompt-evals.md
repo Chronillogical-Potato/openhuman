@@ -61,8 +61,10 @@ The costs are:
   from `orchestrator-reminder`). After the run, delete the test threads, remove
   any `cron_*` jobs and flows the cases created, and check that skills and MCP
   servers are back to where they started.
-- **It is serial.** Only transcripts modified after a case started are scored
-  for that case.
+- **It is serial.** Only transcripts modified strictly after a case starts are
+  scored for that case, and each temporary hermetic workspace is removed after
+  its row is recorded. Real-workspace artifacts still require the account
+  cleanup described above.
 
 ```sh
 scripts/prompt-eval.sh --real-workspace --case workflow-builder-news

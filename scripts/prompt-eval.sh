@@ -63,6 +63,14 @@ elif [ -z "${OPENHUMAN_BACKEND_SESSION_TOKEN:-}${OPENHUMAN_BACKEND_API_KEY:-}" ]
 fi
 [ -x "$BIN" ] || { echo "prompt-eval: no binary at $BIN (cargo build --bin openhuman-core)" >&2; exit 2; }
 mkdir -p "$(dirname "$OUT")"
+ws=""
+cleanup_ws() {
+  if [ -n "$ws" ]; then
+    rm -rf -- "$ws"
+    ws=""
+  fi
+}
+trap cleanup_ws EXIT
 # Every row records the tree the measured binary was built from.
 PROMPT_EVAL_BIN_SHA="$(git -C "$(dirname "$BIN")" rev-parse HEAD 2>/dev/null || echo unknown)"
 export PROMPT_EVAL_BIN_SHA
@@ -78,23 +86,25 @@ for id in $ids; do
 for run in $(seq 1 "$RUNS"); do
   # $ws always holds this case's own artifacts (result, logs, judge verdict).
   ws="$(mktemp -d -t prompt-eval)"
+  unset PROMPT_EVAL_TRANSCRIPT_ROOT PROMPT_EVAL_SINCE
   export RUST_LOG="${RUST_LOG:-info}"
   if [ "$REAL" = 1 ]; then
     unset OPENHUMAN_WORKSPACE OPENHUMAN_KEYRING_BACKEND
     # Transcripts land in the real workspace; score only files this case wrote.
-    export PROMPT_EVAL_TRANSCRIPT_ROOT="$HOME/.openhuman" PROMPT_EVAL_SINCE="$(date +%s)"
+    export PROMPT_EVAL_TRANSCRIPT_ROOT="$HOME/.openhuman" PROMPT_EVAL_SINCE="$(date +%s.%N)"
   else
     printf 'chat_onboarding_completed = true\n\n[secrets]\nencrypt = false\n' > "$ws/config.toml"
     export OPENHUMAN_WORKSPACE="$ws" OPENHUMAN_KEYRING_BACKEND=file
   fi
 
-  core() { "$BIN" call --method "$1" --params "$2" 2>>"$ws/core.log"; }
+  core() { printf '%s' "$2" | "$BIN" call --method "$1" --params-stdin 2>>"$ws/core.log"; }
   core_stdin() { "$BIN" call --method "$1" --params-stdin 2>>"$ws/core.log"; }
 
   enabled=$(python3 -c 'import json,sys; c=[c for c in json.load(open(sys.argv[1]))["cases"] if c["id"]==sys.argv[2]][0]; print("1" if c.get("enabled", True) else "0")' "$CASES" "$id")
   if [ "$enabled" = 0 ]; then
     if [ "$ALLOW_DISABLED" != 1 ]; then
       echo "$id run $run: SKIPPED — disabled (use --allow-disabled after validating its write-call matcher)" >&2
+      cleanup_ws
       continue
     fi
     python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); case=next(x for x in c["cases"] if x["id"]==sys.argv[2]); assert case.get("forbid_calls"), "disabled case must define forbidden calls"; assert case.get("_gate"), "disabled case must document its gate"' "$CASES" "$id"
@@ -133,6 +143,7 @@ for run in $(seq 1 "$RUNS"); do
     if ! python3 "$ROOT/scripts/prompt-eval/score.py" precondition "$CASES" "$id" "$ws/precondition.json" > "$ws/precondition_result.json"; then
       python3 -c 'import json,sys,time; print(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "case": sys.argv[1], "run": int(sys.argv[2]), "skipped": "precondition failed", "precondition": json.load(open(sys.argv[3])), "usd": 0.0, "workspace": sys.argv[4]}))' "$id" "$run" "$ws/precondition_result.json" "$ws" >> "$OUT"
       echo "$id run $run: SKIPPED — precondition failed: $(cat "$ws/precondition_result.json")" >&2
+      cleanup_ws
       continue
     fi
   fi
@@ -153,6 +164,7 @@ for run in $(seq 1 "$RUNS"); do
   echo "$row" >> "$OUT"
   echo "$row" | python3 -c 'import json,sys; r=json.load(sys.stdin); print("%s run %s: %s score=%s usd=%.4f models=%s failures=%s" % (r["case"], r["run"], "PASS" if r["pass"] else "FAIL", r["score"], r["usd"], r["models"], r["failures"]))'
   total_usd=$(python3 -c 'import json,sys; print(float(sys.argv[1]) + json.loads(sys.argv[2])["usd"])' "$total_usd" "$row")
+  cleanup_ws
 done
 done
 echo "total USD: $total_usd   (rows appended to $OUT)"

@@ -58,13 +58,13 @@ struct EnvVarGuard {
 impl EnvVarGuard {
     fn set_to_path(key: &'static str, path: &Path) -> Self {
         let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
+        unsafe { std::env::set_var(key, path.as_os_str()); }
         Self { key, old }
     }
 
     fn unset(key: &'static str) -> Self {
         let old = std::env::var(key).ok();
-        std::env::remove_var(key);
+        unsafe { std::env::remove_var(key); }
         Self { key, old }
     }
 }
@@ -72,8 +72,8 @@ impl EnvVarGuard {
 impl Drop for EnvVarGuard {
     fn drop(&mut self) {
         match &self.old {
-            Some(v) => std::env::set_var(self.key, v),
-            None => std::env::remove_var(self.key),
+            Some(v) => unsafe { std::env::set_var(self.key, v) },
+            None => unsafe { std::env::remove_var(self.key) },
         }
     }
 }
@@ -179,11 +179,10 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
             })
             .collect();
     }
-    // `- **NAME**: description` entries (`render_helpers/subagent.rs`, the
-    // tinyagents catalogue); `**NAME**` never contains whitespace.
+    // Text-mode requests use `Call as: NAME[...]` declarations.
     system_text(request)
         .lines()
-        .filter_map(|line| line.strip_prefix("- **")?.split_once("**:").map(|(n, _)| n))
+        .filter_map(|line| line.split_once("Call as:")?.1.split_once('[').map(|(n, _)| n.trim()))
         .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
         .map(str::to_string)
         .collect()
@@ -861,7 +860,6 @@ fn orchestrator_hands_integration_work_to_the_specialist() {
 /// child is told how to call tools and never told which tools exist. Remove the
 /// `ignore` with the fix.
 #[test]
-#[ignore = "integrations_agent text mode renders no tool catalogue under a native parent"]
 fn integrations_agent_holds_the_composio_surface() {
     run_case(Case {
         agent: "integrations_agent",

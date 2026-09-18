@@ -60,7 +60,7 @@ def transcripts(ws):
     since = float(os.environ.get("PROMPT_EVAL_SINCE") or 0)
     out = []
     for path in sorted(glob.glob(os.path.join(root, "**", "session_raw", "*.jsonl"), recursive=True)):
-        if os.path.getmtime(path) < since:
+        if os.path.getmtime(path) <= since:
             continue
         meta, lines = {}, []
         for raw in open(path, errors="replace"):
@@ -89,10 +89,11 @@ def tool_calls(lines):
         if m.get("role") != "assistant":
             continue
         for tc in m.get("tool_calls") or []:
-            name = tc.get("name", "")
+            function = tc.get("function") or {}
+            name = tc.get("name") or function.get("name", "")
             out.append(name)
             if name == "use_skill":
-                args = tc.get("arguments")
+                args = tc.get("arguments") or function.get("arguments")
                 if isinstance(args, str):
                     try:
                         args = json.loads(args)
@@ -162,7 +163,10 @@ def score(doc, case, ws, secs, run=1):
     # 1. Hard failure signals — cheap, no judge needed.
     signals = []
     log = ""
+    since = float(os.environ.get("PROMPT_EVAL_SINCE") or 0)
     for path in [os.path.join(ws, "core.log")] + glob.glob(os.path.join(ws, "**", "*.log"), recursive=True):
+        if os.path.getmtime(path) <= since:
+            continue
         try:
             log += open(path, errors="replace").read()
         except OSError:
