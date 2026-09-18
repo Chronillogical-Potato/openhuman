@@ -7,9 +7,7 @@
 
 use super::load_builtins;
 use crate::agent::context::prompt::{LearnedContextData, PromptContext, ToolCallFormat};
-use crate::agent::harness::definition::{
-    AgentDefinition, PromptSource, SubagentEntry, ToolScope,
-};
+use crate::agent::harness::definition::{AgentDefinition, PromptSource, SubagentEntry, ToolScope};
 use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
@@ -32,7 +30,10 @@ fn visible_tool_names(def: &AgentDefinition, definitions: &[AgentDefinition]) ->
         if agent_id == "summarizer" {
             continue;
         }
-        let Some(target) = definitions.iter().find(|candidate| candidate.id == *agent_id) else {
+        let Some(target) = definitions
+            .iter()
+            .find(|candidate| candidate.id == *agent_id)
+        else {
             continue;
         };
         visible.insert(
