@@ -126,8 +126,8 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
 /// privacy gate; this exemption only concerns OpenHuman registration.
 pub(crate) fn provider_uses_independent_auth(provider: &str) -> bool {
     let p = provider.trim();
-    crate::inference::local::profile::is_local_provider_string(p)
-        || p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+    tinyinference::local::profile::is_local_provider_string(p)
+        || p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
         || p == CLAUDE_AGENT_SDK_PROVIDER
         || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
 }

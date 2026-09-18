@@ -19,10 +19,10 @@
 //! instead, so the conversions below are the seam — a handful of field-wise
 //! maps that keep the wire bytes identical while the logic lives upstream.
 //!
-//! Second, the **[`Tool`] trait object**. The crate takes
-//! [`ToolSchema`](tinyinference::tool::ToolSchema)s, never a host's tool
-//! type, for the reason the parse seam already documents: a crate that depended
-//! on OpenHuman's `Tool` could not be used by a second host. So
+//! Second, the **[`Tool`] trait object**. The crate takes shared
+//! [`ToolSpec`] values, never a host's concrete tool type, for the reason the
+//! parse seam already documents: a crate that depended on OpenHuman's `Tool`
+//! could not be used by a second host. So
 //! [`ToolDispatcher::prompt_instructions`] reads names and schemas off the
 //! slice and hands the crate exactly what it needs.
 //!
@@ -43,7 +43,6 @@ use tinyagents_harness::tool_calling::dialect::{
     DialectMessage, DialectResponse, DialectRole, NativeDialect, NativeToolCall, PFormatDialect,
     ToolDialect, ToolOutcome, ToolResultEntry, TranscriptEntry, XmlDialect,
 };
-use tinyinference::tool::ToolSchema;
 
 /// A parsed tool call representation after being extracted from an LLM response.
 #[derive(Debug, Clone)]
@@ -253,18 +252,8 @@ fn from_dialect_message(message: DialectMessage) -> ChatMessage {
     }
 }
 
-fn to_schemas(specs: &[ToolSpec]) -> Vec<ToolSchema> {
-    specs
-        .iter()
-        .map(|spec| ToolSchema::new(&spec.name, &spec.description, spec.parameters.clone()))
-        .collect()
-}
-
-fn schemas_from_tools(tools: &[Box<dyn Tool>]) -> Vec<ToolSchema> {
-    tools
-        .iter()
-        .map(|tool| ToolSchema::new(tool.name(), tool.description(), tool.parameters_schema()))
-        .collect()
+fn specs_from_tools(tools: &[Box<dyn Tool>]) -> Vec<ToolSpec> {
+    tools.iter().map(|tool| tool.spec()).collect()
 }
 
 fn from_format(
@@ -337,7 +326,7 @@ impl XmlToolDispatcher {
 
     /// Render the protocol block plus the full-schema catalogue.
     pub fn prompt_instructions_from_specs(specs: &[ToolSpec]) -> String {
-        XmlDialect::instructions(&to_schemas(specs))
+        XmlDialect::instructions(specs)
     }
 
     /// Internal helper to extract tool calls from a raw text string.
@@ -358,7 +347,7 @@ impl ToolDispatcher for XmlToolDispatcher {
     }
 
     fn prompt_instructions(&self, tools: &[Box<dyn Tool>]) -> String {
-        XmlDialect::instructions(&schemas_from_tools(tools))
+        XmlDialect::instructions(&specs_from_tools(tools))
     }
 
     fn prompt_instructions_for_specs(&self, specs: &[ToolSpec]) -> Option<String> {
