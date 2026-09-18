@@ -22,7 +22,7 @@ pub use tinyagents_graph::todos::runs::{
     DEFAULT_HEARTBEAT_STALE_SECS, DEFAULT_MAX_RECLAIM_COUNT,
 };
 
-use crate::agent::task_board::normalize_timestamp_for_wire;
+use crate::agent::todos::types::normalize_timestamp_for_wire;
 
 use super::ops::{target, BoardLocation};
 
