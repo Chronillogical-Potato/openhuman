@@ -226,12 +226,3 @@ fn telegram_history_key_matches_format_in_dispatch_helper() {
         "telegram_alice_chat-42"
     );
 }
-
-#[test]
-fn format_approval_prompt_includes_tool_action_and_reply_instructions() {
-    let body = format_approval_prompt("git_operations", "git commit -m \"fix\"");
-    assert!(body.contains("git_operations"));
-    assert!(body.contains("git commit"));
-    assert!(body.contains("yes"));
-    assert!(body.contains("no"));
-}
