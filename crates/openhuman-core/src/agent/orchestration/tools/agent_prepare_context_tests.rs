@@ -1,4 +1,3 @@
-use super::scout_run::log_scout_failure;
 use super::*;
 
 use crate::agent::harness::AgentContextPreparedSource;
