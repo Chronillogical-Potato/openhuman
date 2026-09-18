@@ -6,12 +6,12 @@ use crate::channels::context::{
 };
 use crate::channels::traits::ChannelMessage;
 use crate::memory::conversations::{self as conversations, CreateConversationThread};
+pub use tinychannels::providers::telegram::parse_telegram_remote_command;
 pub use tinychannels::providers::telegram::TelegramRemoteCommand;
 use tinychannels::providers::telegram::{
     build_new_session_response as render_new_session_response, build_remote_help_response,
     build_status_response as render_status_response, format_session_line, SESSIONS_LIST_LIMIT,
 };
-pub use tinychannels::providers::telegram::parse_telegram_remote_command;
 
 const LOG_PREFIX: &str = "[telegram-remote]";
 
