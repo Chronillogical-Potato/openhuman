@@ -18,10 +18,10 @@
 //! call `memory_recall` / `memory_search` before answering questions that draw on
 //! prior sessions. Registered after `LearnedContextSection` in the section chain.
 
-use crate::agent::context::prompt::{PromptContext, PromptSection};
-use crate::tools::traits::Tool;
+use crate::agent::prompts::{PromptContext, PromptSection};
 use anyhow::Result;
 use std::collections::HashSet;
+use tinytools::Tool;
 
 /// Injects recent observations and patterns from the learning subsystem.
 pub struct LearnedContextSection;

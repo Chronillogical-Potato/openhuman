@@ -20,8 +20,8 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::tools::orchestrator_tools::sanitise_slug;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 
 /// Canonical tool name surfaced to the orchestrator LLM.
 pub const INTEGRATIONS_DELEGATE_TOOL_NAME: &str = "delegate_to_integrations_agent";

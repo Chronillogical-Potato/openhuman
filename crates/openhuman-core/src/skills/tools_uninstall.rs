@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::helpers::read_required_str;
 use crate::skills::ops_install::{uninstall_workflow, UninstallWorkflowParams};

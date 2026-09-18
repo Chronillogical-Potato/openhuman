@@ -31,7 +31,7 @@ use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 pub(super) fn register_turn_tools_and_agents(
     harness: &mut AgentHarness<()>,
     capability_registry: &mut CapabilityRegistry<()>,
-    tool_sets: &[Arc<Vec<Box<dyn crate::tools::Tool>>>],
+    tool_sets: &[Arc<Vec<Box<dyn tinytools::Tool>>>],
     allowed: &Option<HashSet<String>>,
     early_exit_set: &HashSet<&str>,
     early_exit_hook: Option<&EarlyExitHook>,

@@ -4,8 +4,8 @@ use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::{Tool as _, ToolCallOptions, ToolResult};
 use tinytools::ToolRunContext;
+use tinytools::{Tool as _, ToolCallOptions, ToolResult};
 
 /// How a delegated sub-agent run should be scheduled relative to the parent
 /// turn.

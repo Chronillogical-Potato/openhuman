@@ -20,7 +20,7 @@
 //! tool-call record carried out to the caller.
 
 use crate::security::POLICY_BLOCKED_MARKER;
-use crate::tools::PermissionLevel;
+use tinytools::PermissionLevel;
 
 /// Generic workaround for a raw security-policy / autonomy block. These denials
 /// originate deep in the tools / `SecurityPolicy` layer (autonomy tier, command

@@ -12,11 +12,11 @@
 
 use super::IntegrationClient;
 use crate::integrations::ToolScope;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Makes outbound phone calls via the backend Twilio integration.
 pub struct TwilioCallTool {

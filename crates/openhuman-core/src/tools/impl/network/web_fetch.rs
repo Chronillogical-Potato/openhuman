@@ -9,11 +9,11 @@
 use super::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
 use crate::config::HttpRequestConfig;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct WebFetchTool {
     security: Arc<SecurityPolicy>,

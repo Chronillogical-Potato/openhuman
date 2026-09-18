@@ -14,10 +14,10 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
 };
 use crate::agent::tinyagents::current_run_cancellation;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 pub struct SpawnParallelAgentsTool;
 

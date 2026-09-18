@@ -34,9 +34,9 @@ use crate::agent::harness::session::transcript::{
 };
 use crate::agent::messages::ChatMessage;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::tools::{Tool, ToolCategory, ToolResult};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::ModelRequest;
+use tinytools::{Tool, ToolCategory, ToolResult};
 
 // ── Tunables ──────────────────────────────────────────────────────────
 

@@ -113,7 +113,7 @@ pub(crate) async fn build_root_parent(
         session_id: format!("{session_prefix}-{}", uuid::Uuid::new_v4()),
         channel: channel.to_string(),
         connected_integrations: agent.connected_integrations().to_vec(),
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::PFormat,
         session_key: agent.session_key().to_string(),
         session_parent_prefix: agent.session_parent_prefix().map(str::to_string),
         on_progress: None,

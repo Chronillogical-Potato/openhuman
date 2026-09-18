@@ -42,6 +42,7 @@ pub mod learning_sink;
 pub mod model_resolver;
 pub mod progress_sink;
 pub mod security_gate;
+pub(crate) mod steering;
 pub mod tool_outcome_classifier;
 
 pub use agent_memory::OpenHumanAgentMemory;

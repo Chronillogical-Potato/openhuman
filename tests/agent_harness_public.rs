@@ -117,7 +117,7 @@ fn stub_parent_context() -> ParentExecutionContext {
         session_id: "test-session".into(),
         channel: "test-channel".into(),
         connected_integrations: vec![],
-        tool_call_format: openhuman_core::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: openhuman_core::agent::prompts::ToolCallFormat::PFormat,
         session_key: "test-session".into(),
         session_parent_prefix: None,
         on_progress: None,

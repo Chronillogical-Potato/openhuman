@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::{LearnedContextData, ToolCallFormat, UserIdentity};
+use crate::agent::prompts::{LearnedContextData, ToolCallFormat, UserIdentity};
 use std::collections::HashSet;
 
 fn ctx_with_identity(identity: Option<UserIdentity>) -> PromptContext<'static> {

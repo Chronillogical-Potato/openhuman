@@ -4,8 +4,8 @@ use super::{
     dedup_visible_tool_specs, ensure_recovery_tool_visible, should_synthesize_delegation_tools,
     visible_tool_specs_for_policy,
 };
-use crate::tools::ToolSpec;
 use serde_json::json;
+use tinytools::ToolSpec;
 
 fn spec(name: &str) -> ToolSpec {
     ToolSpec {
@@ -79,7 +79,7 @@ mod tool_spec_views_tests;
 use crate::tools::agent_policy::{
     TaskProfile, TaskRiskLevel, ToolPolicyAction, ToolPolicyDecision, ToolPolicySession,
 };
-use crate::tools::traits::PermissionLevel;
+use tinytools::PermissionLevel;
 
 fn session_allowing(names: &[&str]) -> ToolPolicySession {
     ToolPolicySession {
@@ -112,7 +112,7 @@ fn session_allowing(names: &[&str]) -> ToolPolicySession {
 }
 
 fn use_skill_spec_from_registry() -> ToolSpec {
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = Vec::new();
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = Vec::new();
     crate::tools::toolpacks::append_pack_tools(&mut tools);
     let tool = tools
         .iter()
@@ -199,7 +199,7 @@ fn a_realistic_withheld_session_keeps_its_packs_advertised() {
 
     struct Fake(&'static str);
     #[async_trait::async_trait]
-    impl crate::tools::traits::Tool for Fake {
+    impl tinytools::Tool for Fake {
         fn name(&self) -> &str {
             self.0
         }
@@ -209,15 +209,12 @@ fn a_realistic_withheld_session_keeps_its_packs_advertised() {
         fn parameters_schema(&self) -> serde_json::Value {
             json!({ "type": "object" })
         }
-        async fn execute(
-            &self,
-            _a: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::traits::ToolResult> {
-            Ok(crate::tools::traits::ToolResult::success("ok"))
+        async fn execute(&self, _a: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
 
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> =
+    let mut tools: Vec<Box<dyn tinytools::Tool>> =
         vec![Box::new(Fake("goal_set")), Box::new(Fake("goal_get"))];
     append_pack_tools(&mut tools);
 

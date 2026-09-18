@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::agent::orchestration::tools::ArchetypeDelegationTool;
-use crate::tools::traits::ToolExposure;
+use tinytools::ToolExposure;
 
 fn targets() -> Vec<DelegateTarget> {
     vec![
@@ -205,7 +205,7 @@ fn the_timeout_is_unbounded_like_the_members_it_replaces() {
     // `Unbounded` on `ArchetypeDelegationTool` in the first place.
     assert!(matches!(
         tool().timeout_policy(&serde_json::json!({})),
-        crate::tools::traits::ToolTimeout::Unbounded
+        tinytools::ToolTimeout::Unbounded
     ));
 }
 

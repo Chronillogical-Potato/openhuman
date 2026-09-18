@@ -30,7 +30,7 @@ use crate::agent::harness::subagent_runner::SubagentRunError;
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::tools::{Tool, ToolSpec};
+use tinytools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom
 /// [`AgentGraph::Custom`] runner.

@@ -15,8 +15,8 @@ use crate::memory::api::chunks::SourceKind;
 use crate::memory::api::provider::ChunkQuery;
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 use tinyinference_embeddings::{cosine_similarity_f64, mmr_select, MmrCandidate};
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryVectorSearchTool;
 

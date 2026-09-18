@@ -4,7 +4,7 @@
 //! # Which OpenHuman domains this adapts
 //!
 //! * [`crate::agent::prompts`] (re-exported as
-//!   `crate::agent::context::prompt`) — `SystemPromptBuilder`,
+//!   `crate::agent::prompts`) — `SystemPromptBuilder`,
 //!   `PromptContext`, `LearnedContextData`, `ConnectedIntegration`,
 //!   `ToolCallFormat`, `load_agents_md_layers`, `render_connected_identities`.
 //!   The `SOUL.md` / `IDENTITY.md` / `HEARTBEAT.md` bootstrap files under

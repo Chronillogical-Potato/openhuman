@@ -58,16 +58,14 @@
 //! [`DelegateTool`]: crate::agent::tools::DelegateTool
 //! [`ArchetypeDelegationTool`]: super::ArchetypeDelegationTool
 //! [`SkillDelegationTool`]: super::SkillDelegationTool
-//! [`ToolExposure::Hidden`]: crate::tools::traits::ToolExposure::Hidden
+//! [`ToolExposure::Hidden`]: tinytools::ToolExposure::Hidden
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::archetype_delegation::{delegation_envelope_properties, render_structured_handoff};
-use crate::tools::traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout,
-};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout};
 
 /// The advertised name. A constant so the synthesis site, the prompt's
 /// delegation section and the tests cannot disagree about it.

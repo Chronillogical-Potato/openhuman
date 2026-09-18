@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn lazy_resolver_tolerates_near_miss_slugs() {
-    use crate::agent::context::prompt::ConnectedIntegrationTool;
+    use crate::agent::prompts::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),

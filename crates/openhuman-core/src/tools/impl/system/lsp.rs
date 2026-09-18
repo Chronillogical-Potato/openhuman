@@ -15,9 +15,9 @@
 //! 3. When enabled but no backend is wired, the tool returns a clear
 //!    "not yet implemented" error instead of silently misbehaving.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Env var that gates LSP tool registration.
 pub const LSP_ENABLED_ENV: &str = "OPENHUMAN_LSP_ENABLED";

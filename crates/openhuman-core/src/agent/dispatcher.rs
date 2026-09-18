@@ -1,5 +1,5 @@
 //! Tool dialects — OpenHuman's adapter over
-//! [`tinyagents_harness::tool_calling::dialect`].
+//! [`tinytools_agent::dialect`].
 //!
 //! The dialects themselves moved to the crate: how a model is told to ask for a
 //! tool, how it is parsed when it does, how results are rendered back, and how
@@ -15,7 +15,7 @@
 //! named and shaped for ~190 call sites across the harness, and
 //! [`ConversationMessage`] is the durable JSONL record existing installations
 //! already have on disk. The crate speaks its own thin
-//! [`TranscriptEntry`](tinyagents_harness::tool_calling::dialect::TranscriptEntry)
+//! [`TranscriptEntry`](tinytools_agent::dialect::TranscriptEntry)
 //! instead, so the conversions below are the seam — a handful of field-wise
 //! maps that keep the wire bytes identical while the logic lives upstream.
 //!
@@ -33,16 +33,16 @@
 //! never decides what is *allowed to happen*, only what the model reads and
 //! writes. That line is what keeps the policy auditable in one place.
 
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
-use crate::agent::pformat::PFormatRegistry;
+use crate::agent::prompts::ToolCallFormat;
 use crate::inference::provider::{ChatResponse, ToolCall};
-use crate::tools::{Tool, ToolSpec};
 use serde_json::Value;
-use tinyagents_harness::tool_calling::dialect::{
+use tinytools::{Tool, ToolSpec};
+use tinytools_agent::dialect::{
     DialectMessage, DialectResponse, DialectRole, NativeDialect, NativeToolCall, PFormatDialect,
     ToolDialect, ToolOutcome, ToolResultEntry, TranscriptEntry, XmlDialect,
 };
+use tinytools_agent::PFormatRegistry;
 
 /// A parsed tool call representation after being extracted from an LLM response.
 #[derive(Debug, Clone)]
@@ -141,9 +141,7 @@ fn from_native_call(call: &NativeToolCall) -> ToolCall {
     }
 }
 
-fn from_parsed_calls(
-    calls: Vec<tinyagents_harness::tool_calling::ParsedToolCall>,
-) -> Vec<ParsedToolCall> {
+fn from_parsed_calls(calls: Vec<tinytools_agent::ParsedToolCall>) -> Vec<ParsedToolCall> {
     calls
         .into_iter()
         .map(|call| ParsedToolCall {
@@ -256,10 +254,8 @@ fn specs_from_tools(tools: &[Box<dyn Tool>]) -> Vec<ToolSpec> {
     tools.iter().map(|tool| tool.spec()).collect()
 }
 
-fn from_format(
-    format: tinyagents_harness::tool_calling::dialect::ToolCallFormat,
-) -> ToolCallFormat {
-    use tinyagents_harness::tool_calling::dialect::ToolCallFormat as Crate;
+fn from_format(format: tinytools_agent::dialect::ToolCallFormat) -> ToolCallFormat {
+    use tinytools_agent::dialect::ToolCallFormat as Crate;
     match format {
         Crate::PFormat => ToolCallFormat::PFormat,
         Crate::Json => ToolCallFormat::Json,
@@ -423,7 +419,7 @@ impl ToolDispatcher for PFormatToolDispatcher {
 /// models that might "forget" to use the structured API, and drops half-finished
 /// tool cycles while serializing so a bisected transcript cannot trip the
 /// provider's 400 (TAURI-RUST-7) — see
-/// [`pair_tool_cycles`](tinyagents_harness::tool_calling::dialect::pair_tool_cycles).
+/// [`pair_tool_cycles`](tinytools_agent::dialect::pair_tool_cycles).
 pub struct NativeToolDispatcher;
 
 impl ToolDispatcher for NativeToolDispatcher {

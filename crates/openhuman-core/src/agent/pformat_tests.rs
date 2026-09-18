@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::ToolResult;
+use tinytools::ToolResult;
 use async_trait::async_trait;
 
 struct StubTool(&'static str);

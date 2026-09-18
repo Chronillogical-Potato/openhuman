@@ -7,9 +7,9 @@
 //!
 //! Read-only, no side effects, no path/network access.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct RetrieveToolOutputTool;
 

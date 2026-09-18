@@ -40,13 +40,11 @@ use openhuman_core::agent::harness::session::TurnOverrides;
 use openhuman_core::agent::tinyagents::thread_context::with_thread_id;
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
-use openhuman_core::tools::{
-    PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
-};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope};
 
 // ─── Harness ────────────────────────────────────────────────────────────────
 

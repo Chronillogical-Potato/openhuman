@@ -11,10 +11,10 @@ use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMid
 use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: refuse a tool whose scope is
-/// [`ToolScope::CliRpcOnly`](crate::tools::ToolScope) inside the
+/// [`ToolScope::CliRpcOnly`](tinytools::ToolScope) inside the
 /// autonomous agent loop (issue #4249). The in-house engine ran this gate in
 /// `engine::tools`; the tinyagents path dropped it, so a CLI/RPC-only tool
 /// (e.g. phone calls) would execute from the model loop. Applies on every path
@@ -34,7 +34,7 @@ impl CliRpcOnlyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .map(|t| t.scope() == crate::tools::ToolScope::CliRpcOnly)
+            .map(|t| t.scope() == tinytools::ToolScope::CliRpcOnly)
             .unwrap_or(false)
     }
 }

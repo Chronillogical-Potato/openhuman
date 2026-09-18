@@ -25,9 +25,9 @@ use openhuman_core::web_chat::{
 };
 use openhuman_core::config::{AutonomyConfig, Config};
 use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
+use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
-    ComposioTool, GitOperationsTool, ScheduleTool, Tool, ToolCallOptions,
-};
+    ComposioTool, GitOperationsTool, ScheduleTool};
 
 #[derive(Clone, Debug)]
 struct MockRequest {
@@ -75,7 +75,7 @@ fn temp_config() -> (TempDir, Config) {
     (tmp, config)
 }
 
-fn text(result: &openhuman_core::tools::ToolResult) -> String {
+fn text(result: &tinytools::ToolResult) -> String {
     result.output()
 }
 

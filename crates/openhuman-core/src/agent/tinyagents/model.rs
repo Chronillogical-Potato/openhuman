@@ -28,7 +28,7 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
         .collect()
 }
 
-/// Build a [`PFormatRegistry`](crate::agent::pformat::PFormatRegistry)
+/// Build a [`PFormatRegistry`](tinytools_agent::PFormatRegistry)
 /// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
 ///
 /// The text-mode fallback parse needs each tool's positional parameter layout
@@ -38,14 +38,14 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
 /// otherwise), so the registry is available in both modes. Tool-less requests
 /// skip fallback parsing entirely; this empty registry is therefore consulted
 /// only alongside a non-empty advertised tool list.
-fn pformat_registry_from_request(request: &ModelRequest) -> crate::agent::pformat::PFormatRegistry {
+fn pformat_registry_from_request(request: &ModelRequest) -> tinytools_agent::PFormatRegistry {
     request
         .tools
         .iter()
         .map(|t| {
             (
                 t.name.clone(),
-                crate::agent::pformat::PFormatToolParams::from_schema(&t.parameters),
+                tinytools_agent::PFormatToolParams::from_schema(&t.parameters),
             )
         })
         .collect()
@@ -71,7 +71,7 @@ fn pformat_registry_from_request(request: &ModelRequest) -> crate::agent::pforma
 /// adapter preserves the provider-requested tool name.
 fn response_to_model_response(
     response: &ChatResponse,
-    pformat_registry: &crate::agent::pformat::PFormatRegistry,
+    pformat_registry: &tinytools_agent::PFormatRegistry,
     parse_text_tool_calls: bool,
 ) -> ModelResponse {
     let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
@@ -89,7 +89,7 @@ fn response_to_model_response(
     } else if parse_text_tool_calls {
         let text = response.text.as_deref().unwrap_or_default();
         let (prose, parsed) =
-            crate::agent::harness::parse_tool_calls_with_pformat(text, pformat_registry);
+            tinytools_agent::parse_tool_calls_with_pformat(text, pformat_registry);
         if parsed.is_empty() {
             (text.to_string(), Vec::new())
         } else {
@@ -167,7 +167,7 @@ fn response_to_model_response(
 pub(crate) fn native_model_response(response: &ChatResponse) -> ModelResponse {
     response_to_model_response(
         response,
-        &crate::agent::pformat::PFormatRegistry::default(),
+        &tinytools_agent::PFormatRegistry::default(),
         false,
     )
 }

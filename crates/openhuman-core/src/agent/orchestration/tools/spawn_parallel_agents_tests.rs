@@ -1,5 +1,4 @@
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::dispatcher::NativeToolDispatcher;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::definition::{
@@ -11,11 +10,10 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     prepare_spawn_parallel_tasks_from_defs, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
     WorkerDispatchMode,
 };
+use crate::agent::prompts::ToolCallFormat;
 use crate::agent::Agent;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::traits::ToolTimeout;
-use crate::tools::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
@@ -27,6 +25,8 @@ use std::sync::{
 use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolTimeout;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";

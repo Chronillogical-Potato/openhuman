@@ -224,7 +224,7 @@ impl Tool for SpawnSubagentTool {
             // unreachable, …) so offline behaviour is unchanged.
             let parent_ctx = current_parent();
             let live_integrations: Vec<
-                crate::agent::context::prompt::ConnectedIntegration,
+                crate::agent::prompts::ConnectedIntegration,
             > = {
                 match crate::config::Config::load_or_init().await {
                     Ok(config) => {
@@ -273,7 +273,7 @@ impl Tool for SpawnSubagentTool {
                     }
                 }
             };
-            let allowlist: Vec<&crate::agent::context::prompt::ConnectedIntegration> =
+            let allowlist: Vec<&crate::agent::prompts::ConnectedIntegration> =
                 live_integrations.iter().collect();
             let connected_slugs: Vec<String> = allowlist
                 .iter()

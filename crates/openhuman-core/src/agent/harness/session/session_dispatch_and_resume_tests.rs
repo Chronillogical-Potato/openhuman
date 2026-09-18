@@ -520,14 +520,14 @@ impl Tool for NamedTool {
     }
 
     /// Returns a fixed success; dispatch itself is not under test here.
-    async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("durable"))
+    async fn execute(&self, _args: serde_json::Value) -> Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("durable"))
     }
 }
 
 /// A connected Composio toolkit with the given slug, for driving refreshes.
-fn connected(slug: &str) -> crate::agent::context::prompt::ConnectedIntegration {
-    crate::agent::context::prompt::ConnectedIntegration {
+fn connected(slug: &str) -> crate::agent::prompts::ConnectedIntegration {
+    crate::agent::prompts::ConnectedIntegration {
         toolkit: slug.into(),
         description: slug.into(),
         tools: vec![],
@@ -641,7 +641,7 @@ fn a_durable_tool_owning_a_delegate_name_wins_everywhere_across_refreshes() {
                 .any(|tool| tool.name() == DELEGATE),
             "the colliding delegate must not be synthesised beside the durable tool"
         );
-        let specs: Vec<&std::sync::Arc<crate::tools::ToolSpec>> = agent
+        let specs: Vec<&std::sync::Arc<tinytools::ToolSpec>> = agent
             .tool_specs()
             .iter()
             .filter(|spec| spec.name == DELEGATE)

@@ -2,7 +2,7 @@ use super::*;
 use std::collections::HashMap;
 
 use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// `skill_registry_search` with a chosen permission level.
 struct PackedFake(PermissionLevel);

@@ -62,7 +62,7 @@ fn set_connected_integrations_marks_session_initialized_and_updates_hash() {
         "fresh builder-built agents should start with placeholder integration state"
     );
 
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],
@@ -87,7 +87,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
 
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],
@@ -106,7 +106,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
     // Simulate an in-flight turn holding a shared Arc clone.
     let _shared_tools = agent.tools_arc();
     agent.set_connected_integrations(vec![
-        crate::agent::context::prompt::ConnectedIntegration {
+        crate::agent::prompts::ConnectedIntegration {
             toolkit: "gmail".into(),
             description: "Email".into(),
             tools: vec![],
@@ -115,7 +115,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             connections: Vec::new(),
             non_active_status: None,
         },
-        crate::agent::context::prompt::ConnectedIntegration {
+        crate::agent::prompts::ConnectedIntegration {
             toolkit: "notion".into(),
             description: "Docs".into(),
             tools: vec![],
@@ -152,7 +152,7 @@ fn refresh_delegation_tools_no_duplicate_specs_across_shared_arc_connects() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
 
-    let conn = |slug: &str, desc: &str| crate::agent::context::prompt::ConnectedIntegration {
+    let conn = |slug: &str, desc: &str| crate::agent::prompts::ConnectedIntegration {
         toolkit: slug.into(),
         description: desc.into(),
         tools: vec![],
@@ -631,7 +631,7 @@ fn newly_synthesized_delegate_is_executable_while_tool_arc_is_shared() {
     // what used to break the instance reconcile.
     let _shared_tools = agent.tools_arc();
 
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],

@@ -6,7 +6,7 @@
 
 use tinyinference_llm::tool::ToolSchema;
 
-use crate::tools::ToolSpec;
+use tinytools::ToolSpec;
 
 pub(crate) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
     ToolSchema::new(

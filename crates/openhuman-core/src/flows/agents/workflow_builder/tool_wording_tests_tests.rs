@@ -5,7 +5,7 @@
 #[test]
 fn list_agent_profiles_tool_description_has_no_stale_followup_language() {
     use crate::flows::builder_tools::ListAgentProfilesTool;
-    use crate::tools::traits::Tool;
+    use tinytools::Tool;
 
     let description = ListAgentProfilesTool::new().description().to_string();
 

@@ -14,7 +14,7 @@ use tinyinference_llm::tool::ToolCall as TaToolCall;
 use crate::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: route OpenHuman's human-in-the-loop **approval gate** through a
 /// named tinyagents tool middleware (issue #4249, Phase 1). A tool with an

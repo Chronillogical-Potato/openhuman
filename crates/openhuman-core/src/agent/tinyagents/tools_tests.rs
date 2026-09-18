@@ -1,13 +1,13 @@
 use super::*;
-use crate::tools::traits::ToolTimeout;
-use crate::tools::ToolResult as OhToolResult;
+use tinytools::ToolResult as OhToolResult;
+use tinytools::ToolTimeout;
 
 /// A tool whose `execute_with_options` sleeps forever but declares a short
 /// per-call timeout, so the adapter's deadline must fire.
 struct HangingTool;
 
 #[async_trait]
-impl crate::tools::Tool for HangingTool {
+impl tinytools::Tool for HangingTool {
     fn name(&self) -> &str {
         "hang"
     }
@@ -30,7 +30,7 @@ impl crate::tools::Tool for HangingTool {
 struct EchoTool;
 
 #[async_trait]
-impl crate::tools::Tool for EchoTool {
+impl tinytools::Tool for EchoTool {
     fn name(&self) -> &str {
         "echo"
     }

@@ -77,7 +77,7 @@ use openhuman_core::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };
 use openhuman_core::config::{Config, IMessageConfig, WebhookConfig};
-use openhuman_core::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::agent::prompts::ConnectedIntegration;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
@@ -100,16 +100,15 @@ use openhuman_core::tools::generated::{
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
 use openhuman_core::tools::orchestrator_tools::collect_orchestrator_tools;
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolCategory, ToolCallOptions};
 use openhuman_core::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     default_tools, ApplyPatchTool, BrowserTool, CleaningStrategy,
     ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
     EditFileTool, FileReadTool, FileWriteTool, GitbooksGetPageTool, GitbooksSearchTool, GlobTool,
     GrepTool, InsertSqlRecordTool, ListFilesTool, LspTool, NodeExecTool, NpmExecTool,
-    PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, RunTestsTool,
-    SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
-    UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool,
-};
+    PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, RunTestsTool,
+    SchemaCleanr, ToolPolicy, UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool};
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
 
@@ -329,7 +328,7 @@ fn coverage_connected_integration(
 struct DefaultPathTool;
 
 #[async_trait]
-impl openhuman_core::tools::Tool for DefaultPathTool {
+impl tinytools::Tool for DefaultPathTool {
     fn name(&self) -> &str {
         "default_path_tool"
     }
@@ -1571,7 +1570,7 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(!default_tool.is_concurrency_safe(&json!({})));
     assert!(!default_tool.external_effect());
     assert!(!default_tool.external_effect_with_args(&json!({})));
-    assert!(openhuman_core::tools::traits::generated_runtime_context(
+    assert!(openhuman_core::tools::host_extensions::generated_runtime_context(
         &default_tool,
         &json!({})
     )

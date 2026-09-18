@@ -2,9 +2,9 @@ use crate::memory::api::chunks::SourceKind;
 use crate::memory::api::provider::{CoverWindowQuery, MemoryProvider};
 use crate::memory::ops::guard::active_memory_guard;
 use crate::memory::tree::retrieval::rpc::CoverWindowRequest;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolResult};
 
 /// Agent-facing wrapper for the windowed minimum-cover retrieval. Returns the
 /// smallest set of nodes (summaries + raw chunks) covering all memory in

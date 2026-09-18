@@ -12,10 +12,10 @@
 
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::integrations::task_sources::TASK_SOURCES_THREAD_ID;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct UpdateTaskTool;
 

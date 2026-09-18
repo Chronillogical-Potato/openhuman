@@ -1,6 +1,6 @@
 use super::{expand_enabled_tool_names, filter_tools_by_user_preference};
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
+use tinytools::{Tool, ToolResult};
 
 #[test]
 fn expands_legacy_ui_toggle_ids_to_rust_tool_names() {

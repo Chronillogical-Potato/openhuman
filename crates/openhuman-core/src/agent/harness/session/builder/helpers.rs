@@ -23,9 +23,9 @@ use crate::memory::tool_memory::{tool_memory_store, ToolMemoryRule};
 use crate::memory::Memory;
 use std::sync::Arc;
 
-use crate::agent::context::prompt::SystemPromptBuilder;
-use crate::tools::traits::Tool;
+use crate::agent::prompts::SystemPromptBuilder;
 use std::collections::HashSet;
+use tinytools::Tool;
 
 /// Binds this session's memory subtree once and hands back the two handles
 /// the factory takes from it: the raw provider the archivist writes through,

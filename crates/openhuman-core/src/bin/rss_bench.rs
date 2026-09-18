@@ -33,7 +33,8 @@ use openhuman_core::platform::proc_metrics::{
     self, BenchReport, ProcSample, RosterResult, REPORT_SCHEMA_VERSION, RSS_BUDGET_KIB,
     RSS_HARD_CAP_KIB,
 };
-use openhuman_core::tools::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
+
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;

@@ -56,11 +56,11 @@ use crate::agent::progress::AgentProgress;
 #[cfg(test)]
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 #[cfg(test)]
-use crate::tools::Tool;
-#[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use tinytools::Tool;
 #[cfg(test)]
 use worker_mirror::{mirror_worker_thread, mirror_worker_thread_from_history};
 

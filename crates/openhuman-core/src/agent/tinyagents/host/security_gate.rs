@@ -91,7 +91,7 @@ use crate::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 use crate::tools::agent_policy::{ToolPolicyAction, ToolPolicySession};
-use crate::tools::{PermissionLevel, Tool};
+use tinytools::{PermissionLevel, Tool};
 
 /// The tool name whose arguments carry a shell command string.
 ///

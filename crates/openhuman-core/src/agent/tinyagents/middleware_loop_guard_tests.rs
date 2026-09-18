@@ -254,7 +254,7 @@ async fn halt_on_missing_connection_asks_the_user_instead_of_reporting_back() {
 
 #[tokio::test]
 async fn repeated_tool_failure_nudges_change_of_strategy_before_the_halt() {
-    use crate::agent::tinyagents::orchestration::{openhuman_steering_handle, SteeringRunClass};
+    use crate::agent::tinyagents::host::steering::{openhuman_steering_handle, SteeringRunClass};
     use tinyagents_harness::steering::SteeringCommandKind;
 
     // #4089: before the same-strategy retry cap, the breaker must feed a

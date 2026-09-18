@@ -89,7 +89,7 @@ fn ranking_is_stable_across_identical_queries() {
 struct ExposureTestTool {
     name: &'static str,
     description: &'static str,
-    exposure: crate::tools::ToolExposure,
+    exposure: tinytools::ToolExposure,
 }
 
 #[async_trait::async_trait]
@@ -106,7 +106,7 @@ impl Tool for ExposureTestTool {
         json!({"type": "object"})
     }
 
-    fn exposure(&self) -> crate::tools::ToolExposure {
+    fn exposure(&self) -> tinytools::ToolExposure {
         self.exposure
     }
 
@@ -121,7 +121,7 @@ impl Tool for ExposureTestTool {
 /// Stripping without the index would make every deferred tool unreachable.
 #[test]
 fn a_deferred_tool_leaves_the_wire_and_is_found_by_tool_search() {
-    use crate::tools::ToolExposure;
+    use tinytools::ToolExposure;
     let tools: Vec<Box<dyn Tool>> = vec![
         Box::new(ToolSearchTool::new()),
         Box::new(ExposureTestTool {

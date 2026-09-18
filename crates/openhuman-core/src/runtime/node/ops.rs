@@ -7,7 +7,8 @@ use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::runtime::node::types::{ExecuteToolOutcome, RuntimeToolSummary};
 use crate::security::{CommandClass, SecurityPolicy};
-use crate::tools::{self, PermissionLevel, Tool, ToolCallOptions, ToolScope};
+use crate::tools;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolScope};
 use tracing::{debug, trace};
 
 fn tool_scope_label(scope: ToolScope) -> &'static str {

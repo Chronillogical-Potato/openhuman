@@ -84,7 +84,7 @@ fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
         on_progress: None,
         run_queue: None,
         agent_config: crate::config::AgentConfig::default(),
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::Native,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
     }
 }
 

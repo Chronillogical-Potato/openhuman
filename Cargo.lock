@@ -4150,6 +4150,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.20",
+ "tinyagents-definition",
  "tinyagents-graph",
  "tinyagents-harness",
  "tinyagents-language",
@@ -4182,6 +4183,7 @@ dependencies = [
  "tinyruntime-bus",
  "tinyskills",
  "tinytools",
+ "tinytools-agent",
  "tinyvoice-bus",
  "tinywallet",
  "tinywallet-bus",
@@ -6439,9 +6441,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyagents-definition"
+version = "2.1.2"
+dependencies = [
+ "async-trait",
+ "serde",
+]
+
+[[package]]
 name = "tinyagents-graph"
 version = "2.1.2"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "futures",
@@ -6479,6 +6490,7 @@ dependencies = [
  "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.20",
+ "tinyagents-definition",
  "tinyagents-tracing",
  "tinyinference-embeddings",
  "tinyinference-llm",
@@ -6502,8 +6514,10 @@ dependencies = [
 name = "tinyagents-registry"
 version = "2.1.2"
 dependencies = [
+ "anyhow",
  "serde",
  "serde_json",
+ "tinyagents-definition",
  "tinyagents-graph",
  "tinyagents-harness",
  "tinyagents-language",

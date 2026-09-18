@@ -11,7 +11,7 @@ use openhuman_core::agent::harness::{
 };
 use openhuman_core::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
@@ -20,7 +20,8 @@ use openhuman_core::memory::api::provider::MemoryProvider;
 // `archivist_tests.rs`: production writes through the provider, the proof that
 // a row landed reads the store directly.
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde_json::json;

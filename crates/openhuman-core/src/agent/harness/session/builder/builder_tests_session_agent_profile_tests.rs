@@ -460,8 +460,8 @@ async fn build_session_agent_profile_less_uses_shared_memory_subtree() {
 async fn build_session_agent_injects_profile_soul_into_prompt() {
     // Building a session agent constructs a memory store, which reaches
     // the embedding seam; before the extraction this needed no setup.
-    use crate::agent::context::prompt::LearnedContextData;
     use crate::agent::harness::session::types::Agent;
+    use crate::agent::prompts::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -503,8 +503,8 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
 async fn build_session_agent_uses_profile_memory_instead_of_root_memory() {
     // Building a session agent constructs a memory store, which reaches
     // the embedding seam; before the extraction this needed no setup.
-    use crate::agent::context::prompt::LearnedContextData;
     use crate::agent::harness::session::types::Agent;
+    use crate::agent::prompts::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -561,9 +561,9 @@ async fn build_session_agent_uses_profile_memory_instead_of_root_memory() {
 /// it already supplied `builtin_def("orchestrator")`.
 #[tokio::test]
 async fn memory_access_instruction_is_present_with_learning_disabled() {
-    use crate::agent::context::prompt::LearnedContextData;
     use crate::agent::harness::session::types::Agent;
     use crate::agent::learning::MEMORY_ACCESS_INSTRUCTION;
+    use crate::agent::prompts::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = test_config(&tmp);

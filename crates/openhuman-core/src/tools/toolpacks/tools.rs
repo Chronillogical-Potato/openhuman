@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::registry;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolSpec};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolSpec};
 
 pub const USE_SKILL: &str = "use_skill";
 
@@ -490,13 +490,13 @@ impl Tool for UseSkillTool {
         }
     }
 
-    fn timeout_policy(&self, args: &Value) -> crate::tools::traits::ToolTimeout {
+    fn timeout_policy(&self, args: &Value) -> tinytools::ToolTimeout {
         match self.resolve(args) {
             Some((tools, idx)) => {
                 let inner_args = args.get("args").cloned().unwrap_or_else(|| json!({}));
                 tools[idx].timeout_policy(&inner_args)
             }
-            None => crate::tools::traits::ToolTimeout::Inherit,
+            None => tinytools::ToolTimeout::Inherit,
         }
     }
 

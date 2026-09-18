@@ -7,10 +7,10 @@
 //! renderer.
 
 use crate::skills::Workflow;
-use crate::tools::Tool;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::path::Path;
+use tinytools::Tool;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

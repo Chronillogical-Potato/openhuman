@@ -8,7 +8,8 @@ use openhuman_core::agent::context::session_memory::SessionMemoryConfig;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolContent};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::VecDeque;

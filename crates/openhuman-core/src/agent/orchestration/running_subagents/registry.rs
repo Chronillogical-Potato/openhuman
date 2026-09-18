@@ -27,7 +27,8 @@ use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 use crate::agent::harness::run_queue::RunQueue;
-use crate::agent::tinyagents::orchestration::{shared_steering_registry, DetachedTaskRegistry};
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
+use tinyagents_graph::orchestration::DetachedTaskRegistry;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::CancellationToken;
 

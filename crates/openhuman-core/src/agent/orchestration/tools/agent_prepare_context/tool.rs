@@ -5,10 +5,10 @@
 use std::fmt::Write as _;
 
 use crate::agent::harness::fork_context::{current_agent_context_prepared_sources, current_parent};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 use super::scout_run::{
     already_prepared_context_bundle, run_context_scout_with_catalog_and_workspace,
@@ -51,12 +51,12 @@ impl AgentPrepareContextTool {
             return String::new();
         };
         let visible = &parent.visible_tool_names;
-        let specs: &[std::sync::Arc<crate::tools::ToolSpec>] =
-            if parent.visible_tool_specs.is_empty() {
-                &parent.all_tool_specs
-            } else {
-                &parent.visible_tool_specs
-            };
+        let specs: &[std::sync::Arc<tinytools::ToolSpec>] = if parent.visible_tool_specs.is_empty()
+        {
+            &parent.all_tool_specs
+        } else {
+            &parent.visible_tool_specs
+        };
         let mut out = String::with_capacity(2048);
         for spec in specs.iter() {
             if spec.name == "agent_prepare_context" {

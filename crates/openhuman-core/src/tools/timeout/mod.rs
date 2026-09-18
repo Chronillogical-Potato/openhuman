@@ -167,8 +167,8 @@ const TOOL_TIMEOUT_GRACE_SECS: u64 = 5;
 ///
 /// Moved out of the retired legacy `engine::tools` module during the tinyagents
 /// migration (issue #4249); it lives here next to the timeout constants it uses.
-pub fn resolve_tool_deadline(policy: crate::tools::traits::ToolTimeout) -> (Option<Duration>, u64) {
-    use crate::tools::traits::ToolTimeout;
+pub fn resolve_tool_deadline(policy: tinytools::ToolTimeout) -> (Option<Duration>, u64) {
+    use tinytools::ToolTimeout;
     match policy {
         ToolTimeout::Inherit => {
             let s = tool_execution_timeout_secs();

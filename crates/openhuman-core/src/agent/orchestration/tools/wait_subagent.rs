@@ -11,9 +11,9 @@ use crate::agent::harness::fork_context::current_parent;
 use crate::agent::orchestration::running_subagents::{
     self, SubagentStatus, WaitError, WaitOutcome,
 };
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
 /// Ceiling on a single wait. Matches Codex's `wait_agent` maximum of one hour:

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::flows::ops;
 use crate::flows::ops::validate_and_migrate_graph;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // revise_workflow — iterative refine of an existing draft (proposal only)

@@ -11,8 +11,6 @@ use crate::agent::tool_policy::{
 };
 use crate::inference::provider::{ChatResponse, UsageInfo};
 use crate::memory::Memory;
-use crate::tools::ToolResult;
-use crate::tools::{PermissionLevel, Tool};
 use async_trait::async_trait;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -21,6 +19,8 @@ use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools::ToolResult;
+use tinytools::{PermissionLevel, Tool};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::Notify;
 use tokio::time::{timeout, Duration};

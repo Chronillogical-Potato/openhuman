@@ -6,16 +6,17 @@
 //!   agent and synthesise its delegation tool surface.
 //! * [`build_visible_tool_set`] — union of named tools + extra (delegation) tools.
 
-use crate::agent::context::prompt::ConnectedIntegration;
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, ToolScope};
+use crate::agent::prompts::ConnectedIntegration;
 use crate::config::Config;
 use crate::integrations::composio::{
     cached_active_integrations_including_expired, fetch_connected_integrations_status,
     FetchConnectedIntegrationsStatus,
 };
-use crate::tools::{orchestrator_tools, Tool};
+use crate::tools::orchestrator_tools;
 use std::collections::HashSet;
 use std::time::Duration;
+use tinytools::Tool;
 
 /// Per-turn scoping fields derived from the active agent definition.
 ///

@@ -6,7 +6,7 @@ use tinyhosts::{Bundle, DatabaseKind, DatabaseSpec, EnvVar, Launch, LaunchPlan, 
 
 use super::{env_value, required_str};
 use crate::hosting::{resolve_in_workspace, Account};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Renders a launch as the two sentences a model needs: where it is, and what
 /// it still has to wait for.

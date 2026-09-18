@@ -35,7 +35,7 @@ use serde_json::json;
 
 use crate::skills::runtime::{await_run_outcome, spawn_workflow_run_background_with_profile};
 use crate::skills::schemas::resolve_workspace_dir;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Tool name surfaced to the LLM's function-calling schema.
 pub const RUN_WORKFLOW_TOOL_NAME: &str = "run_workflow";

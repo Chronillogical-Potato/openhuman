@@ -10,9 +10,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::agent::context::prompt::{
-    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
-};
 use crate::agent::file_state::with_file_state_agent_id;
 use crate::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnUsage};
 use crate::agent::harness::artifact_offload::{
@@ -43,11 +40,14 @@ use crate::agent::harness::turn_dispatch_guard;
 use crate::agent::harness::{
     current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
+use crate::agent::prompts::{
+    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
+};
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::memory::api::provider::retrieval::{FastRetrieveQuery, RetrievalResponse};
 use crate::memory::source_scope::as_bus_scope;
-use crate::tools::{Tool, ToolCategory, ToolSpec};
 use tinyagents_harness::tool::SandboxMode as TinyagentsSandboxMode;
+use tinytools::{Tool, ToolCategory, ToolSpec};
 
 use tinyagents_harness::workspace::WorkspaceDescriptor;
 
@@ -864,7 +864,7 @@ async fn run_typed_mode(
     // once the OAuth handshake reaches ACTIVE/CONNECTED, so this call
     // returns the fresh list almost for free on the warm path. Fall back
     // to the parent's frozen list when the live fetch returns empty.
-    let live_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration> = {
+    let live_integrations: Vec<crate::agent::prompts::ConnectedIntegration> = {
         let signed_in = config
             .as_ref()
             .ok()
@@ -1074,7 +1074,7 @@ async fn run_typed_mode(
                         }
                     }
                 };
-                let integration = crate::agent::context::prompt::ConnectedIntegration {
+                let integration = crate::agent::prompts::ConnectedIntegration {
                     toolkit: cached_integration.toolkit.clone(),
                     description: cached_integration.description.clone(),
                     tools: fresh_actions,
@@ -1090,43 +1090,40 @@ async fn run_typed_mode(
                     &integration.tools,
                     top_k,
                 );
-                let selected: Vec<&crate::agent::context::prompt::ConnectedIntegrationTool> =
-                    if filter_hits.len() >= super::super::super::tool_filter::MIN_CONFIDENT_HITS {
-                        // The ranker's verb gate can drop every content-returning
-                        // action for a find/search prompt, so the toolkit's
-                        // essentials are reserved inside the same budget (#6033).
-                        let kept_idx = select_actions_with_essentials(
-                            tk,
-                            &integration.tools,
-                            &filter_hits,
-                            top_k,
-                        );
-                        let kept: Vec<_> =
-                            kept_idx.iter().map(|&i| &integration.tools[i]).collect();
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            kept = kept.len(),
-                            top_k = top_k,
-                            kept_actions = %kept
-                                .iter()
-                                .map(|a| a.name.as_str())
-                                .collect::<Vec<_>>()
-                                .join(","),
-                            "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
-                        );
-                        kept
-                    } else {
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            filter_hits = filter_hits.len(),
-                            "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
-                        );
-                        integration.tools.iter().collect()
-                    };
+                let selected: Vec<&crate::agent::prompts::ConnectedIntegrationTool> = if filter_hits
+                    .len()
+                    >= super::super::super::tool_filter::MIN_CONFIDENT_HITS
+                {
+                    // The ranker's verb gate can drop every content-returning
+                    // action for a find/search prompt, so the toolkit's
+                    // essentials are reserved inside the same budget (#6033).
+                    let kept_idx =
+                        select_actions_with_essentials(tk, &integration.tools, &filter_hits, top_k);
+                    let kept: Vec<_> = kept_idx.iter().map(|&i| &integration.tools[i]).collect();
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        kept = kept.len(),
+                        top_k = top_k,
+                        kept_actions = %kept
+                            .iter()
+                            .map(|a| a.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(","),
+                        "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
+                    );
+                    kept
+                } else {
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        filter_hits = filter_hits.len(),
+                        "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
+                    );
+                    integration.tools.iter().collect()
+                };
 
                 for action in selected {
                     dynamic_tools.push(Box::new(
@@ -1301,7 +1298,7 @@ async fn run_typed_mode(
         definition.omit_memory_md,
     );
 
-    let narrowed_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration> =
+    let narrowed_integrations: Vec<crate::agent::prompts::ConnectedIntegration> =
         match toolkit_filter {
             Some(tk) => live_integrations
                 .iter()
@@ -1371,7 +1368,7 @@ async fn run_typed_mode(
         tools: &prompt_tools,
         workflows: &parent.workflows,
         dispatcher_instructions: &dispatcher_instructions,
-        learned: crate::agent::context::prompt::LearnedContextData::default(),
+        learned: crate::agent::prompts::LearnedContextData::default(),
         visible_tool_names: &visible_tool_names,
         tool_call_format: prompt_tool_call_format,
         connected_integrations: &narrowed_integrations,

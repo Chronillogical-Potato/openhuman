@@ -295,7 +295,7 @@ fn expand_enabled_tool_names(enabled_tool_names: &[String]) -> HashSet<String> {
 /// available. Default-OFF opt-in gating (the ~160 overextending tools from
 /// #3050) is unchanged.
 pub(crate) fn filter_tools_by_user_preference(
-    tools: &mut Vec<Box<dyn crate::tools::Tool>>,
+    tools: &mut Vec<Box<dyn tinytools::Tool>>,
     enabled_tool_names: &[String],
 ) {
     if enabled_tool_names.is_empty() {

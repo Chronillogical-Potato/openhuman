@@ -111,7 +111,7 @@ async fn list_tools_in_direct_mode_returns_empty_without_hitting_backend() {
         .content
         .iter()
         .find_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .unwrap_or_default();
@@ -216,7 +216,7 @@ async fn list_toolkits_in_direct_mode_returns_empty_without_hitting_backend() {
         .content
         .iter()
         .find_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .unwrap_or_default();

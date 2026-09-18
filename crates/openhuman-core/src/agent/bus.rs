@@ -31,7 +31,7 @@ use crate::core::bus::BUS;
 use crate::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
-use crate::tools::Tool;
+use tinytools::Tool;
 
 use super::harness::definition::{AgentDefinitionRegistry, SandboxMode};
 use super::harness::{run_channel_turn_via_graph, with_current_sandbox_mode};

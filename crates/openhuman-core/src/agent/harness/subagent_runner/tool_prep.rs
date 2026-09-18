@@ -9,8 +9,8 @@
 
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
-use crate::agent::context::prompt::PromptContext;
-use crate::tools::Tool;
+use crate::agent::prompts::PromptContext;
+use tinytools::Tool;
 
 // ── Heavy-schema toolkit accounting ─────────────────────────────────────
 
@@ -113,7 +113,7 @@ pub(super) fn essential_actions_for_toolkit(toolkit: &str) -> &'static [&'static
 /// call site did before the essentials existed.
 pub(super) fn select_actions_with_essentials(
     toolkit: &str,
-    actions: &[crate::agent::context::prompt::ConnectedIntegrationTool],
+    actions: &[crate::agent::prompts::ConnectedIntegrationTool],
     filter_hits: &[usize],
     top_k: usize,
 ) -> Vec<usize> {
@@ -229,14 +229,14 @@ pub(crate) fn build_text_mode_tool_instructions() -> String {
 /// Its protocol block is empty because the runner appends
 /// [`build_text_mode_tool_instructions`] itself.
 pub(crate) fn subagent_prompt_protocol(
-    parent_format: crate::agent::context::prompt::ToolCallFormat,
+    parent_format: crate::agent::prompts::ToolCallFormat,
     text_mode: bool,
-) -> (crate::agent::context::prompt::ToolCallFormat, String) {
-    use crate::agent::context::prompt::ToolCallFormat;
+) -> (crate::agent::prompts::ToolCallFormat, String) {
     use crate::agent::dispatcher::{
         NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
     };
-    use crate::agent::pformat::PFormatRegistry;
+    use crate::agent::prompts::ToolCallFormat;
+    use tinytools_agent::PFormatRegistry;
     if text_mode {
         return (ToolCallFormat::PFormat, String::new());
     }

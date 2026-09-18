@@ -9,8 +9,8 @@ use serde_json::{json, Value};
 use super::helpers::{mime_for_path, readonly_autonomy_block, resolve_upload_path};
 use crate::integrations::IntegrationClient;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 
 use super::helpers::{action_dir_for_context, FILES_PATH};
 use crate::integrations::file_storage::types::UploadResponse;

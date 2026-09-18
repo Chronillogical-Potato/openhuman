@@ -1,9 +1,9 @@
 use super::*;
-use crate::tools::traits::Tool;
 use async_trait::async_trait;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::LazyLock;
+use tinytools::Tool;
 
 static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
 
@@ -41,8 +41,8 @@ impl Tool for TestTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("ok"))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
     }
 }
 

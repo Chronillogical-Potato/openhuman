@@ -3,9 +3,9 @@
 use crate::agent::harness::fork_context::current_parent;
 use crate::agent::orchestration::subagent_sessions::SubagentSessionStore;
 use crate::agent::orchestration::{running_subagents, subagent_sessions};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct CloseSubagentTool;
 

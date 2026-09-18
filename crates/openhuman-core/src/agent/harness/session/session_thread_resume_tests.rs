@@ -430,8 +430,8 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
             serde_json::json!({"type": "object"})
         }
 
-        async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("kept"))
+        async fn execute(&self, _args: serde_json::Value) -> Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("kept"))
         }
     }
 

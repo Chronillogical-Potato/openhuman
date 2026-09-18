@@ -9,7 +9,7 @@ fn superseded_synthesized_instances_are_released_when_readers_drop() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
 
-    let conn = |slug: &str, desc: &str| crate::agent::context::prompt::ConnectedIntegration {
+    let conn = |slug: &str, desc: &str| crate::agent::prompts::ConnectedIntegration {
         toolkit: slug.into(),
         description: desc.into(),
         tools: vec![],
@@ -76,7 +76,7 @@ fn an_unchanged_integration_set_leaves_the_tool_block_byte_stable() {
 
     let integrations = || {
         vec![
-            crate::agent::context::prompt::ConnectedIntegration {
+            crate::agent::prompts::ConnectedIntegration {
                 toolkit: "gmail".into(),
                 description: "Email".into(),
                 tools: vec![],
@@ -85,7 +85,7 @@ fn an_unchanged_integration_set_leaves_the_tool_block_byte_stable() {
                 connections: Vec::new(),
                 non_active_status: None,
             },
-            crate::agent::context::prompt::ConnectedIntegration {
+            crate::agent::prompts::ConnectedIntegration {
                 toolkit: "notion".into(),
                 description: "Docs".into(),
                 tools: vec![],

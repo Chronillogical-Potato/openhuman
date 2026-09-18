@@ -15,10 +15,10 @@ use crate::agent::harness::subagent_runner::{
 };
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct ContinueSubagentTool;
 

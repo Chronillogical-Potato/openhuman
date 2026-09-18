@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, render_user_files,
     ConnectedIntegration, CuratedMemoryPromptSnapshot, LearnedContextData, NamespaceSummary,
     PersonalityRosterEntry, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
@@ -18,7 +18,8 @@ use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolContent};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};

@@ -9,7 +9,7 @@ use tinyagents_harness::cache::CacheLayoutEvent;
 use tinyagents_harness::events::{AgentEvent, EventListener, EventRecord};
 
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::humanize_tool_name;
+use tinytools::humanize_tool_name;
 
 use super::event_bridge::OpenhumanEventBridge;
 

@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolExposure, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
 use super::ops::{self, BoardLocation, CardPatch, TodosSnapshot};
 

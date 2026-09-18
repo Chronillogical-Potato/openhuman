@@ -1,12 +1,12 @@
 //! Search: `ParallelSearchTool` and its response types.
 
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{Tool, ToolResult};
 pub(super) use crate::util::truncate_chars_flagged as truncate_chars;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolResult};
 
 // ── Response types ──────────────────────────────────────────────────
 

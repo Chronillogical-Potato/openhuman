@@ -450,14 +450,14 @@ impl SubagentPayloadSummarizer {
         let prompt_tools = Vec::new();
         let visible_tool_names = HashSet::new();
         let connected_identities_md = crate::agent::prompts::render_connected_identities();
-        let prompt_ctx = crate::agent::context::prompt::PromptContext {
+        let prompt_ctx = crate::agent::prompts::PromptContext {
             workspace_dir: &parent.workspace_dir,
             model_name: model,
             agent_id: &self.definition.id,
             tools: &prompt_tools,
             workflows: parent.workflows.as_slice(),
             dispatcher_instructions: "",
-            learned: crate::agent::context::prompt::LearnedContextData::default(),
+            learned: crate::agent::prompts::LearnedContextData::default(),
             visible_tool_names: &visible_tool_names,
             tool_call_format: parent.tool_call_format,
             connected_integrations: &parent.connected_integrations,

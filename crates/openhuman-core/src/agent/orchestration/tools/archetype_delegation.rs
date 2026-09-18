@@ -2,15 +2,15 @@ use async_trait::async_trait;
 use serde_json::json;
 use serde_json::Value;
 
-use crate::tools::traits::{
+use tinytools::ToolRunContext;
+use tinytools::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolExposure, ToolResult, ToolTimeout,
 };
-use tinytools::ToolRunContext;
 
 pub struct ArchetypeDelegationTool {
     pub tool_name: String,
     /// The agent this tool routes to, in the shape
-    /// [`crate::tools::traits::delegation_target`] reads back off the
+    /// [`crate::tools::host_extensions::delegation_target`] reads back off the
     /// erased host-extension slot.
     ///
     /// A newtype rather than a bare `String` because that slot is one `Any` per

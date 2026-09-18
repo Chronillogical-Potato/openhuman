@@ -10,9 +10,9 @@
 use crate::agent::tinyagents::thread_context;
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct TodoTool;
 

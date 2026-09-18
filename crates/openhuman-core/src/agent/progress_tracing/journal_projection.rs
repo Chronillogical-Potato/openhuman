@@ -239,7 +239,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             ));
             let label = format!(
                 "{} (unavailable)",
-                crate::tools::traits::humanize_tool_name(requested_name)
+                tinytools::humanize_tool_name(requested_name)
             );
             let detail = Some("tool not available".to_string());
             match state.active_subagent() {

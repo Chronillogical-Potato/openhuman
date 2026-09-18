@@ -10,7 +10,7 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
 use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `before_tool`: repair a tool call's arguments *before* the harness runs its
 /// fatal pre-execution schema gate (issues #4249 / #4451). A model can emit

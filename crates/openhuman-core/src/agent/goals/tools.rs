@@ -20,7 +20,7 @@ use serde_json::json;
 use super::store;
 use super::ThreadGoal;
 use crate::agent::tinyagents::thread_context::current_thread_id;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Render a goal as a compact, model-readable block.
 fn render_goal(goal: &ThreadGoal) -> String {

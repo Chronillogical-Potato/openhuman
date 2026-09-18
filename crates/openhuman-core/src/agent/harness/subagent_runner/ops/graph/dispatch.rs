@@ -12,8 +12,8 @@ use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-use crate::tools::{Tool, ToolSpec};
 use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::{Tool, ToolSpec};
 
 use super::transcript::persist_subagent_transcript;
 use super::worker_mirror::mirror_worker_thread;

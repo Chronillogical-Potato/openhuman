@@ -1,6 +1,7 @@
 pub mod agent_policy;
 mod capability;
 pub mod generated;
+pub mod host_extensions;
 pub mod ops;
 pub mod orchestrator_tools;
 pub mod policy;
@@ -10,7 +11,6 @@ mod schemas;
 pub mod status;
 pub mod timeout;
 pub mod toolpacks;
-pub mod traits;
 pub(crate) mod user_filter;
 
 #[path = "impl/mod.rs"]
@@ -68,9 +68,5 @@ pub use schema::{CleaningStrategy, SchemaCleanr};
 pub use schemas::{
     all_controller_schemas as all_tools_controller_schemas,
     all_registered_controllers as all_tools_registered_controllers,
-};
-pub use traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolContent, ToolExposure, ToolResult,
-    ToolScope, ToolSpec,
 };
 pub(crate) use user_filter::filter_tools_by_user_preference;

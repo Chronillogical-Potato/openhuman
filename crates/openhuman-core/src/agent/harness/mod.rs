@@ -30,11 +30,9 @@ pub mod definition;
 pub(crate) mod definition_loader;
 pub mod fork_context;
 pub(crate) mod graph;
-mod instructions;
 pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 pub(crate) mod memory_protocol;
-pub(crate) mod parse;
 pub(crate) mod required_output;
 pub mod run_queue;
 pub mod sandbox_context;
@@ -67,15 +65,12 @@ pub use task_recency_context::{current_task_recency_window, with_task_recency_wi
 pub use turn_subagent_usage::{LastTurnUsage, SubagentUsageEntry};
 
 pub(crate) use graph::run_channel_turn_via_graph;
-#[cfg(feature = "channels")]
-pub(crate) use instructions::build_tool_instructions_filtered;
-pub(crate) use parse::parse_tool_calls_with_pformat;
-// No `parse_tool_calls` re-export: the dispatcher reaches the bare text parser
-// through `tinyagents`' dialect layer now, and the tests that still use it name
-// `parse::parse_tool_calls` directly.
 
 #[cfg(test)]
 mod harness_gap_tests;
+#[cfg(test)]
+#[path = "parse.rs"]
+mod parse_tests;
 #[cfg(test)]
 #[path = "harness_tests.rs"]
 mod tests;

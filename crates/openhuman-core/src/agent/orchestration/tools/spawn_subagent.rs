@@ -21,11 +21,11 @@ use crate::agent::progress::AgentProgress;
 use crate::memory::conversations::{
     self as conversations, ConversationMessage, CreateConversationThread,
 };
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Spawns a sub-agent of the requested type to handle a delegated task.
 ///

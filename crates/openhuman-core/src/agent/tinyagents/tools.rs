@@ -1,6 +1,6 @@
 //! `tinyagents` [`Tool`] adapter over an openhuman [`Tool`] (issue #4249).
 //!
-//! Wraps `Arc<dyn crate::tools::Tool>` so the harness agent-loop can invoke
+//! Wraps `Arc<dyn tinytools::Tool>` so the harness agent-loop can invoke
 //! the exact same tools the legacy loop runs. The harness calls `call` with a
 //! validated [`TaToolCall`] (parsed JSON arguments + correlation id); we execute
 //! the underlying tool and render the [`ToolResult`] the way the LLM should see
@@ -78,13 +78,13 @@ impl EarlyExitHook {
 /// A harness tool backed by an openhuman [`Tool`].
 #[cfg(test)]
 pub(crate) struct ToolAdapter {
-    inner: Arc<dyn crate::tools::Tool>,
+    inner: Arc<dyn tinytools::Tool>,
 }
 
 #[cfg(test)]
 impl ToolAdapter {
     /// Wrap a resolved openhuman tool.
-    pub(crate) fn new(inner: Arc<dyn crate::tools::Tool>) -> Self {
+    pub(crate) fn new(inner: Arc<dyn tinytools::Tool>) -> Self {
         Self { inner }
     }
 }
@@ -126,9 +126,9 @@ impl Tool<()> for ToolAdapter {
     }
 }
 
-pub(crate) fn tool_policy_from_openhuman_tool(tool: &dyn crate::tools::Tool) -> ToolPolicy {
-    use crate::tools::traits::ToolTimeout;
-    use crate::tools::PermissionLevel;
+pub(crate) fn tool_policy_from_openhuman_tool(tool: &dyn tinytools::Tool) -> ToolPolicy {
+    use tinytools::PermissionLevel;
+    use tinytools::ToolTimeout;
 
     let permission = tool.permission_level();
     let external_effect = tool.external_effect();
@@ -188,11 +188,11 @@ pub(crate) fn tool_policy_from_openhuman_tool(tool: &dyn crate::tools::Tool) -> 
 /// `"javascript"` label the node runtime uses for the same events).
 const TINYAGENTS_TOOL_SESSION: &str = "tinyagents";
 
-/// Execute an openhuman [`Tool`](crate::tools::Tool) for a harness
+/// Execute an openhuman [`Tool`](tinytools::Tool) for a harness
 /// [`TaToolCall`] and render the [`TaToolResult`] the way the LLM should see it
 /// (mirrors the live-path `HarnessToolExecutor`).
 pub(crate) async fn execute_openhuman_tool(
-    tool: &dyn crate::tools::Tool,
+    tool: &dyn tinytools::Tool,
     call: TaToolCall,
     context: Option<&dyn ToolRunContext>,
 ) -> TaToolResult {
@@ -231,7 +231,7 @@ pub(crate) async fn execute_openhuman_tool(
     // which the per-tool adapter does not carry; approval covers external
     // effects, and `RunPolicy::unknown_tool` recovers unregistered tool names
     // before execution reaches this adapter.
-    let options = crate::tools::ToolCallOptions {
+    let options = tinytools::ToolCallOptions {
         prefer_markdown: true,
     };
     let (deadline, timeout_secs) =
@@ -320,7 +320,7 @@ pub(crate) async fn execute_openhuman_tool(
 /// lets a route reuse the same `Arc`-shared tools the legacy loop runs without
 /// cloning them.
 pub(crate) struct SharedToolAdapter {
-    sets: Vec<Arc<Vec<Box<dyn crate::tools::Tool>>>>,
+    sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     name: String,
     description: String,
     schema: ToolSchema,
@@ -333,7 +333,7 @@ impl SharedToolAdapter {
     /// Build an adapter for the tool named `name`, locating it across `sets` to
     /// capture its advertised spec. Returns `None` when no set contains it.
     pub(crate) fn for_name(
-        sets: Vec<Arc<Vec<Box<dyn crate::tools::Tool>>>>,
+        sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
         name: &str,
     ) -> Option<Self> {
         let (spec, policy) = sets

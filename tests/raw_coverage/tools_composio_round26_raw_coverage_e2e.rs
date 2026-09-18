@@ -14,7 +14,8 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 
 use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
-use openhuman_core::tools::{ComposioTool, PermissionLevel, Tool};
+use tinytools::{PermissionLevel, Tool};
+use openhuman_core::tools::{ComposioTool};
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {

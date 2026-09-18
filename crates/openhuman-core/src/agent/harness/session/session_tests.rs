@@ -11,7 +11,6 @@ use crate::agent::messages::ConversationMessage;
 use crate::core::events::DomainEvent;
 use crate::inference::provider::ChatResponse;
 use crate::memory::Memory;
-use crate::tools::Tool;
 use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -20,6 +19,7 @@ use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools::Tool;
 
 struct MockProvider {
     responses: Mutex<Vec<ChatResponse>>,
@@ -146,8 +146,8 @@ impl Tool for MockTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("tool-out"))
+    async fn execute(&self, _args: serde_json::Value) -> Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("tool-out"))
     }
 }
 

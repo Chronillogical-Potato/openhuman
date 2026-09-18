@@ -4,8 +4,8 @@ use super::*;
 async fn build_session_agent_injects_default_profile_soul_into_prompt() {
     // Building a session agent constructs a memory store, which reaches
     // the embedding seam; before the extraction this needed no setup.
-    use crate::agent::context::prompt::LearnedContextData;
     use crate::agent::harness::session::types::Agent;
+    use crate::agent::prompts::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -41,8 +41,8 @@ async fn build_session_agent_injects_default_profile_soul_into_prompt() {
 async fn build_session_agent_profile_less_prompt_has_no_personality_soul() {
     // Building a session agent constructs a memory store, which reaches
     // the embedding seam; before the extraction this needed no setup.
-    use crate::agent::context::prompt::LearnedContextData;
     use crate::agent::harness::session::types::Agent;
+    use crate::agent::prompts::LearnedContextData;
 
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);

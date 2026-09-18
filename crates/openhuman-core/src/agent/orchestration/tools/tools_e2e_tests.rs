@@ -2,13 +2,12 @@ use super::{
     ArchetypeDelegationTool, DelegationTarget, SkillDelegationTool, SpawnSubagentTool,
     SpawnWorkerThreadTool,
 };
-use crate::agent::context::prompt::{ConnectedIntegration, ToolCallFormat};
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::agent::messages::ChatMessage;
+use crate::agent::prompts::{ConnectedIntegration, ToolCallFormat};
 use crate::memory::conversations;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
@@ -16,6 +15,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::Tool;
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";

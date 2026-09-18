@@ -266,7 +266,7 @@ async fn shell_uses_workspace_descriptor_root_as_cwd() {
     let result = tool
         .execute_with_context(
             json!({"command": "pwd"}),
-            crate::tools::traits::ToolCallOptions {
+            tinytools::ToolCallOptions {
                 prefer_markdown: false,
             },
             Some(&ctx),

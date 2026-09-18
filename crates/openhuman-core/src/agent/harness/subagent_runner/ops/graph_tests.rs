@@ -1,5 +1,4 @@
 use super::*;
-use crate::tools::ToolResult;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::message::{AssistantMessage, MessageDelta};
@@ -7,6 +6,7 @@ use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolResult;
 
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {

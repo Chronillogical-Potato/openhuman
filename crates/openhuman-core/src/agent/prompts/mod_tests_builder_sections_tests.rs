@@ -438,11 +438,8 @@ fn tools_section_pformat_renders_signature_not_schema() {
                 }
             })
         }
-        async fn execute(
-            &self,
-            _args: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("ok"))
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
 
@@ -501,11 +498,8 @@ fn tools_section_renders_invalid_schema_tool_without_arguments() {
             serde_json::Value::String("not JSON schema text".to_string())
         }
 
-        async fn execute(
-            &self,
-            _args: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("ok"))
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
 

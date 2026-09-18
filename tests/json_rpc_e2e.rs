@@ -13505,8 +13505,8 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
 #[tokio::test]
 async fn memory_flavour_agent_tool_e2e_5172() {
     use openhuman_core::config::Config;
-    use openhuman_core::tools::traits::Tool;
     use openhuman_core::tools::MemoryFlavourTool;
+    use tinytools::Tool;
 
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");

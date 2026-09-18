@@ -37,7 +37,7 @@ use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::run_turn_via_tinyagents_shared;
 use crate::agent::tinyagents::TurnModelSource;
 use crate::config::{MultimodalConfig, MultimodalFileConfig};
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// Drive a channel/CLI turn on the graph engine. Returns the final assistant
 /// text. When `on_progress` is `Some`, the run streams and mirrors progress

@@ -1,9 +1,9 @@
 use super::*;
 use crate::security::{AutonomyLevel, SecurityPolicy};
-use crate::tools::traits::Tool;
 use crate::tools::FileReadTool;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::Tool;
 
 #[tokio::test]
 async fn threshold_persists_preview_and_readable_file() {

@@ -5,8 +5,8 @@ use crate::agent::harness::session::types::AgentBuilder;
 use crate::agent::harness::TriggerMemoryAgent;
 use crate::config::ContextConfig;
 use crate::memory::Memory;
-use crate::tools::Tool;
 use std::sync::Arc;
+use tinytools::Tool;
 
 impl AgentBuilder {
     /// Creates a new `AgentBuilder` with default values.
@@ -137,7 +137,7 @@ impl AgentBuilder {
     /// Sets the system prompt builder for the agent.
     pub fn prompt_builder(
         mut self,
-        prompt_builder: crate::agent::context::prompt::SystemPromptBuilder,
+        prompt_builder: crate::agent::prompts::SystemPromptBuilder,
     ) -> Self {
         self.prompt_builder = Some(prompt_builder);
         self

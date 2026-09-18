@@ -15,17 +15,17 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::{AgentConfig, Config};
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use tinyagents_session::run_ledger::{
     self, AgentTeamMemberStatus, AgentTeamMemberUpsert, AgentTeamStatus, AgentTeamTaskStatus,
     AgentTeamTaskUpsert, AgentTeamUpsert,
 };
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+use tinytools::Tool;
 
 // ── Mocks (mirror workflow_runs::engine_tests) ──────────────────────────────
 

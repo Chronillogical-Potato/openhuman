@@ -47,10 +47,10 @@ use openhuman_core::threads::ops::{
     message_append, message_update, messages_list, thread_create_new, thread_generate_title,
     thread_update_title, threads_list,
 };
+use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
     ComposioExecuteTool, ComposioListConnectionsTool, ComposioListToolkitsTool,
-    ComposioListToolsTool, Tool, ToolCallOptions,
-};
+    ComposioListToolsTool};
 
 static ROUND15_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 

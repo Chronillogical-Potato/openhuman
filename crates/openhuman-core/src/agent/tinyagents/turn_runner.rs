@@ -54,7 +54,7 @@ pub(crate) async fn run_turn_via_tinyagents(
     model: &str,
     temperature: f64,
     history: Vec<ChatMessage>,
-    resolved_tools: Vec<Arc<dyn crate::tools::Tool>>,
+    resolved_tools: Vec<Arc<dyn tinytools::Tool>>,
     max_iterations: usize,
 ) -> Result<TinyagentsTurnOutcome> {
     // `0` means "unset" → the legacy default; otherwise the harness cap would be
@@ -203,7 +203,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     provider_id: String,
     model: &str,
     history: Vec<ChatMessage>,
-    tool_sets: Vec<Arc<Vec<Box<dyn crate::tools::Tool>>>>,
+    tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,

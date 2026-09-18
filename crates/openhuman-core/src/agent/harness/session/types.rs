@@ -6,7 +6,6 @@
 //! `impl Agent`/`impl AgentBuilder` can see them without the whole
 //! crate gaining field access.
 
-use crate::agent::context::prompt::SystemPromptBuilder;
 use crate::agent::context::ContextManager;
 use crate::agent::dispatcher::ToolDispatcher;
 use crate::agent::harness::archivist::ArchivistHook;
@@ -14,13 +13,14 @@ use crate::agent::harness::definition::TriggerMemoryAgent;
 use crate::agent::hooks::PostTurnHook;
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
+use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::tinyagents::TurnModelSource;
 use crate::agent::tool_policy::ToolPolicy;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicySession;
-use crate::tools::{Tool, ToolSpec};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 /// Per-turn behaviour overrides applied to a **single** [`Agent::turn`] call.
 ///
@@ -357,7 +357,7 @@ pub struct Agent {
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own
     /// integration blocks.
-    pub(super) connected_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+    pub(super) connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     /// Whether `connected_integrations` is an authoritative session-start
     /// snapshot (prewarmed from the shared Composio cache or fetched
     /// explicitly) versus the default empty placeholder installed by

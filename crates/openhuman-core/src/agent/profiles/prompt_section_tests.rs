@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::{LearnedContextData, PromptContext, ToolCallFormat};
+use crate::agent::prompts::{LearnedContextData, PromptContext, ToolCallFormat};
 use std::collections::HashSet;
 
 #[test]

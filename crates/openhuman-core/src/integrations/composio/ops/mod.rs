@@ -98,7 +98,7 @@ pub(crate) use super::connected_integrations::cache_key;
 #[cfg(test)]
 pub(crate) use super::connected_integrations::{CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};
 #[cfg(test)]
-pub(crate) use crate::agent::context::prompt::ConnectedIntegration;
+pub(crate) use crate::agent::prompts::ConnectedIntegration;
 #[cfg(test)]
 pub(crate) use std::time::{Duration, Instant};
 

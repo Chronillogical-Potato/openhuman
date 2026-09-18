@@ -19,11 +19,11 @@ use crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore;
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::harness_context_ladder::install_context_ladder;
 use crate::agent::tinyagents::harness_tool_registration::register_turn_tools_and_agents;
+use crate::agent::tinyagents::host::steering;
 use crate::agent::tinyagents::middleware::{self, TurnContextMiddleware};
 use crate::agent::tinyagents::observability::{
     IterationCursor, ProviderUsageCarry, SubagentScope, ToolFailureMap, ToolNameMap,
 };
-use crate::agent::tinyagents::orchestration;
 use crate::agent::tinyagents::routes;
 use crate::agent::tinyagents::stop_hooks;
 use crate::agent::tinyagents::tools::EarlyExitHook;
@@ -110,7 +110,7 @@ pub(super) struct AssembledTurnHarness {
 pub(super) fn assemble_turn_harness(
     turn_models: TurnModels,
     model: &str,
-    tool_sets: Vec<Arc<Vec<Box<dyn crate::tools::Tool>>>>,
+    tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     allowed: Option<HashSet<String>>,
     max_iterations: usize,
     _on_progress: Option<Sender<AgentProgress>>,
@@ -261,11 +261,11 @@ pub(super) fn assemble_turn_harness(
     // graceful control-flow steering (Resume/Cancel/Redirect). `subagent_scope`
     // is the only run-class signal available at this steer site.
     let steering_run_class = if subagent_scope.is_some() {
-        orchestration::SteeringRunClass::Background
+        steering::SteeringRunClass::Background
     } else {
-        orchestration::SteeringRunClass::Interactive
+        steering::SteeringRunClass::Interactive
     };
-    let handle = Some(orchestration::openhuman_steering_handle(steering_run_class));
+    let handle = Some(steering::openhuman_steering_handle(steering_run_class));
 
     // Shared by the two breakers below: whichever halts writes the root cause here.
     let halt_summary: HaltSummarySlot = std::sync::Arc::new(std::sync::Mutex::new(None));

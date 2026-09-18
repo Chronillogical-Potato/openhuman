@@ -38,7 +38,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Map, Value};
 
-use crate::tools::{PermissionLevel, Tool};
+use tinytools::{PermissionLevel, Tool};
 
 /// One member of a collapsed family: the action name the model passes, and the
 /// tool that serves it.

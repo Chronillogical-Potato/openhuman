@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::security::credentials;
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
 
 macro_rules! emit {
     ($outcome:expr, $name:literal) => {{

@@ -189,7 +189,7 @@ pub(super) async fn collect_tree_root_summaries(
     memory_subdir: &str,
     per_namespace_cap: usize,
     total_cap: usize,
-) -> Vec<crate::agent::context::prompt::NamespaceSummary> {
+) -> Vec<crate::agent::prompts::NamespaceSummary> {
     let rows = if memory_subdir == "memory" {
         driver_tree_root_summaries(per_namespace_cap, total_cap).await
     } else {
@@ -201,7 +201,7 @@ pub(super) async fn collect_tree_root_summaries(
     };
     rows.into_iter()
         .map(
-            |(namespace, body, updated_at)| crate::agent::context::prompt::NamespaceSummary {
+            |(namespace, body, updated_at)| crate::agent::prompts::NamespaceSummary {
                 namespace,
                 body,
                 updated_at,
@@ -472,7 +472,7 @@ pub(crate) use super::turn_checkpoint::assistant_message_has_tool_calls;
 #[cfg(test)]
 pub(crate) use super::types::Agent;
 #[cfg(test)]
-pub(crate) use crate::agent::context::prompt::LearnedContextData;
+pub(crate) use crate::agent::prompts::LearnedContextData;
 #[cfg(test)]
 pub(crate) use anyhow::Result;
 

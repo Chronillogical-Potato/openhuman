@@ -5,9 +5,7 @@
 //! plus `ask_user_clarification` (filtered down by the harness from the
 //! `agent.toml` allowlist).
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = include_str!("prompt.md");

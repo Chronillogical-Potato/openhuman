@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
 
 use super::super::ops_discover::{
     discover_workflows_with_profile, is_workspace_trusted, profile_local_skill_ids,

@@ -24,7 +24,7 @@ use crate::agent::harness::definition::{
 };
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::worktree::BaseRef;
-use crate::tools::PermissionLevel;
+use tinytools::PermissionLevel;
 
 use super::request::ParallelAgentTask;
 

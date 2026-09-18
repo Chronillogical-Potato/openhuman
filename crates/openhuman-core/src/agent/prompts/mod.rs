@@ -1,6 +1,6 @@
 //! Bundled prompt assets and system-prompt rendering pipeline. See
 //! [`README.md`](README.md) for the section/builder model and the
-//! `agent::context::prompt` compat shim.
+//! `agent::prompts`.
 
 pub mod types;
 pub use types::*;

@@ -59,8 +59,8 @@ use openhuman_core::agent::multimodal::{
 use openhuman_core::agent::messages::{
     ChatMessage, ConversationMessage, ToolResultMessage,
 };
-use openhuman_core::agent::pformat::{
-    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
+use tinytools_agent::{
+    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_schema,
     PFormatParamType, PFormatRegistry, PFormatToolParams,
 };
 use openhuman_core::agent::prompts::{
@@ -171,7 +171,8 @@ use openhuman_core::security::SecurityPolicy;
 use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::agent::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
+use tinytools::{Tool, ToolResult, ToolSpec};
+
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
@@ -2726,9 +2727,13 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
 fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     let plan_tool: Box<dyn Tool> = Box::new(PlanExitTool::new());
     let tools: Vec<Box<dyn Tool>> = vec![plan_tool];
-    let registry = build_registry(&tools);
+    let registry = build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     assert_eq!(
-        render_signature_from_tool(tools[0].as_ref()),
+        render_signature_from_schema(tools[0].name(), &tools[0].parameters_schema()),
         "plan_exit[0|<plan>]"
     );
     assert_eq!(

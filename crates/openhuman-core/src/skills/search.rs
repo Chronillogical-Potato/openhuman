@@ -41,8 +41,8 @@ use super::ops_discover::{discover_workflows_with_profile, is_workspace_trusted}
 use super::ops_types::{Workflow, WorkflowScope};
 use super::tools::{skill_allowed, SkillAllowlist};
 use crate::config::Config;
-use crate::tools::traits::{Tool, ToolResult};
 use crate::util::bm25::Bm25Index;
+use tinytools::{Tool, ToolResult};
 
 /// How many matches a search returns when the caller does not say.
 const DEFAULT_LIMIT: usize = 5;

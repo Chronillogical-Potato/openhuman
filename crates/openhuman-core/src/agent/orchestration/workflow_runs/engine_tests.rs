@@ -24,15 +24,15 @@ use super::*;
 // The phase scheduler moved to the tinyagents-backed `graph` submodule in #4249;
 // its signature is unchanged (`drive_phases(config, run_id, definition, cancel)`).
 use super::super::graph::drive_phases;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::{AgentConfig, Config};
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use tinyagents_session::run_ledger::WorkflowRunStatus;
 use tinyagents_session::run_ledger::{get_workflow_run, upsert_workflow_run, WorkflowRunUpsert};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::Tool;
 
 use super::super::types::{WorkflowDefinition, WorkflowPhase, WorkflowSafetyTier};
 

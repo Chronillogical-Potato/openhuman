@@ -1,6 +1,6 @@
 //! Task-local carrier for a **task-recency window** so the Composio tool
 //! surface can restrict task-fetch results to "recently created/changed"
-//! without widening the [`crate::tools::Tool`] trait signature.
+//! without widening the [`tinytools::Tool`] trait signature.
 //!
 //! Sibling of [`super::sandbox_context`]: same task-local pattern, different
 //! concept. `CURRENT_AGENT_SANDBOX_MODE` carries the calling agent's sandbox

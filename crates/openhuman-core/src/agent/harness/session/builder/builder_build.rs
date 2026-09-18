@@ -4,9 +4,9 @@ use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
 use crate::agent::context::ContextManager;
 use crate::agent::harness::session::types::{Agent, AgentBuilder};
 use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{Tool, ToolSpec};
 use anyhow::Result;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 impl AgentBuilder {
     /// Validates the configuration and constructs a new `Agent` instance.
@@ -207,7 +207,7 @@ impl AgentBuilder {
 
         let prompt_builder = self
             .prompt_builder
-            .unwrap_or_else(crate::agent::context::prompt::SystemPromptBuilder::with_defaults);
+            .unwrap_or_else(crate::agent::prompts::SystemPromptBuilder::with_defaults);
 
         let model_name = self
             .model_name

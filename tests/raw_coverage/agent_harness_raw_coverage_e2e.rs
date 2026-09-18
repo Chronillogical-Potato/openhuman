@@ -9,11 +9,12 @@ use openhuman_core::agent::harness::{
 };
 use openhuman_core::agent::progress::AgentProgress;
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::tools::SpawnSubagentTool;
-use openhuman_core::tools::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::path::{Path, PathBuf};

@@ -16,10 +16,10 @@ use crate::agent::orchestration::subagent_sessions::{
 };
 use crate::agent::progress::AgentProgress;
 use crate::memory::conversations::{self as conversations, ConversationMessage};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct SpawnAsyncSubagentTool;
 

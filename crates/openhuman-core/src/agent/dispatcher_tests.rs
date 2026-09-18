@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::pformat::PFormatToolParams;
+use tinytools_agent::PFormatToolParams;
 
 #[test]
 fn xml_dispatcher_parses_tool_calls() {
@@ -220,11 +220,8 @@ fn pformat_dispatcher_instructions_are_protocol_only() {
         fn parameters_schema(&self) -> serde_json::Value {
             serde_json::json!({})
         }
-        async fn execute(
-            &self,
-            _args: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("ok"))
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(DummyTool)];

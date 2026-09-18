@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::mcp::registry::setup_ops;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

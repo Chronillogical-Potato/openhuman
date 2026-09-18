@@ -10,9 +10,9 @@
 use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::run_queue::QueueMode;
 use crate::agent::orchestration::running_subagents::{self, SteerError};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct SteerSubagentTool;
 

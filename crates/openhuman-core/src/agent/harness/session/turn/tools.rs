@@ -10,8 +10,8 @@ use std::sync::Arc;
 /// One turn's tool inputs: the durable registry, the synthesised delegation
 /// set, and the callable-name allowlist. See [`Agent::turn_tool_sets`].
 type TurnToolSets = (
-    Arc<Vec<Box<dyn crate::tools::Tool>>>,
-    Arc<Vec<Box<dyn crate::tools::Tool>>>,
+    Arc<Vec<Box<dyn tinytools::Tool>>>,
+    Arc<Vec<Box<dyn tinytools::Tool>>>,
     std::collections::HashSet<String>,
 );
 
@@ -595,7 +595,7 @@ impl Agent {
         );
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();
-        let synthed_specs: Vec<Arc<crate::tools::ToolSpec>> =
+        let synthed_specs: Vec<Arc<tinytools::ToolSpec>> =
             synthed.iter().map(|t| Arc::new(t.spec())).collect();
 
         // Skip mutation when neither the previous nor the next synthesis

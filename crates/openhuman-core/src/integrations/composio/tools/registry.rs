@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 use super::authorize::ComposioAuthorizeTool;
 use super::connect::ComposioConnectTool;

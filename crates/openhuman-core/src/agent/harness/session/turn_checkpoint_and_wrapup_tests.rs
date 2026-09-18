@@ -39,7 +39,7 @@ async fn turn_synthesizes_required_output_when_reprompt_call_fails() {
     let response = agent.turn("hello").await.expect("turn should succeed");
 
     // Deterministic fallback: a synthesized block leads, original prose kept.
-    let first_block = crate::agent::harness::parse::extract_json_values(&response)
+    let first_block = tinytools_agent::extract_json_values(&response)
         .into_iter()
         .next();
     assert!(
@@ -217,7 +217,11 @@ async fn turn_checkpoint_rejects_pformat_wrapup_without_streaming_it() {
         tool_counts: AsyncMutex::new(Vec::new()),
     });
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(EchoTool)];
-    let registry = crate::agent::pformat::build_registry(&tools);
+    let registry = tinytools_agent::build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     let mut agent = make_agent_with_builder_and_dispatcher(
         provider,
         tools,

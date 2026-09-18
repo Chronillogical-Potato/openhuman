@@ -26,12 +26,12 @@ use crate::agent::tinyagents::payload_summarizer::{
     PayloadSummarizer, SummarizeOutcome, UnavailableReason,
 };
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-use crate::tools::Tool;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::no_progress::{
     DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
 };
 use tinyinference_llm::model::ModelRequest;
+use tinytools::Tool;
 
 fn ctx() -> RunContext<()> {
     RunContext::new(RunConfig::new("mw-test"), ())
@@ -106,8 +106,8 @@ impl Tool for FakeTool {
     fn parameters_schema(&self) -> serde_json::Value {
         json!({ "type": "object" })
     }
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("ok"))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
     }
     fn max_result_size_chars(&self) -> Option<usize> {
         self.cap

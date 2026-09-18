@@ -8,7 +8,7 @@ use super::*;
 // the length gate: a too-short request never fans out.
 #[test]
 fn prefix_tier_refuses_ambiguous_and_short_slugs() {
-    use crate::agent::context::prompt::ConnectedIntegrationTool;
+    use crate::agent::prompts::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),

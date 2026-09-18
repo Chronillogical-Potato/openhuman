@@ -6,9 +6,9 @@ use super::super::types::{Agent, AgentBuilder};
 use crate::agent::messages::ConversationMessage;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{Tool, ToolSpec};
 use std::collections::HashSet;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 impl Agent {
     // ─────────────────────────────────────────────────────────────────
@@ -244,7 +244,7 @@ impl Agent {
     }
 
     /// Active Composio integrations fetched at session start.
-    pub fn connected_integrations(&self) -> &[crate::agent::context::prompt::ConnectedIntegration] {
+    pub fn connected_integrations(&self) -> &[crate::agent::prompts::ConnectedIntegration] {
         &self.connected_integrations
     }
 
@@ -267,7 +267,7 @@ impl Agent {
     /// fetch result when the agent was built outside the normal turn loop).
     pub fn set_connected_integrations(
         &mut self,
-        integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+        integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     ) {
         self.connected_integrations = integrations;
         self.connected_integrations_initialized = true;

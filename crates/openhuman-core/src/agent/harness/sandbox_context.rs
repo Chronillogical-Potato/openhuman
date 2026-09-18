@@ -1,6 +1,6 @@
 //! Task-local carrier for the **calling agent's `sandbox_mode`** so tool
 //! implementations can enforce sandbox semantics at execution time without
-//! widening the [`crate::tools::Tool`] trait signature.
+//! widening the [`tinytools::Tool`] trait signature.
 //!
 //! Sibling of the existing [`super::fork_context`] task-local but serves
 //! a different concept: `PARENT_CONTEXT` carries the *parent agent's*

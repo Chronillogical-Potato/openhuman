@@ -13,7 +13,7 @@ use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: enforce the agent's builder-configured [`ToolPolicy`] at the tool
 /// boundary (issue #4249). The in-house engine ran this check in
@@ -75,7 +75,8 @@ impl ToolPolicyMiddleware {
     fn callable_delegates_for(&self, owners: &[&str]) -> Vec<String> {
         let mut found: Vec<String> = Vec::new();
         for tool in self.tool_sets.iter().flat_map(|set| set.iter()) {
-            let Some(target) = crate::tools::traits::delegation_target(tool.as_ref()) else {
+            let Some(target) = crate::tools::host_extensions::delegation_target(tool.as_ref())
+            else {
                 continue;
             };
             if !owners.contains(&target) {
@@ -164,7 +165,7 @@ impl ToolPolicyMiddleware {
             .get("skill")
             .and_then(serde_json::Value::as_str)?;
         let tool = self.resolve_tool(&call.name)?;
-        let handle = crate::tools::traits::pack_registry_handle(tool.as_ref())?;
+        let handle = crate::tools::host_extensions::pack_registry_handle(tool.as_ref())?;
         let is_callable = |name: &str| !self.session.decision_for(name).blocks_execution();
         let route = crate::tools::toolpacks::pack(skill)
             .map(|pack| self.route_for_pack(pack))
@@ -298,7 +299,9 @@ impl ToolPolicyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .and_then(|t| crate::tools::traits::generated_runtime_context(t.as_ref(), args))
+            .and_then(|t| {
+                crate::tools::host_extensions::generated_runtime_context(t.as_ref(), args)
+            })
     }
 }
 

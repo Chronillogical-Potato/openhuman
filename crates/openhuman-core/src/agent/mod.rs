@@ -37,7 +37,6 @@ pub(crate) mod message_convert;
 pub mod messages;
 pub mod multimodal;
 pub mod orchestration;
-pub mod pformat;
 pub mod plan_review;
 /// Cross-platform shell selection shared by [`host_runtime::NativeRuntime`]
 /// and [`crate::sandbox::ops`] so all three shell-spawning sites
@@ -57,10 +56,7 @@ pub mod progress_sink;
 /// session id with user attribution (issue #3886).
 pub(crate) mod progress_tracing;
 /// Prompt plumbing — types, section builders, and
-/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder). Moved from
-/// `crate::agent::context::prompt` so prompt rendering lives next to the
-/// agents that consume it. `crate::agent::context::prompt` is retained as
-/// a thin re-export shim for now.
+/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder).
 pub mod prompts;
 pub mod registry;
 mod schemas;

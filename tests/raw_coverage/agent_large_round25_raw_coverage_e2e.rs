@@ -5,14 +5,15 @@ use openhuman_core::agent::harness::{
     ParentExecutionContext, PromptSource, SandboxMode, SubagentRunOptions, ToolScope,
 };
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     ConnectedIntegration, ConnectedIntegrationTool, ToolCallFormat,
 };
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::VecDeque;

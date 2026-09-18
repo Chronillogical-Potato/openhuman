@@ -13,10 +13,10 @@ use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::memory::conversations;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Spawns a sub-agent in a dedicated worker thread.
 pub struct SpawnWorkerThreadTool;

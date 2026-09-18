@@ -12,7 +12,7 @@
 
 use tinyagents_harness::tool::SelectableTool;
 
-use crate::agent::context::prompt::ConnectedIntegrationTool;
+use crate::agent::prompts::ConnectedIntegrationTool;
 
 pub use tinyagents_harness::tool::MIN_CONFIDENT_HITS;
 

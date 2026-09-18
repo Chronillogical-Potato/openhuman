@@ -413,6 +413,7 @@ tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness
     "sqlite",
     "multimodal",
 ] }
+tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
@@ -441,6 +442,7 @@ tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/cra
 # whole address — the same arrangement as `tinyhumans-sdk` and the `-bus`
 # crates. After cloning: `git submodule update --init --recursive vendor/`.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
 # The memory *contract* — value types, the thirteen capability families, the
 # `MemoryProvider` driver trait, and the null reference driver. A direct path
 # dependency rather than a re-export, because `tinycortex::memory` aliases back

@@ -3,11 +3,11 @@
 use super::super::turn_checkpoint::assistant_message_has_tool_calls;
 use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
-use crate::agent::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
+use crate::agent::prompts::{LearnedContextData, PromptContext, PromptTool};
 use crate::memory::MemoryCategory;
 use crate::tools::agent_policy::render_tool_policy_boundary;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 use anyhow::Result;
 
@@ -287,7 +287,7 @@ impl Agent {
         // `&[ToolSpec]`. Materialise a borrow-slice for the call: this is one
         // transient copy per system-prompt build, not a per-agent resident one,
         // and keeping it here is what lets the trait stay source-compatible.
-        let visible_specs_owned: Vec<crate::tools::ToolSpec> = self
+        let visible_specs_owned: Vec<tinytools::ToolSpec> = self
             .visible_tool_specs
             .iter()
             .map(|spec| spec.as_ref().clone())

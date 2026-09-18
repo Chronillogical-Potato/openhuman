@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 use crate::agent::tools::AskClarificationTool;
 

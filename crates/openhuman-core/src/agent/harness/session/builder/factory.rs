@@ -3,20 +3,21 @@
 
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
-use crate::agent::context::prompt::SystemPromptBuilder;
 use crate::agent::dispatcher::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
 use crate::agent::harness::session::types::Agent;
 use crate::agent::host_runtime;
+use crate::agent::prompts::SystemPromptBuilder;
 use crate::config::Config;
 use crate::inference::provider;
 use crate::memory::tool_memory::capture::ToolMemoryCaptureHook;
 use crate::memory::Memory;
 use crate::security::SecurityPolicy;
-use crate::tools::{self, Tool};
+use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
+use tinytools::Tool;
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
@@ -586,7 +587,7 @@ impl Agent {
             prompt_builder = prompt_builder
                 .insert_section_before(
                     "user_memory",
-                    Box::new(crate::agent::context::prompt::UserReflectionsSection),
+                    Box::new(crate::agent::prompts::UserReflectionsSection),
                 )
                 .add_section(Box::new(
                     crate::agent::learning::LearnedContextSection::new(memory.clone()),
@@ -838,7 +839,7 @@ impl Agent {
                         // and dispatchable for a replayed transcript or a saved
                         // skill that names it — exactly like a packed tool.
                         for t in &synthed {
-                            if t.exposure() == crate::tools::traits::ToolExposure::Hidden {
+                            if t.exposure() == tinytools::ToolExposure::Hidden {
                                 continue;
                             }
                             set.insert(t.name().to_string());
@@ -938,7 +939,7 @@ impl Agent {
             Some(set) => set,
             None => delegation_tools
                 .iter()
-                .filter(|t| t.exposure() != crate::tools::traits::ToolExposure::Hidden)
+                .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                 .map(|t| t.name().to_string())
                 .collect(),
         };
@@ -962,9 +963,7 @@ impl Agent {
                             .chain(
                                 delegation_tools
                                     .iter()
-                                    .filter(|t| {
-                                        t.exposure() != crate::tools::traits::ToolExposure::Hidden
-                                    })
+                                    .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                                     .map(|t| t.name().to_string()),
                             )
                             .filter(|name| !definition_disallows_tool(&def.disallowed_tools, name))
@@ -1055,11 +1054,11 @@ impl Agent {
         // (including orchestrator tools) so every tool gets a signature
         // entry. The registry is self-contained — it doesn't hold a
         // reference back into the tools Vec.
-        let pformat_registry = crate::agent::pformat::build_registry_from_refs(
+        let pformat_registry = tinytools_agent::build_registry(
             tools
                 .iter()
                 .chain(delegation_tools.iter())
-                .map(|t| t.as_ref()),
+                .map(|tool| (tool.name(), tool.parameters_schema())),
         );
         let dispatcher_kind =
             resolve_dispatcher_kind(&dispatcher_choice, supports_native, agent_id);

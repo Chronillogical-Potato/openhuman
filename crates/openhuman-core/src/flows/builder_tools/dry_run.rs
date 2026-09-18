@@ -9,7 +9,7 @@ use tinyflows::model::WorkflowGraph;
 use crate::config::Config;
 use crate::flows::ops;
 use crate::flows::ops::validate_and_migrate_graph;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::dry_run_diagnostics::{
     find_upstream_condition, tool_call_arg_null_entries, tool_call_error_message, CapturingObserver,

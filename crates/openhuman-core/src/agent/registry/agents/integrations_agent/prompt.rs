@@ -20,7 +20,7 @@
 //! agents stay lean and the integrations_agent-specific wording isn't a branch
 //! on `agent_id` somewhere else.
 
-use crate::agent::context::prompt::{
+use crate::agent::prompts::{
     render_safety, render_tools, render_user_files, render_workspace, ConnectedIntegration,
     PromptContext,
 };

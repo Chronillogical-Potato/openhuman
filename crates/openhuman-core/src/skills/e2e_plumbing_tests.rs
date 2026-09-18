@@ -38,10 +38,10 @@ use crate::skills::ops_types::WorkflowScope;
 use crate::skills::registry::get_workflow;
 use crate::skills::run_log;
 use crate::skills::runtime::await_run_outcome;
-use crate::tools::traits::Tool;
 use tinyinference_llm::message::AssistantMessage;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::Tool;
 
 // ── Mock LLM ─────────────────────────────────────────────────────────────
 // Minimal scripted model: pops queued ModelResponses in order. Mirrors the

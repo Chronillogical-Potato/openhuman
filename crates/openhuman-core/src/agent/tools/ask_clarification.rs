@@ -1,8 +1,8 @@
 //! Tool: ask_user_clarification — pause execution and ask the user a question.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Pauses the current execution to ask the user for clarification.
 ///

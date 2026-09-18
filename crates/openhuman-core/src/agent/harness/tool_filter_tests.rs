@@ -10,7 +10,7 @@
 //! moving up with the algorithm.
 
 use super::*;
-use crate::agent::context::prompt::ConnectedIntegrationTool;
+use crate::agent::prompts::ConnectedIntegrationTool;
 
 // ── Real-dataset integration tests ────────────────────────────────
 //

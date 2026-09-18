@@ -7,9 +7,9 @@
 
 use std::time::Duration;
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 const DEFAULT_DURATION_SECS: u64 = 5;
 const MAX_DURATION_SECS: u64 = 600;

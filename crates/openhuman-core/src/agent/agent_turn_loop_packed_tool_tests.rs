@@ -106,8 +106,8 @@ impl Tool for WritePackedTool {
         Ok(ToolResult::success("installed"))
     }
 
-    fn permission_level(&self) -> crate::tools::PermissionLevel {
-        crate::tools::PermissionLevel::Write
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::Write
     }
 }
 

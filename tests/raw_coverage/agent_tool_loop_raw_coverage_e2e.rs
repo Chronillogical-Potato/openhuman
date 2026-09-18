@@ -7,12 +7,13 @@ use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
 use openhuman_core::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::agent::{Agent, AgentBuilder};
 use openhuman_core::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::agent::context::prompt::LearnedContextData;
+use openhuman_core::agent::prompts::LearnedContextData;
 use openhuman_core::agent::messages::ChatMessage;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;

@@ -4,9 +4,7 @@
 //! sequential fetch-then-merge routine that resists a further
 //! responsibility split without changing its behavior.
 
-use crate::agent::context::prompt::{
-    ConnectedIntegration, ConnectedIntegrationTool, GatedIntegrationTool,
-};
+use crate::agent::prompts::{ConnectedIntegration, ConnectedIntegrationTool, GatedIntegrationTool};
 use crate::config::Config;
 
 use super::fetch::{connectable_toolkit_slugs, resolve_toolkit_description};
@@ -436,7 +434,7 @@ pub(super) async fn fetch_connected_integrations_uncached(
                 (Vec::new(), Vec::new())
             };
 
-        let integration_connections: Vec<crate::agent::context::prompt::IntegrationConnection> =
+        let integration_connections: Vec<crate::agent::prompts::IntegrationConnection> =
             if connected {
                 let mut conns: Vec<_> = connections
                     .iter()
@@ -457,7 +455,7 @@ pub(super) async fn fetch_connected_integrations_uncached(
                         .map(str::trim)
                         .find(|s| !s.is_empty())
                         .map(str::to_string);
-                        crate::agent::context::prompt::IntegrationConnection {
+                        crate::agent::prompts::IntegrationConnection {
                             connection_id: c.id.clone(),
                             label,
                             is_default: idx == 0,

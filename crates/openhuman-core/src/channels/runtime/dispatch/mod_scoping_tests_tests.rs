@@ -14,8 +14,8 @@ use super::*;
 use crate::agent::harness::definition::{
     AgentDefinition, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
 use async_trait::async_trait;
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 /// Minimal owned tool stub — just enough for `build_visible_tool_set`
 /// to read its `name()`.

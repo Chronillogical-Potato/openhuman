@@ -33,15 +33,17 @@ use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunOutcome,
 };
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::orchestration::{
-    shared_steering_registry, DetachedTaskRegistry, DetachedTaskRegistryError,
-    DetachedTaskWaitOutcome, OrchestrationTaskStatus, TaskId,
-};
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use tinyagents_graph::orchestration::{
+    DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome,
+    OrchestrationTaskStatus,
+};
+use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::CancellationToken;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{Duration, Instant};

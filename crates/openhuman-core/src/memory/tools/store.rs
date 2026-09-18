@@ -5,11 +5,11 @@ use crate::memory::ops::guard::active_memory_guard;
 use crate::memory::safety;
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 /// Let the agent store memories — its own brain writes
 pub struct MemoryStoreTool {

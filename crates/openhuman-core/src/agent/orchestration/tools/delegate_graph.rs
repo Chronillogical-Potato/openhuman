@@ -13,11 +13,11 @@
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::orchestration::delegation::run_subagent_delegation;
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Default reviewer-requested revision budget when the caller omits it.
 const DEFAULT_MAX_REVISIONS: usize = 2;

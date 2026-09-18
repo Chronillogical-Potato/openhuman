@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::{PermissionLevel, ToolScope};
+use tinytools::{PermissionLevel, ToolScope};
 
 fn cfg() -> Arc<Config> {
     Arc::new(Config::default())

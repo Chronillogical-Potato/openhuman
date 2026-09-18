@@ -29,7 +29,7 @@ use openhuman_core::config::rpc as config_rpc;
 use openhuman_core::config::{
     BrowserConfig, Config, HttpRequestConfig, McpAuthConfig, McpServerConfig,
 };
-use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
 };
@@ -39,9 +39,9 @@ use openhuman_core::security::credentials::{
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
 use openhuman_core::security::{AuditLogger, SecurityPolicy};
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use tinytools::{Tool, ToolResult};
 use openhuman_core::tools::{
-    all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool, Tool, ToolResult,
-};
+    all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool};
 use parking_lot::Mutex as ParkingMutex;
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};

@@ -611,7 +611,7 @@ fn nested_subagent_dispatch_runs_on_a_constrained_worker_stack() {
 // by `lazy_resolver_tolerates_near_miss_slugs`).
 #[test]
 fn repro_3152_near_miss_write_slug_resolves_uniquely() {
-    use crate::agent::context::prompt::ConnectedIntegrationTool;
+    use crate::agent::prompts::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),

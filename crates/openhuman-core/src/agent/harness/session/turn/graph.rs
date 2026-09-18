@@ -37,7 +37,7 @@ use crate::agent::tinyagents::{
     run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,
 };
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// Inputs for a single chat-turn graph dispatch. Grouped into a struct so the
 /// thin entry point stays readable (the shared seam takes 14 positional args);

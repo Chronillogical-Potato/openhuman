@@ -3,10 +3,9 @@
 //! `SteeringHandle` fast path for runs that have registered one.
 
 use crate::agent::harness::run_queue::{QueueMode, QueuedMessage};
-use crate::agent::tinyagents::orchestration::{
-    DetachedTaskRegistryError, SteeringCommand, SteeringCommandKind,
-};
+use tinyagents_graph::orchestration::DetachedTaskRegistryError;
 use tinyagents_harness::ids::TaskId;
+use tinyagents_harness::steering::{SteeringCommand, SteeringCommandKind};
 use tinyinference_llm::message::Message as TaMessage;
 
 use super::cancel::now_ms;

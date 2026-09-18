@@ -11,8 +11,8 @@ use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::thread_context::current_thread_id;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::tools::traits::ToolResult;
 use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::ToolResult;
 
 use super::tool::AgentPrepareContextTool;
 
