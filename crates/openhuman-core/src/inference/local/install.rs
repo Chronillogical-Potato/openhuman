@@ -124,7 +124,7 @@ fn build_install_command(install_dir: &Path) -> Result<tokio::process::Command, 
         // crash-resume detection in `is_ollama_installer_running` picks it
         // up on the next OpenHuman launch and waits.
         cmd.kill_on_drop(true);
-        crate::inference::local::process_util::apply_no_window(&mut cmd);
+        tinyinference::local::process::apply_no_window(&mut cmd);
         cmd.env("OPENHUMAN_OLLAMA_INSTALL_DIR", install_dir);
         cmd.args([
             "-NoProfile",

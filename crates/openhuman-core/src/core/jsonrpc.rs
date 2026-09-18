@@ -180,8 +180,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                 // query params, or pasted-through provider error text that
                 // includes tokens. `sanitize_api_error` runs the same scrub
                 // used in the SessionExpired publish path below.
-                let redacted =
-                    crate::inference::provider::ops::sanitize_api_error(&display_message);
+                let redacted = tinyinference::sanitize::sanitize_api_error(&display_message);
                 tracing::warn!(
                     method = %method,
                     elapsed_ms = ms as u64,
@@ -278,7 +277,7 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
     // the UI. Generic downstream/provider 401s must stay recoverable errors;
     // otherwise a scoped integration failure can log the user out.
     if let Err(ref msg) = result {
-        let sanitized_reason = crate::inference::provider::ops::sanitize_api_error(msg);
+        let sanitized_reason = tinyinference::sanitize::sanitize_api_error(msg);
         if is_session_expired_error(msg) {
             log::warn!(
                 "[jsonrpc] confirmed session expiry for method='{}' — publishing SessionExpired: {}",

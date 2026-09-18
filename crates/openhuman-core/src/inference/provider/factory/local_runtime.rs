@@ -2,9 +2,9 @@
 //! local-openai) as crate-native `ChatModel`s.
 
 use super::*;
-use crate::inference::provider::crate_openai;
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_session_active;
+use tinyinference::providers::openai::build_local_runtime_chat_model;
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] (issue #4727).
@@ -13,7 +13,7 @@ use crate::inference::provider::factory::access_gates::verify_session_active;
 /// [`create_chat_model_with_model_id`] to try cloud/BYOK/CLI constructors.
 ///
 /// Endpoint/auth/`num_ctx` resolution uses the shared
-/// `ollama_base_url_from_config` / `lm_studio_base_url` / profile helpers. It
+/// `ollama_base_url_from_override` / `lm_studio_base_url` / profile helpers. It
 /// runs the host access gates for custom/local providers —
 /// [`enforce_local_only_inference`] (privacy mode) +
 /// [`verify_session_active`] (session requirement) — so routing a local runtime
@@ -39,7 +39,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
     config: &Config,
     require_session: bool,
 ) -> OptionalChatModelResult {
-    use crate::inference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
+    use tinyinference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
 
     let p = provider.trim().to_string();
     let is_local = p.starts_with(OLLAMA_PROVIDER_PREFIX)
@@ -102,10 +102,12 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
             return Some(Err(empty_model_err(&p, "ollama:<model-id>")));
         }
         // Ollama exposes the OpenAI-compatible endpoint at `/v1`.
-        let base_url = crate::inference::local::ollama_base_url_from_config(config);
+        let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+            config.local_ai.base_url.as_deref(),
+        );
         let normalized = base_url.trim_end_matches('/').trim_end_matches("/v1");
         let endpoint = format!("{normalized}/v1");
-        let chat = crate_openai::make_crate_local_runtime_chat_model(
+        let chat = build_local_runtime_chat_model(
             "ollama",
             &endpoint,
             "",
@@ -122,9 +124,11 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         if model.is_empty() {
             return Some(Err(empty_model_err(&p, "lmstudio:<model-id>")));
         }
-        let endpoint = crate::inference::local::lm_studio::lm_studio_base_url(config);
+        let endpoint = tinyinference::local::lm_studio::lm_studio_base_url(
+            config.local_ai.base_url.as_deref(),
+        );
         let (api_key, auth) = keyed_auth();
-        let chat = crate_openai::make_crate_local_runtime_chat_model(
+        let chat = build_local_runtime_chat_model(
             "lmstudio",
             &endpoint,
             &api_key,
@@ -142,7 +146,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
             return Some(Err(empty_model_err(&p, "mlx:<model-id>")));
         }
         let endpoint = env_or_config_url("MLX_SERVER_URL", MLX_PROFILE.default_base_url);
-        let chat = crate_openai::make_crate_local_runtime_chat_model(
+        let chat = build_local_runtime_chat_model(
             "mlx",
             &endpoint,
             "",
@@ -161,7 +165,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         }
         let endpoint = env_or_config_url("OMLX_SERVER_URL", OMLX_PROFILE.default_base_url);
         let (api_key, auth) = keyed_auth();
-        let chat = crate_openai::make_crate_local_runtime_chat_model(
+        let chat = build_local_runtime_chat_model(
             "omlx",
             &endpoint,
             &api_key,
@@ -180,7 +184,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         }
         let endpoint = env_or_config_url("LOCAL_OPENAI_URL", LOCAL_OPENAI_PROFILE.default_base_url);
         let (api_key, auth) = keyed_auth();
-        let chat = crate_openai::make_crate_local_runtime_chat_model(
+        let chat = build_local_runtime_chat_model(
             "local-openai",
             &endpoint,
             &api_key,

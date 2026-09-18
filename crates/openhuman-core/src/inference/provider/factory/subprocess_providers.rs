@@ -26,7 +26,7 @@ pub(super) fn try_create_claude_agent_sdk_chat_model_from_string(
     };
     emit_inference_egress(role, &format!("{CLAUDE_AGENT_SDK_PREFIX}{model}"));
     let chat: Arc<dyn ChatModel<()>> = Arc::new(ClaudeAgentSdkProvider::for_model(
-        config.claude_agent_sdk.clone(),
+        (&config.claude_agent_sdk).into(),
         model.clone(),
     ));
     Some(Ok((chat, model)))

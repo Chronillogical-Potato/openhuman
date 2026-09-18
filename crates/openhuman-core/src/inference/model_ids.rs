@@ -10,7 +10,7 @@
 //! OpenHuman-managed Ollama assets.
 
 use crate::config::Config;
-use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
+use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 const VISION_MODEL_SUGGESTIONS: &[&str] =
     &["moondream:1.8b-v2-q4_K_S", "llava:7b", "gemma3:4b-it-qat"];
@@ -154,7 +154,7 @@ fn enforce_mvp_embedding_allowlist(resolved: &str) -> String {
 }
 
 pub(crate) fn effective_chat_model_id(config: &Config) -> String {
-    let provider = provider_from_config(config);
+    let provider = provider_from_name(&config.local_ai.provider);
     if provider == LocalAiProvider::LmStudio {
         let model_id = raw_chat_model_id(config);
         tracing::debug!(
@@ -290,7 +290,7 @@ pub(crate) fn effective_embedding_model_id(config: &Config) -> String {
     // exact served model instead of having it rewritten back to `bge-m3`
     // (#3920). The allowlist remains in force for the managed Ollama path
     // below, where the ids are OpenHuman-pulled assets.
-    if provider_from_config(config) == LocalAiProvider::LmStudio {
+    if provider_from_name(&config.local_ai.provider) == LocalAiProvider::LmStudio {
         if raw.is_empty() {
             // No configured id — fall back to the canonical default so the
             // memory tree still has an embedder to request, rather than

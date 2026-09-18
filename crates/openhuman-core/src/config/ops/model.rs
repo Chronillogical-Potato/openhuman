@@ -422,7 +422,7 @@ pub async fn apply_local_ai_settings(
         config.local_ai.opt_in_confirmed = v;
     }
     if let Some(provider) = update.provider {
-        config.local_ai.provider = crate::inference::local::provider::normalize_provider(&provider);
+        config.local_ai.provider = tinyinference::local::provider::normalize_provider(&provider);
     }
     if let Some(base_url) = update.base_url {
         config.local_ai.base_url = match base_url {
@@ -430,15 +430,18 @@ pub async fn apply_local_ai_settings(
             Some(base_url) if base_url.trim().is_empty() => None,
             // OMLX is an OpenAI-v1 endpoint: the `/v1` suffix is significant, so it
             // must NOT go through `validate_ollama_url` (which strips the path).
-            // `provider_from_config` maps omlx → Ollama, so guard on the slug here.
+            // `provider_from_name` maps omlx → Ollama, so guard on the slug here.
             Some(base_url)
-                if crate::inference::local::provider::normalize_provider(
+                if tinyinference::local::provider::normalize_provider(
                     &config.local_ai.provider,
                 ) != "omlx"
-                    && crate::inference::local::provider::provider_from_config(config)
-                        == crate::inference::local::provider::LocalAiProvider::Ollama =>
+                    && tinyinference::local::provider::provider_from_name(
+                        &config.local_ai.provider,
+                    ) == tinyinference::local::provider::LocalAiProvider::Ollama =>
             {
-                Some(crate::inference::local::validate_ollama_url(&base_url)?)
+                Some(tinyinference::local::ollama::validate_ollama_url(
+                    &base_url,
+                )?)
             }
             Some(base_url) => Some(base_url.trim().trim_end_matches('/').to_string()),
         };

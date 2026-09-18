@@ -206,7 +206,10 @@ pub async fn list_configured_models_from_config(
     let mut request = client.get(&models_url);
     if routing.using_oauth {
         request = request
-            .header(reqwest::header::USER_AGENT, openai_codex_user_agent())
+            .header(
+                reqwest::header::USER_AGENT,
+                openai_codex_user_agent("OpenHuman", env!("CARGO_PKG_VERSION")),
+            )
             .header(OPENAI_CODEX_ORIGINATOR_HEADER, OPENAI_CODEX_ORIGINATOR);
     }
 

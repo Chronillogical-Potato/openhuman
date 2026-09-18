@@ -53,9 +53,9 @@
 
 use crate::config::Config;
 use crate::inference::embeddings::{
-    DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS,
-    DEFAULT_OLLAMA_MODEL,
+    DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
 };
+use tinyinference::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 /// The removed provider value that must not reach the embedding factory.
 const REMOVED_PROVIDER: &str = "fastembed";

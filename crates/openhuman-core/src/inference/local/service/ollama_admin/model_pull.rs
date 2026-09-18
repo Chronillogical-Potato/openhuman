@@ -1,11 +1,11 @@
 use futures_util::StreamExt;
 
 use crate::config::Config;
-use crate::inference::local::ollama::{
-    ollama_base_url_from_config, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest,
-};
 use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
+use tinyinference::local::ollama::{
+    ollama_base_url_from_override, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest,
+};
 
 use super::super::LocalAiService;
 use super::util::interrupted_pull_settle_window_secs;
@@ -102,7 +102,7 @@ impl LocalAiService {
             ));
         }
 
-        let base_url = ollama_base_url_from_config(config);
+        let base_url = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         if self.has_model_at(&base_url, model_id).await? {
             return Ok(());
         }

@@ -228,7 +228,7 @@ fn implicit_cloud_fallback_is_claimed_only_when_the_role_has_no_route_of_its_own
 fn cloud_fallback_roles_match_the_roles_provider_for_role_actually_falls_back() {
     // `factory_tests` is a child module of `factory`, so `super` is `factory`,
     // not `provider` — reach the sibling module by its crate path.
-    use crate::inference::provider::fallback_diagnostics::role_falls_back_to_cloud;
+    use tinyinference::classification::fallback::role_falls_back_to_cloud;
     let mut config = Config::default();
     config.chat_provider = Some("ollama:gemma3:1b".to_string());
 

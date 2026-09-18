@@ -3,9 +3,9 @@
 use crate::config::Config;
 use serde::{Deserialize, Serialize};
 
-use super::local::provider::provider_from_config;
 use super::model_ids;
 use super::presets;
+use tinyinference::local::provider::provider_from_name;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalAiStatus {
@@ -44,7 +44,7 @@ pub struct LocalAiStatus {
 impl LocalAiStatus {
     pub(crate) fn disabled(config: &Config) -> Self {
         let vision_mode = presets::vision_mode_for_config(&config.local_ai);
-        let provider = provider_from_config(config);
+        let provider = provider_from_name(&config.local_ai.provider);
         Self {
             state: "disabled".to_string(),
             model_id: model_ids::effective_chat_model_id(config),

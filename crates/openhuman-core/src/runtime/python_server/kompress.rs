@@ -260,7 +260,7 @@ async fn run_step(
     cmd.kill_on_drop(true);
     // Re-provisioning can run mid-session if the venv is missing/corrupted, so
     // suppress the Windows conhost flash here too (GH-4814).
-    crate::inference::local::process_util::apply_no_window(&mut cmd);
+    tinyinference::local::process::apply_no_window(&mut cmd);
 
     let output = match tokio::time::timeout(timeout, cmd.output()).await {
         Ok(Ok(o)) => o,

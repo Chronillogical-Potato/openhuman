@@ -13,12 +13,13 @@
 //! - [`parsing`] — parsing the `/models` response envelope into
 //!   [`ModelInfo`] entries.
 
-use super::super::openai_codex::{
-    openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
-    OpenAiCodexRouting, OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_MODEL_HINTS,
-    OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
+use super::super::openai_codex::resolve_openai_codex_routing;
+use tinyinference::providers::openai::codex::{
+    openai_codex_client_version, openai_codex_user_agent, OpenAiCodexRouting,
+    OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_MODEL_HINTS, OPENAI_CODEX_ORIGINATOR,
+    OPENAI_CODEX_ORIGINATOR_HEADER,
 };
-use super::sanitize::sanitize_api_error;
+use tinyinference::sanitize::sanitize_api_error;
 
 mod catalog_listing;
 mod local_runtime;

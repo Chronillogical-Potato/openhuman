@@ -1,17 +1,17 @@
 use crate::config::Config;
-use crate::inference::local::lm_studio::lm_studio_base_url;
-use crate::inference::local::model_requirements::{
-    evaluate_context, ContextEligibility, MIN_CONTEXT_TOKENS,
-};
-use crate::inference::local::ollama::{
-    ollama_base_url_from_config, OllamaModelShow, OllamaModelTag, OllamaShowRequest,
-    OllamaShowResponse, OllamaTagsResponse,
-};
-use crate::inference::local::provider::{
-    model_discovery_api, provider_from_config, LocalAiProvider, ModelDiscoveryApi,
-};
 use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
+use tinyinference::local::lm_studio::lm_studio_base_url;
+use tinyinference::local::model_requirements::{
+    evaluate_context, ContextEligibility, MIN_CONTEXT_TOKENS,
+};
+use tinyinference::local::ollama::{
+    ollama_base_url_from_override, OllamaModelShow, OllamaModelTag, OllamaShowRequest,
+    OllamaShowResponse, OllamaTagsResponse,
+};
+use tinyinference::local::provider::{
+    model_discovery_api, provider_from_name, LocalAiProvider, ModelDiscoveryApi,
+};
 
 use super::super::LocalAiService;
 use super::health::OllamaHealthStatus;
@@ -21,14 +21,14 @@ impl LocalAiService {
     /// Run full diagnostics: check Ollama server health, list installed models,
     /// and verify expected models are present. Returns a JSON-serializable report.
     pub async fn diagnostics(&self, config: &Config) -> Result<serde_json::Value, String> {
-        if provider_from_config(config) == LocalAiProvider::LmStudio {
+        if provider_from_name(&config.local_ai.provider) == LocalAiProvider::LmStudio {
             return self.lm_studio_diagnostics(config).await;
         }
 
-        let base_url = ollama_base_url_from_config(config);
+        let base_url = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
 
         // Route OpenAI-compatible local runtimes to the `/v1/models` probe.
-        // `provider_from_config` collapses everything that is not literally
+        // `provider_from_name` collapses everything that is not literally
         // `lm_studio` onto `Ollama`, so an OMLX / `local-openai` / custom BYOK
         // endpoint on the OpenAI `/v1` surface (e.g. LM Studio at
         // `http://localhost:1234/v1`) would otherwise be probed at
@@ -460,7 +460,7 @@ impl LocalAiService {
     }
 
     async fn lm_studio_diagnostics(&self, config: &Config) -> Result<serde_json::Value, String> {
-        let base_url = lm_studio_base_url(config);
+        let base_url = lm_studio_base_url(config.local_ai.base_url.as_deref());
         let models_result = self.list_lm_studio_models(config).await;
         let (models, models_error, healthy) = match models_result {
             Ok(models) => (models, None, true),

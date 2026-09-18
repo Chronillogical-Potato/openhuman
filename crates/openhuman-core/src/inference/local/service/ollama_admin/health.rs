@@ -2,10 +2,9 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::inference::local::install::find_system_ollama_binary;
-use crate::inference::local::ollama::{ollama_base_url, ollama_base_url_from_config};
 use crate::inference::paths::{find_workspace_ollama_binary, workspace_ollama_binary};
+use tinyinference::local::ollama::{ollama_base_url, ollama_base_url_from_override};
 
-use super::super::spawn_marker;
 use super::super::LocalAiService;
 
 /// Fine-grained result of a health probe against an Ollama endpoint.
@@ -215,7 +214,9 @@ impl LocalAiService {
     /// `RunEvent::ExitRequested` and window-close paths.
     pub async fn shutdown_owned_ollama(&self, config: &Config) {
         self.kill_ollama_server().await;
-        spawn_marker::clear_marker(config);
+        tinyinference::local::spawn_marker::clear_marker_at(
+            &crate::inference::paths::ollama_spawn_marker_path(config),
+        );
     }
 
     pub(in crate::inference::local::service) fn resolve_binary_path(
@@ -295,8 +296,11 @@ impl LocalAiService {
         config: &Config,
         model: &str,
     ) -> Result<bool, String> {
-        self.has_model_at(&ollama_base_url_from_config(config), model)
-            .await
+        self.has_model_at(
+            &ollama_base_url_from_override(config.local_ai.base_url.as_deref()),
+            model,
+        )
+        .await
     }
 
     pub(in crate::inference::local::service) async fn has_model_at(
@@ -304,7 +308,7 @@ impl LocalAiService {
         base_url: &str,
         model: &str,
     ) -> Result<bool, String> {
-        use crate::inference::local::ollama::OllamaTagsResponse;
+        use tinyinference::local::ollama::OllamaTagsResponse;
         // Issue the /api/tags GET directly. We previously short-circuited via
         // ollama_healthy(), but that doubled the number of /api/tags round-trips
         // on healthy polls (one probe + one tags fetch). With three has_model()

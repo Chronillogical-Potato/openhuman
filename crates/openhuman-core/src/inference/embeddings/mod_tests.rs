@@ -5,6 +5,7 @@
 //! `embeddings` module.
 
 use super::*;
+use tinyinference::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 // ── Trait default method ─────────────────────────────────
 

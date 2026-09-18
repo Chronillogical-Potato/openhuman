@@ -1,10 +1,11 @@
 use std::path::Path;
 
 use crate::config::Config;
-use crate::inference::local::ollama::ollama_base_url_from_config;
-use crate::inference::local::process_util::apply_no_window;
+use crate::inference::paths::ollama_spawn_marker_path;
+use tinyinference::local::ollama::ollama_base_url_from_override;
+use tinyinference::local::process::apply_no_window;
+use tinyinference::local::spawn_marker::{self, OllamaSpawnMarker};
 
-use super::super::spawn_marker::{self, OllamaSpawnMarker};
 use super::super::LocalAiService;
 use super::util::kill_pid_by_id;
 
@@ -13,7 +14,7 @@ impl LocalAiService {
         &self,
         config: &Config,
     ) -> Result<(), String> {
-        let base_url = ollama_base_url_from_config(config);
+        let base_url = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         if self.ollama_healthy_at(&base_url).await {
             if self.ollama_runner_ok_at(&base_url).await {
                 return Ok(());
@@ -47,7 +48,8 @@ impl LocalAiService {
         &self,
         config: &Config,
     ) {
-        let Some(marker) = spawn_marker::read_marker(config) else {
+        let marker_path = ollama_spawn_marker_path(config);
+        let Some(marker) = spawn_marker::read_marker_at(&marker_path) else {
             return;
         };
         if !spawn_marker::pid_is_alive(marker.pid) {
@@ -55,10 +57,10 @@ impl LocalAiService {
                 "[local_ai] stale ollama spawn marker (pid={} no longer alive); clearing",
                 marker.pid
             );
-            spawn_marker::clear_marker(config);
+            spawn_marker::clear_marker_at(&marker_path);
             return;
         }
-        let base_url = ollama_base_url_from_config(config);
+        let base_url = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         if !self.ollama_healthy_at(&base_url).await {
             // PID is alive but :11434 isn't healthy — either Ollama is
             // mid-boot or the recorded PID was reused for an unrelated
@@ -79,7 +81,7 @@ impl LocalAiService {
             marker.binary_path
         );
         kill_pid_by_id(marker.pid);
-        spawn_marker::clear_marker(config);
+        spawn_marker::clear_marker_at(&marker_path);
         // Brief settle so the listener releases :11434 before we respawn.
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
@@ -89,7 +91,7 @@ impl LocalAiService {
         config: &Config,
         ollama_cmd: &Path,
     ) -> Result<(), String> {
-        let base_url = ollama_base_url_from_config(config);
+        let base_url = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         if self.ollama_healthy_at(&base_url).await {
             // A daemon is already up — adopt it. We did NOT spawn it (or any
             // prior spawn was already reclaimed in `reclaim_orphan_if_ours`),
@@ -104,7 +106,7 @@ impl LocalAiService {
         // first pass), clear it before respawning. Without this, the new
         // child would replace the field and the old one would be leaked.
         self.kill_ollama_server().await;
-        spawn_marker::clear_marker(config);
+        spawn_marker::clear_marker_at(&ollama_spawn_marker_path(config));
 
         let mut version_cmd = tokio::process::Command::new(ollama_cmd);
         version_cmd
@@ -192,12 +194,20 @@ impl LocalAiService {
                     );
                 } else {
                     let marker = OllamaSpawnMarker::new(pid, ollama_cmd);
-                    if let Err(e) = spawn_marker::write_marker(config, &marker) {
+                    let marker_path = ollama_spawn_marker_path(config);
+                    if let Err(e) = spawn_marker::write_marker_at(&marker_path, &marker) {
                         // Marker write failure is non-fatal — graceful shutdown
                         // still kills via the in-memory `Child` handle. Only
                         // crash-recovery on next launch is degraded.
                         log::warn!(
                             "[local_ai] failed to write ollama spawn marker (pid={pid}): {e}"
+                        );
+                    } else {
+                        log::debug!(
+                            "[local_ai] wrote ollama spawn marker pid={} bin={} at {}",
+                            marker.pid,
+                            marker.binary_path,
+                            marker_path.display()
                         );
                     }
                 }

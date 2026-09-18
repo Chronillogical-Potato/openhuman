@@ -1,11 +1,11 @@
 //! Triggering model downloads: everything the profile needs, or one asset.
 
 use crate::config::Config;
-use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
 use crate::inference::local::service::LocalAiService;
 use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiAssetsStatus;
+use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
     pub async fn download_all_models(&self, config: &Config) -> Result<(), String> {
@@ -14,7 +14,7 @@ impl LocalAiService {
         }
         let _guard = self.bootstrap_lock.lock().await;
 
-        if provider_from_config(config) == LocalAiProvider::LmStudio {
+        if provider_from_name(&config.local_ai.provider) == LocalAiProvider::LmStudio {
             self.ensure_lm_studio_available(config).await?;
             let mut embedding_state = None;
             if config.local_ai.preload_embedding_model {
@@ -131,7 +131,7 @@ impl LocalAiService {
         let _guard = self.bootstrap_lock.lock().await;
 
         let capability = capability.trim().to_ascii_lowercase();
-        if provider_from_config(config) == LocalAiProvider::LmStudio
+        if provider_from_name(&config.local_ai.provider) == LocalAiProvider::LmStudio
             && matches!(capability.as_str(), "chat" | "vision")
         {
             return Err(

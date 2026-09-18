@@ -4,13 +4,15 @@ use crate::config::rpc as config_rpc;
 use crate::config::Config;
 use crate::inference::local as local_runtime;
 use crate::inference::local::ops::ReactionDecision;
+use crate::inference::presets;
 use crate::inference::provider as providers;
-use crate::inference::{device, presets, sentiment, SentimentResult};
 use crate::inference::{LocalAiEmbeddingResult, LocalAiStatus};
 use crate::rpc::RpcOutcome;
 use serde_json::{json, Value};
+use tinyinference::device::detect_device_profile;
 use tinyinference::message::Message;
 use tinyinference::model::ModelRequest;
+use tinyinference::sentiment::{parse_sentiment_response, SentimentResult};
 use tracing::{debug, error, warn};
 
 const LOG_PREFIX: &str = "[inference::ops]";
@@ -240,7 +242,41 @@ pub async fn inference_analyze_sentiment(
         message_len = message.len(),
         "{LOG_PREFIX} analyze_sentiment:start"
     );
-    let result = sentiment::local_ai_analyze_sentiment(config, message).await;
+    if message.trim().is_empty() {
+        return Ok(RpcOutcome::single_log(
+            SentimentResult::neutral(),
+            "empty message — neutral sentiment",
+        ));
+    }
+
+    let service = local_runtime::global(config);
+    if service.status().state != "ready" {
+        return Ok(RpcOutcome::single_log(
+            SentimentResult::neutral(),
+            "local model not ready",
+        ));
+    }
+
+    let prompt = format!(
+        "Classify the emotion and sentiment of this user message.\n\
+         Reply with EXACTLY three words separated by spaces:\n\
+         EMOTION VALENCE CONFIDENCE\n\
+         Where EMOTION is one of: joy, sadness, anger, surprise, fear, disgust, neutral\n\
+         VALENCE is one of: positive, negative, neutral\n\
+         CONFIDENCE is a number from 0.0 to 1.0\n\n\
+         User message: {message}"
+    );
+    let result = match service.prompt(config, &prompt, Some(8), true).await {
+        Ok(raw) => parse_sentiment_response(&raw.trim().to_lowercase()),
+        Err(error) => {
+            debug!(%error, "{LOG_PREFIX} sentiment inference failed; returning neutral");
+            SentimentResult::neutral()
+        }
+    };
+    let result = Ok(RpcOutcome::single_log(
+        result,
+        "sentiment analysis completed",
+    ));
     match &result {
         Ok(outcome) => {
             debug!(valence = %outcome.value.valence, "{LOG_PREFIX} analyze_sentiment:ok")
@@ -344,7 +380,7 @@ pub async fn inference_list_models(provider_id: &str) -> Result<RpcOutcome<Value
 
 pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} device_profile:start");
-    let profile = device::detect_device_profile();
+    let profile = detect_device_profile();
     let result = Ok(RpcOutcome::single_log(
         serde_json::to_value(profile).map_err(|e| format!("serialize: {e}"))?,
         "inference device profile fetched",
@@ -360,7 +396,7 @@ pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
 /// editor, not only in the notification center. Cleared when the user updates
 /// or removes the offending key.
 pub async fn inference_provider_auth_errors() -> Result<RpcOutcome<Value>, String> {
-    let errors = crate::inference::auth_error_registry::snapshot();
+    let errors = tinyinference::auth_errors::snapshot();
     debug!(count = errors.len(), "{LOG_PREFIX} provider_auth_errors:ok");
     Ok(RpcOutcome::single_log(
         json!({ "errors": errors }),
@@ -371,7 +407,7 @@ pub async fn inference_provider_auth_errors() -> Result<RpcOutcome<Value>, Strin
 pub async fn inference_presets() -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} presets:start");
     let config = config_rpc::load_config_with_timeout().await?;
-    let device = device::detect_device_profile();
+    let device = detect_device_profile();
     let recommended = presets::recommend_tier(&device);
     let current = presets::current_tier_from_config(&config.local_ai);
     let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {

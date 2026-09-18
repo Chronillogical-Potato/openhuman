@@ -27,8 +27,8 @@ mod quota_and_credits;
 
 // Shared imports every classifier submodule reaches through `use super::*;`
 // (mirrors the pre-split `include!`-shared scope).
-use super::sanitize::sanitize_api_error;
 use crate::inference::provider::openhuman_backend_model;
+use tinyinference::sanitize::sanitize_api_error;
 
 pub use auth_failure::{
     is_backend_auth_failure, is_byo_provider_auth_failure_http,

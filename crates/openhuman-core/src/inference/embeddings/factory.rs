@@ -109,7 +109,7 @@ pub fn create_embedding_provider(
             ),
         )),
         "ollama" => {
-            let base_url = crate::inference::local::ollama_base_url();
+            let base_url = tinyinference::local::ollama::ollama_base_url();
             Ok(TinyAgentsEmbeddingProvider::boxed(
                 OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
             ))
@@ -163,7 +163,7 @@ pub fn create_embedding_provider_with_credentials(
             ),
         )),
         "ollama" => {
-            let base_url = crate::inference::local::ollama_base_url();
+            let base_url = tinyinference::local::ollama::ollama_base_url();
             Ok(TinyAgentsEmbeddingProvider::boxed(
                 OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
             ))
@@ -241,7 +241,9 @@ pub fn create_embedding_provider_with_config(
         // is honoured — the credential-store path calls `ollama_base_url()`
         // (env-only) and diverges when the setting is set (#6032).
         "ollama" => {
-            let base_url = crate::inference::local::ollama_base_url_from_config(config);
+            let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+                config.local_ai.base_url.as_deref(),
+            );
             Ok(TinyAgentsEmbeddingProvider::boxed(
                 OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
             ))

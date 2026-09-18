@@ -123,14 +123,14 @@ fn tier_context_window(model: &str) -> Option<u64> {
 /// where over-trimming a large window is worse than skipping the trim.
 pub fn context_window_for_model_with_local_fallback(
     model: &str,
-    local_kind: Option<crate::inference::local::profile::LocalProviderKind>,
+    local_kind: Option<tinyinference::local::profile::LocalProviderKind>,
 ) -> Option<u64> {
     if let Some(window) = context_window_for_model(model) {
         return Some(window);
     }
     // Fall back to the local provider profile's default context window.
     if let Some(kind) = local_kind {
-        let profile = crate::inference::local::profile::profile_for_kind(kind);
+        let profile = tinyinference::local::profile::profile_for_kind(kind);
         if let Some(default_ctx) = profile.default_context_window {
             tracing::debug!(
                 model,

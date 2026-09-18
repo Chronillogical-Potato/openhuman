@@ -143,10 +143,10 @@ fn is_local_cli_route(provider_string: &str) -> bool {
 /// errors because a local model is down. Only a concrete BYOK **cloud** route is
 /// honoured as-is. A build failure also falls back to the managed backend.
 fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
-    use crate::inference::local::profile::is_local_provider_string;
     use crate::inference::provider::factory::{
         create_chat_model_from_string_with_model_id, PROVIDER_OPENHUMAN,
     };
+    use tinyinference::local::profile::is_local_provider_string;
 
     let resolved = provider::provider_for_role("subconscious", config);
     let r = resolved.trim();

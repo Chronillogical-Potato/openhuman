@@ -5,9 +5,9 @@
 //! neutral `ChatModel` interface.
 
 use crate::config::Config;
-use crate::inference::local::lm_studio::lm_studio_base_url;
-use crate::inference::local::ollama::{ollama_base_url_from_config, redact_ollama_base_url};
-use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
+use tinyinference::local::lm_studio::lm_studio_base_url;
+use tinyinference::local::ollama::{ollama_base_url_from_override, redact_ollama_base_url};
+use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 use tinyinference::message::Message;
 use tinyinference::model::{ChatModel, ModelRequest};
 use tinyinference::providers::openai::OpenAiModel;
@@ -25,14 +25,14 @@ fn throughput(raw: Option<&serde_json::Value>, count: &str, duration: &str) -> O
     let raw = raw?;
     let count = raw.get(count)?.as_u64()?;
     let duration = raw.get(duration)?.as_u64()?;
-    crate::inference::local::ollama::ns_to_tps(count as f32, duration)
+    tinyinference::local::ollama::ns_to_tps(count as f32, duration)
 }
 
 fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
-    let provider = provider_from_config(config);
+    let provider = provider_from_name(&config.local_ai.provider);
     let model = match provider {
         LocalAiProvider::LmStudio => {
-            let base = lm_studio_base_url(config);
+            let base = lm_studio_base_url(config.local_ai.base_url.as_deref());
             tracing::debug!(
                 provider = provider.as_str(),
                 endpoint = %redact_ollama_base_url(&base),
@@ -58,7 +58,7 @@ fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
             )
         }
         LocalAiProvider::Ollama => {
-            let base = ollama_base_url_from_config(config);
+            let base = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
             tracing::debug!(
                 provider = provider.as_str(),
                 endpoint = %redact_ollama_base_url(&base),
@@ -92,7 +92,7 @@ pub(super) async fn invoke(
     // HTTP client (connection pooling, proxy config) with local-inference
     // calls as a result; there is no replacement hook upstream.
     let model = local_model(config, &model_id)?;
-    let provider = provider_from_config(config);
+    let provider = provider_from_name(&config.local_ai.provider);
     tracing::debug!(
         provider = provider.as_str(),
         model = %model_id,

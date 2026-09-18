@@ -22,26 +22,16 @@ mod schemas;
 // Re-expose inference-level modules under `local::` so that files that
 // were moved from `local_ai/` and used `super::model_ids` etc. continue
 // to compile without rewriting every callsite.
-pub use super::device;
 pub use super::model_ids;
-pub use super::parse;
 pub use super::paths;
 pub use super::presets;
-pub use super::sentiment;
 pub use super::types;
 
 pub mod install;
 pub(crate) mod install_piper;
-pub(crate) mod lm_studio;
-pub(crate) mod model_requirements;
-mod ollama;
 // `pub(crate)` so the shared `apply_no_window` helper can be reused from the
 // agent shell runtime (`agent::host_runtime`) — single source of truth for the
 // Windows `CREATE_NO_WINDOW` flag (#3727/#3728).
-pub(crate) mod process_util;
-pub mod profile;
-pub(crate) mod provider;
-pub(crate) use ollama::{ollama_base_url, ollama_base_url_from_config, validate_ollama_url};
 pub mod service;
 pub(crate) mod voice_install_common;
 

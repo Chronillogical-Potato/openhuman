@@ -18,22 +18,6 @@ pub mod cloud;
 mod factory;
 pub mod noop;
 mod provider_trait;
-pub mod rate_limit {
-    pub use tinyinference::embeddings::{
-        rate_limit as embedding_rate_limit, set_rate_limit as set_embedding_rate_limit,
-        DEFAULT_REQUESTS_PER_MINUTE as DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
-    };
-
-    pub async fn acquire_embedding_slot(base_url: &str) {
-        tinyinference::embeddings::acquire(base_url).await;
-    }
-}
-pub mod retry_after {
-    pub use tinyinference::embeddings::{
-        backoff_ms_for_attempt, parse_retry_after_ms, BASE_BACKOFF_MS, MAX_BACKOFF_MS,
-        MAX_RETRIES as MAX_429_RETRIES,
-    };
-}
 mod rpc;
 mod schemas;
 
@@ -63,9 +47,7 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
-pub use tinyinference::embeddings::{
-    DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL, DEFAULT_OLLAMA_URL,
-};
+use tinyinference::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 /// The **intended** embedding selection — `(provider, model, dimensions)`.
 ///

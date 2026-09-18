@@ -431,7 +431,7 @@ fn maybe_publish_local_session_expiry() {
 fn maybe_publish_session_expired(err: &TiError, operation: &str) {
     if let TiError::Provider(pe) = err {
         if pe.provider.as_str() == "OpenHuman" && matches!(pe.status, Some(401 | 403)) {
-            let reason = crate::inference::provider::ops::sanitize_api_error(&pe.message);
+            let reason = tinyinference::sanitize::sanitize_api_error(&pe.message);
             crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
                 source: format!(
                     "openhuman_backend_model.{}({})",
@@ -462,13 +462,13 @@ fn log_managed_dispatch_error(err: &TiError, operation: &str) {
                 pe.code,
                 pe.provider,
                 pe.retryable,
-                crate::inference::provider::ops::sanitize_api_error(&pe.message),
+                tinyinference::sanitize::sanitize_api_error(&pe.message),
             );
         }
         other => {
             log::warn!(
                 "[providers][openhuman-backend] managed {operation} failed (non-provider error): {}",
-                crate::inference::provider::ops::sanitize_api_error(&other.to_string()),
+                tinyinference::sanitize::sanitize_api_error(&other.to_string()),
             );
         }
     }

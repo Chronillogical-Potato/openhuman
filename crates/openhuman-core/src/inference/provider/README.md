@@ -19,25 +19,22 @@ domain.
   (`enforce_local_only_inference`), and managed-session (`verify_session_active`)
   gates before building a model.
 - **Models** — `OpenHumanBackendModel` + `PROVIDER_LABEL`
-  (`openhuman_backend_model.rs`), plus the OpenAI-compatible and Anthropic
-  crate-native builders (`crate_openai.rs`, `crate_anthropic.rs`).
+  (`openhuman_backend_model.rs`); OpenAI-compatible and Anthropic builders live
+  in `tinyinference::providers` and are called directly.
 - **DTOs** (`types.rs`) — `ChatRequest`, `ChatResponse`, `ProviderDelta`,
   `ToolCall`, `UsageInfo`, `AGENT_TURN_MAX_OUTPUT_TOKENS`.
-- **Error classifiers** — `billing_error::is_budget_exhausted_message`,
-  `chat_template::is_chat_template_rejection_message`,
-  `config_rejection::{is_openai_compatible_unknown_model_message,
-  is_provider_config_rejection_message}`, `error_code::{BackendErrorCode,
-  extract_backend_error_code*, backend_error_code_skips_sentry, ...}`.
+- **Error classifiers** — reusable classifiers live in
+  `tinyinference::classification`; this directory retains only OpenHuman policy.
 
 ## Transports
 
 | Transport | File | Provider-string prefix |
 | --- | --- | --- |
 | Managed OpenHuman backend | `openhuman_backend_model.rs` | `openhuman` / `cloud` (session JWT + billing metadata) |
-| OpenAI-compatible (BYOK cloud slugs, local runtimes) | `crate_openai.rs` | `<slug>:<model>`, `ollama:<model>`, `lmstudio:<model>`, `mlx:<model>`, `omlx:<model>`, `local-openai:<model>` |
-| Anthropic Messages API (prompt caching) | `crate_anthropic.rs` | `<slug>:<model>` whose endpoint is the first-party Messages API (`endpoint_is_anthropic_messages`) and native tool calling is on; other Anthropic-keyed endpoints stay on Chat Completions |
-| Codex OAuth / Responses API | `openai_codex.rs` (`pub(crate)`, routing metadata only — `OpenAiCodexRouting` applied by the `crate_openai.rs` builder) | the `openai` cloud slug once Codex OAuth tokens exist in the auth-profile store |
-| Claude Agent SDK subprocess | `claude_agent_sdk/` (`protocol.rs`, `subprocess.rs`) | `claude_agent_sdk` / `claude_agent_sdk:<model>` |
+| OpenAI-compatible (BYOK cloud slugs, local runtimes) | `tinyinference::providers::openai` | `<slug>:<model>`, `ollama:<model>`, `lmstudio:<model>`, `mlx:<model>`, `omlx:<model>`, `local-openai:<model>` |
+| Anthropic Messages API (prompt caching) | `tinyinference::providers::anthropic` | `<slug>:<model>` whose endpoint is the first-party Messages API and native tool calling is on |
+| Codex OAuth / Responses API | `openai_codex.rs` host OAuth selection plus `tinyinference::providers::openai::codex` metadata | the `openai` cloud slug once Codex OAuth tokens exist |
+| Claude Agent SDK subprocess | `tinyagents_harness::providers::claude_agent_sdk` | `claude_agent_sdk` / `claude_agent_sdk:<model>` |
 | Claude Code CLI subprocess | `claude_code/` — see its own [README](claude_code/README.md) | `claude-code:<model>` |
 
 ## Calls into
@@ -55,7 +52,7 @@ domain.
   (`factory/access_gates.rs`).
 - `crate::inference::local` — `profile::is_local_provider_string`, Ollama /
   LM Studio base-url resolution for local provider strings.
-- `crate::inference::auth_error_registry` — surfaces per-provider auth errors
+- `tinyinference::auth_errors` — surfaces per-provider auth errors
   back to the UI.
 - `crate::core::bus` (`BUS.publish`) / `crate::core::events::DomainEvent` —
   `ops/http_error/auth_failure.rs::publish_backend_session_expired` and
@@ -83,14 +80,12 @@ consumers: the agent harness (`agent/harness/session/builder/factory.rs`,
 
 ## Sub-modules
 
-- `ops/` — `sanitize` (secret scrubbing), `http_error` (HTTP error
+- `ops/` — `http_error` (HTTP error
   classification, Sentry routing, `api_error`), `models`
   (`list_configured_models`), `provider_factory` (`ProviderRuntimeOptions`,
   `list_providers`, `is_qwen_alias`-style China-provider alias helpers).
   Preserves the original `pub use ops::*` contract split out of a single `ops.rs`.
 - [`claude_code/`](claude_code/README.md) — Claude Code CLI provider.
-- `claude_agent_sdk/` — `ClaudeAgentSdkProvider` (`subprocess.rs`, configured
-  from `Config::claude_agent_sdk`; `protocol.rs` wire types).
 - `schemas.rs` — a `providers.list_models` controller that is **not**
   registered in `core/all.rs`; the live method is `inference.list_models`
   (`openhuman.providers_list_models` survives only as a legacy alias in
@@ -105,12 +100,10 @@ consumers: the agent harness (`agent/harness/session/builder/factory.rs`,
 - `ops_tests.rs`, `ops_tests_error_suppression_tests.rs`,
   `ops_tests_models_parsing_tests.rs`, `ops/http_error_tests.rs`, `ops/models_tests.rs` — error
   classification and model listing.
-- `error_classify_tests.rs`, `error_code_tests.rs`, `config_rejection_tests.rs`,
-  `billing_error_tests.rs`, `fallback_diagnostics_tests.rs` — per-classifier
-  behavior.
+- `error_classify_tests.rs` — OpenHuman-specific classifier policy; reusable
+  classifier tests live in TinyInference.
 - `claude_code/*_tests.rs` — per-file coverage of the CC provider (auth,
   auth status, driver, event mapper, input builder, stream parser, session
   store, settings, version check) plus `mod_tests.rs`.
-- `crate_openai_tests.rs`, `crate_anthropic_tests.rs`,
-  `openhuman_backend_model_tests.rs`, `openai_codex_tests.rs` — per-transport
-  model builders.
+- `openhuman_backend_model_tests.rs` — managed host transport; reusable provider
+  builder and Codex tests live in TinyInference and TinyAgents.

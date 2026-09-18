@@ -115,16 +115,17 @@ mod factory_tests;
 
 use crate::config::schema::cloud_providers::AuthStyle;
 use crate::config::Config;
-use crate::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
-use crate::inference::provider::openai_codex::{
-    openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
-    OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
-};
+use crate::inference::provider::openai_codex::resolve_openai_codex_routing;
 use crate::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::inference::provider::ProviderRuntimeOptions;
 use crate::security::credentials::AuthService;
 use std::sync::Arc;
+use tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkProvider;
 use tinyinference::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
+use tinyinference::providers::openai::codex::{
+    openai_codex_client_version, openai_codex_user_agent, OPENAI_CODEX_ACCOUNT_HEADER,
+    OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
+};
 use tinyinference::providers::openai::AuthStyle as CompatAuthStyle;
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
@@ -149,13 +150,3 @@ pub const CLAUDE_AGENT_SDK_PROVIDER: &str = "claude_agent_sdk";
 /// `create_chat_model_from_string` to produce a clear configuration error
 /// instead of silently routing through the managed OpenHuman backend.
 pub const BYOK_INCOMPLETE_SENTINEL: &str = "__byok_incomplete__";
-
-/// Interpolation-free substring of the empty-model bail emitted by
-/// cloud-slug resolution when a `<slug>` provider string carries
-/// no model and the `cloud_providers` entry has no `default_model` (the
-/// #2784 guard). The Sentry-demotion + user-copy classifier
-/// [`super::is_provider_config_rejection_message`] keys on this exact literal,
-/// and a round-trip test in `factory_tests.rs` asserts the bail body still
-/// contains it — so a wording drift fails CI instead of silently re-flooding
-/// Sentry (TAURI-RUST-GKV).
-pub(crate) const NO_MODEL_CONFIGURED_ANCHOR: &str = "resolved to an empty model id";

@@ -87,12 +87,12 @@ pub fn log_provider_access_policy_denied_http_403(
 /// Returns `false` for a backend-flagged **malformed** `BAD_REQUEST`: that one
 /// `errorCode` case is a client-built payload the backend couldn't parse, and
 /// the FE *does* page for it (F8). Delegates to the single-source decision in
-/// [`crate::inference::provider::backend_error_code_skips_sentry`]
+/// [`tinyinference::classification::backend_error_code_skips_sentry`]
 /// so the provider layer, the higher-layer re-report classifier, and the
 /// Sentry `before_send` filter can't drift.
 pub fn is_backend_error_code_owned(provider: &str, body: &str) -> bool {
     provider == openhuman_backend_model::PROVIDER_LABEL
-        && crate::inference::provider::backend_error_code_skips_sentry(body)
+        && tinyinference::classification::backend_error_code_skips_sentry(body)
 }
 
 pub fn log_backend_error_code_owned(
@@ -103,7 +103,7 @@ pub fn log_backend_error_code_owned(
     body: &str,
 ) {
     let code =
-        crate::inference::provider::extract_backend_error_code_token(body).unwrap_or_default();
+        tinyinference::classification::extract_backend_error_code_token(body).unwrap_or_default();
     tracing::info!(
         domain = "llm_provider",
         operation = operation,
@@ -210,14 +210,14 @@ pub fn is_provider_config_rejection_http(
     if !matches!(status.as_u16(), 400 | 403 | 404 | 422) {
         return false;
     }
-    if !crate::inference::provider::is_provider_config_rejection_message(body) {
+    if !tinyinference::classification::is_provider_config_rejection_message(body) {
         return false;
     }
     // OpenAI-compatible "unknown model" body is user-state regardless of
     // provider — both third-party `custom_openai` upstreams and our own
     // OpenHuman backend now emit it for user-configured model ids that
     // aren't in the registry (TAURI-RUST-2Z1).
-    if crate::inference::provider::is_openai_compatible_unknown_model_message(body) {
+    if tinyinference::classification::is_openai_compatible_unknown_model_message(body) {
         return true;
     }
     // Remaining config-rejection phrases (DeepSeek `supported api model

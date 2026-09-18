@@ -1,15 +1,15 @@
 use crate::agent::multimodal;
 use crate::config::Config;
-use crate::inference::local::ollama::{
-    ollama_base_url_from_config, redact_ollama_base_url, OllamaGenerateOptions,
-    OllamaGenerateRequest,
-};
 use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiEmbeddingResult;
 use tinyinference::embeddings::{
     EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
     RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+};
+use tinyinference::local::ollama::{
+    ollama_base_url_from_override, redact_ollama_base_url, OllamaGenerateOptions,
+    OllamaGenerateRequest,
 };
 
 use super::LocalAiService;
@@ -142,7 +142,7 @@ impl LocalAiService {
             }),
         };
 
-        let base = ollama_base_url_from_config(config);
+        let base = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         let url = format!("{base}/api/generate");
         let body_bytes = serde_json::to_vec(&body).map(|v| v.len()).unwrap_or(0);
         tracing::debug!(
@@ -195,10 +195,11 @@ impl LocalAiService {
             ));
         }
 
-        let payload: crate::inference::local::ollama::OllamaGenerateResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("ollama vision response parse failed: {e}"))?;
+        let payload: tinyinference::local::ollama::OllamaGenerateResponse =
+            response
+                .json()
+                .await
+                .map_err(|e| format!("ollama vision response parse failed: {e}"))?;
         if payload.response.trim().is_empty() {
             return Err("ollama vision returned empty content".to_string());
         }
@@ -233,7 +234,7 @@ impl LocalAiService {
         // user's laptop when stacked with other Ollama work. Gate it.
         let _gate_permit = crate::cron::scheduler_gate::wait_for_capacity().await;
 
-        let embed_base = ollama_base_url_from_config(config);
+        let embed_base = ollama_base_url_from_override(config.local_ai.base_url.as_deref());
         let dimensions = embedding_dimensions(&embedding_model);
         log::debug!(
             "[local_ai:embed] embed: using model={} dimensions={} base_url={}",

@@ -1,8 +1,8 @@
 use crate::config::Config;
-use crate::inference::local::lm_studio::{
+use tinyinference::local::lm_studio::{
     apply_lm_studio_auth, lm_studio_base_url, ollama_tags_fallback_url, LmStudioModelsResponse,
 };
-use crate::inference::local::ollama::{OllamaModelTag, OllamaTagsResponse};
+use tinyinference::local::ollama::{OllamaModelTag, OllamaTagsResponse};
 
 use super::LocalAiService;
 
@@ -33,7 +33,7 @@ impl LocalAiService {
         &self,
         config: &Config,
     ) -> Result<Vec<OllamaModelTag>, String> {
-        let base = lm_studio_base_url(config);
+        let base = lm_studio_base_url(config.local_ai.base_url.as_deref());
         let url = format!("{base}/models");
         // GH #5055: log the *resolved* discovery URL so a wrong base URL is
         // diagnosable from app logs alone, without reproducing against the
@@ -50,7 +50,7 @@ impl LocalAiService {
             .http
             .get(&url)
             .timeout(std::time::Duration::from_secs(5));
-        let response = apply_lm_studio_auth(request, config)
+        let response = apply_lm_studio_auth(request, config.local_ai.api_key.as_deref())
             .send()
             .await
             .map_err(|e| {
@@ -158,7 +158,10 @@ impl LocalAiService {
             .http
             .get(&fallback_url)
             .timeout(std::time::Duration::from_secs(5));
-        let response = match apply_lm_studio_auth(request, config).send().await {
+        let response = match apply_lm_studio_auth(request, config.local_ai.api_key.as_deref())
+            .send()
+            .await
+        {
             Ok(r) => r,
             Err(e) => {
                 tracing::debug!(

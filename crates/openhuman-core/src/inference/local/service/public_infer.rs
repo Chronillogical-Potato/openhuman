@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::inference::model_ids;
-use crate::inference::parse::sanitize_inline_completion;
+use tinyinference::completion::sanitize_inline_completion;
 use tinyinference::message::Message;
 
 use super::LocalAiService;
@@ -213,7 +213,7 @@ impl LocalAiService {
     pub(crate) async fn chat_with_history(
         &self,
         config: &Config,
-        messages: Vec<crate::inference::local::ollama::OllamaChatMessage>,
+        messages: Vec<tinyinference::local::ollama::OllamaChatMessage>,
         max_tokens: Option<u32>,
     ) -> Result<String, String> {
         self.chat_with_history_internal(config, messages, max_tokens, true)
@@ -223,7 +223,7 @@ impl LocalAiService {
     pub(crate) async fn chat_with_history_interactive(
         &self,
         config: &Config,
-        messages: Vec<crate::inference::local::ollama::OllamaChatMessage>,
+        messages: Vec<tinyinference::local::ollama::OllamaChatMessage>,
         max_tokens: Option<u32>,
     ) -> Result<String, String> {
         log::trace!("[local_ai] chat_with_history_interactive bypasses scheduler_gate permit");
@@ -234,7 +234,7 @@ impl LocalAiService {
     async fn chat_with_history_internal(
         &self,
         config: &Config,
-        messages: Vec<crate::inference::local::ollama::OllamaChatMessage>,
+        messages: Vec<tinyinference::local::ollama::OllamaChatMessage>,
         max_tokens: Option<u32>,
         gated: bool,
     ) -> Result<String, String> {

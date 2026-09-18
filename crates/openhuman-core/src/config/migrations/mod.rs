@@ -380,7 +380,9 @@ pub async fn run_pending(config: &mut Config) {
             .trim()
             .eq_ignore_ascii_case("fastembed")
         {
-            let base = crate::inference::local::ollama_base_url_from_config(config);
+            let base = tinyinference::local::ollama::ollama_base_url_from_override(
+                config.local_ai.base_url.as_deref(),
+            );
             migrate_legacy_embedding_provider::local_ollama_reachable(&base).await
         } else {
             false

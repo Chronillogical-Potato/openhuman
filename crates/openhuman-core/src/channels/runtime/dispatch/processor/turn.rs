@@ -16,7 +16,6 @@ use crate::channels::traits;
 use crate::channels::{ChannelSendExt, SendMessage};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::inference::provider;
 use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -136,7 +135,7 @@ pub(crate) async fn process_channel_runtime_message(
                         ("provider", route.provider.as_str()),
                     ],
                 );
-                let safe_err = provider::sanitize_api_error(&err.to_string());
+                let safe_err = tinyinference::sanitize::sanitize_api_error(&err.to_string());
                 let message = format!(
                 "⚠️ Failed to initialize provider `{}`. Please run `/models` to choose another provider.\nDetails: {safe_err}",
                 route.provider

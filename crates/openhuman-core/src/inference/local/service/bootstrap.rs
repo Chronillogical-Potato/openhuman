@@ -1,9 +1,9 @@
 use crate::config::Config;
-use crate::inference::device::DeviceProfile;
-use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
 use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiStatus;
+use tinyinference::device::DeviceProfile;
+use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 use super::LocalAiService;
 
@@ -13,7 +13,7 @@ impl LocalAiService {
         let vision_model_id = model_ids::effective_vision_model_id(config);
         let embedding_model_id = model_ids::effective_embedding_model_id(config);
         let vision_mode = vision_mode_str(config);
-        let provider = provider_from_config(config);
+        let provider = provider_from_name(&config.local_ai.provider);
         Self {
             status: parking_lot::Mutex::new(LocalAiStatus {
                 state: "idle".to_string(),
@@ -76,7 +76,7 @@ impl LocalAiService {
     pub fn reset_to_idle(&self, config: &Config) {
         let model_id = model_ids::effective_chat_model_id(config);
         let vision_mode = vision_mode_str(config);
-        let provider = provider_from_config(config);
+        let provider = provider_from_name(&config.local_ai.provider);
         let mut status = self.status.lock();
         status.state = "idle".to_string();
         status.model_id = model_id.clone();
@@ -127,7 +127,7 @@ impl LocalAiService {
 
     pub async fn bootstrap(&self, config: &Config) {
         let _guard = self.bootstrap_lock.lock().await;
-        let device = crate::inference::device::detect_device_profile();
+        let device = tinyinference::device::detect_device_profile();
         let effective_config = config_with_recommended_tier_if_unselected(config, &device);
 
         if !effective_config.local_ai.runtime_enabled {
@@ -144,7 +144,7 @@ impl LocalAiService {
         }
 
         {
-            let provider = provider_from_config(&effective_config);
+            let provider = provider_from_name(&effective_config.local_ai.provider);
             let mut status = self.status.lock();
             status.model_id = model_ids::effective_chat_model_id(&effective_config);
             status.chat_model_id = model_ids::effective_chat_model_id(&effective_config);
@@ -175,7 +175,7 @@ impl LocalAiService {
             status.model_path = Some(model_path_for_config(&effective_config));
         }
 
-        if provider_from_config(&effective_config) == LocalAiProvider::LmStudio {
+        if provider_from_name(&effective_config.local_ai.provider) == LocalAiProvider::LmStudio {
             log::debug!(
                 "[local_ai] LM Studio bootstrap branch entry preload_embedding={} preload_tts={}",
                 effective_config.local_ai.preload_embedding_model,
@@ -410,7 +410,7 @@ fn vision_mode_str(config: &Config) -> String {
 
 fn model_path_for_config(config: &Config) -> String {
     let model_id = model_ids::effective_chat_model_id(config);
-    match provider_from_config(config) {
+    match provider_from_name(&config.local_ai.provider) {
         LocalAiProvider::Ollama => format!("ollama://{model_id}"),
         LocalAiProvider::LmStudio => format!("lmstudio://{model_id}"),
     }

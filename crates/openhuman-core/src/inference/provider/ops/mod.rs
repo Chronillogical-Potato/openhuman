@@ -9,14 +9,8 @@
 mod http_error;
 mod models;
 mod provider_factory;
-mod sanitize;
 
 // ── public surface (preserves the original `pub use ops::*` contract) ──
-
-pub use sanitize::{
-    format_anyhow_chain, format_error_chain, sanitize_api_error, scrub_secret_patterns,
-    MAX_API_ERROR_CHARS,
-};
 
 pub use http_error::{
     api_error, body_indicates_insufficient_credits, body_indicates_quota_exhausted,
@@ -52,8 +46,6 @@ pub use provider_factory::{
 
 // ── test re-exports for ops_tests.rs ──
 
-#[cfg(test)]
-pub(crate) use super::openai_codex::openai_codex_client_version;
 #[cfg(test)]
 pub(crate) use super::openhuman_backend_model;
 

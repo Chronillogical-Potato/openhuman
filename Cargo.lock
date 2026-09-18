@@ -6437,6 +6437,7 @@ dependencies = [
 name = "tinyagents-harness"
 version = "2.1.2"
 dependencies = [
+ "anyhow",
  "async-trait",
  "base64 0.22.1",
  "bytes",
@@ -6693,6 +6694,7 @@ dependencies = [
 name = "tinyinference"
 version = "0.2.1"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bytes",
  "futures",

@@ -554,7 +554,7 @@ async fn publish_backend_session_expired_emits_sanitized_session_expired() {
 #[test]
 fn synthesize_local_runtime_entry_ollama_respects_config_base_url() {
     // The synth must honor `config.local_ai.base_url` (the same
-    // priority `ollama_base_url_from_config` uses for chat routing).
+    // priority `ollama_base_url_from_override` uses for chat routing).
     // This is the path users hit when they point Ollama at a non-loopback
     // host (e.g. a LAN box at 192.168.1.5).
     let mut config = Config::default();

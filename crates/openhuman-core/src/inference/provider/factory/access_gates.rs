@@ -49,7 +49,7 @@ pub(super) fn local_only_violation(
         // Deferred: re-resolves to a concrete string on the recursive call.
         return None;
     }
-    if crate::inference::local::profile::is_local_provider_string(p) {
+    if tinyinference::local::profile::is_local_provider_string(p) {
         return None;
     }
     Some(external_provider_label(p))
@@ -104,7 +104,7 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
         // duplicate descriptor.
         return;
     }
-    let is_local = crate::inference::local::profile::is_local_provider_string(p);
+    let is_local = tinyinference::local::profile::is_local_provider_string(p);
     let (slug, model) = match p.split_once(':') {
         Some((s, m)) if !s.trim().is_empty() => (s.trim().to_string(), m.trim().to_string()),
         _ => (p.to_string(), String::new()),

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::schema::LocalAiConfig;
 
-use super::device::DeviceProfile;
+use tinyinference::device::DeviceProfile;
 
 /// Performance tier for local AI model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

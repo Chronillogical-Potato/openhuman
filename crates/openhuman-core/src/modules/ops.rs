@@ -495,7 +495,7 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
         "memory_sources": config.memory_sources,
         "embedding_routes": config.embedding_routes,
         "storage_provider": config.storage.provider.config,
-        "ollama_base_url": crate::inference::local::ollama_base_url_from_config(config),
+        "ollama_base_url": tinyinference::local::ollama::ollama_base_url_from_override(config.local_ai.base_url.as_deref()),
         // The module's `EmbeddingHost::default_cloud_embedding_model`: what the
         // engine switches to when the opted-in local model is unreachable
         // (`store::factories`). That is the host's managed-cloud default, the

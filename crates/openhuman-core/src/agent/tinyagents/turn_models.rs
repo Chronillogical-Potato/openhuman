@@ -331,7 +331,7 @@ impl TurnModelSource {
         });
         let local_kind = provider_string
             .as_deref()
-            .and_then(crate::inference::local::profile::kind_from_provider_string);
+            .and_then(tinyinference::local::profile::kind_from_provider_string);
         crate::inference::model_context::context_window_for_model_with_local_fallback(
             model, local_kind,
         )
@@ -351,7 +351,7 @@ impl TurnModelSource {
             let provider = source.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&source.role, &source.config)
             });
-            crate::inference::local::profile::is_local_provider_string(&provider)
+            tinyinference::local::profile::is_local_provider_string(&provider)
         })
     }
 
@@ -400,7 +400,7 @@ impl TurnModelSource {
                 crate::inference::provider::provider_for_role(&cn.role, &cn.config)
             });
             let is_local =
-                crate::inference::local::profile::is_local_provider_string(&provider_string);
+                tinyinference::local::profile::is_local_provider_string(&provider_string);
             let provider_id = if provider_string == "openhuman"
                 || provider_string.is_empty()
                 || provider_string == "cloud"

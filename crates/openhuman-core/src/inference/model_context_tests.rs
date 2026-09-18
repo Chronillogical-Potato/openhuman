@@ -1,5 +1,5 @@
 use super::*;
-use crate::inference::local::profile::LocalProviderKind;
+use tinyinference::local::profile::LocalProviderKind;
 
 #[test]
 fn local_fallback_uses_profile_default() {

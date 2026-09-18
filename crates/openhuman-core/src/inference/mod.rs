@@ -24,8 +24,6 @@
 /// reports `Unknown`.
 pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
-pub mod auth_error_registry;
-pub mod device;
 pub mod embeddings;
 pub mod http;
 pub mod local;
@@ -33,12 +31,10 @@ pub mod model_context;
 pub mod model_ids;
 pub mod openai_oauth;
 pub mod ops;
-pub mod parse;
 pub mod paths;
 pub mod presets;
 pub mod provider;
 mod schemas;
-pub mod sentiment;
 pub mod tokenjuice;
 pub mod types;
 pub mod voice;
@@ -50,12 +46,10 @@ pub use schemas::{
 };
 
 // Re-export the types that external callers (voice, agent, etc.) import from inference
-pub use device::DeviceProfile;
 pub use local::all_local_inference_controller_schemas;
 pub use local::all_local_inference_registered_controllers;
 pub use model_context::context_window_for_model;
 pub use presets::{ModelPreset, ModelTier, VisionMode};
-pub use sentiment::SentimentResult;
 pub use types::{
     LocalAiAssetStatus, LocalAiAssetsStatus, LocalAiDownloadProgressItem, LocalAiDownloadsProgress,
     LocalAiEmbeddingResult, LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult,

@@ -9,17 +9,12 @@ single-crate layout); see `../README.md` for the wider `inference` domain.
 
 | File / dir | Role |
 | --- | --- |
-| `mod.rs` | Re-exports `super::{device, model_ids, parse, paths, presets, sentiment, types}` under `local::` (compatibility for files migrated from `local_ai/`); `pub use core::*`, `pub use ops as rpc`, `pub use service::LocalAiService`. |
+| `mod.rs` | Exposes the host service and RPC surface; reusable local-runtime APIs are consumed directly from `tinyinference::local`. |
 | `core.rs` | `LocalAiService` singleton (`global`/`try_global`), `model_artifact_path`. |
 | `ops.rs` + `ops/` (`runtime_ops.rs`, `chat.rs`, `agent_chat.rs`, `reactions.rs`, `turn_guards.rs`) | RPC entry points: `local_ai_status/prompt/summarize/vision_prompt/embed/transcribe[_bytes]/tts/chat`, `agent_chat[_simple]`, `local_ai_should_react` (`ReactionDecision`), assets/downloads status. |
 | `schemas.rs` | Local-runtime `inference.*` controller schemas + handlers (see RPC below); exported as `all_local_inference_controller_schemas` / `all_local_inference_registered_controllers`. |
-| `ollama.rs` | Ollama HTTP JSON types, `DEFAULT_OLLAMA_BASE_URL`, `ollama_base_url[_from_config]`, `validate_ollama_url`. |
-| `lm_studio.rs` | LM Studio OpenAI-compatible wire types, `lm_studio_base_url[_from_local_ai]`, URL normalisation and auth header; the daemon is only probed, never started. |
 | `install.rs`, `install_piper.rs`, `voice_install_common.rs` | Ollama/Piper download and install; shared download-progress plumbing. No Whisper install any more — local STT was retired (`config/migrations/retire_local_whisper_stt.rs`). |
-| `model_requirements.rs` | `MIN_CONTEXT_TOKENS`, `evaluate_context`, `ContextEligibility` — minimum-context-window floor enforcement. |
-| `profile.rs` | `LocalProviderProfile` per-provider-type capability metadata (tool-dispatch strategy, context-window defaults, request-body extras like `options.num_ctx`, `think` suppression) consulted by the factory and agent harness. |
-| `process_util.rs` | Shared subprocess helpers (`pub(crate)`, notably the Windows `CREATE_NO_WINDOW` flag) reused by `agent::host_runtime`. |
-| `provider.rs` | `pub(crate)` `LocalAiProvider` (Ollama / LM Studio), `normalize_provider`, `provider_from_config`; `omlx` is preserved as a slug for the factory rather than collapsed to Ollama. |
+| `tinyinference::local` | Ollama/LM Studio wire contracts, URL validation, model requirements, profiles, provider selection, subprocess flags, and spawn markers. |
 | `service/` | `LocalAiService` impl, split by concern (below). |
 
 ## `service/` split
@@ -33,7 +28,6 @@ single-crate layout); see `../README.md` for the wider `inference` domain.
 | `speech.rs` | `transcribe`, `transcribe_with_prompt`, `tts` — delegates STT to `crate::voice::create_stt_provider` (cloud/engine-configurable) and TTS to the local Piper install. |
 | `transcription.rs` | `TranscriptionResult` — provider-neutral transcription result type. It outlived the bundled whisper.cpp engine that introduced it; the shape is still the contract with `channels::host::adapters`. |
 | `vision_embed.rs` | Vision-prompt and embedding entry points. |
-| `spawn_marker.rs` | Writes a marker file (PID, binary, owning process) for each `ollama serve` this process spawned so a daemon orphaned by a crash can be reclaimed (`ollama_admin/server.rs::reclaim_orphan_if_ours`) instead of leaked or blanket-killed. |
 | `assets.rs` + `assets/` (`status.rs`, `progress.rs`, `download.rs`, `tts_download.rs`) | Asset status and download-progress tracking. |
 | `ollama_admin/` | Ollama daemon lifecycle, split by concern: `binary` (`resolve_or_install_ollama_binary`), `diagnostics`, `health` (`ollama_healthy*`, `has_model*`, `kill_ollama_server`, `shutdown_owned_ollama`), `model_pull`, `server` (`ensure_ollama_server[_fresh]`, `reclaim_orphan_if_ours`, `start_and_wait_for_server` — adopt vs own), `util` (`test_ollama_connection`, the only item re-exported from `ollama_admin/mod.rs`). |
 
@@ -78,16 +72,16 @@ base-url resolution when routing into a local runtime), `inference/embeddings/fa
 `validate_ollama_url`), `agent/tinyagents/turn_models.rs` and `agent/triage/routing.rs`
 (`profile::is_local_provider_string`), `voice/ops.rs` (`model_ids`, `paths`), and
 `agent/host_runtime.rs`, `runtime/python/process.rs`, `runtime/python_server/{kompress,spacy}.rs`
-(`process_util::apply_no_window`).
+(`tinyinference::local::process::apply_no_window`).
 
 ## Tests
 
 - Per-file `*_tests.rs` (`core_tests.rs`, `install_tests.rs`,
   `install_piper_tests.rs`, `lm_studio_tests.rs`, `model_requirements_tests.rs`,
-  `ollama_tests.rs`, `ops_tests.rs`, `process_util_tests.rs`, `profile_tests.rs`,
-  `provider_tests.rs`, `schemas_tests.rs`, `voice_install_common_tests.rs`).
+  `ops_tests.rs`, `schemas_tests.rs`, `voice_install_common_tests.rs`). Reusable
+  runtime-helper tests live in TinyInference.
 - `service/*_tests.rs` (`bootstrap_tests.rs`, `model_rpc_tests.rs`,
-  `public_infer_tests.rs`, `spawn_marker_tests.rs`, `vision_embed_tests.rs`,
+  `public_infer_tests.rs`, `vision_embed_tests.rs`,
   `ollama_admin_tests*.rs`).
 - Tests that touch the runtime singleton or shared config serialize through
   `inference_test_guard()` (a process-global mutex defined in `mod.rs`,

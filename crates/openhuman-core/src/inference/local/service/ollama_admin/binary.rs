@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 use crate::inference::local::install::{find_system_ollama_binary, run_ollama_install_script};
-use crate::inference::local::process_util::apply_no_window;
 use crate::inference::paths::find_workspace_ollama_binary;
+use tinyinference::local::process::apply_no_window;
 
 use super::super::LocalAiService;
 

@@ -3,12 +3,12 @@
 use tracing::{debug, trace};
 
 use crate::config::Config;
-use crate::inference::local::provider::{provider_from_config, LocalAiProvider};
 use crate::inference::local::service::LocalAiService;
 use crate::inference::model_ids;
 use crate::inference::paths::resolve_tts_voice_path;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::{LocalAiAssetStatus, LocalAiAssetsStatus};
+use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
     pub async fn assets_status(&self, config: &Config) -> Result<LocalAiAssetsStatus, String> {
@@ -17,7 +17,7 @@ impl LocalAiService {
         let embedding_model = model_ids::effective_embedding_model_id(config);
         let tts_voice = model_ids::effective_tts_voice_id(config);
 
-        let provider = provider_from_config(config);
+        let provider = provider_from_name(&config.local_ai.provider);
         let correlation_id = uuid::Uuid::new_v4().to_string();
         trace!(
             target: "local_ai::assets",
@@ -37,7 +37,9 @@ impl LocalAiService {
             LocalAiProvider::Ollama | LocalAiProvider::LmStudio
         );
         let ollama_available = if uses_ollama_assets {
-            let base_url = crate::inference::local::ollama_base_url_from_config(config);
+            let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+                config.local_ai.base_url.as_deref(),
+            );
             let present = self.ollama_healthy_at(&base_url).await;
             debug!(
                 target: "local_ai::assets",

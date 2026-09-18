@@ -63,7 +63,7 @@ pub async fn store_provider_credentials(
 /// bare slug (`openrouter`) the inference classifier records under.
 fn clear_provider_auth_error(provider: &str) {
     let slug = provider.strip_prefix("provider:").unwrap_or(provider);
-    crate::inference::auth_error_registry::clear(slug);
+    tinyinference::auth_errors::clear(slug);
 }
 
 pub async fn remove_provider_credentials(

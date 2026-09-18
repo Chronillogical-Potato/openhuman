@@ -6,7 +6,6 @@ mod lm_studio;
 mod model_rpc;
 pub(crate) mod ollama_admin;
 mod public_infer;
-pub(crate) mod spawn_marker;
 mod speech;
 pub(crate) mod transcription;
 mod vision_embed;
