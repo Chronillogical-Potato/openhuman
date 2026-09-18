@@ -2578,35 +2578,35 @@
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 23,
+    "line": 24,
     "text": "use bridge::{ChatMessage, ChatResponse, ProviderDelta};",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 175,
+    "line": 176,
     "text": "messages: &[ChatMessage],",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 238,
+    "line": 239,
     "text": "fn coalesce_system_prompt(messages: &[ChatMessage]) -> Option<String> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 277,
+    "line": 278,
     "text": "fn request_messages(request: &ModelRequest) -> Vec<ChatMessage> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 300,
+    "line": 301,
     "text": "ChatMessage::new(role, content)",
     "occurrence": 1
   },

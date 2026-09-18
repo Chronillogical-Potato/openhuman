@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::prompts::SystemPromptBuilder;
-use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry};
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use tinytools::{Tool, ToolResult};
 
 use std::collections::HashSet;

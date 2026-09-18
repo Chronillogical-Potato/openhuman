@@ -2359,10 +2359,10 @@ async fn multi_hop_delegation_chain_inner() {
 
 mod streaming_support {
     use async_trait::async_trait;
-    use openhuman_core::tinytools_agent::dialect::NativeDialect;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::{AgentConfig, ContextConfig};
     use openhuman_core::memory::Memory;
+    use openhuman_core::tinytools_agent::dialect::NativeDialect;
     use serde_json::json;
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
@@ -4149,12 +4149,12 @@ mod tool_policy_boundary_placement {
     use anyhow::Result;
     use async_trait::async_trait;
     use openhuman_core::agent::prompts::LearnedContextData;
-    use openhuman_core::tinytools_agent::dialect::NativeDialect;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::AgentConfig;
     use openhuman_core::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
     };
+    use openhuman_core::tinytools_agent::dialect::NativeDialect;
     use tinytools::{PermissionLevel, Tool, ToolResult};
 
     use std::collections::VecDeque;
