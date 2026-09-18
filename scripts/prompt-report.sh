@@ -16,9 +16,9 @@
 #                      *connected* toolkit and so has nothing to render
 #                      hermetically.
 #
-# Units are bytes. `~tok` is bytes / 4, the same reading aid `prompt-size`
-# prints (`EST_BYTES_PER_TOKEN` in agent/debug/prompt_size.rs) — a divisor, not
-# a tokenizer. A real token count is true for one model only, and the fleet
+# Units are bytes. `~tok` is bytes / `EST_BYTES_PER_TOKEN` (agent/debug/
+# prompt_size.rs, read at run time), the same reading aid `prompt-size` prints —
+# a divisor, not a tokenizer. A real token count is true for one model only, and the fleet
 # spans several.
 set -euo pipefail
 
@@ -32,12 +32,17 @@ while (( $# )); do
   esac
 done
 
+# Always build: cargo is a no-op when the binary is current, and it is the only
+# thing that notices a binary built from older source or a different feature
+# set. A default-feature build silently drops `presentation_agent`.
 BIN="${CARGO_TARGET_DIR:-target}/debug/openhuman-core"
-if [[ ! -x "$BIN" ]]; then
-  echo "[prompt-report] building openhuman-core …" >&2
-  cargo build --manifest-path Cargo.toml --bin openhuman-core \
-    --features "$(bash scripts/ci/product-features.sh)" >&2
-fi
+cargo build --quiet --manifest-path Cargo.toml --bin openhuman-core \
+  --features "$(bash scripts/ci/product-features.sh)" >&2
+
+# The divisor is read from the Rust constant so the two cannot drift.
+TOK="$(grep -oE 'EST_BYTES_PER_TOKEN: usize = [0-9]+' \
+  crates/openhuman-core/src/agent/debug/prompt_size.rs | grep -oE '[0-9]+$')" \
+  || { echo "EST_BYTES_PER_TOKEN not found in prompt_size.rs" >&2; exit 1; }
 
 if [[ -n "$REAL_WORKSPACE" ]]; then
   echo "[prompt-report] measuring signed-in workspace $REAL_WORKSPACE" >&2
@@ -55,10 +60,10 @@ else
   measured="$(env -u OPENHUMAN_HOME HOME="$TMP/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json)"
 fi
 
-python3 - "$measured" <<'PY'
-import json, sys
+TOK="$TOK" python3 - "$measured" <<'PY'
+import json, os, sys
 
-TOK = 4  # EST_BYTES_PER_TOKEN
+TOK = int(os.environ["TOK"])  # EST_BYTES_PER_TOKEN
 rows = []
 for r in json.loads(sys.argv[1])["agents"]:
     name = r["agent"] + (f"[{r['toolkit']}]" if r.get("toolkit") else "")
