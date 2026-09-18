@@ -1,54 +1,23 @@
 use super::*;
 
-fn skill_dir() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/flows/skills/flow-authoring")
-}
-
 #[test]
-fn bundled_skill_matches_the_directory_on_disk() {
-    // A page added to the directory but not to `FLOW_AUTHORING` is not a
-    // compile error and not a test failure anywhere else — it simply never
-    // ships, and the prompt's pointer table sends the model to a file that
-    // does not exist. This is that check.
-    let root = skill_dir();
-    let mut on_disk = Vec::new();
-    for entry in walkdir(&root) {
-        let rel = entry
-            .strip_prefix(&root)
-            .expect("under root")
-            .to_string_lossy()
-            .replace('\\', "/");
-        on_disk.push(rel);
-    }
-    on_disk.sort();
-
-    let mut listed: Vec<String> = FLOW_AUTHORING
+fn bundled_skill_matches_the_portable_resource_list() {
+    let mut listed: Vec<&str> = FLOW_AUTHORING
         .files
         .iter()
-        .map(|f| f.path.to_string())
+        .map(|f| f.path)
         .collect();
     listed.sort();
+    let mut portable: Vec<&str> = tinyflows_copilot::resources::FLOW_AUTHORING_FILES
+        .iter()
+        .map(|f| f.path)
+        .collect();
+    portable.sort();
 
     assert_eq!(
-        listed, on_disk,
-        "FLOW_AUTHORING's file list and the on-disk bundle have diverged"
+        listed, portable,
+        "OpenHuman's bundled-skill registration and tinyflows' portable resource list diverged"
     );
-}
-
-fn walkdir(root: &std::path::Path) -> Vec<std::path::PathBuf> {
-    let mut out = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        for entry in std::fs::read_dir(&dir).expect("read_dir").flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else {
-                out.push(path);
-            }
-        }
-    }
-    out
 }
 
 #[test]
@@ -108,27 +77,4 @@ fn the_frontmatter_description_does_not_advertise_a_dropped_page() {
             "the description still advertises `{dropped}`, which no longer ships"
         );
     }
-}
-
-#[test]
-fn the_builder_prompt_points_at_pages_that_ship() {
-    // Same check from the other side. The prompt carries its own copy of
-    // the table (the model needs to know the manual exists before it has
-    // read the manual), so the two can drift independently.
-    const PROMPT: &str = include_str!("../agents/workflow_builder/prompt.md");
-    assert!(
-        PROMPT.contains("flow-authoring"),
-        "the builder prompt must name the skill that holds its reference manual"
-    );
-    let mut pointed = 0;
-    for token in PROMPT.split('`') {
-        if token.starts_with("references/") {
-            pointed += 1;
-            assert!(
-                FLOW_AUTHORING.files.iter().any(|f| f.path == token),
-                "the builder prompt points at `{token}`, which does not ship"
-            );
-        }
-    }
-    assert!(pointed >= 3, "the prompt's pointer table lost its rows");
 }

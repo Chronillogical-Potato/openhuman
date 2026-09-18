@@ -64,7 +64,7 @@ pub(crate) const INPUT_CONTEXT_MAX_LEN: usize = 50_000;
 
 /// Renders an agent-node's `config.input_context` (an explicit `=`-bound
 /// carrier for upstream data — see the module doc and
-/// `flows/agents/workflow_builder/prompt.md`) into the system-message text
+/// `tinyflows-copilot` workflow-builder prompt) into the system-message text
 /// both completion paths ([`OpenHumanLlm::complete`] and
 /// [`OpenHumanAgentRunner::run_via_harness`]) prepend ahead of the node's own
 /// prompt/messages.
