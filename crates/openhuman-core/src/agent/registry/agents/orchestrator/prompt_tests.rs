@@ -149,7 +149,7 @@ fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
 }
 
 #[test]
-fn build_returns_nonempty_body() {
+fn build_omits_connection_blocks_without_connections() {
     let body = build(&ctx_with(&[])).unwrap();
     assert!(!body.contains("## Connected Integrations"));
     // No live connections in unit context → the MCP block is omitted too.

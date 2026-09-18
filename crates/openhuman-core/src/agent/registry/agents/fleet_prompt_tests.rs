@@ -11,29 +11,19 @@ use crate::agent::harness::definition::{AgentDefinition, PromptSource, ToolScope
 use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
-/// Throwaway workspace: building a prompt can seed identity files into
-/// whatever directory it is handed. Leaked so the borrow outlives the context.
-fn scratch_workspace() -> &'static std::path::Path {
-    use std::sync::OnceLock;
-    static DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
-    DIR.get_or_init(|| {
-        let dir = tempfile::TempDir::new().expect("temp workspace");
-        let path = dir.path().to_path_buf();
-        std::mem::forget(dir);
-        path
-    })
-    .as_path()
-}
-
 /// Render `def`'s prompt through its own `PromptSource`, with no tools,
 /// connections or user: what is left is what the agent was written to say.
+///
+/// Each render gets its own workspace: building a prompt seeds identity files
+/// into it, and the tests here render in parallel.
 fn render(def: &AgentDefinition) -> String {
     let PromptSource::Dynamic(build) = &def.system_prompt else {
         panic!("built-in `{}` must carry a dynamic prompt", def.id);
     };
+    let workspace = tempfile::TempDir::new().expect("temp workspace");
     let visible = HashSet::new();
     let ctx = PromptContext {
-        workspace_dir: scratch_workspace(),
+        workspace_dir: workspace.path(),
         model_name: "test",
         agent_id: &def.id,
         tools: &[],
@@ -54,7 +44,13 @@ fn render(def: &AgentDefinition) -> String {
         agents_md_global: None,
         agents_md_local: None,
     };
-    build(&ctx).unwrap_or_else(|e| panic!("`{}` prompt failed to build: {e}", def.id))
+    let body = build(&ctx).unwrap_or_else(|e| panic!("`{}` prompt failed to build: {e}", def.id));
+    assert!(
+        !body.trim().is_empty(),
+        "`{}` rendered an empty prompt",
+        def.id
+    );
+    body
 }
 
 /// Every tool name the process can register, plus every packed name (some of
