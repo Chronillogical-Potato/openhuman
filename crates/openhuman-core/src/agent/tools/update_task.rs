@@ -7,9 +7,8 @@
 //! `in_progress`/`blocked`/`done`, or update its objective/notes/evidence/blocker.
 //!
 //! It is a thin wrapper over [`crate::agent::todos::ops::edit`], which
-//! applies the status move + field updates atomically, enforces the
-//! single-`in_progress` invariant, and emits the board-progress event that the
-//! Tasks board UI listens on.
+//! applies the status move + field updates atomically and enforces the
+//! single-`in_progress` invariant.
 
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::integrations::task_sources::TASK_SOURCES_THREAD_ID;

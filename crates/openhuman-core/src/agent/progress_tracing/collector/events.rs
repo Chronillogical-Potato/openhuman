@@ -458,7 +458,8 @@ impl SpanCollector {
             | AgentProgress::ToolCallArgsDelta { .. }
             | AgentProgress::SubagentTextDelta { .. }
             | AgentProgress::SubagentThinkingDelta { .. }
-            | AgentProgress::SubagentAwaitingUser { .. } => {}
+            | AgentProgress::SubagentAwaitingUser { .. }
+            | AgentProgress::TaskBoardUpdated { .. } => {}
         }
     }
 

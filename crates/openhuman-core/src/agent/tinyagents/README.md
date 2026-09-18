@@ -93,7 +93,7 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 - `agent/harness/session/builder/setters.rs`, `agent/harness/subagent_runner/ops/{provider,runner}.rs`, `channels/`: construct `TurnModelSource`.
 - `agent/bus.rs`: reads `resolved_route` after a turn.
 - `core/all.rs` (replay controllers) and `core/runtime/builder.rs` (`reaper::reap_orphaned_runs`).
-- `threads/todos/` and `agent/task_board.rs`: `todos::*` stores.
+- `agent/todos/`: `todos::*` stores.
 - `memory/tools/{recall,store}.rs` and `memory/auto_recall/`: `host::agent_memory::DEFAULT_AGENT_MEMORY_NAMESPACE`.
 - `flows/tinyflows/caps/{llm,prompt}.rs`: the message-conversion re-exports and `model::usage_info_from_response`.
 - `tools/README.md` names `SharedToolAdapter` and `ToolPolicyMiddleware` as the primary tinyagents-side tool consumers.
