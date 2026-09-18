@@ -199,7 +199,7 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
         if let Some(name) = line
             .split_once("Call as:")
             .and_then(|(_, rest)| rest.split_once('['))
-            .map(|(name, _)| name.trim())
+            .map(|(name, _)| name.trim().trim_matches('`').trim())
             .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
         {
             names.push(name.to_string());

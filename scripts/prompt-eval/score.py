@@ -88,7 +88,28 @@ def tool_calls(lines):
     for m in lines:
         if m.get("role") != "assistant":
             continue
-        for tc in m.get("tool_calls") or []:
+        calls = m.get("tool_calls") or []
+        # Text-mode providers persist the model's call markup in `content`
+        # instead of the native `tool_calls` field. Mirror the supported wire
+        # forms closely enough to score the tool name (arguments are needed
+        # only for packed `use_skill` calls).
+        if not calls:
+            calls = []
+            content = m.get("content")
+            if isinstance(content, str):
+                for match in re.finditer(r"<tool_call>\s*(.*?)\s*</tool_call>", content, re.DOTALL):
+                    payload = match.group(1).strip()
+                    try:
+                        parsed = json.loads(payload)
+                    except ValueError:
+                        parsed = None
+                    if isinstance(parsed, dict) and isinstance(parsed.get("name"), str):
+                        calls.append(parsed)
+                        continue
+                    pformat = re.match(r"([A-Za-z_][A-Za-z0-9_.-]*)\s*\[", payload)
+                    if pformat:
+                        calls.append({"name": pformat.group(1)})
+        for tc in calls:
             function = tc.get("function") or {}
             name = tc.get("name") or function.get("name", "")
             out.append(name)
@@ -293,6 +314,12 @@ def selftest():
     assert tool_calls([{"role": "assistant", "tool_calls": [
         {"name": "use_skill", "arguments": json.dumps({"skill": "s", "tool": "skill_registry_install"})}]}]) == [
         "use_skill", "skill_registry_install"]
+    assert tool_calls([{"role": "assistant", "content":
+                        '<tool_call>{"name":"web_search_tool","arguments":{"query":"x"}}</tool_call>'}]) == [
+        "web_search_tool"]
+    assert tool_calls([{"role": "assistant", "content":
+                        "<tool_call>GMAIL_FETCH_EMAILS[inbox|5]</tool_call>"}]) == [
+        "GMAIL_FETCH_EMAILS"]
     import tempfile
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
         f.write('{"result":{"connections":[{"toolkit":"gmail","status":"ACTIVE"}]}}')
