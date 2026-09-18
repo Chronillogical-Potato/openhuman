@@ -377,11 +377,8 @@ fn spawn_module_preload(_config: &Config) {
     log::debug!("[runtime.bootstrap] native module preload skipped: modules are compiled out");
 }
 
-/// Runs startup housekeeping, then starts one-shot boot background work
-/// selected by [`ServiceSet`].
+/// Starts one-shot boot background work selected by [`ServiceSet`].
 pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
-    run_legacy_migrations(config).await;
-
     // The orphaned-run sweep does NOT live here. It runs in
     // `CoreBuilder::build`, which every runtime goes through — these jobs only
     // run from `serve()`, so a build-only embedder would never be swept.
@@ -415,7 +412,9 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-async fn run_legacy_migrations(config: &Config) {
+/// Migrates legacy durable agent state before a built runtime can expose its
+/// crate-backed stores to in-process or HTTP callers.
+pub(crate) async fn run_legacy_migrations(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
         Ok(count) if count > 0 => {
             log::info!("[cron] removed {count} retired autopilot job(s)");
