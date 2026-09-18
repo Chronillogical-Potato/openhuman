@@ -24,6 +24,7 @@
 /// reports `Unknown`.
 pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
+pub mod auth_error_registry;
 pub mod embeddings;
 pub mod http;
 pub mod local;

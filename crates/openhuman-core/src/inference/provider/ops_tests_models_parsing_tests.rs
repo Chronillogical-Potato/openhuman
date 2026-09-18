@@ -91,6 +91,7 @@ fn parse_models_response_distinguishes_missing_data_field_from_wrong_type() {
     // OpenAI-compatible `data`.
     let body = serde_json::json!({ "object": "list", "items": [] });
     let err = parse_models_response(&body).expect_err("no model catalog field must fail");
+    let err = err.to_string();
     assert!(
         err.contains("missing `data` or `models` field"),
         "no-data error should say `missing`: {err}"
@@ -117,6 +118,7 @@ fn parse_models_response_distinguishes_missing_data_field_from_wrong_type() {
     ] {
         let body = serde_json::json!({ "object": "list", "data": value });
         let err = parse_models_response(&body).expect_err("wrong-type data must fail");
+        let err = err.to_string();
         assert!(
             !err.contains("missing"),
             "wrong-type error must not say `missing` ({label}): {err}"
@@ -179,6 +181,7 @@ fn parse_models_response_rejects_null_data_on_error_envelope() {
             ),
             Err(err) => err,
         };
+        let err = err.to_string();
         assert!(
             !err.contains("missing"),
             "error-envelope null `{field}` must not say `missing`: {err}"

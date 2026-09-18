@@ -368,7 +368,7 @@ pub async fn list_configured_models_from_config(
     // returned for "missing field" vs "field present but wrong type"
     // (TAURI-RUST-4Y). The ChatGPT Codex backend uses a sibling `models`
     // array keyed by `slug`, so that shape is accepted here too.
-    let mut models = parse_models_response(&body)?;
+    let mut models = parse_models_response(&body).map_err(|error| error.to_string())?;
     if routing.using_oauth {
         merge_openai_codex_model_hints(&mut models);
     }

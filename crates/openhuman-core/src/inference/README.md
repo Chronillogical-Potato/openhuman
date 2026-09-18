@@ -29,7 +29,7 @@ compatibility aliases in `crates/openhuman-core/src/core/legacy_aliases.rs`.
 | `mod.rs`                                                                          | Domain root; module decls + re-exports; wires `inference.*` controller schemas/controllers.                                                                                                                                                        |
 | `ops.rs`                                                                          | Canonical handler file — `inference_*` business logic returning `RpcOutcome<T>`; delegates to `local`, `provider`, `sentiment`, `device`, `presets`, `openai_oauth`. Includes Sentry-noise suppression for expected provider/user-config failures. |
 | `schemas.rs` + `schemas/` (`catalog.rs`, `prompt_handlers.rs`, `oauth_handlers.rs`, `claude_code_handlers.rs`, `settings_handlers.rs`) | `inference.*` controller schemas + `handle_*` fns + param DTOs.                                                                                                                                                                                    |
-| `tinyinference::{auth_errors,classification,completion,device,sanitize,sentiment}` | Reusable inference state, parsing, hardware detection, diagnostics, and error sanitization called directly by the host. |
+| `tinyinference::{classification,completion,device,sanitize,sentiment}` | Reusable parsing, hardware detection, diagnostics, and error sanitization called directly by the host. |
 | `tinyinference::model::model_id_supports_vision`                                  | Upstream capability hint used directly for local model ids when the runtime cannot return an authoritative profile.                                                                                                                               |
 | `tinyinference::model::effective_temperature`                                     | Applies unsupported-model glob patterns and overrides before provider serialization.                                                                                                                                                              |
 | `types.rs`                                                                        | Serde DTOs: `LocalAiStatus`, `LocalAiAssetsStatus`, `LocalAiDownloadsProgress`, `LocalAiEmbeddingResult`, `LocalAiSpeechResult`, `LocalAiTtsResult`, etc.                                                                                          |
@@ -87,7 +87,7 @@ Also exposes a non-RPC HTTP router (`http::router()`) nested at `/v1` by `crates
 ## Events
 
 - Publishes `DomainEvent::SessionExpired` from `provider/ops/http_error/auth_failure.rs` (`publish_backend_session_expired`) and `provider/openhuman_backend_model.rs` when the managed backend rejects a session, so the credentials layer can clear/refresh it.
-- Publishes `DomainEvent::ProviderApiKeyRejected` once per provider from `provider/ops/http_error/auth_failure.rs` the first time a BYO key is rejected (401/403), gated by `tinyinference::auth_errors::record`.
+- Publishes `DomainEvent::ProviderApiKeyRejected` once per provider from `provider/ops/http_error/auth_failure.rs` the first time a BYO key is rejected (401/403), gated by the OpenHuman-owned `auth_error_registry`.
 - No `bus.rs` / `EventHandler` subscribers in this domain.
 
 ## Persistence

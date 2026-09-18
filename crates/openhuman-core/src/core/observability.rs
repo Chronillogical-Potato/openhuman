@@ -103,7 +103,7 @@ pub enum ExpectedErrorKind {
     /// Deterministic user-config state surfaced in the UI — Sentry has no
     /// remediation path (OPENHUMAN-TAURI-WJ / -QW / -HB / -NH, ~273
     /// events). See
-    /// [`tinyinference::classification::is_provider_config_rejection_message`]
+    /// [`crate::inference::provider::is_provider_config_rejection_message`]
     /// for the polarity contract and exact body shapes.
     ProviderConfigRejection,
     LocalAiCapabilityUnavailable,
@@ -299,7 +299,7 @@ pub enum ExpectedErrorKind {
     /// The single exception — a backend-flagged **malformed** `BAD_REQUEST` —
     /// is NOT classified here (it is a client-built payload the backend
     /// couldn't parse, and the FE *does* page for it, F8). See
-    /// [`tinyinference::classification::backend_error_code_skips_sentry`].
+    /// [`crate::inference::provider::backend_error_code_skips_sentry`].
     BackendErrorCodeOwned,
     /// A provider embedding call (Cohere `/v2/embed`, OpenAI/Voyage embed,
     /// custom OpenAI-compatible embed) returned a **403/Forbidden gateway
@@ -423,7 +423,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // decision is gated on the managed-backend envelope so a BYO payload
     // carrying an `errorCode`-shaped field is not wrongly suppressed
     // (CodeRabbit).
-    if tinyinference::classification::managed_error_skips_sentry(message) {
+    if crate::inference::provider::managed_error_skips_sentry(message) {
         return Some(ExpectedErrorKind::BackendErrorCodeOwned);
     }
     // A managed-backend client-guard-leak code (`PAYLOAD_TOO_LARGE` /
@@ -436,8 +436,8 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // `ContextWindowExceeded` bucket (CodeRabbit). Gated on the managed envelope
     // so a BYO provider's own context-overflow — genuine user-state, not our
     // guard — still flows to that matcher and stays demoted.
-    if tinyinference::classification::is_managed_backend_envelope(message)
-        && tinyinference::classification::is_backend_client_guard_leak(message)
+    if crate::inference::provider::is_managed_backend_envelope(message)
+        && crate::inference::provider::is_backend_client_guard_leak(message)
     {
         return None;
     }
@@ -642,7 +642,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // backend never emits these phrases. See the predicate's polarity
     // contract. Drops OPENHUMAN-TAURI-WJ / -QW / -HB / -NH re-reports
     // (#2079 / #2076 / #2202).
-    if tinyinference::classification::is_provider_config_rejection_message(message) {
+    if crate::inference::provider::is_provider_config_rejection_message(message) {
         return Some(ExpectedErrorKind::ProviderConfigRejection);
     }
     if is_local_ai_capability_unavailable_message(&lower) {
@@ -2474,7 +2474,7 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
             // The FE surfaces actionable copy via `classify_inference_error`;
             // Sentry must not double-report (F2/F4). Demote at `warn!` so the
             // breadcrumb retains the code for triage without spawning an event.
-            let code = tinyinference::classification::extract_backend_error_code_token(message)
+            let code = crate::inference::provider::extract_backend_error_code_token(message)
                 .unwrap_or_default();
             tracing::warn!(
                 domain = domain,
@@ -2757,7 +2757,7 @@ pub fn is_transient_provider_http_failure(event: &sentry::protocol::Event<'_>) -
 /// classifier (`expected_error_kind` → [`ExpectedErrorKind::BackendErrorCodeOwned`]).
 /// This catches any future call site that re-emits the same flattened error
 /// without routing through those funnels. Delegates the decision to the
-/// single-source [`tinyinference::classification::managed_error_skips_sentry`]
+/// single-source [`crate::inference::provider::managed_error_skips_sentry`]
 /// (managed-envelope gated, so a BYO payload carrying an `errorCode`-shaped
 /// field is not wrongly dropped) so the layers can't drift.
 #[cfg(feature = "crash-reporting")]
@@ -2768,7 +2768,7 @@ pub fn is_backend_error_code_event(event: &sentry::protocol::Event<'_>) -> bool 
     [direct, from_logentry, from_exception]
         .into_iter()
         .flatten()
-        .any(tinyinference::classification::managed_error_skips_sentry)
+        .any(crate::inference::provider::managed_error_skips_sentry)
 }
 
 /// Defense-in-depth `before_send` filter for transient streaming **transport**

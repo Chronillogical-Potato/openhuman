@@ -424,7 +424,7 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
             provider,
             fallback_available: None,
         }
-    } else if tinyinference::classification::is_provider_config_rejection_message(err) {
+    } else if crate::inference::provider::is_provider_config_rejection_message(err) {
         // #2079 / #2076 / #2202: an OpenHuman abstract tier alias leaked to
         // a custom provider, a stale model pin, or a model-specific
         // temperature constraint. Checked BEFORE the generic

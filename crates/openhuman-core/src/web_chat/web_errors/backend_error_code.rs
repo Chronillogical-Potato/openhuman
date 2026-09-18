@@ -24,7 +24,7 @@ pub(super) fn classify_by_backend_error_code(
     provider: Option<String>,
     fallback_available: Option<bool>,
 ) -> Option<ClassifiedError> {
-    use tinyinference::classification::{
+    use crate::inference::provider::{
         body_flags_malformed, extract_backend_error_code, is_managed_backend_envelope,
         BackendErrorCode,
     };

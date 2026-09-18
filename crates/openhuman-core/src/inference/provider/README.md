@@ -24,7 +24,7 @@ domain.
 - **DTOs** (`types.rs`) — `ChatRequest`, `ChatResponse`, `ProviderDelta`,
   `ToolCall`, `UsageInfo`, `AGENT_TURN_MAX_OUTPUT_TOKENS`.
 - **Error classifiers** — reusable classifiers live in
-  `tinyinference::classification`; this directory retains only OpenHuman policy.
+  `tinyinference::classification`; this directory retains OpenHuman managed-backend and telemetry policy.
 
 ## Transports
 
@@ -52,7 +52,7 @@ domain.
   (`factory/access_gates.rs`).
 - `crate::inference::local` — `profile::is_local_provider_string`, Ollama /
   LM Studio base-url resolution for local provider strings.
-- `tinyinference::auth_errors` — surfaces per-provider auth errors
+- `crate::inference::auth_error_registry` — surfaces OpenHuman per-provider auth errors
   back to the UI.
 - `crate::core::bus` (`BUS.publish`) / `crate::core::events::DomainEvent` —
   `ops/http_error/auth_failure.rs::publish_backend_session_expired` and
