@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Print every agent's fixed per-turn prefix — system prompt plus advertised tool
-# schemas — one row per agent, largest first, with a fleet total.
+# schemas — one row per agent, largest first, then their sum (a size measure,
+# not a cost: each prefix is paid only on the turns that agent runs).
 #
 # Report-only: nothing here fails on a number. The ratchet that does is
 # `scripts/check-prompt-budget.sh`, which measures through the same CLI, so the
@@ -67,7 +68,8 @@ print(fmt.format("agent", "prompt B", "tools B", "fixed B", "~tok", "worst tool 
 for name, p, t, f, w in rows:
     print(fmt.format(name, p, t, f, f // TOK, w))
 tp, tt, tf = (sum(row[i] for row in rows) for i in (1, 2, 3))
-print(fmt.format(f"TOTAL ({len(rows)} rows)", tp, tt, tf, tf // TOK, ""))
+# A sum no single turn pays: each prefix is paid only when that agent runs.
+print(fmt.format(f"sum of {len(rows)} (not a turn cost)", tp, tt, tf, tf // TOK, ""))
 
 if not any(row[0].startswith("integrations_agent") for row in rows):
     print("integrations_agent — not measurable hermetically; run with "
