@@ -410,13 +410,17 @@ impl Agent {
             .iter()
             .map(|spec| spec.name.clone())
             .collect();
-        let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
-            &mut self.visible_tool_names,
-            self.tools.as_slice(),
-        );
         crate::tools::toolpacks::strip_packed_from_visible(
             &mut self.visible_tool_names,
             &self.agent_definition_name,
+        );
+        let deferred = crate::tools::implementations::meta::strip_deferred_from_visible(
+            &mut self.visible_tool_names,
+            self.tools.as_slice(),
+        );
+        crate::tools::implementations::meta::bind_tool_search_index(
+            self.tools.as_slice(),
+            deferred,
         );
     }
 

@@ -410,8 +410,8 @@ fn hide_tools_drops_named_from_existing_filter() {
     );
 }
 
-/// `hide_tools` must preserve the materialized wildcard allowlist when the
-/// caller resets visibility with an empty set.
+/// `hide_tools` must materialize the wildcard sentinel before removing a real
+/// tool, leaving the rest of the belt visible and executable.
 #[test]
 fn hide_tools_seeds_allowlist_when_no_filter_present() {
     let mut agent = build_minimal_agent_with_definition_name(None);
@@ -424,26 +424,31 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
         "precondition: the mock belt includes `echo`"
     );
 
-    // An empty input restores wildcard visibility and is materialized with the
-    // same exposure filtering as the initial build.
-    agent.set_visible_tool_names(std::collections::HashSet::new());
-    assert!(
-        agent.visible_tool_names_for_test().contains("echo"),
-        "wildcard reset must retain the existing belt; visible = {:?}",
-        agent.visible_tool_names_for_test()
-    );
-
-    // Hiding a name that isn't on the belt leaves the materialized belt intact.
-    agent.hide_tools(&["not_on_belt"]);
+    // Recreate the wildcard sentinel directly so this test exercises
+    // `hide_tools`'s own sentinel-to-allowlist transition. The public reset
+    // setter deliberately materializes the sentinel before returning.
+    agent.visible_tool_names.clear();
+    agent.hide_tools(&["echo"]);
 
     let visible = agent.visible_tool_names_for_test();
     assert!(
-        visible.contains("echo"),
-        "seeding must materialise the existing belt into a concrete allowlist; visible = {visible:?}"
+        !visible.is_empty(),
+        "seeding must materialise the existing belt into a concrete allowlist"
     );
     assert!(
-        !visible.contains("not_on_belt"),
-        "an absent hidden name is a harmless no-op; visible = {visible:?}"
+        !visible.contains("echo"),
+        "the real hidden tool must be removed from the materialized belt; visible = {visible:?}"
+    );
+    assert!(
+        !agent
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "echo"),
+        "the hidden tool must leave the provider-facing surface"
+    );
+    assert!(
+        !agent.tool_policy_session.is_allowed("echo"),
+        "the hidden tool must also be denied at execution policy"
     );
 }
 
