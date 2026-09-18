@@ -15,7 +15,7 @@ impl ChatModel<()> for FailsOnThirdCallProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         let n = self.calls.fetch_add(1, Ordering::SeqCst);
         if n < 2 {
             Ok(tool_response(
@@ -24,7 +24,7 @@ impl ChatModel<()> for FailsOnThirdCallProvider {
                 serde_json::json!({ "msg": format!("round-{n}") }),
             ))
         } else {
-            Err(tinyinference::Error::Model(
+            Err(tinyinference_core::Error::Model(
                 "400 Bad Request: provider boom".to_string(),
             ))
         }
@@ -124,7 +124,7 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
 #[test]
 fn failed_run_history_keeps_the_original_seed_not_the_provider_bound_one() {
     use crate::agent::tinyagents::TranscriptSnapshot;
-    use tinyinference::message::Message;
+    use tinyinference_core::message::Message;
 
     let original = vec![ChatMessage::user("describe [IMAGE:attachment-1]")];
     let snapshot = TranscriptSnapshot {

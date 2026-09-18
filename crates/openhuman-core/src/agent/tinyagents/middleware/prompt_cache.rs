@@ -8,8 +8,8 @@ use sha2::{Digest, Sha256};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::Message as TaMessage;
-use tinyinference::model::{ModelRequest, PromptSegment, SegmentRole};
+use tinyinference_core::message::Message as TaMessage;
+use tinyinference_core::model::{ModelRequest, PromptSegment, SegmentRole};
 
 /// Stable SHA-256 fingerprint over canonical JSON. TinyAgents' prompt builder
 /// uses the same shape for `ModelRequest::prompt_fingerprint`; OpenHuman builds

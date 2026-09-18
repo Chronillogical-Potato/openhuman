@@ -114,7 +114,7 @@ fn has_inference_failure_envelope(result: &str) -> bool {
 /// Ported from legacy `tool_loop::terminal_inference_failure_kind` (#3104).
 pub(crate) fn terminal_inference_failure_kind(result: &str) -> Option<TerminalInferenceFailure> {
     use crate::inference::provider::is_provider_config_rejection_message;
-    use tinyinference::classification::is_budget_exhausted_message;
+    use tinyinference_core::classification::is_budget_exhausted_message;
     if !has_inference_failure_envelope(result) {
         return None;
     }

@@ -56,7 +56,7 @@ impl crate::memory::Memory for MockMemory {
 }
 
 fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_core::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "done",
         ]));

@@ -51,7 +51,7 @@ pub fn context_window_for_model(model: &str) -> Option<u64> {
         return Some(u64::from(price.context_window));
     }
 
-    if let Some(window) = tinyinference::model::context_window_for_model_id(normalized) {
+    if let Some(window) = tinyinference_core::model::context_window_for_model_id(normalized) {
         tracing::debug!(
             model = normalized,
             context_window = window,

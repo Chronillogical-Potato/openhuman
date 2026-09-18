@@ -1,16 +1,16 @@
 use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use tinyinference::local::lm_studio::lm_studio_base_url;
-use tinyinference::local::model_requirements::{
+use tinyinference_local::lm_studio::lm_studio_base_url;
+use tinyinference_local::model_requirements::{
     evaluate_context, ContextEligibility, MIN_CONTEXT_TOKENS,
 };
-use tinyinference::local::models as model_ids;
-use tinyinference::local::ollama::{
+use tinyinference_local::models as model_ids;
+use tinyinference_local::ollama::{
     ollama_base_url_from_override, OllamaModelShow, OllamaModelTag, OllamaShowRequest,
     OllamaShowResponse, OllamaTagsResponse,
 };
-use tinyinference::local::presets::VisionMode;
-use tinyinference::local::provider::{
+use tinyinference_local::presets::VisionMode;
+use tinyinference_local::provider::{
     model_discovery_api, provider_from_name, LocalAiProvider, ModelDiscoveryApi,
 };
 

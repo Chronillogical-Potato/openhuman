@@ -2,9 +2,9 @@ use std::path::Path;
 
 use crate::config::Config;
 use crate::inference::paths::ollama_spawn_marker_path;
-use tinyinference::local::ollama::ollama_base_url_from_override;
-use tinyinference::local::process::apply_no_window;
-use tinyinference::local::spawn_marker::{self, OllamaSpawnMarker};
+use tinyinference_local::ollama::ollama_base_url_from_override;
+use tinyinference_local::process::apply_no_window;
+use tinyinference_local::spawn_marker::{self, OllamaSpawnMarker};
 
 use super::super::LocalAiService;
 use super::util::kill_pid_by_id;

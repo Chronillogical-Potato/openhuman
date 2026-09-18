@@ -19,7 +19,7 @@ use std::sync::Arc;
 #[cfg(test)]
 use tinyagents_harness::events::AgentEvent;
 #[cfg(test)]
-use tinyinference::usage::Usage;
+use tinyinference_core::usage::Usage;
 
 #[cfg(test)]
 use crate::agent::progress::AgentProgress;

@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_core::model::{ChatModel, ModelRequest, ModelResponse};
 
 // ── Test helpers ────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ impl ChatModel<()> for FixedResponseModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         Ok(ModelResponse::assistant(self.response))
     }
 }

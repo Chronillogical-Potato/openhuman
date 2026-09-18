@@ -45,7 +45,7 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
-use tinyinference::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
+use tinyinference_core::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 /// The **intended** embedding selection — `(provider, model, dimensions)`.
 ///

@@ -71,8 +71,8 @@ Rules:\n\
         "[linkedin_enrichment] sending profile to LLM for summarisation"
     );
 
-    use tinyinference::message::Message;
-    use tinyinference::model::ModelRequest;
+    use tinyinference_core::message::Message;
+    use tinyinference_core::model::ModelRequest;
     let summary = model_chat
         .invoke(
             &(),

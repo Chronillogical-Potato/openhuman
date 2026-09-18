@@ -413,7 +413,7 @@ async fn chat_with_history_interactive_does_not_block_on_held_permit() {
         std::time::Duration::from_secs(2),
         service.chat_with_history_interactive(
             &config,
-            vec![tinyinference::local::ollama::OllamaChatMessage {
+            vec![tinyinference_local::ollama::OllamaChatMessage {
                 role: "user".to_string(),
                 content: "hi".to_string(),
             }],

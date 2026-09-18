@@ -247,7 +247,7 @@ pub(super) struct DefaultTemperatureChatModel {
 
 #[async_trait::async_trait]
 impl ChatModel<()> for DefaultTemperatureChatModel {
-    fn profile(&self) -> Option<&tinyinference::model::ModelProfile> {
+    fn profile(&self) -> Option<&tinyinference_core::model::ModelProfile> {
         self.inner.profile()
     }
 
@@ -259,7 +259,7 @@ impl ChatModel<()> for DefaultTemperatureChatModel {
         &self,
         state: &(),
         mut request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         if request.temperature.is_none() {
             request.temperature = Some(self.temperature);
         }
@@ -270,7 +270,7 @@ impl ChatModel<()> for DefaultTemperatureChatModel {
         &self,
         state: &(),
         mut request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_core::Result<ModelStream> {
         if request.temperature.is_none() {
             request.temperature = Some(self.temperature);
         }

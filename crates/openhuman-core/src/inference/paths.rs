@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 
-use tinyinference::local::models as model_ids;
+use tinyinference_local::models as model_ids;
 
 /// Returns the per-user config directory (parent of config.toml).
 pub(crate) fn config_root_dir(config: &Config) -> PathBuf {
@@ -186,8 +186,8 @@ pub(crate) fn resolve_piper_binary() -> Option<PathBuf> {
 /// Config-aware piper resolution: workspace install first, env second,
 /// PATH third.
 pub(crate) fn resolve_piper_binary_with_config(config: &Config) -> Option<PathBuf> {
-    let install = tinyinference::local::piper::PiperInstall::new(workspace_piper_dir(config));
-    if let Some(workspace) = tinyinference::local::piper::find_workspace_piper_binary(&install) {
+    let install = tinyinference_local::piper::PiperInstall::new(workspace_piper_dir(config));
+    if let Some(workspace) = tinyinference_local::piper::find_workspace_piper_binary(&install) {
         return Some(workspace);
     }
     resolve_piper_binary()

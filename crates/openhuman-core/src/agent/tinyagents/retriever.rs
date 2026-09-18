@@ -44,7 +44,7 @@ use std::sync::{Arc, OnceLock};
 
 use serde_json::json;
 use tinyagents_harness::events::{AgentEvent, EventSink};
-use tinyinference::embeddings::{
+use tinyinference_core::embeddings::{
     EmbeddingModel as TaEmbeddingModel, InMemoryVectorStore, Retriever, ScoredDoc,
 };
 

@@ -7,9 +7,9 @@ use crate::config::Config;
 use crate::inference::local::service::LocalAiService;
 use crate::inference::paths::resolve_tts_voice_path;
 use crate::inference::types::{LocalAiAssetStatus, LocalAiAssetsStatus};
-use tinyinference::local::models as model_ids;
-use tinyinference::local::presets::VisionMode;
-use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
+use tinyinference_local::models as model_ids;
+use tinyinference_local::presets::VisionMode;
+use tinyinference_local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
     pub async fn assets_status(&self, config: &Config) -> Result<LocalAiAssetsStatus, String> {
@@ -38,7 +38,7 @@ impl LocalAiService {
             LocalAiProvider::Ollama | LocalAiProvider::LmStudio
         );
         let ollama_available = if uses_ollama_assets {
-            let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+            let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
                 config.local_ai.base_url.as_deref(),
             );
             let present = self.ollama_healthy_at(&base_url).await;

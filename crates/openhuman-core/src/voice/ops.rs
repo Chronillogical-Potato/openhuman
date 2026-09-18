@@ -11,7 +11,7 @@ use crate::config::Config;
 use crate::inference::local as local_ai;
 use crate::inference::local::paths::{resolve_piper_binary, resolve_tts_voice_path};
 use crate::rpc::RpcOutcome;
-use tinyinference::local::models as model_ids;
+use tinyinference_local::models as model_ids;
 
 use super::factory::{create_stt_provider, effective_stt_provider};
 use super::postprocess;

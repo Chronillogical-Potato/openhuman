@@ -124,7 +124,7 @@ use openhuman_core::config::ops::local_ai_presets::{
     apply_preset_to_config, current_tier_from_config, supports_screen_summary,
     vision_mode_for_config,
 };
-use tinyinference::local::presets::{
+use tinyinference_local::presets::{
     all_presets, device_supports_local_ai, mvp_presets, preset_for_tier, recommend_tier,
     should_default_to_cloud_fallback, vision_mode_for_tier, ModelTier, VisionMode,
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
@@ -173,7 +173,7 @@ use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_
 use openhuman_core::threads::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -249,7 +249,7 @@ impl ChatModel<()> for EchoModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         Ok(ModelResponse::assistant(
             request
                 .messages
@@ -1970,8 +1970,8 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
 
 #[tokio::test]
 async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edges() {
-    use tinyinference::message::Message;
-    use tinyinference::model::{ChatModel, ModelRequest};
+    use tinyinference_core::message::Message;
+    use tinyinference_core::model::{ChatModel, ModelRequest};
 
     let state_dir = tempdir().expect("openhuman provider state");
     let provider = OpenHumanBackendModel::new(

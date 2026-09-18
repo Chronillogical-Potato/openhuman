@@ -59,7 +59,7 @@ impl Config {
 
         set_runtime_proxy_config(self.proxy.clone());
 
-        tinyinference::embeddings::set_rate_limit(self.memory.embedding_rate_limit_per_min);
+        tinyinference_core::embeddings::set_rate_limit(self.memory.embedding_rate_limit_per_min);
 
         // Launch flags are process-local and intentionally win over both the
         // persisted file and ordinary environment overlays. They are applied

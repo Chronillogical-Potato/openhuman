@@ -15,8 +15,8 @@ use std::sync::{
     Arc, Mutex,
 };
 use tempfile::TempDir;
-use tinyinference::providers::openai::codex::openai_codex_client_version;
-use tinyinference::sanitize::{sanitize_api_error, MAX_API_ERROR_CHARS};
+use tinyinference_core::providers::openai::codex::openai_codex_client_version;
+use tinyinference_core::sanitize::{sanitize_api_error, MAX_API_ERROR_CHARS};
 
 #[derive(Clone)]
 struct ModelProbeState {

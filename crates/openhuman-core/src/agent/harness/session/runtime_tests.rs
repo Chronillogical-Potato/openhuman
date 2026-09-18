@@ -10,7 +10,9 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::Arc;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse, ModelStream, ModelStreamItem};
+use tinyinference_core::model::{
+    ChatModel, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
+};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::{sleep, Duration};
 
@@ -24,7 +26,7 @@ impl ChatModel<()> for StaticModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         let response = self.response.lock().take().unwrap_or_else(|| {
             Ok(ChatResponse {
                 text: Some("done".into()),
@@ -39,7 +41,7 @@ impl ChatModel<()> for StaticModel {
                     &response, &request,
                 ),
             ),
-            Err(error) => Err(tinyinference::Error::Model(error.to_string())),
+            Err(error) => Err(tinyinference_core::Error::Model(error.to_string())),
         }
     }
 
@@ -47,7 +49,7 @@ impl ChatModel<()> for StaticModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_core::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
         Ok(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
@@ -95,8 +97,10 @@ impl ChatModel<()> for PersistentErrModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
-        Err(tinyinference::Error::Model(self.build_error().to_string()))
+    ) -> tinyinference_core::Result<ModelResponse> {
+        Err(tinyinference_core::Error::Model(
+            self.build_error().to_string(),
+        ))
     }
 }
 

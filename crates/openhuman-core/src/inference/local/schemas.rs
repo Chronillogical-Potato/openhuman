@@ -419,10 +419,10 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
         let config = config_rpc::load_config_with_timeout().await?;
         let force = p.force.unwrap_or(false);
 
-        tinyinference::local::download::write_status(
-            tinyinference::local::download::VoiceInstallStatus {
-                engine: tinyinference::local::download::ENGINE_PIPER.to_string(),
-                state: tinyinference::local::download::VoiceInstallState::Installing,
+        tinyinference_local::download::write_status(
+            tinyinference_local::download::VoiceInstallStatus {
+                engine: tinyinference_local::download::ENGINE_PIPER.to_string(),
+                state: tinyinference_local::download::VoiceInstallState::Installing,
                 progress: Some(0),
                 downloaded_bytes: None,
                 total_bytes: None,
@@ -438,19 +438,18 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
         );
         let voice_id = p.voice_id.clone();
         tokio::spawn(async move {
-            let install = tinyinference::local::piper::PiperInstall::new(
+            let install = tinyinference_local::piper::PiperInstall::new(
                 crate::inference::paths::workspace_piper_dir(&config),
             );
             if let Err(e) =
-                tinyinference::local::piper::install_piper(&install, voice_id, force).await
+                tinyinference_local::piper::install_piper(&install, voice_id, force).await
             {
                 log::warn!("[voice-install:piper] background install failed: {e}");
             }
         });
 
-        let status = tinyinference::local::download::read_status(
-            tinyinference::local::download::ENGINE_PIPER,
-        );
+        let status =
+            tinyinference_local::download::read_status(tinyinference_local::download::ENGINE_PIPER);
         serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
     })
 }
@@ -467,11 +466,11 @@ fn handle_local_ai_test_connection(params: Map<String, Value>) -> ControllerFutu
 fn handle_local_ai_piper_install_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let install = tinyinference::local::piper::PiperInstall::new(
+        let install = tinyinference_local::piper::PiperInstall::new(
             crate::inference::paths::workspace_piper_dir(&config),
         );
-        let voice_id = tinyinference::local::models::effective_tts_voice_id(&config);
-        let status = tinyinference::local::piper::status(&install, &voice_id);
+        let voice_id = tinyinference_local::models::effective_tts_voice_id(&config);
+        let status = tinyinference_local::piper::status(&install, &voice_id);
         serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
     })
 }

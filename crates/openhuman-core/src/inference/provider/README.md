@@ -20,26 +20,26 @@ domain.
   gates before building a model.
 - **Models** — `OpenHumanBackendModel` + `PROVIDER_LABEL`
   (`openhuman_backend_model.rs`); OpenAI-compatible and Anthropic builders live
-  in `tinyinference::providers` and are called directly.
+  in `tinyinference_core::providers` and are called directly.
 - **DTOs** (`types.rs`) — `ChatRequest`, `ChatResponse`, `ProviderDelta`,
   `ToolCall`, `UsageInfo`, `AGENT_TURN_MAX_OUTPUT_TOKENS`.
 - **Error classifiers** — reusable classifiers live in
-  `tinyinference::classification`; this directory retains OpenHuman managed-backend and telemetry policy.
+  `tinyinference_core::classification`; this directory retains OpenHuman managed-backend and telemetry policy.
 
 ## Transports
 
 | Transport | File | Provider-string prefix |
 | --- | --- | --- |
 | Managed OpenHuman backend | `openhuman_backend_model.rs` | `openhuman` / `cloud` (session JWT + billing metadata) |
-| OpenAI-compatible (BYOK cloud slugs, local runtimes) | `tinyinference::providers::openai` | `<slug>:<model>`, `ollama:<model>`, `lmstudio:<model>`, `mlx:<model>`, `omlx:<model>`, `local-openai:<model>` |
-| Anthropic Messages API (prompt caching) | `tinyinference::providers::anthropic` | `<slug>:<model>` whose endpoint is the first-party Messages API and native tool calling is on |
-| Codex OAuth / Responses API | `openai_codex.rs` host OAuth selection plus `tinyinference::providers::openai::codex` metadata | the `openai` cloud slug once Codex OAuth tokens exist |
+| OpenAI-compatible (BYOK cloud slugs, local runtimes) | `tinyinference_core::providers::openai` | `<slug>:<model>`, `ollama:<model>`, `lmstudio:<model>`, `mlx:<model>`, `omlx:<model>`, `local-openai:<model>` |
+| Anthropic Messages API (prompt caching) | `tinyinference_core::providers::anthropic` | `<slug>:<model>` whose endpoint is the first-party Messages API and native tool calling is on |
+| Codex OAuth / Responses API | `openai_codex.rs` host OAuth selection plus `tinyinference_core::providers::openai::codex` metadata | the `openai` cloud slug once Codex OAuth tokens exist |
 | Claude Agent SDK subprocess | `tinyagents_harness::providers::claude_agent_sdk` | `claude_agent_sdk` / `claude_agent_sdk:<model>` |
 | Claude Code CLI subprocess | `claude_code/` — see its own [README](claude_code/README.md) | `claude-code:<model>` |
 
 ## Calls into
 
-- `tinyinference::model::ChatModel` (`vendor/tinyagents/vendor/tinyinference`)
+- `tinyinference_core::model::ChatModel` (`vendor/tinyagents/vendor/tinyinference`)
   — the trait every transport implements.
 - `crate::config` — cloud-provider schema (`AuthStyle`, slug reservation),
   `Config::claude_agent_sdk`, abstract tier model constants.

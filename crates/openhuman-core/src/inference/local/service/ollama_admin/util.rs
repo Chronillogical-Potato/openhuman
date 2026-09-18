@@ -1,4 +1,4 @@
-use tinyinference::local::ollama::{validate_ollama_url, OllamaTagsResponse};
+use tinyinference_local::ollama::{validate_ollama_url, OllamaTagsResponse};
 
 pub(super) fn lm_studio_models_error_means_unreachable(error: &str) -> bool {
     error.starts_with("lm studio models request failed:")

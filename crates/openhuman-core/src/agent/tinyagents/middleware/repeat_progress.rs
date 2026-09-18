@@ -16,15 +16,15 @@ use tinyagents_harness::no_progress::{
 };
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::message::{ContentBlock, Message};
-use tinyinference::model::{ModelRequest, ModelResponse};
+use tinyinference_core::message::{ContentBlock, Message};
+use tinyinference_core::model::{ModelRequest, ModelResponse};
 
 use super::loop_guards::is_repeat_call_exempt;
 use crate::agent::context::CLEARED_PLACEHOLDER;
 
 /// Extract the assistant's visible text (concatenated [`ContentBlock::Text`]
 /// blocks) from a model response message, for the repeat-output signature.
-fn assistant_visible_text(message: &tinyinference::message::AssistantMessage) -> String {
+fn assistant_visible_text(message: &tinyinference_core::message::AssistantMessage) -> String {
     let mut out = String::new();
     for block in &message.content {
         if let ContentBlock::Text(t) = block {

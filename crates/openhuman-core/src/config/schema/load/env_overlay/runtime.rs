@@ -9,10 +9,9 @@ impl Config {
         if let Some(tier_str) = env.get("OPENHUMAN_LOCAL_AI_TIER") {
             let tier_str = tier_str.trim().to_ascii_lowercase();
             if !tier_str.is_empty() {
-                if let Some(tier) =
-                    tinyinference::local::presets::ModelTier::from_str_opt(&tier_str)
+                if let Some(tier) = tinyinference_local::presets::ModelTier::from_str_opt(&tier_str)
                 {
-                    if tier == tinyinference::local::presets::ModelTier::Custom {
+                    if tier == tinyinference_local::presets::ModelTier::Custom {
                         tracing::warn!(
                             tier = %tier_str,
                             "ignoring custom OPENHUMAN_LOCAL_AI_TIER; only built-in presets are supported"

@@ -22,9 +22,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
-use tinyinference::message::Message;
-use tinyinference::model::{ChatModel, ModelRequest, ModelStreamItem};
-use tinyinference::providers::openai::{AuthStyle, OpenAiModel};
+use tinyinference_core::message::Message;
+use tinyinference_core::model::{ChatModel, ModelRequest, ModelStreamItem};
+use tinyinference_core::providers::openai::{AuthStyle, OpenAiModel};
 
 // ── Environment serialisation lock ───────────────────────────────────────────
 //

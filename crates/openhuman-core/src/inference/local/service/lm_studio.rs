@@ -1,8 +1,8 @@
 use crate::config::Config;
-use tinyinference::local::lm_studio::{
+use tinyinference_local::lm_studio::{
     apply_lm_studio_auth, lm_studio_base_url, ollama_tags_fallback_url, LmStudioModelsResponse,
 };
-use tinyinference::local::ollama::{OllamaModelTag, OllamaTagsResponse};
+use tinyinference_local::ollama::{OllamaModelTag, OllamaTagsResponse};
 
 use super::LocalAiService;
 

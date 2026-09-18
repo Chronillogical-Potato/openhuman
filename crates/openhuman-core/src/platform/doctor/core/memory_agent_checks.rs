@@ -111,7 +111,7 @@ pub(super) fn check_embedding_model_health(config: &Config, items: &mut Vec<Diag
     }
 
     // Ollama path: probe reachability then model availability.
-    let base_url = tinyinference::local::ollama::ollama_base_url();
+    let base_url = tinyinference_local::ollama::ollama_base_url();
     let tags_url = format!("{}/api/tags", base_url.trim_end_matches('/'));
 
     log::debug!("[doctor] probing ollama at {tags_url} for embedding model {model}");

@@ -43,8 +43,8 @@ use openhuman_core::threads::goals::{runtime as goal_runtime, store as goal_stor
 use openhuman_core::tools::{
     PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
 };
-use tinyinference::message::Message;
-use tinyinference::model::{
+use tinyinference_core::message::Message;
+use tinyinference_core::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 
@@ -164,7 +164,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         self.capture(&request);
         Ok(self.pop())
     }
@@ -173,7 +173,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_core::Result<ModelStream> {
         self.capture(&request);
         let items = vec![
             ModelStreamItem::Started,

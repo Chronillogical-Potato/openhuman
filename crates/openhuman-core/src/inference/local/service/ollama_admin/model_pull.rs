@@ -2,11 +2,11 @@ use futures_util::StreamExt;
 
 use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use tinyinference::local::models as model_ids;
-use tinyinference::local::ollama::{
+use tinyinference_local::models as model_ids;
+use tinyinference_local::ollama::{
     ollama_base_url_from_override, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest,
 };
-use tinyinference::local::presets::VisionMode;
+use tinyinference_local::presets::VisionMode;
 
 use super::super::LocalAiService;
 use super::util::interrupted_pull_settle_window_secs;

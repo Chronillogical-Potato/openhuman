@@ -415,7 +415,8 @@ tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", f
 tinyagents-language = { path = "../../vendor/tinyagents/crates/tinyagents-language" }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
-tinyinference = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference" }
+tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 # TinyTools — the tool vocabulary: the `Tool` trait, `ToolResult`, and the
 # permission / scope / timeout classifications this host enforces around a call.
 #

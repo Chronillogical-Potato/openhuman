@@ -2,7 +2,7 @@
 
 Host policy and RPC surface for vector embeddings. Concrete OpenAI-compatible,
 Cohere, Voyage, Ollama, cloud-transport, retry, and rate-limit implementations
-live in `tinyinference::embeddings` (vendored at
+live in `tinyinference_core::embeddings` (vendored at
 `vendor/tinyagents/vendor/tinyinference`); this domain selects and adapts
 those models for OpenHuman.
 
@@ -52,4 +52,4 @@ stores fixed 1024-dimension vectors (`EMBEDDING_DIM` in tinymemory-core's
   (`rpc/settings.rs`, `rpc/api_keys.rs`, `rpc/embed.rs`, `rpc/probe.rs`, `rpc/served_models.rs`).
 - See `mod.rs` for the current provider set (Managed default via the backend's
   `POST /openai/v1/embeddings`, Voyage, OpenAI, Cohere, Ollama, Custom, Noop)
-  and `tinyinference::embeddings` for their concrete implementations.
+  and `tinyinference_core::embeddings` for their concrete implementations.

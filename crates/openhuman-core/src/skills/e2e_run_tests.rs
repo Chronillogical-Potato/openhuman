@@ -41,9 +41,9 @@ use crate::skills::schemas::resolve_workspace_dir;
 use crate::threads::todos::ops as board_ops;
 use crate::threads::todos::ops::{BoardLocation, CardPatch};
 use crate::tools::traits::Tool;
-use tinyinference::message::AssistantMessage;
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_core::message::AssistantMessage;
+use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_core::tool::ToolCall;
 
 /// Serialize this module's tests (each touches process-global state).
 fn serial() -> &'static tokio::sync::Mutex<()> {
@@ -118,7 +118,7 @@ impl ChatModel<()> for MockLlm {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         let convo: String = request
             .messages
             .iter()
@@ -445,8 +445,8 @@ impl ChatModel<()> for FailingLlm {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
-        Err(tinyinference::Error::Model(
+    ) -> tinyinference_core::Result<ModelResponse> {
+        Err(tinyinference_core::Error::Model(
             "simulated provider failure: model unavailable".to_string(),
         ))
     }

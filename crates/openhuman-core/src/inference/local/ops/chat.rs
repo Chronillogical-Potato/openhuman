@@ -30,7 +30,7 @@ pub async fn local_ai_chat(
         return Err("messages must not be empty".to_string());
     }
 
-    let mut ollama_messages: Vec<tinyinference::local::ollama::OllamaChatMessage> =
+    let mut ollama_messages: Vec<tinyinference_local::ollama::OllamaChatMessage> =
         Vec::with_capacity(messages.len());
 
     for msg in messages.into_iter() {
@@ -48,7 +48,7 @@ pub async fn local_ai_chat(
             }
         }
 
-        ollama_messages.push(tinyinference::local::ollama::OllamaChatMessage {
+        ollama_messages.push(tinyinference_local::ollama::OllamaChatMessage {
             role: normalized_role,
             content: msg.content,
         });

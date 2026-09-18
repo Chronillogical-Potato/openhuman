@@ -65,7 +65,7 @@ use tinyagents_harness::error::{Result, TinyAgentsError};
 use tinyagents_harness::host::budget_gate::{
     BudgetGate, CallEstimate, CompressionHint, ContextState, Permit,
 };
-use tinyinference::usage::Usage;
+use tinyinference_core::usage::Usage;
 
 use crate::config::{Config, DEFAULT_MODEL};
 use crate::cron::scheduler_gate;

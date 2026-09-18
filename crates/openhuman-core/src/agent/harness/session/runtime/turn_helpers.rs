@@ -83,7 +83,7 @@ impl Agent {
             return kind.to_string();
         }
 
-        let scrubbed = tinyinference::sanitize::sanitize_api_error(&err.to_string())
+        let scrubbed = tinyinference_core::sanitize::sanitize_api_error(&err.to_string())
             .replace(['\n', '\r', '\t'], " ")
             .split_whitespace()
             .collect::<Vec<_>>()

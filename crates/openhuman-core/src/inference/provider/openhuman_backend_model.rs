@@ -28,12 +28,12 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tinyinference::message::Message;
-use tinyinference::model::{
+use tinyinference_core::message::Message;
+use tinyinference_core::model::{
     ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ProviderError,
 };
-use tinyinference::providers::openai::OpenAiModel;
-use tinyinference::Error as TiError;
+use tinyinference_core::providers::openai::OpenAiModel;
+use tinyinference_core::Error as TiError;
 
 use super::ProviderRuntimeOptions;
 use crate::agent::tinyagents::thread_context;
@@ -211,7 +211,7 @@ impl OpenHumanBackendModel {
 
     /// Resolve the current JWT + base URL and build a fresh crate `OpenAiModel`
     /// (Bearer). Rebuilt per call because the session JWT rotates.
-    fn build_wire_model(&self) -> tinyinference::Result<OpenAiModel> {
+    fn build_wire_model(&self) -> tinyinference_core::Result<OpenAiModel> {
         let token = self
             .resolve_bearer()
             .map_err(|e| TiError::Model(e.to_string()))?;
@@ -487,7 +487,7 @@ fn maybe_publish_local_session_expiry() {
 fn maybe_publish_session_expired(err: &TiError, operation: &str) {
     if let TiError::Provider(pe) = err {
         if pe.provider.as_str() == "OpenHuman" && matches!(pe.status, Some(401 | 403)) {
-            let reason = tinyinference::sanitize::sanitize_api_error(&pe.message);
+            let reason = tinyinference_core::sanitize::sanitize_api_error(&pe.message);
             crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
                 source: format!(
                     "openhuman_backend_model.{}({})",
@@ -518,13 +518,13 @@ fn log_managed_dispatch_error(err: &TiError, operation: &str) {
                 pe.code,
                 pe.provider,
                 pe.retryable,
-                tinyinference::sanitize::sanitize_api_error(&pe.message),
+                tinyinference_core::sanitize::sanitize_api_error(&pe.message),
             );
         }
         other => {
             log::warn!(
                 "[providers][openhuman-backend] managed {operation} failed (non-provider error): {}",
-                tinyinference::sanitize::sanitize_api_error(&other.to_string()),
+                tinyinference_core::sanitize::sanitize_api_error(&other.to_string()),
             );
         }
     }
@@ -553,7 +553,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         let model = self.build_wire_model()?;
         let response = match model.invoke(state, with_thread_id(request)).await {
             Ok(response) => response,
@@ -570,7 +570,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_core::Result<ModelStream> {
         let model = self.build_wire_model()?;
         // NOTE (streaming billing parity): the crate SSE parser sets `raw: None`
         // on the terminal `Completed` response, so the `openhuman.billing` envelope

@@ -1,10 +1,10 @@
 use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::types::LocalAiStatus;
-use tinyinference::device::DeviceProfile;
-use tinyinference::local::models as model_ids;
-use tinyinference::local::presets::VisionMode;
-use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
+use tinyinference_local::device::DeviceProfile;
+use tinyinference_local::models as model_ids;
+use tinyinference_local::presets::VisionMode;
+use tinyinference_local::provider::{provider_from_name, LocalAiProvider};
 
 use super::LocalAiService;
 
@@ -128,7 +128,7 @@ impl LocalAiService {
 
     pub async fn bootstrap(&self, config: &Config) {
         let _guard = self.bootstrap_lock.lock().await;
-        let device = tinyinference::device::detect_device_profile();
+        let device = tinyinference_local::device::detect_device_profile();
         let effective_config = config_with_recommended_tier_if_unselected(config, &device);
 
         if !effective_config.local_ai.runtime_enabled {
@@ -358,7 +358,7 @@ fn config_with_recommended_tier_if_unselected(config: &Config, device: &DevicePr
     if !config.local_ai.opt_in_confirmed {
         tracing::debug!(
             total_ram_gb = device.total_ram_gb(),
-            min_required_gb = tinyinference::local::presets::MIN_RAM_GB_FOR_LOCAL_AI,
+            min_required_gb = tinyinference_local::presets::MIN_RAM_GB_FOR_LOCAL_AI,
             ?current_tier,
             selected_tier = ?config.local_ai.selected_tier,
             "[local_ai] bootstrap: opt_in_confirmed=false, hard-overriding to disabled (cloud fallback)"
@@ -380,19 +380,19 @@ fn config_with_recommended_tier_if_unselected(config: &Config, device: &DevicePr
 fn format_degraded_warning(err: &str, config: &Config) -> String {
     let current = crate::config::ops::local_ai_presets::current_tier_from_config(&config.local_ai);
     match current {
-        tinyinference::local::presets::ModelTier::Ram16PlusGb => {
+        tinyinference_local::presets::ModelTier::Ram16PlusGb => {
             format!(
                 "{err}. Hint: your device may not support the 16 GB+ tier model. \
                  Try switching to the 8-16 GB or 4-8 GB tier in Settings > Local AI Model."
             )
         }
-        tinyinference::local::presets::ModelTier::Ram8To16Gb => {
+        tinyinference_local::presets::ModelTier::Ram8To16Gb => {
             format!(
                 "{err}. Hint: your device may not support the 8-16 GB tier model. \
                  Try switching to the 4-8 GB or 2-4 GB tier in Settings > Local AI Model."
             )
         }
-        tinyinference::local::presets::ModelTier::Ram4To8Gb => format!(
+        tinyinference_local::presets::ModelTier::Ram4To8Gb => format!(
             "{err}. Hint: your device may not support the 4-8 GB tier vision sidecar. \
              Try switching to the 2-4 GB tier for text-only local AI."
         ),

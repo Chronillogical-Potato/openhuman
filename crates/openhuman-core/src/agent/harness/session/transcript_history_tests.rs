@@ -42,8 +42,10 @@ fn history(dir: &TempDir) -> SessionTranscriptHistory {
 }
 
 fn user(text: &str) -> Message {
-    Message::User(tinyinference::message::UserMessage {
-        content: vec![tinyinference::message::ContentBlock::Text(text.to_string())],
+    Message::User(tinyinference_core::message::UserMessage {
+        content: vec![tinyinference_core::message::ContentBlock::Text(
+            text.to_string(),
+        )],
     })
 }
 
@@ -374,9 +376,9 @@ async fn trait_path_loses_the_provenance_that_append_turn_preserves() {
         .replace(
             "thread-1",
             vec![Message::Assistant(
-                tinyinference::message::AssistantMessage {
+                tinyinference_core::message::AssistantMessage {
                     id: None,
-                    content: vec![tinyinference::message::ContentBlock::Text(
+                    content: vec![tinyinference_core::message::ContentBlock::Text(
                         "72F and sunny.".into(),
                     )],
                     tool_calls: vec![],

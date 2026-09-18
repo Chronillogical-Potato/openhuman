@@ -12,7 +12,7 @@ use tinyagents_harness::middleware::{
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::steering::SteeringHandle;
 use tinyagents_registry::{CapabilityRegistry, RegistryDiagnostic, RegistrySnapshot};
-use tinyinference::model::CapabilitySet;
+use tinyinference_core::model::CapabilitySet;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore;

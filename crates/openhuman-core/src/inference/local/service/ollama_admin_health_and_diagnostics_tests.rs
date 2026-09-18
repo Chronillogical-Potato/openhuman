@@ -364,8 +364,8 @@ async fn diagnostics_ok_when_expected_models_are_present() {
     let _guard = crate::inference::inference_test_guard();
 
     let config = Config::default();
-    let chat = tinyinference::local::models::effective_chat_model_id(&config);
-    let embedding = tinyinference::local::models::effective_embedding_model_id(&config);
+    let chat = tinyinference_local::models::effective_chat_model_id(&config);
+    let embedding = tinyinference_local::models::effective_embedding_model_id(&config);
     let chat_tag = format!("{}:latest", chat);
     let embed_tag = format!("{}:latest", embedding);
     let app = Router::new().route(
@@ -419,8 +419,8 @@ async fn diagnostics_reports_broken_runner_even_when_models_are_present() {
     let _guard = crate::inference::inference_test_guard();
 
     let config = Config::default();
-    let chat = tinyinference::local::models::effective_chat_model_id(&config);
-    let embedding = tinyinference::local::models::effective_embedding_model_id(&config);
+    let chat = tinyinference_local::models::effective_chat_model_id(&config);
+    let embedding = tinyinference_local::models::effective_embedding_model_id(&config);
     let chat_tag = format!("{}:latest", chat);
     let embed_tag = format!("{}:latest", embedding);
     let app = Router::new()

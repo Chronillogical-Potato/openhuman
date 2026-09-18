@@ -22,12 +22,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock};
 use tempfile::TempDir;
-use tinyinference::message::{AssistantMessage, Message, MessageDelta};
-use tinyinference::model::{
+use tinyinference_core::message::{AssistantMessage, Message, MessageDelta};
+use tinyinference_core::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_core::tool::ToolCall;
+use tinyinference_core::usage::Usage;
 use tokio::time::{sleep, Duration, Instant};
 
 static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
@@ -110,12 +110,12 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         self.capture(&request, false);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_core::Result<ModelStream> {
         self.capture(&request, true);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
@@ -134,12 +134,12 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_core::Result<ModelResponse> {
         self.responses
             .lock()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("fallback final", None)))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_core::Error::Model(error.to_string()))
     }
 }
 

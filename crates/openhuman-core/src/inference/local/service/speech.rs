@@ -8,7 +8,7 @@ use crate::config::Config;
 use crate::inference::paths::{config_root_dir, resolve_piper_binary, resolve_tts_voice_path};
 use crate::inference::types::{LocalAiSpeechResult, LocalAiTtsResult};
 use crate::voice::{create_stt_provider, effective_stt_provider};
-use tinyinference::local::models as model_ids;
+use tinyinference_local::models as model_ids;
 
 use super::LocalAiService;
 

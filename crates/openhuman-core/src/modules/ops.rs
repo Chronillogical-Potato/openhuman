@@ -495,7 +495,7 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
         "memory_sources": config.memory_sources,
         "embedding_routes": config.embedding_routes,
         "storage_provider": config.storage.provider.config,
-        "ollama_base_url": tinyinference::local::ollama::ollama_base_url_from_override(config.local_ai.base_url.as_deref()),
+        "ollama_base_url": tinyinference_local::ollama::ollama_base_url_from_override(config.local_ai.base_url.as_deref()),
         // The module's `EmbeddingHost::default_cloud_embedding_model`: what the
         // engine switches to when the opted-in local model is unreachable
         // (`store::factories`). That is the host's managed-cloud default, the
@@ -509,7 +509,7 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
         "cloud_embedding_dimensions":
             crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
         "models_supporting_dimensions":
-            tinyinference::embeddings::MODELS_SUPPORTING_DIMENSIONS,
+            tinyinference_core::embeddings::MODELS_SUPPORTING_DIMENSIONS,
         // The periodic composio and workspace-source sync loops run INSIDE the
         // module now (tinymemory#100), and these three are what let them run at
         // all. Without the cadence the module answers manual-only and skips

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_core::tool::ToolCall as TaToolCall;
 
 /// Recursively scrub credential-shaped string leaves inside a JSON value.
 fn scrub_json_credentials(value: serde_json::Value) -> serde_json::Value {

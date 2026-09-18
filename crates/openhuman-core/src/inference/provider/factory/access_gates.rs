@@ -49,7 +49,7 @@ pub(super) fn local_only_violation(
         // Deferred: re-resolves to a concrete string on the recursive call.
         return None;
     }
-    if tinyinference::local::profile::is_local_provider_string(p) {
+    if tinyinference_local::profile::is_local_provider_string(p) {
         return None;
     }
     Some(external_provider_label(p))
@@ -104,7 +104,7 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
         // duplicate descriptor.
         return;
     }
-    let is_local = tinyinference::local::profile::is_local_provider_string(p);
+    let is_local = tinyinference_local::profile::is_local_provider_string(p);
     let (slug, model) = match p.split_once(':') {
         Some((s, m)) if !s.trim().is_empty() => (s.trim().to_string(), m.trim().to_string()),
         _ => (p.to_string(), String::new()),
@@ -126,7 +126,7 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
 /// privacy gate; this exemption only concerns OpenHuman registration.
 pub(crate) fn provider_uses_independent_auth(provider: &str) -> bool {
     let p = provider.trim();
-    tinyinference::local::profile::is_local_provider_string(p)
+    tinyinference_local::profile::is_local_provider_string(p)
         || p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
         || p == CLAUDE_AGENT_SDK_PROVIDER
         || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)

@@ -36,7 +36,7 @@ use crate::tools::{Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_core::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Test Helpers — Mock Provider, Mock Tool, Mock Memory
@@ -73,7 +73,7 @@ impl ChatModel<()> for ScriptedProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         let mut guard = self.responses.lock().unwrap();
         let response = if guard.is_empty() {
             ChatResponse {
@@ -98,8 +98,10 @@ impl ChatModel<()> for FailingProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
-        Err(tinyinference::Error::Model("provider error".to_string()))
+    ) -> tinyinference_core::Result<ModelResponse> {
+        Err(tinyinference_core::Error::Model(
+            "provider error".to_string(),
+        ))
     }
 }
 

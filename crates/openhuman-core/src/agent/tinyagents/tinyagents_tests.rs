@@ -68,7 +68,7 @@ fn crate_native_text_mode_disables_native_tools_on_workload_fallbacks() {
 
 #[test]
 fn direct_model_turn_source_builds_without_provider_adapter() {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_core::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "done",
         ]));

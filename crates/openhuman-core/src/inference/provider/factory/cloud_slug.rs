@@ -7,10 +7,12 @@ use crate::inference::provider::factory::access_gates::verify_backend_session_ac
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
-use tinyinference::providers::anthropic::{
+use tinyinference_core::providers::anthropic::{
     build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
 };
-use tinyinference::providers::openai::{build_openai_model, endpoint_is_openrouter, OpenAiConfig};
+use tinyinference_core::providers::openai::{
+    build_openai_model, endpoint_is_openrouter, OpenAiConfig,
+};
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
 /// The shared resolution for a `<slug>:<model>` cloud provider — the cloud
@@ -21,7 +23,7 @@ pub(super) struct CloudSlugResolution<'a> {
     entry: &'a crate::config::schema::cloud_providers::CloudProviderCreds,
     effective_model: String,
     key: String,
-    codex: tinyinference::providers::openai::codex::OpenAiCodexRouting,
+    codex: tinyinference_core::providers::openai::codex::OpenAiCodexRouting,
 }
 
 pub(super) fn resolve_cloud_slug<'a>(
@@ -132,7 +134,7 @@ pub(super) fn resolve_cloud_slug<'a>(
         config
             .chat_provider
             .as_deref()
-            .filter(|chat| tinyinference::local::profile::is_local_provider_string(chat))
+            .filter(|chat| tinyinference_local::profile::is_local_provider_string(chat))
     } else {
         None
     };

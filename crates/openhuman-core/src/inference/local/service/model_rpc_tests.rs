@@ -1,8 +1,8 @@
 use super::{local_model, model_outcome, throughput};
 use crate::config::Config;
-use tinyinference::message::{AssistantMessage, ContentBlock};
-use tinyinference::model::ModelResponse;
-use tinyinference::usage::Usage;
+use tinyinference_core::message::{AssistantMessage, ContentBlock};
+use tinyinference_core::model::ModelResponse;
+use tinyinference_core::usage::Usage;
 
 #[test]
 fn throughput_reads_ollama_timing_metadata() {

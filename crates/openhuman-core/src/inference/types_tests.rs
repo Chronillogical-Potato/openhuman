@@ -16,7 +16,7 @@ fn disabled_status_marks_all_capabilities_disabled() {
 
 #[test]
 fn disabled_status_reflects_lm_studio_provider() {
-    use tinyinference::local::provider::LocalAiProvider;
+    use tinyinference_local::provider::LocalAiProvider;
 
     let mut config = Config::default();
     config.local_ai.provider = LocalAiProvider::LmStudio.as_str().to_string();

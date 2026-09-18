@@ -111,7 +111,7 @@ fn maybe_hide_window(cmd: &mut tokio::process::Command, hide: bool) {
     if !hide {
         return;
     }
-    tinyinference::local::process::apply_no_window(cmd);
+    tinyinference_local::process::apply_no_window(cmd);
     #[cfg(windows)]
     tracing::debug!(
         creation_flags = "0x08000000",

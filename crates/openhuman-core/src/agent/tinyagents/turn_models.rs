@@ -23,7 +23,7 @@ pub(crate) fn tinyagents_depth_error(
     }
 }
 
-/// The per-turn crate [`ChatModel`](tinyinference::model::ChatModel) set,
+/// The per-turn crate [`ChatModel`](tinyinference_core::model::ChatModel) set,
 /// built once from an openhuman [`Provider`] by [`build_turn_models`] — the
 /// single place a turn's `native model adapters are constructed (issue #4249, Phase 5).
 ///
@@ -258,7 +258,7 @@ impl TurnModelSource {
     /// does not expose (common for deterministic scripted tests).
     pub(crate) fn from_model_with_profile(
         model: TurnChatModel,
-        profile: tinyinference::model::ModelProfile,
+        profile: tinyinference_core::model::ModelProfile,
     ) -> Self {
         Self::from_model(Arc::new(ProfileOverrideModel::new(model, profile)))
     }
@@ -331,8 +331,8 @@ impl TurnModelSource {
         });
         let local_kind = provider_string
             .as_deref()
-            .and_then(tinyinference::local::profile::kind_from_provider_string);
-        tinyinference::model::context_window_with_local_fallback(
+            .and_then(tinyinference_local::profile::kind_from_provider_string);
+        tinyinference_local::profile::context_window_with_local_fallback(
             model,
             crate::inference::model_context::context_window_for_model(model),
             local_kind,
@@ -353,7 +353,7 @@ impl TurnModelSource {
             let provider = source.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&source.role, &source.config)
             });
-            tinyinference::local::profile::is_local_provider_string(&provider)
+            tinyinference_local::profile::is_local_provider_string(&provider)
         })
     }
 
@@ -401,8 +401,7 @@ impl TurnModelSource {
             let provider_string = cn.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&cn.role, &cn.config)
             });
-            let is_local =
-                tinyinference::local::profile::is_local_provider_string(&provider_string);
+            let is_local = tinyinference_local::profile::is_local_provider_string(&provider_string);
             let provider_id = if provider_string == "openhuman"
                 || provider_string.is_empty()
                 || provider_string == "cloud"
@@ -431,7 +430,7 @@ impl TurnModelSource {
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 
-    /// Build a standalone summarizer [`ChatModel`](tinyinference::model::ChatModel)
+    /// Build a standalone summarizer [`ChatModel`](tinyinference_core::model::ChatModel)
     /// over this source's provider — a fresh adapter (own error slot) for one-off
     /// summary calls outside the main turn (e.g. the sub-agent cap-hit checkpoint),
     /// so the caller can `invoke` without naming the `Provider` trait. The output
@@ -440,7 +439,7 @@ impl TurnModelSource {
         &self,
         model: &str,
         temperature: f64,
-    ) -> anyhow::Result<Arc<dyn tinyinference::model::ChatModel<()>>> {
+    ) -> anyhow::Result<Arc<dyn tinyinference_core::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
             let profile = direct.profile().cloned().unwrap_or_default();
             return Ok(Arc::new(

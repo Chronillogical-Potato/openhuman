@@ -168,7 +168,7 @@ async fn run_step(python_bin: &Path, args: &[&str], timeout: Duration, label: &s
     cmd.kill_on_drop(true);
     // spaCy venv provisioning can re-run mid-session if the venv is missing or
     // its ready marker is stale, so suppress the Windows conhost flash (GH-4814).
-    tinyinference::local::process::apply_no_window(&mut cmd);
+    tinyinference_local::process::apply_no_window(&mut cmd);
 
     let output = match tokio::time::timeout(timeout, cmd.output()).await {
         Ok(Ok(output)) => output,

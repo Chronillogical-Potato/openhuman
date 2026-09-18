@@ -39,7 +39,7 @@ use crate::core::bus::BUS;
 use std::sync::Arc;
 use tinybus::ObjectPath;
 use tinyconnectors_bus::{ComposioConnection, ComposioExecuteResponse};
-use tinyinference::model::{ModelRequest, ModelResponse};
+use tinyinference_core::model::{ModelRequest, ModelResponse};
 use tinymemory_api::host::{MemoryEvent, SpacyResponse};
 
 const EMBEDDING_NAME: &str = "ai.tinyhumans.tinymemory.EmbeddingHost";
@@ -129,7 +129,7 @@ impl ChatCallbacks {
 fn resolve_chat_model(
     role: &str,
     config: &Config,
-) -> anyhow::Result<std::sync::Arc<dyn tinyinference::model::ChatModel<()>>> {
+) -> anyhow::Result<std::sync::Arc<dyn tinyinference_core::model::ChatModel<()>>> {
     if role == "summarization" {
         let (model, _) = crate::memory::tree::tree_runtime::ops::create_provider(config)
             .map_err(anyhow::Error::msg)?;

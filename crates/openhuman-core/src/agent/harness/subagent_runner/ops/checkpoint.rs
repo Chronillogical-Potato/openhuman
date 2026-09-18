@@ -7,8 +7,8 @@
 
 use crate::inference::provider::UsageInfo;
 use std::sync::Arc;
-use tinyinference::message::Message;
-use tinyinference::model::{ChatModel, ModelRequest};
+use tinyinference_core::message::Message;
+use tinyinference_core::model::{ChatModel, ModelRequest};
 
 /// A checkpoint result. `usage`, when present, is the provider usage from the
 /// summary call so the caller can fold it into sub-agent token/cost accounting.

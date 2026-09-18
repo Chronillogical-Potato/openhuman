@@ -5,13 +5,13 @@
 //! neutral `ChatModel` interface.
 
 use crate::config::Config;
-use tinyinference::local::lm_studio::lm_studio_base_url;
-use tinyinference::local::ollama::{ollama_base_url_from_override, redact_ollama_base_url};
-use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
-use tinyinference::message::Message;
-use tinyinference::model::{ChatModel, ModelRequest};
-use tinyinference::providers::openai::OpenAiModel;
-use tinyinference::providers::{ProviderKind, ProviderSpec};
+use tinyinference_core::message::Message;
+use tinyinference_core::model::{ChatModel, ModelRequest};
+use tinyinference_core::providers::openai::OpenAiModel;
+use tinyinference_core::providers::{ProviderKind, ProviderSpec};
+use tinyinference_local::lm_studio::lm_studio_base_url;
+use tinyinference_local::ollama::{ollama_base_url_from_override, redact_ollama_base_url};
+use tinyinference_local::provider::{provider_from_name, LocalAiProvider};
 
 pub(super) struct ModelRpcOutcome {
     pub reply: String,
@@ -25,7 +25,7 @@ fn throughput(raw: Option<&serde_json::Value>, count: &str, duration: &str) -> O
     let raw = raw?;
     let count = raw.get(count)?.as_u64()?;
     let duration = raw.get(duration)?.as_u64()?;
-    tinyinference::local::ollama::ns_to_tps(count as f32, duration)
+    tinyinference_local::ollama::ns_to_tps(count as f32, duration)
 }
 
 fn local_model(config: &Config, model_id: &str) -> Result<OpenAiModel, String> {
@@ -85,7 +85,7 @@ pub(super) async fn invoke(
     temperature: f32,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
-    let model_id = tinyinference::local::models::effective_chat_model_id(config);
+    let model_id = tinyinference_local::models::effective_chat_model_id(config);
     // `OpenAiModel` no longer exposes `with_client`/injects an external
     // `reqwest::Client` — each model now builds and owns its own client
     // internally (`OpenAiModel::new`). This host no longer shares its app-wide
@@ -140,7 +140,7 @@ pub(super) async fn invoke(
 }
 
 fn model_outcome(
-    response: tinyinference::model::ModelResponse,
+    response: tinyinference_core::model::ModelResponse,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
     let mut reply = response.text();
@@ -150,7 +150,9 @@ fn model_outcome(
             .content
             .iter()
             .filter_map(|block| match block {
-                tinyinference::message::ContentBlock::Thinking { text, .. } => Some(text.as_str()),
+                tinyinference_core::message::ContentBlock::Thinking { text, .. } => {
+                    Some(text.as_str())
+                }
                 _ => None,
             })
             .collect::<Vec<_>>()

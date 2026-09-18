@@ -53,7 +53,7 @@ pub use types::{
     LocalAiEmbeddingResult, LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult,
 };
 
-impl tinyinference::local::models::LocalModelConfig for crate::config::Config {
+impl tinyinference_local::models::LocalModelConfig for crate::config::Config {
     fn local_provider_name(&self) -> &str {
         &self.local_ai.provider
     }

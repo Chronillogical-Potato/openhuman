@@ -1,7 +1,7 @@
 //! OpenHuman configuration mapping for TinyInference local-model presets.
 
 use crate::config::schema::LocalAiConfig;
-use tinyinference::local::presets::{all_presets, preset_for_tier, ModelTier, VisionMode};
+use tinyinference_local::presets::{all_presets, preset_for_tier, ModelTier, VisionMode};
 
 pub fn vision_mode_for_config(config: &LocalAiConfig) -> VisionMode {
     match current_tier_from_config(config) {
@@ -14,7 +14,7 @@ pub fn vision_mode_for_config(config: &LocalAiConfig) -> VisionMode {
                 VisionMode::Ondemand
             }
         }
-        tier => tinyinference::local::presets::vision_mode_for_tier(tier),
+        tier => tinyinference_local::presets::vision_mode_for_tier(tier),
     }
 }
 
@@ -65,7 +65,7 @@ pub fn current_tier_from_config(config: &LocalAiConfig) -> ModelTier {
 }
 
 fn preset_matches_config(
-    preset: &tinyinference::local::presets::ModelPreset,
+    preset: &tinyinference_local::presets::ModelPreset,
     config: &LocalAiConfig,
 ) -> bool {
     let vision_matches = if matches!(preset.vision_mode, VisionMode::Disabled) {

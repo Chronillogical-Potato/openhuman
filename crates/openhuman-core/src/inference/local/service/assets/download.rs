@@ -4,9 +4,9 @@ use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::local::service::LocalAiService;
 use crate::inference::types::LocalAiAssetsStatus;
-use tinyinference::local::models as model_ids;
-use tinyinference::local::presets::VisionMode;
-use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
+use tinyinference_local::models as model_ids;
+use tinyinference_local::presets::VisionMode;
+use tinyinference_local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
     pub async fn download_all_models(&self, config: &Config) -> Result<(), String> {

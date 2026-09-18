@@ -37,7 +37,7 @@
 //! `classify_embed_error{,_str}` — the parser that turns an embed-stage error
 //! *string* into a [`PipelineFailure`]. It rode the same `pub use` and has no
 //! host caller: it reads the wording of `OpenAiEmbedding::embed`,
-//! `OpenHumanCloudEmbedding::embed` and `tinyinference::embeddings::ollama`,
+//! `OpenHumanCloudEmbedding::embed` and `tinyinference_core::embeddings::ollama`,
 //! all of which run inside whichever engine ran the embed stage. Classifying
 //! there is the point — the driver hands this host a code, not a message — so
 //! the classifier stays with the stage and a copy here would be a second table

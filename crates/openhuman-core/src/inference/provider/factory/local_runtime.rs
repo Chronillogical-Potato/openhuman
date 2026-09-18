@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::inference::provider::factory::access_gates::verify_provider_session;
-use tinyinference::providers::openai::build_local_runtime_chat_model;
+use tinyinference_core::providers::openai::build_local_runtime_chat_model;
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] (issue #4727).
@@ -37,12 +37,12 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> OptionalChatModelResult {
-    use tinyinference::local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
+    use tinyinference_local::profile::{LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE};
 
     // Use the same classifier as privacy and session policy. Canonicalize only
     // the provider prefix: model IDs (including tags and temperature suffixes)
     // remain case-sensitive and must reach the runtime unchanged.
-    let kind = tinyinference::local::profile::kind_from_provider_string(provider)?;
+    let kind = tinyinference_local::profile::kind_from_provider_string(provider)?;
     let model = provider
         .trim()
         .split_once(':')
@@ -97,7 +97,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
             return Some(Err(empty_model_err(&p, "ollama:<model-id>")));
         }
         // Ollama exposes the OpenAI-compatible endpoint at `/v1`.
-        let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+        let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
             config.local_ai.base_url.as_deref(),
         );
         let normalized = base_url.trim_end_matches('/').trim_end_matches("/v1");
@@ -119,9 +119,8 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
         if model.is_empty() {
             return Some(Err(empty_model_err(&p, "lmstudio:<model-id>")));
         }
-        let endpoint = tinyinference::local::lm_studio::lm_studio_base_url(
-            config.local_ai.base_url.as_deref(),
-        );
+        let endpoint =
+            tinyinference_local::lm_studio::lm_studio_base_url(config.local_ai.base_url.as_deref());
         let (api_key, auth) = keyed_auth();
         let chat = build_local_runtime_chat_model(
             "lmstudio",

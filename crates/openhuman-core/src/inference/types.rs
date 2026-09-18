@@ -4,8 +4,8 @@ use crate::config::Config;
 use serde::{Deserialize, Serialize};
 
 use crate::config::ops::local_ai_presets;
-use tinyinference::local::models as model_ids;
-use tinyinference::local::provider::provider_from_name;
+use tinyinference_local::models as model_ids;
+use tinyinference_local::provider::provider_from_name;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalAiStatus {

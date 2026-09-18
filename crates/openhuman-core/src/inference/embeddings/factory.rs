@@ -8,7 +8,7 @@ use super::cloud::{
 };
 use super::provider_trait::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::config::Config;
-use tinyinference::embeddings::{
+use tinyinference_core::embeddings::{
     model_supports_dimensions, CohereEmbeddingModel, NoopEmbeddingModel, OllamaEmbeddingModel,
     OpenAiEmbeddingModel, VoyageEmbeddingModel,
 };
@@ -105,11 +105,11 @@ pub fn create_embedding_provider(
                 "",
                 model,
                 dims,
-                tinyinference::embeddings::VOYAGE_API_BASE,
+                tinyinference_core::embeddings::VOYAGE_API_BASE,
             ),
         )),
         "ollama" => {
-            let base_url = tinyinference::local::ollama::ollama_base_url();
+            let base_url = tinyinference_local::ollama::ollama_base_url();
             Ok(TinyAgentsEmbeddingProvider::boxed(
                 OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
             ))
@@ -159,11 +159,11 @@ pub fn create_embedding_provider_with_credentials(
                 api_key,
                 model,
                 dims,
-                tinyinference::embeddings::VOYAGE_API_BASE,
+                tinyinference_core::embeddings::VOYAGE_API_BASE,
             ),
         )),
         "ollama" => {
-            let base_url = tinyinference::local::ollama::ollama_base_url();
+            let base_url = tinyinference_local::ollama::ollama_base_url();
             Ok(TinyAgentsEmbeddingProvider::boxed(
                 OllamaEmbeddingModel::try_new(&base_url, model, dims)?,
             ))
@@ -241,7 +241,7 @@ pub fn create_embedding_provider_with_config(
         // is honoured — the credential-store path calls `ollama_base_url()`
         // (env-only) and diverges when the setting is set (#6032).
         "ollama" => {
-            let base_url = tinyinference::local::ollama::ollama_base_url_from_override(
+            let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
                 config.local_ai.base_url.as_deref(),
             );
             Ok(TinyAgentsEmbeddingProvider::boxed(

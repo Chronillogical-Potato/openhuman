@@ -320,7 +320,8 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
 [patch."https://github.com/tinyhumansai/tinyinference"]
 # Crates in this world name tinyinference by git rev; without this the shell
 # world resolves TWO copies of the same types. Mirrors the root Cargo.toml.
-tinyinference = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference" }
+tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 
 [patch.crates-io]
 # Keep reqwest defaults disabled in this independent Cargo world too. Without
@@ -334,9 +335,10 @@ motosan-ai-oauth = { path = "../../vendor/motosan-ai-oauth" }
 # match the one the core crate names, or cargo resolves two distinct packages
 # and the shell's `dyn Tool` stops being the core's. See the core manifest.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
-# tinymemory-core declares `tinyinference = "0.2"` (crates-io-shaped, unpublished),
+# tinymemory-core declares `tinyinference-core = "0.2"` (crates-io-shaped, unpublished),
 # so this world must patch it exactly as the root manifest does.
-tinyinference = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference" }
+tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 # TinyFlows and TinyChannels are vendored beside TinyAgents so integration
 # work can test crate changes against OpenHuman before publishing.
 tinyflows = { path = "../../vendor/tinyflows/crates/tinyflows" }

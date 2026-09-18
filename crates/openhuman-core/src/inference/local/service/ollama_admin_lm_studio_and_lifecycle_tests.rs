@@ -309,7 +309,7 @@ async fn kill_ollama_server_kills_owned_child() {
 
     // Sanity: child should be alive immediately after spawn.
     assert!(
-        tinyinference::local::spawn_marker::pid_is_alive(pid),
+        tinyinference_local::spawn_marker::pid_is_alive(pid),
         "child pid {pid} should be alive right after spawn"
     );
 
@@ -325,7 +325,7 @@ async fn kill_ollama_server_kills_owned_child() {
     // update its process table — the kill is signalled but reap is async.
     let mut still_alive = true;
     for _ in 0..40 {
-        if !tinyinference::local::spawn_marker::pid_is_alive(pid) {
+        if !tinyinference_local::spawn_marker::pid_is_alive(pid) {
             still_alive = false;
             break;
         }
@@ -380,9 +380,9 @@ async fn shutdown_owned_ollama_clears_marker_and_kills_child() {
     let marker_path = crate::inference::paths::ollama_spawn_marker_path(&config);
     let marker_writable = marker_path.starts_with(tmp.path());
     if marker_writable {
-        tinyinference::local::spawn_marker::write_marker_at(
+        tinyinference_local::spawn_marker::write_marker_at(
             &marker_path,
-            &tinyinference::local::spawn_marker::OllamaSpawnMarker::new(
+            &tinyinference_local::spawn_marker::OllamaSpawnMarker::new(
                 pid,
                 std::path::Path::new("test-stub"),
             ),
@@ -406,7 +406,7 @@ async fn shutdown_owned_ollama_clears_marker_and_kills_child() {
     // And the spawned process is dead.
     let mut still_alive = true;
     for _ in 0..40 {
-        if !tinyinference::local::spawn_marker::pid_is_alive(pid) {
+        if !tinyinference_local::spawn_marker::pid_is_alive(pid) {
             still_alive = false;
             break;
         }

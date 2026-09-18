@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::config::Config;
 
 use super::service::LocalAiService;
-use tinyinference::local::models::effective_chat_model_id;
+use tinyinference_local::models::effective_chat_model_id;
 
 static LOCAL_AI: once_cell::sync::OnceCell<Arc<LocalAiService>> = once_cell::sync::OnceCell::new();
 

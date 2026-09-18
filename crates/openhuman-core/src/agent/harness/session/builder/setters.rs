@@ -58,7 +58,7 @@ impl AgentBuilder {
     /// Sets an already-constructed TinyAgents chat model. This is the native
     /// injection seam for tests and embedders; no legacy `Provider` adapter is
     /// constructed.
-    pub fn chat_model(mut self, model: Arc<dyn tinyinference::model::ChatModel<()>>) -> Self {
+    pub fn chat_model(mut self, model: Arc<dyn tinyinference_core::model::ChatModel<()>>) -> Self {
         self.turn_model_source = Some(crate::agent::tinyagents::TurnModelSource::from_model(model));
         self
     }

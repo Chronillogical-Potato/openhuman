@@ -17,9 +17,9 @@ use async_trait::async_trait;
 use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
-use tinyinference::message::{ContentBlock, Message as TaMessage};
-use tinyinference::model::{ModelResponse, SegmentRole};
-use tinyinference::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinyinference_core::message::{ContentBlock, Message as TaMessage};
+use tinyinference_core::model::{ModelResponse, SegmentRole};
+use tinyinference_core::tool::{ToolCall as TaToolCall, ToolSchema};
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
 use crate::agent::tinyagents::payload_summarizer::{
@@ -31,7 +31,7 @@ use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::no_progress::{
     DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
 };
-use tinyinference::model::ModelRequest;
+use tinyinference_core::model::ModelRequest;
 
 fn ctx() -> RunContext<()> {
     RunContext::new(RunConfig::new("mw-test"), ())
@@ -301,7 +301,7 @@ fn body_failure_result(name: &str, extra: serde_json::Value) -> TaToolResult {
 
 fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelResponse {
     ModelResponse {
-        message: tinyinference::message::AssistantMessage {
+        message: tinyinference_core::message::AssistantMessage {
             id: None,
             content: vec![ContentBlock::Text("working".to_string())],
             tool_calls: vec![TaToolCall::new("repeat-1", tool, args)],

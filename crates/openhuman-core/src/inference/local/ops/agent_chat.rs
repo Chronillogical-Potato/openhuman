@@ -283,9 +283,9 @@ pub async fn agent_chat_simple(
     );
     let run = model.invoke(
         &(),
-        tinyinference::model::ModelRequest::new(vec![tinyinference::message::Message::user(
-            message.to_string(),
-        )])
+        tinyinference_core::model::ModelRequest::new(vec![
+            tinyinference_core::message::Message::user(message.to_string()),
+        ])
         .with_model(default_model.clone())
         .with_temperature(effective.default_temperature),
     );

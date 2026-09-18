@@ -31,7 +31,7 @@ pub async fn local_ai_status(config: &Config) -> Result<RpcOutcome<LocalAiStatus
     // the current config's provider on the status snapshot before returning.
     let mut snapshot = service.status();
     snapshot.provider =
-        tinyinference::local::provider::provider_from_name(&config.local_ai.provider)
+        tinyinference_local::provider::provider_from_name(&config.local_ai.provider)
             .as_str()
             .to_string();
     Ok(RpcOutcome::single_log(snapshot, "local ai status fetched"))

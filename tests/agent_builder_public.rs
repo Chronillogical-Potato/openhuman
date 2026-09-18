@@ -7,7 +7,7 @@ use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry};
 use openhuman_core::tools::{Tool, ToolResult};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_core::model::{ChatModel, ModelRequest, ModelResponse};
 
 struct StubModel;
 
@@ -17,7 +17,7 @@ impl ChatModel<()> for StubModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_core::Result<ModelResponse> {
         Ok(ModelResponse::assistant("ok"))
     }
 }
