@@ -229,7 +229,7 @@ Every iteration emits a real-time `AgentProgress` event so the UI can render tok
 
 Live turns speak **native tool calling**: the tinyagents harness sends structured tool specs through the `ChatModel` adapter and gets structured tool calls back, for every provider (Claude, GPT, Gemini, local Ollama alike).
 
-The host `ToolDispatcher` trait (`crates/openhuman-core/src/agent/tool_dialect.rs`) remains as a **transcript-compatibility layer**, not a live routing choice; it calls canonical `tinytools_agent` parsers and renderers directly:
+Canonical `tinytools_agent::dialect::ToolDialect` implementations provide transcript-compatible parsing and rendering directly; OpenHuman converts durable/provider records only at those I/O boundaries:
 
 - **Native** - structured tool-call fields, the shape live turns produce today.
 - **XML** - `<tool_call>{...}</tool_call>` tags in assistant text, produced by older sessions.
@@ -516,7 +516,7 @@ The harness shell lives under `crates/openhuman-core/src/agent/`, with the tinya
 | `harness/subagent_runner/ops/runner.rs`  | Integration-tool ranking uses canonical `tinyagents_harness::tool` APIs.                                      |
 | `../tinyagents/payload_summarizer.rs`    | Oversized-tool-result detour.                                                                                 |
 | `harness/session/tool_progress.rs`       | Surviving OpenHuman seam: `TurnProgress`.                                                                     |
-| `tool_dialect.rs`                        | Persisted-transcript conversion around canonical tool-call dialect APIs.                                      |
+| `message_convert.rs`                     | Concrete durable/provider conversion around canonical tool-call dialect APIs.                                  |
 | `triage/`                                | External-trigger classification + escalation.                                                                 |
 | `registry/agents/`                       | Built-in archetypes - one subdirectory per agent.                                                             |
 | `hooks.rs` / `stop_hooks.rs`             | Post-turn and mid-turn hook surfaces.                                                                         |

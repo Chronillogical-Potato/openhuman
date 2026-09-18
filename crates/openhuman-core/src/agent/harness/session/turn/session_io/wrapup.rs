@@ -107,10 +107,12 @@ impl Agent {
         // some providers only preserve one of those representations.
         let parsed_call_count = |candidate: &str| {
             self.tool_dispatcher
-                .parse_response(&ChatResponse {
-                    text: Some(candidate.to_string()),
-                    ..ChatResponse::default()
-                })
+                .parse_response(
+                    &crate::agent::message_convert::dialect_response_from_provider(&ChatResponse {
+                        text: Some(candidate.to_string()),
+                        ..ChatResponse::default()
+                    }),
+                )
                 .1
                 .len()
         };
@@ -244,7 +246,10 @@ impl Agent {
         // model sees exactly what it left out. Run silently: we validate the
         // result before deciding whether/what to show, so a malformed attempt is
         // never streamed to the client.
-        let mut base = self.tool_dispatcher.to_provider_messages(&self.history);
+        let mut base = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         base.push(ChatMessage::user(ro::repair_instruction(contract)));
         let (repair_text, usage) = self
             .silent_completion(&base, effective_model, "required-output re-prompt")

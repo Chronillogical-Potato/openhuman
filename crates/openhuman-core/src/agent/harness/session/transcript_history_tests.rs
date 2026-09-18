@@ -448,7 +448,7 @@ fn native_tool_round() -> Vec<ChatMessage> {
             serde_json::json!({
                 "content": "calling get_weather",
                 // The flat `{id, name, arguments}` shape
-                // `NativeToolDispatcher::to_provider_messages` persists — the
+                // `NativeDialect::to_provider_messages` persists — the
                 // one `parse_native_assistant_envelope` accepts.
                 "tool_calls": [{
                     "id": "call-1",

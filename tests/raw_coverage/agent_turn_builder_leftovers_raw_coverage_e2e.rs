@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
@@ -365,7 +365,7 @@ async fn native_turn_dedups_duplicate_tool_specs_and_executes_empty_arguments() 
         ])
         .visible_tool_names(["round20_dup".to_string()].into_iter().collect())
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .event_context("round20-native-session", "round20-native-channel")
         .agent_definition_name("round20/native")
@@ -421,7 +421,7 @@ async fn xml_turn_persists_tool_cycle_and_fires_failure_hook_context() {
             true,
         )])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path.clone())
         .event_context("round20-hook-session", "round20-hook-channel")
         .agent_definition_name("round20/xml")
@@ -494,7 +494,7 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
             false,
         )])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round20-flush-session", "round20-flush-channel")
         .agent_definition_name("round20/flush")
@@ -535,7 +535,7 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
         .chat_model(empty_provider)
         .tools(Vec::new())
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(empty_workspace)
         .event_context("round20-empty-session", "round20-empty-channel")
         .agent_definition_name("round20/empty")

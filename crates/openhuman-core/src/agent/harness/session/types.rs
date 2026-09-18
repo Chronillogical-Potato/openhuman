@@ -14,13 +14,13 @@ use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::agent::tool_dialect::ToolDispatcher;
 use crate::agent::tool_policy::ToolPolicy;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicySession;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tinytools::{Tool, ToolSpec};
+use tinytools_agent::dialect::ToolDialect;
 
 /// Per-turn behaviour overrides applied to a **single** [`Agent::turn`] call.
 ///
@@ -161,7 +161,7 @@ pub struct Agent {
     pub(super) auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     // `Arc` (not `Box`) so the tinyagents turn path can hold a cheap clone of
     // the dispatcher without borrowing the `Agent` while session state mutates.
-    pub(super) tool_dispatcher: Arc<dyn ToolDispatcher>,
+    pub(super) tool_dispatcher: Arc<dyn ToolDialect>,
     pub(super) config: crate::config::AgentConfig,
     pub(super) model_name: String,
     /// User-configured vision capability for [`Self::model_name`], evaluated at
@@ -534,7 +534,7 @@ pub struct AgentBuilder {
     /// Forwarded to [`Agent::auto_recall`] at build time. Defaults to `None`.
     pub(super) auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     pub(super) prompt_builder: Option<SystemPromptBuilder>,
-    pub(super) tool_dispatcher: Option<Box<dyn ToolDispatcher>>,
+    pub(super) tool_dispatcher: Option<Box<dyn ToolDialect>>,
     pub(super) config: Option<crate::config::AgentConfig>,
     /// Optional [`ContextConfig`] override threaded through from
     /// `Agent::from_config`. When unset the builder falls back to

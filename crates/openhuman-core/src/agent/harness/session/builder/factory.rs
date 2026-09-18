@@ -8,7 +8,6 @@ use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, T
 use crate::agent::harness::session::types::Agent;
 use crate::agent::host_runtime;
 use crate::agent::prompts::SystemPromptBuilder;
-use crate::agent::tool_dialect::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};
 use crate::config::Config;
 use crate::inference::provider;
 use crate::memory::tool_memory::capture::ToolMemoryCaptureHook;
@@ -18,6 +17,7 @@ use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool};
+use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
@@ -1062,14 +1062,11 @@ impl Agent {
         );
         let dispatcher_kind =
             resolve_dispatcher_kind(&dispatcher_choice, supports_native, agent_id);
-        let tool_dispatcher: Box<dyn crate::agent::tool_dialect::ToolDispatcher> =
-            match dispatcher_kind {
-                DispatcherKind::Native => Box::new(NativeToolDispatcher),
-                DispatcherKind::Xml => Box::new(XmlToolDispatcher),
-                DispatcherKind::PFormat => {
-                    Box::new(PFormatToolDispatcher::new(pformat_registry.clone()))
-                }
-            };
+        let tool_dispatcher: Box<dyn ToolDialect> = match dispatcher_kind {
+            DispatcherKind::Native => Box::new(NativeDialect),
+            DispatcherKind::Xml => Box::new(XmlDialect),
+            DispatcherKind::PFormat => Box::new(PFormatDialect::new(pformat_registry.clone())),
+        };
 
         log::debug!(
             "[agent] tool dispatcher selected: choice={dispatcher_choice} agent_id={agent_id} \

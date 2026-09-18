@@ -368,7 +368,7 @@ impl PromptSection for ToolsSection {
         // schemas in the API request — no need to repeat the tool catalogue
         // in the system prompt (pure token bloat). However, any non-empty
         // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
-        // from NativeToolDispatcher) must still be included so the model
+        // from NativeDialect) must still be included so the model
         // receives its behavioural guidance.
         if ctx.tool_call_format == ToolCallFormat::Native {
             if ctx.dispatcher_instructions.trim().is_empty() {

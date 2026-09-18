@@ -4,7 +4,9 @@ use super::super::turn_checkpoint::assistant_message_has_tool_calls;
 use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
-use crate::agent::prompts::{LearnedContextData, PromptContext, PromptTool};
+use crate::agent::prompts::{
+    tool_call_format_from_dialect, LearnedContextData, PromptContext, PromptTool,
+};
 use crate::memory::MemoryCategory;
 use crate::tools::agent_policy::render_tool_policy_boundary;
 use tinytools::Tool;
@@ -280,13 +282,8 @@ impl Agent {
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
     pub fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
-        let tools_slice: &[Box<dyn Tool>] = self.tools.as_slice();
-        // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves (they are the
-        // same schema objects the durable and full views point at), while the
-        // `ToolDispatcher` trait — which embedders implement — takes an owned
-        // `&[ToolSpec]`. Materialise a borrow-slice for the call: this is one
-        // transient copy per system-prompt build, not a per-agent resident one,
-        // and keeping it here is what lets the trait stay source-compatible.
+        // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves. Materialise
+        // the canonical dialect input for this prompt build.
         let visible_specs_owned: Vec<tinytools::ToolSpec> = self
             .visible_tool_specs
             .iter()
@@ -294,8 +291,7 @@ impl Agent {
             .collect();
         let instructions = self
             .tool_dispatcher
-            .prompt_instructions_for_specs(&visible_specs_owned)
-            .unwrap_or_else(|| self.tool_dispatcher.prompt_instructions(tools_slice));
+            .prompt_instructions(&visible_specs_owned);
         // Adapt the agent's whole callable surface into the shared PromptTool
         // shape that every prompt-building call-site uses. Temporary vec
         // borrows from the two tool `Arc`s and lives for the duration of the
@@ -326,7 +322,9 @@ impl Agent {
             dispatcher_instructions: &instructions,
             learned,
             visible_tool_names: &prompt_visible_tool_names,
-            tool_call_format: self.tool_dispatcher.tool_call_format(),
+            tool_call_format: tool_call_format_from_dialect(
+                self.tool_dispatcher.tool_call_format(),
+            ),
             connected_integrations: &self.connected_integrations,
             connected_identities_md: crate::agent::prompts::render_connected_identities(),
             include_profile: !self.omit_profile,

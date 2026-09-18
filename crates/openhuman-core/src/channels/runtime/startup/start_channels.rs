@@ -199,7 +199,7 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     let temperature = config.default_temperature;
     // Build system prompt from workspace identity files + skills
     let workspace = config.workspace_dir.clone();
-    let tools_registry = Arc::new(tools::all_tools_with_runtime(
+    let tools_registry = Arc::new(tools::ops::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,

@@ -541,7 +541,7 @@ fn tools_section_nonempty_for_pformat() {
 #[test]
 fn tools_section_native_with_dispatcher_instructions_returns_instructions() {
     // Native mode must still include non-empty dispatcher_instructions
-    // (e.g. the "## Tool Use Protocol" block from NativeToolDispatcher) so
+    // (e.g. the "## Tool Use Protocol" block from NativeDialect) so
     // the model receives behavioural guidance even though the tool catalogue
     // itself is omitted.
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];

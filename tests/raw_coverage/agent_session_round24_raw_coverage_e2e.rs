@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::XmlToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
@@ -429,7 +429,7 @@ async fn max_iteration_checkpoint_uses_deterministic_fallback_and_hooks() {
             calls: calls.clone(),
         })])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path.clone())
         .event_context("round24-session", "round24-channel")
         .agent_definition_name("round24/orchestrator")
@@ -514,7 +514,7 @@ async fn builder_validation_and_system_prompt_cover_defaults_and_learning() {
         .chat_model(provider.clone())
         .tools(vec![Box::new(Round24Tool { calls })])
         .memory(memory)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round24-prompt-session", "round24-prompt-channel")
         .agent_definition_name("round24 prompt/name")

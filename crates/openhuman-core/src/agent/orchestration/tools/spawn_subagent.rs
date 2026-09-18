@@ -30,7 +30,7 @@ use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 /// Spawns a sub-agent of the requested type to handle a delegated task.
 ///
 /// Registered into the parent agent's tool list by
-/// [`crate::tools::all_tools_with_runtime`]. The orchestrator
+/// [`crate::tools::ops::all_tools_with_runtime`]. The orchestrator
 /// archetype's tool whitelist already includes `spawn_subagent`, so
 /// orchestrated runs see it; non-orchestrator parents see it too unless
 /// explicitly removed.

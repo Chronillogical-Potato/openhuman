@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::harness::definition::AgentDefinitionRegistry;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{
@@ -244,7 +244,7 @@ fn build_agent_with_tools(
         .chat_model(provider)
         .tools(tools)
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .config(agent_config())
         .model_name("coverage-model".to_string())
         .temperature(0.0)

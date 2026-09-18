@@ -4,9 +4,9 @@
 use super::super::types::Agent;
 use crate::agent::error::AgentError;
 use crate::agent::messages::ConversationMessage;
-use crate::agent::tool_dialect::ParsedToolCall;
 use crate::inference::provider::ToolCall;
 use crate::util::truncate_with_ellipsis;
+use tinytools_agent::ParsedToolCall;
 
 impl Agent {
     const EVENT_ERROR_MAX_CHARS: usize = 256;
@@ -100,8 +100,8 @@ impl Agent {
         iteration: usize,
     ) -> Vec<ParsedToolCall> {
         for (idx, call) in parsed_calls.iter_mut().enumerate() {
-            if call.tool_call_id.is_none() {
-                call.tool_call_id = Some(format!("parsed-{}-{}", iteration + 1, idx + 1));
+            if call.id.is_none() {
+                call.id = Some(format!("parsed-{}-{}", iteration + 1, idx + 1));
             }
         }
         parsed_calls
@@ -125,7 +125,7 @@ impl Agent {
             .enumerate()
             .map(|(idx, call)| ToolCall {
                 id: call
-                    .tool_call_id
+                    .id
                     .clone()
                     .unwrap_or_else(|| format!("parsed-{}-{}", iteration + 1, idx + 1)),
                 name: call.name.clone(),

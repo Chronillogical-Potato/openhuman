@@ -396,11 +396,16 @@ pub(in super::super) async fn run_subagent_via_graph(
     // the typed `outcome.conversation` (messages-since-last-user) also avoids
     // indexing a post-trim `outcome.history` with the pre-trim length, and the
     // durable `[IMAGE:…]` markers stay put since the prior user turns are untouched.
-    use crate::agent::tool_dialect::ToolDispatcher;
     let suffix = if native_tools {
-        crate::agent::tool_dialect::NativeToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::NativeDialect,
+            &outcome.conversation,
+        )
     } else {
-        crate::agent::tool_dialect::XmlToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::XmlDialect,
+            &outcome.conversation,
+        )
     };
     history.extend(suffix);
 

@@ -10,7 +10,6 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     WorkerDispatchMode,
 };
 use crate::agent::prompts::ToolCallFormat;
-use crate::agent::tool_dialect::NativeToolDispatcher;
 use crate::agent::Agent;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
@@ -27,6 +26,7 @@ use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelRespo
 use tinyinference_llm::tool::ToolCall;
 use tinytools::ToolTimeout;
 use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools_agent::dialect::NativeDialect;
 use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
@@ -517,7 +517,7 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
         .chat_model(Arc::new(provider.clone()))
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();

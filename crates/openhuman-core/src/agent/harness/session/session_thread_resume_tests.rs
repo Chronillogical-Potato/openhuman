@@ -89,7 +89,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .agent_definition_name("some_other_agent_name")
         .workspace_dir(wsp.clone())
         .build()

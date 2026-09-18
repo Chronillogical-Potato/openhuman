@@ -13,8 +13,8 @@
 //!   specialized agents (Orchestrator, Code Executor, Researcher, etc.).
 //! - **[`triage`]**: A high-performance pipeline for classifying and responding
 //!   to external triggers (webhooks, cron jobs) using small local models.
-//! - **[`dispatcher`]**: Pluggable strategies for how tool calls are formatted
-//!   in prompts and parsed from responses (XML, JSON, P-Format).
+//! - **`tinytools_agent::dialect`**: Canonical strategies for formatting and
+//!   parsing tool calls (XML, JSON, P-Format).
 //! - **[`harness::subagent_runner`]**: Logic for spawning "sub-agents" from
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 pub mod artifacts;
@@ -66,7 +66,6 @@ pub mod task_dispatcher;
 pub(crate) mod task_session;
 pub mod tinyagents;
 pub mod todos;
-pub mod tool_dialect;
 pub mod tool_policy;
 pub mod tools;
 pub mod triage;

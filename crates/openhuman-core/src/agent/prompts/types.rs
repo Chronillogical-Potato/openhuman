@@ -295,6 +295,18 @@ pub enum ToolCallFormat {
     Native,
 }
 
+/// Map the canonical dialect's catalogue spelling onto the host prompt wire
+/// vocabulary at the prompt boundary.
+pub(crate) fn tool_call_format_from_dialect(
+    format: tinytools_agent::dialect::ToolCallFormat,
+) -> ToolCallFormat {
+    match format {
+        tinytools_agent::dialect::ToolCallFormat::PFormat => ToolCallFormat::PFormat,
+        tinytools_agent::dialect::ToolCallFormat::Json => ToolCallFormat::Json,
+        tinytools_agent::dialect::ToolCallFormat::Native => ToolCallFormat::Native,
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Authenticated user identity
 // ─────────────────────────────────────────────────────────────────────────────

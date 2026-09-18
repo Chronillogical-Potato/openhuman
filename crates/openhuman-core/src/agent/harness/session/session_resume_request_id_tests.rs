@@ -251,7 +251,7 @@ fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request(
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");

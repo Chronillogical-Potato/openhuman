@@ -4,7 +4,6 @@ use crate::agent::experience::{
 };
 use crate::agent::hooks::{PostTurnHook, TurnContext};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
-use crate::agent::tool_dialect::{PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher};
 use crate::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
@@ -21,6 +20,7 @@ use tinyinference_llm::model::{
 };
 use tinytools::ToolResult;
 use tinytools::{PermissionLevel, Tool};
+use tinytools_agent::dialect::{PFormatDialect, ToolDialect, XmlDialect};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::Notify;
 use tokio::time::{timeout, Duration};
@@ -410,7 +410,7 @@ fn make_agent_with_tool_sets(
         .tools(tools)
         .synthesized_tools(synthesized_tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("turn-test-session", "turn-test-channel")
         .config(crate::config::AgentConfig {
@@ -438,7 +438,7 @@ fn make_agent_with_builder(
         post_turn_hooks,
         config,
         context_config,
-        Box::new(XmlToolDispatcher),
+        Box::new(XmlDialect),
     )
 }
 
@@ -448,7 +448,7 @@ fn make_agent_with_builder_and_dispatcher(
     post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     config: crate::config::AgentConfig,
     context_config: crate::config::ContextConfig,
-    tool_dispatcher: Box<dyn ToolDispatcher>,
+    tool_dispatcher: Box<dyn ToolDialect>,
 ) -> Agent {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
@@ -501,7 +501,7 @@ fn make_agent_with_memory(
         .chat_model(Arc::new(DummyProvider))
         .tools(vec![])
         .memory(memory)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_dir)
         .event_context("pref-test-session", "pref-test-channel")
         .learning_enabled(learning_enabled)

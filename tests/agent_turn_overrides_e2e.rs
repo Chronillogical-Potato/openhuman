@@ -37,7 +37,7 @@ use tempfile::TempDir;
 use openhuman_core::agent::goals::{runtime as goal_runtime, store as goal_store};
 use openhuman_core::agent::harness::session::TurnOverrides;
 use openhuman_core::agent::tinyagents::thread_context::with_thread_id;
-use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
 use tinyinference_llm::message::Message;
@@ -232,7 +232,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::agent::tool_dialect::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::tinytools_agent::dialect::ToolDialect>,
 ) -> Agent {
     Agent::builder()
         .chat_model(model)
@@ -303,7 +303,7 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
             control_model.clone(),
             Vec::new(),
             control_workspace.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         control
             .turn("where are we on the task?")
@@ -327,7 +327,7 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         agent.set_next_turn_overrides(TurnOverrides {
             suppress_active_goal: true,
@@ -393,7 +393,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             first_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         first
             .turn(PRIOR_MARKER)
@@ -411,7 +411,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             control_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         control
             .turn("an unrelated question")
@@ -430,7 +430,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         agent.set_next_turn_overrides(TurnOverrides {
             suppress_transcript_autoload: true,
@@ -477,7 +477,7 @@ async fn turn_overrides_apply_to_exactly_one_turn_and_then_reset_inner() {
         model.clone(),
         vec![Box::new(EchoTool)],
         workspace_path.clone(),
-        Box::new(NativeToolDispatcher),
+        Box::new(NativeDialect),
     );
 
     agent.set_next_turn_overrides(TurnOverrides {
@@ -550,7 +550,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             control_model.clone(),
             Vec::new(),
             control_workspace.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         control.turn("status?").await.expect("pre-completion turn");
         assert!(
@@ -583,7 +583,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         agent
             .turn("something unrelated")
@@ -637,7 +637,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             post_clear_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
         post_clear
             .turn("something else entirely")

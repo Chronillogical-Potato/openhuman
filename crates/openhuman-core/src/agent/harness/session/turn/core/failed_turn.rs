@@ -111,7 +111,10 @@ impl Agent {
             output,
             cached,
         );
-        let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
+        let persisted = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         let turn_usage = TurnUsage {
             provider: self.event_channel().to_string(),
             model: effective_model.to_string(),

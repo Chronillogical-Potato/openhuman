@@ -143,10 +143,10 @@ impl AgentBuilder {
         self
     }
 
-    /// Sets the tool dispatcher for the agent.
+    /// Sets the canonical tool dialect for the agent.
     pub fn tool_dispatcher(
         mut self,
-        tool_dispatcher: Box<dyn crate::agent::tool_dialect::ToolDispatcher>,
+        tool_dispatcher: Box<dyn tinytools_agent::dialect::ToolDialect>,
     ) -> Self {
         self.tool_dispatcher = Some(tool_dispatcher);
         self

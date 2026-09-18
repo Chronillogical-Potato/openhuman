@@ -8,7 +8,7 @@ mod recall_lanes;
 mod session_io;
 mod tools;
 
-use crate::agent::tool_dialect::ParsedToolCall;
+use tinytools_agent::ParsedToolCall;
 
 use std::borrow::Cow;
 
@@ -59,7 +59,7 @@ pub(super) fn normalize_tool_call<'a>(call: &'a ParsedToolCall) -> Cow<'a, Parse
     Cow::Owned(ParsedToolCall {
         name: skill_id.to_string(),
         arguments: serde_json::Value::Object(inputs.clone()),
-        tool_call_id: call.tool_call_id.clone(),
+        id: call.id.clone(),
     })
 }
 

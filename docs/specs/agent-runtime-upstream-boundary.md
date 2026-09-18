@@ -129,7 +129,7 @@ the labels remain useful for review and completion tracking:
 
 | Package | Required result |
 | --- | --- |
-| **A — direct imports and facade purge** | Import `tinytools-agent` directly; replace `dispatcher.rs` with the host-only `tool_dialect.rs` conversion seam, delete `pformat.rs`, production `harness/parse.rs` re-exports, `harness/instructions.rs`, `harness/tool_filter.rs`, `context/prompt.rs`, `registry/tools.rs`, the handoff wrapper, and behavior-free graph re-exports. |
+| **A — direct imports and facade purge** | Import `tinytools-agent` directly; delete `dispatcher.rs`, `pformat.rs`, `tool_dialect.rs`, production `harness/parse.rs` re-exports, `harness/instructions.rs`, `harness/tool_filter.rs`, `context/prompt.rs`, `registry/tools.rs`, the handoff wrapper, and behavior-free graph re-exports. |
 | **B — TinyInference ownership** | Move max-token/default/profile decorators, route identity, typed usage/provider metadata, call correlation, and abort-on-drop stream behavior to `tinyinference-llm`. |
 | **C — canonical tool vocabulary** | Use `tinytools::Tool`/`ToolResult` end to end; make the harness bridge canonical tool context into its loop; delete OpenHuman tool adapters and conversions. |
 | **D — live host invocation** | Give `AgentHarness` a real `HostCapabilities`-driven entry point, wire all ten OpenHuman adapters, and replace correctness-sensitive task-locals with explicit recursively inherited `RunContext` data. |
@@ -160,9 +160,8 @@ All users import parsing APIs from `tinytools_agent::{...}` or
 `tinytools_agent::dialect::{...}`. Delete
 `tinyagents_harness::tool_calling`, the former OpenHuman `agent::dispatcher`
 and `agent::pformat` facades, and any forwarding definitions. The retained
-`agent::tool_dialect` module is a host-owned conversion layer for OpenHuman's
-persisted transcript and provider types; it imports its protocol primitives
-directly from `tinytools_agent`.
+OpenHuman's persisted transcript and provider types are converted only at their
+concrete I/O boundaries; they do not define a dialect facade.
 
 The same direct-import rule applies between TinyAgents crates. A harness,
 registry, or graph module must not preserve a former path by publicly
@@ -271,7 +270,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `triage/` | Keep | OpenHuman trigger business domain and RPC. It invokes the host-driven harness. |
 | `bus.rs` | Keep | Process-wide OpenHuman bus registration. |
 | `cost.rs` | Keep/Split | Keep pricing/tier accounting; model-call usage carrier and aggregation primitives move to inference/harness. |
-| `tool_dialect.rs` | Keep/Shrink | Retain only OpenHuman persisted-transcript/provider conversion; import `tinytools-agent::dialect` directly. |
+| `tool_dialect.rs` | Delete | Import `tinytools-agent::dialect` directly; keep only concrete I/O conversions. |
 | `error.rs` | Keep/Shrink | Product-facing errors and RPC mapping only; loop/model/tool errors originate upstream. |
 | `hooks.rs`, `stop_hooks.rs` | Keep adapter | Product hook policy; generic callback/control machinery is harness-owned and values are explicit in context. |
 | `host_runtime.rs`, `platform_shell.rs` | Keep | Host execution/shell policy shared with sandbox. |

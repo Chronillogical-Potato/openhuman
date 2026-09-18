@@ -54,7 +54,10 @@ impl Agent {
         // again. A resumed session's replayed prefix is folded into that same
         // history first (see below), so there is exactly one sequence to read.
         self.absorb_resumed_transcript_prefix();
-        let mut messages = self.tool_dispatcher.to_provider_messages(&self.history);
+        let mut messages = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
 
         // Multimodal prep (parity with the legacy engine): rehydrate image
         // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
@@ -286,7 +289,10 @@ impl Agent {
             if self.history.last().is_some_and(is_empty_assistant_chat) {
                 self.history.pop();
             }
-            let base = self.tool_dispatcher.to_provider_messages(&self.history);
+            let base = crate::agent::message_convert::provider_messages_from_conversation(
+                self.tool_dispatcher.as_ref(),
+                &self.history,
+            );
             let (summary, summary_usage) = self
                 .summarize_turn_wrapup(
                     &base,
@@ -474,7 +480,10 @@ impl Agent {
                 subagents: subagent_usage_entries,
             });
 
-        let mut persisted = self.tool_dispatcher.to_provider_messages(&self.history);
+        let mut persisted = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         // Re-attach per-call failure outcomes (dropped when the engine folded
         // each tool result into a `role:"tool"` message) so the derived
         // transcript view renders failed tools as errors, not successes.

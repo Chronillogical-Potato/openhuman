@@ -90,7 +90,9 @@ impl Agent {
             session_id: self.event_session_id().to_string(),
             channel: self.event_channel().to_string(),
             connected_integrations: self.connected_integrations.clone(),
-            tool_call_format: self.tool_dispatcher.tool_call_format(),
+            tool_call_format: crate::agent::prompts::tool_call_format_from_dialect(
+                self.tool_dispatcher.tool_call_format(),
+            ),
             session_key: self.session_key.clone(),
             session_parent_prefix: self.session_parent_prefix.clone(),
             on_progress: self.on_progress.clone(),

@@ -555,7 +555,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1517,
+    "line": 1514,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
@@ -632,14 +632,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/core/harness_turn.rs",
-    "line": 173,
+    "line": 176,
     "text": "crate::agent::harness::turn_subagent_usage::with_turn_collector(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/core/harness_turn.rs",
-    "line": 210,
+    "line": 213,
     "text": "crate::agent::harness::turn_dispatch_guard::with_dispatch_guard(",
     "occurrence": 1
   },
@@ -2375,7 +2375,7 @@
   {
     "rule": "tinyagents-moved-symbol-alias",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/tool/mod.rs",
-    "line": 95,
+    "line": 97,
     "text": "pub struct ToolRegistry<State: Send + Sync, Ctx: Send + Sync> {",
     "occurrence": 1
   },
@@ -2445,63 +2445,35 @@
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 132,
+    "line": 145,
     "text": "&[ChatMessage::user(",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 151,
+    "line": 164,
     "text": "&[ChatMessage::user(\"read [IMAGE:/etc/hostname]\")],",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 162,
+    "line": 175,
     "text": "ChatMessage::user(\"earlier [OH_IMAGE:data:image/png;base64,QUJD]\"),",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 163,
+    "line": 176,
     "text": "ChatMessage::assistant(\"old answer\"),",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 164,
-    "text": "ChatMessage::user(\"latest\"),",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 181,
-    "text": "ChatMessage::user(\"first steering\"),",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 182,
-    "text": "ChatMessage::user(\"second steering\"),",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 183,
-    "text": "ChatMessage::assistant(\"answer\"),",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 184,
+    "line": 177,
     "text": "ChatMessage::user(\"latest\"),",
     "occurrence": 1
   },
@@ -2509,126 +2481,140 @@
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
     "line": 194,
+    "text": "ChatMessage::user(\"first steering\"),",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
+    "line": 195,
+    "text": "ChatMessage::user(\"second steering\"),",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
+    "line": 196,
+    "text": "ChatMessage::assistant(\"answer\"),",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
+    "line": 197,
+    "text": "ChatMessage::user(\"latest\"),",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
+    "line": 207,
     "text": "&[ChatMessage::user(",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
-    "line": 209,
+    "line": 222,
     "text": "&[ChatMessage::user(",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder.rs",
-    "line": 14,
+    "line": 15,
     "text": "use super::bridge::ChatMessage;",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder.rs",
-    "line": 22,
+    "line": 23,
     "text": "pub fn build_stdin(messages: &[ChatMessage], is_new_session: bool) -> Vec<u8> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder.rs",
-    "line": 32,
+    "line": 33,
     "text": "let non_system: Vec<&ChatMessage> = messages.iter().filter(|m| m.role != \"system\").collect();",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder.rs",
-    "line": 95,
+    "line": 91,
+    "text": "fn pending_user_content(non_system: &[&ChatMessage]) -> Option<String> {",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder.rs",
+    "line": 114,
     "text": "fn prior_conversation_preamble(non_system: &[&ChatMessage], end: usize) -> Option<String> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod_tests.rs",
-    "line": 26,
-    "text": "let a = vec![ChatMessage::user(\"hello world\")];",
+    "line": 49,
+    "text": "ChatMessage::system(\"base\"),",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod_tests.rs",
-    "line": 28,
-    "text": "ChatMessage::user(\"hello world\"),",
+    "line": 50,
+    "text": "ChatMessage::user(\"question\"),",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod_tests.rs",
-    "line": 29,
-    "text": "ChatMessage::assistant(\"hi\"),",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod_tests.rs",
-    "line": 36,
-    "text": "let a = vec![ChatMessage::user(\"alpha\")];",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod_tests.rs",
-    "line": 37,
-    "text": "let b = vec![ChatMessage::user(\"beta\")];",
+    "line": 51,
+    "text": "ChatMessage::system(\"middleware addition\"),",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 19,
+    "line": 23,
     "text": "use bridge::{ChatMessage, ChatResponse, ProviderDelta};",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 164,
+    "line": 175,
     "text": "messages: &[ChatMessage],",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 195,
+    "line": 238,
+    "text": "fn coalesce_system_prompt(messages: &[ChatMessage]) -> Option<String> {",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-openhuman-domain-name",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
+    "line": 277,
     "text": "fn request_messages(request: &ModelRequest) -> Vec<ChatMessage> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 212,
+    "line": 300,
     "text": "ChatMessage::new(role, content)",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-openhuman-domain-name",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 345,
-    "text": "fn thread_key_from_messages(messages: &[ChatMessage]) -> String {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 906,
+    "line": 922,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-tool-calling-facade",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_agent_sdk/mod.rs",
-    "line": 12,
-    "text": "use tinytools_agent::dialect::{ToolDialect, XmlDialect};",
     "occurrence": 1
   },
   {

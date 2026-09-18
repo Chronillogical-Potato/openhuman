@@ -163,7 +163,7 @@ fn assistant_message_has_tool_calls_rejects_plain_text_reply() {
 #[test]
 fn assistant_message_has_tool_calls_rejects_envelope_without_content_field() {
     // A bare `{"tool_calls": [...]}` JSON in the content (no `content` field)
-    // is not the envelope `tool_dialect.rs` emits.
+    // is not the envelope the canonical native dialect emits.
     let body = serde_json::json!({
         "tool_calls": [{ "id": "tc-1", "name": "shell", "arguments": "{}" }]
     })
@@ -505,7 +505,7 @@ fn make_agent_over_driver(
         .chat_model(provider)
         .tools(vec![])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(crate::config::AgentConfig::default())
         .context_config(crate::config::ContextConfig::default())
         .workspace_dir(workspace_path)

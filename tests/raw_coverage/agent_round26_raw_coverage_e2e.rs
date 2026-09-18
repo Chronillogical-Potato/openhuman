@@ -9,7 +9,7 @@ use openhuman_core::agent::prompts::{
     UserIdentity,
 };
 use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
-use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::Agent;
 use openhuman_core::config::AgentConfig;
 use openhuman_core::memory::{
@@ -389,7 +389,7 @@ async fn builder_dedupes_visible_native_tools_and_seed_resume_bounds_history() -
         .tools(tools)
         .visible_tool_names(visible)
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace.path().to_path_buf())
         .event_context("round26-session", "round26-channel")
         .agent_definition_name("round26/orchestrator")

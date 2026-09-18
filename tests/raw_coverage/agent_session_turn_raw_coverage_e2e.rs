@@ -2,7 +2,7 @@
 mod noop_memory;
 
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 use openhuman_core::agent::harness::definition::AgentTier;
 use openhuman_core::agent::harness::subagent_runner::run_subagent;
 use openhuman_core::agent::harness::{
@@ -617,7 +617,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::agent::tool_dialect::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::tinytools_agent::dialect::ToolDialect>,
     config: AgentConfig,
     context_config: ContextConfig,
 ) -> Agent {
@@ -693,7 +693,7 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths_inner()
             calls.clone(),
         )],
         workspace_path,
-        Box::new(NativeToolDispatcher),
+        Box::new(NativeDialect),
         AgentConfig {
             max_tool_iterations: 4,
             max_history_messages: 12,
@@ -766,7 +766,7 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths_inner()
             Arc::new(AtomicUsize::new(0)),
         )],
         seeded_workspace,
-        Box::new(XmlToolDispatcher),
+        Box::new(XmlDialect),
         AgentConfig {
             max_history_messages: 3,
             ..AgentConfig::default()
@@ -839,7 +839,7 @@ async fn turn_citation_task_replaces_previous_handle_and_joins_successfully_inne
         ]))
         .tools(Vec::new())
         .memory(memory)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round17-session", "round17-channel")
         .agent_definition_name("round17/orchestrator")
@@ -950,7 +950,7 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
             release_recall: None,
             recall_cancelled: None,
         }))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round17-session", "round17-channel")
         .agent_definition_name("round17/orchestrator")
@@ -1046,7 +1046,7 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
         provider_error,
         vec![],
         failing_workspace,
-        Box::new(XmlToolDispatcher),
+        Box::new(XmlDialect),
         AgentConfig::default(),
         ContextConfig::default(),
     );

@@ -90,7 +90,7 @@ async fn turn_override_suppress_memory_agent_skips_memory_trigger() {
         .chat_model(provider)
         .tools(vec![Box::new(EchoTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(crate::config::AgentConfig {
             max_tool_iterations: 3,
             max_history_messages: 10,

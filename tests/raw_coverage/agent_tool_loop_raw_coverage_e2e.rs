@@ -4,7 +4,7 @@ use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
 use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
-use openhuman_core::agent::tool_dialect::XmlToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::{Agent, AgentBuilder};
 use openhuman_core::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
 use openhuman_core::agent::prompts::LearnedContextData;
@@ -586,7 +586,7 @@ async fn agent_builder_prompt_and_debug_dump_cover_public_session_paths() {
         .chat_model(provider)
         .tools(vec![StaticTool::ok("echo", "ok")])
         .memory(Arc::new(NoopMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(config)
         .workspace_dir(workspace.clone())
         .agent_definition_name("round15/orchestrator")
@@ -627,7 +627,7 @@ async fn agent_turn_blank_final_response_is_typed_error() {
         .chat_model(provider)
         .tools(vec![])
         .memory(Arc::new(NoopMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(AgentConfig {
             max_tool_iterations: 1,
             ..AgentConfig::default()

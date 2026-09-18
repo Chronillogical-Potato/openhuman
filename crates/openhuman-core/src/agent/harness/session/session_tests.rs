@@ -7,7 +7,6 @@
 
 use super::types::{Agent, AgentBuilder};
 use crate::agent::messages::ConversationMessage;
-use crate::agent::tool_dialect::{NativeToolDispatcher, XmlToolDispatcher};
 use crate::core::events::DomainEvent;
 use crate::inference::provider::ChatResponse;
 use crate::memory::Memory;
@@ -20,6 +19,7 @@ use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tinytools::Tool;
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 
 struct MockProvider {
     responses: Mutex<Vec<ChatResponse>>,
@@ -195,7 +195,7 @@ fn build_minimal_agent_with_tool_sets(
         .tools(tools)
         .synthesized_tools(synthesized_tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path);
 
     if let Some(name) = definition_name {
@@ -372,7 +372,7 @@ async fn turn_dispatches_spawn_subagent_through_full_path_inner() {
         .chat_model(provider)
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -542,7 +542,7 @@ fn agent_with_fake_locator(
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .agent_definition_name("faker")
         .workspace_dir(workspace.to_path_buf())
         .with_session_history_locator(Arc::new(FakeLocator {

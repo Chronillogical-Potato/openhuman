@@ -28,9 +28,9 @@ use openhuman_core::agent::bus::{
 use openhuman_core::agent::debug::{
     write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
-use openhuman_core::agent::tool_dialect::{
-    NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
-    XmlToolDispatcher,
+use tinytools_agent::dialect::{
+    NativeDialect, PFormatDialect, ToolDialect, ToolOutcome,
+    XmlDialect,
 };
 use openhuman_core::agent::error::{
     is_context_limit_error, is_max_iterations_error, AgentError, MAX_ITERATIONS_ERROR_PREFIX,
@@ -801,7 +801,7 @@ fn base_agent_builder() -> openhuman_core::agent::AgentBuilder {
             Box::new(StubTool("beta")),
         ])
         .memory(Arc::new(RecordingMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
 }
 
 #[tokio::test]
@@ -3229,13 +3229,13 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
         }),
     };
 
-    let xml = XmlToolDispatcher;
+    let xml = XmlDialect;
     let xml_instructions = xml
         .prompt_instructions_for_specs(&[spec.clone()])
         .expect("xml specs");
     assert!(xml_instructions.contains("search_docs"));
     assert!(!xml.should_send_tool_specs());
-    let xml_result = xml.format_results(&[ToolExecutionResult {
+    let xml_result = xml.format_results(&[ToolOutcome {
         name: "search_docs".into(),
         output: "found docs".into(),
         success: true,
@@ -3251,7 +3251,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
             types: vec![PFormatParamType::String],
         },
     );
-    let pformat = PFormatToolDispatcher::new(registry);
+    let pformat = PFormatDialect::new(registry);
     let mixed = ChatResponse {
         text: Some(
             "first\n<tool_call>search_docs[0|coverage gaps]</tool_call>\n\
@@ -3283,7 +3283,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
     assert_eq!(pformat.tool_call_format(), ToolCallFormat::PFormat);
     assert!(pformat.prompt_instructions(&[]).contains("P-Format"));
 
-    let native = NativeToolDispatcher;
+    let native = NativeDialect;
     let structured = ChatResponse {
         text: Some("using a tool".into()),
         tool_calls: vec![

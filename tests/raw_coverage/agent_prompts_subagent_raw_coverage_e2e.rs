@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, DefinitionSource, ModelSpec,
@@ -516,7 +516,7 @@ fn agent_builder_validation_reports_each_required_component() {
         .tools(vec![tool("echo"), tool("echo")])
         .chat_model(ScriptedModel::new(vec![]))
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .visible_tool_names(HashSet::from(["echo".to_string()]))
         .agent_definition_name("round18/custom name")
         .build()

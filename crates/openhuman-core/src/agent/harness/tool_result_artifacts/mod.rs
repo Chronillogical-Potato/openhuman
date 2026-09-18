@@ -9,11 +9,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::agent::tool_dialect::ToolExecutionResult;
 use crate::memory::safety::{sanitize_text, SanitizationReport, Sanitized};
 use async_trait::async_trait;
 use serde_json::Value;
 use tinyagents_harness::store::Store;
+use tinytools_agent::dialect::ToolOutcome;
 
 const ARTIFACT_ROOT: &str = "artifacts/tool-results";
 
@@ -507,7 +507,7 @@ pub(crate) async fn apply_per_result_persistence(
 }
 
 pub(crate) async fn spill_aggregate_tool_results(
-    results: &mut [ToolExecutionResult],
+    results: &mut [ToolOutcome],
     store: Option<&ToolResultArtifactStore>,
     budget_bytes: usize,
 ) {

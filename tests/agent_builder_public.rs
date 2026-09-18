@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::prompts::SystemPromptBuilder;
-use openhuman_core::agent::tool_dialect::XmlToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry};
 use tinytools::{Tool, ToolResult};
@@ -115,7 +115,7 @@ fn base_builder() -> openhuman_core::agent::AgentBuilder {
             Box::new(StubTool("beta")),
         ])
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
 }
 
 #[test]

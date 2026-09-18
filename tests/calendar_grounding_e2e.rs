@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::tool_dialect::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::Agent;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
@@ -111,7 +111,7 @@ async fn test_orchestrator_has_current_date_context() -> Result<()> {
     let mut agent = Agent::builder()
         .chat_model(model)
         .tools(vec![Box::new(MockCalendarTool)])
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .memory(Arc::new(StubMemory))
         .workspace_dir(std::env::temp_dir())
         .build()?;

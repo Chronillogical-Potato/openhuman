@@ -338,7 +338,7 @@ fn refresh_workflows_picks_up_skill_installed_on_disk() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");
@@ -409,7 +409,7 @@ fn refresh_workflows_retracts_skill_removed_from_disk() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");
@@ -507,7 +507,7 @@ async fn turn_without_tools_returns_text() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -553,7 +553,7 @@ async fn last_turn_usage_is_public_and_non_draining() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();

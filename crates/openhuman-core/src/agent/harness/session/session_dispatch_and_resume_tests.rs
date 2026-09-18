@@ -39,7 +39,7 @@ async fn turn_with_native_dispatcher_handles_tool_results_variant() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -89,7 +89,7 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -215,7 +215,7 @@ async fn system_prompt_and_model_are_byte_stable_across_turns() {
         .chat_model(provider.clone() as Arc<dyn ChatModel<()>>)
         .tools(vec![])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         // Learning flag is explicitly enabled to prove that the
         // former "rebuild system prompt on subsequent turns" branch
