@@ -3,6 +3,11 @@
 
 use super::*;
 
+fn signed_out_test_guard() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(())).lock().unwrap()
+}
+
 #[tokio::test]
 async fn inference_gate_skips_when_no_agent_nodes() {
     // A tool_call-only graph never has an inference dependency to check — the
@@ -35,6 +40,7 @@ async fn run_builder_gates_does_not_reject_when_signed_out() {
     // Authoring is never blocked by inference readiness (design correction,
     // B45): a signed-out session must NOT appear among `run_builder_gates`'
     // errors for an otherwise-valid agent-node graph.
+    let _lock = signed_out_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
@@ -60,6 +66,7 @@ async fn proposal_surfaces_signed_out_inference_status() {
     // The proposal still WARNS about the signed-out state (advisory, never a
     // rejection) so the UI can render a "sign in" nudge alongside the built
     // workflow.
+    let _lock = signed_out_test_guard();
     let _signed_out = crate::cron::scheduler_gate::SignedOutTestGuard::set(true);
 
     let tmp = TempDir::new().unwrap();
