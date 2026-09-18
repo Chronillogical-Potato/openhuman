@@ -414,7 +414,35 @@ fn hide_tools_drops_named_from_existing_filter() {
 /// tool, leaving the rest of the belt visible and executable.
 #[test]
 fn hide_tools_seeds_allowlist_when_no_filter_present() {
-    let mut agent = build_minimal_agent_with_definition_name(None);
+    struct KeepTool;
+
+    #[async_trait::async_trait]
+    impl Tool for KeepTool {
+        fn name(&self) -> &str {
+            "keep"
+        }
+
+        fn description(&self) -> &str {
+            "remain visible while another tool is hidden"
+        }
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+
+        async fn execute(
+            &self,
+            _args: serde_json::Value,
+        ) -> Result<crate::tools::ToolResult> {
+            Ok(crate::tools::ToolResult::success("kept"))
+        }
+    }
+
+    let mut agent = build_minimal_agent_with_tool_sets(
+        vec![Box::new(MockTool), Box::new(KeepTool)],
+        Vec::new(),
+        None,
+    );
     assert!(
         !agent.visible_tool_names_for_test().is_empty(),
         "precondition: the tool-pack builder seeds a concrete visible allowlist at build time"
@@ -432,8 +460,8 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
 
     let visible = agent.visible_tool_names_for_test();
     assert!(
-        !visible.is_empty(),
-        "seeding must materialise the existing belt into a concrete allowlist"
+        visible.contains("keep"),
+        "seeding must preserve the rest of the concrete allowlist; visible = {visible:?}"
     );
     assert!(
         !visible.contains("echo"),
