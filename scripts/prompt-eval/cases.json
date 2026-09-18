@@ -67,6 +67,7 @@
       "max_consecutive": {},
       "max_input_tokens": 60000,
       "judge": false,
+      "expected_response": "391",
       "writes": [],
       "surface": "orchestration"
     },
@@ -121,6 +122,7 @@
     },
     {
       "id": "composio-gmail-read",
+      "enabled": false,
       "surface": "composio",
       "_why": "Integration hand-off to a connected toolkit, read-only. Exercises delegate_to_integrations_agent and the text-mode integrations_agent (see #6334).",
       "entry": "agent_chat",

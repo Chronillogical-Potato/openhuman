@@ -211,6 +211,11 @@ def score(doc, case, ws, secs, run=1):
         checks += 1
         if not re.search(case["reply_regex"], reply_text(result)):
             failures.append("reply_regex")
+    if case.get("expected_response") is not None:
+        checks += 1
+        expected = str(case["expected_response"])
+        if not re.search(r"(?<!\d)" + re.escape(expected) + r"(?!\d)", reply_text(result)):
+            failures.append("expected_response")
 
     # 3. Cost. ponytail: sums every transcript's _meta; if a parent's totals ever
     # include its children's, this double-counts — switch to root-only then.

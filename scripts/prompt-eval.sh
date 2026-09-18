@@ -4,7 +4,7 @@
 # Tier 1 (`tests/agent_prompt_comprehension_e2e.rs`) pins the script; only this
 # answers whether a model follows it. See docs/prompt-evals.md.
 #
-# Usage: scripts/prompt-eval.sh [--case <id>] [--runs N] [--bin <openhuman-core>] [--real-workspace]
+# Usage: scripts/prompt-eval.sh [--case <id>] [--runs N] [--bin <openhuman-core>] [--real-workspace] [--allow-disabled]
 #
 # --runs N repeats every case N times (default 1). One run is a sample, not a
 # baseline: every run is its own row (case + ts + run + models), never averaged.
@@ -34,6 +34,7 @@ OUT="$ROOT/target/prompt-eval-runs.jsonl"
 ONLY=""
 REAL=0
 RUNS=1
+ALLOW_DISABLED=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -41,6 +42,7 @@ while [ $# -gt 0 ]; do
     --bin) BIN="$2"; shift 2 ;;
     --real-workspace) REAL=1; shift ;;
     --runs) RUNS="$2"; shift 2 ;;
+    --allow-disabled) ALLOW_DISABLED=1; shift ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -78,6 +80,7 @@ for run in $(seq 1 "$RUNS"); do
   ws="$(mktemp -d -t prompt-eval)"
   export RUST_LOG="${RUST_LOG:-info}"
   if [ "$REAL" = 1 ]; then
+    unset OPENHUMAN_WORKSPACE OPENHUMAN_KEYRING_BACKEND
     # Transcripts land in the real workspace; score only files this case wrote.
     export PROMPT_EVAL_TRANSCRIPT_ROOT="$HOME/.openhuman" PROMPT_EVAL_SINCE="$(date +%s)"
   else
@@ -86,17 +89,25 @@ for run in $(seq 1 "$RUNS"); do
   fi
 
   core() { "$BIN" call --method "$1" --params "$2" 2>>"$ws/core.log"; }
+  core_stdin() { "$BIN" call --method "$1" --params-stdin 2>>"$ws/core.log"; }
+
+  enabled=$(python3 -c 'import json,sys; c=[c for c in json.load(open(sys.argv[1]))["cases"] if c["id"]==sys.argv[2]][0]; print("1" if c.get("enabled", True) else "0")' "$CASES" "$id")
+  if [ "$enabled" = 0 ]; then
+    if [ "$ALLOW_DISABLED" != 1 ]; then
+      echo "$id run $run: SKIPPED — disabled (use --allow-disabled after validating its write-call matcher)" >&2
+      continue
+    fi
+    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); case=next(x for x in c["cases"] if x["id"]==sys.argv[2]); assert case.get("forbid_calls"), "disabled case must define forbidden calls"; assert case.get("_gate"), "disabled case must document its gate"' "$CASES" "$id"
+  fi
 
   # `call` does not run the server's boot-env credential seeding, so install it.
-  # ponytail: the credential rides argv (visible in `ps`) — `call` takes params
-  # no other way; fine on a dev machine, add a --params-file before a shared host.
   if [ "$REAL" = 0 ]; then
     if [ -n "${OPENHUMAN_BACKEND_API_KEY:-}" ]; then
       cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_API_KEY"], "kind": "api-key"}))')
     else
       cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_SESSION_TOKEN"], "kind": "session"}))')
     fi
-    core openhuman.auth_set_credential "$cred" >/dev/null
+    printf '%s' "$cred" | core_stdin openhuman.auth_set_credential >/dev/null
   fi
 
   entry=$(python3 -c 'import json,sys; c=[c for c in json.load(open(sys.argv[1]))["cases"] if c["id"]==sys.argv[2]][0]; print(c["entry"]); print(c["message"])' "$CASES" "$id")
