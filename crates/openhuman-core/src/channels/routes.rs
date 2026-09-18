@@ -8,7 +8,7 @@ use super::{Channel, ChannelSendExt, SendMessage};
 use crate::inference::provider;
 use std::sync::Arc;
 use tinychannels::routes::{
-    build_models_help_response, build_providers_help_response, load_cached_model_preview,
+    build_models_help_response, build_providers_help_response,
     parse_runtime_command as parse_portable_runtime_command,
     resolve_provider_alias as resolve_portable_provider_alias,
     ChannelRuntimeCommand as PortableCommand, ProviderDescriptor,

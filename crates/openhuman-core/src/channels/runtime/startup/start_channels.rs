@@ -2,7 +2,7 @@
 //! system prompt, and the message dispatch loop.
 
 use super::super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
-use super::super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
+use super::super::supervision::spawn_supervised_listener;
 use super::chat_workload::{resolve_chat_workload, ChatWorkloadResolution};
 use super::credentials::{hydrate_channel_credentials, RuntimeProxyClients};
 use super::prompt::format_access_context;
@@ -24,6 +24,7 @@ use crate::tools;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinychannels::runtime::compute_max_in_flight_messages;
 use tokio_util::task::AbortOnDropHandle;
 
 /// What the channel-server banner prints on its `🧠 Memory:` line.
