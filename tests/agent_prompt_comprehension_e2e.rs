@@ -732,7 +732,8 @@ async fn run_case_inner(case: Case) {
     for tool in case.must_advertise {
         assert!(
             first_belt.iter().any(|b| b == tool),
-            "[{agent}] must advertise `{tool}`; advertised {first_belt:?}"
+            "[{agent}] must advertise `{tool}`; advertised {first_belt:?}; prompt={:?}",
+            system_text(own[0])
         );
     }
     for request in &own {
