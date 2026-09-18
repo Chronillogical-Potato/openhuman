@@ -93,7 +93,9 @@ pub struct DumpedPrompt {
     /// The final rendered system prompt — frozen bytes that would be
     /// sent verbatim on every turn of a live session.
     pub text: String,
-    /// Tool names that made it into the rendered prompt, in order.
+    /// Every tool the agent can call, in registration order. On the session
+    /// path this is the whole callable surface (`all_tool_refs()`), so it can
+    /// be wider than [`Self::tool_specs`]; `prompt-size` measures the latter.
     pub tool_names: Vec<String>,
     /// Number of `ToolCategory::Workflow` tools in the dump.
     pub skill_tool_count: usize,
