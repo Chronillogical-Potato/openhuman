@@ -218,6 +218,39 @@ pub(crate) fn build_text_mode_tool_instructions() -> String {
     out
 }
 
+/// The tool-call format a sub-agent's prompt is rendered for, and the
+/// dispatcher protocol block that goes with it.
+///
+/// Normally both follow the parent. A text-mode child (the toolkit-scoped
+/// `integrations_agent`) is sent no native `tools`, so it must render its own
+/// catalogue as text whatever the parent uses: under a native-tool parent,
+/// `ToolsSection` would otherwise emit no catalogue and the native JSON protocol,
+/// and the child would be told how to call tools but never which ones exist.
+/// Its protocol block is empty because the runner appends
+/// [`build_text_mode_tool_instructions`] itself.
+pub(crate) fn subagent_prompt_protocol(
+    parent_format: crate::agent::context::prompt::ToolCallFormat,
+    text_mode: bool,
+) -> (crate::agent::context::prompt::ToolCallFormat, String) {
+    use crate::agent::context::prompt::ToolCallFormat;
+    use crate::agent::dispatcher::{
+        NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
+    };
+    use crate::agent::pformat::PFormatRegistry;
+    if text_mode {
+        return (ToolCallFormat::PFormat, String::new());
+    }
+    let empty_tools: Vec<Box<dyn Tool>> = Vec::new();
+    let instructions = match parent_format {
+        ToolCallFormat::PFormat => {
+            PFormatToolDispatcher::new(PFormatRegistry::new()).prompt_instructions(&empty_tools)
+        }
+        ToolCallFormat::Native => NativeToolDispatcher.prompt_instructions(&empty_tools),
+        ToolCallFormat::Json => XmlToolDispatcher.prompt_instructions(&empty_tools),
+    };
+    (parent_format, instructions)
+}
+
 // ── Tool filtering ──────────────────────────────────────────────────────
 
 /// Tools that spawn a new sub-agent turn. A sub-agent must never be

@@ -412,3 +412,82 @@ fn a_dynamic_tool_list_without_spawn_tools_is_untouched() {
         vec!["GMAIL_FETCH_EMAILS", "extract_from_result"]
     );
 }
+
+/// Render the `## Tools` section the way a sub-agent prompt does, at `format`.
+fn render_tools_at(
+    format: crate::agent::context::prompt::ToolCallFormat,
+    instructions: &str,
+) -> String {
+    use crate::agent::context::prompt::{LearnedContextData, PromptTool};
+    let tools = [PromptTool {
+        name: "composio_execute",
+        description: "Run one Composio action.",
+        parameters_schema: Some(
+            r#"{"type":"object","properties":{"action":{"type":"string"}}}"#.into(),
+        ),
+    }];
+    let visible = std::collections::HashSet::new();
+    let ctx = PromptContext {
+        workspace_dir: std::path::Path::new("/tmp"),
+        model_name: "test-model",
+        agent_id: "integrations_agent",
+        tools: &tools,
+        workflows: &[],
+        dispatcher_instructions: instructions,
+        learned: LearnedContextData::default(),
+        visible_tool_names: &visible,
+        tool_call_format: format,
+        connected_integrations: &[],
+        connected_identities_md: String::new(),
+        include_profile: false,
+        include_memory_md: false,
+        curated_snapshot: None,
+        user_identity: None,
+        personality_soul_md: None,
+        personality_memory_md: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+    crate::agent::prompts::render_tools(&ctx).unwrap()
+}
+
+/// A text-mode child of a native-tool parent is sent no native `tools`, so its
+/// prompt must list them. Rendering at the parent's format is what used to
+/// happen: no catalogue at all, plus the native JSON protocol.
+#[test]
+fn text_mode_child_of_a_native_parent_renders_its_tool_catalogue() {
+    use crate::agent::context::prompt::ToolCallFormat;
+
+    let (format, instructions) = subagent_prompt_protocol(ToolCallFormat::Native, true);
+    assert_eq!(format, ToolCallFormat::PFormat);
+    assert!(
+        instructions.is_empty(),
+        "the runner appends the text-mode protocol itself; a second block conflicts: {instructions}"
+    );
+    let rendered = render_tools_at(format, &instructions);
+    assert!(
+        rendered.contains("- **composio_execute**:"),
+        "text-mode child has no tool catalogue: {rendered:?}"
+    );
+
+    let parents = render_tools_at(ToolCallFormat::Native, "");
+    assert!(
+        !parents.contains("- **composio_execute**:"),
+        "a native-format render is expected to omit the catalogue: {parents:?}"
+    );
+}
+
+#[test]
+fn native_child_keeps_the_parents_protocol() {
+    use crate::agent::context::prompt::ToolCallFormat;
+
+    for parent in [
+        ToolCallFormat::Native,
+        ToolCallFormat::PFormat,
+        ToolCallFormat::Json,
+    ] {
+        let (format, _) = subagent_prompt_protocol(parent, false);
+        assert_eq!(format, parent);
+    }
+}
