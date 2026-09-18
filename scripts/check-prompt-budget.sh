@@ -88,8 +88,10 @@ echo "[prompt-budget] measuring against hermetic workspace $WORKSPACE" >&2
 # scans ~/.openhuman/skills and ~/.agents/skills, so one installed skill added
 # 515 B of `## Installed Skills` to the orchestrator on a dev machine and a
 # `--write` there baked it into the limits. An empty HOME matches CI.
+# OPENHUMAN_HOME is dropped too: the agent-definition loader prefers it
+# over ~/.openhuman.
 mkdir -p "$WORKSPACE/home"
-if ! measured="$(HOME="$WORKSPACE/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE/workspace" --hermetic --json)"; then
+if ! measured="$(env -u OPENHUMAN_HOME HOME="$WORKSPACE/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE/workspace" --hermetic --json)"; then
   echo "::error::prompt-size failed to measure" >&2
   exit 1
 fi
