@@ -28,7 +28,7 @@ use std::path::PathBuf;
 
 use serde_json::json;
 
-use crate::agent::task_board::TaskBoardCard;
+use crate::agent::todos::types::TaskBoardCard;
 use crate::memory::conversations::{
     self as conversations, run_reply_message_id, ConversationMessage, CreateConversationThread,
 };

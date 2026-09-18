@@ -138,6 +138,32 @@ async fn run_pending_bumps_version_on_fresh_install() {
 }
 
 #[tokio::test]
+async fn run_pending_retires_medulla_engine_from_v11_config() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+
+    let mut config = config_in(&tmp);
+    config.schema_version = 11;
+    config.subconscious.engine = crate::config::schema::SubconsciousEngine::Medulla;
+
+    run_pending(&mut config).await;
+
+    assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
+    assert_eq!(
+        config.subconscious.engine,
+        crate::config::schema::SubconsciousEngine::Local
+    );
+
+    let on_disk = fs::read_to_string(&config.config_path).unwrap();
+    let persisted: Config = toml::from_str(&on_disk).unwrap();
+    assert_eq!(persisted.schema_version, CURRENT_SCHEMA_VERSION);
+    assert_eq!(
+        persisted.subconscious.engine,
+        crate::config::schema::SubconsciousEngine::Local
+    );
+}
+
+#[tokio::test]
 async fn run_pending_migrates_fastembed_to_managed_without_local_ollama() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir_all(tmp.path().join("workspace")).unwrap();

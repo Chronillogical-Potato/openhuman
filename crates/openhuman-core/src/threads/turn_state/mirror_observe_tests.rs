@@ -429,43 +429,6 @@ fn text_delta_appends_streaming_text_without_flushing() {
 }
 
 #[test]
-fn task_board_update_is_stored_and_flushed() {
-    let (dir, mut m) = fresh("t");
-    let board = TaskBoard {
-        thread_id: "t".into(),
-        cards: vec![TaskBoardCard {
-            id: "task-1".into(),
-            title: "Draft".into(),
-            status: TaskCardStatus::Todo,
-            objective: None,
-            plan: Vec::new(),
-            assigned_agent: None,
-            allowed_tools: Vec::new(),
-            approval_mode: None,
-            acceptance_criteria: Vec::new(),
-            evidence: Vec::new(),
-            notes: None,
-            blocker: None,
-            session_thread_id: None,
-            source_metadata: None,
-            order: 0,
-            updated_at: "2026-05-15T00:00:00Z".into(),
-        }],
-        updated_at: "2026-05-15T00:00:00Z".into(),
-    };
-    assert!(m.observe(&AgentProgress::TaskBoardUpdated {
-        board: board.clone()
-    }));
-    assert_eq!(m.snapshot().task_board.as_ref(), Some(&board));
-
-    let loaded = TurnStateStore::new(dir.path().to_path_buf())
-        .get("t")
-        .expect("load flushed snapshot")
-        .expect("snapshot exists");
-    assert_eq!(loaded.task_board, Some(board));
-}
-
-#[test]
 fn turn_completed_keeps_snapshot_as_completed_and_finish_is_noop() {
     let dir = tempdir().expect("tempdir");
     let store = TurnStateStore::new(dir.path().to_path_buf());

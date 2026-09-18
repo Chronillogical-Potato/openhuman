@@ -20,15 +20,8 @@
 //! pins it in the prompt — correctly. It constrains an instinct the model has
 //! before it would think to consult anything.
 //!
-//! # Where this belongs eventually
-//!
-//! Upstream, in tinyflows. The pages name no OpenHuman type and no host
-//! concept beyond the tool slugs, so moving them is a directory move plus a
-//! changed `include_str!` path. The pinned `vendor/tinyflows` submodule has no
-//! crate to hold them yet — there is no `tinyflows-copilot` in it — so they sit
-//! with the flows domain here in the meantime. Keeping them free of host
-//! coupling is what keeps that move cheap; do not reach into `crate::` from a
-//! page.
+//! The manual's bytes live in `tinyflows-copilot`; this host only converts the
+//! portable file list into its native bundled-skill registration.
 
 use crate::skills::bundled::{BundledFile, BundledSkill};
 
@@ -45,19 +38,19 @@ pub const FLOW_AUTHORING: BundledSkill = BundledSkill {
     files: &[
         BundledFile {
             path: "WORKFLOW.md",
-            contents: include_str!("flow-authoring/WORKFLOW.md"),
+            contents: tinyflows_copilot::resources::FLOW_AUTHORING_WORKFLOW,
         },
         BundledFile {
             path: "references/expressions.md",
-            contents: include_str!("flow-authoring/references/expressions.md"),
+            contents: tinyflows_copilot::resources::FLOW_AUTHORING_EXPRESSIONS,
         },
         BundledFile {
             path: "references/node-config.md",
-            contents: include_str!("flow-authoring/references/node-config.md"),
+            contents: tinyflows_copilot::resources::FLOW_AUTHORING_NODE_CONFIG,
         },
         BundledFile {
             path: "references/dry-run.md",
-            contents: include_str!("flow-authoring/references/dry-run.md"),
+            contents: tinyflows_copilot::resources::FLOW_AUTHORING_DRY_RUN,
         },
     ],
 };

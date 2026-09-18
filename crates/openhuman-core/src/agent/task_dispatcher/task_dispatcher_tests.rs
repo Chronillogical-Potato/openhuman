@@ -2,8 +2,8 @@
 
 use serde_json::json;
 
-use crate::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 
 use super::executor::{truncate_chars, write_back, EVIDENCE_MAX_CHARS};
 use super::poller::{pick_next_todo, requires_plan_approval};

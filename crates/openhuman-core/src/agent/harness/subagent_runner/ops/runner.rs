@@ -33,7 +33,7 @@ use crate::agent::harness::subagent_runner::subagent_iter_cap_with_autonomous_li
 use crate::agent::harness::subagent_runner::tool_prep::{
     build_text_mode_tool_instructions, filter_tool_indices, is_subagent_spawn_tool,
     load_prompt_source, select_actions_with_essentials, strip_spawn_tools_from_dynamic,
-    top_k_for_toolkit,
+    subagent_prompt_protocol, top_k_for_toolkit,
 };
 use crate::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
@@ -1333,21 +1333,8 @@ async fn run_typed_mode(
         .collect();
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
-    let dispatcher_instructions = {
-        use crate::agent::context::prompt::ToolCallFormat;
-        use crate::agent::dispatcher::{
-            NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
-        };
-        use crate::agent::pformat::PFormatRegistry;
-        let empty_tools: Vec<Box<dyn Tool>> = Vec::new();
-        match parent.tool_call_format {
-            ToolCallFormat::PFormat => {
-                PFormatToolDispatcher::new(PFormatRegistry::new()).prompt_instructions(&empty_tools)
-            }
-            ToolCallFormat::Native => NativeToolDispatcher.prompt_instructions(&empty_tools),
-            ToolCallFormat::Json => XmlToolDispatcher.prompt_instructions(&empty_tools),
-        }
-    };
+    let (prompt_tool_call_format, dispatcher_instructions) =
+        subagent_prompt_protocol(parent.tool_call_format, is_integrations_agent_with_toolkit);
     // Load AGENTS.md instruction layers once, at prompt-build time, when the
     // config gate is on. The global layer comes from the workspace dir; the
     // project layer comes from the sub-agent's `worktree_action_dir` override
@@ -1386,7 +1373,7 @@ async fn run_typed_mode(
         dispatcher_instructions: &dispatcher_instructions,
         learned: crate::agent::context::prompt::LearnedContextData::default(),
         visible_tool_names: &visible_tool_names,
-        tool_call_format: parent.tool_call_format,
+        tool_call_format: prompt_tool_call_format,
         connected_integrations: &narrowed_integrations,
         connected_identities_md: crate::agent::prompts::render_connected_identities(),
         include_profile: !definition.omit_profile,
@@ -1417,7 +1404,7 @@ async fn run_typed_mode(
                 &dynamic_tools,
                 &archetype_prompt_body,
                 render_options,
-                parent.tool_call_format,
+                prompt_tool_call_format,
                 &narrowed_integrations,
                 agents_md.global.as_deref(),
                 agents_md.local.as_deref(),

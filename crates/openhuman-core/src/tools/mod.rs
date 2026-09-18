@@ -1,4 +1,5 @@
 pub mod agent_policy;
+mod capability;
 pub mod generated;
 pub mod ops;
 pub mod orchestrator_tools;
@@ -18,6 +19,7 @@ pub(crate) mod implementations;
 pub use crate::agent::artifacts::tools::*;
 pub use crate::agent::learning::tools::*;
 pub use crate::agent::orchestration::tools::*;
+pub use crate::agent::todos::tools::*;
 pub use crate::agent::tools::*;
 pub use crate::config::tools::*;
 pub use crate::config::workspace::tools::*;
@@ -29,7 +31,6 @@ pub use crate::flows::builder_tools::*;
 pub use crate::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::flows::memory_tools::*;
-#[cfg(feature = "flows")]
 #[cfg(feature = "flows")]
 pub use crate::flows::tools::*;
 pub use crate::integrations::composio::tools::*;
@@ -55,7 +56,6 @@ pub use crate::skills::runtime::tools::*;
 pub use crate::skills::search::SkillSearchTool;
 #[cfg(feature = "skills")]
 pub use crate::skills::tools::*;
-pub use crate::threads::todos::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]

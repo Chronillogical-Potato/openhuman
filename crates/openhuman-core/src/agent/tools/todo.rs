@@ -3,13 +3,13 @@
 //! Dispatches on the `op` field so a single tool exposes
 //! `add` / `edit` / `update_status` / `remove` / `replace` / `clear` /
 //! `list`. The board is persisted to the active thread (when there is
-//! one) via [`crate::threads::todos::ops`]; without a thread context the
+//! one) via [`crate::agent::todos::ops`]; without a thread context the
 //! tool falls back to a process-global scratch list. Returns a markdown
 //! rendering so transcripts read cleanly.
 
-use crate::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 use crate::agent::tinyagents::thread_context;
-use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -203,7 +203,7 @@ fn current_location() -> BoardLocation {
     };
     // The orchestrator owns ONE global task board rather than a per-thread one:
     // its `todo` tool always targets the app-wide `orchestrator-tasks` board so a
-    // single Kanban spans every delegation (matches the UI's OrchestratorTaskBoard).
+    // single todo graph spans every delegation.
     if parent.agent_definition_id == "orchestrator" {
         return BoardLocation::Thread {
             workspace_dir: parent.workspace_dir.clone(),

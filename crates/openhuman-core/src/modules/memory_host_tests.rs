@@ -363,6 +363,9 @@ impl tinyinference_llm::model::ChatModel<()> for StubModel {
 /// `memory_tree.cloud_summarization_opt_in`.
 #[test]
 fn summarization_role_is_refused_without_local_ai_or_cloud_opt_in() {
+    // The override is process-global: serialise against every other test that
+    // installs one or needs none installed.
+    let _serial = crate::inference::inference_test_guard();
     let _guard = crate::inference::provider::factory::test_provider_override::install_model(
         std::sync::Arc::new(StubModel),
     );
@@ -384,6 +387,9 @@ fn summarization_role_is_refused_without_local_ai_or_cloud_opt_in() {
 /// the summarization role, not to the seam.
 #[test]
 fn non_summarization_roles_keep_the_role_factory() {
+    // The override is process-global: serialise against every other test that
+    // installs one or needs none installed.
+    let _serial = crate::inference::inference_test_guard();
     let _guard = crate::inference::provider::factory::test_provider_override::install_model(
         std::sync::Arc::new(StubModel),
     );

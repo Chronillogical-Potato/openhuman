@@ -96,15 +96,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: ThreadMessage) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),

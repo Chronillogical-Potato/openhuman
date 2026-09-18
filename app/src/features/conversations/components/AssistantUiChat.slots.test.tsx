@@ -21,7 +21,6 @@ import chatRuntimeReducer from '../../../store/chatRuntimeSlice';
 import mascotReducer from '../../../store/mascotSlice';
 import threadReducer from '../../../store/threadSlice';
 import { AssistantUiChat } from './AssistantUiChat';
-import type { ThreadGoalController } from './ThreadGoalChip';
 
 const THREAD_ID = 't-slots';
 
@@ -59,38 +58,12 @@ function buildStore() {
   });
 }
 
-/**
- * A fresh controller object every time, the way `useThreadGoal` returns one:
- * it is a bare object literal, so its identity changes on every host render.
- */
-function goalController(overrides: Partial<ThreadGoalController> = {}): ThreadGoalController {
-  return {
-    threadId: THREAD_ID,
-    goal: null,
-    expanded: false,
-    draft: '',
-    busy: false,
-    setDraft: vi.fn(),
-    open: vi.fn(),
-    close: vi.fn(),
-    toggle: vi.fn(),
-    save: vi.fn(),
-    complete: vi.fn(),
-    pause: vi.fn(),
-    resume: vi.fn(),
-    clear: vi.fn(),
-    ...overrides,
-  };
-}
-
 function chat(
-  threadGoal: ThreadGoalController,
   onOpenHumanMode?: () => void,
   overrides: { attachmentsEnabled?: boolean; attachmentInteractionBlocked?: boolean } = {}
 ) {
   return (
     <AssistantUiChat
-      threadGoal={threadGoal}
       model={null}
       onModelChange={vi.fn()}
       inputValue=""
@@ -112,22 +85,6 @@ function composerShell(): HTMLElement {
 }
 
 describe('assistant-ui composer slots', () => {
-  it('shows the thread-goal editor once the controller expands', async () => {
-    const store = buildStore();
-    const { rerender } = render(<Provider store={store}>{chat(goalController())}</Provider>);
-
-    expect(screen.queryByPlaceholderText('What should this thread accomplish?')).toBeNull();
-
-    // The host re-renders with a new controller object carrying `expanded`.
-    // `ComposerExtras` holds a constant identity and has no dependency on it,
-    // so this only appears if the slot re-renders with its host.
-    rerender(<Provider store={store}>{chat(goalController({ expanded: true }))}</Provider>);
-
-    expect(
-      await screen.findByPlaceholderText('What should this thread accomplish?')
-    ).toBeInTheDocument();
-  });
-
   it('keeps the idle mascot button mounted across a host re-render', () => {
     const store = buildStore();
     const navigate = vi.fn();
@@ -135,12 +92,12 @@ describe('assistant-ui composer slots', () => {
     // (`onOpenHumanMode={() => navigate('/human')}`). That changing identity is
     // what used to remount the slot.
     const { rerender } = render(
-      <Provider store={store}>{chat(goalController(), () => navigate('/human'))}</Provider>
+      <Provider store={store}>{chat(() => navigate('/human'))}</Provider>
     );
 
     const button = screen.getByTestId('composer-human-mode');
 
-    rerender(<Provider store={store}>{chat(goalController(), () => navigate('/human'))}</Provider>);
+    rerender(<Provider store={store}>{chat(() => navigate('/human'))}</Provider>);
 
     expect(screen.getByTestId('composer-human-mode')).toBe(button);
   });
@@ -149,10 +106,7 @@ describe('assistant-ui composer slots', () => {
     const store = buildStore();
     render(
       <Provider store={store}>
-        {chat(goalController(), undefined, {
-          attachmentsEnabled: true,
-          attachmentInteractionBlocked: true,
-        })}
+        {chat(undefined, { attachmentsEnabled: true, attachmentInteractionBlocked: true })}
       </Provider>
     );
 
@@ -167,7 +121,7 @@ describe('assistant-ui composer slots', () => {
 
   it('leaves the assistant-ui dropzone in charge when the host takes no files', () => {
     const store = buildStore();
-    render(<Provider store={store}>{chat(goalController())}</Provider>);
+    render(<Provider store={store}>{chat()}</Provider>);
 
     const dataTransfer = { types: ['Files'], dropEffect: 'copy' };
     fireEvent.dragOver(composerShell(), { dataTransfer });

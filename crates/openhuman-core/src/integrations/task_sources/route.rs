@@ -12,15 +12,13 @@
 
 use serde_json::json;
 
+use crate::agent::todos::ops::{add as todo_add, remove as todo_remove, BoardLocation, CardPatch};
 use crate::agent::triage::{
     apply_decision, remote_trigger_origin, run_triage, TriageOutcome, TriggerEnvelope,
 };
 use crate::agent::turn_origin::with_origin;
 use crate::config::Config;
-use crate::threads::todos::ops::{
-    add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
-};
-use crate::{cron::scheduler_gate, threads::todos};
+use crate::{agent::todos, cron::scheduler_gate};
 
 use super::types::{EnrichedTask, FilterSpec, SourceTarget, TaskSource};
 use super::TaskKind;
@@ -296,7 +294,7 @@ fn provider_label(provider: &str) -> String {
 /// callers that want to inspect routed work without an RPC round-trip.
 pub async fn board_cards(
     config: &Config,
-) -> Result<Vec<crate::agent::task_board::TaskBoardCard>, String> {
+) -> Result<Vec<crate::agent::todos::types::TaskBoardCard>, String> {
     let location = task_sources_location(config);
     todos::ops::list(&location).await.map(|snap| snap.cards)
 }

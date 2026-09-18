@@ -162,8 +162,7 @@ describe('rpcMethods catalog', () => {
       readWithParts('../../../../crates/openhuman-core/src/config/schemas/schema_defs.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/provider/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/schemas.rs'),
-      readWithParts('../../../../crates/openhuman-core/src/inference/local/schemas.rs'),
-      readWithParts('../../../../crates/openhuman-core/src/embeddings/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/embeddings/schemas.rs'),
       // The MCP registry split its schemas module into a directory. Controller
       // definitions (and therefore the mcp_clients literals this guard owns)
       // live in `registry.rs`; keep this path explicit so another move fails

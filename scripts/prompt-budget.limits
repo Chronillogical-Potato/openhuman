@@ -203,39 +203,39 @@
 #               fleet tools. Deleting the section wholesale would have removed
 #               a known bug's fix along with the redundancy.
 
-morning_briefing:14279:82986
-trigger_triage:9214:0
-workflow_builder:46405:30259
-summarizer:8783:0
-tools_agent:8260:82986
-orchestrator:33629:29821
-code_executor:13327:12338
-crypto_agent:12049:12357
-task_manager_agent:7104:15601
-planner:9927:5664
-skill_creator:7311:12411
-flow_discovery:10111:9503
-profile_memory_agent:7202:11815
-settings_agent:7065:11220
-context_scout:10427:7652
-skill_executor:9613:8090
-scheduler_agent:9635:7008
-agent_memory:9761:6698
-mcp_setup:10368:5078
-skill_setup:7272:7973
-trigger_reactor:7966:6423
-mcp_agent:8927:4472
-flow_memory_agent:9026:3809
-tool_maker:6273:6087
-presentation_agent:6547:5678
-video_agent:6973:2266
-help:8469:2365
-image_agent:7017:2266
-goals_agent:6725:3124
-vision_agent:6885:2266
-archivist:5985:3133
+morning_briefing:15295:76791
+trigger_triage:9207:0
+workflow_builder:79094:30397
+summarizer:9021:0
+tools_agent:9285:76791
+orchestrator:30294:30812
+code_executor:13320:12591
+crypto_agent:12986:12357
+task_manager_agent:7097:15834
+planner:9920:5917
+skill_creator:7304:12664
+flow_discovery:10780:9641
+profile_memory_agent:7554:12132
+settings_agent:7040:11065
+context_scout:11076:7343
+skill_executor:9594:7505
+scheduler_agent:9628:7227
+agent_memory:10422:6836
+mcp_setup:10361:5078
+skill_setup:7253:7598
+trigger_reactor:8264:6740
+mcp_agent:8920:4472
+flow_memory_agent:9687:3947
+tool_maker:6266:6087
+presentation_agent:6540:5678
+video_agent:6966:2519
+help:8462:2365
+image_agent:7010:2519
+goals_agent:7356:2604
+vision_agent:6878:2519
+archivist:6283:3450
 researcher:6855:2229
-critic:6222:1855
+critic:6215:2108
 
 # ── Per-tool schema ratchet ──────────────────────────────────────────────
 #
@@ -298,13 +298,14 @@ critic:6222:1855
 #       Discovery tools. Both are the recovery path for a withheld surface, so
 #       their descriptions carry the "here is what you can still reach" copy.
 #
-tool:memory:3788
-tool:delegate_to:5302
+# `memory`, `delegate_to` and `cron` were dropped 2026-09-18: no agent at
+# 93e9938f3 advertises them (nor does the default-features registry), so
+# the lookup below failed before any number was compared. The prose above
+# describes them as they were on 2026-09-01.
 tool:spawn_subagent:3554
-tool:cron:3228
 tool:propose_workflow:3170
 tool:memory_tree:3008
-tool:cron_add:3003
+tool:cron_add:3222
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
@@ -313,4 +314,4 @@ tool:save_workflow:1957
 tool:spawn_parallel_agents:1851
 tool:todo:1831
 tool:search_tool_catalog:1695
-tool:use_skill:1627
+tool:use_skill:2090

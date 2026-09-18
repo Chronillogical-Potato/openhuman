@@ -514,7 +514,7 @@ impl Agent {
         // the legacy engine) so budgeted goals progress to `budget_limited` and
         // continuation scheduling reads a live budget. Self-guarding + best-effort
         // — a no-op when there is no active goal for the ambient thread.
-        crate::threads::goals::runtime::account_turn_against_goal(
+        crate::agent::goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
             input_tokens,
             output_tokens,

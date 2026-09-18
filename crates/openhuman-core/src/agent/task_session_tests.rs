@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::task_board::{TaskBoardCard, TaskCardStatus};
+use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 
 fn card(title: &str) -> TaskBoardCard {
     TaskBoardCard {

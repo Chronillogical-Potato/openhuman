@@ -12,7 +12,7 @@ use std::sync::LazyLock;
 use tinyagents_graph::todos::dispatch::prompt as crate_prompt;
 use tinyagents_graph::todos::dispatch::TaskPromptTools;
 
-use crate::agent::task_board::TaskBoardCard;
+use crate::agent::todos::types::TaskBoardCard;
 
 /// OpenHuman's tool names for the two tools a task prompt references.
 static TOOLS: LazyLock<TaskPromptTools> = LazyLock::new(|| TaskPromptTools {

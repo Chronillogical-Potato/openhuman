@@ -312,9 +312,6 @@ pub struct WebChannelEvent {
     /// non-subagent event.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subagent: Option<SubagentProgressDetail>,
-    /// Per-thread task board snapshot carried by `task_board_updated`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_board: Option<serde_json::Value>,
     /// Server-computed human label for a tool call (on `tool_call` /
     /// `subagent_tool_call`), e.g. "Reading messages". The frontend renders
     /// this verbatim for dynamic Composio/MCP/integration tools it can't

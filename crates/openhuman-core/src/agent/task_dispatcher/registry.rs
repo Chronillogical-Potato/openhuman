@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 
 use tinyagents_graph::todos::dispatch::ActiveRunRegistry;
 
-use crate::threads::todos::ops::BoardLocation;
+use crate::agent::todos::ops::BoardLocation;
 
 use super::types::ActiveRun;
 

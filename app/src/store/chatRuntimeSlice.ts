@@ -13,7 +13,6 @@ import type {
   PersistedToolTimelineEntry,
   PersistedTranscriptItem,
   PersistedTurnState,
-  TaskBoard,
 } from '../types/turnState';
 import { DERIVED_TRANSCRIPT_ENABLED } from '../utils/config';
 import {
@@ -730,7 +729,6 @@ interface ChatRuntimeState {
    * to the tool-only view.
    */
   processingByThread: Record<string, ProcessingTranscriptItem[]>;
-  taskBoardByThread: Record<string, TaskBoard>;
   inferenceTurnLifecycleByThread: Record<string, InferenceTurnLifecycle>;
   pendingApprovalByThread: Record<string, PendingApproval>;
   pendingPlanReviewByThread: Record<string, PendingPlanReview>;
@@ -810,7 +808,6 @@ const initialState: ChatRuntimeState = {
   turnTranscriptsByThread: {},
   interruptedAssistantByThread: {},
   processingByThread: {},
-  taskBoardByThread: {},
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
   pendingPlanReviewByThread: {},
@@ -1834,15 +1831,6 @@ const chatRuntimeSlice = createSlice({
       // successful result clears any stale failure (#4459).
       item.failure = success ? undefined : failure;
     },
-    setTaskBoardForThread: (
-      state,
-      action: PayloadAction<{ threadId: string; board: TaskBoard }>
-    ) => {
-      state.taskBoardByThread[action.payload.threadId] = action.payload.board;
-    },
-    clearTaskBoardForThread: (state, action: PayloadAction<{ threadId: string }>) => {
-      delete state.taskBoardByThread[action.payload.threadId];
-    },
     setPendingApprovalForThread: (
       state,
       action: PayloadAction<{ threadId: string; approval: PendingApproval }>
@@ -2080,7 +2068,6 @@ const chatRuntimeSlice = createSlice({
       delete state.toolTimelineByThread[action.payload.threadId];
       delete state.toolTimelineSeqByThread[action.payload.threadId];
       delete state.processingByThread[action.payload.threadId];
-      delete state.taskBoardByThread[action.payload.threadId];
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.pendingApprovalByThread[action.payload.threadId];
       delete state.pendingPlanReviewByThread[action.payload.threadId];
@@ -2106,7 +2093,6 @@ const chatRuntimeSlice = createSlice({
       state.turnTranscriptsByThread = {};
       state.interruptedAssistantByThread = {};
       state.processingByThread = {};
-      state.taskBoardByThread = {};
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};
       state.pendingPlanReviewByThread = {};
@@ -2205,15 +2191,12 @@ const chatRuntimeSlice = createSlice({
       // another tab/route). The snapshot was written at the last flush boundary
       // and is at best equal to — usually behind — the in-memory state, so
       // applying it would wipe streamed prose, tool results, and any pending
-      // approval card mid-turn. Take only the task board (monotonic, cheap) and
-      // leave the volatile state to the live event stream. Rehydration is a
+      // approval card mid-turn. Leave the volatile state to the live event
+      // stream. Rehydration is a
       // fallback for when there is no live driver (cold boot, new window,
       // interrupted turn), not an overwrite of one.
       const liveLifecycle = state.inferenceTurnLifecycleByThread[threadId];
       if (liveLifecycle === 'started' || liveLifecycle === 'streaming') {
-        if (snapshot.taskBoard) {
-          state.taskBoardByThread[threadId] = snapshot.taskBoard;
-        }
         // A live turn is driving the thread — any interrupted partial from a
         // prior crashed turn is superseded and must not linger under it.
         delete state.interruptedAssistantByThread[threadId];
@@ -2244,9 +2227,6 @@ const chatRuntimeSlice = createSlice({
       // wipe a proposal that's still pending the user's Accept/Reject.
       if (snapshot.lifecycle === 'interrupted') {
         delete state.pendingWorkflowProposalsByThread[threadId];
-      }
-      if (snapshot.taskBoard) {
-        state.taskBoardByThread[threadId] = snapshot.taskBoard;
       }
 
       // Terminal turns (interrupted = crashed mid-flight; completed = finished
@@ -2416,8 +2396,6 @@ export const {
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,
-  setTaskBoardForThread,
-  clearTaskBoardForThread,
   setPendingApprovalForThread,
   clearPendingApprovalForThread,
   setPendingPlanReviewForThread,

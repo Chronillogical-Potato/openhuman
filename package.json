@@ -51,6 +51,7 @@
     "agent-batch": "node scripts/agent-batch/cli.mjs",
     "agent-batch:test": "node --test scripts/agent-batch/__tests__/lib.test.mjs scripts/agent-batch/__tests__/cli.test.mjs",
     "debug": "bash scripts/debug/cli.sh",
+    "prompt:eval": "bash scripts/prompt-eval.sh",
     "profile:tauri": "cargo run --manifest-path crates/openhuman-app/profiling/Cargo.toml --",
     "test:install-ps1": "pwsh -NoProfile -File scripts/tests/OpenHumanWindowsInstall.Tests.ps1",
     "rust:check": "pnpm --filter openhuman-app rust:check",

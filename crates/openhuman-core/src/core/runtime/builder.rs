@@ -635,6 +635,13 @@ impl CoreBuilder {
         )
         .await?;
 
+        // Legacy goal, task-board, and run-ledger rows must be copied before
+        // `build()` exposes in-process RPC or agent turns. Running these from
+        // `serve()` is too late for embedders that only build and invoke.
+        if let Some(cfg) = config.as_ref() {
+            crate::core::runtime::services::run_legacy_migrations(cfg).await;
+        }
+
         // Reap agent runs orphaned by a previous process (crash / restart /
         // deploy). Here, and not with the other boot-once jobs, because those
         // run from `serve()`: an embedder that only calls `build()` and then
