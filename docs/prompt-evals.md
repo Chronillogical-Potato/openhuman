@@ -38,16 +38,40 @@ cargo test -p openhuman --test agent_prompt_comprehension_e2e
 
 ## Tier 2
 
+Build the binary first (`cargo build --bin openhuman-core`). There are two ways
+to run it, and the difference between them matters.
+
+**Hermetic (default).** Each case gets a fresh `mktemp -d` workspace
+(`OPENHUMAN_WORKSPACE`). A fresh workspace has no keyring, so you must pass in
+a credential. This is the path for headless hosts:
+
 ```sh
-cargo build --bin openhuman-core
 OPENHUMAN_BACKEND_SESSION_TOKEN=... scripts/prompt-eval.sh --case workflow-builder-news
 # or OPENHUMAN_BACKEND_API_KEY=...; BACKEND_URL selects the backend
 ```
 
-Each case gets a fresh `mktemp -d` workspace (`OPENHUMAN_WORKSPACE`) and its own
-`openhuman-core call` subprocesses: one to install the credential, one to run
-the agent (`openhuman.flows_build` or `openhuman.agent_chat`), and one for the
-judge. A process per case sidesteps the process-global model override and
+**Real workspace (`--real-workspace`).** Runs against the signed-in
+`~/.openhuman`. The core reads its own keyring, so nobody handles a token.
+The costs are:
+
+- **Quit the desktop app first.** Only one process may own `~/.openhuman`,
+  and the script refuses to start while the app or a core server is running.
+- **It writes into the user's real account.** Every case leaves a thread
+  behind, plus anything a case installed or scheduled (a workflow, a cron job
+  from `orchestrator-reminder`). After the run, delete the test threads, remove
+  any `cron_*` jobs and flows the cases created, and check that skills and MCP
+  servers are back to where they started.
+- **It is serial.** Only transcripts modified after a case started are scored
+  for that case.
+
+```sh
+scripts/prompt-eval.sh --real-workspace --case workflow-builder-news
+```
+
+Either way, each case runs in its own `openhuman-core call` subprocesses: one
+to install the credential (hermetic only), one to run the agent
+(`openhuman.flows_build` or `openhuman.agent_chat`), and one for the judge. A
+process per case sidesteps the process-global model override and
 `AlreadyRunning`, and needs no feature gate.
 
 Scoring reads only artifacts the run already writes, in this order:

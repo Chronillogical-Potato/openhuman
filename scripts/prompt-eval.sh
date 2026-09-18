@@ -4,12 +4,16 @@
 # Tier 1 (`tests/agent_prompt_comprehension_e2e.rs`) pins the script; only this
 # answers whether a model follows it. See docs/prompt-evals.md.
 #
-# Usage: scripts/prompt-eval.sh [--case <id>] [--bin <openhuman-core>]
+# Usage: scripts/prompt-eval.sh [--case <id>] [--bin <openhuman-core>] [--real-workspace]
 #
-# Needs a backend credential in OPENHUMAN_BACKEND_SESSION_TOKEN or
-# OPENHUMAN_BACKEND_API_KEY (BACKEND_URL optional). Each case runs in its own
-# fresh workspace and its own `openhuman-core call` subprocesses, so the
-# process-global model override and `AlreadyRunning` never come into it.
+# Default (hermetic): each case gets a fresh `mktemp -d` workspace and needs a
+# credential in OPENHUMAN_BACKEND_SESSION_TOKEN or OPENHUMAN_BACKEND_API_KEY
+# (BACKEND_URL optional). --real-workspace instead runs against the signed-in
+# ~/.openhuman, where the core reads its own keyring — no credential handling,
+# but it writes into the user's real account, is serial, and the desktop app
+# must be quit first. See docs/prompt-evals.md for the cleanup it leaves.
+# Either way every case runs in its own `openhuman-core call` subprocesses, so
+# the process-global model override and `AlreadyRunning` never come into it.
 #
 # Scoring reads artifacts the run already writes:
 #   1. hard failure signals — breaker halt (log), [SUBAGENT_INCOMPLETE]
@@ -25,11 +29,13 @@ CASES="$ROOT/scripts/prompt-eval/cases.json"
 BIN="$ROOT/target/debug/openhuman-core"
 OUT="$ROOT/target/prompt-eval-runs.jsonl"
 ONLY=""
+REAL=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --case) ONLY="$2"; shift 2 ;;
     --bin) BIN="$2"; shift 2 ;;
+    --real-workspace) REAL=1; shift ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -39,7 +45,12 @@ if [ "${CI:-}" = "true" ]; then
   echo "prompt-eval: refusing to run in CI — tier 2 costs money and is non-deterministic" >&2
   exit 1
 fi
-if [ -z "${OPENHUMAN_BACKEND_SESSION_TOKEN:-}${OPENHUMAN_BACKEND_API_KEY:-}" ]; then
+if [ "$REAL" = 1 ]; then
+  if pgrep -f "OpenHuman.app|openhuman-core serve|openhuman-core run" >/dev/null; then
+    echo "prompt-eval: quit the desktop app / core server first — only one process may own ~/.openhuman" >&2
+    exit 2
+  fi
+elif [ -z "${OPENHUMAN_BACKEND_SESSION_TOKEN:-}${OPENHUMAN_BACKEND_API_KEY:-}" ]; then
   echo "prompt-eval: set OPENHUMAN_BACKEND_SESSION_TOKEN or OPENHUMAN_BACKEND_API_KEY" >&2
   exit 2
 fi
@@ -51,21 +62,30 @@ ids=$(python3 -c 'import json,sys; print("\n".join(c["id"] for c in json.load(op
 
 total_usd=0
 for id in $ids; do
+  # $ws always holds this case's own artifacts (result, logs, judge verdict).
   ws="$(mktemp -d -t prompt-eval)"
-  printf 'chat_onboarding_completed = true\n\n[secrets]\nencrypt = false\n' > "$ws/config.toml"
-  export OPENHUMAN_WORKSPACE="$ws" OPENHUMAN_KEYRING_BACKEND=file RUST_LOG="${RUST_LOG:-info}"
+  export RUST_LOG="${RUST_LOG:-info}"
+  if [ "$REAL" = 1 ]; then
+    # Transcripts land in the real workspace; score only files this case wrote.
+    export PROMPT_EVAL_TRANSCRIPT_ROOT="$HOME/.openhuman" PROMPT_EVAL_SINCE="$(date +%s)"
+  else
+    printf 'chat_onboarding_completed = true\n\n[secrets]\nencrypt = false\n' > "$ws/config.toml"
+    export OPENHUMAN_WORKSPACE="$ws" OPENHUMAN_KEYRING_BACKEND=file
+  fi
 
   core() { "$BIN" call --method "$1" --params "$2" 2>>"$ws/core.log"; }
 
   # `call` does not run the server's boot-env credential seeding, so install it.
   # ponytail: the credential rides argv (visible in `ps`) — `call` takes params
   # no other way; fine on a dev machine, add a --params-file before a shared host.
-  if [ -n "${OPENHUMAN_BACKEND_API_KEY:-}" ]; then
-    cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_API_KEY"], "kind": "api-key"}))')
-  else
-    cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_SESSION_TOKEN"], "kind": "session"}))')
+  if [ "$REAL" = 0 ]; then
+    if [ -n "${OPENHUMAN_BACKEND_API_KEY:-}" ]; then
+      cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_API_KEY"], "kind": "api-key"}))')
+    else
+      cred=$(python3 -c 'import json,os; print(json.dumps({"token": os.environ["OPENHUMAN_BACKEND_SESSION_TOKEN"], "kind": "session"}))')
+    fi
+    core openhuman.auth_set_credential "$cred" >/dev/null
   fi
-  core openhuman.auth_set_credential "$cred" >/dev/null
 
   entry=$(python3 -c 'import json,sys; c=[c for c in json.load(open(sys.argv[1]))["cases"] if c["id"]==sys.argv[2]][0]; print(c["entry"]); print(c["message"])' "$CASES" "$id")
   kind=$(echo "$entry" | head -1); message=$(echo "$entry" | tail -n +2)

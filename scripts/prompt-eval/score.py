@@ -42,9 +42,17 @@ def rpc_value(path):
 
 
 def transcripts(ws):
-    """[(meta, [message lines])] for every session_raw transcript in the workspace."""
+    """[(meta, [message lines])] for every session_raw transcript this case wrote.
+
+    Hermetic runs read the whole fresh workspace. --real-workspace runs set
+    PROMPT_EVAL_TRANSCRIPT_ROOT (~/.openhuman) and PROMPT_EVAL_SINCE, and only
+    transcripts modified since the case started count."""
+    root = os.environ.get("PROMPT_EVAL_TRANSCRIPT_ROOT") or ws
+    since = float(os.environ.get("PROMPT_EVAL_SINCE") or 0)
     out = []
-    for path in sorted(glob.glob(os.path.join(ws, "**", "session_raw", "*.jsonl"), recursive=True)):
+    for path in sorted(glob.glob(os.path.join(root, "**", "session_raw", "*.jsonl"), recursive=True)):
+        if os.path.getmtime(path) < since:
+            continue
         meta, lines = {}, []
         for raw in open(path, errors="replace"):
             raw = raw.strip()
