@@ -3,6 +3,7 @@
 //! Exposes plan lookup, purchase flows, and credit top-ups through the
 //! standard controller registry (`openhuman.billing_*`).
 
+pub mod classify;
 mod ops;
 mod schemas;
 

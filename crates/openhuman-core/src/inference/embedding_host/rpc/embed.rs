@@ -101,7 +101,9 @@ pub async fn test_connection(
     );
 
     let result = if let Some(endpoint) = custom_endpoint.as_deref() {
-        probe_custom_embeddings(endpoint, &api_key, model, dims).await
+        probe_custom_embeddings(endpoint, &api_key, model, dims)
+            .await
+            .map_err(|error| error.to_string())
     } else {
         let embedder = create_embedding_provider_with_config(
             config,
