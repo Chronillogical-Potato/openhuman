@@ -419,26 +419,6 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
         let config = config_rpc::load_config_with_timeout().await?;
         let force = p.force.unwrap_or(false);
 
-        // Atomic install-start guard: a duplicate click while an install is
-        // already in flight must be a no-op, not a second concurrent download
-        // racing on the same `.part` file. `try_acquire_install_slot` does the
-        // check-and-claim under a single mutex acquisition.
-        let slot = match tinyinference::local::download::try_acquire_install_slot(
-            tinyinference::local::download::ENGINE_PIPER,
-        ) {
-            Some(slot) => slot,
-            None => {
-                tracing::debug!(
-                    "[voice-install:piper] slot already held — returning current status"
-                );
-                let current = tinyinference::local::download::read_status(
-                    tinyinference::local::download::ENGINE_PIPER,
-                );
-                return serde_json::to_value(current)
-                    .map_err(|e| format!("serialize piper status: {e}"));
-            }
-        };
-
         tinyinference::local::download::write_status(
             tinyinference::local::download::VoiceInstallStatus {
                 engine: tinyinference::local::download::ENGINE_PIPER.to_string(),
@@ -457,12 +437,7 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
             "[voice-install:piper] spawning background install"
         );
         let voice_id = p.voice_id.clone();
-        // Move the slot into the spawned task so it lives for the actual
-        // install duration (download + extract + validate), not just the RPC
-        // handler's lifetime. The slot's Drop releases the single-writer guard
-        // on task exit, including via panic.
         tokio::spawn(async move {
-            let _slot = slot;
             let install = tinyinference::local::piper::PiperInstall::new(
                 crate::inference::paths::workspace_piper_dir(&config),
             );

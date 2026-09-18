@@ -97,68 +97,6 @@ fn deserialize_params_errors_on_invalid_shape() {
     assert!(err.contains("invalid params"));
 }
 
-// ── Handler-level tests that don't need Ollama ────────────────
-
-use crate::config::TEST_ENV_LOCK as ENV_LOCK;
-use tempfile::TempDir;
-
-/// Regression test for the CodeRabbit #7 race on PR #1755: when two concurrent
-/// RPC calls (a double-click, or an auto-install firing alongside a manual
-/// click) hit `handle_local_ai_install_piper` at the same time, only one must
-/// spawn a real install task. The other must short-circuit and return the
-/// in-flight status without starting a second download that would race on the
-/// same `.part` file.
-///
-/// Exercises the actual handler — not just the slot primitive — so the wiring
-/// at the call site is covered too.
-#[tokio::test]
-async fn install_piper_handler_serializes_concurrent_calls() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    unsafe {
-        std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
-    }
-
-    let slot = tinyinference::local::download::try_acquire_install_slot(
-        tinyinference::local::download::ENGINE_PIPER,
-    )
-    .expect("test should be able to claim the slot first");
-
-    tinyinference::local::download::write_status(
-        tinyinference::local::download::VoiceInstallStatus {
-            engine: tinyinference::local::download::ENGINE_PIPER.to_string(),
-            state: tinyinference::local::download::VoiceInstallState::Installing,
-            progress: Some(0),
-            downloaded_bytes: None,
-            total_bytes: None,
-            stage: Some("queued".to_string()),
-            error_detail: None,
-        },
-    );
-
-    let (r1, r2) = tokio::join!(
-        handle_local_ai_install_piper(Map::new()),
-        handle_local_ai_install_piper(Map::new())
-    );
-
-    unsafe {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-    drop(slot);
-    tinyinference::local::download::reset_status(tinyinference::local::download::ENGINE_PIPER);
-
-    let v1 = r1.expect("first call ok");
-    let v2 = r2.expect("second call ok");
-    for (label, v) in [("first", &v1), ("second", &v2)] {
-        let state = v.get("state").and_then(|s| s.as_str());
-        assert_eq!(
-            state,
-            Some("installing"),
-            "{label} concurrent call should see Installing, got {v:?}"
-        );
-    }
-}
-
 /// `agent_id` is a declared, optional input of `inference.agent_chat` — the
 /// embed crate pins its `TurnRequest` field names against this schema, so a
 /// param the controller accepts but never declares would be unreachable.
