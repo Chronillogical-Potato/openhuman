@@ -561,12 +561,10 @@ fn parse_glm_style_http_request() {
 }
 
 #[test]
-fn parse_glm_style_plain_url() {
+fn parse_glm_style_plain_url_is_not_a_tool_call() {
     let response = "https://example.com/api";
     let calls = parse_glm_style_tool_calls(response);
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, "shell");
-    assert!(calls[0].1["command"].as_str().unwrap().contains("curl"));
+    assert!(calls.is_empty());
 }
 
 #[test]
