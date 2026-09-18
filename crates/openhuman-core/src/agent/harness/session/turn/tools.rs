@@ -42,27 +42,26 @@ impl Agent {
                 "[agent_loop] snapshotting workspace descriptor for parent context (ambient or own)"
             );
         }
-        let allowed_subagent_ids =
-            crate::agent::harness::definition::AgentDefinitionRegistry::global()
-                .and_then(|registry| registry.get(&self.agent_definition_id))
-                .map(|definition| {
-                    definition
-                        .subagents
-                        .iter()
-                        .filter_map(|entry| match entry {
-                            crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                                Some(id.clone())
-                            }
-                            crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
-                                if wildcard.matches_all() =>
-                            {
-                                Some("integrations_agent".to_string())
-                            }
-                            crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
+        let allowed_subagent_ids = self
+            .resolved_definition()
+            .map(|definition| {
+                definition
+                    .subagents
+                    .iter()
+                    .filter_map(|entry| match entry {
+                        crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
+                            Some(id.clone())
+                        }
+                        crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                            if wildcard.matches_all() =>
+                        {
+                            Some("integrations_agent".to_string())
+                        }
+                        crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
         harness::ParentExecutionContext {
             agent_definition_id: self.agent_definition_id.clone(),
@@ -576,7 +575,7 @@ impl Agent {
             // whatever the builder produced.
             return;
         };
-        let Some(def) = reg.get(&self.agent_definition_id) else {
+        let Some(def) = self.resolved_definition() else {
             log::debug!(
                 "[agent] refresh_delegation_tools: definition '{}' not in registry — skipping",
                 self.agent_definition_id
@@ -592,7 +591,7 @@ impl Agent {
         // `retain` can never withdraw a durable tool's spec.
         let synthed = super::super::builder::drop_synthesized_name_collisions(
             &self.tools,
-            collect_orchestrator_tools(def, reg, &self.connected_integrations),
+            collect_orchestrator_tools(&def, reg, &self.connected_integrations),
         );
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();

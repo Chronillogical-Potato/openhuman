@@ -639,7 +639,6 @@ pub fn all_tools_with_runtime(
         // non-secret reads.
         Box::new(CredentialListTool::new(config.clone())),
         Box::new(SessionStateTool::new(config.clone())),
-        Box::new(SessionGetUserTool::new(config.clone())),
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
         // MCP registry and workspace persona. Observe/connect/call tools
@@ -878,6 +877,10 @@ pub fn all_tools_with_runtime(
                 None => Arc::new(base),
             }
         };
+        log::debug!(
+            "[tools::ops][mcp_client] static servers={}",
+            mcp_registry.list().len()
+        );
         if !mcp_registry.is_empty() {
             tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
             tools.push(Box::new(McpListToolsTool::new(Arc::clone(&mcp_registry))));

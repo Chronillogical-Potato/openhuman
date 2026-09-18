@@ -1,7 +1,9 @@
 use super::*;
 use crate::config::{default_root_openhuman_dir, user_openhuman_dir, write_active_user_id, Config};
 use crate::security::credentials::session_support::local_session_user_id;
-use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::security::credentials::{
+    identity, session_support, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::Router;
@@ -77,25 +79,6 @@ async fn spawn_auth_me_status(status: StatusCode) -> String {
     format!("http://{addr}")
 }
 
-/// A backend that accepts the connection but never answers `/auth/me`, modelling
-/// a reachable-but-slow backend whose request hangs far past the store-time
-/// validation budget (issue #5166).
-async fn spawn_auth_me_hang() -> String {
-    let app = Router::new().route(
-        "/auth/me",
-        get(|| async {
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-            StatusCode::OK
-        }),
-    );
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move {
-        axum::serve(listener, app).await.unwrap();
-    });
-    format!("http://{addr}")
-}
-
 /// Persist a live (unexpired) app-session profile for `user_id` and return the
 /// user-scoped `Config` that reads it back, mirroring the on-disk state of an
 /// already-signed-in install.
@@ -136,7 +119,7 @@ fn store_live_session(user_id: &str) -> Config {
     config
 }
 
+#[path = "ops_credential_tests.rs"]
+mod credential_tests;
 #[path = "ops_provider_oauth_tests.rs"]
 mod provider_oauth_tests;
-#[path = "ops_session_tests.rs"]
-mod session_tests;

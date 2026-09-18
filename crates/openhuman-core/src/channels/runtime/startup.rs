@@ -7,6 +7,7 @@ mod relay;
 mod start_channels;
 
 pub use start_channels::start_channels;
+pub(crate) use start_channels::start_channels_with_session;
 
 // Re-exported at module scope (rather than left as private `pub(super)`
 // items reached only through their owning submodule) so the `#[path]` test

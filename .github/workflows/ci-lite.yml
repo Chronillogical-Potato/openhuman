@@ -157,6 +157,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
               - 'crates/openhuman-embed/**'
+              - 'crates/openhuman-session/**'
               - 'crates/openhuman-tui/**'
               - 'Cargo.lock'
               - 'build.rs'
@@ -191,6 +192,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/Cargo.toml'
               - 'crates/openhuman-embed/Cargo.toml'
+              - 'crates/openhuman-session/Cargo.toml'
               - 'crates/openhuman-tui/Cargo.toml'
               - 'Cargo.lock'
               - 'build.rs'
@@ -208,6 +210,7 @@ jobs:
               - 'crates/openhuman-core/src/**'
               - 'crates/openhuman-embed/src/**'
               - 'crates/openhuman-embed/tests/**'
+              - 'crates/openhuman-session/src/**'
               - 'crates/openhuman-tui/src/**'
               - 'crates/openhuman-tui/tests/**'
               - 'tests/**'
@@ -460,6 +463,15 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
 
+      - name: Check session crate
+        if: needs.changes.outputs['rust-core'] == 'true'
+        # `openhuman-session` is the host-side login/session owner shared by the
+        # Tauri shell and the TUI. It has no `openhuman` dependency, so it
+        # compiles in seconds and its tests run against in-process stubs.
+        run: |
+          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-session --all-targets -- -D warnings
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-session
+
       - name: Cache CEF binary distribution
         if: needs.changes.outputs['rust-tauri'] == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -644,6 +656,9 @@ jobs:
         # 269 -> 270 on 2026-09-13: the core/wrapper split adds the required
         # `openhuman-rpc` workspace crate; its five dependencies were already
         # in the profile, so this is one package/name and no native build.
+        # 270 -> 271 on 2026-09-18: `tinytools-agent` becomes the shared
+        # provider-neutral tool-call protocol crate; it adds one Rust crate
+        # and no native build dependency.
         # See the kernel-floor history for why
         # these raises are temporary/justified. macOS resolves one higher per
         # the host skew recorded in the limits history — this expects the CI
@@ -653,7 +668,7 @@ jobs:
         # it is a second source of truth for the same Linux name count and is
         # not derived from that file. Bump both in the same PR that raises
         # (or lowers) the floor.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 270
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 271
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

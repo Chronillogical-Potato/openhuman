@@ -35,6 +35,7 @@ mod controls;
 mod crash_reporting;
 mod render;
 mod runner;
+mod session;
 mod state;
 mod terminal;
 mod ui_state;

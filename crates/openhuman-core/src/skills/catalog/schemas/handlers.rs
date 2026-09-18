@@ -76,15 +76,7 @@ pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
         );
 
         let catalog = ops::browse_catalog(false).await?;
-        let entry = catalog
-            .iter()
-            .find(|e| e.id == p.entry_id)
-            .ok_or_else(|| {
-                format!(
-                    "entry '{}' not found in catalog. Run skill_registry_browse with force_refresh first.",
-                    p.entry_id
-                )
-            })?;
+        let entry = ops::find_catalog_entry(&catalog, &p.entry_id)?;
 
         let workspace = crate::skills::schemas::resolve_workspace_dir().await;
         let outcome = ops::install_from_catalog(&workspace, entry).await?;

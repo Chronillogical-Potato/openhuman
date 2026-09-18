@@ -25,6 +25,11 @@ struct AgentChatParams {
     model_override: Option<String>,
     temperature: Option<f64>,
     thread_id: Option<String>,
+    /// Which agent definition to run the turn as. Absent runs the
+    /// orchestrator, as before. Resolved through the definition registry and
+    /// then `config.agent_registry.entries`; an unknown id is an error.
+    #[serde(default)]
+    agent_id: Option<String>,
     /// Optional per-turn working directory for the agent's filesystem / shell
     /// tools. Absent or empty keeps the configured `action_dir`. Ignored by the
     /// `*_simple` variant, which runs a bare provider call with no tools.
@@ -151,6 +156,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string(
                     "thread_id",
                     "Optional backend thread id for cache grouping and inference logs.",
+                ),
+                optional_string(
+                    "agent_id",
+                    "Optional agent definition id to run the turn as. Omit for the \
+                     orchestrator.",
                 ),
                 optional_string(
                     "cwd",
@@ -288,9 +298,16 @@ fn handle_agent_chat(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let mut config = config_rpc::load_config_with_timeout().await?;
+        let target = match p.agent_id.as_deref().map(str::trim) {
+            Some(id) if !id.is_empty() => {
+                crate::inference::local::ops::AgentChatTarget::AgentId(id)
+            }
+            _ => crate::inference::local::ops::AgentChatTarget::Orchestrator,
+        };
         to_json(
-            crate::inference::local::ops::agent_chat(
+            crate::inference::local::ops::agent_chat_for(
                 &mut config,
+                target,
                 &p.message,
                 p.model_override,
                 p.temperature,

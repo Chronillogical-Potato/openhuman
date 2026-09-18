@@ -61,6 +61,8 @@ fn custom_profile(id: &str, dedicated_memory: bool) -> crate::agent::profiles::A
     profile
 }
 
+#[path = "builder_tests_explicit_definition_tests.rs"]
+mod explicit_definition_tests;
 #[path = "builder_tests_memory_write_instruction_tests.rs"]
 mod memory_write_instruction_tests;
 #[path = "builder_tests_profile_soul_prompt_tests.rs"]

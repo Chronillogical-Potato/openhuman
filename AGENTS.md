@@ -20,6 +20,7 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
 | `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
+| `crates/openhuman-session/` | Host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
 | `gitbooks/` | Public product and contributor documentation |
@@ -245,12 +246,34 @@ progress events.
 - Use the `tinytools` copy vendored through `vendor/tinyagents/`; a second path
   creates incompatible Rust types.
 - Keep conversions mechanical. Policy decisions belong in OpenHuman.
-- `openhuman_embed::Harness` is the public prompt-to-reply API. Calls go through
-  `CoreRuntime::invoke`, not directly to domain operations.
+- `openhuman_embed::Runtime` → `Agent` is the public library API: one runtime
+  per process (features, services, backend URL, TinyHumans API key), then any
+  number of independently configured agents on it (`AgentSpec`: provider,
+  access, `action_dir`, MCP servers, skills, prompt, tool scope, sandbox).
+  `Harness` is the one-agent shorthand over the same two types. Agent turns
+  dispatch natively (`inference::local::ops::agent_chat_for`) under the
+  agent's own `CoreContext` (`CoreContext::derive_with`); other facade calls
+  go through `CoreRuntime::invoke`.
 - Set `config_path` with `workspace_dir`, and set a turn origin with its access
-  tier. `Access::full()` configures both access fields.
-- Use one `Harness` per process. Copy skills into its workspace because skill
-  discovery rejects symlinked bundles.
+  tier. `Access::full()` configures both access fields. Every agent on a
+  runtime shares its `config_path` (credentials, keyring, API key).
+- Copy skills into an agent's `personalities/<id>/skills/` (what
+  `AgentSpec::skills_dir` does) because skill discovery rejects symlinked
+  bundles. Library agents hide the operator's `~/.openhuman/skills` unless
+  `include_user_skills(true)`.
+- Library mode has no user login: the runtime's API key rides managed
+  inference as `Authorization: Bearer` and backend REST as `x-api-key`
+  (`security::credentials::api_key`, `session_support::BackendCredential`).
+- The core never obtains, validates, exchanges or refreshes a credential.
+  It takes one — a session JWT, an API key, or the offline local token —
+  through `auth.set_credential` (`security::credentials::ops::credential`)
+  and does only what it owns with it: user-dir activation, gated services,
+  the scheduler gate, Sentry and prompt identity. Login-token exchange,
+  `GET /auth/me` and the current-user cache belong to the host's session
+  owner: `crates/openhuman-session` behind the Tauri shell's `auth_*`
+  commands and the TUI, `openhuman_embed::Auth` for embedders, the CLI or
+  `OPENHUMAN_BACKEND_API_KEY` / `OPENHUMAN_BACKEND_SESSION_TOKEN` for
+  headless hosts. Do not add backend auth endpoints back to the core.
 
 `CoreBuilder` controls background services with `ServiceSet`, runtime domains
 with `DomainSet`, and tool visibility with `ToolGroups`. These controls only
@@ -330,7 +353,8 @@ Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 - `BackendOAuthClient`
 - `IntegrationClient`, except redirected file downloads
 - `MedullaClient`, including its separate SSE handshake
-- desktop `GET /auth/me`
+- the host session owner's `POST /auth/login-token/consume` and
+  `GET /auth/me` (`crates/openhuman-session`, through `ClientHeaders`)
 - the agent Langfuse ingestion request
 
 Set `ProductIdentity` once during startup before building clients. Do not add

@@ -79,47 +79,161 @@ fn parse_hermes_entry_derives_github_blob_source_url() {
 }
 
 #[test]
-fn parse_hermes_entry_leaves_portal_source_url_undownloadable() {
-    // ClawHub / LobeHub / skills.sh portals serve HTML, not raw markdown —
-    // no direct download. download_url is empty; source_url is preserved so
-    // install can point the user at the page. (#3741)
-    for url in [
-        "https://clawhub.ai/skills/agentkilox-code-audit",
-        "https://lobehub.com/agent/9-somboon",
-        "https://skills.sh/sickn33/antigravity-awesome-skills/00-andruia-consultant",
+fn parse_hermes_entry_leaves_entries_without_a_skill_md_undownloadable() {
+    // LobeHub entries are system-prompt agents with no SKILL.md, and a ClawHub
+    // page without a slug gives the file API nothing to fetch. download_url is
+    // empty; source_url is preserved so install can point at the page. (#3741)
+    for (source, url) in [
+        ("LobeHub", "https://lobehub.com/agent/9-somboon"),
+        ("ClawHub", "https://clawhub.ai/skills/agentkilox-code-audit"),
     ] {
         let item = json!({
             "name": "portal-skill",
             "description": "x",
             "category": "other",
-            "source": "ClawHub",
+            "source": source,
             "sourceUrl": url
         });
         let entry = parse_hermes_entry(&item).expect("entry");
-        assert_eq!(
-            entry.download_url, "",
-            "portal url must not be downloadable: {url}"
-        );
+        assert_eq!(entry.download_url, "", "no SKILL.md behind: {url}");
+        assert!(!entry.has_direct_download());
         assert_eq!(entry.source_url.as_deref(), Some(url));
     }
 }
 
 #[test]
-fn download_url_from_source_url_rejects_non_github_and_malformed() {
+fn parse_hermes_entry_rejects_a_docs_path_segment_that_is_not_a_plain_path_segment() {
+    // `docsPath` is spliced into a raw.githubusercontent URL: a reserved
+    // character would change the path the URL names, so the entry gets no
+    // download URL instead. (#6285)
+    for docs_path in [
+        "bundled/apple/apple-my skill",
+        "bundled/apple/apple-my#skill",
+        "bundled/ap?ple/apple-notes",
+        "bundled/apple/..",
+    ] {
+        let entry = parse_hermes_entry(&json!({
+            "name": "odd-skill",
+            "description": "x",
+            "category": "apple",
+            "source": "built-in",
+            "docsPath": docs_path
+        }))
+        .expect("entry");
+        assert_eq!(entry.download_url, "", "docsPath {docs_path:?}");
+        assert!(!entry.has_direct_download());
+    }
+}
+
+#[test]
+fn parse_hermes_entry_installs_clawhub_skills_by_slug() {
+    // ClawHub entries carry only a slug; the file API serves its SKILL.md. (#6285)
+    let entry = parse_hermes_entry(&json!({
+        "name": "Apple Design",
+        "description": "x",
+        "category": "apple",
+        "source": "ClawHub",
+        "identifier": "apple-design",
+        "sourceUrl": ""
+    }))
+    .expect("entry");
     assert_eq!(
-        download_url_from_source_url("https://lobehub.com/agent/x"),
-        None
+        entry.download_url,
+        "https://clawhub.ai/api/v1/skills/apple-design/file?path=SKILL.md"
     );
-    // GitHub URL missing the branch/path tail.
+    assert!(entry.has_direct_download());
+}
+
+#[test]
+fn parse_hermes_entry_points_skills_sh_at_the_listed_github_repo() {
+    // skills.sh lists a GitHub repo's skill; install locates the file. (#6285)
+    let entry = parse_hermes_entry(&json!({
+        "name": "100m-leads",
+        "description": "x",
+        "source": "skills.sh",
+        "identifier": "skills-sh/getagentseal/founder-playbook/100m-leads",
+        "sourceUrl": "https://skills.sh/getagentseal/founder-playbook/100m-leads"
+    }))
+    .expect("entry");
     assert_eq!(
-        download_url_from_source_url("https://github.com/owner/repo"),
-        None
+        entry.download_url,
+        "https://raw.githubusercontent.com/getagentseal/founder-playbook/HEAD/100m-leads/SKILL.md"
     );
-    // Unknown ref kind.
     assert_eq!(
-        download_url_from_source_url("https://github.com/o/r/raw/main/x"),
-        None
+        entry.id,
+        "skills-sh/getagentseal/founder-playbook/100m-leads"
     );
+}
+
+/// Same-named entries as the live catalog has them: several ClawHub skills
+/// share a display name, and a ClawHub slug equals a bundled skill's name.
+fn same_named_catalog() -> Vec<CatalogEntry> {
+    [
+        json!({ "name": "AI Code Review", "source": "ClawHub", "identifier": "qf-code-review" }),
+        json!({ "name": "AI Code Review", "source": "ClawHub", "identifier": "ai-code-review-ops" }),
+        json!({ "name": "apple-notes", "source": "built-in", "docsPath": "bundled/apple/apple-apple-notes" }),
+        json!({ "name": "apple-notes", "source": "ClawHub", "identifier": "apple-notes" }),
+        json!({ "name": "Apple Design", "source": "ClawHub", "identifier": "apple-design" }),
+    ]
+    .iter()
+    .map(|item| parse_hermes_entry(item).expect("entry"))
+    .collect()
+}
+
+#[test]
+fn parse_hermes_entry_gives_same_named_entries_distinct_ids() {
+    let ids: Vec<String> = same_named_catalog().into_iter().map(|e| e.id).collect();
+    assert_eq!(
+        ids,
+        [
+            "clawhub/qf-code-review",
+            "clawhub/ai-code-review-ops",
+            "apple-notes",
+            "clawhub/apple-notes",
+            "clawhub/apple-design",
+        ]
+    );
+}
+
+#[test]
+fn find_catalog_entry_matches_ids_and_unambiguous_legacy_names() {
+    let catalog = same_named_catalog();
+    let by_id = find_catalog_entry(&catalog, "clawhub/ai-code-review-ops").unwrap();
+    assert_eq!(by_id.id, "clawhub/ai-code-review-ops");
+    // An exact id wins over another entry carrying the same name.
+    assert_eq!(
+        find_catalog_entry(&catalog, "apple-notes").unwrap().source,
+        "built-in"
+    );
+    // Ids used to be display names; a name only one entry has still resolves.
+    assert_eq!(
+        find_catalog_entry(&catalog, "Apple Design").unwrap().id,
+        "clawhub/apple-design"
+    );
+}
+
+#[test]
+fn find_catalog_entry_refuses_an_ambiguous_name_and_lists_the_ids() {
+    let err = find_catalog_entry(&same_named_catalog(), "AI Code Review").unwrap_err();
+    assert!(
+        err.contains("2 catalog entries are named 'AI Code Review'"),
+        "{err}"
+    );
+    assert!(
+        err.contains("clawhub/qf-code-review") && err.contains("clawhub/ai-code-review-ops"),
+        "{err}"
+    );
+}
+
+#[test]
+fn find_catalog_entry_not_found_suggests_real_ids_instead_of_a_refresh() {
+    let err = find_catalog_entry(&same_named_catalog(), "ai-code-review").unwrap_err();
+    assert!(
+        err.starts_with("no catalog entry has id 'ai-code-review'"),
+        "{err}"
+    );
+    assert!(err.contains("clawhub/ai-code-review-ops"), "{err}");
+    assert!(!err.contains("refresh"), "{err}");
 }
 
 #[tokio::test]
@@ -320,6 +434,41 @@ async fn search_rejects_stale_and_fetches_fresh() {
         entries.len(),
         2,
         "returns the freshly fetched catalog, not the stale one"
+    );
+
+    store::clear_cache();
+    std::env::remove_var(CACHE_DIR_ENV);
+}
+
+#[tokio::test]
+async fn search_ranks_installable_entries_before_uninstallable_ones() {
+    let _env = env_lock();
+    let tmp = tempfile::tempdir().unwrap();
+    std::env::set_var(CACHE_DIR_ENV, tmp.path());
+    let agent = parse_hermes_entry(&json!({
+        "name": "review-agent",
+        "description": "x",
+        "source": "LobeHub",
+        "identifier": "lobehub/review-agent",
+        "sourceUrl": "https://lobehub.com/agent/review-agent"
+    }))
+    .unwrap();
+    let skill = parse_hermes_entry(&json!({
+        "name": "review-skill",
+        "description": "x",
+        "source": "ClawHub",
+        "identifier": "review-skill"
+    }))
+    .unwrap();
+    store::save_catalog_cache(&[agent, skill]);
+
+    let hits = search_catalog("review", None, None).await.unwrap();
+
+    let ids: Vec<&str> = hits.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["clawhub/review-skill", "lobehub/review-agent"],
+        "an installable hit must come before one install will reject"
     );
 
     store::clear_cache();

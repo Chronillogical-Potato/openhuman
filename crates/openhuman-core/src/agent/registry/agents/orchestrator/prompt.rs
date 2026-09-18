@@ -43,7 +43,18 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    out.push_str(ARCHETYPE.trim_end());
+    // Resolved once: the same three routes decide both the static rows below
+    // and the generated sections further down, and they must agree (#6302).
+    let skill_run = hand_off_route(ctx, "skill_executor");
+    let skill_install = hand_off_route(ctx, "skill_setup");
+    let mcp_route = hand_off_route(ctx, "mcp_agent");
+
+    let archetype = strip_route_lines(
+        ARCHETYPE,
+        skill_run.is_some() || skill_install.is_some(),
+        mcp_route.is_some(),
+    );
+    out.push_str(archetype.trim_end());
     out.push_str("\n\n");
 
     let user_files = render_user_files(ctx)?;
@@ -58,7 +69,11 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    let skills = render_installed_skills(ctx.workflows);
+    let skills = render_installed_skills(
+        ctx.workflows,
+        skill_run.as_deref(),
+        skill_install.as_deref(),
+    );
     if !skills.trim().is_empty() {
         out.push_str(skills.trim_end());
         out.push_str("\n\n");
@@ -76,7 +91,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    let mcp_servers = render_connected_mcp_servers();
+    let mcp_servers = render_connected_mcp_servers(mcp_route.as_deref());
     if !mcp_servers.trim().is_empty() {
         out.push_str(mcp_servers.trim_end());
         out.push_str("\n\n");
@@ -207,6 +222,73 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
     out
 }
 
+/// How this session can reach `specialist` right now, as the call to name.
+///
+/// The hand-off tool in backticks when it is on the belt; the `use_skill` form
+/// when a pack holds it; `None` when this agent has no route to the specialist,
+/// in which case the prompt must name none. Derived from the registry and the
+/// visible set exactly like [`render_withheld_specialists`], never hand-written,
+/// so a pack or allowlist change moves the prose with it (#6302).
+fn hand_off_route(ctx: &PromptContext<'_>, specialist: &str) -> Option<String> {
+    let registry = AgentDefinitionRegistry::global()?;
+    let definition = resolve_definition(registry, ctx.agent_id)?;
+    let listed = definition
+        .subagents
+        .iter()
+        .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == specialist));
+    if !listed {
+        return None;
+    }
+    let target = registry.get(specialist)?;
+    let tool = target
+        .delegate_name
+        .clone()
+        .unwrap_or_else(|| format!("delegate_{}", target.id));
+    if ctx.visible_tool_names.is_empty() || ctx.visible_tool_names.contains(&tool) {
+        return Some(format!("`{tool}`"));
+    }
+    // A packed route is only a route if this session can call `use_skill`
+    // itself. A filtered belt holding neither the delegate nor `use_skill` has
+    // no way to reach the specialist, and naming one anyway is the same "call a
+    // tool you do not have" failure this whole block exists to end (#6302).
+    if !ctx.visible_tool_names.contains(toolpacks::USE_SKILL) {
+        return None;
+    }
+    toolpacks::pack_for_tool(&tool).map(|pack| {
+        format!(
+            "`use_skill {{ \"skill\": \"{}\", \"tool\": \"{tool}\" }}`",
+            pack.id
+        )
+    })
+}
+
+/// `prompt.md` with the route-tagged rows this build cannot honour removed.
+///
+/// A row tagged `<!--route:skills-->` or `<!--route:mcp-->` names a hand-off
+/// that exists only while that family is compiled in: with `skills` off the
+/// loader drops `skill_setup` and `skill_executor` from the builtins, so no
+/// delegate is synthesised and the static row would order the model to call a
+/// tool nobody has — the very failure this issue is about (#6302). The tag is
+/// stripped from every row that stays, so it never reaches the model.
+fn strip_route_lines(archetype: &str, skills: bool, mcp: bool) -> String {
+    const SKILLS_TAG: &str = "<!--route:skills-->";
+    const MCP_TAG: &str = "<!--route:mcp-->";
+    archetype
+        .lines()
+        .filter(|line| {
+            if line.contains(SKILLS_TAG) {
+                skills
+            } else if line.contains(MCP_TAG) {
+                mcp
+            } else {
+                true
+            }
+        })
+        .map(|line| line.replace(SKILLS_TAG, "").replace(MCP_TAG, ""))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// The registry entry behind `agent_id`, tolerating the web channel's rename.
 ///
 /// `PromptContext::agent_id` carries `Agent::agent_definition_name`, which the
@@ -273,30 +355,47 @@ fn first_sentence(text: &str) -> String {
 /// Render the `## Installed Skills` section listing locally installed
 /// workflows so the orchestrator knows what's available without calling
 /// `list_workflows` on every turn. Omitted when no skills are installed.
-fn render_installed_skills(skills: &[Workflow]) -> String {
+///
+/// `run` and `install` are the hand-offs to `skill_executor` and `skill_setup`
+/// in the form this session can call ([`hand_off_route`]), or `None` when it has
+/// no route, in which case the section names none. This block once named five
+/// tools the model could not see; it names only what [`hand_off_route`] vouches
+/// for (#6302).
+fn render_installed_skills(
+    skills: &[Workflow],
+    run: Option<&str>,
+    install: Option<&str>,
+) -> String {
     if skills.is_empty() {
         tracing::debug!("[orchestrator-prompt] no installed skills, section omitted");
         return String::new();
     }
     tracing::debug!(
         count = skills.len(),
+        run_route = run.is_some(),
+        install_route = install.is_some(),
         "[orchestrator-prompt] rendering installed skills section"
     );
-    // Every tool that runs, inspects or installs one of these lives in the
-    // `skills` or `workflows` pack, so none of them is on the wire. This block
-    // used to name five of them directly — `run_skill`, `describe_workflow`,
-    // `skill_registry_browse`, `skill_registry_search`, `build_workflow` —
-    // which told the model to call tools it could not see. Name the route
-    // instead; `use_skill`'s own description carries the pack index.
     let mut out = String::from(
         "## Installed Skills\n\n\
-         These skills are installed locally, and running one is the point of \
-         listing them: the tools that run, inspect and install a skill are in the \
-         `skills` pack (Flows automations are in `workflows`), so reach them \
-         through `use_skill` rather than by name. A skill runs in an isolated \
-         worker and returns only its result, plus a `## Handoff Plan` for any step \
-         the worker couldn't perform — carry those out yourself, under the approval \
-         gate.\n\n",
+         These skills are installed locally, and running one is the point of listing them. ",
+    );
+    if let Some(run) = run {
+        let _ = write!(
+            out,
+            "Run one by handing it to {run} with the skill id and the task. "
+        );
+    }
+    if let Some(install) = install {
+        let _ = write!(
+            out,
+            "To find or install a skill that is not listed, hand the request to {install}. "
+        );
+    }
+    out.push_str(
+        "A skill runs in an isolated worker and returns only its result, plus a \
+         `## Handoff Plan` for any step the worker couldn't perform — carry those out \
+         yourself, under the approval gate.\n\n",
     );
     for skill in skills {
         let id = if skill.dir_name.is_empty() {
@@ -324,18 +423,21 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
 
 /// Render the `## Connected MCP Servers` block from the live connection
 /// registry. The MCP analogue of [`render_delegation_guide`]: it lists each
-/// connected MCP server + the tools it exposes and tells the orchestrator to
-/// route matching requests through the single `use_mcp_server` delegate (the
-/// `mcp_agent` worker) — NOT to call those tools itself or claim it can't.
-/// This is what lets the orchestrator pick up a connected server *without the
-/// user naming it* (e.g. a connected "weather" server answering "what's the
-/// weather in Tokyo?").
+/// connected MCP server and tells the orchestrator to hand matching requests to
+/// the `mcp_agent` worker — NOT to call a server's tools itself or claim it
+/// can't. This is what lets the orchestrator pick up a connected server
+/// *without the user naming it* (e.g. a connected "weather" server answering
+/// "what's the weather in Tokyo?").
+///
+/// `route` is the hand-off in the form this session can call
+/// ([`hand_off_route`]). It is not hand-written: this block once told the model
+/// to call `use_mcp_server` while a pack was withholding it (#6302).
 ///
 /// Reads the global connection map via a guarded `block_on` — the same
 /// pattern `tool_registry::ops::registry_entries` uses. `block_in_place`
 /// requires the multi-threaded runtime; single-threaded contexts (unit
 /// tests) fall back to an empty list and the section is omitted.
-fn render_connected_mcp_servers() -> String {
+fn render_connected_mcp_servers(route: Option<&str>) -> String {
     use crate::mcp::registry::connections;
     let servers = match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
@@ -343,7 +445,7 @@ fn render_connected_mcp_servers() -> String {
         }
         _ => Vec::new(),
     };
-    format_connected_mcp_block(&servers)
+    format_connected_mcp_block(&servers, route)
 }
 
 /// Pure formatter for the connected-MCP block — split from
@@ -351,6 +453,7 @@ fn render_connected_mcp_servers() -> String {
 /// connection registry. Empty input → empty string (section omitted).
 fn format_connected_mcp_block(
     servers: &[crate::mcp::registry::connections::ConnectedServerOverview],
+    route: Option<&str>,
 ) -> String {
     if servers.is_empty() {
         return String::new();
@@ -361,15 +464,24 @@ fn format_connected_mcp_block(
     // and lists each server's actual tools downstream via
     // `mcp_registry_list_tools`, so the orchestrator only needs to know a
     // server exists and roughly what it does, in order to route.
-    let mut out = String::from(
-        "## Connected MCP Servers\n\n\
-         IMPORTANT: The user has connected the MCP server(s) below. To act on any request \
-         a connected server can satisfy, you MUST delegate with `use_mcp_server` — you do \
-         NOT have direct access to these servers, and you must never claim you can't do \
-         something a connected server clearly can without delegating first. `use_mcp_server` \
-         routes to the MCP agent, which discovers the server's tools and calls the right one. \
-         Pass a plain-language task; do not pass server ids or tool names yourself.\n\n",
-    );
+    let mut out = String::from("## Connected MCP Servers\n\n");
+    match route {
+        Some(route) => {
+            let _ = write!(
+                out,
+                "IMPORTANT: The user has connected the MCP server(s) below. To act on any request \
+                 a connected server can satisfy, you MUST hand it to {route}. You do NOT have \
+                 direct access to these servers, and you must never claim you can't do something \
+                 a connected server clearly can without handing it off first. {route} routes to \
+                 the MCP agent, which discovers the server's tools and calls the right one. Pass \
+                 a plain-language task; do not pass server ids or tool names yourself.\n\n"
+            );
+        }
+        None => out.push_str(
+            "The user has connected the MCP server(s) below, but no MCP hand-off is \
+             available to you in this session, so you cannot use them here.\n\n",
+        ),
+    }
     for s in servers {
         let name = if s.display_name.trim().is_empty() {
             s.qualified_name.as_str()
