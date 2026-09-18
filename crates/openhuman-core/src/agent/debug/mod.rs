@@ -97,8 +97,10 @@ pub struct DumpedPrompt {
     pub tool_names: Vec<String>,
     /// Number of `ToolCategory::Workflow` tools in the dump.
     pub skill_tool_count: usize,
-    /// One `{name, description, parameters}` entry per tool the agent
-    /// exposes, in the same order as [`Self::tool_names`].
+    /// One `{name, description, parameters}` entry per tool schema the
+    /// provider receives. On the session path this is the visible set, which
+    /// is narrower than [`Self::tool_names`]; on the per-toolkit path the two
+    /// match, in the same order.
     ///
     /// The system prompt is only half of a turn's fixed cost: the tool
     /// schemas ride alongside it in every request, and for an agent with a
@@ -107,12 +109,7 @@ pub struct DumpedPrompt {
     pub tool_specs: Vec<serde_json::Value>,
 }
 
-// The `+ 'a` is load-bearing: a bare `dyn Tool` here means `dyn Tool +
-// 'static`, which `Box<dyn Tool>` satisfies but a borrowed `&'a dyn Tool` (what
-// `Agent::all_tool_refs` yields) does not.
-fn tool_specs_of<'a, T: std::ops::Deref<Target = dyn crate::tools::Tool + 'a>>(
-    tools: &[T],
-) -> Vec<serde_json::Value> {
+fn tool_specs_of(tools: &[Box<dyn Tool>]) -> Vec<serde_json::Value> {
     tools
         .iter()
         .map(|t| {
@@ -282,17 +279,29 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
         .build_system_prompt(LearnedContextData::default())
         .with_context(|| format!("rendering system prompt for `{agent_id}`"))?;
 
+    Ok(session_dump(&agent, agent_id, text))
+}
+
+/// Package a built session agent's rendered prompt and tool surface.
+fn session_dump(agent: &Agent, agent_id: &str, text: String) -> DumpedPrompt {
     // The whole callable surface, so the dump shows the `delegate_*` tools
     // the refresh above just synthesised alongside the durable registry.
     let tools = agent.all_tool_refs();
     let tool_names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
-    let tool_specs = tool_specs_of(&tools);
     let skill_tool_count = tools
         .iter()
         .filter(|t| t.category() == ToolCategory::Workflow)
         .count();
+    // Schemas are what the provider is actually sent: the visible,
+    // policy-filtered set, not the registry above. Measuring
+    // `all_tool_refs()` here (d149ab0f0) reported ~200 tools for every agent.
+    let tool_specs = agent
+        .visible_tool_specs_arc()
+        .iter()
+        .map(|spec| serde_json::to_value(spec.as_ref()).unwrap_or_default())
+        .collect();
 
-    Ok(DumpedPrompt {
+    DumpedPrompt {
         agent_id: agent_id.to_string(),
         toolkit: None,
         mode: "session",
@@ -302,7 +311,7 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
         tool_names,
         skill_tool_count,
         tool_specs,
-    })
+    }
 }
 
 /// Render the integrations_agent prompt bound to a single Composio
