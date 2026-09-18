@@ -410,15 +410,8 @@ fn hide_tools_drops_named_from_existing_filter() {
     );
 }
 
-/// `hide_tools` on an agent with *no* filter (empty set = "all visible") must
-/// first seed the allowlist from every registered spec so the hide actually
-/// restricts — otherwise removing from an empty set would no-op and leave the
-/// tool still callable under the "empty == all visible" contract.
-///
-/// Note the on-demand tool-pack builder now materialises a concrete visible
-/// allowlist at build time, so a freshly built agent is no longer filter-less;
-/// the empty-set case is exercised here by explicitly resetting to the "all
-/// visible" sentinel, which is the only way a caller reaches it.
+/// `hide_tools` must preserve the materialized wildcard allowlist when the
+/// caller resets visibility with an empty set.
 #[test]
 fn hide_tools_seeds_allowlist_when_no_filter_present() {
     let mut agent = build_minimal_agent_with_definition_name(None);
@@ -431,17 +424,16 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
         "precondition: the mock belt includes `echo`"
     );
 
-    // Reset to the "all visible" sentinel so the no-filter seed path below is
-    // actually exercised, matching the historical precondition.
+    // An empty input restores wildcard visibility and is materialized with the
+    // same exposure filtering as the initial build.
     agent.set_visible_tool_names(std::collections::HashSet::new());
     assert!(
-        agent.visible_tool_names_for_test().is_empty(),
-        "precondition: sentinel reset yields an empty visible-tool set"
+        agent.visible_tool_names_for_test().contains("echo"),
+        "wildcard reset must retain the existing belt; visible = {:?}",
+        agent.visible_tool_names_for_test()
     );
 
-    // Hiding a name that isn't on the belt still forces the seed: the set goes
-    // from empty ("all visible") to a concrete allowlist of the real tools, so
-    // the previously-all-visible belt is now explicitly enumerated.
+    // Hiding a name that isn't on the belt leaves the materialized belt intact.
     agent.hide_tools(&["not_on_belt"]);
 
     let visible = agent.visible_tool_names_for_test();
