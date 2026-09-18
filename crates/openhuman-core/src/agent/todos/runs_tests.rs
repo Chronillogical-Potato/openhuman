@@ -1,6 +1,7 @@
 use super::*;
-use crate::agent::task_board::TaskCardStatus;
-use crate::threads::todos::ops::{self, CardPatch};
+use crate::agent::todos::ops::{self, CardPatch};
+use crate::agent::todos::types::TaskCardStatus;
+use std::path::Path;
 use tempfile::tempdir;
 
 fn thread_loc(dir: &Path, id: &str) -> BoardLocation {
@@ -10,8 +11,7 @@ fn thread_loc(dir: &Path, id: &str) -> BoardLocation {
     }
 }
 
-/// Lowercase-hex encode a thread id, matching [`super::legacy_thread_id`]'s
-/// decoder so test-built keys round-trip through the migration.
+/// Lowercase-hex encode a thread id for direct access to the TinyAgents run key.
 fn hex_key(id: &str) -> String {
     id.as_bytes().iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -264,89 +264,4 @@ async fn scratch_location_returns_empty_runs() {
     let _guard = ops::scratch_test_lock();
     let runs = list_runs(&BoardLocation::Scratch, None).await.unwrap();
     assert!(runs.is_empty());
-}
-
-#[tokio::test]
-async fn legacy_ledger_is_imported_once_and_never_replaces_crate_runs() {
-    let workspace = tempdir().unwrap();
-    let legacy_dir = workspace.path().join(TASK_BOARD_DIR);
-    tokio::fs::create_dir_all(&legacy_dir).await.unwrap();
-
-    let thread_id = "legacy-thread";
-    let hex = hex_key(thread_id);
-    let legacy = vec![TaskRun {
-        run_id: "legacy-run".to_string(),
-        card_id: "card-1".to_string(),
-        claimed_by: "default".to_string(),
-        claim_token: "token".to_string(),
-        started_at: "0".to_string(),
-        last_heartbeat_at: "0".to_string(),
-        completed_at: None,
-        outcome: None,
-        error: None,
-        evidence: Vec::new(),
-    }];
-    tokio::fs::write(
-        legacy_dir.join(format!("{hex}.runs.json")),
-        serde_json::to_vec(&legacy).unwrap(),
-    )
-    .await
-    .unwrap();
-    // A board file alongside it must not be mistaken for a run ledger.
-    tokio::fs::write(legacy_dir.join(format!("{hex}.json")), b"{}")
-        .await
-        .unwrap();
-
-    let first = migrate_legacy_task_runs(workspace.path()).await.unwrap();
-    assert_eq!(
-        first,
-        TaskRunMigrationReport {
-            total: 1,
-            copied: 1,
-            skipped: 0,
-        }
-    );
-
-    let loc = thread_loc(workspace.path(), thread_id);
-    assert_eq!(list_runs(&loc, None).await.unwrap().len(), 1);
-
-    // Second pass: the crate log is authoritative and is left alone.
-    let second = migrate_legacy_task_runs(workspace.path()).await.unwrap();
-    assert_eq!(second.copied, 0);
-    assert_eq!(second.skipped, 1);
-    assert_eq!(list_runs(&loc, None).await.unwrap().len(), 1);
-}
-
-#[test]
-fn legacy_file_names_decode_only_run_ledgers() {
-    let hex: String = "thread-1"
-        .as_bytes()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    assert_eq!(
-        legacy_thread_id(Path::new(&format!("/w/{hex}.runs.json"))).as_deref(),
-        Some("thread-1")
-    );
-    assert!(legacy_thread_id(Path::new(&format!("/w/{hex}.json"))).is_none());
-    assert!(legacy_thread_id(Path::new("/w/notes.txt")).is_none());
-    assert!(legacy_thread_id(Path::new("/w/zz.runs.json")).is_none());
-}
-
-#[test]
-fn legacy_file_names_reject_malformed_stems_without_panicking() {
-    // Multi-byte UTF-8 in the stem slices an odd index if decoded by byte
-    // pairs; it must be rejected, not panic.
-    assert!(legacy_thread_id(Path::new("/w/aéb.runs.json")).is_none());
-    // from_str_radix would accept "+f" as 15; strict hex decoding rejects the sign.
-    assert!(legacy_thread_id(Path::new("/w/+f+f.runs.json")).is_none());
-    assert!(legacy_thread_id(Path::new("/w/gg.runs.json")).is_none());
-    assert!(legacy_thread_id(Path::new("/w/GG.runs.json")).is_none());
-    // Uppercase hex is rejected even though to_digit(16) would accept it.
-    assert!(legacy_thread_id(Path::new("/w/4A.runs.json")).is_none());
-    assert!(legacy_thread_id(Path::new("/w/4a.runs.json")).is_some());
-    // A mixed pair with a valid second nibble but invalid first is rejected.
-    assert!(legacy_thread_id(Path::new("/w/0g.runs.json")).is_none());
-    // Non-hex ASCII letters are rejected.
-    assert!(legacy_thread_id(Path::new("/w/zz.runs.json")).is_none());
 }

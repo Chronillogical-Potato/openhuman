@@ -1,7 +1,7 @@
 //! Tests for the `update_task` tool.
 
 use super::*;
-use crate::agent::task_board::TaskCardStatus;
+use crate::agent::todos::types::TaskCardStatus;
 use crate::tools::traits::Tool;
 use serde_json::json;
 

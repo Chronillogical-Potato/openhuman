@@ -24,8 +24,7 @@ use async_trait::async_trait;
 use tinyagents_graph::goals::budget as crate_budget;
 use tinyagents_graph::goals::{BudgetVerdict, GoalBudgetGuard};
 
-use super::migration::goals_store;
-use super::store;
+use super::store::{self, goals_store};
 use super::{ThreadGoal, ThreadGoalStatus};
 use crate::agent::stop_hooks::{StopDecision, StopHook, TurnState};
 use crate::agent::tinyagents::thread_context::current_thread_id;

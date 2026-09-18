@@ -574,50 +574,6 @@ async fn execute_command(
             )
             .await
         }
-        "goal" if !argument.trim().is_empty() => {
-            match runtime
-                .invoke(
-                    "openhuman.thread_goals_set",
-                    json!({"thread_id": ui.thread_id, "objective": argument.trim()}),
-                )
-                .await
-            {
-                Ok(_) => state.push_system("Thread goal updated."),
-                Err(error) => state.push_system(format!("Could not update goal: {error}")),
-            }
-        }
-        "goal" => {
-            open_rpc_overlay(
-                runtime,
-                ui,
-                OverlayKind::Goal,
-                "Thread goal",
-                "openhuman.thread_goals_get",
-                json!({"thread_id": ui.thread_id}),
-                &[],
-                &[],
-                &[],
-            )
-            .await;
-            if let Some(overlay) = &mut ui.overlay {
-                overlay.status =
-                    "Use /goal <objective> to create or replace the goal · Esc closes".into();
-            }
-        }
-        "tasks" => {
-            open_rpc_overlay(
-                runtime,
-                ui,
-                OverlayKind::Tasks,
-                "Task board",
-                "openhuman.threads_task_board_get",
-                json!({"thread_id": ui.thread_id}),
-                &["cards", "items"],
-                &["id"],
-                &["title", "objective", "id"],
-            )
-            .await
-        }
         "agents" => {
             open_rpc_overlay(
                 runtime,
@@ -1262,7 +1218,6 @@ fn handle_web_event(ev: &WebChannelEvent, state: &mut TranscriptState, ui: &mut 
                 present_pending_plan_review(ui);
             }
         }
-        "task_board_updated" => ui.queue_status = "task board updated".into(),
         _ => state.apply_event(ev),
     }
 }

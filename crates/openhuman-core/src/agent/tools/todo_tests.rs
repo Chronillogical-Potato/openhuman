@@ -5,11 +5,11 @@ use serde_json::Value;
 /// `todos::ops` tests. Same lock — otherwise the two test modules race
 /// under `cargo test`'s thread pool.
 fn scratch_lock() -> std::sync::MutexGuard<'static, ()> {
-    crate::threads::todos::ops::scratch_test_lock()
+    crate::agent::todos::ops::scratch_test_lock()
 }
 
 async fn reset_scratch() {
-    crate::threads::todos::ops::clear(&BoardLocation::Scratch)
+    crate::agent::todos::ops::clear(&BoardLocation::Scratch)
         .await
         .expect("clear scratch");
 }

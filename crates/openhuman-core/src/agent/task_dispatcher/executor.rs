@@ -13,11 +13,11 @@ use crate::agent::harness::definition::PromptSource;
 use crate::agent::harness::session::Agent;
 use crate::agent::harness::subagent_runner::with_autonomous_iter_cap;
 use crate::agent::profiles::PersonalityContext;
-use crate::agent::task_board::TaskCardStatus;
 use crate::agent::task_session;
+use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::runs::{self, RunOutcome};
+use crate::agent::todos::types::TaskCardStatus;
 use crate::config::Config;
-use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
-use crate::threads::todos::runs::{self, RunOutcome};
 
 use super::types::ResolvedExecutor;
 

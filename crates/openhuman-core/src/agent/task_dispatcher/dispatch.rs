@@ -1,10 +1,10 @@
 //! Card dispatch: claim a card and spawn an autonomous run.
 
-use crate::agent::task_board::{TaskBoardCard, TaskCardStatus};
 use crate::agent::task_session;
+use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
+use crate::agent::todos::runs;
+use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 use crate::config::Config;
-use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
-use crate::threads::todos::runs;
 
 use super::executor::{resolve_executor, run_autonomous};
 use super::poller::requires_plan_approval;

@@ -330,11 +330,10 @@ pub const PACKS: &[ToolPack] = &[
         //
         // Two different surfaces live here, and the pack is the seam that lets
         // the model find either: `goals` is the user's durable long-term
-        // objectives held in memory, `goal_get` / `goal_set` are the
-        // completion contract for one conversation thread. Both are things a
-        // user edits far more often than an agent does, and both stayed
-        // user-reachable — the `memory_goals.*` and `thread_goals.*` RPC the
-        // UI drives is untouched by the withholding.
+        // objectives held in memory, while `goal_get` / `goal_set` are the
+        // agent-owned completion contract for one conversation thread and are
+        // assigned to `goals_agent`. Long-term goals remain user-reachable
+        // through `memory_goals.*`.
         //
         // `goal_complete` is deliberately NOT a member. Closing a goal is the
         // one goal operation an agent reaches for reactively, at the end of
@@ -342,7 +341,7 @@ pub const PACKS: &[ToolPack] = &[
         // moment buys nothing: the alternative to a visible `goal_complete` is
         // an objective that silently stays open and keeps driving autonomous
         // continuation. Same reasoning as `DELIBERATELY_UNPACKED_FLEET_TOOLS`.
-        summary: "Read, add and edit goals: the user's durable long-term objectives, and the objective THIS thread is working toward. Closing one is the separate, always-available `goal_complete`.",
+        summary: "Read, add and edit the user's durable long-term objectives, plus the agent-owned objective this thread is working toward. Closing one is the separate, always-available `goal_complete`.",
         tools: &["goals", "goal_get", "goal_set"],
         owners: &["goals_agent"],
     },

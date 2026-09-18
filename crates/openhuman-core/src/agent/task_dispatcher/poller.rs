@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use tinyagents_graph::todos::dispatch::select;
 
-use crate::agent::task_board::{TaskApprovalMode, TaskBoardCard};
+use crate::agent::todos::ops::{self, BoardLocation, USER_TASKS_THREAD_ID};
+use crate::agent::todos::runs::{self, RunLimits};
+use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard};
 use crate::config::Config;
-use crate::threads::todos::ops::{self, BoardLocation, USER_TASKS_THREAD_ID};
-use crate::threads::todos::runs::{self, RunLimits};
 
 use super::dispatch::dispatch_card;
 

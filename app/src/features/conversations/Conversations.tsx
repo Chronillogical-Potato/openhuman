@@ -27,12 +27,6 @@ import {
 } from '../../features/conversations/components/ChatThreadView';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
 import {
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-  useThreadGoal,
-} from '../../features/conversations/components/ThreadGoalChip';
-import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
-import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
@@ -62,7 +56,6 @@ import {
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { TurnProcessTrail } from '../../providers/assistantUiMessages';
-import { threadApi } from '../../services/api/threadApi';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
 import {
   aiRegenerate,
@@ -90,7 +83,6 @@ import {
   type ProcessingTranscriptItem,
   type QueuedFollowup,
   registerParallelRequest,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
@@ -283,10 +275,6 @@ const Conversations = ({
     : false;
   const firstActiveThreadId = Object.keys(activeThreadIds)[0] ?? null;
 
-  // Thread-goal controller shared by the footer trigger (under the composer)
-  // and the editor panel (above the composer).
-  const threadGoal = useThreadGoal(selectedThreadId ?? null);
-
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   // What ingest counts its budget against. Tracks state on every render (so a
@@ -422,7 +410,6 @@ const Conversations = ({
     state => state.chatRuntime.interruptedAssistantByThread
   );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
-  const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
   );
@@ -579,7 +566,7 @@ const Conversations = ({
   const handleComposerSendRef = useRef<((text?: string) => Promise<void>) | null>(null);
   const handleStopGenerationRef = useRef<(() => void) | null>(null);
   // Per-thread "turn signature": the last-seen tuple of progress-slice
-  // references [inferenceStatus, streamingAssistant, toolTimeline, taskBoard]
+  // references [inferenceStatus, streamingAssistant, toolTimeline]
   // for each thread that owns a live silence timer. Redux Toolkit (immer)
   // only produces new references for the thread whose slice actually changed,
   // so comparing references lets the rearm effect (a) detect a turn completing
@@ -775,16 +762,6 @@ const Conversations = ({
     if (selectedThreadId) {
       void dispatch(loadThreadMessages(selectedThreadId));
       void dispatch(fetchAndHydrateTurnState(selectedThreadId));
-      void threadApi
-        .getTaskBoard(selectedThreadId)
-        .then(board => {
-          if (board) {
-            dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board }));
-          }
-        })
-        .catch(error => {
-          debug('getTaskBoard failed: %o', error);
-        });
     }
   }, [selectedThreadId, dispatch]);
 
@@ -876,9 +853,9 @@ const Conversations = ({
   // thread. Top-level tool / iteration events bump `inferenceStatusByThread`;
   // pure-text streams (no tools) only bump `streamingAssistantByThread`;
   // sub-agent activity (a delegated `Research`/`Tools Agent`/`Memory Tree`
-  // turn whose tools run in a child task) bumps `toolTimelineByThread` and
-  // `taskBoardByThread` without necessarily re-emitting a top-level status
-  // change, so all four must be watched — otherwise a long sub-agent loop
+  // turn whose tools run in a child task) bumps `toolTimelineByThread` without
+  // necessarily re-emitting a top-level status change, so it must be watched —
+  // otherwise a long sub-agent loop
   // would trip the safety timer mid-run even though the user can see the
   // delegated tools firing in the timeline. When the status is cleared
   // (chat_done / chat_error), drop the timer — the completion handlers
@@ -902,7 +879,6 @@ const Conversations = ({
         inferenceStatusByThread[threadId],
         streamingAssistantByThread[threadId],
         toolTimelineByThread[threadId],
-        taskBoardByThread[threadId],
         // #4270: liveness beat. Kept LAST so the done-transition probe on
         // `current[0]` (status) is unaffected; a beat alone still flips the
         // `changed` check and rearms the timer through a silent reasoning phase.
@@ -928,7 +904,6 @@ const Conversations = ({
     inferenceStatusByThread,
     streamingAssistantByThread,
     toolTimelineByThread,
-    taskBoardByThread,
     inferenceHeartbeatByThread,
   ]);
 
@@ -1790,8 +1765,6 @@ const Conversations = ({
   // Poll-free live signal: lights the badge when memories are syncing even if
   // no sub-agent is running and the panel is closed.
   const memorySyncActive = useMemorySyncActive();
-  const selectedTaskBoard = selectedThreadId ? (taskBoardByThread[selectedThreadId] ?? null) : null;
-  const hasTaskBoard = Boolean(selectedTaskBoard?.cards.length);
   // A plan the orchestrator parked for interactive review (request_plan_review
   // gate). When present, the PlanReviewCard renders above the composer and
   // resolves the parked turn; the todo strip stays read-only progress.
@@ -1922,7 +1895,6 @@ const Conversations = ({
     !isLoadingMessages &&
     !messagesError &&
     !hasVisibleMessages &&
-    !hasTaskBoard &&
     !hasLiveAgentActivity;
 
   // Track the floating composer footer's height so the message list can reserve
@@ -2260,7 +2232,6 @@ const Conversations = ({
         threadId={selectedThreadId ?? null}
         variant={variant}
         bottomPadding={!isSidebar ? composerFooterHeight + 16 : undefined}
-        hasFooterContent={hasTaskBoard}
         isLoading={isLoadingMessages}
         loadError={messagesError}
         emptyContent={
@@ -2377,28 +2348,6 @@ const Conversations = ({
 
         {agentGateCards}
 
-        {/* Thread-scoped todo list the agent maintains as it works — read-only,
-            pinned above the composer. Distinct from the Intelligence-tab kanban
-            (global `user-tasks`). Renders nothing when the thread has no active
-            cards. */}
-        {selectedThreadId && (
-          <ThreadTodoStrip
-            board={selectedTaskBoard}
-            disabled={!selectedThreadId}
-            onViewSession={card => {
-              if (!card.sessionThreadId) return;
-              // Navigation only — do NOT mark the thread active. activeThreadId
-              // tracks a true in-flight turn; forcing a completed session active
-              // would wedge the composer.
-              dispatch(setSelectedThread(card.sessionThreadId));
-              void dispatch(loadThreadMessages(card.sessionThreadId));
-              if (shouldSyncChatRoute) {
-                navigate(chatThreadPath(card.sessionThreadId));
-              }
-            }}
-          />
-        )}
-
         {/* Cancel the in-flight turn for composer modes that don't render the
             text ChatComposer (mic-cloud + voice). The text composer carries its
             own in-box Stop button, so the footer control only appears for the
@@ -2465,9 +2414,7 @@ const Conversations = ({
               // validateAndReadFile, which honors modelSupportsVision.
               allowedMimeTypes={[]}
               attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-              // Header stack above the input box (outside its blue focus ring):
-              // queued follow-ups + the thread-goal editor (opened via the
-              // footer "Set goal" trigger). Entries that render null are no-ops.
+              // Header stack above the input box (outside its blue focus ring).
               headerSlots={[
                 selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
                   <QueuedFollowups
@@ -2476,7 +2423,6 @@ const Conversations = ({
                     onClear={() => void handleClearQueuedFollowups()}
                   />
                 ) : null,
-                <ThreadGoalEditorPanel key="thread-goal" ctl={threadGoal} />,
               ]}
               mascotDock={mascotDock}
               modelOverride={composerModelOverride ?? resolvedModel}
@@ -2558,11 +2504,7 @@ const Conversations = ({
         <div
           className="mt-2 flex items-center justify-between gap-2"
           data-walkthrough="chat-agent-panel">
-          <div className="flex min-w-0 items-center gap-2">
-            <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
-            {/* Set/show the thread goal; click opens the editor above the composer. */}
-            <ThreadGoalFooterTrigger ctl={threadGoal} />
-          </div>
+          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
           {!isSidebar && (
             <div className="flex shrink-0 items-center gap-2">
               <div
@@ -2633,29 +2575,6 @@ const Conversations = ({
       {sendErrorBanner}
       {sendAdvisoryBanner}
       {liveArtifactDeck}
-      {/* The thread todo board. Its only other mount is inside
-          `legacyMainPanel`, which the text surface never renders, so
-          `taskBoardByThread` reached Redux and stopped there: a long
-          multi-step turn lost its whole plan/progress strip. This is the same
-          position relative to the composer that the legacy panel gave it, and
-          the strip renders nothing when the board is empty, so it is inert on
-          an ordinary turn. */}
-      {selectedThreadId && (
-        <ThreadTodoStrip
-          board={selectedTaskBoard}
-          onViewSession={card => {
-            if (!card.sessionThreadId) return;
-            // Navigation only - do NOT mark the thread active. activeThreadId
-            // tracks a true in-flight turn; forcing a completed session active
-            // would wedge the composer.
-            dispatch(setSelectedThread(card.sessionThreadId));
-            void dispatch(loadThreadMessages(card.sessionThreadId));
-            if (shouldSyncChatRoute) {
-              navigate(chatThreadPath(card.sessionThreadId));
-            }
-          }}
-        />
-      )}
       {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
         <QueuedFollowups
           items={queuedFollowupsByThread[selectedThreadId] ?? []}
@@ -2665,9 +2584,7 @@ const Conversations = ({
     </>
   );
 
-  // Left-hand controls in the assistant-ui composer toolbar, alongside the
-  // model pill and the thread-goal trigger — the assistant-ui equivalent of
-  // `legacyMainPanel`'s footer row.
+  // Left-hand controls in the assistant-ui composer toolbar.
   const assistantComposerFooterExtras = (
     <>
       {renderBackgroundProcessesButton(() => setShowBackgroundProcesses(true))}
@@ -2683,7 +2600,6 @@ const Conversations = ({
           : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
       }>
       <AssistantUiChat
-        threadGoal={threadGoal}
         model={composerModelOverride ?? resolvedModel ?? CHAT_MODEL_HINT}
         modelContextWindow={composerModelContextWindow}
         composerHeader={assistantComposerHeader}

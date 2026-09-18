@@ -726,13 +726,13 @@ pub fn all_tools_with_runtime(
     // system-driven and have no model tool.
     {
         let goal_dir = root_config.workspace_dir.clone();
-        tools.push(Box::new(crate::threads::goals::GoalGetTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalGetTool::new(
             goal_dir.clone(),
         )));
-        tools.push(Box::new(crate::threads::goals::GoalSetTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalSetTool::new(
             goal_dir.clone(),
         )));
-        tools.push(Box::new(crate::threads::goals::GoalCompleteTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalCompleteTool::new(
             goal_dir,
         )));
     }

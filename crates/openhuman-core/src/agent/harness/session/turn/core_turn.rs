@@ -395,7 +395,7 @@ impl Agent {
             );
             None
         } else {
-            let loaded = crate::threads::goals::runtime::load_for_current_thread(
+            let loaded = crate::agent::goals::runtime::load_for_current_thread(
                 &self.workspace_dir,
             )
             .await;
@@ -406,10 +406,10 @@ impl Agent {
                 Some(goal)
                     if matches!(
                         goal.status,
-                        crate::threads::goals::ThreadGoalStatus::Paused
+                        crate::agent::goals::ThreadGoalStatus::Paused
                     ) =>
                 {
-                    crate::threads::goals::runtime::resume_for_current_thread(
+                    crate::agent::goals::runtime::resume_for_current_thread(
                         &self.workspace_dir,
                     )
                     .await
@@ -651,7 +651,7 @@ impl Agent {
         let mut turn_stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
         if let Some(ref goal) = active_goal {
             if let Some(hook) =
-                crate::threads::goals::runtime::GoalBudgetStopHook::for_goal(
+                crate::agent::goals::runtime::GoalBudgetStopHook::for_goal(
                     &goal_workspace_dir,
                     goal,
                 )

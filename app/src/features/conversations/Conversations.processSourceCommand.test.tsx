@@ -28,26 +28,23 @@ import themeReducer from '../../store/themeSlice';
 import threadReducer from '../../store/threadSlice';
 import type { Thread } from '../../types/thread';
 
-const { mockGetThreads, mockGetThreadMessages, mockGetTaskBoard, mockUseUsageState } = vi.hoisted(
-  () => ({
-    mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
-    mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-    mockGetTaskBoard: vi.fn().mockResolvedValue(null),
-    mockUseUsageState: vi.fn(() => ({
-      teamUsage: null,
-      currentPlan: null,
-      currentTier: 'FREE' as const,
-      isFreeTier: true,
-      usagePct: 0,
-      isNearLimit: false,
-      isAtLimit: false,
-      isBudgetExhausted: false,
-      shouldShowBudgetCompletedMessage: false,
-      isLoading: false,
-      refresh: vi.fn(),
-    })),
-  })
-);
+const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(() => ({
+  mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
+  mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
+  mockUseUsageState: vi.fn(() => ({
+    teamUsage: null,
+    currentPlan: null,
+    currentTier: 'FREE' as const,
+    isFreeTier: true,
+    usagePct: 0,
+    isNearLimit: false,
+    isAtLimit: false,
+    isBudgetExhausted: false,
+    shouldShowBudgetCompletedMessage: false,
+    isLoading: false,
+    refresh: vi.fn(),
+  })),
+}));
 
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue(true),
@@ -73,13 +70,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: mockGetTaskBoard,
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: unknown) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),

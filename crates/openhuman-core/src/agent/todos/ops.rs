@@ -1,21 +1,19 @@
-//! Compatibility facade over [`tinyagents_graph::todos`].
+//! OpenHuman host adapter over [`tinyagents_graph::todos`].
 //!
-//! OpenHuman keeps its historical board-location and optional-thread snapshot
-//! shapes for RPC and tool callers. All task-board data, normalization, CRUD,
+//! OpenHuman keeps its board-location and optional-thread snapshot shapes for
+//! agent runtime callers. All todo data, normalization, CRUD,
 //! and compare-and-set behavior is owned by TinyAgents.
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tinyagents_graph::todos::store as todos;
 use tinyagents_harness::store::Store;
 
-use crate::agent::progress::AgentProgress;
-use crate::agent::task_board::normalize_cards_for_wire;
-pub use crate::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 use crate::agent::tinyagents::todos::{scratch_todos_store, todos_store, SCRATCH_THREAD_ID};
+use crate::agent::todos::types::normalize_cards_for_wire;
+pub use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 
 pub const USER_TASKS_THREAD_ID: &str = "user-tasks";
 pub const ORCHESTRATOR_TASKS_THREAD_ID: &str = "orchestrator-tasks";
@@ -69,37 +67,12 @@ fn snapshot(
     }
 }
 
-fn progress_updated_at() -> String {
-    Utc::now().to_rfc3339()
-}
-
-fn emit_progress(location: &BoardLocation, cards: &[TaskBoardCard]) {
-    let BoardLocation::Thread { thread_id, .. } = location else {
-        return;
-    };
-    let Some(parent) = crate::agent::harness::fork_context::current_parent() else {
-        return;
-    };
-    let Some(tx) = parent.on_progress else {
-        return;
-    };
-    let board = tinyagents_graph::todos::TaskBoard {
-        thread_id: thread_id.clone(),
-        cards: cards.to_vec(),
-        updated_at: progress_updated_at(),
-    };
-    if let Err(error) = tx.try_send(AgentProgress::TaskBoardUpdated { board }) {
-        tracing::debug!(thread_id, %error, "task board progress dropped");
-    }
-}
-
 fn finish(
     location: &BoardLocation,
     result: tinyagents_harness::error::Result<tinyagents_graph::todos::TodosSnapshot>,
 ) -> Result<TodosSnapshot, String> {
     let mut value = result.map_err(|error| error.to_string())?;
     normalize_cards_for_wire(&mut value.cards);
-    emit_progress(location, &value.cards);
     Ok(snapshot(location, value))
 }
 
@@ -209,9 +182,6 @@ pub async fn claim_card(
     let card = todos::claim_card(&store, thread_id, card_id, expected, target_status)
         .await
         .map_err(|error| error.to_string())?;
-    if let Ok(value) = todos::list(&store, thread_id).await {
-        emit_progress(location, &value.cards);
-    }
     Ok(card)
 }
 
@@ -223,7 +193,3 @@ pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
-
-#[cfg(test)]
-#[path = "ops_tests.rs"]
-mod tests;

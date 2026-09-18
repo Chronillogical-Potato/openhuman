@@ -347,48 +347,6 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
-        "task_board_get" => ControllerSchema {
-            namespace: "threads",
-            function: "task_board_get",
-            description: "Fetch the persisted kanban task board for a conversation thread.",
-            inputs: vec![FieldSchema {
-                name: "thread_id",
-                ty: TypeSchema::String,
-                comment: "Thread identifier.",
-                required: true,
-            }],
-            outputs: vec![FieldSchema {
-                name: "taskBoard",
-                ty: TypeSchema::Json,
-                comment: "Task board payload.",
-                required: true,
-            }],
-        },
-        "task_board_put" => ControllerSchema {
-            namespace: "threads",
-            function: "task_board_put",
-            description: "Replace the persisted kanban task board for a conversation thread.",
-            inputs: vec![
-                FieldSchema {
-                    name: "thread_id",
-                    ty: TypeSchema::String,
-                    comment: "Thread identifier.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "cards",
-                    ty: TypeSchema::Json,
-                    comment: "Array of task board cards.",
-                    required: true,
-                },
-            ],
-            outputs: vec![FieldSchema {
-                name: "taskBoard",
-                ty: TypeSchema::Json,
-                comment: "Task board payload.",
-                required: true,
-            }],
-        },
         "token_usage" => ControllerSchema {
             namespace: "threads",
             function: "token_usage",

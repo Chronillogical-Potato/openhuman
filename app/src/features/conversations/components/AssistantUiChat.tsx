@@ -6,7 +6,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
-import { useRegisterAction } from '../../../lib/commands/useRegisterAction';
 import { useSlashCommands } from '../../../lib/commands/useSlashCommands';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { TurnProcessTrail } from '../../../providers/assistantUiMessages';
@@ -21,11 +20,6 @@ import { TurnFooter } from './aui/TurnFooter';
 import { TurnFooterHost } from './aui/turnFooterHost';
 import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
-import {
-  type ThreadGoalController,
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-} from './ThreadGoalChip';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
 const selectComposerText = (state: AssistantState) => state.composer.text;
@@ -64,7 +58,6 @@ function ComposerTextBridge({
  * send/cancel path as the legacy composer.
  */
 export function AssistantUiChat({
-  threadGoal,
   model,
   modelContextWindow,
   onModelChange,
@@ -86,7 +79,6 @@ export function AssistantUiChat({
   canOpenSubagent,
   onOpenTurnProcess,
 }: {
-  threadGoal: ThreadGoalController;
   model: string | null;
   modelContextWindow?: number | null;
   onModelChange: (value: string | null, contextWindow?: number | null) => void;
@@ -145,18 +137,6 @@ export function AssistantUiChat({
     () => contextUsageFromTokenUsage(tokenUsage, modelContextWindow),
     [modelContextWindow, tokenUsage]
   );
-  const openThreadGoal = threadGoal.open;
-
-  useRegisterAction({
-    id: 'chat.goal',
-    label: 'Set thread goal',
-    labelKey: 'conversations.composer.command.goal',
-    group: 'Chat',
-    handler: openThreadGoal,
-    enabled: () => selectedThreadId !== null,
-    keywords: ['goal', 'objective', 'thread goal'],
-    slashCommand: { id: 'goal', descriptionKey: 'conversations.composer.command.goal' },
-  });
   const slashCommands = useSlashCommands();
 
   // Every prop the composer slots below read, refreshed on each host render.
@@ -177,7 +157,6 @@ export function AssistantUiChat({
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
-    threadGoal,
   });
   slotPropsRef.current = {
     attachments,
@@ -189,7 +168,6 @@ export function AssistantUiChat({
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
-    threadGoal,
   };
   // Read through a ref for the same reason `ComposerHeader` does below: the
   // slot is rendered by type, so closing over the node would remount the whole
@@ -197,14 +175,10 @@ export function AssistantUiChat({
   const composerFooterExtrasRef = useRef(composerFooterExtras);
   composerFooterExtrasRef.current = composerFooterExtras;
   const ComposerExtras = useCallback(() => {
-    const { contextUsage: usage, threadGoal: goalCtl } = slotPropsRef.current;
+    const { contextUsage: usage } = slotPropsRef.current;
     return (
       <>
         <ContextWindowPill usage={usage} />
-        <div className="absolute right-0 bottom-full left-0 pb-2">
-          <ThreadGoalEditorPanel ctl={goalCtl} />
-        </div>
-        <ThreadGoalFooterTrigger ctl={goalCtl} />
         {composerFooterExtrasRef.current}
       </>
     );
