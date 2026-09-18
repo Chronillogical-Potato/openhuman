@@ -1,5 +1,4 @@
 use super::*;
-use super::scout_run::log_scout_failure;
 
 use crate::agent::harness::AgentContextPreparedSource;
 use crate::agent::harness::SubagentRunError;
@@ -309,13 +308,13 @@ fn credits_exhausted_scout_failure_does_not_reach_sentry() {
     );
     let _subscriber_guard = tracing::subscriber::set_default(subscriber);
 
-    log_scout_failure("provider call failed", CREDITS_400_BODY);
+    super::scout_run::log_scout_failure("provider call failed", CREDITS_400_BODY);
     assert!(
         transport.fetch_and_clear_events().is_empty(),
         "an out-of-credits background scout must not page Sentry (TAURI-RUST-HMW)"
     );
 
-    log_scout_failure("provider call failed", "connection reset by peer");
+    super::scout_run::log_scout_failure("provider call failed", "connection reset by peer");
     let events = transport.fetch_and_clear_events();
     assert_eq!(
         events.len(),
