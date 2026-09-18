@@ -391,8 +391,14 @@ compaction_enabled = false
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
-fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiver<Value> {
+fn spawn_sse_collector(
+    events_url: String,
+) -> (
+    tokio::sync::mpsc::UnboundedReceiver<Value>,
+    tokio::sync::oneshot::Receiver<()>,
+) {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     tokio::spawn(async move {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(300))
@@ -404,6 +410,8 @@ fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiv
             .send()
             .await
             .unwrap_or_else(|e| panic!("GET {events_url}: {e}"));
+        assert!(resp.status().is_success(), "GET {events_url}: {}", resp.status());
+        let _ = ready_tx.send(());
         let mut stream = resp.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();
         while let Some(Ok(chunk)) = stream.next().await {
@@ -423,7 +431,14 @@ fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiv
             }
         }
     });
-    rx
+    (rx, ready_rx)
+}
+
+async fn wait_for_sse_ready(ready: tokio::sync::oneshot::Receiver<()>) {
+    tokio::time::timeout(Duration::from_secs(10), ready)
+        .await
+        .expect("timed out waiting for SSE subscription")
+        .expect("SSE collector exited before subscription was ready");
 }
 
 async fn wait_for_terminal(rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>) -> Value {
@@ -619,8 +634,9 @@ async fn run_case_inner(case: Case) {
     match case.entry {
         Entry::WebChat => {
             let client_id = format!("prompt-{}", case.agent);
-            let mut events =
+            let (mut events, ready) =
                 spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+            wait_for_sse_ready(ready).await;
             let resp = post_json_rpc(
                 &stack.rpc_base,
                 10,
@@ -967,8 +983,9 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         reset_script(vec![text_completion("Hello.")]);
         let stack = boot_stack("").await;
         let client_id = "prompt-discoverable";
-        let mut events =
+        let (mut events, ready) =
             spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+        wait_for_sse_ready(ready).await;
         let resp = post_json_rpc(
             &stack.rpc_base,
             10,

@@ -137,7 +137,7 @@ scoring proves too coarse.
 Prefer read-only cases. Against a real account every write is cleanup that
 someone does by hand, so a case that must write lists what it leaves behind
 in its `writes` field. Cases that depend on account state carry a
-`_precondition`, for example that Gmail is connected, the Notion skill is
+`precondition`, for example that Gmail is connected, the Notion skill is
 installed, or no MCP server exists. Re-verify those before a run: the account
 changes, and a case whose precondition no longer holds measures something
 else. `mcp-none-configured` is an error-path case by design. Do not install an
@@ -146,12 +146,13 @@ MCP server to make MCP "testable"; that changes the baseline being measured.
 Cases run in file order, by increasing account risk. Cases that touch
 nothing run first, because they also validate the rig on real inference; the
 only writing case (`orchestrator-reminder`) runs last.
-**`composio-gmail-read` is gated.** The toolkit-scoped `integrations_agent`
+**`composio-gmail-read` is disabled by default.** The toolkit-scoped `integrations_agent`
 runs in text mode, so its calls may not reach `calls` in the same shape as
 native tool calls. Until a real transcript has shown one landing in a form its
 `GMAIL_*` forbids match, those forbids are unproven. They would fail to notice
 a send, not prevent it. Run the earlier cases, inspect a real `calls` field,
-and only then run it. Do not repair the matcher mid-run.
+and only then run it. Do not repair the matcher mid-run. The runner skips this
+case unless `--allow-disabled` is explicitly supplied after matcher validation.
 
 Each case with account preconditions checks them with a read-only RPC just
 before every run (`precondition` in `cases.json`: gmail connected, notion skill
@@ -168,6 +169,6 @@ a forbidden packed tool is caught either way.
 Add an object to `cases` in `scripts/prompt-eval/cases.json`: `id`, `entry`
 (`flows_build` or `agent_chat`), `message`, `expect_calls`, `forbid_calls`,
 `max_consecutive` (`{tool: cap}`), `max_input_tokens`, `judge`, optional
-`reply_regex`, `surface`, `writes`, `_precondition`, and a `_why` naming the
+`reply_regex`, `surface`, `writes`, `precondition`, and a `_why` naming the
 failure it guards against. Keep the set small; every case costs
 money on every run.
