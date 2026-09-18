@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use crate::config::Config;
-use crate::inference::local::install::find_system_ollama_binary;
 use crate::inference::paths::{find_workspace_ollama_binary, workspace_ollama_binary};
+use tinyinference::local::install::find_system_ollama_binary;
 use tinyinference::local::ollama::{ollama_base_url, ollama_base_url_from_override};
 
 use super::super::LocalAiService;
@@ -280,8 +280,7 @@ impl LocalAiService {
         }
 
         // 5. Platform-specific well-known locations (macOS bundles, Windows, Linux).
-        crate::inference::local::install::find_system_ollama_binary()
-            .map(|p| p.display().to_string())
+        tinyinference::local::install::find_system_ollama_binary().map(|p| p.display().to_string())
     }
 
     pub(in crate::inference::local::service) async fn has_model(

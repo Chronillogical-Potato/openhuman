@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::config::Config;
-use crate::inference::local::install::{find_system_ollama_binary, run_ollama_install_script};
 use crate::inference::paths::find_workspace_ollama_binary;
+use tinyinference::local::install::{find_system_ollama_binary, run_ollama_install_script};
 use tinyinference::local::process::apply_no_window;
 
 use super::super::LocalAiService;
@@ -99,7 +99,7 @@ impl LocalAiService {
         // OllamaSetup.exe running, wait for it instead of starting a
         // second one — two concurrent installers race on the same dir
         // and corrupt the install.
-        if crate::inference::local::install::is_ollama_installer_running() {
+        if tinyinference::local::install::is_ollama_installer_running() {
             log::info!(
                 "[local_ai] detected in-flight OllamaSetup.exe — \
                  waiting for it to finish before deciding whether to install"
@@ -119,7 +119,7 @@ impl LocalAiService {
             const INSTALLER_WAIT_TIMEOUT: std::time::Duration =
                 std::time::Duration::from_secs(5 * 60);
             let mut timed_out = false;
-            while crate::inference::local::install::is_ollama_installer_running() {
+            while tinyinference::local::install::is_ollama_installer_running() {
                 if wait_start.elapsed() >= INSTALLER_WAIT_TIMEOUT {
                     timed_out = true;
                     break;

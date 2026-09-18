@@ -55,9 +55,9 @@ fn bootstrap_honors_opt_in_on_low_ram_device() {
     let mut config = Config::default();
     config.local_ai.selected_tier = Some("ram_2_4gb".to_string());
     config.local_ai.opt_in_confirmed = true;
-    crate::inference::presets::apply_preset_to_config(
+    crate::config::ops::local_ai_presets::apply_preset_to_config(
         &mut config.local_ai,
-        crate::inference::presets::ModelTier::Ram2To4Gb,
+        tinyinference::local::presets::ModelTier::Ram2To4Gb,
     );
     let device = test_device(4);
 
@@ -74,9 +74,9 @@ fn bootstrap_honors_opt_in_on_sufficient_ram_device() {
     let mut config = Config::default();
     config.local_ai.selected_tier = Some("ram_2_4gb".to_string());
     config.local_ai.opt_in_confirmed = true;
-    crate::inference::presets::apply_preset_to_config(
+    crate::config::ops::local_ai_presets::apply_preset_to_config(
         &mut config.local_ai,
-        crate::inference::presets::ModelTier::Ram2To4Gb,
+        tinyinference::local::presets::ModelTier::Ram2To4Gb,
     );
     let device = test_device(16);
 

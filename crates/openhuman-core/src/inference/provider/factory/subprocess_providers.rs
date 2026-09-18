@@ -80,7 +80,7 @@ pub(super) fn try_create_claude_code_chat_model_from_string(
 ) -> OptionalChatModelResult {
     let provider = provider.trim();
     let model_with_temp =
-        provider.strip_prefix(crate::inference::provider::claude_code::PROVIDER_PREFIX)?;
+        provider.strip_prefix(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)?;
     let (configured_model, temperature_override) = split_model_and_temperature(model_with_temp);
     if temperature_override.is_some() {
         log::warn!(
@@ -103,22 +103,49 @@ pub(super) fn try_create_claude_code_chat_model_from_string(
     if let Err(error) = verify_session_active(config) {
         return Some(Err(error));
     }
-    let workspace = crate::inference::provider::claude_code::workspace_dir_from_config(config);
+    let workspace = config
+        .config_path
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| config.workspace_dir.clone());
     let effective_model = model_override.unwrap_or(&configured_model).to_string();
     emit_inference_egress(
         role,
         &format!(
             "{}{effective_model}",
-            crate::inference::provider::claude_code::PROVIDER_PREFIX
+            tinyagents_harness::providers::claude_code::PROVIDER_PREFIX
         ),
     );
-    let chat = match crate::inference::provider::claude_code::ClaudeCodeProvider::from_env(
+    let chat = match tinyagents_harness::providers::claude_code::ClaudeCodeProvider::from_env(
         effective_model,
         workspace,
         config.action_dir.clone(),
     ) {
-        Ok(model) => Arc::new(model) as Arc<dyn ChatModel<()>>,
+        Ok(model) => Arc::new(model.with_mcp_provider(Arc::new(OpenHumanMcpEndpoint)))
+            as Arc<dyn ChatModel<()>>,
         Err(error) => return Some(Err(error)),
     };
     Some(Ok((chat, configured_model)))
+}
+
+#[derive(Debug)]
+struct OpenHumanMcpEndpoint;
+
+#[async_trait::async_trait]
+impl tinyagents_harness::providers::claude_code::driver::McpEndpointProvider
+    for OpenHumanMcpEndpoint
+{
+    async fn endpoint(
+        &self,
+    ) -> Result<tinyagents_harness::providers::claude_code::driver::McpEndpoint, String> {
+        let endpoint = crate::mcp::server::ensure_local_http()
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(
+            tinyagents_harness::providers::claude_code::driver::McpEndpoint {
+                addr: endpoint.addr,
+                token: endpoint.token,
+            },
+        )
+    }
 }

@@ -8,7 +8,7 @@ use crate::security::credentials::AuthService;
 use super::probe::{classify_embed_probe, final_probe_dims, probe_custom_embeddings, EmbedProbe};
 use super::served_models::{check_requested_model_served, fetch_served_model_ids};
 use super::{resolve_api_key, LOG_PREFIX};
-use crate::inference::embeddings::catalog;
+use tinyinference::embeddings::catalog;
 
 /// Slug naming the embedder ingestion will actually use, resolved host-side
 /// from the `Config` fields the resolution ladder reads.

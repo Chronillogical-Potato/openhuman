@@ -119,15 +119,15 @@ async fn install_piper_handler_serializes_concurrent_calls() {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
     }
 
-    let slot = crate::inference::local::voice_install_common::try_acquire_install_slot(
-        crate::inference::local::voice_install_common::ENGINE_PIPER,
+    let slot = tinyinference::local::download::try_acquire_install_slot(
+        tinyinference::local::download::ENGINE_PIPER,
     )
     .expect("test should be able to claim the slot first");
 
-    crate::inference::local::voice_install_common::write_status(
-        crate::inference::local::voice_install_common::VoiceInstallStatus {
-            engine: crate::inference::local::voice_install_common::ENGINE_PIPER.to_string(),
-            state: crate::inference::local::voice_install_common::VoiceInstallState::Installing,
+    tinyinference::local::download::write_status(
+        tinyinference::local::download::VoiceInstallStatus {
+            engine: tinyinference::local::download::ENGINE_PIPER.to_string(),
+            state: tinyinference::local::download::VoiceInstallState::Installing,
             progress: Some(0),
             downloaded_bytes: None,
             total_bytes: None,
@@ -145,9 +145,7 @@ async fn install_piper_handler_serializes_concurrent_calls() {
         std::env::remove_var("OPENHUMAN_WORKSPACE");
     }
     drop(slot);
-    crate::inference::local::voice_install_common::reset_status(
-        crate::inference::local::voice_install_common::ENGINE_PIPER,
-    );
+    tinyinference::local::download::reset_status(tinyinference::local::download::ENGINE_PIPER);
 
     let v1 = r1.expect("first call ok");
     let v2 = r2.expect("second call ok");

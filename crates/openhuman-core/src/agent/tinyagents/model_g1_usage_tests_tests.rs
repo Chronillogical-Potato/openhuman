@@ -69,6 +69,18 @@ fn no_billing_metadata_leaves_raw_clean() {
 }
 
 #[test]
+fn provider_neutral_total_cost_metadata_is_recovered() {
+    let model_response = ModelResponse {
+        usage: Some(Usage::new(8, 3)),
+        raw: Some(serde_json::json!({"total_cost_usd": 0.0042})),
+        ..ModelResponse::assistant("done")
+    };
+
+    let recovered = usage_info_from_response(&model_response).expect("usage info");
+    assert!((recovered.charged_amount_usd - 0.0042).abs() < 1e-9);
+}
+
+#[test]
 fn no_usage_reconstructs_to_none() {
     let chat = ChatResponse {
         text: Some("hi".to_string()),

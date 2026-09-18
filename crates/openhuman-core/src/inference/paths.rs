@@ -186,9 +186,8 @@ pub(crate) fn resolve_piper_binary() -> Option<PathBuf> {
 /// Config-aware piper resolution: workspace install first, env second,
 /// PATH third.
 pub(crate) fn resolve_piper_binary_with_config(config: &Config) -> Option<PathBuf> {
-    if let Some(workspace) =
-        crate::inference::local::install_piper::find_workspace_piper_binary(config)
-    {
+    let install = tinyinference::local::piper::PiperInstall::new(workspace_piper_dir(config));
+    if let Some(workspace) = tinyinference::local::piper::find_workspace_piper_binary(&install) {
         return Some(workspace);
     }
     resolve_piper_binary()

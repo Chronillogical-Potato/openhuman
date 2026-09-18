@@ -117,8 +117,8 @@ pub fn build_local_provider_with_config(config: &Config) -> Option<ResolvedProvi
 /// the provider for a triage turn (#1257). Kept separate from
 /// `is_local_provider_string`, which only classifies the local HTTP runtimes.
 fn is_local_cli_route(provider_string: &str) -> bool {
-    use crate::inference::provider::claude_code;
     use crate::inference::provider::factory::{CLAUDE_AGENT_SDK_PREFIX, CLAUDE_AGENT_SDK_PROVIDER};
+    use tinyagents_harness::providers::claude_code;
     let s = provider_string.trim();
     s == CLAUDE_AGENT_SDK_PROVIDER
         || s.starts_with(CLAUDE_AGENT_SDK_PREFIX)

@@ -12,7 +12,6 @@
 //! - **Custom**: Any OpenAI-compatible endpoint.
 //! - **Noop**: A fallback provider for keyword-only search.
 
-pub mod catalog;
 #[path = "cloud_adapter.rs"]
 pub mod cloud;
 mod factory;
@@ -21,7 +20,6 @@ mod provider_trait;
 mod rpc;
 mod schemas;
 
-pub use catalog::non_embedding_model_reason;
 pub use cloud::{
     OpenHumanCloudEmbedding, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
 };

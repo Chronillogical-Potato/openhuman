@@ -1,8 +1,9 @@
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiStatus;
 use tinyinference::device::DeviceProfile;
 use tinyinference::local::models as model_ids;
+use tinyinference::local::presets::VisionMode;
 use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 use super::LocalAiService;
@@ -302,11 +303,12 @@ impl LocalAiService {
 
         let mut status = self.status.lock();
         status.state = "ready".to_string();
-        status.vision_state = match presets::vision_mode_for_config(&effective_config.local_ai) {
-            VisionMode::Disabled => "disabled".to_string(),
-            VisionMode::Bundled => "ready".to_string(),
-            VisionMode::Ondemand => "idle".to_string(),
-        };
+        status.vision_state =
+            match local_ai_presets::vision_mode_for_config(&effective_config.local_ai) {
+                VisionMode::Disabled => "disabled".to_string(),
+                VisionMode::Bundled => "ready".to_string(),
+                VisionMode::Ondemand => "idle".to_string(),
+            };
         status.embedding_state = if effective_config.local_ai.preload_embedding_model {
             "ready".to_string()
         } else {
@@ -345,7 +347,8 @@ impl LocalAiService {
 }
 
 fn config_with_recommended_tier_if_unselected(config: &Config, device: &DeviceProfile) -> Config {
-    let current_tier = crate::inference::presets::current_tier_from_config(&config.local_ai);
+    let current_tier =
+        crate::config::ops::local_ai_presets::current_tier_from_config(&config.local_ai);
 
     // Local AI is opt-in on every device. The only way to keep it enabled
     // across a restart is an explicit opt-in (`apply_preset` on a real tier),
@@ -355,7 +358,7 @@ fn config_with_recommended_tier_if_unselected(config: &Config, device: &DevicePr
     if !config.local_ai.opt_in_confirmed {
         tracing::debug!(
             total_ram_gb = device.total_ram_gb(),
-            min_required_gb = crate::inference::presets::MIN_RAM_GB_FOR_LOCAL_AI,
+            min_required_gb = tinyinference::local::presets::MIN_RAM_GB_FOR_LOCAL_AI,
             ?current_tier,
             selected_tier = ?config.local_ai.selected_tier,
             "[local_ai] bootstrap: opt_in_confirmed=false, hard-overriding to disabled (cloud fallback)"
@@ -375,21 +378,21 @@ fn config_with_recommended_tier_if_unselected(config: &Config, device: &DevicePr
 }
 
 fn format_degraded_warning(err: &str, config: &Config) -> String {
-    let current = crate::inference::presets::current_tier_from_config(&config.local_ai);
+    let current = crate::config::ops::local_ai_presets::current_tier_from_config(&config.local_ai);
     match current {
-        crate::inference::presets::ModelTier::Ram16PlusGb => {
+        tinyinference::local::presets::ModelTier::Ram16PlusGb => {
             format!(
                 "{err}. Hint: your device may not support the 16 GB+ tier model. \
                  Try switching to the 8-16 GB or 4-8 GB tier in Settings > Local AI Model."
             )
         }
-        crate::inference::presets::ModelTier::Ram8To16Gb => {
+        tinyinference::local::presets::ModelTier::Ram8To16Gb => {
             format!(
                 "{err}. Hint: your device may not support the 8-16 GB tier model. \
                  Try switching to the 4-8 GB or 2-4 GB tier in Settings > Local AI Model."
             )
         }
-        crate::inference::presets::ModelTier::Ram4To8Gb => format!(
+        tinyinference::local::presets::ModelTier::Ram4To8Gb => format!(
             "{err}. Hint: your device may not support the 4-8 GB tier vision sidecar. \
              Try switching to the 2-4 GB tier for text-only local AI."
         ),
@@ -398,14 +401,18 @@ fn format_degraded_warning(err: &str, config: &Config) -> String {
 }
 
 fn initial_vision_state(config: &Config) -> String {
-    match presets::vision_mode_for_config(&config.local_ai) {
+    match local_ai_presets::vision_mode_for_config(&config.local_ai) {
         VisionMode::Disabled => "disabled".to_string(),
         VisionMode::Ondemand | VisionMode::Bundled => "idle".to_string(),
     }
 }
 
 fn vision_mode_str(config: &Config) -> String {
-    format!("{:?}", presets::vision_mode_for_config(&config.local_ai)).to_ascii_lowercase()
+    format!(
+        "{:?}",
+        local_ai_presets::vision_mode_for_config(&config.local_ai)
+    )
+    .to_ascii_lowercase()
 }
 
 fn model_path_for_config(config: &Config) -> String {

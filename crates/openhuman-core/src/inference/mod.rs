@@ -31,7 +31,6 @@ pub mod model_context;
 pub mod openai_oauth;
 pub mod ops;
 pub mod paths;
-pub mod presets;
 pub mod provider;
 mod schemas;
 pub mod tokenjuice;
@@ -48,7 +47,6 @@ pub use schemas::{
 pub use local::all_local_inference_controller_schemas;
 pub use local::all_local_inference_registered_controllers;
 pub use model_context::context_window_for_model;
-pub use presets::{ModelPreset, ModelTier, VisionMode};
 pub use types::{
     LocalAiAssetStatus, LocalAiAssetsStatus, LocalAiDownloadProgressItem, LocalAiDownloadsProgress,
     LocalAiEmbeddingResult, LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult,

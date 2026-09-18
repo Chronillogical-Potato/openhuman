@@ -1,6 +1,6 @@
 use crate::agent::multimodal;
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiEmbeddingResult;
 use tinyinference::embeddings::{
     EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
@@ -11,6 +11,7 @@ use tinyinference::local::ollama::{
     ollama_base_url_from_override, redact_ollama_base_url, OllamaGenerateOptions,
     OllamaGenerateRequest,
 };
+use tinyinference::local::presets::VisionMode;
 
 use super::LocalAiService;
 
@@ -42,7 +43,7 @@ impl LocalAiService {
             return Err("vision prompt requires at least one image reference".to_string());
         }
         if matches!(
-            presets::vision_mode_for_config(&config.local_ai),
+            local_ai_presets::vision_mode_for_config(&config.local_ai),
             VisionMode::Disabled
         ) {
             self.status.lock().vision_state = "disabled".to_string();

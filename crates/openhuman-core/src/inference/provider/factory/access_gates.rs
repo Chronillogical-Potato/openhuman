@@ -16,7 +16,7 @@ pub(super) fn external_provider_label(provider: &str) -> String {
     if p == CLAUDE_AGENT_SDK_PROVIDER || p.starts_with(CLAUDE_AGENT_SDK_PREFIX) {
         return "Claude Agent SDK".to_string();
     }
-    if p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX) {
+    if p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX) {
         return "Claude Code CLI".to_string();
     }
     // Concrete cloud slug "<slug>:<model>" → surface just the slug.

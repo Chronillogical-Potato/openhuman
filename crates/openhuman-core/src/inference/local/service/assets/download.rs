@@ -1,10 +1,11 @@
 //! Triggering model downloads: everything the profile needs, or one asset.
 
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::local::service::LocalAiService;
-use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiAssetsStatus;
 use tinyinference::local::models as model_ids;
+use tinyinference::local::presets::VisionMode;
 use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
@@ -67,7 +68,7 @@ impl LocalAiService {
             ("embedding", model_ids::effective_embedding_model_id(config)),
         ];
         if matches!(
-            presets::vision_mode_for_config(&config.local_ai),
+            local_ai_presets::vision_mode_for_config(&config.local_ai),
             VisionMode::Bundled
         ) {
             steps.insert(1, ("vision", model_ids::effective_vision_model_id(config)));
@@ -104,7 +105,7 @@ impl LocalAiService {
         {
             let mut status = self.status.lock();
             status.state = "ready".to_string();
-            status.vision_state = match presets::vision_mode_for_config(&config.local_ai) {
+            status.vision_state = match local_ai_presets::vision_mode_for_config(&config.local_ai) {
                 VisionMode::Disabled => "disabled".to_string(),
                 VisionMode::Ondemand => "idle".to_string(),
                 VisionMode::Bundled => "ready".to_string(),
@@ -148,7 +149,7 @@ impl LocalAiService {
             }
             "vision" => {
                 if matches!(
-                    presets::vision_mode_for_config(&config.local_ai),
+                    local_ai_presets::vision_mode_for_config(&config.local_ai),
                     VisionMode::Disabled
                 ) {
                     return Err(

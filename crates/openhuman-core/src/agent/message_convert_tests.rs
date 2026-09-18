@@ -39,9 +39,10 @@ fn native_image_round_trip_preserves_adjacent_text_for_claude_code() {
             ContentBlock::Text(" after".to_string()),
         ],
     });
-    let native = message_to_native_chat_message(&source);
-    let stdin =
-        crate::inference::provider::claude_code::input_builder::build_stdin(&[native], true);
+    let stdin = tinyagents_harness::providers::claude_code::render_request_stdin(
+        &ModelRequest::new(vec![source]),
+        true,
+    );
     let line: serde_json::Value = serde_json::from_slice(&stdin).unwrap();
     let content = line["message"]["content"].as_array().unwrap();
     assert_eq!(content[0]["text"], "before ");
@@ -60,9 +61,10 @@ fn native_image_round_trip_preserves_literal_private_marker_text() {
             }),
         ],
     });
-    let native = message_to_native_chat_message(&source);
-    let stdin =
-        crate::inference::provider::claude_code::input_builder::build_stdin(&[native], true);
+    let stdin = tinyagents_harness::providers::claude_code::render_request_stdin(
+        &ModelRequest::new(vec![source]),
+        true,
+    );
     let line: serde_json::Value = serde_json::from_slice(&stdin).unwrap();
     let content = line["message"]["content"].as_array().unwrap();
     assert_eq!(content[0]["text"], "literal ");

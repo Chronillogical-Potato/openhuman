@@ -156,7 +156,7 @@ pub(super) fn route_has_usable_credentials(resolved: &str, config: &Config) -> b
     // Local runtimes (ollama/lmstudio/mlx/local-openai) and the local CLI
     // delegates carry their own credentials / run on-device.
     if tinyinference::local::profile::is_local_provider_string(r)
-        || r.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+        || r.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
         || r == CLAUDE_AGENT_SDK_PROVIDER
         || r.starts_with(CLAUDE_AGENT_SDK_PREFIX)
     {

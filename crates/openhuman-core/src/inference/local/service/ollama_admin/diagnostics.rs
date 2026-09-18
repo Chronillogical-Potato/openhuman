@@ -1,5 +1,5 @@
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use crate::inference::presets::{self, VisionMode};
 use tinyinference::local::lm_studio::lm_studio_base_url;
 use tinyinference::local::model_requirements::{
     evaluate_context, ContextEligibility, MIN_CONTEXT_TOKENS,
@@ -9,6 +9,7 @@ use tinyinference::local::ollama::{
     ollama_base_url_from_override, OllamaModelShow, OllamaModelTag, OllamaShowRequest,
     OllamaShowResponse, OllamaTagsResponse,
 };
+use tinyinference::local::presets::VisionMode;
 use tinyinference::local::provider::{
     model_discovery_api, provider_from_name, LocalAiProvider, ModelDiscoveryApi,
 };
@@ -186,7 +187,7 @@ impl LocalAiService {
         }
         if healthy
             && matches!(
-                presets::vision_mode_for_config(&config.local_ai),
+                local_ai_presets::vision_mode_for_config(&config.local_ai),
                 VisionMode::Bundled
             )
             && !vision_found
@@ -250,7 +251,7 @@ impl LocalAiService {
             "context_requirement": {
                 "min_context_tokens": MIN_CONTEXT_TOKENS,
             },
-            "vision_mode": presets::vision_mode_for_config(&config.local_ai),
+            "vision_mode": local_ai_presets::vision_mode_for_config(&config.local_ai),
             "expected": {
                 "chat_model": expected_chat,
                 "chat_found": chat_found,

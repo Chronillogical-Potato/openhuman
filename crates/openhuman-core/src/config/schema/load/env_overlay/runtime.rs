@@ -9,8 +9,10 @@ impl Config {
         if let Some(tier_str) = env.get("OPENHUMAN_LOCAL_AI_TIER") {
             let tier_str = tier_str.trim().to_ascii_lowercase();
             if !tier_str.is_empty() {
-                if let Some(tier) = crate::inference::presets::ModelTier::from_str_opt(&tier_str) {
-                    if tier == crate::inference::presets::ModelTier::Custom {
+                if let Some(tier) =
+                    tinyinference::local::presets::ModelTier::from_str_opt(&tier_str)
+                {
+                    if tier == tinyinference::local::presets::ModelTier::Custom {
                         tracing::warn!(
                             tier = %tier_str,
                             "ignoring custom OPENHUMAN_LOCAL_AI_TIER; only built-in presets are supported"
@@ -21,7 +23,10 @@ impl Config {
                             "ignoring OPENHUMAN_LOCAL_AI_TIER outside the 1B local-model allowlist"
                         );
                     } else {
-                        crate::inference::presets::apply_preset_to_config(&mut self.local_ai, tier);
+                        crate::config::ops::local_ai_presets::apply_preset_to_config(
+                            &mut self.local_ai,
+                            tier,
+                        );
                         tracing::debug!(
                             tier = %tier_str,
                             "applied local AI tier from OPENHUMAN_LOCAL_AI_TIER"

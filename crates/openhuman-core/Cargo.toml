@@ -175,10 +175,6 @@ name = "channels_host_boundary_e2e"
 path = "../../tests/channels_host_boundary_e2e.rs"
 
 [[test]]
-name = "claude_code_stream_e2e"
-path = "../../tests/claude_code_stream_e2e.rs"
-
-[[test]]
 name = "cli_model_overrides_e2e"
 path = "../../tests/cli_model_overrides_e2e.rs"
 

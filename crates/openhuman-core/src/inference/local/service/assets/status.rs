@@ -2,12 +2,13 @@
 
 use tracing::{debug, trace};
 
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use crate::inference::local::service::LocalAiService;
 use crate::inference::paths::resolve_tts_voice_path;
-use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::{LocalAiAssetStatus, LocalAiAssetsStatus};
 use tinyinference::local::models as model_ids;
+use tinyinference::local::presets::VisionMode;
 use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {
@@ -254,7 +255,7 @@ impl LocalAiService {
             _ => None,
         };
 
-        let vision_mode = presets::vision_mode_for_config(&config.local_ai);
+        let vision_mode = local_ai_presets::vision_mode_for_config(&config.local_ai);
         let embedding_path = Some(format!("ollama://{embedding_model}"));
         Ok(LocalAiAssetsStatus {
             chat: LocalAiAssetStatus {

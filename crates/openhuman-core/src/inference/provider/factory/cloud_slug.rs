@@ -263,7 +263,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         || p == BYOK_INCOMPLETE_SENTINEL
         || p == CLAUDE_AGENT_SDK_PROVIDER
         || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
-        || p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+        || p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
     {
         return None;
     }

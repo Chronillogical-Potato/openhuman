@@ -120,10 +120,13 @@ use openhuman_core::inference::local::{
 use openhuman_core::inference::openai_oauth::{
     lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
-use openhuman_core::inference::presets::{
-    all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
-    mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
-    supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
+use openhuman_core::config::ops::local_ai_presets::{
+    apply_preset_to_config, current_tier_from_config, supports_screen_summary,
+    vision_mode_for_config,
+};
+use tinyinference::local::presets::{
+    all_presets, device_supports_local_ai, mvp_presets, preset_for_tier, recommend_tier,
+    should_default_to_cloud_fallback, vision_mode_for_tier, ModelTier, VisionMode,
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
 use openhuman_core::inference::provider::factory::{

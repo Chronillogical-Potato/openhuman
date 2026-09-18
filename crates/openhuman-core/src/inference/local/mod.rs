@@ -21,16 +21,12 @@ mod schemas;
 
 // Re-expose host integration modules used across the local runtime.
 pub use super::paths;
-pub use super::presets;
 pub use super::types;
 
-pub mod install;
-pub(crate) mod install_piper;
 // `pub(crate)` so the shared `apply_no_window` helper can be reused from the
 // agent shell runtime (`agent::host_runtime`) — single source of truth for the
 // Windows `CREATE_NO_WINDOW` flag (#3727/#3728).
 pub mod service;
-pub(crate) mod voice_install_common;
 
 pub use core::*;
 pub use ops as rpc;

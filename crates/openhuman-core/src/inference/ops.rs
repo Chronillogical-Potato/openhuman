@@ -1,15 +1,16 @@
 //! JSON-RPC controller surface for inference operations.
 
+use crate::config::ops::local_ai_presets;
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
 use crate::inference::local as local_runtime;
 use crate::inference::local::ops::ReactionDecision;
-use crate::inference::presets;
 use crate::inference::provider as providers;
 use crate::inference::{LocalAiEmbeddingResult, LocalAiStatus};
 use crate::rpc::RpcOutcome;
 use serde_json::{json, Value};
 use tinyinference::device::detect_device_profile;
+use tinyinference::local::presets;
 use tinyinference::message::Message;
 use tinyinference::model::ModelRequest;
 use tinyinference::sentiment::{parse_sentiment_response, SentimentResult};
@@ -409,7 +410,7 @@ pub async fn inference_presets() -> Result<RpcOutcome<Value>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
     let device = detect_device_profile();
     let recommended = presets::recommend_tier(&device);
-    let current = presets::current_tier_from_config(&config.local_ai);
+    let current = local_ai_presets::current_tier_from_config(&config.local_ai);
     let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
         let normalized = value.trim().to_ascii_lowercase();
         presets::ModelTier::from_str_opt(&normalized)
@@ -477,7 +478,7 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
     let mut config = config_rpc::load_config_with_timeout().await?;
     config.local_ai.runtime_enabled = true;
     config.local_ai.opt_in_confirmed = true;
-    presets::apply_preset_to_config(&mut config.local_ai, tier);
+    local_ai_presets::apply_preset_to_config(&mut config.local_ai, tier);
     config
         .save()
         .await
@@ -491,7 +492,7 @@ pub async fn inference_apply_preset(tier: &str) -> Result<RpcOutcome<Value>, Str
             "vision_model_id": config.local_ai.vision_model_id,
             "embedding_model_id": config.local_ai.embedding_model_id,
             "quantization": config.local_ai.quantization,
-            "vision_mode": presets::vision_mode_for_config(&config.local_ai),
+            "vision_mode": local_ai_presets::vision_mode_for_config(&config.local_ai),
             "local_ai_enabled": true,
         }),
         "inference preset applied",

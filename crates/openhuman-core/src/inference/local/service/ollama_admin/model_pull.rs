@@ -1,11 +1,12 @@
 use futures_util::StreamExt;
 
+use crate::config::ops::local_ai_presets;
 use crate::config::Config;
-use crate::inference::presets::{self, VisionMode};
 use tinyinference::local::models as model_ids;
 use tinyinference::local::ollama::{
     ollama_base_url_from_override, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest,
 };
+use tinyinference::local::presets::VisionMode;
 
 use super::super::LocalAiService;
 use super::util::interrupted_pull_settle_window_secs;
@@ -25,7 +26,7 @@ impl LocalAiService {
         // pull bury it and leave `vision_state = "missing"` with no explanation.
         let mut vision_warning: Option<String> = None;
 
-        match presets::vision_mode_for_config(&config.local_ai) {
+        match local_ai_presets::vision_mode_for_config(&config.local_ai) {
             VisionMode::Disabled => {
                 self.status.lock().vision_state = "disabled".to_string();
             }

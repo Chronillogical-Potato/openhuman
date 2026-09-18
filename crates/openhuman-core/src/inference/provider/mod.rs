@@ -5,7 +5,6 @@
 //! inference concerns (local runtime, cloud providers, HTTP endpoint) share
 //! a single domain root.
 
-pub mod claude_code;
 pub mod error_classify;
 pub mod factory;
 pub(crate) mod openai_codex;

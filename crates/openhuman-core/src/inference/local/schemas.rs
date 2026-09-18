@@ -406,26 +406,26 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
         // already in flight must be a no-op, not a second concurrent download
         // racing on the same `.part` file. `try_acquire_install_slot` does the
         // check-and-claim under a single mutex acquisition.
-        let slot = match crate::inference::local::voice_install_common::try_acquire_install_slot(
-            crate::inference::local::voice_install_common::ENGINE_PIPER,
+        let slot = match tinyinference::local::download::try_acquire_install_slot(
+            tinyinference::local::download::ENGINE_PIPER,
         ) {
             Some(slot) => slot,
             None => {
                 tracing::debug!(
                     "[voice-install:piper] slot already held — returning current status"
                 );
-                let current = crate::inference::local::voice_install_common::read_status(
-                    crate::inference::local::voice_install_common::ENGINE_PIPER,
+                let current = tinyinference::local::download::read_status(
+                    tinyinference::local::download::ENGINE_PIPER,
                 );
                 return serde_json::to_value(current)
                     .map_err(|e| format!("serialize piper status: {e}"));
             }
         };
 
-        crate::inference::local::voice_install_common::write_status(
-            crate::inference::local::voice_install_common::VoiceInstallStatus {
-                engine: crate::inference::local::voice_install_common::ENGINE_PIPER.to_string(),
-                state: crate::inference::local::voice_install_common::VoiceInstallState::Installing,
+        tinyinference::local::download::write_status(
+            tinyinference::local::download::VoiceInstallStatus {
+                engine: tinyinference::local::download::ENGINE_PIPER.to_string(),
+                state: tinyinference::local::download::VoiceInstallState::Installing,
                 progress: Some(0),
                 downloaded_bytes: None,
                 total_bytes: None,
@@ -446,16 +446,18 @@ fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture
         // on task exit, including via panic.
         tokio::spawn(async move {
             let _slot = slot;
+            let install = tinyinference::local::piper::PiperInstall::new(
+                crate::inference::paths::workspace_piper_dir(&config),
+            );
             if let Err(e) =
-                crate::inference::local::install_piper::install_piper(&config, voice_id, force)
-                    .await
+                tinyinference::local::piper::install_piper(&install, voice_id, force).await
             {
                 log::warn!("[voice-install:piper] background install failed: {e}");
             }
         });
 
-        let status = crate::inference::local::voice_install_common::read_status(
-            crate::inference::local::voice_install_common::ENGINE_PIPER,
+        let status = tinyinference::local::download::read_status(
+            tinyinference::local::download::ENGINE_PIPER,
         );
         serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
     })
@@ -473,7 +475,11 @@ fn handle_local_ai_test_connection(params: Map<String, Value>) -> ControllerFutu
 fn handle_local_ai_piper_install_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let status = crate::inference::local::install_piper::status(&config);
+        let install = tinyinference::local::piper::PiperInstall::new(
+            crate::inference::paths::workspace_piper_dir(&config),
+        );
+        let voice_id = tinyinference::local::models::effective_tts_voice_id(&config);
+        let status = tinyinference::local::piper::status(&install, &voice_id);
         serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
     })
 }

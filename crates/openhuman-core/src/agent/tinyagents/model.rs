@@ -297,12 +297,20 @@ pub(crate) fn merge_openhuman_usage_meta(
 /// counts *and* backend-charged USD — survives the crossing.
 pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<UsageInfo> {
     let usage = response.usage.as_ref()?;
-    let meta = response
+    let mut meta = response
         .raw
         .as_ref()
         .and_then(|v| v.get(OPENHUMAN_USAGE_META_KEY))
         .and_then(|v| serde_json::from_value::<OpenhumanUsageMeta>(v.clone()).ok())
         .unwrap_or_default();
+    if meta.charged_amount_usd <= 0.0 {
+        meta.charged_amount_usd = response
+            .raw
+            .as_ref()
+            .and_then(|value| value.get("total_cost_usd"))
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or_default();
+    }
     Some(UsageInfo {
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
