@@ -13,7 +13,7 @@ use super::types::*;
 use anyhow::Result;
 use std::fmt::Write;
 use tinyagents_harness::tool_calling::dialect::render_pformat_catalogue;
-use tinyinference::tool::ToolSchema;
+use tinytools::ToolSpec;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Special sections (archetype, dynamic, reflection)
@@ -388,7 +388,7 @@ impl PromptSection for ToolsSection {
         // dispatchers the dispatcher's own `prompt_instructions` block
         // (appended below) carries whatever schema detail the wire format needs.
         let has_filter = !ctx.visible_tool_names.is_empty();
-        let visible: Vec<ToolSchema> = ctx
+        let visible: Vec<ToolSpec> = ctx
             .tools
             .iter()
             .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name))
@@ -407,7 +407,11 @@ impl PromptSection for ToolsSection {
                     },
                     None => serde_json::Value::Null,
                 };
-                ToolSchema::new(tool.name, tool.description, parameters)
+                ToolSpec {
+                    name: tool.name.to_string(),
+                    description: tool.description.to_string(),
+                    parameters,
+                }
             })
             .collect();
         let mut out = render_pformat_catalogue(&visible);
