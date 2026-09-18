@@ -4179,6 +4179,7 @@ dependencies = [
  "tinymemory-conformance",
  "tinymemory-sources",
  "tinyruntime-bus",
+ "tinyskills",
  "tinytools",
  "tinyvoice-bus",
  "tinywallet",
@@ -6916,6 +6917,20 @@ version = "0.2.4"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tinyskills"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.10.9",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

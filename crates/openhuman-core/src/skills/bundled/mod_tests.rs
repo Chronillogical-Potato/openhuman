@@ -16,6 +16,35 @@ const SAMPLE: BundledSkill = BundledSkill {
     files: &[A, B],
 };
 
+fn validate_relative_path(dir_name: &str, path: &str) -> Result<(), String> {
+    let path: &'static str = Box::leak(path.to_owned().into_boxed_str());
+    let skill = BundledSkill {
+        dir_name: Box::leak(dir_name.to_owned().into_boxed_str()),
+        files: Box::leak(
+            vec![
+                BundledFile {
+                    path: "WORKFLOW.md",
+                    contents: "---\nname: test\ndescription: test\n---\n",
+                },
+                BundledFile {
+                    path,
+                    contents: "body",
+                },
+            ]
+            .into_boxed_slice(),
+        ),
+    };
+    skill.validate()
+}
+
+fn install_one(root: &std::path::Path, skill: &BundledSkill) -> Result<bool, String> {
+    let report = tinyskills::bundle::install(root, &[*skill]);
+    if let Some((_, error)) = report.failed.into_iter().next() {
+        return Err(error);
+    }
+    Ok(!report.written.is_empty())
+}
+
 #[test]
 fn every_shipped_bundle_is_valid() {
     // The one assertion that covers the real table. `validate` exists because
