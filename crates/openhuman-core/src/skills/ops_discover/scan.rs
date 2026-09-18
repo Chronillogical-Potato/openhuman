@@ -3,8 +3,11 @@
 //! the full discovery surface and the automations-only view share.
 
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
 use crate::skills::ops_types::{Workflow, WorkflowScope};
+
+use super::collision::absorb;
 
 /// Which on-disk root category a bundle was discovered under.
 ///
@@ -46,7 +49,7 @@ pub(super) fn discover_filtered(
     );
     // Scan order matters for collision resolution: the last scope to register
     // a name wins, so we scan user first, then project, then legacy.
-    let mut discovered = Vec::new();
+    let mut discovered = HashMap::new();
 
     // Builtin skills (`<workspace>/.openhuman/builtin-skills/`) are a skill
     // root scanned FIRST and at the lowest precedence, so every other scope
@@ -62,7 +65,7 @@ pub(super) fn discover_filtered(
                 scope = ?WorkflowScope::Builtin,
                 "[workflows] discover:branch:builtin"
             );
-            discovered.extend(scan_bundled_root(&root, WorkflowScope::Builtin));
+            absorb(&mut discovered, scan_bundled_root(&root, WorkflowScope::Builtin));
         }
     }
 
@@ -75,7 +78,7 @@ pub(super) fn discover_filtered(
                     scope = ?WorkflowScope::User,
                     "[workflows] discover:branch:user"
                 );
-                discovered.extend(scan_root(&root, WorkflowScope::User));
+                absorb(&mut discovered, scan_root(&root, WorkflowScope::User));
             }
         }
     }
@@ -90,7 +93,7 @@ pub(super) fn discover_filtered(
                         scope = ?WorkflowScope::Project,
                         "[workflows] discover:branch:project"
                     );
-                    discovered.extend(scan_root(&root, WorkflowScope::Project));
+                    absorb(&mut discovered, scan_root(&root, WorkflowScope::Project));
                 }
             }
         }
@@ -105,7 +108,7 @@ pub(super) fn discover_filtered(
                 scope = ?WorkflowScope::Legacy,
                 "[workflows] discover:branch:legacy"
             );
-            discovered.extend(scan_root(&legacy_root, WorkflowScope::Legacy));
+            absorb(&mut discovered, scan_root(&legacy_root, WorkflowScope::Legacy));
         }
     }
 
@@ -124,7 +127,7 @@ pub(super) fn discover_filtered(
                 "[profiles] discover:branch:profile-local skills"
             );
             let before = discovered.len();
-            discovered.extend(scan_root(profile_root, WorkflowScope::Profile));
+            absorb(&mut discovered, scan_root(profile_root, WorkflowScope::Profile));
             tracing::debug!(
                 names_before = before,
                 names_after = discovered.len(),
@@ -133,7 +136,8 @@ pub(super) fn discover_filtered(
         }
     }
 
-    let out = tinyskills::resolve_collisions(discovered);
+    let mut out: Vec<_> = discovered.into_values().collect();
+    out.sort_by(|left, right| left.name.cmp(&right.name));
     tracing::debug!(discovered_count = out.len(), "[workflows] discover:exit");
     out
 }

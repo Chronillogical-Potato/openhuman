@@ -8,6 +8,19 @@ use crate::skills::ops_types::WorkflowScope;
 use super::api::load_workflow_metadata_for_profile;
 use super::scan::scan_root;
 
+fn reject_symlink_components(root: &Path, relative_path: &Path) -> Result<(), String> {
+    let mut current = root.to_path_buf();
+    for component in relative_path.components() {
+        current.push(component.as_os_str());
+        let metadata = std::fs::symlink_metadata(&current)
+            .map_err(|error| format!("failed to stat resource {}: {error}", current.display()))?;
+        if metadata.file_type().is_symlink() {
+            return Err("resource path is a symlink".to_owned());
+        }
+    }
+    Ok(())
+}
+
 pub fn read_workflow_resource(
     workspace_dir: &Path,
     skill_id: &str,
@@ -40,5 +53,11 @@ pub fn read_workflow_resource_with_profile(
         load_workflow_metadata_for_profile(workspace_dir, profile_skills_root),
         skill_id,
     )?;
+    let root = skill
+        .location
+        .as_deref()
+        .and_then(Path::parent)
+        .ok_or_else(|| format!("skill '{skill_id}' has no on-disk location"))?;
+    reject_symlink_components(root, relative_path)?;
     tinyskills::read_resource(&skill, relative_path)
 }
