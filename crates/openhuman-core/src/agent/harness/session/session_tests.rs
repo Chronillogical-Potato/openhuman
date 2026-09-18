@@ -16,8 +16,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::Arc;
-use tinyinference::message::Message;
-use tinyinference::model::{
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 
@@ -37,7 +37,7 @@ impl ChatModel<()> for MockProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let mut guard = self.responses.lock();
         let response = if guard.is_empty() {
             ChatResponse {
@@ -56,7 +56,7 @@ impl ChatModel<()> for MockProvider {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
         Ok(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
@@ -93,7 +93,7 @@ impl ChatModel<()> for RecordingProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let system_prompt = request.messages.iter().find_map(|message| match message {
             Message::System(_) => Some(message.text()),
             _ => None,
@@ -121,7 +121,7 @@ impl ChatModel<()> for RecordingProvider {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
         Ok(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,

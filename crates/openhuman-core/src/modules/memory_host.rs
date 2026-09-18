@@ -39,7 +39,7 @@ use crate::core::bus::BUS;
 use std::sync::Arc;
 use tinybus::ObjectPath;
 use tinyconnectors_bus::{ComposioConnection, ComposioExecuteResponse};
-use tinyinference::model::{ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ModelRequest, ModelResponse};
 use tinymemory_api::host::{MemoryEvent, SpacyResponse};
 
 const EMBEDDING_NAME: &str = "ai.tinyhumans.tinymemory.EmbeddingHost";
@@ -63,7 +63,7 @@ impl EmbeddingCallbacks {
         dimensions: usize,
         texts: Vec<String>,
     ) -> tinybus::Result<Vec<Vec<f32>>> {
-        let api_key = crate::inference::embeddings::resolve_api_key(&self.0, &provider);
+        let api_key = crate::inference::embedding_host::resolve_api_key(&self.0, &provider);
         let endpoint = self
             .0
             .cloud_providers
@@ -71,7 +71,7 @@ impl EmbeddingCallbacks {
             .find(|candidate| candidate.slug == provider)
             .map(|candidate| candidate.endpoint.as_str())
             .filter(|endpoint| !endpoint.is_empty());
-        let embedder = crate::inference::embeddings::create_embedding_provider_with_config(
+        let embedder = crate::inference::embedding_host::create_embedding_provider_with_config(
             &self.0, &provider, &model, dimensions, &api_key, endpoint,
         )
         .map_err(method_error)?;
@@ -129,7 +129,7 @@ impl ChatCallbacks {
 fn resolve_chat_model(
     role: &str,
     config: &Config,
-) -> anyhow::Result<std::sync::Arc<dyn tinyinference::model::ChatModel<()>>> {
+) -> anyhow::Result<std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>> {
     if role == "summarization" {
         let (model, _) = crate::memory::tree::tree_runtime::ops::create_provider(config)
             .map_err(anyhow::Error::msg)?;

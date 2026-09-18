@@ -189,7 +189,7 @@ pub mod always_on {
 }
 
 // ---------------------------------------------------------------------------
-// streaming::handle_dictation_ws (re-exported from inference::voice in real)
+// streaming::handle_dictation_ws (provided by the real voice host adapter)
 // ---------------------------------------------------------------------------
 
 // axum-only, and its sole caller (`core::jsonrpc::dictation_ws_handler`) is
@@ -267,7 +267,7 @@ pub mod reply_speech {
 
 // ---------------------------------------------------------------------------
 // cloud_transcribe::{transcribe_cloud, CloudTranscribeOptions, ...}
-// (re-exported from inference::voice in the real build)
+// (provided by the real voice host adapter)
 // ---------------------------------------------------------------------------
 
 pub mod cloud_transcribe {

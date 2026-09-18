@@ -66,8 +66,9 @@ pub async fn start_credential_gated_services(config: &Config) {
                 if config.local_ai.runtime_enabled {
                     let step = std::time::Instant::now();
                     log::debug!("[services] local AI bootstrap starting");
-                    crate::inference::local::global(&config)
-                        .bootstrap(&config)
+                    let runtime = crate::inference::local_runtime_config(&config);
+                    crate::inference::host_runtime::global(&config)
+                        .bootstrap(&runtime)
                         .await;
                     log::debug!(
                         "[services] local AI bootstrapped after login ({} ms)",
@@ -157,8 +158,9 @@ pub async fn stop_credential_gated_services(config: &Config) {
     //    (it may be serving other clients or mid-download), but we clear
     //    the internal state so it re-bootstraps on next login.
     if config.local_ai.runtime_enabled {
-        let service = crate::inference::local::global(config);
-        service.reset_to_idle(config);
+        let service = crate::inference::host_runtime::global(config);
+        let runtime = crate::inference::local_runtime_config(config);
+        service.reset_to_idle(&runtime);
         log::info!("[services] local AI reset to idle on logout");
     }
 

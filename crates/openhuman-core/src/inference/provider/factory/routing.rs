@@ -102,7 +102,7 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         // visible in logs and support transcripts before anything goes wrong.
         if fallback_diagnostics::role_falls_back_to_cloud(role) {
             if let Some(chat) = config.chat_provider.as_deref() {
-                if crate::inference::local::profile::is_local_provider_string(chat) {
+                if tinyinference_local::profile::is_local_provider_string(chat) {
                     log::info!(
                         "[providers][local-fallback] role={} {}",
                         role,
@@ -155,8 +155,8 @@ pub(super) fn route_has_usable_credentials(resolved: &str, config: &Config) -> b
     let r = resolved.trim();
     // Local runtimes (ollama/lmstudio/mlx/local-openai) and the local CLI
     // delegates carry their own credentials / run on-device.
-    if crate::inference::local::profile::is_local_provider_string(r)
-        || r.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+    if tinyinference_local::profile::is_local_provider_string(r)
+        || r.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
         || r == CLAUDE_AGENT_SDK_PROVIDER
         || r.starts_with(CLAUDE_AGENT_SDK_PREFIX)
     {

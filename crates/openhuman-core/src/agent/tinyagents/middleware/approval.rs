@@ -9,7 +9,7 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
 use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use crate::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,

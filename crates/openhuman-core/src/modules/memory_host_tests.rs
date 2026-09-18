@@ -345,13 +345,13 @@ async fn embed_takes_its_four_arguments_in_the_order_the_module_sends_them() {
 struct StubModel;
 
 #[async_trait::async_trait]
-impl tinyinference::model::ChatModel<()> for StubModel {
+impl tinyinference_llm::model::ChatModel<()> for StubModel {
     async fn invoke(
         &self,
         _state: &(),
-        _request: tinyinference::model::ModelRequest,
-    ) -> tinyinference::Result<tinyinference::model::ModelResponse> {
-        Ok(tinyinference::model::ModelResponse::assistant("stub"))
+        _request: tinyinference_llm::model::ModelRequest,
+    ) -> tinyinference_llm::Result<tinyinference_llm::model::ModelResponse> {
+        Ok(tinyinference_llm::model::ModelResponse::assistant("stub"))
     }
 }
 

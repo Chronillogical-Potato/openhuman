@@ -29,7 +29,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyinference::message::Message as TaMessage;
+use tinyinference_llm::message::Message as TaMessage;
 
 use crate::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::core::bus::BUS;

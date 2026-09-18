@@ -1,4 +1,7 @@
 use super::*;
+use tinyinference_llm::catalog::{
+    merge_openai_codex_model_hints, parse_models_response, ModelInfo,
+};
 
 #[tokio::test]
 async fn list_models_empty_body_returns_diagnostic_error() {
@@ -90,6 +93,7 @@ fn parse_models_response_distinguishes_missing_data_field_from_wrong_type() {
     // OpenAI-compatible `data`.
     let body = serde_json::json!({ "object": "list", "items": [] });
     let err = parse_models_response(&body).expect_err("no model catalog field must fail");
+    let err = err.to_string();
     assert!(
         err.contains("missing `data` or `models` field"),
         "no-data error should say `missing`: {err}"
@@ -116,6 +120,7 @@ fn parse_models_response_distinguishes_missing_data_field_from_wrong_type() {
     ] {
         let body = serde_json::json!({ "object": "list", "data": value });
         let err = parse_models_response(&body).expect_err("wrong-type data must fail");
+        let err = err.to_string();
         assert!(
             !err.contains("missing"),
             "wrong-type error must not say `missing` ({label}): {err}"
@@ -178,6 +183,7 @@ fn parse_models_response_rejects_null_data_on_error_envelope() {
             ),
             Err(err) => err,
         };
+        let err = err.to_string();
         assert!(
             !err.contains("missing"),
             "error-envelope null `{field}` must not say `missing`: {err}"
@@ -285,7 +291,7 @@ fn parse_models_response_handles_non_object_body() {
         let err = parse_models_response(&body)
             .expect_err("non-object body must fail with a clear message");
         assert!(
-            !err.is_empty(),
+            !err.to_string().is_empty(),
             "non-object body error must be non-empty: {err}"
         );
     }
@@ -554,7 +560,7 @@ async fn publish_backend_session_expired_emits_sanitized_session_expired() {
 #[test]
 fn synthesize_local_runtime_entry_ollama_respects_config_base_url() {
     // The synth must honor `config.local_ai.base_url` (the same
-    // priority `ollama_base_url_from_config` uses for chat routing).
+    // priority `ollama_base_url_from_override` uses for chat routing).
     // This is the path users hit when they point Ollama at a non-loopback
     // host (e.g. a LAN box at 192.168.1.5).
     let mut config = Config::default();

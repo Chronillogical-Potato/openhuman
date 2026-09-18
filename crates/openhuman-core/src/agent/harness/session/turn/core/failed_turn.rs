@@ -9,7 +9,7 @@ use crate::agent::tinyagents::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink,
 };
 use anyhow::Result;
-use tinyinference::message::Message;
+use tinyinference_llm::message::Message;
 
 /// Leads the note a failed turn leaves in history, so the model (and a reader
 /// of the transcript) can tell it from a reply.

@@ -75,8 +75,8 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
 async fn create_chat_model_uses_native_test_override() {
     use std::sync::Arc;
     use tinyagents_harness::testkit::ScriptedModel;
-    use tinyinference::message::Message;
-    use tinyinference::model::ModelRequest;
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::ModelRequest;
 
     let _guard = crate::inference::inference_test_guard();
 
@@ -99,8 +99,8 @@ async fn create_chat_model_uses_native_test_override() {
 async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() {
     use async_trait::async_trait;
     use std::sync::{Arc, Mutex};
-    use tinyinference::message::Message;
-    use tinyinference::model::{ModelRequest, ModelResponse};
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::{ModelRequest, ModelResponse};
 
     struct TemperatureProbe {
         seen: Arc<Mutex<Vec<Option<f64>>>>,
@@ -112,7 +112,7 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
             &self,
             _state: &(),
             request: ModelRequest,
-        ) -> tinyinference::Result<ModelResponse> {
+        ) -> tinyinference_llm::Result<ModelResponse> {
             self.seen
                 .lock()
                 .expect("probe lock")

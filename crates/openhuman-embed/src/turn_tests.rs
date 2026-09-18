@@ -14,7 +14,7 @@ use serde_json::json;
 /// controller it is sent to.
 #[test]
 fn turn_request_field_names_match_the_controller() {
-    let schema = openhuman_core::inference::local::all_local_inference_controller_schemas()
+    let schema = openhuman_core::inference::host_runtime::all_local_inference_controller_schemas()
         .into_iter()
         .find(|s| s.namespace == "inference" && s.function == "agent_chat")
         .expect("inference.agent_chat is a registered controller");

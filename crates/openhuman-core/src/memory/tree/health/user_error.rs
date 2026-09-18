@@ -168,14 +168,7 @@ pub(crate) fn notice_local_model_unavailable_once(origin: &str) {
 /// typed error is no longer available.
 pub(crate) fn is_local_embedding_error(message: &str) -> bool {
     let msg = message.to_ascii_lowercase();
-    // 1. The daemon is not listening.
-    msg.contains("is ollama running at")
-        // 2. The embedding model was never pulled: Ollama answers 404.
-        || msg.contains("ollama embed failed with status 404")
-        // 3. The chat/summarisation model was never pulled. Matched on
-        //    "ollama" rather than the exact noun phrase so a future reword
-        //    between "Ollama model" and "Ollama embedding model" still lands.
-        || (msg.contains("is not installed at") && msg.contains("ollama"))
+    tinyinference_embeddings::probe::is_local_embedding_unavailable(&msg)
 }
 
 /// host-side fallback for paths that only ever see text.

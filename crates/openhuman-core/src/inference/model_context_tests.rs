@@ -1,44 +1,4 @@
 use super::*;
-use crate::inference::local::profile::LocalProviderKind;
-
-#[test]
-fn local_fallback_uses_profile_default() {
-    // Unknown model with Ollama profile → 8192 default
-    assert_eq!(
-        context_window_for_model_with_local_fallback("qwen3:14b", Some(LocalProviderKind::Ollama)),
-        Some(8_192)
-    );
-    // Unknown model with MLX profile → 4096 default
-    assert_eq!(
-        context_window_for_model_with_local_fallback(
-            "my-custom-model",
-            Some(LocalProviderKind::Mlx)
-        ),
-        Some(4_096)
-    );
-    // Unknown model with no local provider → None
-    assert_eq!(
-        context_window_for_model_with_local_fallback("qwen3:14b", None),
-        None
-    );
-    // Local provider whose profile declares no default (llama.cpp / vLLM via
-    // LocalOpenai) → conservative floor, NOT None. None here would disable
-    // pre-dispatch trimming and let the prompt overflow the runtime n_ctx
-    // (the TAURI-RUST-6V0 400). Must stay bounded.
-    assert_eq!(
-        context_window_for_model_with_local_fallback(
-            "some-unlisted-gguf",
-            Some(LocalProviderKind::LocalOpenai)
-        ),
-        Some(super::CONSERVATIVE_LOCAL_CONTEXT_FLOOR)
-    );
-    // Known model ignores local fallback
-    assert_eq!(
-        context_window_for_model_with_local_fallback("llama3:8b", Some(LocalProviderKind::Ollama)),
-        Some(128_000)
-    );
-}
-
 #[test]
 fn tier_aliases_resolve() {
     assert_eq!(context_window_for_model("reasoning-v1"), Some(1_000_000));

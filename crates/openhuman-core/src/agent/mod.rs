@@ -49,7 +49,7 @@ pub mod progress;
 /// Task-local [`progress::AgentProgress`] sink — how an in-process embedder
 /// observes a turn driven through an RPC that returns only a final string.
 /// Same shape as [`turn_origin`]; read by entry points that build the
-/// [`Agent`] internally (`inference::local::ops::agent_chat`).
+/// [`Agent`] internally (`inference::host_runtime::ops::agent_chat`).
 pub mod progress_sink;
 /// Structured tracing export off the [`progress`] channel: turns the
 /// real-time [`progress::AgentProgress`] stream into OpenTelemetry/

@@ -3,7 +3,7 @@ use super::{SpanKind, SpanStatus, TraceContext};
 use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::ids::{CallId, EventId, RunId};
 use tinyagents_harness::observability::AgentObservation;
-use tinyinference::usage::Usage;
+use tinyinference_llm::usage::Usage;
 
 /// Wraps an event as a journalled observation stamped at `ts`.
 fn obs(offset: u64, ts: u64, event: AgentEvent) -> AgentObservation {

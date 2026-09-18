@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::Message as TaMessage;
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::message::Message as TaMessage;
+use tinyinference_llm::model::ModelRequest;
 
 use super::message_trim::estimate_text_tokens;
 

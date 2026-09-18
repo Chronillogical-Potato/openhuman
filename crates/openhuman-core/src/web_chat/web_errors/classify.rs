@@ -259,7 +259,7 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
             provider: None,
             fallback_available: None,
         }
-    } else if crate::inference::provider::is_chat_template_rejection_message(err) {
+    } else if tinyinference_llm::providers::openai::is_chat_template_rejection_message(err) {
         // #5291: a local runtime (LM Studio / llama.cpp / Ollama) rendered the
         // request through the model's OWN Jinja chat template and the template
         // raised — `No user query found in messages.` on Qwen 3, against the
@@ -424,7 +424,7 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
             provider,
             fallback_available: None,
         }
-    } else if crate::inference::provider::is_provider_config_rejection_message(err) {
+    } else if tinyinference_providers::is_provider_config_rejection_message(err) {
         // #2079 / #2076 / #2202: an OpenHuman abstract tier alias leaked to
         // a custom provider, a stale model pin, or a model-specific
         // temperature constraint. Checked BEFORE the generic

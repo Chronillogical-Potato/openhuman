@@ -15,7 +15,7 @@ This is deliberate scoping. The previous design tried to put every modality on-d
 
 | Workload                  | Default model                     | Implementation                                                                                                                 |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built in `crates/openhuman-core/src/inference/embeddings/factory.rs` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
+| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built by `crates/tinyinference-embeddings/src/factory.rs` in `vendor/tinyagents/vendor/tinyinference` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
 | **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `crates/tinymemory-core/src/tree/summarise.rs` in `vendor/tinymemory` - source / topic / global summary builders for the Memory Tree.      |
 | **Learning / reflection** | small chat model                  | `crates/openhuman-core/src/agent/learning/reflection.rs` - passes that consolidate what was learned.                                       |
 | **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `crates/openhuman-core/src/inference/provider/factory/routing.rs` handles hint routing.        |
@@ -30,7 +30,7 @@ Each of these is an explicit opt-in. Turning on local AI does not silently route
 | **Chat**       | Frontier reasoning quality unless `chat_provider` is explicitly set to a local provider.       |
 | **Reasoning**  | Stronger multi-step quality unless `reasoning_provider` is explicitly set to a local provider. |
 | **Vision**     | Same, unless `vision_provider` points at a local vision-capable model. See below.              |
-| **STT**        | Backend-proxied transcription (`crates/openhuman-core/src/inference/voice/cloud_transcribe.rs`). There is no local STT engine. |
+| **STT**        | Backend-proxied transcription through `tinyinference-voice`, with authentication bound in `crates/openhuman-core/src/voice/cloud_transcribe.rs`. There is no local STT engine. |
 | **TTS**        | Hosted [text-to-speech](../native-tools/voice.md) under the hood (`reply_speech.rs`).          |
 | **Web search** | Backend proxy (no API key on your machine).                                                    |
 

@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::{ContentBlock, Message as TaMessage};
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
+use tinyinference_llm::model::ModelRequest;
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
 
@@ -129,7 +129,7 @@ impl Middleware<()> for FinalCallWrapUpMiddleware {
              turn's conclusion"
         );
         request.tools.clear();
-        request.tool_choice = tinyinference::model::ToolChoice::None;
+        request.tool_choice = tinyinference_llm::model::ToolChoice::None;
         // Give the concluding call back the results microcompact blanked.
         //
         // `MicrocompactMiddleware` replaces every tool-result body past the

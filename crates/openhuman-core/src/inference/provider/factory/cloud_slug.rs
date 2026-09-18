@@ -2,13 +2,17 @@
 //! abstract-tier remapping, credentials, codex routing) and the crate-native builders.
 
 use super::*;
-use crate::inference::provider::crate_anthropic;
-use crate::inference::provider::crate_openai;
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_backend_session_active;
 #[cfg(not(test))]
 use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
+use tinyinference_llm::providers::anthropic::{
+    build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
+};
+use tinyinference_llm::providers::openai::{
+    build_openai_model, endpoint_is_openrouter, OpenAiConfig,
+};
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
 /// The shared resolution for a `<slug>:<model>` cloud provider — the cloud
@@ -19,7 +23,7 @@ pub(super) struct CloudSlugResolution<'a> {
     entry: &'a crate::config::schema::cloud_providers::CloudProviderCreds,
     effective_model: String,
     key: String,
-    codex: crate::inference::provider::openai_codex::OpenAiCodexRouting,
+    codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
 }
 
 pub(super) fn resolve_cloud_slug<'a>(
@@ -130,7 +134,7 @@ pub(super) fn resolve_cloud_slug<'a>(
         config
             .chat_provider
             .as_deref()
-            .filter(|chat| crate::inference::local::profile::is_local_provider_string(chat))
+            .filter(|chat| tinyinference_local::profile::is_local_provider_string(chat))
     } else {
         None
     };
@@ -256,7 +260,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         || p == BYOK_INCOMPLETE_SENTINEL
         || p == CLAUDE_AGENT_SDK_PROVIDER
         || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
-        || p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+        || p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
     {
         return None;
     }
@@ -314,7 +318,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
             // places `cache_control` breakpoints. Text mode (prompt-guided
             // tools) is only implemented on the Chat Completions adapter, so
             // that rare case keeps the compat path.
-            if native_tool_calling && crate_anthropic::endpoint_is_anthropic_messages(&endpoint) {
+            if native_tool_calling && endpoint_is_anthropic_messages(&endpoint) {
                 crate::security::egress::emit_external_transfer(
                     crate::security::egress::EgressDescriptor::inference(
                         &slug,
@@ -322,17 +326,15 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
                         true,
                     ),
                 );
-                let chat = crate_anthropic::build_crate_anthropic_model(
-                    crate_anthropic::CrateAnthropicConfig {
-                        endpoint: endpoint.as_str(),
-                        api_key: key.as_str(),
-                        model: effective_model.as_str(),
-                        temperature_override,
-                        temperature_unsupported_models: config
-                            .temperature_unsupported_models
-                            .as_slice(),
-                    },
-                );
+                let chat = build_anthropic_model(AnthropicConfig {
+                    endpoint: endpoint.as_str(),
+                    api_key: key.as_str(),
+                    model: effective_model.as_str(),
+                    temperature_override,
+                    temperature_unsupported_models: config
+                        .temperature_unsupported_models
+                        .as_slice(),
+                });
                 return Some(Ok((chat, effective_model)));
             }
             log::debug!(
@@ -373,7 +375,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
                     OPENAI_CODEX_ORIGINATOR_HEADER.to_string(),
                     OPENAI_CODEX_ORIGINATOR.to_string(),
                 ));
-                user_agent = Some(openai_codex_user_agent());
+                user_agent = Some(openai_codex_user_agent(
+                    "OpenHuman",
+                    env!("CARGO_PKG_VERSION"),
+                ));
                 extra_query_params
                     .push(("client_version".to_string(), openai_codex_client_version()));
                 responses_api_primary = true;
@@ -392,7 +397,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     );
 
     let unsupported = config.temperature_unsupported_models.clone();
-    let chat = crate_openai::build_crate_openai_model(crate_openai::CrateOpenAiConfig {
+    let chat = build_openai_model(OpenAiConfig {
         provider_name: slug.as_str(),
         endpoint: endpoint.as_str(),
         api_key: key.as_str(),
@@ -415,7 +420,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         // and Gemini, which cache nothing through a Chat Completions relay
         // without them; hosted OpenAI rejects unknown part fields, so the
         // flag is keyed on the relay, not on by default.
-        explicit_cache_control: crate_openai::endpoint_is_openrouter(&endpoint),
+        explicit_cache_control: endpoint_is_openrouter(&endpoint),
     });
     Some(Ok((chat, effective_model)))
 }

@@ -233,7 +233,7 @@ fn agentic_route_is_neither_donor_nor_beneficiary() {
 
 #[test]
 fn local_provider_string_detection() {
-    use crate::inference::local::profile::is_local_provider_string;
+    use tinyinference_local::profile::is_local_provider_string;
     assert!(is_local_provider_string("ollama:phi3"));
     assert!(is_local_provider_string("lmstudio:model"));
     assert!(is_local_provider_string("mlx:llama"));

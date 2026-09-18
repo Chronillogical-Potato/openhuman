@@ -7,7 +7,7 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 /// Delivers tool lifecycle events to hooks installed by an embedding host.
 pub(crate) struct EmbedderToolHooksMiddleware {

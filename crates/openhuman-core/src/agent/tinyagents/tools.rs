@@ -14,7 +14,7 @@ use tinyagents_harness::tool::{
     SandboxMode, Tool, ToolAccess, ToolExecutionContext, ToolPolicy, ToolResult as TaToolResult,
     ToolRuntime, ToolSideEffects, ToolTimeout as TaToolTimeout, WorkspaceAccess,
 };
-use tinyinference::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 use tinytools::ToolRunContext;
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.

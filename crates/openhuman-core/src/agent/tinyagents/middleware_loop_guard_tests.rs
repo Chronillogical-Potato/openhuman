@@ -75,7 +75,7 @@ async fn cost_budget_is_a_noop_without_a_global_tracker() {
 /// must be inert (no panic, `Ok`) when no shadow tracker is installed.
 #[tokio::test]
 async fn cost_budget_shadow_after_agent_never_fails_the_run() {
-    use tinyinference::usage::Usage;
+    use tinyinference_llm::usage::Usage;
 
     // No shadow tracker: after_agent is a silent no-op.
     let plain = CostBudgetMiddleware::new();

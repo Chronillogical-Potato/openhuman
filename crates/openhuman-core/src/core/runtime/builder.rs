@@ -949,12 +949,13 @@ impl CoreRuntime {
         // `ollama serve` openhuman itself spawned (no-op when externally
         // managed) so the next launch doesn't try to reclaim a dead daemon.
         // Bounded so a wedged Ollama can't hold up app shutdown.
-        if let Some(svc) = crate::inference::local::try_global() {
+        if let Some(svc) = crate::inference::host_runtime::try_global() {
             let cfg = crate::config::Config::load_or_init()
                 .await
                 .unwrap_or_default();
+            let runtime = crate::inference::local_runtime_config(&cfg);
             log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
-            let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
+            let shutdown_fut = svc.shutdown_owned_ollama(&runtime);
             if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
                 .await
                 .is_err()

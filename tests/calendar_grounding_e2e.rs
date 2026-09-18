@@ -6,9 +6,9 @@ use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
-use tinyinference::message::{AssistantMessage, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::message::{AssistantMessage, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 struct MockCalendarModel {
     captured_messages: Arc<Mutex<Vec<Message>>>,
@@ -26,7 +26,7 @@ impl ChatModel<()> for MockCalendarModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let mut count = self.iter_count.lock();
         *count += 1;
 

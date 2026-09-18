@@ -2,11 +2,11 @@ use super::*;
 use crate::tools::ToolResult;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tinyinference::message::{AssistantMessage, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::tool::ToolCall;
 
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {
@@ -67,7 +67,7 @@ impl ChatModel<()> for TwoStepProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let n = self.calls.fetch_add(1, Ordering::SeqCst);
         if n == 0 {
             Ok(tool_response("1", "echo", serde_json::json!({"msg": "hi"})))
@@ -145,7 +145,7 @@ impl ChatModel<()> for ThinkingStreamProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant("Hello"))
     }
 
@@ -153,7 +153,7 @@ impl ChatModel<()> for ThinkingStreamProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let response = ModelResponse::assistant("Hello");
         Ok(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
@@ -286,7 +286,7 @@ impl ChatModel<()> for AskThenAnswer {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let n = self.calls.fetch_add(1, Ordering::SeqCst);
         if n == 0 {
             Ok(tool_response(
@@ -384,7 +384,7 @@ impl ChatModel<()> for LoopForeverProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         if !request.tools.is_empty() {
             Ok(tool_response("n", "noop", serde_json::json!({})))
         } else {
@@ -535,7 +535,7 @@ impl ChatModel<()> for SpawnAttemptProvider {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
             Ok(tool_response("1", "spawn_subagent", serde_json::json!({})))
         } else {

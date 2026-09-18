@@ -17,12 +17,12 @@ use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::{ToolCall, ToolDelta};
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::{ToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 
 #[derive(Clone, Debug)]
 struct CapturedTurn {
@@ -80,12 +80,12 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.capture(request);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
         self.capture(request);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
@@ -103,16 +103,16 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
         if let Some(message) = &self.always_fail {
-            return Err(tinyinference::Error::Model(message.clone()));
+            return Err(tinyinference_llm::Error::Model(message.clone()));
         }
         self.responses
             .lock()
             .unwrap()
             .pop_front()
             .unwrap_or_else(|| Ok(ModelResponse::assistant("")))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
