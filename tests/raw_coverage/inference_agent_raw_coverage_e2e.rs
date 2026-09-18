@@ -135,9 +135,12 @@ use openhuman_core::inference::provider::factory::{
 };
 use openhuman_core::inference::provider::OpenHumanBackendModel;
 use openhuman_core::inference::provider::{
-    format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
-    is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
+    is_openai_compatible_unknown_model_message, is_provider_config_rejection_message,
 };
+use tinyinference_core::sanitize::{
+    format_anyhow_chain, sanitize_api_error, scrub_secret_patterns,
+};
+use tinyinference_llm::classification::is_budget_exhausted_message;
 use openhuman_core::inference::provider::{
     ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
@@ -154,8 +157,8 @@ use openhuman_core::inference::voice::postprocess::cleanup_transcription;
 use openhuman_core::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
     all_local_inference_controller_schemas, all_local_inference_registered_controllers,
-    DeviceProfile,
 };
+use tinyinference_local::device::DeviceProfile;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
 use openhuman_core::agent::profiles::{
     all_profiles_controller_schemas, all_profiles_registered_controllers,

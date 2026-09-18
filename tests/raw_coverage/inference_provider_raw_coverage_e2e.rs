@@ -26,7 +26,8 @@ use openhuman_core::inference::local::LocalAiService;
 use openhuman_core::inference::provider::factory::{
     auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
 };
-use openhuman_core::inference::provider::{list_configured_models, sanitize_api_error};
+use openhuman_core::inference::provider::list_configured_models;
+use tinyinference_core::sanitize::sanitize_api_error;
 
 #[derive(Clone, Default)]
 struct MockState {

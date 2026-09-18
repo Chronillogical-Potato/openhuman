@@ -15,7 +15,6 @@
 #[path = "cloud_adapter.rs"]
 pub mod cloud;
 mod factory;
-pub mod noop;
 mod provider_trait;
 mod rpc;
 mod schemas;
@@ -24,11 +23,9 @@ pub use cloud::{
     OpenHumanCloudEmbedding, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
 };
 pub use factory::{
-    create_embedding_provider, create_embedding_provider_with_config,
-    create_embedding_provider_with_credentials, default_embedding_provider,
-    default_embedding_provider_with_config, default_local_embedding_provider,
+    create_embedding_provider_with_config, create_embedding_provider_with_credentials,
+    default_embedding_provider_with_config,
 };
-pub use noop::NoopEmbedding;
 pub use provider_trait::{
     format_embedding_signature, EmbeddingProvider, TinyAgentsEmbeddingProvider,
 };
@@ -45,36 +42,6 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
-pub use tinyinference_embeddings::catalog;
-pub use tinyinference_embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
-
-/// The **intended** embedding selection — `(provider, model, dimensions)`.
-///
-/// # Why this is the host's and not the engine's
-///
-/// Which embedder the operator meant is selection policy over the host's own
-/// config — the same class of decision as the preference lanes and the event
-/// heuristics before it. The engine kept an identical helper for its internal
-/// pipelines; this host used to reach through the crate for it, which was an
-/// engine link taken on for a ten-line precedence rule (#5560). Ported
-/// verbatim: a configured local model wins over the `[memory]` section, and a
-/// blank local value falls back to the Ollama default rather than shipping
-/// whitespace to a daemon that will 404 it.
-///
-/// Note: this is the *intended* setting. It does not check whether the Ollama
-/// daemon is actually running.
-pub fn effective_embedding_settings(
-    memory: &crate::config::schema::MemoryConfig,
-    local_embedding_model: Option<&str>,
-) -> (String, String, usize) {
-    tinyinference_embeddings::catalog::effective_embedding_settings(
-        &memory.embedding_provider,
-        &memory.embedding_model,
-        memory.embedding_dimensions,
-        local_embedding_model,
-    )
-}
-
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;

@@ -9,7 +9,6 @@ use super::cloud::{
 use super::provider_trait::{EmbeddingProvider, TinyAgentsEmbeddingProvider};
 use crate::config::Config;
 use tinyinference_embeddings::factory::{create_embedding_model, validate_custom_endpoint};
-use tinyinference_embeddings::OllamaEmbeddingModel;
 
 fn standard_provider(
     provider: &str,
@@ -28,40 +27,6 @@ fn standard_provider(
         ollama_base_url,
     )?;
     Ok(Box::new(TinyAgentsEmbeddingProvider::from_boxed(model)))
-}
-
-/// Creates an embedding provider based on the specified name and configuration.
-///
-/// Supported provider names:
-/// - `"managed"` / `"cloud"` → OpenHuman backend (Voyage-backed) — default
-/// - `"voyage"` → direct Voyage AI API (user's own key)
-/// - `"openai"` → OpenAI API (user's own key)
-/// - `"cohere"` → Cohere API (user's own key)
-/// - `"ollama"` → local Ollama server (opt-in for offline-only installs)
-/// - `"custom:<url>"` → OpenAI-compatible endpoint
-/// - `"none"` → no-op (keyword-only search, no embeddings)
-///
-/// Returns an error for unrecognised provider names so configuration
-/// mistakes surface immediately rather than silently degrading to
-/// keyword-only search.
-pub fn create_embedding_provider(
-    provider: &str,
-    model: &str,
-    dims: usize,
-) -> anyhow::Result<Box<dyn EmbeddingProvider>> {
-    match provider {
-        "cloud" | "managed" => Ok(Box::new(OpenHumanCloudEmbedding::new(
-            None, None, true, model, dims,
-        ))),
-        other => standard_provider(
-            other,
-            model,
-            dims,
-            "",
-            other.strip_prefix("custom:"),
-            &tinyinference_local::ollama::ollama_base_url(),
-        ),
-    }
 }
 
 /// Creates an embedding provider with explicit API key and endpoint.
@@ -250,36 +215,6 @@ pub fn default_embedding_provider_with_config(config: &Config) -> Arc<dyn Embedd
         encrypt_secrets,
         DEFAULT_CLOUD_EMBEDDING_MODEL,
         DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
-    ))
-}
-
-/// Returns the default embedding provider — cloud (OpenHuman backend, Voyage).
-///
-/// The cloud embedder lazily resolves the session JWT and API URL on each
-/// call, so this can be constructed before login completes; the first
-/// `embed()` will fail with a clear message if the user is unauthenticated.
-///
-/// **Keyless — prefer [`default_embedding_provider_with_config`].** This hardcodes
-/// `(None, true)` for the credential scope, resolving `default_state_dir()`
-/// (`~/.openhuman` root, or `users/<active>` post-#5427) with encryption forced
-/// on. That reads the wrong store whenever the caller's config disables secret
-/// encryption or roots the workspace/user elsewhere than the process default
-/// (#5356 / #5501). Only callers that genuinely hold no `&Config` should use it.
-pub fn default_embedding_provider() -> Arc<dyn EmbeddingProvider> {
-    Arc::new(OpenHumanCloudEmbedding::new(
-        None,
-        None,
-        true,
-        DEFAULT_CLOUD_EMBEDDING_MODEL,
-        DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
-    ))
-}
-
-/// Returns the local Ollama-backed embedding provider. Only used when the
-/// caller has explicitly opted into local-only embeddings.
-pub fn default_local_embedding_provider() -> Arc<dyn EmbeddingProvider> {
-    Arc::new(TinyAgentsEmbeddingProvider::new(
-        OllamaEmbeddingModel::default(),
     ))
 }
 

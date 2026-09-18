@@ -1,8 +1,6 @@
 use super::*;
-use crate::embeddings::{
-    DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL, DEFAULT_OLLAMA_DIMENSIONS,
-    DEFAULT_OLLAMA_MODEL,
-};
+use crate::embeddings::{DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL};
+use tinyinference_embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
 
 fn config_with_provider(provider: &str, model: &str, dims: usize) -> Config {
     let mut config = Config::default();
