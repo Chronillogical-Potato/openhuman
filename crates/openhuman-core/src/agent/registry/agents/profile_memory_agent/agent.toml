@@ -18,6 +18,7 @@ hint = "agentic"
 
 [tools]
 named = [
+    "memory_recall",
     "memory_store",
     "memory_forget",
     "memory_doctor",

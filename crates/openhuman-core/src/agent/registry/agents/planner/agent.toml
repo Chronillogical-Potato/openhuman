@@ -39,6 +39,7 @@ hint = "reasoning"
 # even though `composio_execute` is on this list. Only `Read`-scoped
 # actions slip past the gate.
 named = [
+    "memory_recall",
     "file_read",
     # NOTE: `agent_prepare_context` is intentionally NOT here. When the planner
     # runs via `delegate_plan` it executes under the orchestrator's

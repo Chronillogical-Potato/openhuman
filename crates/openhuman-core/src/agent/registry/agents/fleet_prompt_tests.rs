@@ -106,6 +106,9 @@ fn can_call(def: &AgentDefinition, tool: &str, universe: &BTreeSet<String>) -> b
             .iter()
             .any(|n| on_belt(def, n) && is_withheld_from(&def.id, n));
     }
+    if crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool(tool) {
+        return false;
+    }
     on_belt(def, tool)
         && !def.disallowed_tools.iter().any(|n| n == tool)
         && !is_withheld_from(&def.id, tool)
@@ -131,7 +134,6 @@ pub(super) fn names_presented_as_callable<'a>(
     text: &str,
     not_callable: impl IntoIterator<Item = &'a str>,
 ) -> Vec<&'a str> {
-    let packed = crate::tools::toolpacks::all_packed_tool_names();
     const HEADING: &str = "## Capabilities not in your tool list";
     let mut prose = match text.find(HEADING) {
         Some(start) => {
@@ -153,9 +155,6 @@ pub(super) fn names_presented_as_callable<'a>(
             prose = prose.replace(&format!("skill `{}`, tool `{name}`", pack.id), "");
         }
     }
-    for name in &packed {
-        prose = prose.replace(&format!("skill `{name}`"), "");
-    }
     not_callable
         .into_iter()
         .filter(|name| prose.contains(&format!("`{name}`")))
@@ -175,11 +174,6 @@ pub(super) fn names_presented_as_callable<'a>(
 const KNOWN_UNCALLABLE: &[(&str, &str, &str)] = &[
     // Real.
     ("*", "shell", "shared `## Workspace` section says \"that is where `shell` runs\" to every agent (`prompts/sections.rs` WorkspaceSection)"),
-    ("planner", "memory_recall", "told to search memory; not on its belt"),
-    ("profile_memory_agent", "memory_recall", "told to read state first; belt has memory_store but no recall"),
-    ("trigger_reactor", "memory_recall", "told to recall prior context; not on its belt"),
-    ("trigger_reactor", "memory_forget", "not on its belt"),
-    ("code_executor", "composio_execute", "a \"hard rule\" routes GitHub ops through a tool not on its belt"),
     ("morning_briefing", "composio_list_connections", "withheld by the `composio` pack"),
     ("morning_briefing", "composio_list_tools", "withheld by the `composio` pack"),
     ("morning_briefing", "composio_execute", "withheld by the `composio` pack"),
@@ -252,7 +246,12 @@ fn every_prompt_names_only_tools_its_agent_can_call() {
 
 /// Agents whose prompt defers to the rendered tool list instead of naming a
 /// tool; [`every_prompt_names_at_least_one_tool_it_can_call`] skips them.
-const NAMES_NO_TOOL: &[&str] = &["critic", "archivist", "skill_setup"];
+const NAMES_NO_TOOL: &[&str] = &["critic", "archivist"];
+
+#[cfg(feature = "skills")]
+const SKILL_SETUP_NAME: Option<&str> = Some("skill_setup");
+#[cfg(not(feature = "skills"))]
+const SKILL_SETUP_NAME: Option<&str> = None;
 
 /// An agent with a belt must be told about at least one tool on it.
 ///
@@ -265,6 +264,7 @@ fn every_prompt_names_at_least_one_tool_it_can_call() {
     let expected: Vec<&str> = NAMES_NO_TOOL
         .iter()
         .copied()
+        .chain(SKILL_SETUP_NAME)
         .filter(|id| defs.iter().any(|d| d.id == *id))
         .collect();
     let silent: Vec<String> = defs

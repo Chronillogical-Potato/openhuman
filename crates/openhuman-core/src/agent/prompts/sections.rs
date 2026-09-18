@@ -496,7 +496,7 @@ impl PromptSection for WorkspaceSection {
         // its real working directory at runtime and keep writes/reads there.
         let mut out = String::from(
             "## Workspace\n\n\
-             Run `pwd` to confirm your working directory — that is where `shell` runs and \
+             Run `pwd` to confirm your working directory — that is where commands run and \
              where every file tool resolves a relative path. Create files in that \
              directory and read them back from the same place (use the relative path, or \
              confirm the absolute path with `pwd`). Writes and reads outside your granted \
