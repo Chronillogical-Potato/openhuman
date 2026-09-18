@@ -21,7 +21,19 @@ Capability {
         description: "Install a workflow into the local workspace.",
         how_to: "Intelligence > Workflows > Install",
         status: CapabilityStatus::Stable,
-        privacy: None,
+        // Installing fetches the skill's SKILL.md from where it is published:
+        // registry skills from ClawHub or GitHub, others from the URL given.
+        // The request names the skill; no user content is sent.
+        privacy: Some(CapabilityPrivacy {
+            leaves_device: true,
+            data_kind: PrivacyDataKind::Metadata,
+            destinations: &[
+                "ClawHub (clawhub.ai)",
+                "GitHub (raw.githubusercontent.com, api.github.com)",
+                "Hermes skill catalog (hermes-agent.nousresearch.com)",
+                "The host of a SKILL.md URL you install from",
+            ],
+        }),
     },
 Capability {
         id: "workflows.configure",

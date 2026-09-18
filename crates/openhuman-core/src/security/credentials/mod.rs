@@ -1,10 +1,11 @@
 //! Credential management for app session and provider auth profiles.
 
+pub mod api_key;
 pub mod bus;
-pub mod cli;
 mod core;
 pub mod credential_ref;
 pub mod http_creds;
+pub mod identity;
 pub mod ops;
 pub mod profiles;
 pub mod responses;
@@ -14,8 +15,8 @@ pub mod session_support;
 pub mod tools;
 
 pub use crate::api::rest::{
-    decrypt_handoff_blob, user_id_from_auth_me_payload, user_id_from_profile_payload,
-    BackendOAuthClient, ConnectResponse, IntegrationSummary, IntegrationTokensHandoff,
+    decrypt_handoff_blob, user_id_from_profile_payload, BackendOAuthClient, ConnectResponse,
+    IntegrationSummary, IntegrationTokensHandoff,
 };
 pub use core::*;
 pub use credential_ref::{CredentialRef, CredentialRefError, CredentialRefScheme, ResolvedSecret};

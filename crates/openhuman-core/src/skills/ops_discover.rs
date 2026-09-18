@@ -23,8 +23,9 @@ use collision::precedence;
 use std::path::Path;
 
 pub use api::{
-    discover_automations, discover_workflows, discover_workflows_with_profile, init_workflows_dir,
-    is_workspace_trusted, load_workflow_metadata, load_workflow_metadata_for_profile,
+    discover_automations, discover_workflows, discover_workflows_with_profile, discovery_home_dir,
+    init_workflows_dir, is_workspace_trusted, load_workflow_metadata,
+    load_workflow_metadata_for_profile,
 };
 pub use resource::{
     profile_local_skill_ids, read_workflow_resource, read_workflow_resource_with_profile,

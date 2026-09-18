@@ -2,11 +2,11 @@
 //!
 //! Use [`crate::api::config`] for default base URL and env normalization,
 //! [`crate::api::jwt`] for session token retrieval and bearer formatting,
-//! [`crate::api::rest`] for authenticated REST calls (`/auth/...`, `GET /auth/me`, etc.),
+//! [`crate::api::rest`] for authenticated (bearer-only) REST calls,
 //! [`crate::api::product`] for the `x-sdk-name` product identity every
 //! backend-bound request carries,
 //! and [`crate::api::socket`] for Socket.IO WebSocket URLs.
-//! [`crate::api::models`] holds shared DTOs for auth and realtime (server-adjacent).
+//! [`crate::api::models`] holds shared DTOs for realtime (server-adjacent).
 
 pub mod config;
 pub mod jwt;
@@ -25,8 +25,7 @@ pub use product::{
     ProductIdentity, DEFAULT_PRODUCT_IDENTITY, PRODUCT_IDENTITY_HEADER,
 };
 pub use rest::{
-    decrypt_handoff_blob, flatten_authed_error, user_id_from_auth_me_payload,
-    user_id_from_profile_payload, BackendApiError, BackendOAuthClient, ConnectResponse,
-    IntegrationSummary, IntegrationTokensHandoff,
+    decrypt_handoff_blob, flatten_authed_error, user_id_from_profile_payload, BackendApiError,
+    BackendOAuthClient, ConnectResponse, IntegrationSummary, IntegrationTokensHandoff,
 };
 pub use socket::websocket_url;

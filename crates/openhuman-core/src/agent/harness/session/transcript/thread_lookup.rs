@@ -21,6 +21,40 @@ pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) ->
     find_root_transcripts_for_thread(workspace_dir, thread_id).pop()
 }
 
+/// [`find_root_transcript_for_thread`], additionally scoped to `agent_id`
+/// when given.
+///
+/// Plain thread-id matching is ambiguous when several distinct agents can be
+/// given the same caller-supplied `thread_id` — every runtime agent on one
+/// [`Runtime`](openhuman_embed's library host) shares the same
+/// `session_raw*` stores, keyed only by thread id in `_meta.thread_id`. Two
+/// agents handed the same id would otherwise resolve to whichever one wrote
+/// the newest matching transcript, splicing agent B's history (and its
+/// caller's data) into agent A's turn. `agent_id` filters on
+/// `_meta.agent_id`, the agent definition id written at turn time, so the
+/// resume this seeds only ever pulls from the calling agent's own history.
+///
+/// `agent_id: None` is the pre-existing unscoped behaviour — used for the
+/// desktop orchestrator, where a `thread_id` is only ever driven by one
+/// logical agent even across a Quick/Reasoning profile switch (#5351).
+pub fn find_root_transcript_for_thread_scoped(
+    workspace_dir: &Path,
+    thread_id: &str,
+    agent_id: Option<&str>,
+) -> Option<PathBuf> {
+    let mut matches = find_root_transcripts_for_thread(workspace_dir, thread_id);
+    if let Some(agent_id) = agent_id {
+        matches.retain(|path| {
+            read_transcript(path)
+                .ok()
+                .and_then(|transcript| transcript.meta.agent_id)
+                .as_deref()
+                == Some(agent_id)
+        });
+    }
+    matches.pop()
+}
+
 pub fn find_root_transcripts_for_thread(workspace_dir: &Path, thread_id: &str) -> Vec<PathBuf> {
     let mut matches = Vec::new();
     for raw_dir in raw_session_dirs(workspace_dir) {

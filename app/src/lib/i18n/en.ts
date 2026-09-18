@@ -631,6 +631,9 @@ const en: TranslationMap = {
   'skills.explorer.installed': 'Installed',
   'skills.explorer.install': 'Install',
   'skills.explorer.installing': 'Installing…',
+  'skills.explorer.notInstallable': 'Not installable',
+  'skills.explorer.notInstallableHint':
+    'This entry has no SKILL.md to download, so it cannot be installed from here.',
   'skills.integrations': 'Composio Integrations',
   'skills.integrationsSubtitle':
     'Cloud-based OAuth connections: sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
@@ -3848,6 +3851,12 @@ const en: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Something went wrong with this action.',
   'conversations.toolFailure.unknown.next':
     'Try again; if it keeps failing, run diagnostics from Settings.',
+  'conversations.toolFailure.notFound.cause':
+    "What this action asked for doesn't exist or isn't available here.",
+  'conversations.toolFailure.notFound.next':
+    'No action needed. The assistant can look up the right name and try again.',
+  'conversations.toolFailure.unsupported.cause': "OpenHuman can't do this automatically yet.",
+  'conversations.toolFailure.unsupported.next': 'Do it manually, or ask for a different option.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',

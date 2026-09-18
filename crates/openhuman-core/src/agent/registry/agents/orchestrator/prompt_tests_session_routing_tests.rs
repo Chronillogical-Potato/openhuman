@@ -155,3 +155,112 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
          workflow_builder's delegate_name, or the rule names a tool nobody has"
     );
 }
+
+/// #6302: the hand-off the skills and MCP sections name is the call this
+/// session can make right now: direct when it is on the belt, the `use_skill`
+/// form when a pack holds it, and nothing when the agent has no route.
+#[cfg(all(feature = "mcp", feature = "skills"))]
+#[test]
+fn skill_and_mcp_sections_name_the_hand_off_this_session_can_call() {
+    crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("builtin agent definitions must load");
+    let belt: HashSet<String> = [
+        "setup_skills",
+        "run_skill",
+        "use_mcp_server",
+        "research",
+        "use_skill",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut ctx = ctx_with(&[]);
+    ctx.agent_id = "orchestrator";
+    ctx.visible_tool_names = &belt;
+
+    assert_eq!(
+        hand_off_route(&ctx, "skill_setup").as_deref(),
+        Some("`setup_skills`")
+    );
+    assert_eq!(
+        hand_off_route(&ctx, "skill_executor").as_deref(),
+        Some("`run_skill`")
+    );
+    assert_eq!(
+        hand_off_route(&ctx, "mcp_agent").as_deref(),
+        Some("`use_mcp_server`")
+    );
+    // Listed but held by a pack: name the call that actually reaches it.
+    assert_eq!(
+        hand_off_route(&ctx, "crypto_agent").as_deref(),
+        Some("`use_skill { \"skill\": \"crypto\", \"tool\": \"do_crypto\" }`")
+    );
+    // Not in the orchestrator's allowlist: no route, so name nothing.
+    assert_eq!(hand_off_route(&ctx, "context_scout"), None);
+
+    // The generated withheld block no longer lists the unpacked hand-offs.
+    let block = render_withheld_specialists(&ctx);
+    for handoff in [
+        "setup_skills",
+        "run_skill",
+        "use_mcp_server",
+        "setup_mcp_server",
+    ] {
+        assert!(
+            !block.contains(handoff),
+            "`{handoff}` is a direct tool and must not be listed as withheld:\n{block}"
+        );
+    }
+
+    // A packed route needs `use_skill` on the belt. A session filtered down to
+    // neither the delegate nor `use_skill` cannot reach the specialist at all,
+    // and naming a call it cannot make is the bug, not the fix.
+    let no_use_skill: HashSet<String> = ["setup_skills", "research"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    ctx.visible_tool_names = &no_use_skill;
+    assert_eq!(
+        hand_off_route(&ctx, "crypto_agent"),
+        None,
+        "without `use_skill` there is no packed route to name"
+    );
+    assert_eq!(
+        hand_off_route(&ctx, "skill_setup").as_deref(),
+        Some("`setup_skills`"),
+        "a delegate on the belt is still a direct route"
+    );
+}
+
+/// A row `prompt.md` tags for a family this build lacks must not reach the
+/// model, and the tag itself never does.
+#[test]
+fn a_route_tagged_prompt_row_is_dropped_when_its_family_is_absent() {
+    let md = "keep me\n   - Skills row<!--route:skills-->\n   - MCP row<!--route:mcp-->\ntail";
+
+    let both = strip_route_lines(md, true, true);
+    assert!(
+        both.contains("Skills row") && both.contains("MCP row"),
+        "both rows survive when both families are present: {both}"
+    );
+    assert!(
+        !both.contains("<!--route:"),
+        "the tag is an authoring marker and must never reach the model: {both}"
+    );
+
+    let neither = strip_route_lines(md, false, false);
+    assert!(
+        !neither.contains("Skills row") && !neither.contains("MCP row"),
+        "a row whose family is compiled out must be dropped: {neither}"
+    );
+    assert!(
+        neither.contains("keep me") && neither.contains("tail"),
+        "untagged prose is untouched: {neither}"
+    );
+
+    let skills_only = strip_route_lines(md, true, false);
+    assert!(
+        skills_only.contains("Skills row") && !skills_only.contains("MCP row"),
+        "each tag is decided on its own: {skills_only}"
+    );
+}

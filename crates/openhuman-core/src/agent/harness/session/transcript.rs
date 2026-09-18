@@ -120,13 +120,15 @@ pub use legacy_md::read_transcript_legacy_md;
 pub(crate) use metadata::attach_tool_failure_metadata;
 #[cfg(test)]
 pub(crate) use metadata::attach_turn_usage_metadata;
+pub(crate) use metadata::mark_replayed_if_unmarked;
 pub use paths::{
     find_latest_transcript_in_subdir, resolve_keyed_transcript_path,
     resolve_keyed_transcript_path_in_dir,
 };
 pub use reader::{read_transcript, read_transcript_display};
 pub use thread_lookup::{
-    find_root_transcript_for_thread, find_root_transcripts_for_thread, read_thread_usage_summary,
+    find_root_transcript_for_thread, find_root_transcript_for_thread_scoped,
+    find_root_transcripts_for_thread, read_thread_usage_summary,
 };
 pub use types::{
     CompactionMarker, DisplayMessage, DisplayRecord, MessageUsage, SessionTranscript,

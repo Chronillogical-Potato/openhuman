@@ -2,7 +2,10 @@
 //! conversions between them and the public [`ChatMessage`] /
 //! [`TranscriptMeta`] / [`DisplayMessage`] types.
 
-use super::metadata::{attach_turn_usage_metadata, take_tool_failure};
+use super::metadata::{
+    attach_replayed_metadata, attach_tool_failure_metadata, attach_turn_usage_metadata,
+    take_replayed_request_id, take_tool_failure,
+};
 use super::types::{
     DisplayMessage, MessageUsage, TranscriptMeta, TurnUsage, TRANSCRIPT_SCHEMA_VERSION,
 };
@@ -185,6 +188,12 @@ pub(super) fn build_message_line(
         Some((failed, detail)) => (failed, detail),
         None => (false, None),
     };
+    // A row replayed from an earlier turn keeps the request it was first
+    // written under; only this turn's own rows take `request_id` (#6282).
+    let request_id = match take_replayed_request_id(&mut extra_metadata) {
+        Some(original) => original,
+        None => request_id.map(str::to_string),
+    };
     let message_reasoning = (msg.role == "assistant")
         .then(|| {
             extra_metadata
@@ -229,7 +238,7 @@ pub(super) fn build_message_line(
         }),
         iteration: assistant_usage.map(|tu| tu.iteration),
         ts: assistant_usage.map(|tu| tu.ts.clone()),
-        request_id: request_id.map(str::to_string),
+        request_id,
         interrupted,
         failure,
         failure_detail,
@@ -312,6 +321,8 @@ fn turn_usage_from_line(ml: &MessageLine) -> Option<TurnUsage> {
 /// metadata so the round-trip is lossless for the model-context path.
 pub(super) fn message_from_line(ml: MessageLine) -> ChatMessage {
     let turn_usage = turn_usage_from_line(&ml);
+    let failure_detail = ml.failure.then(|| ml.failure_detail.clone());
+    let request_id = ml.request_id.clone();
     let mut message = ChatMessage {
         id: ml.id,
         role: ml.role,
@@ -321,6 +332,17 @@ pub(super) fn message_from_line(ml: MessageLine) -> ChatMessage {
     };
     if let Some(turn_usage) = turn_usage.as_ref() {
         attach_turn_usage_metadata(&mut message, turn_usage);
+    }
+    // Carry what the line recorded about the turn that wrote it back onto the
+    // message, so re-persisting it (a resume into a fresh transcript) writes the
+    // same `failure` flag and `request_id` instead of losing the flag and
+    // restamping the row with the resuming request (#6282). A line with neither
+    // reads back exactly as it was written.
+    if let Some(detail) = failure_detail {
+        attach_tool_failure_metadata(&mut message, detail.as_deref());
+    }
+    if let Some(request_id) = request_id.as_deref() {
+        attach_replayed_metadata(&mut message, Some(request_id));
     }
     message
 }

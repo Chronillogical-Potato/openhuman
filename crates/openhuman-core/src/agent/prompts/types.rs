@@ -305,8 +305,8 @@ pub enum ToolCallFormat {
 ///
 /// Only **identifying** fields land here; tokens, refresh tokens, and
 /// any opaque credential material are forbidden. The struct is
-/// constructed from the cached `auth_get_me` response in
-/// `app_state::ops::peek_cached_current_user_identity`, which strips
+/// constructed from the stored `auth_set_credential` user payload in
+/// `credentials::identity::peek_credential_user_identity`, which strips
 /// everything but `id` / `email` / `name` before returning.
 #[derive(Debug, Clone, Default)]
 pub struct UserIdentity {
@@ -380,7 +380,7 @@ pub struct PromptContext<'a> {
     /// Authenticated user identity (id/name/email) when available — see
     /// [`UserIdentity`]. `None` for unauthenticated paths (CLI without a
     /// session, tests). Pre-fetched by the caller from the
-    /// `auth_get_me` cache so prompt builders never reach the network.
+    /// stored credential user payload so prompt builders never reach the network.
     pub user_identity: Option<UserIdentity>,
     /// Personality-specific SOUL.md content. When `Some`, the
     /// `IdentitySection` uses this instead of reading the workspace

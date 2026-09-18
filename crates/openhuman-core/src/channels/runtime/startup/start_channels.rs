@@ -24,6 +24,7 @@ use crate::tools;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio_util::task::AbortOnDropHandle;
 
 /// What the channel-server banner prints on its `🧠 Memory:` line.
 ///
@@ -44,7 +45,18 @@ use std::sync::{Arc, Mutex};
 /// printed line is byte-identical to before.
 const EFFECTIVE_MEMORY_BACKEND_LABEL: &str = "namespace";
 
-pub async fn start_channels(mut config: Config) -> Result<()> {
+pub async fn start_channels(config: Config) -> Result<()> {
+    start_channels_with_session(config, super::super::session::channel_session()).await
+}
+
+pub(crate) async fn start_channels_with_session(
+    config: Config,
+    session: tokio_util::sync::CancellationToken,
+) -> Result<()> {
+    super::super::session::run_in_session(session, start_channels_inner(config)).await
+}
+
+async fn start_channels_inner(mut config: Config) -> Result<()> {
     // Initialize the global event bus singleton and register the tracing
     // subscriber for debug logging of all domain events.
     crate::core::bus::init().await.expect("bus init");
@@ -386,7 +398,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let (provider_tx, mut provider_rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
     let (dispatch_tx, rx) = tokio::sync::mpsc::channel::<RuntimeChannelMessage>(100);
     let provider_dispatch_tx = dispatch_tx.clone();
-    let provider_bridge = tokio::spawn(async move {
+    let provider_bridge = AbortOnDropHandle::new(tokio::spawn(async move {
         while let Some(msg) = provider_rx.recv().await {
             if provider_dispatch_tx
                 .send(RuntimeChannelMessage::from(msg))
@@ -396,7 +408,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
                 break;
             }
         }
-    });
+    }));
 
     let mut relay_handles = Vec::new();
     if let Some(ref relay) = relay_config {
@@ -411,12 +423,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // Spawn a listener for each channel
     let mut handles = Vec::new();
     for ch in &channels {
-        handles.push(spawn_supervised_listener(
+        handles.push(AbortOnDropHandle::new(spawn_supervised_listener(
             ch.clone(),
             provider_tx.clone(),
             initial_backoff_secs,
             max_backoff_secs,
-        ));
+        )));
     }
     drop(provider_tx); // Drop our copy so provider_rx closes when all channels stop.
     drop(dispatch_tx); // Drop startup's copy; relay/bridge clones keep dispatch alive.
