@@ -377,7 +377,14 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     // `Channels` joined this list when the three `whatsapp_data_*` tools went —
     // the channel runtime,
     // its controllers and its inbound dispatch are all still there.
-    &[G::Config, G::Security, G::Modules, G::Channels, G::Hosted]
+    &[
+        G::Config,
+        G::Security,
+        G::Medulla,
+        G::Modules,
+        G::Channels,
+        G::Hosted,
+    ]
 };
 
 // ---- tool_capability() drift guard (M5.3) ----------------------------------

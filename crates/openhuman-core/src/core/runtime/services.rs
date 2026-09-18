@@ -534,6 +534,10 @@ pub fn spawn_socket_auto_connect(
                 // `Config` resolved above, which a workspace switch invalidates.
                 // `set_workflow_bridge` re-advertises over a live socket by
                 // design, so reinstall and skip only the handshake.
+                #[cfg(feature = "flows")]
+                if _flows_enabled {
+                    crate::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
+                }
                 log::info!(
                     "[socket] Auto-connect: {api_url} already connected with this session — refreshed the workflow bridge, kept the socket"
                 );
@@ -542,6 +546,10 @@ pub fn spawn_socket_auto_connect(
             if let Err(e) = socket_mgr.disconnect().await {
                 log::error!("[socket] Auto-connect could not stop the prior connection: {e}");
                 return;
+            }
+            #[cfg(feature = "flows")]
+            if _flows_enabled {
+                crate::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
             }
             let provider =
                 crate::platform::socket::token_provider::token_provider_from_config(config);
