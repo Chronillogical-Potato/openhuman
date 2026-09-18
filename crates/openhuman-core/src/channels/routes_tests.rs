@@ -146,25 +146,27 @@ fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
 
 #[test]
 fn runtime_command_parsing_and_provider_support_are_channel_scoped() {
-    assert!(supports_runtime_model_switch("telegram"));
-    assert!(supports_runtime_model_switch("discord"));
-    assert!(!supports_runtime_model_switch("slack"));
-
     assert_eq!(
         parse_runtime_command("telegram", "/models"),
-        Some(ChannelRuntimeCommand::ShowProviders)
+        Some(ChannelRuntimeCommand::Portable(
+            PortableCommand::ShowProviders
+        ))
     );
     assert_eq!(
         parse_runtime_command("discord", "/models openai"),
-        Some(ChannelRuntimeCommand::SetProvider("openai".into()))
+        Some(ChannelRuntimeCommand::Portable(
+            PortableCommand::SetProvider("openai".into())
+        ))
     );
     assert_eq!(
         parse_runtime_command("telegram", "/model gpt-5"),
-        Some(ChannelRuntimeCommand::SetModel("gpt-5".into()))
+        Some(ChannelRuntimeCommand::Portable(PortableCommand::SetModel(
+            "gpt-5".into()
+        )))
     );
     assert_eq!(
         parse_runtime_command("telegram", "/model"),
-        Some(ChannelRuntimeCommand::ShowModel)
+        Some(ChannelRuntimeCommand::Portable(PortableCommand::ShowModel))
     );
     assert_eq!(
         parse_runtime_command("telegram", "/status@OpenHumanBot"),
@@ -231,7 +233,7 @@ fn cached_models_and_help_responses_render_expected_text() {
     let state_dir = tempdir.path().join("state");
     std::fs::create_dir_all(&state_dir).unwrap();
     std::fs::write(
-        state_dir.join(MODEL_CACHE_FILE),
+        state_dir.join("models_cache.json"),
         serde_json::json!({
             "entries": [
                 {
@@ -285,7 +287,7 @@ fn load_cached_model_preview_returns_empty_when_cache_json_is_invalid() {
     let state_dir = tempdir.path().join("state");
     std::fs::create_dir_all(&state_dir).unwrap();
     std::fs::write(
-        state_dir.join(MODEL_CACHE_FILE),
+        state_dir.join("models_cache.json"),
         "{ definitely invalid json",
     )
     .unwrap();

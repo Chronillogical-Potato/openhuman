@@ -7198,6 +7198,7 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.20",
  "tinychannels-bus",
+ "tinychannels-runtime",
  "tokio",
  "tokio-rustls",
  "tokio-tungstenite 0.29.0",
@@ -7228,6 +7229,18 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "tinychannels-runtime"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "rand 0.10.2",
+ "tinychannels-bus",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
