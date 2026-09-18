@@ -1,4 +1,5 @@
 pub mod agent_policy;
+mod capability;
 pub mod generated;
 pub mod ops;
 pub mod orchestrator_tools;

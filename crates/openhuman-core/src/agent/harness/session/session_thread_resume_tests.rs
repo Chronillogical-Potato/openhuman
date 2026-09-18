@@ -410,18 +410,36 @@ fn hide_tools_drops_named_from_existing_filter() {
     );
 }
 
-/// `hide_tools` on an agent with *no* filter (empty set = "all visible") must
-/// first seed the allowlist from every registered spec so the hide actually
-/// restricts — otherwise removing from an empty set would no-op and leave the
-/// tool still callable under the "empty == all visible" contract.
-///
-/// Note the on-demand tool-pack builder now materialises a concrete visible
-/// allowlist at build time, so a freshly built agent is no longer filter-less;
-/// the empty-set case is exercised here by explicitly resetting to the "all
-/// visible" sentinel, which is the only way a caller reaches it.
+/// `hide_tools` must materialize the wildcard sentinel before removing a real
+/// tool, leaving the rest of the belt visible and executable.
 #[test]
 fn hide_tools_seeds_allowlist_when_no_filter_present() {
-    let mut agent = build_minimal_agent_with_definition_name(None);
+    struct KeepTool;
+
+    #[async_trait::async_trait]
+    impl Tool for KeepTool {
+        fn name(&self) -> &str {
+            "keep"
+        }
+
+        fn description(&self) -> &str {
+            "remain visible while another tool is hidden"
+        }
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+
+        async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
+            Ok(crate::tools::ToolResult::success("kept"))
+        }
+    }
+
+    let mut agent = build_minimal_agent_with_tool_sets(
+        vec![Box::new(MockTool), Box::new(KeepTool)],
+        Vec::new(),
+        None,
+    );
     assert!(
         !agent.visible_tool_names_for_test().is_empty(),
         "precondition: the tool-pack builder seeds a concrete visible allowlist at build time"
@@ -431,27 +449,31 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
         "precondition: the mock belt includes `echo`"
     );
 
-    // Reset to the "all visible" sentinel so the no-filter seed path below is
-    // actually exercised, matching the historical precondition.
-    agent.set_visible_tool_names(std::collections::HashSet::new());
-    assert!(
-        agent.visible_tool_names_for_test().is_empty(),
-        "precondition: sentinel reset yields an empty visible-tool set"
-    );
-
-    // Hiding a name that isn't on the belt still forces the seed: the set goes
-    // from empty ("all visible") to a concrete allowlist of the real tools, so
-    // the previously-all-visible belt is now explicitly enumerated.
-    agent.hide_tools(&["not_on_belt"]);
+    // Recreate the wildcard sentinel directly so this test exercises
+    // `hide_tools`'s own sentinel-to-allowlist transition. The public reset
+    // setter deliberately materializes the sentinel before returning.
+    agent.visible_tool_names.clear();
+    agent.hide_tools(&["echo"]);
 
     let visible = agent.visible_tool_names_for_test();
     assert!(
-        visible.contains("echo"),
-        "seeding must materialise the existing belt into a concrete allowlist; visible = {visible:?}"
+        visible.contains("keep"),
+        "seeding must preserve the rest of the concrete allowlist; visible = {visible:?}"
     );
     assert!(
-        !visible.contains("not_on_belt"),
-        "an absent hidden name is a harmless no-op; visible = {visible:?}"
+        !visible.contains("echo"),
+        "the real hidden tool must be removed from the materialized belt; visible = {visible:?}"
+    );
+    assert!(
+        !agent
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "echo"),
+        "the hidden tool must leave the provider-facing surface"
+    );
+    assert!(
+        !agent.tool_policy_session.is_allowed("echo"),
+        "the hidden tool must also be denied at execution policy"
     );
 }
 
