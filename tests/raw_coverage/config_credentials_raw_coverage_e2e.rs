@@ -251,7 +251,7 @@ async fn raw_round13_local_session_string_payload_and_double_clear_are_offline()
     )
     .await
     .expect("store local session with non-object user payload");
-    assert_eq!(stored.value.provider, "app-session");
+    assert_eq!(stored.value.credential.as_deref(), Some("local"));
     assert!(stored
         .logs
         .iter()

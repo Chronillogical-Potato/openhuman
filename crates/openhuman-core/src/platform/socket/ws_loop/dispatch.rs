@@ -2,6 +2,7 @@
 //! parsing.
 
 use crate::platform::socket::manager::emit_state_change;
+use crate::platform::socket::medulla::workflows;
 use crate::platform::socket::types::ConnectionStatus;
 use std::sync::Arc;
 
@@ -103,6 +104,7 @@ pub(super) fn handle_sio_packet(
         b'1' => {
             // Socket.IO DISCONNECT
             log::info!("[socket] SIO DISCONNECT from server");
+            workflows::end_connection_generation();
             *shared.status.write() = ConnectionStatus::Disconnected;
             *shared.socket_id.write() = None;
             emit_state_change(shared);

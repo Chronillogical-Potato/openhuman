@@ -88,10 +88,11 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "integrations",
-        summary: "MCP server setup, connection status, and calling tools on a connected MCP server.",
+        // The setup and use hand-offs (`setup_mcp_server`, `use_mcp_server`) are
+        // not members: they are the orchestrator's direct route into this family.
+        // See `DELIBERATELY_UNPACKED_HANDOFFS`.
+        summary: "MCP registry tools: search, inspect, install, connect and disconnect servers, check their status, and call a connected server's tools.",
         tools: &[
-            "use_mcp_server",
-            "setup_mcp_server",
             "mcp_registry_status",
             "mcp_registry_search",
             "mcp_registry_get",
@@ -122,11 +123,14 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "skills",
-        summary: "Search installed skills; install and run more from community \
-                  registries.",
+        // The install and run hand-offs (`setup_skills`, `run_skill`) are not
+        // members: they are the orchestrator's direct route into this family.
+        // See `DELIBERATELY_UNPACKED_HANDOFFS`.
+        summary: "Skill registry and runtime tools: search installed skills, browse, install \
+                  and uninstall from community registries, and read a skill's resources.",
         tools: &[
-            // In the pack, not outside it. A search tool advertised while every
-            // tool it hands off to (`describe_workflow`, `run_skill`) stays
+            // In the pack, not outside it. A search tool advertised while the
+            // tool it hands off to (`describe_workflow`) stays
             // withheld would cost 748 B on every wildcard agent to produce an id
             // the agent then cannot act on without a `load_skill` anyway. One
             // recovery step for the whole family beats a doorway to a locked
@@ -134,8 +138,6 @@ pub const PACKS: &[ToolPack] = &[
             // already names `describe_workflow` and `skill_registry_browse` —
             // those are packed too.
             "skill_search",
-            "run_skill",
-            "setup_skills",
             "skill_registry_browse",
             "skill_registry_search",
             "skill_registry_install",
@@ -373,6 +375,33 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
     "wait",
     "wait_loop",
     "spawn_parallel_agents",
+];
+
+/// The MCP and skill hand-offs are deliberately NOT packed either (#6302).
+///
+/// `setup_mcp_server`, `use_mcp_server`, `setup_skills` and `run_skill` are the
+/// orchestrator's whole route into two families: it installs and uses MCP
+/// servers and skills only by handing the task to the specialist that owns
+/// that family. Packed, they sat in the same listing as the raw
+/// `mcp_registry_*` / `skill_registry_*` tools, one `use_skill` round trip
+/// away, and a live account showed the cost: across 11 turns the orchestrator
+/// called the raw tools itself, guessed at tool names, and never handed off.
+/// Handing off is the most common thing it does with these families, so the
+/// `collapsed_delegation.rs` argument applies: frequency of use decides, and
+/// delegation should not pay a round trip.
+///
+/// With a hand-off on the belt, `ops::closed_by_direct_handoff` closes the
+/// owning pack's raw tools to the caller, so the hand-off is its only route.
+/// The other packed hand-offs (`do_crypto`, `build_workflow`,
+/// `discover_workflows`, `make_presentation`, ...) stay packed: each is its own
+/// token-cost decision, and the same closing rule takes effect for any of them
+/// as soon as it is unpacked and listed here.
+#[cfg(test)]
+pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] = &[
+    "setup_mcp_server",
+    "use_mcp_server",
+    "setup_skills",
+    "run_skill",
 ];
 
 pub fn pack(id: &str) -> Option<&'static ToolPack> {

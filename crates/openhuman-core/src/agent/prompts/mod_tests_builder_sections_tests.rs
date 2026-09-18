@@ -485,6 +485,63 @@ fn tools_section_pformat_renders_signature_not_schema() {
 }
 
 #[test]
+fn tools_section_renders_invalid_schema_tool_without_arguments() {
+    struct InvalidSchemaTool;
+    #[async_trait]
+    impl Tool for InvalidSchemaTool {
+        fn name(&self) -> &str {
+            "invalid_schema"
+        }
+
+        fn description(&self) -> &str {
+            "falls back to an argument-free catalogue entry"
+        }
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::Value::String("not JSON schema text".to_string())
+        }
+
+        async fn execute(
+            &self,
+            _args: serde_json::Value,
+        ) -> anyhow::Result<crate::tools::ToolResult> {
+            Ok(crate::tools::ToolResult::success("ok"))
+        }
+    }
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(InvalidSchemaTool)];
+    let prompt_tools = PromptTool::from_tools(&tools);
+    let ctx = PromptContext {
+        workspace_dir: Path::new("/tmp"),
+        model_name: "test-model",
+        agent_id: "",
+        tools: &prompt_tools,
+        workflows: &[],
+        dispatcher_instructions: "",
+        learned: LearnedContextData::default(),
+        visible_tool_names: &NO_FILTER,
+        tool_call_format: ToolCallFormat::PFormat,
+        connected_integrations: &[],
+        connected_identities_md: String::new(),
+        include_profile: false,
+        include_memory_md: false,
+        curated_snapshot: None,
+        user_identity: None,
+        personality_soul_md: None,
+        personality_memory_md: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+
+    let rendered = ToolsSection.build(&ctx).unwrap();
+    assert!(
+        rendered.contains("Call as: `invalid_schema[]`"),
+        "invalid schemas must remain renderable without arguments, got:\n{rendered}"
+    );
+}
+
+#[test]
 fn tools_section_uses_pformat_signature_for_text_dispatchers() {
     // Tool rendering is uniform across text dispatchers: always the
     // compact `Call as: name[args]` signature, never a raw JSON

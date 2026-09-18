@@ -34,12 +34,6 @@ pub use schema::{
 pub use workspace_handle::workspace_handle;
 // Crate-internal: workspace→config-dir resolver reused by the cloud embedder.
 pub(crate) use schema::resolve_config_dir_for_workspace;
-// Test-only: the `.openhuman` (or `.openhuman-staging`) root dir name the modern
-// layout keys on. The `desktop::app_state` resolver tests build tempdir
-// workspaces named after it so the modern-layout arm fires regardless of the
-// ambient `OPENHUMAN_APP_ENV`.
-#[cfg(test)]
-pub(crate) use schema::default_root_dir_name;
 pub(crate) use schema::set_cli_inference_overrides;
 #[allow(unused_imports)]
 pub use schema::{

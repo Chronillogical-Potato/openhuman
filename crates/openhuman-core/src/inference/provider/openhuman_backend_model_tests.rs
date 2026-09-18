@@ -436,6 +436,66 @@ fn resolve_bearer_returns_token_when_expiry_in_future() {
     assert_eq!(token, "test.session.jwt");
 }
 
+// ── managed-bearer transport safety for a stored API key (CWE-319) ─────
+
+fn backend_with_api_key(api_url: &str, dir: &std::path::Path) -> OpenHumanBackendModel {
+    crate::security::credentials::api_key::store_api_key_in(dir, false, "th_test_key")
+        .expect("seed api key");
+    OpenHumanBackendModel::new(
+        Some(api_url),
+        &ProviderRuntimeOptions {
+            openhuman_dir: Some(dir.to_path_buf()),
+            secrets_encrypt: false,
+            ..ProviderRuntimeOptions::default()
+        },
+        "reasoning-v1",
+    )
+}
+
+#[test]
+fn resolve_bearer_refuses_a_stored_api_key_over_plaintext_non_loopback() {
+    // A non-HTTPS, non-loopback managed endpoint must never carry the
+    // TinyHumans API key as a bearer — that puts a durable credential (not a
+    // short-lived session JWT) on the wire in the clear.
+    let tmp = tempfile::TempDir::new().unwrap();
+    let backend = backend_with_api_key("http://api.example.test", tmp.path());
+
+    let err = backend
+        .resolve_bearer()
+        .expect_err("a plaintext non-loopback endpoint must refuse the api-key bearer");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("refusing to send")
+            && msg.contains("non-HTTPS")
+            && msg.contains("api.example.test"),
+        "error must name the refusal and the offending endpoint: {msg}"
+    );
+}
+
+#[test]
+fn resolve_bearer_sends_a_stored_api_key_over_https() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let backend = backend_with_api_key("https://api.example.test", tmp.path());
+
+    let token = backend
+        .resolve_bearer()
+        .expect("https must be allowed to carry the api-key bearer");
+    assert_eq!(token, "th_test_key");
+}
+
+#[test]
+fn resolve_bearer_sends_a_stored_api_key_over_plain_loopback() {
+    // Plain HTTP to loopback stays allowed — the same local-testing
+    // allowance `openhuman_embed::turn::is_safe_endpoint_for_bearer` makes.
+    let tmp = tempfile::TempDir::new().unwrap();
+    let backend = backend_with_api_key("http://127.0.0.1:9999", tmp.path());
+
+    let token = backend
+        .resolve_bearer()
+        .expect("loopback http must still be allowed for local testing");
+    assert_eq!(token, "th_test_key");
+}
+
 #[test]
 fn resolve_bearer_returns_token_for_exp_less_offline_session() {
     // Offline / local sessions record no `exp`, so the precheck falls

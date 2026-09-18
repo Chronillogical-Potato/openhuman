@@ -30,16 +30,16 @@ pub mod types;
 
 pub use groups::{set_process_default, GroupMode, ToolGroups, GROUP_COUNT};
 pub use ops::{
-    append_pack_tools, bind_pack_registry, bind_synthesized_pack_registry,
-    strip_packed_from_visible,
+    append_pack_tools, bind_pack_registry, bind_synthesized_pack_registry, close_handed_off_packs,
+    closed_by_direct_handoff, strip_packed_from_visible,
 };
 pub use registry::{
     all_packed_tool_names, callable_pack_ids, pack, pack_for_tool, pack_index_markdown_filtered,
     PACKS,
 };
 pub use tools::{
-    named_tool, render_pack_filtered, route_sentence, scope_use_skill_spec, PackRegistryHandle,
-    USE_SKILL,
+    named_tool, render_pack_filtered, route_sentence, scope_use_skill_spec, NoSuchPackTool,
+    PackRegistryHandle, USE_SKILL,
 };
 pub use types::ToolPack;
 

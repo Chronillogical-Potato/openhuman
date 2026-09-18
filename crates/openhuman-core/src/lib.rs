@@ -72,6 +72,7 @@ pub mod json_schema;
 pub mod mcp;
 #[cfg(feature = "media")]
 pub mod media;
+pub mod medulla;
 pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;

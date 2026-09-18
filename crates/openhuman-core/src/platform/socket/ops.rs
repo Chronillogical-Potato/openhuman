@@ -6,9 +6,11 @@ async fn connect_static_using(
     manager: &SocketManager,
     url: &str,
     token: &str,
+    clear_workflows: impl FnOnce(),
 ) -> Result<SocketState, String> {
     let _rebind = manager.lock_identity_rebind().await;
     manager.disconnect().await?;
+    clear_workflows();
     manager.connect(url, token).await?;
     Ok(manager.get_state())
 }
@@ -23,6 +25,7 @@ pub async fn connect_static(
         manager,
         url,
         token,
+        super::medulla::workflows::clear_workflow_bridge,
     )
     .await
 }
@@ -56,15 +59,18 @@ async fn connect_with_session_using(
     url: &str,
     token: &str,
     provider: super::token_provider::TokenProvider,
+    install_bridge: impl FnOnce(),
 ) -> Result<SocketState, String> {
     let _rebind = manager.lock_identity_rebind().await;
     if manager.is_live_for(url, token) {
+        install_bridge();
         log::info!(
             "[socket:rpc] connect_with_session — {url} already connected with this session; reusing the live socket"
         );
         return Ok(manager.get_state());
     }
     manager.disconnect().await?;
+    install_bridge();
     manager.connect_with_provider(url, provider).await?;
     Ok(manager.get_state())
 }
@@ -79,7 +85,15 @@ pub async fn connect_with_session(manager: &SocketManager) -> Result<SocketState
 
     let provider =
         super::token_provider::token_provider_from_config(std::sync::Arc::clone(&config));
-    connect_with_session_using(manager, &api_url, &token, provider).await
+    connect_with_session_using(manager, &api_url, &token, provider, move || {
+        #[cfg(feature = "flows")]
+        if crate::core::runtime::context::CoreContext::current()
+            .is_some_and(|context| context.domains().flows)
+        {
+            crate::flows::medulla_bridge::install(config);
+        }
+    })
+    .await
 }
 
 #[cfg(test)]

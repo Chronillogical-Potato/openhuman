@@ -19,6 +19,19 @@ pub(crate) fn register_relay_transport(transport: Arc<RelayTransport>) {
     }
 }
 
+pub(crate) fn unregister_relay_transport(transport: &Arc<RelayTransport>) {
+    let mut slot = relay_transport_slot()
+        .write()
+        .unwrap_or_else(|error| error.into_inner());
+    if slot
+        .as_ref()
+        .is_some_and(|current| Arc::ptr_eq(current, transport))
+    {
+        *slot = None;
+        tracing::debug!("[channels][relay] unregistered stopped runtime transport");
+    }
+}
+
 fn current_relay_transport() -> Option<Arc<RelayTransport>> {
     relay_transport_slot()
         .read()

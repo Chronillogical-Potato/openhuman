@@ -208,6 +208,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'এই কাজটিতে কিছু ভুল হয়েছে।',
   'conversations.toolFailure.unknown.next':
     'আবার চেষ্টা করুন; বারবার ব্যর্থ হলে সেটিংস থেকে ডায়াগনস্টিকস চালান।',
+  'conversations.toolFailure.notFound.cause': 'এই কাজটি যা চেয়েছিল তা নেই বা এখানে উপলভ্য নয়।',
+  'conversations.toolFailure.notFound.next':
+    'কিছু করার দরকার নেই। সহকারী সঠিক নামটি খুঁজে আবার চেষ্টা করতে পারে।',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman এখনও এটি স্বয়ংক্রিয়ভাবে করতে পারে না।',
+  'conversations.toolFailure.unsupported.next':
+    'এটি নিজে করুন, অথবা সহকারীকে অন্য একটি উপায় খুঁজতে বলুন।',
   'conversations.backgroundTasks.title': 'পটভূমি কাজ',
   'nav.feedback': 'মতামত দিন',
   'feedback.board': 'মতামত বোর্ড',
@@ -769,6 +776,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'ইনস্টল করা হয়েছে',
   'skills.explorer.install': 'ইনস্টল করুন',
   'skills.explorer.installing': 'ইনস্টল হচ্ছে…',
+  'skills.explorer.notInstallable': 'ইনস্টলযোগ্য নয়',
+  'skills.explorer.notInstallableHint':
+    'এই এন্ট্রিতে ডাউনলোড করার মতো কোনো SKILL.md নেই, তাই এখান থেকে এটি ইনস্টল করা যাবে না।',
   'skills.integrations': 'Composio ইন্টিগ্রেশন',
   'skills.integrationsSubtitle':
     'ক্লাউড-ভিত্তিক OAuth সংযোগ: আপনার অ্যাকাউন্ট দিয়ে সাইন ইন করুন এবং Composio টোকেন পরিচালনা করে যাতে এজেন্টরা আপনার পক্ষে পড়তে এবং কাজ করতে পারে। কোনো API কী পরিচালনা করতে হবে না।',

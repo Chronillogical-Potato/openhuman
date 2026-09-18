@@ -289,7 +289,6 @@ const SYSTEM_ALWAYS_ON: &[&str] = &[
 const ACCOUNT_TOOLS: &[&str] = &[
     "credential_list",
     "session_state",
-    "session_get_user",
     "oauth_connect_url",
     "oauth_list",
 ];

@@ -168,6 +168,9 @@ pub fn spawn_channels_service() {
         .filter(|s| s == "1" || s.eq_ignore_ascii_case("true"))
         .is_none()
     {
+        // Capture before loading config: logout during that await must also
+        // invalidate a listener that has not finished starting yet.
+        let channel_session = crate::channels::session::channel_session();
         tokio::spawn(async move {
             let config = match crate::config::Config::load_or_init().await {
                 Ok(c) => c,
@@ -183,7 +186,9 @@ pub fn spawn_channels_service() {
                 return;
             }
             log::info!("[channels] spawning in-process realtime listeners (Telegram, Discord, …)");
-            if let Err(e) = crate::channels::start_channels(config).await {
+            if let Err(e) =
+                crate::channels::start_channels_with_session(config, channel_session).await
+            {
                 log::error!("[channels] start_channels ended with error: {e}");
             }
         });

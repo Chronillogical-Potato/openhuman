@@ -523,6 +523,69 @@ fn request_id_stamped_on_every_line() {
     assert_eq!(msgs[2].message.content, "a2");
 }
 
+/// #6282: rows read back from a transcript and persisted into a fresh file (a
+/// resume into a rebuilt agent) keep the request they were first written under
+/// and their tool-failure flag; only the resuming turn's own rows take its
+/// request id.
+#[test]
+fn resumed_rows_keep_their_request_id_and_failure_flag() {
+    let dir = TempDir::new().unwrap();
+    let meta = sample_meta();
+
+    let mut failed_tool =
+        ChatMessage::tool(r#"{"tool_call_id":"call-1","content":"install failed"}"#);
+    attach_tool_failure_metadata(&mut failed_tool, Some("install failed"));
+    let first = dir.path().join("first.jsonl");
+    let turn1 = vec![
+        ChatMessage::system("sys"),
+        ChatMessage::user("install it"),
+        failed_tool,
+        ChatMessage::assistant("it failed"),
+    ];
+    AppendHarness::new(first.clone()).turn(&turn1, &meta, None, Some("req-1"));
+
+    // Resume into a rebuilt agent: the prior rows come back through the
+    // model-context reader and are persisted into a new file with the next turn.
+    let mut resumed = read_transcript(&first).unwrap().messages;
+    resumed.push(ChatMessage::user("what happened?"));
+    let second = dir.path().join("second.jsonl");
+    AppendHarness::new(second.clone()).turn(&resumed, &meta, None, Some("req-2"));
+
+    let msgs: Vec<DisplayMessage> = read_transcript_display(&second)
+        .unwrap()
+        .records
+        .into_iter()
+        .filter_map(|r| match r {
+            DisplayRecord::Message(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    let ids: Vec<Option<&str>> = msgs.iter().map(|m| m.request_id.as_deref()).collect();
+    assert_eq!(
+        ids,
+        vec![
+            Some("req-1"),
+            Some("req-1"),
+            Some("req-1"),
+            Some("req-1"),
+            Some("req-2")
+        ],
+        "replayed rows keep the request that wrote them"
+    );
+    let tool = msgs
+        .iter()
+        .find(|m| m.message.role == "tool")
+        .expect("replayed tool row");
+    assert!(tool.failure, "a replayed failed tool row stays failed");
+    assert_eq!(tool.failure_detail.as_deref(), Some("install failed"));
+    // The markers are an in-memory side-channel: neither reaches the file.
+    let raw = fs::read_to_string(&second).unwrap();
+    assert!(
+        !raw.contains("openhuman_replayed") && !raw.contains("openhuman_tool_failure"),
+        "side-channel markers must not be persisted: {raw}"
+    );
+}
+
 /// An interrupted partial is appended to the file, is visible in the display
 /// read flagged `interrupted`, and is SKIPPED by the model-context read (a
 /// resumed context never carries a truncated answer).

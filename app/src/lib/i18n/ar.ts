@@ -199,6 +199,11 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'حدث خطأ ما في هذا الإجراء.',
   'conversations.toolFailure.unknown.next':
     'حاول مرة أخرى؛ وإذا استمر الفشل، شغّل التشخيص من الإعدادات.',
+  'conversations.toolFailure.notFound.cause': 'ما طلبه هذا الإجراء غير موجود أو غير متاح هنا.',
+  'conversations.toolFailure.notFound.next':
+    'لا حاجة لأي إجراء. يمكن للمساعد البحث عن الاسم الصحيح والمحاولة مرة أخرى.',
+  'conversations.toolFailure.unsupported.cause': 'لا يستطيع OpenHuman القيام بذلك تلقائيًا بعد.',
+  'conversations.toolFailure.unsupported.next': 'قم بذلك يدويًا، أو اطلب خيارًا آخر.',
   'conversations.backgroundTasks.title': 'مهام الخلفية',
   'nav.feedback': 'شارك ملاحظاتك',
   'feedback.board': 'لوحة الملاحظات',
@@ -751,6 +756,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'مثبت',
   'skills.explorer.install': 'تثبيت',
   'skills.explorer.installing': 'جارٍ التثبيت…',
+  'skills.explorer.notInstallable': 'غير قابل للتثبيت',
+  'skills.explorer.notInstallableHint':
+    'لا يحتوي هذا الإدخال على ملف SKILL.md للتنزيل، لذا لا يمكن تثبيته من هنا.',
   'skills.integrations': 'تكاملات Composio',
   'skills.integrationsSubtitle':
     'اتصالات OAuth السحابية: سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',

@@ -551,4 +551,7 @@
 #                      (libsqlite3-sys, ring) — see docs/plans MIGRATION-PLAN G6.
 # 307/284  2026-08-12  Re-baseline after the upstream lockfile resolution;
 #                      `flows` remains at two native packages.
-flows:288:270:2
+# 289/271/2 2026-09-18 Tool-call parsing and rendering moved into the required
+#                      `tinytools-agent` protocol crate. This adds that one
+#                      host-visible crate but no native dependency.
+flows:289:271:2

@@ -160,3 +160,30 @@ async fn install_piper_handler_serializes_concurrent_calls() {
         );
     }
 }
+
+/// `agent_id` is a declared, optional input of `inference.agent_chat` — the
+/// embed crate pins its `TurnRequest` field names against this schema, so a
+/// param the controller accepts but never declares would be unreachable.
+#[test]
+fn agent_chat_declares_an_optional_agent_id() {
+    let schema = schemas("agent_chat");
+    let field = schema
+        .inputs
+        .iter()
+        .find(|f| f.name == "agent_id")
+        .expect("agent_chat declares agent_id");
+    assert!(!field.required, "agent_id must stay optional");
+}
+
+/// The params struct accepts the field and, absent, defaults it to `None`, so
+/// every existing caller keeps running the orchestrator.
+#[test]
+fn agent_chat_params_default_agent_id_to_none() {
+    let without: AgentChatParams =
+        serde_json::from_value(serde_json::json!({ "message": "hi" })).expect("decodes");
+    assert!(without.agent_id.is_none());
+    let with: AgentChatParams =
+        serde_json::from_value(serde_json::json!({ "message": "hi", "agent_id": "alpha" }))
+            .expect("decodes");
+    assert_eq!(with.agent_id.as_deref(), Some("alpha"));
+}

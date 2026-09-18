@@ -1,6 +1,7 @@
 //! The reconnect loop: [`ws_loop`], its failure-escalation logging, the
 //! invalid-token retry decision, and the emit-queue drain used on shutdown.
 
+use crate::platform::socket::medulla::workflows;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -212,6 +213,7 @@ pub(crate) async fn ws_loop(
         // session-expired escalation below — not just explicit
         // `SocketManager::disconnect()` (CodeRabbit #4355).
         shared.ack_registry.cancel_all();
+        workflows::end_connection_generation();
 
         match &outcome {
             ConnectionOutcome::Lost(_) => {
