@@ -16,9 +16,7 @@ use crate::config::{schema::SubconsciousEngine, Config};
 pub fn run(config: &mut Config) -> anyhow::Result<bool> {
     if config.subconscious.engine == SubconsciousEngine::Medulla {
         config.subconscious.engine = SubconsciousEngine::Local;
-        log::info!(
-            "[migrations][retire-subconscious-medulla] engine=medulla -> engine=local"
-        );
+        log::info!("[migrations][retire-subconscious-medulla] engine=medulla -> engine=local");
         Ok(true)
     } else {
         log::debug!(

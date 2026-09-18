@@ -31,9 +31,9 @@ mod phase_out_profile_md;
 mod reconcile_orphaned_providers;
 mod remove_write_auto_approve;
 mod repair_http_request_limits;
-mod retire_subconscious_medulla;
 mod retire_chat_v1_model;
 mod retire_local_whisper_stt;
+mod retire_subconscious_medulla;
 mod unify_ai_provider_settings;
 
 /// Current target schema version. Bumped alongside every new migration.
