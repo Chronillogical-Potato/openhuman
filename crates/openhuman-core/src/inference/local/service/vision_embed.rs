@@ -1,12 +1,12 @@
 use crate::agent::multimodal;
 use crate::config::Config;
-use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiEmbeddingResult;
 use tinyinference::embeddings::{
     EmbeddingModel, OllamaEmbeddingModel, DEFAULT_OLLAMA_DIMENSIONS,
     RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
 };
+use tinyinference::local::models as model_ids;
 use tinyinference::local::ollama::{
     ollama_base_url_from_override, redact_ollama_base_url, OllamaGenerateOptions,
     OllamaGenerateRequest,

@@ -34,8 +34,7 @@ pub use http_error::{
 
 pub use models::{
     append_query_param, is_openrouter_provider, list_configured_models,
-    list_configured_models_from_config, merge_openai_codex_model_hints, model_items_from_body,
-    parse_models_response, synthesize_local_runtime_entry, ModelInfo,
+    list_configured_models_from_config, synthesize_local_runtime_entry,
 };
 
 pub use provider_factory::{

@@ -1,8 +1,8 @@
 use crate::config::Config;
-use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiStatus;
 use tinyinference::device::DeviceProfile;
+use tinyinference::local::models as model_ids;
 use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 use super::LocalAiService;

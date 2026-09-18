@@ -19,10 +19,7 @@ mod core;
 pub mod ops;
 mod schemas;
 
-// Re-expose inference-level modules under `local::` so that files that
-// were moved from `local_ai/` and used `super::model_ids` etc. continue
-// to compile without rewriting every callsite.
-pub use super::model_ids;
+// Re-expose host integration modules used across the local runtime.
 pub use super::paths;
 pub use super::presets;
 pub use super::types;

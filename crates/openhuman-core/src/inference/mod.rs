@@ -28,7 +28,6 @@ pub mod embeddings;
 pub mod http;
 pub mod local;
 pub mod model_context;
-pub mod model_ids;
 pub mod openai_oauth;
 pub mod ops;
 pub mod paths;
@@ -54,6 +53,33 @@ pub use types::{
     LocalAiAssetStatus, LocalAiAssetsStatus, LocalAiDownloadProgressItem, LocalAiDownloadsProgress,
     LocalAiEmbeddingResult, LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult,
 };
+
+impl tinyinference::local::models::LocalModelConfig for crate::config::Config {
+    fn local_provider_name(&self) -> &str {
+        &self.local_ai.provider
+    }
+    fn local_chat_model_id(&self) -> &str {
+        &self.local_ai.chat_model_id
+    }
+    fn local_legacy_model_id(&self) -> &str {
+        &self.local_ai.model_id
+    }
+    fn local_vision_model_id(&self) -> &str {
+        &self.local_ai.vision_model_id
+    }
+    fn local_embedding_model_id(&self) -> &str {
+        &self.local_ai.embedding_model_id
+    }
+    fn local_stt_model_id(&self) -> &str {
+        &self.local_ai.stt_model_id
+    }
+    fn local_tts_voice_id(&self) -> &str {
+        &self.local_ai.tts_voice_id
+    }
+    fn local_quantization(&self) -> &str {
+        &self.local_ai.quantization
+    }
+}
 
 // Test helpers (re-exported for sibling test files that use inference_test_guard)
 #[cfg(test)]

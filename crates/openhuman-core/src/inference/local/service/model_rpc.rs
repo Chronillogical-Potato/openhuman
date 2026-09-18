@@ -85,7 +85,7 @@ pub(super) async fn invoke(
     temperature: f32,
     allow_empty: bool,
 ) -> Result<ModelRpcOutcome, String> {
-    let model_id = crate::inference::model_ids::effective_chat_model_id(config);
+    let model_id = tinyinference::local::models::effective_chat_model_id(config);
     // `OpenAiModel` no longer exposes `with_client`/injects an external
     // `reqwest::Client` — each model now builds and owns its own client
     // internally (`OpenAiModel::new`). This host no longer shares its app-wide

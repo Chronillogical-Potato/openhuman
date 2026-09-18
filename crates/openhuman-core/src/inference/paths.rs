@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 
-use super::model_ids;
+use tinyinference::local::models as model_ids;
 
 /// Returns the per-user config directory (parent of config.toml).
 pub(crate) fn config_root_dir(config: &Config) -> PathBuf {

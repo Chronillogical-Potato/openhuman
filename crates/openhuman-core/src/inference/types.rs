@@ -3,8 +3,8 @@
 use crate::config::Config;
 use serde::{Deserialize, Serialize};
 
-use super::model_ids;
 use super::presets;
+use tinyinference::local::models as model_ids;
 use tinyinference::local::provider::provider_from_name;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

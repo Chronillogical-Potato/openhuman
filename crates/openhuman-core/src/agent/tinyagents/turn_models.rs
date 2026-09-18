@@ -332,8 +332,10 @@ impl TurnModelSource {
         let local_kind = provider_string
             .as_deref()
             .and_then(tinyinference::local::profile::kind_from_provider_string);
-        crate::inference::model_context::context_window_for_model_with_local_fallback(
-            model, local_kind,
+        tinyinference::model::context_window_with_local_fallback(
+            model,
+            crate::inference::model_context::context_window_for_model(model),
+            local_kind,
         )
     }
 

@@ -33,7 +33,6 @@ compatibility aliases in `crates/openhuman-core/src/core/legacy_aliases.rs`.
 | `tinyinference::model::model_id_supports_vision`                                  | Upstream capability hint used directly for local model ids when the runtime cannot return an authoritative profile.                                                                                                                               |
 | `tinyinference::model::effective_temperature`                                     | Applies unsupported-model glob patterns and overrides before provider serialization.                                                                                                                                                              |
 | `types.rs`                                                                        | Serde DTOs: `LocalAiStatus`, `LocalAiAssetsStatus`, `LocalAiDownloadsProgress`, `LocalAiEmbeddingResult`, `LocalAiSpeechResult`, `LocalAiTtsResult`, etc.                                                                                          |
-| `model_ids.rs`                                                                    | Effective chat/vision/embedding/STT/TTS/quantization model id resolution from config.                                                                                                                                                              |
 | `model_context.rs`                                                                | Known model context-window sizes (`context_window_for_model`) for pre-dispatch budgeting.                                                                                                                                                          |
 | `presets.rs`                                                                      | `ModelPreset`, `ModelTier`, `VisionMode`; tier recommendation + apply-to-config; MVP preset gating.                                                                                                                                                |
 | `paths.rs`                                                                        | Host-owned on-disk model artifact paths. Completion and sentiment parsing live in `tinyinference`. |
@@ -124,7 +123,9 @@ Widely depended on by the agent layer (`agent/harness`, `agent/harness/session`,
 
 ## Notes / gotchas
 
-- `local/mod.rs` re-exports `super::{device, model_ids, parse, paths, presets, sentiment, types}` under `local::` so files migrated from the old `local_ai/` keep compiling without rewriting `super::` paths.
+- TinyInference owns effective chat, vision, embedding, STT, TTS, and
+  quantization resolution; OpenHuman implements its configuration view and
+  calls `tinyinference::local::models` directly.
 - Provider strings carry an optional `@<temp>` suffix that pins a per-workload temperature; the suffix is stripped before the model id is sent upstream.
 - `update_model_settings` silently drops reserved cloud-provider slugs (`openhuman`/`cloud`/`pid` built-ins the frontend echoes back); `apply_model_settings` re-injects them from stored config so they aren't lost.
 - `ops.rs` deliberately demotes known provider/user-config failures (unknown cloud provider, 401/429, model-not-found) to `warn!` to keep them out of Sentry; only unclassified failures escalate to `error!`.

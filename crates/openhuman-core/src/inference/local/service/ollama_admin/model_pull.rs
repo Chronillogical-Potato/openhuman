@@ -1,8 +1,8 @@
 use futures_util::StreamExt;
 
 use crate::config::Config;
-use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
+use tinyinference::local::models as model_ids;
 use tinyinference::local::ollama::{
     ollama_base_url_from_override, OllamaPullEvent, OllamaPullProgress, OllamaPullRequest,
 };

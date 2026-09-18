@@ -2,9 +2,9 @@
 
 use crate::config::Config;
 use crate::inference::local::service::LocalAiService;
-use crate::inference::model_ids;
 use crate::inference::presets::{self, VisionMode};
 use crate::inference::types::LocalAiAssetsStatus;
+use tinyinference::local::models as model_ids;
 use tinyinference::local::provider::{provider_from_name, LocalAiProvider};
 
 impl LocalAiService {

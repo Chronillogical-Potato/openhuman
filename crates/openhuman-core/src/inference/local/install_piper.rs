@@ -179,7 +179,7 @@ fn decode_voice_id(voice_id: &str) -> (String, String, String, String) {
 /// to "installed" when on-disk artifacts pass validation.
 pub fn status(config: &Config) -> VoiceInstallStatus {
     let mut snapshot = read_status(ENGINE_PIPER);
-    let configured_voice = crate::inference::model_ids::effective_tts_voice_id(config);
+    let configured_voice = tinyinference::local::models::effective_tts_voice_id(config);
     let configured_voice = configured_voice.trim_end_matches(".onnx").to_string();
     if matches!(snapshot.state, VoiceInstallState::Missing)
         && installed_artifacts_ok(config, &configured_voice)

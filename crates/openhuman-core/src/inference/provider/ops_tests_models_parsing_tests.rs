@@ -1,4 +1,5 @@
 use super::*;
+use tinyinference::catalog::{merge_openai_codex_model_hints, parse_models_response, ModelInfo};
 
 #[tokio::test]
 async fn list_models_empty_body_returns_diagnostic_error() {
