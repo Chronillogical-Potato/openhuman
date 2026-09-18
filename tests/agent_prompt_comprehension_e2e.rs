@@ -1020,7 +1020,9 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         let prompt = system_text(orchestrator);
         let belt = advertised_tool_names(orchestrator);
         let request_text = orchestrator.to_string();
-        let registry = AgentDefinitionRegistry::global().expect("registry initialised");
+        // Validate the built-in contract independently of the process-global
+        // registry, which other integration tests may initialise first.
+        let registry = AgentDefinitionRegistry::builtins_only();
 
         let undiscoverable: Vec<String> = registry
             .list()
