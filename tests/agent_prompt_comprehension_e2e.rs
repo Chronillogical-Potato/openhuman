@@ -861,13 +861,9 @@ fn orchestrator_hands_integration_work_to_the_specialist() {
 /// The integrations specialist, reached through that hand-off, holds the
 /// Composio execution surface and none of the orchestrator's hand-offs.
 ///
-/// Ignored because it fails today, and the failure is the finding: a
-/// toolkit-scoped integrations_agent runs in text mode (`subagent_runner`
-/// `ops/runner.rs`, no native `tools`), but its `## Tools` catalogue is only
-/// rendered when the *parent's* `tool_call_format` is not Native
-/// (`prompts/render_helpers/subagent.rs`). Under a native-tool orchestrator the
-/// child is told how to call tools and never told which tools exist. Remove the
-/// `ignore` with the fix.
+/// The toolkit-scoped integrations agent runs in text mode, so this also pins
+/// the text-mode `Call as: NAME[...]` catalogue rather than only native tool
+/// declarations.
 #[test]
 fn integrations_agent_holds_the_composio_surface() {
     run_case(Case {

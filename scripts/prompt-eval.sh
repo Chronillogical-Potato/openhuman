@@ -14,7 +14,8 @@
 # (BACKEND_URL optional). --real-workspace instead runs against the signed-in
 # ~/.openhuman, where the core reads its own keyring — no credential handling,
 # but it writes into the user's real account, is serial, and the desktop app
-# must be quit first. See docs/prompt-evals.md for the cleanup it leaves.
+# must be quit first. See docs/prompt-evals.md for the account-side cleanup it
+# leaves.
 # Either way every case runs in its own `openhuman-core call` subprocesses, so
 # the process-global model override and `AlreadyRunning` never come into it.
 #
@@ -107,7 +108,7 @@ for run in $(seq 1 "$RUNS"); do
       cleanup_ws
       continue
     fi
-    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); case=next(x for x in c["cases"] if x["id"]==sys.argv[2]); assert case.get("forbid_calls"), "disabled case must define forbidden calls"; assert case.get("_gate"), "disabled case must document its gate"' "$CASES" "$id"
+    python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); case=next(x for x in c["cases"] if x["id"]==sys.argv[2]); forbidden=case.get("forbid_calls"); assert isinstance(forbidden,list) and forbidden and all(isinstance(x,str) and x for x in forbidden), "disabled case must define non-empty string forbidden-call matchers"; assert case.get("_gate"), "disabled case must document its gate"' "$CASES" "$id"
   fi
 
   # `call` does not run the server's boot-env credential seeding, so install it.
