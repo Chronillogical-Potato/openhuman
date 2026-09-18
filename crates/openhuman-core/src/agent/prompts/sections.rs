@@ -120,11 +120,8 @@ pub struct UserMemorySection;
 pub struct UserReflectionsSection;
 /// Renders the authenticated user's non-secret identity fields
 /// (`id` / `name` / `email`) into the system prompt — see issue #926.
-///
-/// Empty when [`PromptContext::user_identity`] is `None` or the
-/// identity has no populated fields. Tokens, refresh tokens, and any
-/// opaque credential material are forbidden — only the three
-/// identifying fields ship.
+/// Empty when [`PromptContext::user_identity`] is `None` or the identity has no
+/// populated fields. Tokens and opaque credentials are forbidden.
 pub struct UserIdentitySection;
 
 /// Injects the user-specific, session-frozen workspace files

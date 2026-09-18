@@ -6810,6 +6810,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tinyinference-core",
  "tinyinference-local",
  "tokio",
  "uuid",
