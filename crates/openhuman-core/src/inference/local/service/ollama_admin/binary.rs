@@ -170,7 +170,9 @@ impl LocalAiService {
             status.error_category = None;
         }
 
-        let result = run_ollama_install_script(&install_dir).await?;
+        let result = run_ollama_install_script(&install_dir)
+            .await
+            .map_err(|error| error.to_string())?;
         if !result.exit_status.success() {
             let stderr_tail: String = result
                 .stderr

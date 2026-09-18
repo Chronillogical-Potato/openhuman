@@ -1,9 +1,7 @@
 use crate::config::ops::local_ai_presets;
 use crate::config::Config;
 use tinyinference_local::lm_studio::lm_studio_base_url;
-use tinyinference_local::model_requirements::{
-    evaluate_context, ContextEligibility, MIN_CONTEXT_TOKENS,
-};
+use tinyinference_local::model_requirements::{evaluate_context, ContextEligibility};
 use tinyinference_local::models as model_ids;
 use tinyinference_local::ollama::{
     ollama_base_url_from_override, OllamaModelShow, OllamaModelTag, OllamaShowRequest,
@@ -17,6 +15,9 @@ use tinyinference_local::provider::{
 use super::super::LocalAiService;
 use super::health::OllamaHealthStatus;
 use super::util::lm_studio_models_error_means_unreachable;
+
+const MIN_CONTEXT_TOKENS: u64 =
+    tinyinference_core::embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS as u64;
 
 impl LocalAiService {
     /// Run full diagnostics: check Ollama server health, list installed models,
@@ -114,7 +115,7 @@ impl LocalAiService {
         };
         let model_eligibilities: Vec<ContextEligibility> = model_shows
             .iter()
-            .map(|s| evaluate_context(s.context_length))
+            .map(|s| evaluate_context(s.context_length, MIN_CONTEXT_TOKENS))
             .collect();
 
         let installed_models: Vec<serde_json::Value> = models
