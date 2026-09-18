@@ -31,7 +31,6 @@ pub use crate::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::flows::memory_tools::*;
 #[cfg(feature = "flows")]
-#[cfg(feature = "flows")]
 pub use crate::flows::tools::*;
 pub use crate::integrations::composio::tools::*;
 pub use crate::integrations::task_sources::tools::*;
