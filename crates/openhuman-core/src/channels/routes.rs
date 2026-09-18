@@ -6,36 +6,18 @@ use super::context::{
 use super::traits;
 use super::{Channel, ChannelSendExt, SendMessage};
 use crate::inference::provider;
-use serde::Deserialize;
-use std::fmt::Write;
-use std::path::Path;
 use std::sync::Arc;
-
-const MODEL_CACHE_FILE: &str = "models_cache.json";
-const MODEL_CACHE_PREVIEW_LIMIT: usize = 10;
+use tinychannels::routes::{
+    build_models_help_response, build_providers_help_response, load_cached_model_preview,
+    parse_runtime_command as parse_portable_runtime_command,
+    resolve_provider_alias as resolve_portable_provider_alias,
+    ChannelRuntimeCommand as PortableCommand, ProviderDescriptor,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ChannelRuntimeCommand {
-    ShowProviders,
-    SetProvider(String),
-    ShowModel,
-    SetModel(String),
+    Portable(PortableCommand),
     TelegramRemote(super::providers::telegram::TelegramRemoteCommand),
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ModelCacheState {
-    entries: Vec<ModelCacheEntry>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ModelCacheEntry {
-    provider: String,
-    models: Vec<String>,
-}
-
-fn supports_runtime_model_switch(channel_name: &str) -> bool {
-    matches!(channel_name, "telegram" | "discord")
 }
 
 fn supports_telegram_remote_control(channel_name: &str) -> bool {
@@ -56,59 +38,21 @@ fn parse_runtime_command(channel_name: &str, content: &str) -> Option<ChannelRun
         }
     }
 
-    if !supports_runtime_model_switch(channel_name) {
-        return None;
-    }
-
-    let mut parts = trimmed.split_whitespace();
-    let command_token = parts.next()?;
-    let base_command = command_token
-        .split('@')
-        .next()
-        .unwrap_or(command_token)
-        .to_ascii_lowercase();
-
-    match base_command.as_str() {
-        "/models" => {
-            if let Some(provider) = parts.next() {
-                Some(ChannelRuntimeCommand::SetProvider(
-                    provider.trim().to_string(),
-                ))
-            } else {
-                Some(ChannelRuntimeCommand::ShowProviders)
-            }
-        }
-        "/model" => {
-            let model = parts.collect::<Vec<_>>().join(" ").trim().to_string();
-            if model.is_empty() {
-                Some(ChannelRuntimeCommand::ShowModel)
-            } else {
-                Some(ChannelRuntimeCommand::SetModel(model))
-            }
-        }
-        _ => None,
-    }
+    parse_portable_runtime_command(channel_name, trimmed).map(ChannelRuntimeCommand::Portable)
 }
 
 fn resolve_provider_alias(name: &str) -> Option<String> {
-    let candidate = name.trim();
-    if candidate.is_empty() {
-        return None;
-    }
+    resolve_portable_provider_alias(name, &provider_descriptors())
+}
 
-    let providers_list = provider::list_providers();
-    for provider in providers_list {
-        if provider.name.eq_ignore_ascii_case(candidate)
-            || provider
-                .aliases
-                .iter()
-                .any(|alias| alias.eq_ignore_ascii_case(candidate))
-        {
-            return Some(provider.name.to_string());
-        }
-    }
-
-    None
+fn provider_descriptors() -> Vec<ProviderDescriptor> {
+    provider::list_providers()
+        .into_iter()
+        .map(|provider| ProviderDescriptor {
+            name: provider.name.to_string(),
+            aliases: provider.aliases.iter().map(ToString::to_string).collect(),
+        })
+        .collect()
 }
 
 fn default_route_selection(ctx: &ChannelRuntimeContext) -> ChannelRouteSelection {
@@ -143,29 +87,6 @@ fn set_route_selection(ctx: &ChannelRuntimeContext, sender_key: &str, next: Chan
     }
 }
 
-fn load_cached_model_preview(workspace_dir: &Path, provider_name: &str) -> Vec<String> {
-    let cache_path = workspace_dir.join("state").join(MODEL_CACHE_FILE);
-    let Ok(raw) = std::fs::read_to_string(cache_path) else {
-        return Vec::new();
-    };
-    let Ok(state) = serde_json::from_str::<ModelCacheState>(&raw) else {
-        return Vec::new();
-    };
-
-    state
-        .entries
-        .into_iter()
-        .find(|entry| entry.provider == provider_name)
-        .map(|entry| {
-            entry
-                .models
-                .into_iter()
-                .take(MODEL_CACHE_PREVIEW_LIMIT)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
-}
-
 pub(crate) async fn get_or_create_turn_model_source(
     ctx: &ChannelRuntimeContext,
     provider_name: &str,
@@ -191,61 +112,6 @@ pub(crate) async fn get_or_create_turn_model_source(
     )
 }
 
-fn build_models_help_response(current: &ChannelRouteSelection, workspace_dir: &Path) -> String {
-    let mut response = String::new();
-    let _ = writeln!(
-        response,
-        "Current provider: `{}`\nCurrent model: `{}`",
-        current.provider, current.model
-    );
-    response.push_str("\nSwitch model with `/model <model-id>`.\n");
-
-    let cached_models = load_cached_model_preview(workspace_dir, &current.provider);
-    if cached_models.is_empty() {
-        let _ = writeln!(
-            response,
-            "\nNo cached model list found for `{}`. Ask the operator to refresh the model list in the web UI.",
-            current.provider
-        );
-    } else {
-        let _ = writeln!(
-            response,
-            "\nCached model IDs (top {}):",
-            cached_models.len()
-        );
-        for model in cached_models {
-            let _ = writeln!(response, "- `{model}`");
-        }
-    }
-
-    response
-}
-
-fn build_providers_help_response(current: &ChannelRouteSelection) -> String {
-    let mut response = String::new();
-    let _ = writeln!(
-        response,
-        "Current provider: `{}`\nCurrent model: `{}`",
-        current.provider, current.model
-    );
-    response.push_str("\nSwitch provider with `/models <provider>`.\n");
-    response.push_str("Switch model with `/model <model-id>`.\n\n");
-    response.push_str("Available providers:\n");
-    for provider in provider::list_providers() {
-        if provider.aliases.is_empty() {
-            let _ = writeln!(response, "- {}", provider.name);
-        } else {
-            let _ = writeln!(
-                response,
-                "- {} (aliases: {})",
-                provider.name,
-                provider.aliases.join(", ")
-            );
-        }
-    }
-    response
-}
-
 pub(crate) async fn handle_runtime_command_if_needed(
     ctx: &ChannelRuntimeContext,
     msg: &traits::ChannelMessage,
@@ -269,8 +135,10 @@ pub(crate) async fn handle_runtime_command_if_needed(
             )
             .await
         }
-        ChannelRuntimeCommand::ShowProviders => build_providers_help_response(&current),
-        ChannelRuntimeCommand::SetProvider(raw_provider) => {
+        ChannelRuntimeCommand::Portable(PortableCommand::ShowProviders) => {
+            build_providers_help_response(&current, &provider_descriptors())
+        }
+        ChannelRuntimeCommand::Portable(PortableCommand::SetProvider(raw_provider)) => {
             match resolve_provider_alias(&raw_provider) {
                 Some(provider_name) => {
                     tracing::debug!(
@@ -292,10 +160,10 @@ pub(crate) async fn handle_runtime_command_if_needed(
                 ),
             }
         }
-        ChannelRuntimeCommand::ShowModel => {
+        ChannelRuntimeCommand::Portable(PortableCommand::ShowModel) => {
             build_models_help_response(&current, ctx.workspace_dir.as_path())
         }
-        ChannelRuntimeCommand::SetModel(raw_model) => {
+        ChannelRuntimeCommand::Portable(PortableCommand::SetModel(raw_model)) => {
             let model = raw_model.trim().trim_matches('`').to_string();
             if model.is_empty() {
                 "Model ID cannot be empty. Use `/model <model-id>`.".to_string()
