@@ -6,6 +6,24 @@ pub const MAX_INSTALL_URL_LEN: usize = tinyskills::install::MAX_INSTALL_URL_LEN;
 const ALLOW_LOCAL_HTTP_ENV: &str = "OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP";
 
 pub(crate) fn normalize_install_url(raw: &str) -> Result<String, String> {
+    // ClawHub's file API identifies the requested Markdown file in its query
+    // rather than in the URL path. Preserve this OpenHuman-compatible form
+    // while keeping the portable validator strict for every other host/path.
+    if let Ok(url) = url::Url::parse(raw) {
+        let is_clawhub_file_api = url.host_str() == Some("clawhub.ai")
+            && url.path().starts_with("/api/v1/skills/")
+            && url.path().ends_with("/file");
+        if is_clawhub_file_api {
+            let markdown_path = url
+                .query_pairs()
+                .find(|(key, _)| key == "path")
+                .map(|(_, value)| value.to_ascii_lowercase().ends_with(".md"))
+                .unwrap_or(false);
+            if markdown_path {
+                return Ok(raw.to_owned());
+            }
+        }
+    }
     tinyskills::normalize_install_url(raw)
 }
 

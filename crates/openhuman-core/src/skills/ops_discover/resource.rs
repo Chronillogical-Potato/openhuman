@@ -1,7 +1,7 @@
 //! OpenHuman discovery context around `tinyskills` resource reads.
 
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use crate::skills::ops_types::WorkflowScope;
 
@@ -17,6 +17,22 @@ fn reject_symlink_components(root: &Path, relative_path: &Path) -> Result<(), St
         if metadata.file_type().is_symlink() {
             return Err("resource path is a symlink".to_owned());
         }
+    }
+    Ok(())
+}
+
+fn validate_relative_path(relative_path: &Path) -> Result<(), String> {
+    if relative_path.as_os_str().is_empty() {
+        return Err("relative_path must not be empty".to_owned());
+    }
+    if relative_path.is_absolute() {
+        return Err("relative_path must not be absolute".to_owned());
+    }
+    if relative_path
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err("relative_path must not contain '..' or escape the skill directory".to_owned());
     }
     Ok(())
 }
@@ -49,6 +65,7 @@ pub fn read_workflow_resource_with_profile(
     if skill_id.trim().is_empty() {
         return Err("skill_id must not be empty".to_string());
     }
+    validate_relative_path(relative_path)?;
     let skill = tinyskills::resolve_skill(
         load_workflow_metadata_for_profile(workspace_dir, profile_skills_root),
         skill_id,
