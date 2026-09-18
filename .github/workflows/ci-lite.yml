@@ -148,6 +148,10 @@ jobs:
               # entry, resolved to `["rust-tauri"]` alone, skipping every lane
               # that would have compiled the family it enabled.
               - 'scripts/ci/product-features.*'
+              # The prompt-budget ratchet runs in rust-quality; editing its
+              # limits or the script must arm the lane that checks them.
+              - 'scripts/prompt-budget.limits'
+              - 'scripts/check-prompt-budget.sh'
               # The coverage-presence gate and its allowlist decide whether this
               # lane FAILS, so they arm it for the same reason.
               - 'scripts/ci/assert-coverage-presence.sh'
@@ -446,6 +450,13 @@ jobs:
         run: |
           bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman \
             --features "$(bash scripts/ci/product-features.sh)" -- -D warnings
+
+      - name: Guard — the fixed prompt prefix may not grow
+        if: needs.changes.outputs['rust-core'] == 'true'
+        # Until this step no lane ran check-prompt-budget.sh, and the recorded
+        # limits rotted unnoticed. It builds openhuman-core with the same
+        # product feature set clippy just resolved.
+        run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
 
       - name: Run clippy (core crate, contributor default set)
         if: needs.changes.outputs['rust-core'] == 'true'
