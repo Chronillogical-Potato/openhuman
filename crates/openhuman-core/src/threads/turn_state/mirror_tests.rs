@@ -2,7 +2,6 @@
 
 use super::*;
 use crate::agent::progress::AgentProgress;
-use crate::agent::task_board::{TaskBoard, TaskBoardCard, TaskCardStatus};
 use tempfile::tempdir;
 
 fn fresh(thread_id: &str) -> (tempfile::TempDir, TurnStateMirror) {

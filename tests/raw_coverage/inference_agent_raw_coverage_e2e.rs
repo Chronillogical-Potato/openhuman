@@ -73,10 +73,6 @@ use openhuman_core::agent::stop_hooks::{
     current_stop_hooks, with_stop_hooks, BudgetStopHook, MaxIterationsStopHook, StopDecision,
     StopHook, TurnState,
 };
-use openhuman_core::agent::task_board::{
-    TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
-};
-use openhuman_core::agent::task_dispatcher::build_task_prompt;
 use openhuman_core::agent::tool_policy::{
     AllowAllToolPolicy, GeneratedToolRuntimeContext, GeneratedToolRuntimePolicy,
     GeneratedToolRuntimePolicyConfig, GeneratedToolRuntimeRisk, RuntimeToolPolicyAction,
@@ -167,7 +163,7 @@ use openhuman_core::agent::profiles::{
 };
 use openhuman_core::security::SecurityPolicy;
 use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
-use openhuman_core::threads::todos::ops::BoardLocation;
+use openhuman_core::agent::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
 use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
@@ -1558,87 +1554,6 @@ named = ["todo", "plan_exit"]
     assert_eq!(registry.list().len(), 1);
 }
 
-#[tokio::test]
-async fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes() {
-    let workspace = tempdir().expect("workspace");
-    let store = TaskBoardStore::new(workspace.path().to_path_buf());
-    assert!(store.get("thread-1").await.expect("missing board").is_none());
-    assert!(store
-        .get("   ")
-        .await
-        .unwrap_err()
-        .contains("invalid task board thread_id"));
-
-    let mut board = TaskBoard::empty("thread-1");
-    assert_eq!(board.thread_id, "thread-1");
-    board.cards.push(TaskBoardCard {
-        id: "card-1".into(),
-        title: "Fallback title".into(),
-        status: TaskCardStatus::Todo,
-        objective: Some(" Ship the coverage branch ".into()),
-        plan: vec!["Inspect gaps".into(), "Add tests".into()],
-        assigned_agent: Some("planner".into()),
-        allowed_tools: vec!["memory_recall".into()],
-        approval_mode: Some(TaskApprovalMode::Required),
-        acceptance_criteria: vec!["Focused tests pass".into()],
-        evidence: vec![],
-        notes: Some("Keep scope narrow".into()),
-        session_thread_id: None,
-        blocker: None,
-        source_metadata: Some(json!({
-            "provider": "github",
-            "repo": "tinyhumansai/openhuman",
-            "external_id": "123",
-            "url": "https://github.com/tinyhumansai/openhuman/issues/123"
-        })),
-        order: 2,
-        updated_at: "2026-05-29T12:00:00Z".into(),
-    });
-
-    let saved = store.put(board).await.expect("put board");
-    assert_eq!(saved.cards[0].status.as_str(), "todo");
-    assert_eq!(
-        saved.cards[0]
-            .approval_mode
-            .as_ref()
-            .expect("approval mode")
-            .as_str(),
-        "required"
-    );
-    let loaded = store
-        .get("thread-1")
-        .await
-        .expect("load board")
-        .expect("board exists");
-    assert_eq!(loaded.cards[0].id, "card-1");
-
-    let prompt = build_task_prompt(&loaded.cards[0]);
-    assert!(prompt.contains("Ship the coverage branch"));
-    assert!(prompt.contains("1. Inspect gaps"));
-    assert!(prompt.contains("Acceptance criteria"));
-    assert!(prompt.contains("github tinyhumansai/openhuman#123"));
-    assert!(prompt.contains("Source link: https://github.com"));
-    assert!(prompt.contains("record the outcome on the upstream source"));
-
-    let title_prompt = build_task_prompt(&TaskBoardCard {
-        objective: Some("   ".into()),
-        source_metadata: Some(json!({ "external_id": "123" })),
-        session_thread_id: None,
-        ..loaded.cards[0].clone()
-    });
-    assert!(title_prompt.contains("Fallback title"));
-    assert!(!title_prompt.contains("This task originates from #123"));
-
-    let replaced = store
-        .put(TaskBoard {
-            thread_id: "thread-1".into(),
-            cards: vec![],
-            updated_at: String::new(),
-        })
-        .await
-        .expect("replace board");
-    assert!(replaced.cards.is_empty());
-}
 
 #[test]
 fn agent_personality_paths_cover_safe_fallbacks_and_integration_filters() {

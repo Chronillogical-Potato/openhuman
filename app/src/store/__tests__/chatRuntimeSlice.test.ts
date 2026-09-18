@@ -11,7 +11,6 @@ import reducer, {
   clearPendingApprovalForThread,
   clearRuntimeForThread,
   clearStreamingAssistantForThread,
-  clearTaskBoardForThread,
   clearToolTimelineForThread,
   endInferenceTurn,
   hydrateRuntimeFromRunLedger,
@@ -23,7 +22,6 @@ import reducer, {
   setParallelStream,
   setPendingApprovalForThread,
   setStreamingAssistantForThread,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   streamDeltaReceived,
   subagentAwaitingUser,
@@ -139,47 +137,6 @@ describe('chatRuntimeSlice', () => {
 
     const cleared = reducer(withTimeline, clearToolTimelineForThread({ threadId: 'thread-1' }));
     expect(cleared.toolTimelineByThread['thread-1']).toBeUndefined();
-  });
-
-  it('stores task boards by thread and hydrates them from snapshots', () => {
-    const taskBoard = {
-      threadId: 'thread-board',
-      updatedAt: '2026-05-04T10:00:05Z',
-      cards: [
-        {
-          id: 'task-1',
-          title: 'Draft plan',
-          status: 'todo' as const,
-          order: 0,
-          updatedAt: '2026-05-04T10:00:05Z',
-        },
-      ],
-    };
-
-    const withBoard = reducer(
-      undefined,
-      setTaskBoardForThread({ threadId: 'thread-board', board: taskBoard })
-    );
-    expect(withBoard.taskBoardByThread['thread-board']).toEqual(taskBoard);
-
-    const afterClear = reducer(withBoard, clearTaskBoardForThread({ threadId: 'thread-board' }));
-    expect(afterClear.taskBoardByThread['thread-board']).toBeUndefined();
-
-    const snapshot: PersistedTurnState = {
-      threadId: 'thread-h',
-      requestId: 'req-h',
-      lifecycle: 'streaming',
-      iteration: 1,
-      maxIterations: 25,
-      streamingText: '',
-      thinking: '',
-      toolTimeline: [],
-      taskBoard,
-      startedAt: '2026-05-04T10:00:00Z',
-      updatedAt: '2026-05-04T10:00:05Z',
-    };
-    const hydrated = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
-    expect(hydrated.taskBoardByThread['thread-h']).toEqual(taskBoard);
   });
 
   it('tracks per-thread inference turn lifecycle', () => {
@@ -496,7 +453,6 @@ describe('chatRuntimeSlice', () => {
     expect(cleared.inferenceStatusByThread['thread-1']).toBeUndefined();
     expect(cleared.streamingAssistantByThread['thread-1']).toBeUndefined();
     expect(cleared.toolTimelineByThread['thread-1']).toBeUndefined();
-    expect(cleared.taskBoardByThread['thread-1']).toBeUndefined();
     expect(cleared.inferenceTurnLifecycleByThread['thread-1']).toBeUndefined();
   });
 

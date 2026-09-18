@@ -1284,28 +1284,6 @@ pub(crate) fn spawn_progress_bridge(
                         },
                     );
                 }
-                AgentProgress::TaskBoardUpdated { board } => {
-                    log::debug!(
-                        "[web_channel][bridge] task_board_updated client_id={} thread_id={} request_id={} cards={}",
-                        client_id,
-                        thread_id,
-                        request_id,
-                        board.cards.len()
-                    );
-                    publish_seq_stamped(
-                        &mut emit_seq,
-                        WebChannelEvent {
-                            event: "task_board_updated".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            task_board: Some(serde_json::to_value(board).unwrap_or_else(
-                                |_| serde_json::json!({ "threadId": thread_id, "cards": [] }),
-                            )),
-                            ..Default::default()
-                        },
-                    );
-                }
                 AgentProgress::TextDelta { delta, iteration } => {
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.

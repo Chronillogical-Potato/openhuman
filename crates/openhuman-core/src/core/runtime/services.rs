@@ -372,14 +372,10 @@ fn spawn_module_preload(_config: &Config) {
     log::debug!("[runtime.bootstrap] native module preload skipped: modules are compiled out");
 }
 
-/// Runs startup migrations, then starts one-shot boot background work selected
-/// by [`ServiceSet`].
-///
-/// The legacy goal and task-board copies must complete before any service that
-/// can read or write their crate-backed stores starts, and before the runtime
-/// publishes readiness.
+/// Runs startup housekeeping, then starts one-shot boot background work
+/// selected by [`ServiceSet`].
 pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
-    run_legacy_migrations(config).await;
+    run_startup_housekeeping(config);
 
     // The orphaned-run sweep does NOT live here. It runs in
     // `CoreBuilder::build`, which every runtime goes through — these jobs only
@@ -414,69 +410,13 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-async fn run_legacy_migrations(config: &Config) {
+fn run_startup_housekeeping(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
         Ok(count) if count > 0 => {
             log::info!("[cron] removed {count} retired autopilot job(s)");
         }
         Ok(_) => {}
         Err(e) => log::warn!("[cron] failed to prune retired jobs: {e}"),
-    }
-
-    // These used to run as detached tasks, allowing a user/API write to land
-    // between a migration's `get(None)` check and its later `put`. Await each
-    // copy in startup order so the crate stores are authoritative before
-    // writers and readiness are exposed.
-    //
-    // Both copies are idempotent and must run for each workspace so an
-    // in-process restart with a different workspace migrates that workspace.
-    match crate::threads::goals::migration::migrate_legacy_goals(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => {
-            log::info!(
-                "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
-                report.total,
-                report.copied,
-                report.skipped
-            );
-        }
-        Ok(_) => {}
-        Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
-    }
-
-    // Idempotent copy of any task boards left in the retired
-    // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
-    // `graph.todos` store, which is now authoritative. Idempotent and returns
-    // fast on an empty/absent legacy dir. As above, each core boot must inspect
-    // its own workspace.
-    match crate::agent::tinyagents::todos::migrate_legacy_task_boards(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => {
-            log::info!(
-                "[todos] legacy→crate migration: total={} copied={} skipped={}",
-                report.total,
-                report.copied,
-                report.skipped
-            );
-        }
-        Ok(_) => {}
-        Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
-    }
-
-    // The `*.runs.json` claim/heartbeat ledgers that sat beside those boards
-    // move with them: run records now live in the crate `graph.todos.runs`
-    // store, so a board and its run log cannot drift apart across a restart.
-    // Left behind, an in-flight claim would be invisible to the reclaim sweep
-    // and its card would stay wedged at `in_progress` forever.
-    match crate::threads::todos::runs::migrate_legacy_task_runs(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => {
-            log::info!(
-                "[todos] legacy→crate run-ledger migration: total={} copied={} skipped={}",
-                report.total,
-                report.copied,
-                report.skipped
-            );
-        }
-        Ok(_) => {}
-        Err(e) => log::warn!("[todos] legacy→crate run-ledger migration failed: {e}"),
     }
 }
 

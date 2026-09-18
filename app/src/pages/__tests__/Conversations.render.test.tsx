@@ -86,15 +86,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: ThreadMessage) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -1521,8 +1512,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Regression: when a delegated sub-agent (`Research`, `Tools Agent`,
     // …) is running, the parent thread's `inferenceStatusByThread` and
     // `streamingAssistantByThread` references can stay put while
-    // `toolTimelineByThread` and `taskBoardByThread` tick. The rearm
-    // effect must watch all four — otherwise a long sub-agent loop
+    // `toolTimelineByThread` ticks. The rearm effect must watch that timeline —
+    // otherwise a long sub-agent loop
     // trips the 120s safety timer even though the user can see tools
     // firing in the timeline.
     vi.useFakeTimers({ shouldAdvanceTime: true });

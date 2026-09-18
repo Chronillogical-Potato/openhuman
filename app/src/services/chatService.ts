@@ -8,7 +8,6 @@
  */
 import debug from 'debug';
 
-import type { TaskBoard } from '../types/turnState';
 import { callCoreRpc } from './coreRpcClient';
 import { socketService } from './socketService';
 
@@ -572,12 +571,6 @@ export interface ChatToolArgsDeltaEvent {
   delta: string;
 }
 
-export interface ChatTaskBoardUpdatedEvent {
-  thread_id: string;
-  request_id?: string;
-  task_board: TaskBoard;
-}
-
 export interface ChatEventListeners {
   onInferenceStart?: (event: ChatInferenceStartEvent) => void;
   onInferenceHeartbeat?: (event: ChatInferenceHeartbeatEvent) => void;
@@ -597,7 +590,6 @@ export interface ChatEventListeners {
   onTextDelta?: (event: ChatTextDeltaEvent) => void;
   onThinkingDelta?: (event: ChatThinkingDeltaEvent) => void;
   onToolArgsDelta?: (event: ChatToolArgsDeltaEvent) => void;
-  onTaskBoardUpdated?: (event: ChatTaskBoardUpdatedEvent) => void;
   onProactiveMessage?: (event: ProactiveMessageEvent) => void;
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
   onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
@@ -644,7 +636,6 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     textDelta: 'text_delta',
     thinkingDelta: 'thinking_delta',
     toolArgsDelta: 'tool_args_delta',
-    taskBoardUpdated: 'task_board_updated',
     proactiveMessage: 'proactive_message',
     approvalRequest: 'approval_request',
     planReviewRequest: 'plan_review_request',
@@ -1186,22 +1177,6 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     };
     socket.on(EVENTS.artifactFailed, cb);
     handlers.push([EVENTS.artifactFailed, cb]);
-  }
-
-  if (listeners.onTaskBoardUpdated) {
-    const cb = (payload: unknown) => {
-      const e = payload as ChatTaskBoardUpdatedEvent;
-      chatLog(
-        '%s thread_id=%s request_id=%s cards=%d',
-        EVENTS.taskBoardUpdated,
-        e.thread_id,
-        e.request_id,
-        e.task_board?.cards?.length ?? 0
-      );
-      listeners.onTaskBoardUpdated?.(e);
-    };
-    socket.on(EVENTS.taskBoardUpdated, cb);
-    handlers.push([EVENTS.taskBoardUpdated, cb]);
   }
 
   if (listeners.onDone) {

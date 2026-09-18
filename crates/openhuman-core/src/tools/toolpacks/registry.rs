@@ -330,9 +330,9 @@ pub const PACKS: &[ToolPack] = &[
         // the model find either: `goals` is the user's durable long-term
         // objectives held in memory, `goal_get` / `goal_set` are the
         // completion contract for one conversation thread. Both are things a
-        // user edits far more often than an agent does, and both stayed
-        // user-reachable — the `memory_goals.*` and `thread_goals.*` RPC the
-        // UI drives is untouched by the withholding.
+        // user edits far more often than an agent does. Long-term goals remain
+        // user-reachable through `memory_goals.*`; the per-turn completion
+        // contract is agent-owned.
         //
         // `goal_complete` is deliberately NOT a member. Closing a goal is the
         // one goal operation an agent reaches for reactively, at the end of

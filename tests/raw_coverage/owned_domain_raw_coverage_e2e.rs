@@ -13,9 +13,6 @@ use axum::{Json, Router};
 use serde_json::{json, Map, Value};
 use tempfile::tempdir;
 
-use openhuman_core::agent::task_board::{
-    board_for_thread, TaskApprovalMode, TaskBoard, TaskBoardCard, TaskBoardStore, TaskCardStatus,
-};
 use openhuman_core::integrations::composio::ComposioClient;
 use openhuman_core::config::{
     CapabilityProviderConfig, CapabilityProviderTrustState, Config, McpServerConfig,
@@ -411,102 +408,6 @@ async fn composio_client_round_trips_backend_paths_and_payload_normalization() {
     );
 }
 
-#[tokio::test]
-async fn agent_task_board_store_normalizes_persists_and_surfaces_errors() {
-    let dir = tempdir().expect("tempdir");
-    let store = TaskBoardStore::new(dir.path().to_path_buf());
-
-    assert_eq!(TaskCardStatus::InProgress.as_str(), "in_progress");
-    assert_eq!(TaskApprovalMode::NotRequired.as_str(), "not_required");
-    assert!(store.get(" missing ").await.expect("get missing").is_none());
-    assert!(store
-        .get("   ")
-        .await
-        .expect_err("blank id")
-        .contains("thread_id"));
-
-    let saved = store
-        .put(TaskBoard {
-            thread_id: " thread-owned ".to_string(),
-            cards: vec![
-                TaskBoardCard {
-                    id: " ".to_string(),
-                    title: "  Draft owned coverage  ".to_string(),
-                    status: TaskCardStatus::Blocked,
-                    objective: Some("  Raise raw coverage  ".to_string()),
-                    plan: vec![
-                        " inspect ".to_string(),
-                        " ".to_string(),
-                        " test ".to_string(),
-                    ],
-                    assigned_agent: Some(" agent ".to_string()),
-                    allowed_tools: vec![" cargo ".to_string(), "".to_string()],
-                    approval_mode: Some(TaskApprovalMode::Required),
-                    acceptance_criteria: vec![" tests pass ".to_string()],
-                    evidence: vec![" coverage measured ".to_string()],
-                    notes: Some(" waiting ".to_string()),
-                    session_thread_id: Some("  task-sess-owned  ".to_string()),
-                    blocker: None,
-                    source_metadata: None,
-                    order: 99,
-                    updated_at: String::new(),
-                },
-                TaskBoardCard {
-                    id: "drop-me".to_string(),
-                    title: "   ".to_string(),
-                    status: TaskCardStatus::Todo,
-                    objective: None,
-                    plan: Vec::new(),
-                    assigned_agent: None,
-                    allowed_tools: Vec::new(),
-                    approval_mode: None,
-                    acceptance_criteria: Vec::new(),
-                    evidence: Vec::new(),
-                    notes: None,
-                    session_thread_id: None,
-                    blocker: None,
-                    source_metadata: None,
-                    order: 99,
-                    updated_at: String::new(),
-                },
-            ],
-            updated_at: String::new(),
-        })
-        .await
-        .expect("put task board");
-
-    assert_eq!(saved.thread_id, "thread-owned");
-    assert_eq!(saved.cards.len(), 1);
-    assert!(saved.cards[0].id.starts_with("task-"));
-    assert_eq!(saved.cards[0].title, "Draft owned coverage");
-    assert_eq!(saved.cards[0].plan, vec!["inspect", "test"]);
-    assert_eq!(saved.cards[0].blocker.as_deref(), Some("waiting"));
-    // A padded session_thread_id is trimmed (not dropped) on persist.
-    assert_eq!(
-        saved.cards[0].session_thread_id.as_deref(),
-        Some("task-sess-owned")
-    );
-    assert_eq!(saved.cards[0].order, 0);
-
-    let loaded = board_for_thread(dir.path(), " thread-owned ")
-        .await
-        .expect("board_for_thread")
-        .cards;
-    assert_eq!(loaded[0].approval_mode, Some(TaskApprovalMode::Required));
-    // …and the normalized value survives a reload from disk.
-    assert_eq!(
-        loaded[0].session_thread_id.as_deref(),
-        Some("task-sess-owned")
-    );
-
-    assert!(store.delete("thread-owned").await.expect("delete present"));
-    assert!(!store.delete("thread-owned").await.expect("delete missing"));
-
-    let missing = board_for_thread(dir.path(), "thread-owned")
-        .await
-        .expect("missing board");
-    assert!(missing.cards.is_empty());
-}
 
 #[test]
 fn tool_registry_public_apis_cover_entries_diagnostics_and_provider_policy() {

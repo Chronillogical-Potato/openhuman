@@ -22,7 +22,6 @@ import {
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
-  type ChatTaskBoardUpdatedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
@@ -52,7 +51,6 @@ import {
   setPendingApprovalForThread,
   setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   setWorkflowProposalForThread,
   streamDeltaReceived,
@@ -1081,10 +1079,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             toolCallId: event.tool_call_id,
           })
         );
-      },
-      onTaskBoardUpdated: (event: ChatTaskBoardUpdatedEvent) => {
-        if (!event.task_board) return;
-        dispatch(setTaskBoardForThread({ threadId: event.thread_id, board: event.task_board }));
       },
       onProactiveMessage: (event: ProactiveMessageEvent) => {
         const messageDigest = proactiveMessageDigest(event.full_response ?? '');

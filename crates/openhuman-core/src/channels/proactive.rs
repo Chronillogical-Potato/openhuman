@@ -217,7 +217,6 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
             failure: None,
             citations: None,
             subagent: None,
-            task_board: None,
             tool_display_label: None,
             tool_display_detail: None,
             usage: None,

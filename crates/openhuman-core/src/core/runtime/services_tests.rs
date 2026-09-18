@@ -1,18 +1,5 @@
 use super::*;
 
-#[tokio::test]
-async fn legacy_migrations_run_for_each_workspace() {
-    let tmp = tempfile::tempdir().unwrap();
-    let mut first = Config::default();
-    first.workspace_dir = tmp.path().join("first");
-    let mut second = Config::default();
-    second.workspace_dir = tmp.path().join("second");
-
-    for config in [first, second] {
-        run_legacy_migrations(&config).await;
-    }
-}
-
 /// desktop() must enable every bootstrap job — proves the un-bundling kept
 /// the desktop job set byte-identical.
 #[test]

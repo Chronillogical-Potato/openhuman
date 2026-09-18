@@ -31,15 +31,15 @@ use async_trait::async_trait;
 
 use crate::agent::harness::run_channel_turn_via_graph;
 use crate::agent::messages::ChatMessage;
-use crate::agent::task_board::{TaskBoardCard, TaskCardStatus};
 use crate::agent::task_dispatcher::{dispatch_card, DispatchOutcome};
+use crate::agent::todos::ops as board_ops;
+use crate::agent::todos::ops::{BoardLocation, CardPatch};
+use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 use crate::agent::tools::RunWorkflowTool;
 use crate::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::inference::provider::factory::test_provider_override;
 use crate::skills::runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::skills::schemas::resolve_workspace_dir;
-use crate::threads::todos::ops as board_ops;
-use crate::threads::todos::ops::{BoardLocation, CardPatch};
 use crate::tools::traits::Tool;
 use tinyinference::message::AssistantMessage;
 use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};

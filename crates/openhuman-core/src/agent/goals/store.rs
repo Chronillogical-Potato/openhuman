@@ -4,10 +4,9 @@
 //! crate's `graph::goals` KV store
 //! (`<workspace>/tinyagents_store/kv/graph.goals/<hex(thread_id)>.json`), not
 //! the legacy `<workspace>/thread_goals/` file-JSON tree. This module is a thin
-//! adapter: it preserves the historical `store::*(workspace_dir, …)` call
-//! surface every consumer (RPC ops, the harness turn loop, the heartbeat
-//! continuation runtime, the agent tools, and post-turn accounting) already
-//! uses, and forwards each operation to the crate store — converting the crate
+//! adapter for the harness turn loop, heartbeat continuation runtime, agent
+//! tools, and post-turn accounting. It forwards each operation to the crate
+//! store, converting the crate
 //! [`CrateThreadGoal`](tinyagents_graph::goals::types::ThreadGoal) back to the
 //! local [`ThreadGoal`] and its `TinyAgentsError` to a `String`.
 //!
@@ -16,10 +15,16 @@
 //! suppression compare-and-set, and stale-goal-id accounting guards).
 
 use std::path::Path;
+use std::sync::Arc;
 
-use super::migration::{delete_legacy_goal_file, goals_store};
 use super::ThreadGoal;
+use crate::agent::session_import::ops::open_session_stores;
 use tinyagents_graph::goals::store as crate_store;
+use tinyagents_harness::store::Store;
+
+pub(crate) fn goals_store(workspace_dir: &Path) -> Arc<dyn Store> {
+    Arc::new(open_session_stores(workspace_dir).kv)
+}
 
 /// Set (create or replace) the thread's goal. A changed objective mints a fresh
 /// goal and resets counters; an unchanged objective preserves counters and
@@ -79,7 +84,6 @@ pub async fn list_all(workspace_dir: &Path) -> Result<Vec<ThreadGoal>, String> {
 
 /// Delete the thread's goal. Returns whether a goal was present.
 pub async fn clear(workspace_dir: &Path, thread_id: &str) -> Result<bool, String> {
-    delete_legacy_goal_file(workspace_dir, thread_id).await?;
     let store = goals_store(workspace_dir);
     let existed = crate_store::clear(&store, thread_id)
         .await

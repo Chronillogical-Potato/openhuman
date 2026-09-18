@@ -792,12 +792,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Goals),
         crate::memory::goals::all_memory_goals_registered_controllers(),
     );
-    // Thread-level goal (Codex-style per-thread completion contract)
-    push(
-        &mut controllers,
-        DomainGroup::Threads,
-        crate::threads::goals::all_thread_goals_registered_controllers(),
-    );
     // Memory tree ingestion layer (#707 — canonicalised chunks with provenance)
     push_cap(
         &mut controllers,
@@ -942,12 +936,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Inference,
         crate::inference::tokenjuice::all_tokenjuice_registered_controllers(),
-    );
-    // Per-thread todo list (agent task board CRUD over RPC)
-    push(
-        &mut controllers,
-        DomainGroup::Threads,
-        crate::threads::todos::all_todos_registered_controllers(),
     );
     // Integration notification ingest, triage, and per-provider settings
     push(
@@ -1120,9 +1108,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "memory" => Some("Document storage, vector search, key-value store, and knowledge graph."),
         "memory_goals" => Some(
             "The agent's long-term goals list for working with the user — editable items plus turn-based enrichment.",
-        ),
-        "thread_goals" => Some(
-            "The thread-level goal — a Codex-style per-thread completion contract with lifecycle, token budget, and idle continuation.",
         ),
         "memory_tree" => Some(
             "Canonical chunk ingestion, provenance capture, and chunk retrieval for source-grounded memory.",

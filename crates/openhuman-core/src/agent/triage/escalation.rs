@@ -335,7 +335,7 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
 async fn dispatch_linked_card(
     link: &TaskCardLink,
 ) -> Result<crate::agent::task_dispatcher::DispatchOutcome, String> {
-    let snapshot = crate::threads::todos::ops::list(&link.location).await?;
+    let snapshot = crate::agent::todos::ops::list(&link.location).await?;
     let card = snapshot
         .cards
         .into_iter()
@@ -366,8 +366,8 @@ fn retained_input_note(source: &TriggerSource) -> &'static str {
 /// it is left untouched. Best-effort: a missing card or write failure is
 /// logged, never propagated — the trigger was already evaluated.
 async fn gate_linked_card_terminal(envelope: &TriggerEnvelope, decision: &str) {
-    use crate::agent::task_board::TaskCardStatus;
-    use crate::threads::todos::ops;
+    use crate::agent::todos::ops;
+    use crate::agent::todos::types::TaskCardStatus;
 
     let Some(link) = &envelope.card_link else {
         return;

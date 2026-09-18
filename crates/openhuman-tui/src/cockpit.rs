@@ -14,8 +14,6 @@ pub enum OverlayKind {
     Permissions,
     Status,
     Usage,
-    Goal,
-    Tasks,
     Agents,
     Skills,
     Mcp,

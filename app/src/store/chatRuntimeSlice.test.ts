@@ -625,19 +625,6 @@ describe('hydrateRuntimeFromSnapshot — live-driver guard', () => {
       thinking: '',
       // Flush-boundary snapshot: one lonely row, behind the live state.
       toolTimeline: [{ id: 'c-old', name: 'web_search', round: 1, status: 'running' }],
-      taskBoard: {
-        threadId,
-        cards: [
-          {
-            id: 'card-1',
-            title: 'Do the thing',
-            status: 'in_progress',
-            order: 0,
-            updatedAt: '2026-06-23T00:00:00Z',
-          },
-        ],
-        updatedAt: '2026-06-23T00:00:00Z',
-      },
       startedAt: '2026-06-23T00:00:00Z',
       updatedAt: '2026-06-23T00:00:00Z',
     };
@@ -682,8 +669,6 @@ describe('hydrateRuntimeFromSnapshot — live-driver guard', () => {
     expect(state.pendingApprovalByThread['t-live']?.requestId).toBe('req-live');
     // …and the lifecycle stays live.
     expect(state.inferenceTurnLifecycleByThread['t-live']).toBe('streaming');
-    // The task board (monotonic, cheap) is still applied.
-    expect(state.taskBoardByThread['t-live']?.cards[0]?.id).toBe('card-1');
   });
 
   it('applies the snapshot when there is no live driver (cold boot / new window)', () => {

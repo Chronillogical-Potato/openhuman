@@ -17,15 +17,11 @@ import type {
   AgentRunGetResponse,
   AgentRunListResponse,
   ClearTurnStateResponse,
-  GetTaskBoardResponse,
   GetTurnStateResponse,
   ListTurnStatesResponse,
   PersistedTurnState,
-  PutTaskBoardResponse,
   RunEvent,
   RunEventListResponse,
-  TaskBoard,
-  TaskBoardCard,
 } from '../../types/turnState';
 import { callCoreRpc } from '../coreRpcClient';
 
@@ -227,50 +223,6 @@ export const threadApi = {
     });
     const data = unwrapEnvelope(response);
     return data?.events ?? [];
-  },
-
-  getTaskBoard: async (threadId: string): Promise<TaskBoard | null> => {
-    const response = await callCoreRpc<{ data?: GetTaskBoardResponse }>({
-      method: 'openhuman.threads_task_board_get',
-      params: { thread_id: threadId },
-    });
-    const data = unwrapEnvelope(response);
-    return data?.taskBoard ?? null;
-  },
-
-  putTaskBoard: async (threadId: string, cards: TaskBoardCard[]): Promise<TaskBoard | null> => {
-    const response = await callCoreRpc<{ data?: PutTaskBoardResponse }>({
-      method: 'openhuman.threads_task_board_put',
-      params: { thread_id: threadId, cards },
-    });
-    const data = unwrapEnvelope(response);
-    return data?.taskBoard ?? null;
-  },
-
-  /**
-   * Approve or reject a task-board card that is awaiting plan approval
-   * (`openhuman.todos_decide_plan`). Approve → the card becomes runnable
-   * (`ready`); reject → `rejected`. Returns the updated board (rebuilt from
-   * the returned todos snapshot) or null.
-   */
-  decidePlan: async (
-    threadId: string,
-    cardId: string,
-    approve: boolean
-  ): Promise<TaskBoard | null> => {
-    const response = await callCoreRpc<{
-      data?: { threadId?: string | null; cards?: TaskBoardCard[] };
-    }>({
-      method: 'openhuman.todos_decide_plan',
-      params: { thread_id: threadId, id: cardId, approve },
-    });
-    const data = unwrapEnvelope(response);
-    if (!data?.cards) return null;
-    return {
-      threadId: data.threadId ?? threadId,
-      cards: data.cards,
-      updatedAt: new Date().toISOString(),
-    };
   },
 
   updateLabels: async (threadId: string, labels: string[]): Promise<Thread> => {

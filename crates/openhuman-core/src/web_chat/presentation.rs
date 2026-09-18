@@ -181,7 +181,6 @@ pub(crate) async fn deliver_response(
             tool_call_id: None,
             failure: None,
             subagent: None,
-            task_board: None,
             tool_display_label: None,
             tool_display_detail: None,
             citations: if i == 0 && !citations.is_empty() {
@@ -223,7 +222,6 @@ pub(crate) async fn deliver_response(
         tool_call_id: None,
         failure: None,
         subagent: None,
-        task_board: None,
         tool_display_label: None,
         tool_display_detail: None,
         citations: if citations.is_empty() {
@@ -302,7 +300,6 @@ fn publish_chat_done(
         tool_call_id: None,
         failure: None,
         subagent: None,
-        task_board: None,
         tool_display_label: None,
         tool_display_detail: None,
         citations: if citations.is_empty() {

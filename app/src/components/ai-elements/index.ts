@@ -22,7 +22,7 @@
  *   interleaved narration). Both upstream components are whole-panel
  *   collapsibles that hide that trail behind one "Thought for N seconds"
  *   summary — the opposite of the chosen design.
- * - `Task` / `Plan` — `ThreadTodoStrip` and `PlanReviewCard` are the real
+ * - `Plan` — `PlanReviewCard` is the real
  *   surfaces. The strip wants a plain `ui/Collapsible`, not `Task`'s
  *   search-icon trigger and bordered rail; the review card is a blocking
  *   decision surface that must not be collapsible at all.

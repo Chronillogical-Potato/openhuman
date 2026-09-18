@@ -186,10 +186,10 @@ async fn apply_decision_acknowledge_only_publishes_evaluated() {
 
 async fn seed_task_card() -> (
     tempfile::TempDir,
-    crate::threads::todos::ops::BoardLocation,
+    crate::agent::todos::ops::BoardLocation,
     String,
 ) {
-    use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
+    use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
     let dir = tempfile::tempdir().unwrap();
     let location = BoardLocation::Thread {
         workspace_dir: dir.path().to_path_buf(),
@@ -206,8 +206,8 @@ async fn seed_task_card() -> (
 
 #[tokio::test]
 async fn apply_decision_drop_gates_linked_card_to_rejected() {
-    use crate::agent::task_board::TaskCardStatus;
-    use crate::threads::todos::ops;
+    use crate::agent::todos::ops;
+    use crate::agent::todos::types::TaskCardStatus;
 
     let _events_guard = test_events_guard().await;
     crate::core::bus::init().await.expect("bus init");
@@ -234,8 +234,8 @@ async fn apply_decision_drop_gates_linked_card_to_rejected() {
 
 #[tokio::test]
 async fn apply_decision_acknowledge_gates_linked_card_to_rejected() {
-    use crate::agent::task_board::TaskCardStatus;
-    use crate::threads::todos::ops;
+    use crate::agent::todos::ops;
+    use crate::agent::todos::types::TaskCardStatus;
 
     let _events_guard = test_events_guard().await;
     crate::core::bus::init().await.expect("bus init");
