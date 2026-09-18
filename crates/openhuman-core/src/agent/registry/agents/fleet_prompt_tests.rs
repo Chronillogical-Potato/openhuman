@@ -217,19 +217,59 @@ pub(super) fn names_presented_as_callable<'a>(
 ///   something else (a node kind, an argument, an example). No fix is owed.
 const KNOWN_UNCALLABLE: &[(&str, &str, &str)] = &[
     // Real.
-    ("morning_briefing", "composio_list_connections", "withheld by the `composio` pack"),
-    ("morning_briefing", "composio_list_tools", "withheld by the `composio` pack"),
-    ("morning_briefing", "composio_execute", "withheld by the `composio` pack"),
-    ("context_scout", "list_workflows", "on its belt but withheld by the `workflows` pack"),
-    ("skill_executor", "describe_workflow", "step 1 of its procedure; on its belt but withheld by the `workflows` pack"),
+    (
+        "morning_briefing",
+        "composio_list_connections",
+        "withheld by the `composio` pack",
+    ),
+    (
+        "morning_briefing",
+        "composio_list_tools",
+        "withheld by the `composio` pack",
+    ),
+    (
+        "morning_briefing",
+        "composio_execute",
+        "withheld by the `composio` pack",
+    ),
+    (
+        "context_scout",
+        "list_workflows",
+        "on its belt but withheld by the `workflows` pack",
+    ),
+    (
+        "skill_executor",
+        "describe_workflow",
+        "step 1 of its procedure; on its belt but withheld by the `workflows` pack",
+    ),
     // Collision.
-    ("context_scout", "run_workflow", "names the orchestrator's call, not its own"),
-    ("scheduler_agent", "schedule", "the `schedule` argument of `cron_add`"),
-    ("summarizer", "file_read", "an example of a payload's source tool"),
+    (
+        "context_scout",
+        "run_workflow",
+        "names the orchestrator's call, not its own",
+    ),
+    (
+        "scheduler_agent",
+        "schedule",
+        "the `schedule` argument of `cron_add`",
+    ),
+    (
+        "summarizer",
+        "file_read",
+        "an example of a payload's source tool",
+    ),
     ("workflow_builder", "http_request", "a flow node kind"),
     ("workflow_builder", "schedule", "a flow trigger field"),
-    ("workflow_builder", "flow_memory_recall", "node-contract note on what a memory node shares"),
-    ("workflow_builder", "flow_memory_remember", "node-contract note on what a memory node shares"),
+    (
+        "workflow_builder",
+        "flow_memory_recall",
+        "node-contract note on what a memory node shares",
+    ),
+    (
+        "workflow_builder",
+        "flow_memory_remember",
+        "node-contract note on what a memory node shares",
+    ),
     ("flow_discovery", "http_request", "a flow node kind"),
     ("flow_discovery", "schedule", "a flow trigger field"),
 ];
