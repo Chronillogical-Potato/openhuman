@@ -55,7 +55,7 @@ impl LocalAiService {
                         "[local_ai] bundled vision model is unusable; continuing without vision"
                     );
                     self.status.lock().vision_state = "missing".to_string();
-                    vision_warning = Some(err);
+                    vision_warning = Some(err.to_string());
                 }
             },
         }

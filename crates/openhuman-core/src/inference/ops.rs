@@ -409,7 +409,12 @@ pub async fn inference_presets() -> Result<RpcOutcome<Value>, String> {
     debug!("{LOG_PREFIX} presets:start");
     let config = config_rpc::load_config_with_timeout().await?;
     let device = detect_device_profile();
-    let recommended = presets::recommend_tier(&device);
+    let hardware_recommendation = presets::recommend_tier(&device);
+    let recommended = if hardware_recommendation.is_mvp_allowed() {
+        hardware_recommendation
+    } else {
+        presets::MVP_MAX_TIER
+    };
     let current = local_ai_presets::current_tier_from_config(&config.local_ai);
     let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
         let normalized = value.trim().to_ascii_lowercase();

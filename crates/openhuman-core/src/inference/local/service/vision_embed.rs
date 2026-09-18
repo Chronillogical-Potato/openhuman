@@ -64,7 +64,7 @@ impl LocalAiService {
                     %error,
                     "[local_ai:vision] no vision-capable model resolved; refusing request"
                 );
-                return Err(error);
+                return Err(error.to_string());
             }
         };
         tracing::debug!(

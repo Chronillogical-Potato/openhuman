@@ -2785,7 +2785,7 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
     assert!(should_default_to_cloud_fallback(&tiny_device));
     assert!(device_supports_local_ai(&capable_device));
     assert!(!should_default_to_cloud_fallback(&capable_device));
-    assert_eq!(recommend_tier(&capable_device), ModelTier::Ram2To4Gb);
+    assert_eq!(recommend_tier(&capable_device), ModelTier::Ram16PlusGb);
 
     let mut config = LocalAiConfig::default();
     apply_preset_to_config(&mut config, ModelTier::Ram4To8Gb);

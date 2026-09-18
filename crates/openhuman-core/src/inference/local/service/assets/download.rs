@@ -166,7 +166,8 @@ impl LocalAiService {
                 // Before probing Ollama, too: a misconfigured id is answerable
                 // without the network, and reaching the server first would hand
                 // back a connection error for a problem that is purely local.
-                let model = model_ids::resolve_vision_model_id(config)?;
+                let model =
+                    model_ids::resolve_vision_model_id(config).map_err(|e| e.to_string())?;
                 self.ensure_ollama_server(config).await?;
                 self.ensure_ollama_model_available(config, &model, "vision")
                     .await?;
