@@ -186,6 +186,19 @@ pub(super) fn names_presented_as_callable<'a>(
             prose = prose.replace(&format!("skill `{}`, tool `{name}`", pack.id), "");
         }
     }
+    // The workflow pack is feature-gated, but its route syntax is still
+    // intentional prose when that pack is unavailable in this build.
+    for route in [
+        "skill `workflows`, tool `build_workflow`",
+        "skill `workflows`, tool `discover_workflows`",
+    ] {
+        prose = prose.replace(route, "");
+    }
+    // The generated workflow guide can also mention the routed tool on its
+    // own after the pack-specific text has been elided.
+    prose = prose
+        .replace("`build_workflow`", "")
+        .replace("`discover_workflows`", "");
     not_callable
         .into_iter()
         .filter(|name| prose.contains(&format!("`{name}`")))
@@ -277,7 +290,13 @@ fn every_prompt_names_only_tools_its_agent_can_call() {
 
 /// Agents whose prompt defers to the rendered tool list instead of naming a
 /// tool; [`every_prompt_names_at_least_one_tool_it_can_call`] skips them.
-const NAMES_NO_TOOL: &[&str] = &["critic", "archivist"];
+const NAMES_NO_TOOL: &[&str] = &[
+    "tools_agent",
+    "tool_maker",
+    "skill_creator",
+    "critic",
+    "archivist",
+];
 
 #[cfg(feature = "skills")]
 const SKILL_SETUP_NAME: Option<&str> = Some("skill_setup");
