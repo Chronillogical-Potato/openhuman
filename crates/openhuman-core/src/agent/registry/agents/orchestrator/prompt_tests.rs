@@ -249,7 +249,7 @@ fn connected_mcp_block_falls_back_to_tool_count_and_qualified_name() {
 }
 
 #[test]
-fn connected_mcp_block_uses_sanitized_initialize_instructions_without_description() {
+fn connected_mcp_block_falls_back_to_tool_count_without_description() {
     use crate::mcp::registry::connections::ConnectedServerOverview;
     let block = format_connected_mcp_block(
         &[ConnectedServerOverview {
