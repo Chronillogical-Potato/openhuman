@@ -106,7 +106,7 @@ fn can_call(def: &AgentDefinition, tool: &str, universe: &BTreeSet<String>) -> b
             .iter()
             .any(|n| on_belt(def, n) && is_withheld_from(&def.id, n));
     }
-    if crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool(tool) {
+    if crate::agent::tinyagents::is_subagent_spawn_or_delegate_tool(tool) {
         return false;
     }
     on_belt(def, tool)
