@@ -247,6 +247,9 @@ async fn inference_gate_surfaces_construction_error() {
     // at all, so `create_chat_model_with_model_id_inner` fails on a pure
     // config lookup — no test override installed, no network involved — and
     // the gate must surface that failure, naming the offending node.
+    // Construction must FAIL here, so no test may have the process-global
+    // `test_provider_override` installed meanwhile; its installers hold this.
+    let _inference = crate::inference::inference_test_guard();
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     seed_app_session_for_gate_test(&tmp);
@@ -335,6 +338,9 @@ async fn inference_gate_probes_every_distinct_agent_node_role() {
     // first node's role (the pre-fix bug), the second node's broken
     // `reasoning` provider would never be checked and this graph would
     // incorrectly pass. Both failures must be named.
+    // Construction must FAIL here, so no test may have the process-global
+    // `test_provider_override` installed meanwhile; its installers hold this.
+    let _inference = crate::inference::inference_test_guard();
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     seed_app_session_for_gate_test(&tmp);
