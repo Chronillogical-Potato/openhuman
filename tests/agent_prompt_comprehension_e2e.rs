@@ -410,7 +410,11 @@ fn spawn_sse_collector(
             .send()
             .await
             .unwrap_or_else(|e| panic!("GET {events_url}: {e}"));
-        assert!(resp.status().is_success(), "GET {events_url}: {}", resp.status());
+        assert!(
+            resp.status().is_success(),
+            "GET {events_url}: {}",
+            resp.status()
+        );
         let _ = ready_tx.send(());
         let mut stream = resp.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();

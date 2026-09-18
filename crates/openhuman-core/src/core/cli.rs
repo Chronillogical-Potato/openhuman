@@ -429,7 +429,9 @@ fn run_call_command(args: &[String]) -> Result<()> {
             }
             "--params" => {
                 if params_stdin {
-                    return Err(anyhow::anyhow!("--params and --params-stdin are mutually exclusive"));
+                    return Err(anyhow::anyhow!(
+                        "--params and --params-stdin are mutually exclusive"
+                    ));
                 }
                 params = args
                     .get(i + 1)
@@ -439,13 +441,17 @@ fn run_call_command(args: &[String]) -> Result<()> {
             }
             "--params-stdin" => {
                 if params != "{}" {
-                    return Err(anyhow::anyhow!("--params and --params-stdin are mutually exclusive"));
+                    return Err(anyhow::anyhow!(
+                        "--params and --params-stdin are mutually exclusive"
+                    ));
                 }
                 params_stdin = true;
                 i += 1;
             }
             "-h" | "--help" => {
-                println!("Usage: openhuman call --method <name> [--params '<json>' | --params-stdin]");
+                println!(
+                    "Usage: openhuman call --method <name> [--params '<json>' | --params-stdin]"
+                );
                 return Ok(());
             }
             other => return Err(anyhow::anyhow!("unknown call arg: {other}")),
