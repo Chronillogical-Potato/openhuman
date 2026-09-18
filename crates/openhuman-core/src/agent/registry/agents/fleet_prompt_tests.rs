@@ -211,14 +211,17 @@ fn every_prompt_names_only_tools_its_agent_can_call() {
             .iter()
             .any(|(a, t, _)| (*a == "*" || *a == agent) && *t == tool)
     };
+    let defs = load_builtins().expect("built-ins load");
+    // A feature-gated agent absent from this build cannot fire its rows.
+    let loaded: HashSet<&str> = defs.iter().map(|d| d.id.as_str()).collect();
     let mut fired = HashSet::new();
     let mut violations = Vec::new();
-    for def in load_builtins().expect("built-ins load") {
+    for def in &defs {
         let not_callable = universe
             .iter()
             .map(String::as_str)
-            .filter(|name| !can_call(&def, name, &universe));
-        for tool in names_presented_as_callable(&render(&def), not_callable) {
+            .filter(|name| !can_call(def, name, &universe));
+        for tool in names_presented_as_callable(&render(def), not_callable) {
             if known(&def.id, tool) {
                 fired.insert((def.id.clone(), tool));
             } else {
@@ -234,6 +237,7 @@ fn every_prompt_names_only_tools_its_agent_can_call() {
     );
     let stale: Vec<_> = KNOWN_UNCALLABLE
         .iter()
+        .filter(|(a, _, _)| *a == "*" || loaded.contains(a))
         .filter(|(a, t, _)| {
             !fired
                 .iter()
@@ -257,8 +261,13 @@ const NAMES_NO_TOOL: &[&str] = &["critic", "archivist", "skill_setup"];
 #[test]
 fn every_prompt_names_at_least_one_tool_it_can_call() {
     let universe = tool_universe();
-    let silent: Vec<String> = load_builtins()
-        .expect("built-ins load")
+    let defs = load_builtins().expect("built-ins load");
+    let expected: Vec<&str> = NAMES_NO_TOOL
+        .iter()
+        .copied()
+        .filter(|id| defs.iter().any(|d| d.id == *id))
+        .collect();
+    let silent: Vec<String> = defs
         .iter()
         .filter(|def| !matches!(&def.tools, ToolScope::Named(n) if n.is_empty()))
         .filter(|def| {
@@ -270,7 +279,7 @@ fn every_prompt_names_at_least_one_tool_it_can_call() {
         .map(|def| def.id.clone())
         .collect();
     assert_eq!(
-        silent, NAMES_NO_TOOL,
+        silent, expected,
         "agents that carry tools but whose prompt names none of them"
     );
 }
