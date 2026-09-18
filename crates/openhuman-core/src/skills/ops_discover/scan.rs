@@ -2,8 +2,8 @@
 //! into `Workflow` entries, and the shared multi-root scan engine that both
 //! the full discovery surface and the automations-only view share.
 
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use crate::skills::ops_types::{Workflow, WorkflowScope};
 
@@ -65,7 +65,10 @@ pub(super) fn discover_filtered(
                 scope = ?WorkflowScope::Builtin,
                 "[workflows] discover:branch:builtin"
             );
-            absorb(&mut discovered, scan_bundled_root(&root, WorkflowScope::Builtin));
+            absorb(
+                &mut discovered,
+                scan_bundled_root(&root, WorkflowScope::Builtin),
+            );
         }
     }
 
@@ -108,7 +111,10 @@ pub(super) fn discover_filtered(
                 scope = ?WorkflowScope::Legacy,
                 "[workflows] discover:branch:legacy"
             );
-            absorb(&mut discovered, scan_root(&legacy_root, WorkflowScope::Legacy));
+            absorb(
+                &mut discovered,
+                scan_root(&legacy_root, WorkflowScope::Legacy),
+            );
         }
     }
 
@@ -127,7 +133,10 @@ pub(super) fn discover_filtered(
                 "[profiles] discover:branch:profile-local skills"
             );
             let before = discovered.len();
-            absorb(&mut discovered, scan_root(profile_root, WorkflowScope::Profile));
+            absorb(
+                &mut discovered,
+                scan_root(profile_root, WorkflowScope::Profile),
+            );
             tracing::debug!(
                 names_before = before,
                 names_after = discovered.len(),

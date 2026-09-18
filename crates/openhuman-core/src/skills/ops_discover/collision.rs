@@ -15,25 +15,30 @@ pub(super) fn absorb(by_name: &mut HashMap<String, Workflow>, incoming: Vec<Work
             .map(|(existing_name, _)| existing_name.clone())
             .collect();
 
-        if let Some((highest_name, highest_scope)) = collision_keys
+        let highest = collision_keys
             .iter()
             .filter_map(|collision_key| by_name.get(collision_key))
             .map(|existing| (existing.name.clone(), existing.scope))
-            .max_by_key(|(_, scope)| precedence(*scope))
-            && precedence(skill.scope) < precedence(highest_scope)
-        {
-            if let Some(kept) = by_name.get_mut(&highest_name) {
-                kept.warnings.push(format!(
-                    "workflow id '{}' or name '{}' also declared in {:?} scope at {} (ignored)",
-                    skill.dir_name,
-                    skill.name,
-                    skill.scope,
-                    skill.location
-                        .as_deref()
-                        .map_or_else(|| "<unknown>".to_owned(), |path| path.display().to_string())
-                ));
+            .max_by_key(|(_, scope)| precedence(*scope));
+        if let Some((highest_name, highest_scope)) = highest {
+            if precedence(skill.scope) >= precedence(highest_scope) {
+                // The incoming skill wins ties, preserving the historical
+                // last-writer behavior for equal-precedence roots.
+            } else {
+                if let Some(kept) = by_name.get_mut(&highest_name) {
+                    kept.warnings.push(format!(
+                        "workflow id '{}' or name '{}' also declared in {:?} scope at {} (ignored)",
+                        skill.dir_name,
+                        skill.name,
+                        skill.scope,
+                        skill.location.as_deref().map_or_else(
+                            || "<unknown>".to_owned(),
+                            |path| path.display().to_string()
+                        )
+                    ));
+                }
+                continue;
             }
-            continue;
         }
 
         for collision_key in collision_keys {
@@ -43,7 +48,8 @@ pub(super) fn absorb(by_name: &mut HashMap<String, Workflow>, incoming: Vec<Work
                     loser.scope,
                     loser.name,
                     loser.dir_name,
-                    loser.location
+                    loser
+                        .location
                         .as_deref()
                         .map_or_else(|| "<unknown>".to_owned(), |path| path.display().to_string())
                 ));
