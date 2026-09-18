@@ -951,3 +951,67 @@ fn max_consecutive_counts_the_longest_run() {
     assert_eq!(max_consecutive(&calls, "a"), 1);
     assert_eq!(max_consecutive(&calls, "c"), 0);
 }
+
+/// Discoverable, not just callable: every sub-agent delegate the orchestrator's
+/// rendered prompt names in backticks must be something the model can find on
+/// the wire — advertised directly, or packed and reachable through `use_skill`
+/// with its pack id in the request (the pack index). A delegate that resolves
+/// when called but is never shown is only reachable if prose spells its name.
+///
+/// Only the captured wire can check this: synthesised delegates are not in
+/// `all_tools()`, so the static fleet prompt tests cannot see them.
+#[test]
+fn orchestrator_prompt_names_only_discoverable_delegates() {
+    run_on_agent_stack("orchestrator_discoverable_delegates", || async {
+        let _lock = env_lock();
+        reset_script(vec![text_completion("Hello.")]);
+        let stack = boot_stack("").await;
+        let client_id = "prompt-discoverable";
+        let mut events =
+            spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+        let resp = post_json_rpc(
+            &stack.rpc_base,
+            10,
+            "openhuman.channel_web_chat",
+            json!({
+                "client_id": client_id,
+                "thread_id": "thread-discoverable",
+                "message": "hello",
+                "model_override": "e2e-mock-model",
+            }),
+        )
+        .await;
+        assert_no_jsonrpc_error(&resp, "channel_web_chat");
+        wait_for_terminal(&mut events).await;
+
+        let requests = captured().clone();
+        let orchestrator = requests
+            .iter()
+            .find(|r| system_text(r).contains("## Delegation (direct-first)"))
+            .expect("no orchestrator request captured");
+        let prompt = system_text(orchestrator);
+        let belt = advertised_tool_names(orchestrator);
+        let request_text = orchestrator.to_string();
+        let registry = AgentDefinitionRegistry::global().expect("registry initialised");
+
+        let undiscoverable: Vec<String> = registry
+            .list()
+            .into_iter()
+            .filter_map(|def| def.delegate_name.clone())
+            .filter(|name| prompt.contains(&format!("`{name}`")))
+            .filter(|name| {
+                let advertised = belt.iter().any(|b| b == name);
+                let packed =
+                    openhuman_core::tools::toolpacks::pack_for_tool(name).is_some_and(|pack| {
+                        belt.iter().any(|b| b == "use_skill") && request_text.contains(pack.id)
+                    });
+                !advertised && !packed
+            })
+            .collect();
+        assert!(
+            undiscoverable.is_empty(),
+            "the orchestrator prompt names delegates the model cannot find: {undiscoverable:?}; \
+             advertised {belt:?}"
+        );
+    });
+}
