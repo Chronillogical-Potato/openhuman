@@ -217,7 +217,6 @@ pub(super) fn names_presented_as_callable<'a>(
 ///   something else (a node kind, an argument, an example). No fix is owed.
 const KNOWN_UNCALLABLE: &[(&str, &str, &str)] = &[
     // Real.
-    ("*", "shell", "shared `## Workspace` section says \"that is where `shell` runs\" to every agent (`prompts/sections.rs` WorkspaceSection)"),
     ("morning_briefing", "composio_list_connections", "withheld by the `composio` pack"),
     ("morning_briefing", "composio_list_tools", "withheld by the `composio` pack"),
     ("morning_briefing", "composio_execute", "withheld by the `composio` pack"),
