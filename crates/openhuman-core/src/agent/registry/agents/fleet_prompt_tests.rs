@@ -7,7 +7,9 @@
 
 use super::load_builtins;
 use crate::agent::context::prompt::{LearnedContextData, PromptContext, ToolCallFormat};
-use crate::agent::harness::definition::{AgentDefinition, PromptSource, ToolScope};
+use crate::agent::harness::definition::{
+    AgentDefinition, PromptSource, SubagentEntry, ToolScope,
+};
 use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
@@ -16,12 +18,39 @@ use std::sync::Arc;
 ///
 /// Each render gets its own workspace: building a prompt seeds identity files
 /// into it, and the tests here render in parallel.
-fn render(def: &AgentDefinition) -> String {
+fn visible_tool_names(def: &AgentDefinition, definitions: &[AgentDefinition]) -> HashSet<String> {
+    let mut visible = match &def.tools {
+        ToolScope::Wildcard => HashSet::new(),
+        ToolScope::Named(names) => names.iter().cloned().collect(),
+    };
+    visible.extend(def.extra_tools.iter().cloned());
+
+    for subagent in &def.subagents {
+        let SubagentEntry::AgentId(agent_id) = subagent else {
+            continue;
+        };
+        if agent_id == "summarizer" {
+            continue;
+        }
+        let Some(target) = definitions.iter().find(|candidate| candidate.id == *agent_id) else {
+            continue;
+        };
+        visible.insert(
+            target
+                .delegate_name
+                .clone()
+                .unwrap_or_else(|| format!("delegate_{}", target.id)),
+        );
+    }
+    visible
+}
+
+fn render(def: &AgentDefinition, definitions: &[AgentDefinition]) -> String {
     let PromptSource::Dynamic(build) = &def.system_prompt else {
         panic!("built-in `{}` must carry a dynamic prompt", def.id);
     };
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let visible = HashSet::new();
+    let visible = visible_tool_names(def, definitions);
     let ctx = PromptContext {
         workspace_dir: workspace.path(),
         model_name: "test",
@@ -215,7 +244,7 @@ fn every_prompt_names_only_tools_its_agent_can_call() {
             .iter()
             .map(String::as_str)
             .filter(|name| !can_call(def, name, &universe));
-        for tool in names_presented_as_callable(&render(def), not_callable) {
+        for tool in names_presented_as_callable(&render(def, &defs), not_callable) {
             if known(&def.id, tool) {
                 fired.insert((def.id.clone(), tool));
             } else {
@@ -271,7 +300,7 @@ fn every_prompt_names_at_least_one_tool_it_can_call() {
         .iter()
         .filter(|def| !matches!(&def.tools, ToolScope::Named(n) if n.is_empty()))
         .filter(|def| {
-            let prompt = render(def);
+            let prompt = render(def, &defs);
             !universe
                 .iter()
                 .any(|name| can_call(def, name, &universe) && prompt.contains(&format!("`{name}`")))
