@@ -4238,7 +4238,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.63.28"
+version = "0.63.29"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-app"
-version = "0.63.28"
+version = "0.63.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4367,6 +4367,7 @@ dependencies = [
  "objc2-web-kit",
  "openhuman",
  "openhuman-rpc",
+ "openhuman-session",
  "parking_lot",
  "rand 0.9.5",
  "reqwest 0.12.28",
@@ -4398,12 +4399,28 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.63.28"
+version = "0.63.29"
 dependencies = [
  "log",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "url",
+]
+
+[[package]]
+name = "openhuman-session"
+version = "0.63.29"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "log",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinyhumans-sdk",
+ "tokio",
  "url",
 ]
 

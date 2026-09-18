@@ -47,14 +47,31 @@ pub(crate) fn normalize_install_url(raw: &str) -> Result<String, String> {
 
     let check = url::Url::parse(&normalized)
         .map_err(|e| format!("unsupported url form: parse normalized {normalized:?}: {e}"))?;
-    let path_lower = check.path().to_ascii_lowercase();
-    if !path_lower.ends_with(".md") {
+    let names_md_file =
+        check.path().to_ascii_lowercase().ends_with(".md") || is_clawhub_file_api(&check);
+    if !names_md_file {
         return Err(format!(
             "unsupported url form: path must end in .md, got {normalized:?}"
         ));
     }
 
     Ok(normalized)
+}
+
+/// ClawHub's file API names the file in its query instead of its path:
+/// `https://clawhub.ai/api/v1/skills/<slug>/file?path=SKILL.md`.
+fn is_clawhub_file_api(url: &url::Url) -> bool {
+    let is_file_endpoint = url.path_segments().is_some_and(|segments| {
+        matches!(
+            segments.collect::<Vec<_>>().as_slice(),
+            ["api", "v1", "skills", slug, "file"] if !slug.is_empty()
+        )
+    });
+    url.host_str() == Some("clawhub.ai")
+        && is_file_endpoint
+        && url
+            .query_pairs()
+            .any(|(key, value)| key == "path" && value.to_ascii_lowercase().ends_with(".md"))
 }
 
 /// Derive the install directory slug from the SKILL.md frontmatter.

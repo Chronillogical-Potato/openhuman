@@ -11,6 +11,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     })
 }
 
@@ -39,6 +40,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: Some(config),
+        user_skill_roots: true,
     })
 }
 
@@ -78,6 +80,149 @@ async fn the_current_dispatch_sees_the_scoped_embedder_config() {
     let scoped = scoped.expect("a scoped embedder config is visible to the dispatch");
     assert_eq!(scoped.default_model.as_deref(), Some("scoped-model"));
     assert_eq!(scoped.workspace_dir, PathBuf::from("/tmp/scoped-ws"));
+}
+
+// ---- derived per-agent contexts (the multi-agent library seam) -----------
+//
+// `derive_with` is how one booted runtime hosts many independently configured
+// agents: a child context carrying that agent's config, domain set, tool groups
+// and skill-root policy, with no boot of its own. Everything a handler reads
+// through `CoreContext::current()` must follow the child inside its scope.
+
+#[test]
+fn derive_with_keeps_the_host_and_overrides_the_per_agent_fields() {
+    let parent = ctx("/tmp/parent-ws");
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = PathBuf::from("/tmp/agent-ws");
+    config.default_model = Some("agent-model".into());
+    let overlay = ContextOverlay::new(
+        config,
+        crate::core::runtime::DomainSet::kernel(),
+        crate::tools::toolpacks::ToolGroups::none(),
+    )
+    .without_user_skill_roots();
+
+    let child = parent.derive_with(overlay);
+
+    assert_eq!(child.host_kind(), parent.host_kind());
+    assert_eq!(child.domains(), crate::core::runtime::DomainSet::kernel());
+    assert_eq!(
+        child.tool_groups(),
+        crate::tools::toolpacks::ToolGroups::none()
+    );
+    assert!(!child.user_skill_roots());
+    assert_eq!(
+        child.workspace_dir().expect("child workspace"),
+        PathBuf::from("/tmp/agent-ws")
+    );
+    assert_eq!(
+        child
+            .embedder_config()
+            .and_then(|c| c.default_model.clone())
+            .as_deref(),
+        Some("agent-model")
+    );
+    // The parent is untouched: no boot ran, nothing was rebound.
+    assert!(parent.embedder_config().is_none());
+    assert!(parent.user_skill_roots());
+}
+
+/// Regression: `derive_with` must clamp the overlay's requested `DomainSet`
+/// to what the parent context actually has, not adopt it verbatim. Without
+/// the intersection, a runtime booted with a restricted `DomainSet` (say,
+/// `kernel()`, which has `agent`/`memory`/`mcp` off) could still derive a
+/// child scoped with `DomainSet::full()`, and every reader that dispatches
+/// through that child (the config loader, the DomainSet gate, skill
+/// discovery) would observe the wider set the runtime never registered.
+#[test]
+fn derive_with_clamps_overlay_domains_to_the_parent_registered_set() {
+    let mut parent_ctx = ctx("/tmp/parent-ws");
+    Arc::get_mut(&mut parent_ctx).expect("sole owner").domains =
+        crate::core::runtime::DomainSet::kernel();
+    assert!(
+        !parent_ctx.domains().agent,
+        "sanity: kernel() has agent off"
+    );
+    assert!(!parent_ctx.domains().mcp, "sanity: kernel() has mcp off");
+
+    let overlay = ContextOverlay::new(
+        crate::config::Config::default(),
+        crate::core::runtime::DomainSet::full(),
+        Default::default(),
+    );
+    let child = parent_ctx.derive_with(overlay);
+
+    assert!(
+        !child.domains().agent,
+        "a disabled parent family must not reappear via an overlay: {:?}",
+        child.domains()
+    );
+    assert!(!child.domains().mcp);
+    // Families the parent *did* register, and the overlay also asked for,
+    // still come through.
+    assert!(child.domains().threads);
+    assert!(child.domains().config);
+}
+
+#[test]
+fn derive_with_defaults_to_visible_user_skill_roots() {
+    let overlay = ContextOverlay::new(
+        crate::config::Config::default(),
+        crate::core::runtime::DomainSet::full(),
+        Default::default(),
+    );
+    assert!(overlay.user_skill_roots);
+    assert!(ctx("/tmp/ws").derive_with(overlay).user_skill_roots());
+}
+
+#[tokio::test]
+async fn two_derived_contexts_serve_their_own_config_to_the_dispatch() {
+    // The read path `load_config_with_timeout` uses. Two agents scoped one
+    // after the other must each see their own overlay, never the sibling's.
+    let parent = ctx("/tmp/parent-ws");
+    let mut a = crate::config::Config::default();
+    a.workspace_dir = PathBuf::from("/tmp/agent-a");
+    a.default_model = Some("model-a".into());
+    let mut b = crate::config::Config::default();
+    b.workspace_dir = PathBuf::from("/tmp/agent-b");
+    b.default_model = Some("model-b".into());
+    let ctx_a = parent.derive_with(ContextOverlay::new(
+        a,
+        crate::core::runtime::DomainSet::embedded(),
+        Default::default(),
+    ));
+    let ctx_b = parent.derive_with(
+        ContextOverlay::new(
+            b,
+            crate::core::runtime::DomainSet::kernel(),
+            Default::default(),
+        )
+        .without_user_skill_roots(),
+    );
+
+    let seen_a = CoreContext::scope(ctx_a, async {
+        (
+            CoreContext::current_embedder_config().and_then(|c| c.default_model),
+            CoreContext::current().map(|c| c.domains()),
+            CoreContext::current_user_skill_roots(),
+        )
+    })
+    .await;
+    let seen_b = CoreContext::scope(ctx_b, async {
+        (
+            CoreContext::current_embedder_config().and_then(|c| c.default_model),
+            CoreContext::current().map(|c| c.domains()),
+            CoreContext::current_user_skill_roots(),
+        )
+    })
+    .await;
+
+    assert_eq!(seen_a.0.as_deref(), Some("model-a"));
+    assert_eq!(seen_a.1, Some(crate::core::runtime::DomainSet::embedded()));
+    assert!(seen_a.2);
+    assert_eq!(seen_b.0.as_deref(), Some("model-b"));
+    assert_eq!(seen_b.1, Some(crate::core::runtime::DomainSet::kernel()));
+    assert!(!seen_b.2);
 }
 
 // ---- store-init gating (#4796 DoD item 3) --------------------------------
@@ -206,6 +351,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes
@@ -255,6 +401,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     });
     let b = Arc::new(CoreContext {
         host_kind: HostKind::Cli,
@@ -265,6 +412,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     });
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -291,6 +439,7 @@ fn rebind_workspace_updates_context_memory_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -318,6 +467,7 @@ fn rebind_workspace_refreshes_memory_subsystem_config() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -358,6 +508,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
     let b = CoreContext {
         host_kind: HostKind::Cli,
@@ -368,6 +519,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -398,6 +550,7 @@ fn memory_capabilities_defaults_open_without_a_workspace() {
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
         embedder_config: None,
+        user_skill_roots: true,
     };
     assert!(ctx.memory_binding().is_err(), "no workspace ⇒ no binding");
     assert_eq!(

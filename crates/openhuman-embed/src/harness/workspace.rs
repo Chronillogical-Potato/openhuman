@@ -62,17 +62,17 @@ impl Workspace {
 /// The `TempDir` is held rather than leaked so the directory is removed on drop.
 /// Losing it would turn every ephemeral harness into a permanent temp-dir leak,
 /// which on a machine whose `/tmp` is a tmpfs is a RAM leak.
-pub(super) struct ResolvedWorkspace {
-    pub(super) workspace_dir: PathBuf,
-    pub(super) action_dir: PathBuf,
+pub(crate) struct ResolvedWorkspace {
+    pub(crate) workspace_dir: PathBuf,
+    pub(crate) action_dir: PathBuf,
     /// Where `config.toml` would live. **Not** cosmetic: its *parent* is the
     /// state directory the credential store, the auth profiles and the keyring
     /// file backend all resolve against. Leave it at the default while pointing
     /// `workspace_dir` at a temp dir and the harness reads and writes the
     /// operator's real `~/.openhuman` credentials while looking hermetic.
-    pub(super) config_path: PathBuf,
-    /// `None` for `Dir` / `Inherit`; those directories outlive the harness.
-    pub(super) _temp: Option<tempfile::TempDir>,
+    pub(crate) config_path: PathBuf,
+    /// `None` for `Dir` / `Inherit`; those directories outlive the runtime.
+    pub(crate) _temp: Option<tempfile::TempDir>,
 }
 
 impl ResolvedWorkspace {
@@ -90,7 +90,7 @@ impl ResolvedWorkspace {
     /// the same shape `load_or_init` produces (`<root>/config.toml` next to
     /// `<root>/workspace`). Credential state follows that file's parent, so the
     /// layout is what makes an ephemeral harness actually ephemeral.
-    pub(super) fn resolve(
+    pub(crate) fn resolve(
         workspace: &Workspace,
         action_dir_override: Option<&Path>,
     ) -> Result<Self, HarnessError> {

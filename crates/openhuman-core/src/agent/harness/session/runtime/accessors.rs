@@ -147,6 +147,25 @@ impl Agent {
         self.runtime_config.clone()
     }
 
+    /// The definition this session runs under: the one it was built from when
+    /// the factory had one, else the process registry's entry for
+    /// `agent_definition_id`.
+    ///
+    /// Prefer this over a bare `AgentDefinitionRegistry::global().get(..)` in
+    /// turn-path code that needs the agent's *own* settings (`sandbox_mode`,
+    /// `subagents`): a session built from an explicit definition must not have
+    /// them replaced by a same-id registry entry.
+    pub(crate) fn resolved_definition(
+        &self,
+    ) -> Option<Arc<crate::agent::harness::definition::AgentDefinition>> {
+        self.definition.clone().or_else(|| {
+            crate::agent::harness::definition::AgentDefinitionRegistry::global()
+                .and_then(|registry| registry.get(&self.agent_definition_id))
+                .cloned()
+                .map(Arc::new)
+        })
+    }
+
     /// Whether the config-dependent capability adapters can be built from this
     /// session.
     ///
@@ -424,7 +443,7 @@ impl Agent {
         // registry alone would leave every `delegate_*` tool with no decision
         // at all.
         let all_tools = self.all_tool_refs();
-        self.tool_policy_session = ToolPolicyEngine::build_session_from_refs(
+        let mut session = ToolPolicyEngine::build_session_from_refs(
             &self.agent_definition_name,
             &self.event_channel,
             "session",
@@ -432,6 +451,14 @@ impl Agent {
             &all_tools,
             &self.visible_tool_names,
         );
+        // Same narrowing as the builder, re-applied on every rebuild so a
+        // delegation refresh cannot reopen a closed pack (#6302).
+        crate::tools::toolpacks::close_handed_off_packs(
+            &mut session,
+            &self.agent_definition_name,
+            &all_tools,
+        );
+        self.tool_policy_session = session;
         let visible_specs = super::super::builder::visible_tool_specs_for_policy(
             self.tool_specs.as_slice(),
             &self.visible_tool_names,

@@ -204,7 +204,7 @@ fn load_workflows_and_discovered(
 
     // Enumerate across all roots (deduped + scope-prioritised) via the same
     // discovery the create/list path uses, then load each one's definition.
-    let home = dirs::home_dir();
+    let home = super::ops_discover::discovery_home_dir();
     let trusted = super::ops_discover::is_workspace_trusted(workspace_dir);
     let discovered = super::ops_discover::discover_workflows_with_profile(
         home.as_deref(),
