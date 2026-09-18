@@ -45,13 +45,14 @@ if [[ -n "$REAL_WORKSPACE" ]]; then
 else
   # `--hermetic` puts config.toml beside the workspace dir (its parent), so the
   # workspace must be a child of the temp dir — see check-prompt-budget.sh.
-  # HOME is emptied for the same reason as there: `--hermetic` does not stop
-  # skill discovery scanning ~/.openhuman/skills.
+  # HOME is emptied and OPENHUMAN_HOME dropped for the same reason as there:
+  # `--hermetic` does not stop skill and agent-definition discovery reading
+  # the user's ~/.openhuman (or $OPENHUMAN_HOME).
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-report.XXXXXX")"
   trap 'rm -rf "$TMP"' EXIT
   mkdir -p "$TMP/home"
   echo "[prompt-report] measuring against hermetic workspace $TMP" >&2
-  measured="$(HOME="$TMP/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json)"
+  measured="$(env -u OPENHUMAN_HOME HOME="$TMP/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json)"
 fi
 
 python3 - "$measured" <<'PY'
