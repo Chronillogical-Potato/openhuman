@@ -105,7 +105,9 @@ for run in $(seq 1 "$RUNS"); do
     flows_build) method=openhuman.flows_build
       params=$(python3 -c 'import json,sys; print(json.dumps({"mode": "create", "instruction": sys.argv[1]}))' "$message") ;;
     agent_chat) method=openhuman.agent_chat
-      params=$(python3 -c 'import json,sys; print(json.dumps({"message": sys.argv[1]}))' "$message") ;;
+      # A fresh thread per run: with no thread_id, agent_chat resumes the
+      # newest orchestrator transcript, so run 2 would see run 1.
+      params=$(python3 -c 'import json,sys,time; print(json.dumps({"message": sys.argv[1], "thread_id": "prompt-eval-%s-r%s-%d" % (sys.argv[2], sys.argv[3], time.time())}))' "$message" "$id" "$run") ;;
     *) echo "case $id: unknown entry $kind" >&2; exit 2 ;;
   esac
 

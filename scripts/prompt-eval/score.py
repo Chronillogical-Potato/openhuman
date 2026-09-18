@@ -17,6 +17,11 @@ import time
 # Log lines the breaker middlewares emit when they halt a run
 # (agent/tinyagents/middleware/{repeat_progress,repeated_failure}.rs).
 HALT_LOG = re.compile(r"halted the run|halting run so the root cause|halting on first occurrence")
+# Every breaker halt summary opens with "Stopping: " (tinyagents-harness
+# no_progress/*.rs, agent/tinyagents/middleware/loop_guards.rs) and becomes the
+# turn's text. `openhuman-core call` initialises no logging, so this, not the
+# log, is the signal that works for CLI runs.
+HALT_TEXT = re.compile(r"Stopping: (the |\d+ )")
 
 
 def load_case(cases_path, case_id):
@@ -40,6 +45,9 @@ def rpc_value(path):
     while isinstance(v, dict) and "result" in v and len(v) <= 2:
         v = v["result"]
     return v
+
+
+PATHS = []
 
 
 def transcripts(ws):
@@ -68,6 +76,7 @@ def transcripts(ws):
             else:
                 lines.append(obj)
         out.append((meta, lines))
+        PATHS.append(path)
     return out
 
 
@@ -158,9 +167,17 @@ def score(doc, case, ws, secs, run=1):
             log += open(path, errors="replace").read()
         except OSError:
             pass
-    if HALT_LOG.search(log):
+    said = [str(m.get("content", "")) for _, lines in ts for m in lines if m.get("role") in ("assistant", "tool")]
+    if HALT_LOG.search(log) or any(HALT_TEXT.search(t) for t in said + [reply_text(result)]):
         signals.append("breaker_halt")
-    blob = json.dumps([lines for _, lines in ts]) + json.dumps(result)
+    # One case = one user turn. More means the run resumed an earlier
+    # conversation and is not independent of it.
+    user_turns = max([sum(1 for m in lines if m.get("role") == "user") for _, lines in ts] or [0])
+    if user_turns > 1:
+        signals.append("contaminated")
+    # Only tool results carry the envelope; the orchestrator's system prompt
+    # *describes* it, so a whole-transcript grep flags every run.
+    blob = json.dumps([m.get("content") for _, lines in ts for m in lines if m.get("role") == "tool"])
     if "[SUBAGENT_INCOMPLETE]" in blob:
         signals.append("SUBAGENT_INCOMPLETE")
     if isinstance(result, dict):
@@ -234,6 +251,8 @@ def score(doc, case, ws, secs, run=1):
         "judge": judged,
         "calls": all_calls,
         "transcripts": len(ts),
+        "user_turns": user_turns,
+        "transcript_paths": sorted(set(PATHS)),
         **tok,
         "usd": usd,
         "seconds": secs,
@@ -269,6 +288,20 @@ def selftest():
     assert precondition({"precondition": {"method": "m", "expect_regex": "(?is)gmail.{0,200}active"}}, f.name)["ok"]
     assert not precondition({"precondition": {"method": "m", "expect_not_regex": '"toolkit"'}}, f.name)["ok"]
     assert not precondition({"precondition": {"method": "m"}}, f.name + ".missing")["ok"]
+    import tempfile as _t
+    d = _t.mkdtemp()
+    os.makedirs(os.path.join(d, "w", "session_raw"))
+    with open(os.path.join(d, "w", "session_raw", "a.jsonl"), "w") as f:
+        f.write(json.dumps({"role": "system", "content": "explains [SUBAGENT_INCOMPLETE] envelopes"}) + "\n")
+        f.write(json.dumps({"role": "assistant", "content": "done"}) + "\n")
+    open(os.path.join(d, "result.json"), "w").write('{"result": "ok"}')
+    case = {"id": "t", "message": "m"}
+    assert "SUBAGENT_INCOMPLETE" not in score({}, case, d, 0)["signals"], "system prompt must not trip the signal"
+    with open(os.path.join(d, "w", "session_raw", "a.jsonl"), "a") as f:
+        f.write(json.dumps({"role": "tool", "content": "[SUBAGENT_INCOMPLETE] the x sub-agent stopped"}) + "\n")
+    assert "SUBAGENT_INCOMPLETE" in score({}, case, d, 0)["signals"]
+    assert HALT_TEXT.search("Stopping: the same successful tool-call batch was issued 3 times")
+    assert not HALT_TEXT.search("Stopping by the store later")
     assert HALT_LOG.search("[tinyagents::mw] crate successful-repeat tracker halted the run")
     print("score.py selftest ok")
 
