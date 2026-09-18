@@ -165,6 +165,8 @@ def score(doc, case, ws, secs, run=1):
     log = ""
     since = float(os.environ.get("PROMPT_EVAL_SINCE") or 0)
     for path in [os.path.join(ws, "core.log")] + glob.glob(os.path.join(ws, "**", "*.log"), recursive=True):
+        if not os.path.exists(path):
+            continue
         if os.path.getmtime(path) <= since:
             continue
         try:
