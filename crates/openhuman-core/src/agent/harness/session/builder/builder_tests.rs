@@ -69,6 +69,8 @@ mod memory_write_instruction_tests;
 mod profile_soul_prompt_tests;
 #[path = "builder_tests_session_agent_profile_tests.rs"]
 mod session_agent_profile_tests;
+#[path = "builder_tests_tool_exposure_tests.rs"]
+mod tool_exposure_tests;
 #[path = "builder_tests_tool_spec_views_tests.rs"]
 mod tool_spec_views_tests;
 

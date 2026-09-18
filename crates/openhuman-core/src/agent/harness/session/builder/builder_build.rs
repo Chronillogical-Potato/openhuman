@@ -59,7 +59,10 @@ impl AgentBuilder {
         // tools stay in the registry below and stay executable — only the
         // advertised surface shrinks. Applied here, before the policy filter,
         // so the visible set and the policy session cannot disagree.
-        if visible_names.is_empty() {
+        // An empty set here is a wildcard belt; anything else was written down
+        // by an agent author (or synthesised for one) and is left alone below.
+        let belt_is_wildcard = visible_names.is_empty();
+        if belt_is_wildcard {
             visible_names = tools
                 .iter()
                 .chain(synthesized_tools.iter())
@@ -70,6 +73,40 @@ impl AgentBuilder {
             &mut visible_names,
             &agent_definition_name,
         );
+        // Per-tool exposure: `Hidden` members of a collapsed tool (`memory_*`,
+        // `todo_*`) and `Deferred` tools leave the wire; they stay registered
+        // and dispatchable. Only for a wildcard belt — a hand-written `[tools]
+        // named` list is already the answer to "what should this agent see".
+        //
+        // Only the DURABLE registry is passed, never `synthesized_tools`: every
+        // `ArchetypeDelegationTool` reports `Hidden`, and on a wildcard belt the
+        // synthesised delegates are the agent's only hand-off routes. Stripping
+        // them would delete every `research`/`run_code`/… route.
+        // `strip_deferred_from_visible` only looks at the tools it is given.
+        //
+        // This is the one site that turns the "all visible" sentinel into a
+        // concrete set for a session, so the refresh paths never re-admit a
+        // durable Hidden tool: `refresh_delegation_tools` (turn/tools.rs) only
+        // swaps synthesised names, and `Agent::hide_tools` only seeds a set
+        // that is still empty — see the matching strip there.
+        let deferred = if belt_is_wildcard {
+            crate::tools::implementations::meta::strip_deferred_from_visible(
+                &mut visible_names,
+                tools.as_slice(),
+            )
+        } else {
+            Vec::new()
+        };
+        if !deferred.is_empty() {
+            tracing::info!(
+                agent = %agent_definition_name,
+                deferred = deferred.len(),
+                "[tools] withheld deferred tool schemas; reachable via tool_search"
+            );
+        }
+        // Index them where the model can find them again. Done here rather than
+        // at registration because which tools are deferred depends on the belt.
+        crate::tools::implementations::meta::bind_tool_search_index(tools.as_slice(), deferred);
         let config = self.config.clone().unwrap_or_default();
         let event_session_id = self
             .event_session_id

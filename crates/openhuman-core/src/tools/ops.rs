@@ -422,6 +422,14 @@ pub fn all_tools_with_runtime(
         Box::new(WalletTxReceiptTool::new()),
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new()),
+        // The memory surface the model sees. The eleven per-operation tools it
+        // dispatches to stay registered as `ToolExposure::Hidden` so a
+        // replayed transcript or a saved skill naming `memory_*` still works —
+        // see `memory::tools::collapsed`.
+        Box::new(crate::memory::tools::MemoryTool::new(
+            config.clone(),
+            security.clone(),
+        )),
         Box::new(MemoryStoreTool::new(security.clone())),
         Box::new(MemoryRecallTool::new()),
         Box::new(MemoryForgetTool::new(security.clone())),
@@ -1156,6 +1164,17 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::tools::toolpacks::append_pack_tools(&mut tools);
+
+    // The lookup half of `ToolExposure::Deferred`. Always registered, for the
+    // same reason `use_skill` is: whether anything is actually deferred depends
+    // on the agent's belt, which is resolved later in the session builder, and
+    // a search tool that arrived *after* the tools it searches were hidden
+    // would be one release of silently unreachable capabilities. Its index
+    // starts empty and costs one small schema; the builder fills it via
+    // `bind_tool_search_index`.
+    tools.push(Box::new(
+        crate::tools::implementations::meta::ToolSearchTool::new(),
+    ));
     tools
 }
 
@@ -1293,7 +1312,16 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         return DomainGroup::Voice;
     }
     // Memory family (harness-kept): memory_* store/search/etc + goals_* + extras.
-    if name.starts_with("memory_") || name.starts_with("goals_") || MEMORY_EXTRA.contains(&name) {
+    //
+    // The bare `memory` name is matched explicitly: the collapsed tool drops
+    // the `memory_` prefix its members carry, so prefix matching alone would
+    // land it in `Platform` and leave the whole memory surface callable under
+    // a `DomainSet { platform: true, memory: false }`.
+    if name == crate::memory::tools::MEMORY_TOOL_NAME
+        || name.starts_with("memory_")
+        || name.starts_with("goals_")
+        || MEMORY_EXTRA.contains(&name)
+    {
         return DomainGroup::Memory;
     }
     // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
@@ -1451,7 +1479,11 @@ pub(crate) fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities
 
     let capability = match name {
         // ── Mandatory families: always advertised, listed for the record ──
-        "memory_store" | "memory_forget" | "remember_preference" | "save_preference" => {
+        // The collapsed `memory` tool is `Core` because `store` and `forget`
+        // are: it must stay registered whenever the mandatory family is, and
+        // it filters its own action list by capability so an unavailable
+        // action is never advertised. See `memory::tools::collapsed`.
+        "memory" | "memory_store" | "memory_forget" | "remember_preference" | "save_preference" => {
             Capability::Core
         }
         // Chunk/recall retrieval surface. NOT `Tree` — these read chunk

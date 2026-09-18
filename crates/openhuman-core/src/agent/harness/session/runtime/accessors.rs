@@ -423,6 +423,15 @@ impl Agent {
                 .iter()
                 .map(|spec| spec.name.clone())
                 .collect();
+            // Seeding a wildcard belt re-admits the durable Hidden/Deferred
+            // tools the builder withheld; drop them again. Durable registry
+            // only — the synthesised delegates report `Hidden` too and are
+            // this belt's hand-off routes (see `AgentBuilder::build`). The
+            // deferred specs were already indexed at build time.
+            let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
+                &mut self.visible_tool_names,
+                self.tools.as_slice(),
+            );
         }
         for name in names {
             self.visible_tool_names.remove(*name);
