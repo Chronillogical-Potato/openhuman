@@ -33,10 +33,11 @@ mod remove_write_auto_approve;
 mod repair_http_request_limits;
 mod retire_chat_v1_model;
 mod retire_local_whisper_stt;
+mod retire_subconscious_medulla;
 mod unify_ai_provider_settings;
 
 /// Current target schema version. Bumped alongside every new migration.
-pub const CURRENT_SCHEMA_VERSION: u32 = 11;
+pub const CURRENT_SCHEMA_VERSION: u32 = 12;
 
 /// Give a brand-new [`Config`] the managed `openhuman` cloud-provider entry.
 ///
@@ -597,6 +598,39 @@ pub async fn run_pending(config: &mut Config) {
         log::info!(
             "[migrations] schema_version bumped to 11 (reseed_cloud_providers seeded={seeded})"
         );
+    }
+
+    // 11 -> 12: rewrite the removed Medulla subconscious engine to the
+    // supported local engine. The enum retains the legacy variant so old
+    // config files can be parsed before this migration runs.
+    if config.schema_version == 11 {
+        let previous_engine = config.subconscious.engine;
+        match retire_subconscious_medulla::run(config) {
+            Ok(migrated) => {
+                let previous_version = config.schema_version;
+                config.schema_version = 12;
+                if let Err(err) = config.save().await {
+                    config.subconscious.engine = previous_engine;
+                    config.schema_version = previous_version;
+                    log::warn!(
+                        "[migrations] retire_subconscious_medulla ran but config.save failed: \
+                         {err:#} — rolled in-memory schema_version back to {previous_version}, \
+                         will retry on next launch"
+                    );
+                    return;
+                }
+                log::info!(
+                    "[migrations] schema_version bumped to 12 (retire_subconscious_medulla \
+                     engine_migrated={migrated})"
+                );
+            }
+            Err(err) => {
+                log::warn!(
+                    "[migrations] retire_subconscious_medulla failed: {err:#} — \
+                     will retry on next launch"
+                );
+            }
+        }
     }
 }
 
