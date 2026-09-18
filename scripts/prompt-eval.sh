@@ -4,7 +4,10 @@
 # Tier 1 (`tests/agent_prompt_comprehension_e2e.rs`) pins the script; only this
 # answers whether a model follows it. See docs/prompt-evals.md.
 #
-# Usage: scripts/prompt-eval.sh [--case <id>] [--bin <openhuman-core>] [--real-workspace]
+# Usage: scripts/prompt-eval.sh [--case <id>] [--runs N] [--bin <openhuman-core>] [--real-workspace]
+#
+# --runs N repeats every case N times (default 1). One run is a sample, not a
+# baseline: every run is its own row (case + ts + run + models), never averaged.
 #
 # Default (hermetic): each case gets a fresh `mktemp -d` workspace and needs a
 # credential in OPENHUMAN_BACKEND_SESSION_TOKEN or OPENHUMAN_BACKEND_API_KEY
@@ -30,12 +33,14 @@ BIN="$ROOT/target/debug/openhuman-core"
 OUT="$ROOT/target/prompt-eval-runs.jsonl"
 ONLY=""
 REAL=0
+RUNS=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --case) ONLY="$2"; shift 2 ;;
     --bin) BIN="$2"; shift 2 ;;
     --real-workspace) REAL=1; shift ;;
+    --runs) RUNS="$2"; shift 2 ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -60,8 +65,11 @@ mkdir -p "$(dirname "$OUT")"
 ids=$(python3 -c 'import json,sys; print("\n".join(c["id"] for c in json.load(open(sys.argv[1]))["cases"]))' "$CASES")
 [ -n "$ONLY" ] && { echo "$ids" | grep -qx "$ONLY" || { echo "no case $ONLY" >&2; exit 2; }; ids="$ONLY"; }
 
+case "$RUNS" in ""|*[!0-9]*|0) echo "--runs needs a positive integer" >&2; exit 2 ;; esac
+
 total_usd=0
 for id in $ids; do
+for run in $(seq 1 "$RUNS"); do
   # $ws always holds this case's own artifacts (result, logs, judge verdict).
   ws="$(mktemp -d -t prompt-eval)"
   export RUST_LOG="${RUST_LOG:-info}"
@@ -97,7 +105,7 @@ for id in $ids; do
     *) echo "case $id: unknown entry $kind" >&2; exit 2 ;;
   esac
 
-  echo "── $id ($method) workspace=$ws" >&2
+  echo "── $id run $run/$RUNS ($method) workspace=$ws" >&2
   started=$(date +%s)
   core "$method" "$params" > "$ws/result.json" || echo "case $id: $method exited non-zero (scored anyway)" >&2
   elapsed=$(( $(date +%s) - started ))
@@ -109,9 +117,13 @@ for id in $ids; do
     core openhuman.agent_chat_simple "$jp" > "$ws/judge.json" || true
   fi
 
-  row=$(python3 "$ROOT/scripts/prompt-eval/score.py" score "$CASES" "$id" "$ws" "$elapsed")
+  row=$(python3 "$ROOT/scripts/prompt-eval/score.py" score "$CASES" "$id" "$ws" "$elapsed" "$run")
   echo "$row" >> "$OUT"
-  echo "$row" | python3 -c 'import json,sys; r=json.load(sys.stdin); print("%s: %s score=%s usd=%.4f models=%s failures=%s" % (r["case"], "PASS" if r["pass"] else "FAIL", r["score"], r["usd"], r["models"], r["failures"]))'
+  echo "$row" | python3 -c 'import json,sys; r=json.load(sys.stdin); print("%s run %s: %s score=%s usd=%.4f models=%s failures=%s" % (r["case"], r["run"], "PASS" if r["pass"] else "FAIL", r["score"], r["usd"], r["models"], r["failures"]))'
   total_usd=$(python3 -c 'import json,sys; print(float(sys.argv[1]) + json.loads(sys.argv[2])["usd"])' "$total_usd" "$row")
 done
+done
 echo "total USD: $total_usd   (rows appended to $OUT)"
+if [ "$REAL" = 1 ]; then
+  echo "real workspace: clean up the test threads, plus each case's \"writes\" in $CASES" >&2
+fi

@@ -15,22 +15,41 @@
       "_why": "The 2026-09-17 incident: 512,775 input tokens and 27 catalog searches in one turn, no propose_workflow.",
       "entry": "flows_build",
       "message": "Every morning at 8am, send me a digest of the latest sports news.",
-      "expect_calls": ["propose_workflow"],
-      "forbid_calls": [],
-      "max_consecutive": { "search_tool_catalog": 2 },
+      "expect_calls": [
+        "propose_workflow"
+      ],
+      "forbid_calls": [
+        "save_workflow",
+        "create_workflow",
+        "run_flow"
+      ],
+      "max_consecutive": {
+        "search_tool_catalog": 2
+      },
       "max_input_tokens": 150000,
-      "judge": true
+      "judge": true,
+      "writes": [],
+      "surface": "workflow",
+      "_writes_note": "flows_build proposes only; nothing is saved unless the model calls save_workflow/create_workflow (forbidden below)."
     },
     {
       "id": "orchestrator-reminder",
       "_why": "A scheduling request must reach scheduler_agent through schedule_task, not be answered in prose.",
       "entry": "agent_chat",
       "message": "Remind me to stretch every weekday at 3pm.",
-      "expect_calls": ["schedule_task"],
-      "forbid_calls": ["shell"],
+      "expect_calls": [
+        "schedule_task"
+      ],
+      "forbid_calls": [
+        "shell"
+      ],
       "max_consecutive": {},
       "max_input_tokens": 100000,
-      "judge": true
+      "judge": true,
+      "writes": [
+        "a recurring cron job ('stretch', weekdays 15:00) — remove it with cron_remove / the Routines UI after the run"
+      ],
+      "surface": "orchestration/scheduler"
     },
     {
       "id": "orchestrator-direct-answer",
@@ -38,10 +57,96 @@
       "entry": "agent_chat",
       "message": "What is 17 times 23?",
       "expect_calls": [],
-      "forbid_calls": ["research", "spawn_async_subagent", "schedule_task"],
+      "forbid_calls": [
+        "research",
+        "spawn_async_subagent",
+        "schedule_task"
+      ],
       "max_consecutive": {},
       "max_input_tokens": 60000,
-      "judge": false
+      "judge": false,
+      "writes": [],
+      "surface": "orchestration"
+    },
+    {
+      "id": "composio-gmail-read",
+      "surface": "composio",
+      "_why": "Integration hand-off to a connected toolkit, read-only. Exercises delegate_to_integrations_agent and the text-mode integrations_agent (see #6334).",
+      "entry": "agent_chat",
+      "message": "What is the subject line of the most recent email in my Gmail inbox? Just read it, don't change anything.",
+      "expect_calls": [
+        "delegate_to_integrations_agent"
+      ],
+      "forbid_calls": [
+        "composio_connect",
+        "GMAIL_SEND_EMAIL",
+        "GMAIL_DELETE_MESSAGE",
+        "GMAIL_MOVE_TO_TRASH"
+      ],
+      "max_consecutive": {
+        "composio_list_tools": 2
+      },
+      "max_input_tokens": 200000,
+      "judge": true,
+      "writes": [],
+      "_precondition": "gmail must be connected — re-verify with list_flow_connections before running; config.toml named github/gmail/notion on 2026-09-18."
+    },
+    {
+      "id": "skill-notion-read",
+      "surface": "skills",
+      "_why": "Run an installed skill through its hand-off, read-only. The account's only installed skill on 2026-09-18 was `notion` (it was `github` two days earlier — re-check).",
+      "entry": "agent_chat",
+      "message": "Using my installed Notion skill, list the titles of my five most recently edited Notion pages. Do not create or edit anything.",
+      "expect_calls": [
+        "run_skill"
+      ],
+      "forbid_calls": [
+        "setup_skills",
+        "skill_registry_install"
+      ],
+      "max_consecutive": {},
+      "max_input_tokens": 200000,
+      "judge": true,
+      "writes": [],
+      "_precondition": "the notion skill must be installed — re-verify before running."
+    },
+    {
+      "id": "mcp-none-configured",
+      "surface": "mcp (error path)",
+      "_why": "ERROR-PATH case, not an MCP capability case: the account has zero MCP servers, so the only honest outcome is to say none is configured without fabricating one or installing one. Do not install a server to make MCP testable — that changes the baseline.",
+      "entry": "agent_chat",
+      "message": "Use my MCP server to look up today's open tickets.",
+      "expect_calls": [],
+      "forbid_calls": [
+        "setup_mcp_server",
+        "mcp_registry_install"
+      ],
+      "reply_regex": "(?i)(no|not|isn't|aren't|don't|haven't)[^.]{0,80}(mcp|server)",
+      "max_consecutive": {},
+      "max_input_tokens": 100000,
+      "judge": true,
+      "writes": [],
+      "_precondition": "mcp_servers must still be empty; if a server exists this case no longer measures the error path."
+    },
+    {
+      "id": "web-search-fact",
+      "surface": "web search",
+      "_why": "Direct-first: a single current fact is one built-in web_search_tool call, not a research spawn.",
+      "entry": "agent_chat",
+      "message": "What is the latest stable release of the Rust programming language? Cite where you found it.",
+      "expect_calls": [
+        "web_search_tool"
+      ],
+      "forbid_calls": [
+        "research",
+        "spawn_async_subagent"
+      ],
+      "max_consecutive": {
+        "web_search_tool": 3
+      },
+      "max_input_tokens": 100000,
+      "judge": true,
+      "writes": []
     }
   ]
 }

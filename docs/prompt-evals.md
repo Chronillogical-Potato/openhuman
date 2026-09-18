@@ -68,6 +68,11 @@ The costs are:
 scripts/prompt-eval.sh --real-workspace --case workflow-builder-news
 ```
 
+`--runs N` repeats every case N times, each in a fresh process (and a fresh
+workspace when hermetic). One run is a sample, not a baseline. Every run is its
+own row, keyed by case, timestamp, run index and model ids. Rows are never
+averaged, so the variance stays visible.
+
 Either way, each case runs in its own `openhuman-core call` subprocesses: one
 to install the credential (hermetic only), one to run the agent
 (`openhuman.flows_build` or `openhuman.agent_chat`), and one for the judge. A
@@ -105,10 +110,35 @@ installs a collector at all. The run journal under
 `<ws>/tinyagents_store/journal` is the natural enrichment if transcript
 scoring proves too coarse.
 
+### The cases
+
+| Case | Surface | Checks | Writes |
+|---|---|---|---|
+| `workflow-builder-news` | workflow | reaches `propose_workflow`; ≤2 consecutive catalog searches; saves nothing | nothing |
+| `orchestrator-reminder` | orchestration → scheduler | hands off through `schedule_task` | **a cron job**, remove it afterwards |
+| `orchestrator-direct-answer` | orchestration | answers a trivial question without spawning | nothing |
+| `composio-gmail-read` | composio | reads the latest Gmail subject via `delegate_to_integrations_agent`; never sends, deletes or reconnects | nothing |
+| `skill-notion-read` | skills | lists Notion pages through `run_skill`; never installs a skill | nothing |
+| `mcp-none-configured` | MCP, **error path** | with no MCP server configured, says so; never installs one, never fabricates results | nothing |
+| `web-search-fact` | web search | one built-in `web_search_tool` lookup, not a `research` spawn | nothing |
+
+Prefer read-only cases. Against a real account every write is cleanup that
+someone does by hand, so a case that must write lists what it leaves behind
+in its `writes` field. Cases that depend on account state carry a
+`_precondition`, for example that Gmail is connected, the Notion skill is
+installed, or no MCP server exists. Re-verify those before a run: the account
+changes, and a case whose precondition no longer holds measures something
+else. `mcp-none-configured` is an error-path case by design. Do not install an
+MCP server to make MCP "testable"; that changes the baseline being measured.
+
+A call made through `use_skill` also counts as the packed tool it reaches, so
+a forbidden packed tool is caught either way.
+
 ### Adding a case
 
 Add an object to `cases` in `scripts/prompt-eval/cases.json`: `id`, `entry`
 (`flows_build` or `agent_chat`), `message`, `expect_calls`, `forbid_calls`,
-`max_consecutive` (`{tool: cap}`), `max_input_tokens`, `judge`, and a `_why`
-naming the failure it guards against. Keep the set small; every case costs
+`max_consecutive` (`{tool: cap}`), `max_input_tokens`, `judge`, optional
+`reply_regex`, `surface`, `writes`, `_precondition`, and a `_why` naming the
+failure it guards against. Keep the set small; every case costs
 money on every run.

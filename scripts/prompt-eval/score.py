@@ -71,7 +71,27 @@ def transcripts(ws):
 
 
 def tool_calls(lines):
-    return [tc.get("name", "") for m in lines if m.get("role") == "assistant" for tc in (m.get("tool_calls") or [])]
+    """Tool names called, in order. A `use_skill` call also counts as the packed
+    tool it reaches (`{"skill", "tool", "args"}`), so forbidding a packed tool
+    catches it either way."""
+    out = []
+    for m in lines:
+        if m.get("role") != "assistant":
+            continue
+        for tc in m.get("tool_calls") or []:
+            name = tc.get("name", "")
+            out.append(name)
+            if name == "use_skill":
+                args = tc.get("arguments")
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                inner = (args or {}).get("tool") if isinstance(args, dict) else None
+                if inner:
+                    out.append(inner)
+    return out
 
 
 def max_consecutive(calls, tool):
@@ -122,7 +142,7 @@ def judge_prompt(doc, case, ws):
     )
 
 
-def score(doc, case, ws, secs):
+def score(doc, case, ws, secs, run=1):
     ts = transcripts(ws)
     result = rpc_value(os.path.join(ws, "result.json"))
     failures = []
@@ -167,6 +187,11 @@ def score(doc, case, ws, secs):
         if worst > cap:
             failures.append(f"repeat:{tool}x{worst}>{cap}")
 
+    if case.get("reply_regex"):
+        checks += 1
+        if not re.search(case["reply_regex"], reply_text(result)):
+            failures.append("reply_regex")
+
     # 3. Cost. ponytail: sums every transcript's _meta; if a parent's totals ever
     # include its children's, this double-counts — switch to root-only then.
     metas = [m for m, _ in ts if m]
@@ -190,6 +215,9 @@ def score(doc, case, ws, secs):
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "case": case["id"],
+        "run": run,
+        "surface": case.get("surface", ""),
+        "writes": case.get("writes", []),
         "git_sha": subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
         "models": models,
         "pass": not failures,
@@ -211,6 +239,9 @@ def selftest():
     assert verdict("ACCEPT? no. REJECT") == "REJECT"
     assert verdict("UNACCEPTABLE") == "UNCLEAR"
     assert max_consecutive(["a", "b", "b", "a", "b", "b", "b"], "b") == 3
+    assert tool_calls([{"role": "assistant", "tool_calls": [
+        {"name": "use_skill", "arguments": json.dumps({"skill": "s", "tool": "skill_registry_install"})}]}]) == [
+        "use_skill", "skill_registry_install"]
     assert HALT_LOG.search("[tinyagents::mw] crate successful-repeat tracker halted the run")
     print("score.py selftest ok")
 
@@ -224,4 +255,5 @@ if __name__ == "__main__":
         print(judge_prompt(doc, case, sys.argv[4]))
     elif cmd == "score":
         doc, case = load_case(sys.argv[2], sys.argv[3])
-        print(json.dumps(score(doc, case, sys.argv[4], int(sys.argv[5]))))
+        run = int(sys.argv[6]) if len(sys.argv) > 6 else 1
+        print(json.dumps(score(doc, case, sys.argv[4], int(sys.argv[5]), run)))
