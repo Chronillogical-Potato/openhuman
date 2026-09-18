@@ -119,7 +119,6 @@ fn whatsapp_data_tools_are_gone_in_every_build() {
         );
     }
 }
-
 #[test]
 fn all_tools_includes_spawn_async_subagent() {
     let tmp = TempDir::new().unwrap();
@@ -154,7 +153,6 @@ fn all_tools_includes_spawn_async_subagent() {
         "spawn_async_subagent must be registered for fire-and-forget background orchestration; got: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_includes_spawn_parallel_agents() {
     let tmp = TempDir::new().unwrap();
@@ -189,7 +187,6 @@ fn all_tools_includes_spawn_parallel_agents() {
         "spawn_parallel_agents must be registered for orchestrated fan-out; got: {names:?}"
     );
 }
-
 #[test]
 fn every_packed_tool_name_resolves_to_a_registered_tool() {
     // A pack advertises a menu. `render_pack_filtered` skips a name it cannot
@@ -299,7 +296,6 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
          delegate name); these do not: {missing:?}"
     );
 }
-
 #[test]
 fn all_tools_always_registers_curl() {
     // Regression guard: `curl` is always registered (gated only by
