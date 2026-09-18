@@ -152,6 +152,7 @@ jobs:
               # limits or the script must arm the lane that checks them.
               - 'scripts/prompt-budget.limits'
               - 'scripts/check-prompt-budget.sh'
+              - 'scripts/prompt-size-measure.sh'
               # The coverage-presence gate and its allowlist decide whether this
               # lane FAILS, so they arm it for the same reason.
               - 'scripts/ci/assert-coverage-presence.sh'
