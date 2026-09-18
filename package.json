@@ -40,7 +40,6 @@
     "merge-pr": "bash scripts/shortcuts/review/merge.sh",
     "mock:api": "node scripts/mock-api-server.mjs",
     "pr:checklist": "node scripts/check-pr-checklist.mjs",
-    "prompt:eval": "bash scripts/prompt-eval.sh",
     "prompt:report": "bash scripts/prompt-report.sh",
     "pr:sync-main": "node scripts/merge-main-into-open-prs.mjs",
     "release:notes": "node scripts/release/generate-release-notes.mjs",

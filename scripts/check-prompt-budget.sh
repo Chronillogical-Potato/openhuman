@@ -76,12 +76,11 @@ WORKSPACE="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-budget.XXXXXX")"
 cleanup() { rm -rf "$WORKSPACE" "${TOOL_LOOKUP:-}" "${TOOL_OVERSIZE:-}"; }
 trap cleanup EXIT
 
-BIN="target/debug/openhuman-core"
-if [[ ! -x "$BIN" ]]; then
-  echo "[prompt-budget] building openhuman-core …" >&2
-  cargo build --manifest-path Cargo.toml --bin openhuman-core \
-    --features "$(bash scripts/ci/product-features.sh)" >&2
-fi
+TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+BIN="$TARGET_DIR/debug/openhuman-core"
+echo "[prompt-budget] building openhuman-core …" >&2
+cargo build --manifest-path Cargo.toml --bin openhuman-core \
+  --features "$(bash scripts/ci/product-features.sh)" >&2
 
 echo "[prompt-budget] measuring against hermetic workspace $WORKSPACE" >&2
 # `--hermetic` isolates config and workspace but not HOME: skill discovery still
@@ -90,7 +89,7 @@ echo "[prompt-budget] measuring against hermetic workspace $WORKSPACE" >&2
 # `--write` there baked it into the limits. An empty HOME matches CI.
 # OPENHUMAN_HOME is dropped too: the agent-definition loader prefers it
 # over ~/.openhuman.
-mkdir -p "$WORKSPACE/home"
+mkdir -p "$WORKSPACE/home" "$WORKSPACE/workspace"
 if ! measured="$(env -u OPENHUMAN_HOME HOME="$WORKSPACE/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE/workspace" --hermetic --json)"; then
   echo "::error::prompt-size failed to measure" >&2
   exit 1

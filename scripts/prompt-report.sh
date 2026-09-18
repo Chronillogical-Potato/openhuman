@@ -55,7 +55,7 @@ else
   # the user's ~/.openhuman (or $OPENHUMAN_HOME).
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-report.XXXXXX")"
   trap 'rm -rf "$TMP"' EXIT
-  mkdir -p "$TMP/home"
+  mkdir -p "$TMP/home" "$TMP/workspace"
   echo "[prompt-report] measuring against hermetic workspace $TMP" >&2
   measured="$(env -u OPENHUMAN_HOME HOME="$TMP/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json)"
 fi
