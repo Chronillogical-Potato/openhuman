@@ -608,7 +608,6 @@ fn all_tools_includes_current_time() {
         "current_time must be registered in the default tool list; got: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_default_registry_contains_expected_baseline_surface() {
     let tmp = TempDir::new().unwrap();
@@ -685,7 +684,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
     }
     assert_contains_all(&names, &expected);
 }
-
 #[test]
 fn all_tools_default_registry_has_no_duplicate_tool_names() {
     let tmp = TempDir::new().unwrap();
@@ -715,7 +713,6 @@ fn all_tools_default_registry_has_no_duplicate_tool_names() {
         "tool registry must not contain duplicate names: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_excludes_browser_when_disabled() {
     let tmp = TempDir::new().unwrap();
