@@ -304,11 +304,13 @@ impl EventListener for OpenhumanEventBridge {
                 // recovers the call without ever emitting Started/Completed for it,
                 // so nothing else in this bridge projects it. Two rows (start +
                 // failed-complete) keyed by the same call_id, mirroring a real
-                // tool call. Classified `Unknown` (recoverable) — the model got the
-                // "valid tools: [...]" corrective and can retry a real tool.
+                // tool call. Classified `NotFound` (permanent) from the typed
+                // event itself (#6277): the identical call can never succeed, so
+                // "try again / run diagnostics" copy would be wrong. The model
+                // still got the "valid tools: [...]" corrective.
                 let iteration = self.iteration();
                 let failure = Some(crate::tools::status::describe(
-                    crate::tools::status::ToolFailureClass::Unknown,
+                    crate::tools::status::ToolFailureClass::NotFound,
                 ));
                 let label = format!("{} (unavailable)", humanize_tool_name(requested_name));
                 match &self.scope {

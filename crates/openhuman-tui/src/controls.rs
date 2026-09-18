@@ -168,11 +168,21 @@ pub async fn refresh_auth(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
 
 async fn view_account(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     ui.settings_status = "Refreshing account…".to_string();
-    match runtime.invoke("openhuman.auth_get_me", json!({})).await {
-        Ok(value) => {
-            let user = rpc_payload(&value);
-            ui.account_detail = account_detail(user);
-            ui.settings_status = "Account refreshed.".to_string();
+    match crate::session::session_manager(runtime)
+        .current_user(true)
+        .await
+    {
+        Ok(current) => {
+            ui.account_detail = current
+                .user
+                .as_ref()
+                .map(account_detail)
+                .unwrap_or_else(|| "No account details available.".to_string());
+            ui.settings_status = if current.stale {
+                "Account refreshed from the stored copy (backend unreachable).".to_string()
+            } else {
+                "Account refreshed.".to_string()
+            };
             refresh_auth(runtime, ui).await;
         }
         Err(err) => ui.settings_status = format!("Account refresh failed: {err}"),
@@ -187,45 +197,25 @@ async fn login_with_token(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
         return;
     }
     ui.settings_status = "Signing in…".to_string();
-    let consumed = runtime
-        .invoke(
-            "openhuman.auth_consume_login_token",
-            json!({"loginToken": token.trim()}),
-        )
+    // Exchange, validate against `/auth/me`, and install in the core — all
+    // owned by `openhuman-session`; the JWT never passes through this module.
+    let result = crate::session::session_manager(runtime)
+        .login_with_token(token.trim())
         .await;
     token.zeroize();
-    let result = match consumed {
-        Ok(value) => value,
-        Err(err) => {
-            ui.settings_status = format!("Login failed: {err}");
-            return;
-        }
-    };
-    let mut jwt = string_at(rpc_payload(&result), &["jwtToken"]);
-    if jwt.is_empty() {
-        ui.settings_status = "Login failed: backend returned no session token.".to_string();
-        return;
-    }
-    let stored = runtime
-        .invoke("openhuman.auth_store_session", json!({"token": jwt}))
-        .await;
-    jwt.zeroize();
-    match stored {
+    match result {
         Ok(_) => {
             ui.settings_status = "Signed in.".to_string();
             refresh_auth(runtime, ui).await;
             ui.identity_changed = true;
         }
-        Err(err) => ui.settings_status = format!("Could not store session: {err}"),
+        Err(err) => ui.settings_status = format!("Login failed: {err}"),
     }
 }
 
 async fn logout(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     ui.logout_confirm = false;
-    match runtime
-        .invoke("openhuman.auth_clear_session", json!({}))
-        .await
-    {
+    match crate::session::session_manager(runtime).logout().await {
         Ok(_) => {
             ui.settings_status = "Signed out.".to_string();
             refresh_auth(runtime, ui).await;

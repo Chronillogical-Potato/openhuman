@@ -121,6 +121,28 @@ impl Agent {
     /// anything a stem-bound handle could offer: several transcripts share one
     /// thread id (every sub-agent spawned within it does).
     pub fn seed_resume_from_thread_transcript(&mut self, thread_id: &str) -> bool {
+        self.seed_resume_from_thread_transcript_scoped(thread_id, None)
+    }
+
+    /// [`Self::seed_resume_from_thread_transcript`], additionally scoped to
+    /// `agent_id` (the calling agent's definition id) when given.
+    ///
+    /// A library host running several independently configured
+    /// [`Runtime`](openhuman_embed) agents can hand two of them the same
+    /// caller-supplied `thread_id` — nothing about the id namespace prevents
+    /// it. Plain `thread_id` matching would then resume whichever agent's
+    /// transcript is newest into the *other* agent's turn, splicing one
+    /// agent's history (and its caller's data) into another's context.
+    /// `agent_id` closes that by also requiring `_meta.agent_id` to match.
+    ///
+    /// `agent_id: None` keeps the original unscoped behaviour, used by the
+    /// desktop orchestrator's web-channel resume, where a `thread_id` is
+    /// driven by one logical agent even across a profile switch (#5351).
+    pub fn seed_resume_from_thread_transcript_scoped(
+        &mut self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> bool {
         if !self.history.is_empty() || self.cached_transcript_messages.is_some() {
             log::debug!(
                 "[web-channel] seed_resume_from_thread_transcript no-op — agent already warm \
@@ -136,8 +158,13 @@ impl Agent {
         // shared `session_raw/` and every profile-scoped `session_raw-<id>/`
         // (#5351), so switching profile mid-thread continues the same
         // conversation. See `FileTranscriptLocator::root_for_thread` for why
-        // this must not be own-dir-first.
-        let Some(handle) = self.session_locator().root_for_thread(thread_id) else {
+        // this must not be own-dir-first. `agent_id` additionally narrows to
+        // one agent's own transcripts — see
+        // `FileTranscriptLocator::root_for_thread_scoped`.
+        let Some(handle) = self
+            .session_locator()
+            .root_for_thread_scoped(thread_id, agent_id)
+        else {
             log::debug!(
                 "[web-channel] no root session_raw transcript for thread={thread_id} in any \
                  (shared or profile-scoped) session_raw dir — falling back to \

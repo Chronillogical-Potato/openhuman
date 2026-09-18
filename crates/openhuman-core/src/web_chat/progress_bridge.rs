@@ -218,7 +218,7 @@ fn subagent_worktree_detail(
     }
 }
 
-/// Trace user attribution for a turn whose `auth_get_me` cache is cold
+/// Trace user attribution for a turn whose stored user payload carries no identity
 /// (headless / autonomous / freshly booted cores): read the on-disk
 /// app-session profile and return the user's email (preferred) or backend
 /// user id. `None` when signed out or the profile is unreadable — the caller
@@ -386,12 +386,12 @@ pub(crate) fn spawn_progress_bridge(
             let base = trace_session_id(metadata.session_id, &thread_id);
             let trace_id = format!("{base}:{request_id}");
             // Attribute the trace to the *real* authenticated user (cached
-            // `auth_get_me` identity: id, else email) — the transport client
+            // stored credential identity: id, else email) — the transport client
             // id (socket client / "system") is NOT a user; it rides along as
             // the separate `client.id` metadata attribute. When no identity is
             // cached (signed-out / fresh install), fall back to the client id
             // so the trace still carries some attribution.
-            let identity = crate::desktop::app_state::peek_cached_current_user_identity();
+            let identity = crate::security::credentials::identity::peek_credential_user_identity();
             let user_attributed = identity.is_some();
             let user_id = identity
                 .and_then(|i| i.id.or(i.email))

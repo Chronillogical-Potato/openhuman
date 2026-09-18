@@ -161,17 +161,43 @@ pub(super) async fn cached_probe_inference_readiness(
 /// 3. Otherwise, caps.rs's own default role (`"summarization"`, its fallback
 ///    absent a `role` field on the completion request).
 ///
-/// A static `agent_ref` that instead resolves to a shipped/TOML harness
-/// `AgentDefinition` (`AgentRoute::Harness`) can *also* pin a model via
-/// `ModelSpec::Exact`/`ModelSpec::Hint` — but `ModelSpec::Inherit` (the
-/// default) resolves against the *parent* agent's live model at spawn time,
-/// which this static, pre-run gate has no parent turn to read. Resolving only
-/// the Exact/Hint cases here — while silently mis-defaulting every
-/// `Inherit`-using definition — would be a half-correct, fragile lookup, so
-/// this case falls back to the default role rather than guess.
-/// TODO(B45): resolve agent_ref-pinned model for harness `AgentDefinition`s
-/// once a parent-model-free resolution path exists.
+/// Known harness agents use the session builder's provider-role resolver.
+/// Definition hints are interpreted exactly as at construction; sub-agent
+/// ModelSpec resolution is a separate runtime path and is not guessed here.
 pub(super) fn agent_node_role(config: &Config, node: &tinyflows::model::Node) -> &'static str {
+    if let Some(agent_ref) = node
+        .config
+        .get("agent_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('='))
+    {
+        use crate::agent::harness::definition::AgentDefinitionRegistry;
+        if let Err(error) = AgentDefinitionRegistry::init_global(&config.workspace_dir) {
+            tracing::debug!(target: "flows", %error,
+                "[flows] readiness: agent definition registry unavailable; using registry fallback");
+        }
+        let definition = AgentDefinitionRegistry::global().and_then(|r| r.get(agent_ref));
+        let custom = crate::agent::registry::find_custom_in_config(config, agent_ref);
+        if definition.is_some() || custom.is_some() {
+            let entry_model = if definition.is_some() {
+                None
+            } else {
+                custom.as_ref().and_then(|entry| entry.model.as_deref())
+            };
+            let override_model =
+                crate::flows::tinyflows::caps::resolve_node_model(&node.config, entry_model).map(
+                    |model| crate::flows::tinyflows::caps::harness_model_default_override(&model),
+                );
+            return crate::agent::harness::session::provider_role_for_definition(
+                agent_ref,
+                override_model
+                    .as_deref()
+                    .or(config.default_model.as_deref()),
+                definition,
+            );
+        }
+    }
     let pinned_model = node
         .config
         .get("model")
@@ -180,23 +206,6 @@ pub(super) fn agent_node_role(config: &Config, node: &tinyflows::model::Node) ->
         .filter(|s| !s.is_empty());
     if let Some(model) = pinned_model {
         return crate::inference::provider::role_for_model_tier(model);
-    }
-
-    let static_agent_ref = node
-        .config
-        .get("agent_ref")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty() && !s.starts_with('='));
-    if let Some(agent_ref) = static_agent_ref {
-        if let Some(entry_model) = crate::agent::registry::find_custom_in_config(config, agent_ref)
-            .and_then(|entry| entry.model)
-        {
-            let entry_model = entry_model.trim();
-            if !entry_model.is_empty() {
-                return crate::inference::provider::role_for_model_tier(entry_model);
-            }
-        }
     }
 
     "summarization"
@@ -272,8 +281,17 @@ pub(super) async fn evaluate_inference_readiness(
             config,
         )
     });
-    let needs_session = crate::inference::provider::factory::current_host_requires_session()
-        || needs_backend_session;
+    let needs_session = needs_backend_session
+        || (crate::inference::provider::factory::current_host_requires_session()
+            && agent_nodes.iter().any(|node| {
+                let provider = crate::inference::provider::factory::provider_for_role(
+                    agent_node_role(config, node),
+                    config,
+                );
+                !crate::inference::provider::factory::access_gates::provider_uses_independent_auth(
+                    &provider,
+                )
+            }));
 
     // Layer 1: signed-out is the cheapest, most decisive check. Session-wide
     // — checked once for the whole graph, not per node/role.
@@ -304,7 +322,9 @@ pub(super) async fn evaluate_inference_readiness(
     // behavior for a real signed-out desktop user is unchanged — only the
     // (redundant, in that case) early rejection here is test-only skipped.
     #[cfg(not(test))]
-    let session_result = if needs_backend_session {
+    let session_result = if !needs_session {
+        Ok(())
+    } else if needs_backend_session {
         crate::inference::provider::factory::access_gates::verify_backend_session_active(config)
     } else {
         crate::inference::provider::factory::access_gates::verify_session_active(config)

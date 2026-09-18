@@ -7953,7 +7953,7 @@ async fn public_paths_accessible_without_token() {
     // Axum's extractor (400) before the handler's own auth runs — it stays in
     // this `!= 401` group. `/ws/dictation` is asserted separately below now
     // that it is authenticated at the upgrade boundary (C4 / issue #1924).
-    for path in ["/auth/telegram", "/events"] {
+    for path in ["/events"] {
         let resp = client
             .get(format!("{base}{path}"))
             .send()

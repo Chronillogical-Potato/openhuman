@@ -135,8 +135,11 @@ fn extract_query_token_url_decodes_value() {
 
 #[cfg(feature = "http-server")]
 #[test]
-fn public_paths_include_desktop_auth_callback() {
-    assert!(PUBLIC_PATHS.contains(&"/auth"));
+fn login_callbacks_are_no_longer_public() {
+    // The desktop `/auth` fallback and `/auth/telegram` exchanged login tokens
+    // inside the core; the host (openhuman-session) owns that now.
+    assert!(!PUBLIC_PATHS.contains(&"/auth"));
+    assert!(!PUBLIC_PATHS.contains(&"/auth/telegram"));
 }
 
 #[cfg(feature = "http-server")]

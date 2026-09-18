@@ -215,6 +215,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Terjadi kesalahan pada tindakan ini.',
   'conversations.toolFailure.unknown.next':
     'Coba lagi; jika terus gagal, jalankan diagnostik dari Pengaturan.',
+  'conversations.toolFailure.notFound.cause':
+    'Hal yang diminta tidak ada atau tidak tersedia di sini.',
+  'conversations.toolFailure.notFound.next':
+    'Tidak perlu melakukan apa pun. Asisten dapat mencari nama yang benar dan mencoba lagi.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman belum bisa melakukan ini secara otomatis.',
+  'conversations.toolFailure.unsupported.next': 'Lakukan secara manual, atau minta opsi lain.',
   'conversations.backgroundTasks.title': 'Tugas latar belakang',
   'nav.feedback': 'Bagikan masukan',
   'feedback.board': 'Papan masukan',
@@ -779,6 +786,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Terpasang',
   'skills.explorer.install': 'Pasang',
   'skills.explorer.installing': 'Memasang…',
+  'skills.explorer.notInstallable': 'Tidak dapat dipasang',
+  'skills.explorer.notInstallableHint':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh, jadi tidak dapat dipasang dari sini.',
   'skills.integrations': 'Integrasi Composio',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud: masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',

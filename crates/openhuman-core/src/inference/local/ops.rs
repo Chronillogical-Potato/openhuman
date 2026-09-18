@@ -14,7 +14,7 @@ mod reactions;
 mod runtime_ops;
 mod turn_guards;
 
-pub use agent_chat::{agent_chat, agent_chat_simple};
+pub use agent_chat::{agent_chat, agent_chat_for, agent_chat_simple, AgentChatTarget};
 pub use chat::{local_ai_chat, LocalAiChatMessage};
 pub use reactions::{local_ai_should_react, ReactionDecision};
 pub use runtime_ops::{

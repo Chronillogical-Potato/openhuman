@@ -35,6 +35,7 @@ mod final_call_wrap_up;
 mod loop_guards;
 mod memory_protocol;
 mod message_trim;
+mod packed_tool_route;
 mod prompt_cache;
 mod repeat_progress;
 mod repeated_failure;
@@ -54,13 +55,17 @@ pub(crate) use embedder_hooks::EmbedderToolHooksMiddleware;
 pub(crate) use final_call_wrap_up::FinalCallWrapUpMiddleware;
 pub use memory_protocol::MemoryProtocolMiddleware;
 pub(crate) use message_trim::{legacy_max_input_tokens, ImageAwareMessageTrimMiddleware};
+pub(crate) use packed_tool_route::PackedToolRouteMiddleware;
 pub(crate) use prompt_cache::PromptCacheSegmentMiddleware;
 pub(crate) use repeat_progress::RepeatProgressMiddleware;
 pub(crate) use repeated_failure::RepeatedToolFailureMiddleware;
 pub(crate) use tool_exposure::OpenHumanToolExposureShadowMiddleware;
 pub(crate) use tool_outcome_capture::ToolOutcomeCaptureMiddleware;
 pub(crate) use tool_policy::ToolPolicyMiddleware;
-pub(crate) use turn_context::{HandoffConfig, TranscriptSnapshotSink, TurnContextMiddleware};
+pub(crate) use turn_context::{
+    render_unanswered_steps, HandoffConfig, TranscriptSnapshot, TranscriptSnapshotSink,
+    TurnContextMiddleware,
+};
 
 #[cfg(test)]
 #[path = "middleware_tests.rs"]

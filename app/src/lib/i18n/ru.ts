@@ -213,6 +213,14 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'С этим действием что-то пошло не так.',
   'conversations.toolFailure.unknown.next':
     'Повторите попытку; если ошибка повторяется, запустите диагностику в Настройках.',
+  'conversations.toolFailure.notFound.cause':
+    'Запрошенный элемент не существует или недоступен здесь.',
+  'conversations.toolFailure.notFound.next':
+    'Ничего делать не нужно. Ассистент может найти правильное название и попробовать снова.',
+  'conversations.toolFailure.unsupported.cause':
+    'OpenHuman пока не может сделать это автоматически.',
+  'conversations.toolFailure.unsupported.next':
+    'Сделайте это вручную или попросите другой вариант.',
   'conversations.backgroundTasks.title': 'Фоновые задачи',
   'nav.feedback': 'Поделиться отзывом',
   'feedback.board': 'Доска отзывов',
@@ -779,6 +787,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Установлено',
   'skills.explorer.install': 'Установить',
   'skills.explorer.installing': 'Установка…',
+  'skills.explorer.notInstallable': 'Нельзя установить',
+  'skills.explorer.notInstallableHint':
+    'У этой записи нет файла SKILL.md для загрузки, поэтому её нельзя установить отсюда.',
   'skills.integrations': 'Интеграции Composio',
   'skills.integrationsSubtitle':
     'Облачные OAuth-подключения: войдите в свой аккаунт, и Composio управляет токенами, чтобы агенты могли читать и действовать от вашего имени. Никаких API-ключей для управления.',

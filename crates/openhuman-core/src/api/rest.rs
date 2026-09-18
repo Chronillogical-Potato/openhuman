@@ -9,6 +9,8 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
+use crate::security::credentials::session_support::BackendCredential;
+
 /// Typed errors surfaced by `authed_json` for expected backend states that
 /// callers should recover from in-flow rather than funnel into Sentry.
 #[derive(Debug, thiserror::Error)]
@@ -34,6 +36,22 @@ pub enum BackendApiError {
     /// shape fires on every authed endpoint once the session lapses).
     #[error("backend rejected session token on {method} {path}")]
     Unauthorized {
+        /// HTTP method as a static string (`"GET"`, `"POST"`, …).
+        method: String,
+        /// Request path the 401 came back from (no query string).
+        path: String,
+    },
+    /// Backend rejected a TinyHumans API key (`x-api-key`) with
+    /// `401 Unauthorized` — a library-mode runtime's credential, not a user
+    /// session. Must stay distinct from [`Self::Unauthorized`]:
+    /// `flatten_authed_error` maps that variant onto the `SESSION_EXPIRED`
+    /// sentinel, which `core/jsonrpc.rs` treats as "clear the app session and
+    /// sign out". A rejected API key on a runtime that never had a session
+    /// would otherwise trigger that same session-expiry recovery, clearing an
+    /// app session that was never the problem and leaving the rejected key
+    /// installed. Callers should surface this as a credential error instead.
+    #[error("backend rejected api key on {method} {path}")]
+    ApiKeyRejected {
         /// HTTP method as a static string (`"GET"`, `"POST"`, …).
         method: String,
         /// Request path the 401 came back from (no query string).
@@ -105,6 +123,14 @@ pub fn flatten_authed_error(err: anyhow::Error) -> String {
     match err.downcast_ref::<BackendApiError>() {
         Some(BackendApiError::Unauthorized { method, path }) => {
             format!("SESSION_EXPIRED: backend rejected session token on {method} {path}")
+        }
+        // Deliberately NOT the `SESSION_EXPIRED` sentinel: this runtime
+        // authenticates with an API key, not a session, so there is no
+        // session to expire and `core/jsonrpc.rs`'s `SessionExpired` publish
+        // (clear the session, prompt re-sign-in) would be the wrong
+        // recovery. See `BackendApiError::ApiKeyRejected`.
+        Some(BackendApiError::ApiKeyRejected { method, path }) => {
+            format!("API_KEY_REJECTED: backend rejected api key on {method} {path}")
         }
         _ => format!("{err:#}"),
     }
@@ -354,11 +380,6 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-/// Alias for [`user_id_from_profile_payload`] for semantic clarity in auth flows.
-pub fn user_id_from_auth_me_payload(payload: &Value) -> Option<String> {
-    user_id_from_profile_payload(payload)
-}
-
 /// JSON body returned by the backend when an OAuth connection process is initiated.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectResponse {
@@ -446,15 +467,6 @@ impl BackendOAuthClient {
             .with_context(|| format!("build URL for {path}"))
     }
 
-    /// Returns the URL for initiating a login flow for a specific provider.
-    pub fn login_url(&self, provider: &str) -> Result<Url> {
-        let p = provider.trim().trim_matches('/');
-        anyhow::ensure!(!p.is_empty(), "provider is required");
-        self.base
-            .join(&format!("auth/{p}/login"))
-            .context("build login URL")
-    }
-
     /// Initiates an OAuth connection flow for the current user and a specific provider.
     pub async fn connect(
         &self,
@@ -504,45 +516,13 @@ impl BackendOAuthClient {
         Ok(ConnectResponse { oauth_url, state })
     }
 
-    /// Fetches the current authenticated user profile using the provided JWT.
-    pub async fn fetch_current_user(&self, bearer_jwt: &str) -> Result<Value> {
+    /// `GET /auth/me` with the stored session JWT — the backend user profile,
+    /// bearer-only. Used by channel link checks to see whether a channel id has
+    /// been attached to the account; it does not establish or validate a
+    /// session (the host that owns the session does that).
+    pub async fn fetch_profile(&self, bearer_jwt: &str) -> Result<Value> {
         self.authed_json(bearer_jwt, Method::GET, "auth/me", None)
             .await
-    }
-
-    /// Exchanges a one-time login token (e.g. from Telegram) for a long-lived JWT.
-    pub async fn consume_login_token(&self, login_token: &str) -> Result<String> {
-        let token = login_token.trim();
-        anyhow::ensure!(!token.is_empty(), "login token is required");
-
-        // Backend serves `POST /auth/login-token/consume` with the token in a JSON
-        // body `{ token, audience? }` and returns `{ success, data: { jwt } }`
-        // (see backend `routes/auth.ts`). The legacy
-        // `telegram/login-tokens/{token}/consume` path-param route was removed, so
-        // the old call 404'd and Telegram/OAuth-token login could never complete
-        // (WIRING_GAPS_AUDIT C1/C2).
-        let response = self
-            .sdk
-            .auth()
-            .consume_login_token(&tinyhumans_sdk::api::types::LoginTokenRequest {
-                token: token.to_string(),
-            })
-            .await
-            .context("consume login token through TinyHumans SDK")?;
-        let jwt = response
-            .get("jwt")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        anyhow::ensure!(!jwt.is_empty(), "consume login token response missing jwt");
-        Ok(jwt)
-    }
-
-    /// Validates that the provided session token is still active and accepted.
-    pub async fn validate_session_token(&self, bearer_jwt: &str) -> Result<()> {
-        let _ = self.fetch_current_user(bearer_jwt).await?;
-        Ok(())
     }
 
     /// Creates a short-lived link token for connecting a specific communication channel.
@@ -564,34 +544,54 @@ impl BackendOAuthClient {
         .await
     }
 
+    /// An SDK client carrying `credential` on the wire the backend expects for
+    /// its kind: a session JWT as `Authorization: Bearer`, an API key as
+    /// `x-api-key`. See `security::credentials::api_key`.
+    fn sdk_with_credential(&self, credential: &BackendCredential) -> TinyHumansClient {
+        let secret = credential.secret().trim().to_string();
+        match credential {
+            BackendCredential::Session(_) => self.sdk.clone().with_token(Some(secret)),
+            BackendCredential::ApiKey(_) => {
+                log::trace!("[backend-api] authenticating request with x-api-key");
+                self.sdk.clone().with_api_key(Some(secret))
+            }
+        }
+    }
+
     /// Generic authenticated JSON request helper for backend API routes.
+    ///
+    /// `credential` accepts a [`BackendCredential`] (from
+    /// `session_support::resolve_backend_credential`) or, for the many callers
+    /// that still hold a bare session token string, a `&str` / `&String`,
+    /// which is treated as a session JWT.
     pub async fn authed_json(
         &self,
-        bearer_jwt: &str,
+        credential: impl Into<BackendCredential>,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
+        let credential = credential.into();
+        let is_api_key = credential.is_api_key();
+        let sdk = self.sdk_with_credential(&credential);
         let response = sdk
             .raw()
             .send(method.clone(), path, &[], body.as_ref(), true)
             .await;
-        self.finish_authed_json(method, path, response)
+        self.finish_authed_json(method, path, response, is_api_key)
     }
 
     /// Fetch the deployed billing summary through the SDK's authenticated raw API.
-    pub async fn fetch_billing_summary(&self, bearer_jwt: &str) -> Result<Value> {
+    pub async fn fetch_billing_summary(
+        &self,
+        credential: impl Into<BackendCredential>,
+    ) -> Result<Value> {
         const PATH: &str = "/payments/summary";
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
+        let credential = credential.into();
+        let is_api_key = credential.is_api_key();
+        let sdk = self.sdk_with_credential(&credential);
         let response = sdk.raw().send(Method::GET, PATH, &[], None, true).await;
-        self.finish_authed_json(Method::GET, PATH, response)
+        self.finish_authed_json(Method::GET, PATH, response, is_api_key)
     }
 
     fn finish_authed_json(
@@ -599,6 +599,7 @@ impl BackendOAuthClient {
         method: Method,
         path: &str,
         response: Result<Value, SdkError>,
+        is_api_key: bool,
     ) -> Result<Value> {
         let url = self.url_for(path)?;
         let value = match response {
@@ -686,9 +687,22 @@ impl BackendOAuthClient {
                     method.as_str(),
                     url.path(),
                 );
-                return Err(anyhow::Error::new(BackendApiError::Unauthorized {
-                    method: method.as_str().to_string(),
-                    path: url.path().to_string(),
+                // The credential kind decides the *recovery*, not just the
+                // wording: `flatten_authed_error` maps `Unauthorized` onto
+                // the `SESSION_EXPIRED` sentinel that triggers session
+                // sign-out, which is the wrong recovery for a rejected API
+                // key (there is no session to expire) — see
+                // `BackendApiError::ApiKeyRejected`.
+                return Err(anyhow::Error::new(if is_api_key {
+                    BackendApiError::ApiKeyRejected {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
+                } else {
+                    BackendApiError::Unauthorized {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
                 }));
             }
 

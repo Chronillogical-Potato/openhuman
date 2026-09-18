@@ -210,6 +210,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'इस कार्य में कुछ गड़बड़ हो गई।',
   'conversations.toolFailure.unknown.next':
     'दोबारा प्रयास करें; यदि यह बार-बार विफल हो, तो सेटिंग्स से डायग्नोस्टिक्स चलाएँ।',
+  'conversations.toolFailure.notFound.cause':
+    'इस कार्रवाई ने जो माँगा वह मौजूद नहीं है या यहाँ उपलब्ध नहीं है।',
+  'conversations.toolFailure.notFound.next':
+    'कुछ करने की ज़रूरत नहीं। सहायक सही नाम खोजकर फिर से कोशिश कर सकता है।',
+  'conversations.toolFailure.unsupported.cause': 'OpenHuman अभी इसे अपने आप नहीं कर सकता।',
+  'conversations.toolFailure.unsupported.next':
+    'इसे मैन्युअल रूप से करें, या कोई दूसरा विकल्प माँगें।',
   'conversations.backgroundTasks.title': 'नेपथ्य कार्य',
   'nav.feedback': 'फ़ीडबैक साझा करें',
   'feedback.board': 'फ़ीडबैक बोर्ड',
@@ -770,6 +777,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'इंस्टॉल किया गया',
   'skills.explorer.install': 'इंस्टॉल करें',
   'skills.explorer.installing': 'इंस्टॉल हो रहा है…',
+  'skills.explorer.notInstallable': 'इंस्टॉल नहीं हो सकता',
+  'skills.explorer.notInstallableHint':
+    'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है, इसलिए इसे यहाँ से इंस्टॉल नहीं किया जा सकता।',
   'skills.integrations': 'Composio इंटीग्रेशन',
   'skills.integrationsSubtitle':
     'क्लाउड-आधारित OAuth कनेक्शन: अपने अकाउंट से साइन इन करें और Composio टोकन ब्रोकर करता है ताकि एजेंट आपकी ओर से पढ़ और कार्य कर सकें। कोई API कुंजी प्रबंधित नहीं करनी।',

@@ -165,4 +165,22 @@ impl ToolPolicySession {
                 allowed_permission: self.profile.allowed_permission,
             })
     }
+
+    /// Refuse `names` outright, whatever they were classified as.
+    ///
+    /// For a rule applied after classification that narrows what it allowed, so
+    /// every reader of this snapshot (the gate, a pack listing, the bare-call
+    /// router) refuses the same tools. A name with no decision is already refused
+    /// by [`Self::decision_for`] and is left alone.
+    pub fn deny<'n>(&mut self, names: impl IntoIterator<Item = &'n str>) {
+        for name in names {
+            let Some(decision) = self.decisions.get_mut(name) else {
+                continue;
+            };
+            decision.action = ToolPolicyAction::Deny;
+            self.allowed_tool_names.remove(name);
+            self.hidden_tool_names.remove(name);
+            self.blocked_tool_names.insert(name.to_string());
+        }
+    }
 }

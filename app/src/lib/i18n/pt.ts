@@ -212,6 +212,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.unknown.cause': 'Algo deu errado com esta ação.',
   'conversations.toolFailure.unknown.next':
     'Tente novamente; se continuar falhando, execute o diagnóstico nas Configurações.',
+  'conversations.toolFailure.notFound.cause':
+    'O item solicitado não existe ou não está disponível aqui.',
+  'conversations.toolFailure.notFound.next':
+    'Nenhuma ação necessária. O assistente pode procurar o nome certo e tentar de novo.',
+  'conversations.toolFailure.unsupported.cause':
+    'O OpenHuman ainda não consegue fazer isso automaticamente.',
+  'conversations.toolFailure.unsupported.next': 'Faça isso manualmente ou peça outra opção.',
   'conversations.backgroundTasks.title': 'Tarefas em segundo plano',
   'nav.feedback': 'Enviar feedback',
   'feedback.board': 'Quadro de feedback',
@@ -787,6 +794,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Instalada',
   'skills.explorer.install': 'Instalar',
   'skills.explorer.installing': 'Instalando…',
+  'skills.explorer.notInstallable': 'Não instalável',
+  'skills.explorer.notInstallableHint':
+    'Esta entrada não tem um SKILL.md para baixar, então não pode ser instalada aqui.',
   'skills.integrations': 'Integrações do Composio',
   'skills.integrationsSubtitle':
     'Conexões OAuth baseadas em nuvem: faça login com sua conta e o Composio gerencia os tokens para que os agentes possam ler e agir em seu nome. Sem chaves de API para gerenciar.',

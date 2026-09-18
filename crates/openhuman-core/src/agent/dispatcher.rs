@@ -20,7 +20,7 @@
 //! maps that keep the wire bytes identical while the logic lives upstream.
 //!
 //! Second, the **[`Tool`] trait object**. The crate takes
-//! [`ToolSchema`](tinyinference::tool::ToolSchema)s, never a host's tool
+//! [`tinytools::ToolSpec`] values, never a host's tool
 //! type, for the reason the parse seam already documents: a crate that depended
 //! on OpenHuman's `Tool` could not be used by a second host. So
 //! [`ToolDispatcher::prompt_instructions`] reads names and schemas off the
@@ -43,7 +43,7 @@ use tinyagents_harness::tool_calling::dialect::{
     DialectMessage, DialectResponse, DialectRole, NativeDialect, NativeToolCall, PFormatDialect,
     ToolDialect, ToolOutcome, ToolResultEntry, TranscriptEntry, XmlDialect,
 };
-use tinyinference::tool::ToolSchema;
+use tinytools::ToolSpec as ProtocolToolSpec;
 
 /// A parsed tool call representation after being extracted from an LLM response.
 #[derive(Debug, Clone)]
@@ -253,17 +253,25 @@ fn from_dialect_message(message: DialectMessage) -> ChatMessage {
     }
 }
 
-fn to_schemas(specs: &[ToolSpec]) -> Vec<ToolSchema> {
+fn to_schemas(specs: &[ToolSpec]) -> Vec<ProtocolToolSpec> {
     specs
         .iter()
-        .map(|spec| ToolSchema::new(&spec.name, &spec.description, spec.parameters.clone()))
+        .map(|spec| ProtocolToolSpec {
+            name: spec.name.clone(),
+            description: spec.description.clone(),
+            parameters: spec.parameters.clone(),
+        })
         .collect()
 }
 
-fn schemas_from_tools(tools: &[Box<dyn Tool>]) -> Vec<ToolSchema> {
+fn schemas_from_tools(tools: &[Box<dyn Tool>]) -> Vec<ProtocolToolSpec> {
     tools
         .iter()
-        .map(|tool| ToolSchema::new(tool.name(), tool.description(), tool.parameters_schema()))
+        .map(|tool| ProtocolToolSpec {
+            name: tool.name().to_string(),
+            description: tool.description().to_string(),
+            parameters: tool.parameters_schema(),
+        })
         .collect()
 }
 
