@@ -100,6 +100,16 @@ Scoring reads only artifacts the run already writes, in this order:
 One row per case is appended to `target/prompt-eval-runs.jsonl`
 (gitignored with `target/`), and the run prints the total USD.
 
+**Latency.** `seconds` is the wall clock of the agent call itself, measured by
+the harness around one `openhuman-core call` process. It covers boot (a no-op
+call takes about 0.01–0.16 s), agent assembly, every model call and every tool
+call. The judge call is excluded. It is total turn duration, which is what a
+user waits for. Time to first token is not measured: `call` is non-streaming,
+so the first token is never observable from outside. Transcript timestamps
+cannot stand in for it, because `_meta.created`, `_meta.updated` and each
+message's `ts` are all stamped when the file is written, not at turn
+boundaries.
+
 **Every row records the model id beside its cost.** A provider-side model
 update silently rebaselines every score. Compare rows only when the model
 ids match.

@@ -125,9 +125,11 @@ for run in $(seq 1 "$RUNS"); do
       continue
     fi
   fi
-  started=$(date +%s)
+  # Wall clock of the agent call, measured here, not read from artifacts:
+  # transcript timestamps are stamped at persist time, not turn boundaries.
+  started=$(python3 -c 'import time; print(time.time())')
   core "$method" "$params" > "$ws/result.json" || echo "case $id: $method exited non-zero (scored anyway)" >&2
-  elapsed=$(( $(date +%s) - started ))
+  elapsed=$(python3 -c 'import sys,time; print(round(time.time() - float(sys.argv[1]), 2))' "$started")
 
   # Judge in the same workspace (same credential), as a tool-less chat call.
   judge_prompt=$(python3 "$ROOT/scripts/prompt-eval/score.py" judge-prompt "$CASES" "$id" "$ws")

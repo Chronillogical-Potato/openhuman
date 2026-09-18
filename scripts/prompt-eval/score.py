@@ -321,4 +321,4 @@ if __name__ == "__main__":
     elif cmd == "score":
         doc, case = load_case(sys.argv[2], sys.argv[3])
         run = int(sys.argv[6]) if len(sys.argv) > 6 else 1
-        print(json.dumps(score(doc, case, sys.argv[4], int(sys.argv[5]), run)))
+        print(json.dumps(score(doc, case, sys.argv[4], float(sys.argv[5]), run)))
