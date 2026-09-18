@@ -129,19 +129,15 @@ fn managed_credential_scope(config: &Config) -> (Option<PathBuf>, bool) {
 /// Returns the default embedding provider — cloud (OpenHuman backend, Voyage) —
 /// scoped to `config`'s credential store.
 ///
-/// This is the [`default_embedding_provider`] every caller that holds a
-/// `&Config` must use. It threads the caller's real credential-store location
+/// Every caller threads the real credential-store location
 /// ([`managed_credential_scope`]) into the cloud embedder's bearer resolver — the
 /// same `(state_dir, encrypt)` pair sign-in wrote the `app-session` token to — so
 /// a signed-in user's ingest/seal embeds read the session they actually have.
 ///
-/// The config-less [`default_embedding_provider`] hardcodes `(None, true)` and so
-/// resolves `default_state_dir()` with encryption forced on; that only lands on
-/// the right store for a default-root, encrypted, single-user install. Routing
-/// the memory client's inline embedder through the keyless constructor is what
-/// made a signed-in user's ingested documents persist vector-less — "Test
-/// connection" passed (config-scoped) while the embed batch silently failed
-/// (keyless scope) — #5501.
+/// A former config-less constructor resolved the process default state directory
+/// with encryption forced on. Routing the memory client through it made signed-in
+/// users persist vector-less documents while config-scoped connection tests
+/// passed (#5501), so that compatibility constructor was removed.
 pub fn default_embedding_provider_with_config(config: &Config) -> Arc<dyn EmbeddingProvider> {
     // Keep the stored value for credential lookup. Credentials are keyed by
     // the provider value that settings persisted; trimming before lookup can

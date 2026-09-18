@@ -22,9 +22,6 @@ those models for OpenHuman.
   and re-embed/wipe policy. Provider catalogs, endpoint verification, secret
   redaction, model-list discovery, and dimension helpers live in
   `tinyinference-embeddings`.
-- `noop.rs`: re-export of `tinymemory_api::host::NoopEmbedding` so the host and
-  the memory module share one type when embeddings are switched off.
-
 Provider HTTP behavior and its tests belong in `tinyinference`. Do not add new
 per-provider clients here.
 

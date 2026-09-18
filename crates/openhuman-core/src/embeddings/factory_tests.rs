@@ -381,8 +381,8 @@ async fn factory_managed_provider_authenticates_with_config_scoped_token() {
 /// #5501 regression: the memory client's inline embedder is built through
 /// [`default_embedding_provider_with_config`], which MUST authenticate with
 /// the `app-session` token under the *config* credential scope — the same
-/// scope "Test connection" uses. The pre-fix keyless
-/// [`default_embedding_provider`] resolved `default_state_dir()` with
+/// scope "Test connection" uses. The removed pre-fix keyless constructor
+/// resolved `default_state_dir()` with
 /// encryption forced on, so a signed-in user's ingested documents embedded
 /// with "No backend session" and persisted vector-less while the connection
 /// test still passed. A local mock stands in for the cloud backend (no
