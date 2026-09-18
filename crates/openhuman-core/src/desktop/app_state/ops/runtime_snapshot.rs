@@ -122,7 +122,7 @@ pub(super) async fn build_runtime_snapshot(config: &Config, req_id: u64) -> Runt
                 Ok(Ok(outcome)) => outcome.value,
                 Ok(Err(error)) => {
                     warn!("{LOG_PREFIX} local_ai status failed during snapshot: {error}");
-                    crate::inference::LocalAiStatus::disabled(&config_for_local_ai)
+                    crate::inference::disabled_local_ai_status(&config_for_local_ai)
                 }
                 Err(_) => {
                     warn!(
@@ -130,7 +130,7 @@ pub(super) async fn build_runtime_snapshot(config: &Config, req_id: u64) -> Runt
                         SNAPSHOT_SUB_OP_TIMEOUT.as_secs(),
                         req_id,
                     );
-                    crate::inference::LocalAiStatus::disabled(&config_for_local_ai)
+                    crate::inference::disabled_local_ai_status(&config_for_local_ai)
                 }
             };
             (status, t.elapsed().as_millis())
@@ -187,7 +187,7 @@ pub(super) async fn build_runtime_snapshot(config: &Config, req_id: u64) -> Runt
 
 pub(super) fn degraded_runtime_snapshot(config: &Config) -> RuntimeSnapshot {
     RuntimeSnapshot {
-        local_ai: crate::inference::LocalAiStatus::disabled(config),
+        local_ai: crate::inference::disabled_local_ai_status(config),
         service: ServiceStatus {
             state: ServiceState::Unknown("snapshot timed out".to_string()),
             unit_path: None,

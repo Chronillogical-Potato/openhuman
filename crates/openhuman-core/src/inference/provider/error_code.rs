@@ -123,8 +123,8 @@ pub fn extract_backend_error_code_token(err: &str) -> Option<String> {
 pub fn is_managed_backend_envelope(err: &str) -> bool {
     let label = openhuman_backend_model::PROVIDER_LABEL.to_ascii_lowercase();
     let lower = err.to_ascii_lowercase();
-    lower.contains(&format!("{label} api error"))
-        || lower.contains(&format!("{label} streaming api error"))
+    lower.starts_with(&format!("{label} api error"))
+        || lower.starts_with(&format!("{label} streaming api error"))
 }
 
 /// Managed-backend Sentry-ownership decision for **string-only** call sites:

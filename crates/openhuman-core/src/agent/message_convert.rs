@@ -14,10 +14,10 @@
 //! resulting transcript back out, so a turn can run on the `tinyagents`
 //! agent-loop while callers keep speaking openhuman's `ChatMessage` vocabulary.
 
-use tinyinference::message::{
+use tinyinference_llm::message::{
     AssistantMessage, ContentBlock, ImageRef, Message, SystemMessage, ToolMessage, UserMessage,
 };
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
 

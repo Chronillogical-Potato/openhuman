@@ -376,10 +376,7 @@ impl PromptSection for ToolsSection {
             }
             return Ok(ctx.dispatcher_instructions.to_string());
         }
-        // One rendering shape for every dispatcher: a compact P-Format
-        // signature (`name[a|b|c]`), rendered by the crate from the same
-        // schemas its parser reconstructs arguments with — so the order the
-        // model reads is by construction the order the parser expects. For
+        // Render P-Format signatures from the parser's schemas and argument order. For
         // `Native` dispatchers the provider already has the full JSON schema in
         // the API request (handled above); for `Json` / `PFormat` text
         // dispatchers the dispatcher's own `prompt_instructions` block

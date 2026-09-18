@@ -18,10 +18,10 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 struct ScriptedModel {
     responses: Mutex<Vec<ModelResponse>>,
@@ -57,7 +57,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(request.messages);
         let mut responses = self.responses.lock();
         Ok(if responses.is_empty() {

@@ -137,7 +137,7 @@ fn handle_session_jwt_unauthorized(method: &str, path: &str, url: &str, detail: 
     // subscriber's logs.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
         source: format!("integrations.{method}:{path}"),
-        reason: crate::inference::provider::ops::sanitize_api_error(&message),
+        reason: tinyinference_core::sanitize::sanitize_api_error(&message),
     });
 
     message

@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 use tinymemory_api::types::{MemoryCategory, MemoryEntry};
 
 #[derive(Debug, Clone)]
@@ -247,7 +247,7 @@ impl ChatModel<()> for HarnessModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let message = request
             .messages
             .last()

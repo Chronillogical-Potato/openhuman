@@ -42,3 +42,16 @@ impl Default for ClaudeAgentSdkConfig {
         }
     }
 }
+
+impl From<&ClaudeAgentSdkConfig>
+    for tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkConfig
+{
+    fn from(config: &ClaudeAgentSdkConfig) -> Self {
+        Self {
+            enabled: config.enabled,
+            binary: config.binary.clone(),
+            default_model: config.default_model.clone(),
+            max_budget_usd: config.max_budget_usd,
+        }
+    }
+}

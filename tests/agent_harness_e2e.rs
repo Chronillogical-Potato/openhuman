@@ -2373,12 +2373,12 @@ mod streaming_support {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use tempfile::TempDir;
-    use tinyinference::message::{AssistantMessage, ContentBlock};
-    use tinyinference::model::{
+    use tinyinference_llm::message::{AssistantMessage, ContentBlock};
+    use tinyinference_llm::model::{
         ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
     };
-    use tinyinference::tool::ToolCall;
-    use tinyinference::usage::Usage;
+    use tinyinference_llm::tool::ToolCall;
+    use tinyinference_llm::usage::Usage;
 
     // ── ScriptedProvider ────────────────────────────────────────────────────
     // Copied (minimal) from tests/agent_session_turn_raw_coverage_e2e.rs:76-152.
@@ -2390,13 +2390,13 @@ mod streaming_support {
     }
 
     impl ScriptedProvider {
-        fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+        fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
             self.responses
                 .lock()
                 .unwrap()
                 .pop_front()
                 .unwrap_or_else(|| Ok(text_response_s("default scripted final")))
-                .map_err(|error| tinyinference::Error::Model(error.to_string()))
+                .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
         }
     }
 
@@ -2410,7 +2410,7 @@ mod streaming_support {
             &self,
             _state: &(),
             _request: ModelRequest,
-        ) -> tinyinference::Result<ModelResponse> {
+        ) -> tinyinference_llm::Result<ModelResponse> {
             self.pop_response()
         }
 
@@ -2418,7 +2418,7 @@ mod streaming_support {
             &self,
             _state: &(),
             _request: ModelRequest,
-        ) -> tinyinference::Result<ModelStream> {
+        ) -> tinyinference_llm::Result<ModelStream> {
             let response = self.pop_response()?;
             let mut items = vec![ModelStreamItem::Started];
             items.extend(self.stream_events.iter().cloned());
@@ -2678,8 +2678,8 @@ async fn streaming_tool_call_accumulation() {
         agent_with_s, native_tool_response_s, text_response_s, workspace_s, EchoTool,
         ScriptedProvider,
     };
-    use tinyinference::model::{ModelProfile, ModelStreamItem};
-    use tinyinference::tool::ToolDelta;
+    use tinyinference_llm::model::{ModelProfile, ModelStreamItem};
+    use tinyinference_llm::tool::ToolDelta;
 
     let _lock = env_lock();
     let (_temp, workspace_path) = workspace_s("stream-accum");
@@ -3021,10 +3021,10 @@ fn sse_tool_args_router() -> Router {
 /// accumulation in its SSE transport is what assembles the final tool call.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn provider_sse_tool_args_accumulation() {
-    use tinyinference::message::Message;
-    use tinyinference::model::{ChatModel, ModelRequest, ModelStreamItem};
-    use tinyinference::providers::openai::{AuthStyle, OpenAiModel};
-    use tinyinference::tool::ToolSchema;
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::{ChatModel, ModelRequest, ModelStreamItem};
+    use tinyinference_llm::providers::openai::{AuthStyle, OpenAiModel};
+    use tinyinference_llm::tool::ToolSchema;
 
     let _lock = env_lock();
 
@@ -4160,7 +4160,7 @@ mod tool_policy_boundary_placement {
     use std::sync::{Arc, Mutex};
 
     use super::streaming_support::ScriptedProvider;
-    use tinyinference::model::{ChatModel, ModelProfile};
+    use tinyinference_llm::model::{ChatModel, ModelProfile};
 
     struct StubMemory;
 

@@ -5,7 +5,7 @@ use super::super::types::Agent;
 use crate::agent::dispatcher::ParsedToolCall;
 use crate::agent::error::AgentError;
 use crate::agent::messages::ConversationMessage;
-use crate::inference::provider::{self, ToolCall};
+use crate::inference::provider::ToolCall;
 use crate::util::truncate_with_ellipsis;
 
 impl Agent {
@@ -83,7 +83,7 @@ impl Agent {
             return kind.to_string();
         }
 
-        let scrubbed = provider::sanitize_api_error(&err.to_string())
+        let scrubbed = tinyinference_core::sanitize::sanitize_api_error(&err.to_string())
             .replace(['\n', '\r', '\t'], " ")
             .split_whitespace()
             .collect::<Vec<_>>()

@@ -32,7 +32,7 @@ use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, Recal
 use crate::tools::Tool;
 use tinyagents_session::run_ledger::WorkflowRunStatus;
 use tinyagents_session::run_ledger::{get_workflow_run, upsert_workflow_run, WorkflowRunUpsert};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 use super::super::types::{WorkflowDefinition, WorkflowPhase, WorkflowSafetyTier};
 
@@ -137,7 +137,7 @@ impl ChatModel<()> for PeakModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let current = self.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.record_peak(current);
@@ -153,7 +153,7 @@ impl ChatModel<()> for PeakModel {
 
         if let Some(needle) = self.fail_on.lock().as_ref() {
             if flattened.contains(needle.as_str()) {
-                return Err(tinyinference::Error::Model(
+                return Err(tinyinference_llm::Error::Model(
                     "mock model forced failure".to_string(),
                 ));
             }

@@ -7,9 +7,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use openhuman_core::inference::provider::types::{ChatResponse, ToolCall};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall as TinyAgentsToolCall;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall as TinyAgentsToolCall;
 
 /// A plain `ChatResponse` carrying only text (no tool calls).
 pub fn response(text: &str) -> ChatResponse {
@@ -319,7 +319,7 @@ impl ChatModel<()> for SubagentMock {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> Result<ModelResponse, tinyinference::Error> {
+    ) -> Result<ModelResponse, tinyinference_llm::Error> {
         Ok(model_response(
             self.dispatch(&joined_request(&request)).await,
         ))
@@ -376,7 +376,7 @@ impl ChatModel<()> for LatencyMock {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> Result<ModelResponse, tinyinference::Error> {
+    ) -> Result<ModelResponse, tinyinference_llm::Error> {
         self.latency.sleep_sampled().await;
         let joined = joined_request(&request);
         record(&self.prompts, &joined);
@@ -406,7 +406,7 @@ impl ChatModel<()> for PlainTextMock {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> Result<ModelResponse, tinyinference::Error> {
+    ) -> Result<ModelResponse, tinyinference_llm::Error> {
         let joined = joined_request(&request);
         record(&self.prompts, &joined);
         Ok(model_response(response(&self.text)))
@@ -492,7 +492,7 @@ impl ChatModel<()> for SkillRunMock {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> Result<ModelResponse, tinyinference::Error> {
+    ) -> Result<ModelResponse, tinyinference_llm::Error> {
         Ok(model_response(self.reply(&joined_request(&request))))
     }
 }

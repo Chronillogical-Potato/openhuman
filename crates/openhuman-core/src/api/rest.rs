@@ -821,7 +821,7 @@ impl BackendOAuthClient {
             let is_transient_infra =
                 crate::core::observability::is_transient_http_status_code(status_code);
             let is_budget_exhausted = status_code == 400
-                && crate::inference::provider::is_budget_exhausted_message(&text);
+                && crate::hosted::billing::classify::is_budget_exhausted_message(&text);
             if is_budget_exhausted {
                 tracing::info!(
                     method = method.as_str(),

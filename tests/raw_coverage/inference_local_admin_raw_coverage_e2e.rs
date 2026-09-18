@@ -21,11 +21,11 @@ use openhuman_core::config::schema::cloud_providers::{
 };
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
-use openhuman_core::inference::local::ops::{
+use openhuman_core::inference::host_runtime::ops::{
     local_ai_chat, local_ai_download_asset, local_ai_downloads_progress, local_ai_should_react,
     LocalAiChatMessage,
 };
-use openhuman_core::inference::local::LocalAiService;
+use openhuman_core::inference::host_runtime::LocalAiService;
 use openhuman_core::inference::provider::factory::auth_key_for_slug;
 use openhuman_core::inference::provider::list_configured_models;
 

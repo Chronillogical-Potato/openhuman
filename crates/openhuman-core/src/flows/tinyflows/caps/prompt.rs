@@ -38,7 +38,7 @@ pub(crate) fn usage_to_json(usage: &Option<UsageInfo>) -> Value {
 }
 
 pub(crate) fn model_response_to_completion_value(
-    response: &tinyinference::model::ModelResponse,
+    response: &tinyinference_llm::model::ModelResponse,
 ) -> Value {
     json!({
         "text": response.text(),

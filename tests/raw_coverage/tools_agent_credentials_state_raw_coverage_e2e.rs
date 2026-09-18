@@ -45,10 +45,10 @@ use openhuman_core::tools::{
 use parking_lot::Mutex as ParkingMutex;
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 static ROUND16_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -139,7 +139,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(request.messages);
         Ok(self.responses.lock().remove(0))
     }

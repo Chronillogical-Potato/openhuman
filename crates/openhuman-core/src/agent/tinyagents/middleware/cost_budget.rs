@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::model::ModelRequest;
 
 /// `before_model`: enforce OpenHuman's daily/monthly cost budgets **before** a
 /// model call spends (issue #4249, Phase 5). Reads the global

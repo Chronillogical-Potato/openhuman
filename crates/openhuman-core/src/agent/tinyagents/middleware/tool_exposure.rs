@@ -11,8 +11,8 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{
     ContextualToolSelectionMiddleware, Middleware, ToolAllowlistMiddleware,
 };
-use tinyinference::model::ModelRequest;
-use tinyinference::tool::ToolSchema;
+use tinyinference_llm::model::ModelRequest;
+use tinyinference_llm::tool::ToolSchema;
 
 /// SHADOW tool-exposure middleware (issue #4249, 01.3 — dynamic exposure).
 ///

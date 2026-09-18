@@ -3,12 +3,12 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinyinference::message::{AssistantMessage, ContentBlock, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::{ToolCall as TaToolCall, ToolDelta};
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::agent::messages::ChatMessage;
@@ -297,12 +297,20 @@ pub(crate) fn merge_openhuman_usage_meta(
 /// counts *and* backend-charged USD — survives the crossing.
 pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<UsageInfo> {
     let usage = response.usage.as_ref()?;
-    let meta = response
+    let mut meta = response
         .raw
         .as_ref()
         .and_then(|v| v.get(OPENHUMAN_USAGE_META_KEY))
         .and_then(|v| serde_json::from_value::<OpenhumanUsageMeta>(v.clone()).ok())
         .unwrap_or_default();
+    if meta.charged_amount_usd <= 0.0 {
+        meta.charged_amount_usd = response
+            .raw
+            .as_ref()
+            .and_then(|value| value.get("total_cost_usd"))
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or_default();
+    }
     Some(UsageInfo {
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
@@ -446,7 +454,7 @@ impl ChatModel<()> for RouteRecordingModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.record_route();
         self.inner.invoke(state, request).await
     }
@@ -455,7 +463,7 @@ impl ChatModel<()> for RouteRecordingModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.record_route();
         self.inner.stream(state, request).await
     }
@@ -511,7 +519,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner
             .invoke(state, self.pin_request_options(request))
             .await
@@ -521,7 +529,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner
             .stream(state, self.pin_request_options(request))
             .await
@@ -561,7 +569,7 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner.invoke(state, self.cap(request)).await
     }
 
@@ -569,7 +577,7 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner.stream(state, self.cap(request)).await
     }
 }

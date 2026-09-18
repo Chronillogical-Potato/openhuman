@@ -492,9 +492,11 @@ impl Agent {
         // engine silently strips them, and the user gets a confident answer
         // about an image the model never saw. Log the actionable reason (which
         // model, and what to switch to) at the moment the decision is made.
-        if let Err(reason) =
-            crate::inference::provider::fallback_diagnostics::vision_preflight(&model_name, config)
-        {
+        if !model_vision {
+            let reason =
+                crate::inference::provider::fallback_diagnostics::local_vision_unsupported_message(
+                    &model_name,
+                );
             log::info!("[vision-preflight] {reason}");
         }
 
@@ -655,7 +657,7 @@ impl Agent {
                 let full_config = Arc::clone(&base_config);
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
-                let reflection_provider: Option<Arc<dyn tinyinference::model::ChatModel<()>>> =
+                let reflection_provider: Option<Arc<dyn tinyinference_llm::model::ChatModel<()>>> =
                     if config.learning.reflection_source == crate::config::ReflectionSource::Cloud {
                         let (model, resolved_model) =
                             provider::create_chat_model_with_model_id("reasoning", config, 0.3)?;

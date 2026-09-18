@@ -18,10 +18,10 @@ use serde_json::json;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 struct EnvGuard {
     key: &'static str,
@@ -105,7 +105,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         // Route extraction calls — identified
         // by the extraction system prompt — to the fixed extracted answer so they
         // do not consume the agent-turn response queue, and record them separately

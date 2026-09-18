@@ -102,7 +102,7 @@ fn selector(parent_thread_id: &str) -> subagent_sessions::SubagentSessionSelecto
 }
 
 fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     ParentExecutionContext {
         workspace_descriptor: None,

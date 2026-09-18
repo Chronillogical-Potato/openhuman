@@ -5,7 +5,7 @@
 //! ([`AgentProgress`], attached with
 //! [`Agent::set_on_progress`](crate::agent::Agent::set_on_progress)),
 //! but RPC entry points such as
-//! [`agent_chat`](crate::inference::local::ops::agent_chat) build the
+//! [`agent_chat`](crate::inference::host_runtime::ops::agent_chat) build the
 //! [`Agent`](crate::agent::Agent) internally and drop it, so there is
 //! no handle to attach a sink to. A host embedding the core in-process therefore
 //! sees nothing at all for the whole turn — no tool calls, no deltas — and can

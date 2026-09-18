@@ -24,9 +24,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use tinyinference::message::{AssistantMessage, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::message::{AssistantMessage, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
@@ -107,7 +107,7 @@ fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
         max_parallel_tools,
         ..Default::default()
     };
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "ok",
         ]));
@@ -322,7 +322,10 @@ impl ParallelHarnessProvider {
         }
     }
 
-    async fn respond_for_subagent(&self, flattened: &str) -> tinyinference::Result<ModelResponse> {
+    async fn respond_for_subagent(
+        &self,
+        flattened: &str,
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let current = self
             .state
             .active_subagent_calls
@@ -345,7 +348,7 @@ impl ParallelHarnessProvider {
             sleep(Duration::from_millis(5)).await;
         }
 
-        let response = (|| -> tinyinference::Result<ModelResponse> {
+        let response = (|| -> tinyinference_llm::Result<ModelResponse> {
             if flattened.contains(RESEARCH_PROMPT_CANARY) {
                 if flattened.contains("research-step-3-ok") {
                     Ok(text_response(RESEARCH_DONE_CANARY))
@@ -385,7 +388,7 @@ impl ParallelHarnessProvider {
                     ))
                 }
             } else {
-                Err(tinyinference::Error::Model(format!(
+                Err(tinyinference_llm::Error::Model(format!(
                     "unexpected subagent payload: {flattened}"
                 )))
             }
@@ -415,7 +418,7 @@ impl ChatModel<()> for ParallelHarnessProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.state.total_calls.fetch_add(1, Ordering::SeqCst);
         let flattened = request
             .messages

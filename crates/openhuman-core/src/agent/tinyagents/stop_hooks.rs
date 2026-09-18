@@ -28,7 +28,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyinference::model::ModelResponse;
+use tinyinference_llm::model::ModelResponse;
 
 use crate::agent::cost::TurnCost;
 use crate::agent::stop_hooks::{StopDecision, StopHook, TurnState};

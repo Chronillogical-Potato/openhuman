@@ -113,17 +113,20 @@ use openhuman_core::config::{
 use openhuman_core::security::credentials::profiles::{AuthProfile, TokenSet};
 use openhuman_core::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use openhuman_core::inference::context_window_for_model;
-use openhuman_core::inference::local::{
+use openhuman_core::inference::host_runtime::{
     global as local_ai_global, model_artifact_path, try_global as local_ai_try_global,
     LocalAiService,
 };
-use openhuman_core::inference::openai_oauth::{
+use openhuman_core::security::credentials::openai_oauth::{
     lookup_openai_bearer_token, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
 };
-use openhuman_core::inference::presets::{
-    all_presets, apply_preset_to_config, current_tier_from_config, device_supports_local_ai,
-    mvp_presets, preset_for_tier, recommend_tier, should_default_to_cloud_fallback,
-    supports_screen_summary, vision_mode_for_config, vision_mode_for_tier, ModelTier, VisionMode,
+use openhuman_core::config::ops::local_ai_presets::{
+    apply_preset_to_config, current_tier_from_config, supports_screen_summary,
+    vision_mode_for_config,
+};
+use tinyinference_local::presets::{
+    all_presets, device_supports_local_ai, mvp_presets, preset_for_tier, recommend_tier,
+    should_default_to_cloud_fallback, vision_mode_for_tier, ModelTier, VisionMode,
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
 use openhuman_core::inference::provider::factory::{
@@ -132,27 +135,30 @@ use openhuman_core::inference::provider::factory::{
 };
 use openhuman_core::inference::provider::OpenHumanBackendModel;
 use openhuman_core::inference::provider::{
-    format_anyhow_chain, is_budget_exhausted_message, is_openai_compatible_unknown_model_message,
-    is_provider_config_rejection_message, sanitize_api_error, scrub_secret_patterns,
+    is_openai_compatible_unknown_model_message, is_provider_config_rejection_message,
 };
+use tinyinference_core::sanitize::{
+    format_anyhow_chain, sanitize_api_error, scrub_secret_patterns,
+};
+use tinyinference_llm::classification::is_budget_exhausted_message;
 use openhuman_core::inference::provider::{
     ChatResponse, ProviderRuntimeOptions, ToolCall, UsageInfo,
 };
-use openhuman_core::inference::sentiment::local_ai_analyze_sentiment;
-use openhuman_core::inference::temperature::{glob_match, temperature_for_model};
-use openhuman_core::inference::voice::cloud_transcribe::{
+use tinyinference_llm::model::{effective_temperature, model_id_glob_match};
+use tinyinference_llm::sentiment::parse_sentiment_response;
+use openhuman_core::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
-use openhuman_core::inference::voice::local_speech::{synthesize_piper, PiperOptions};
+use openhuman_core::voice::local_speech::{synthesize_piper, PiperOptions};
 use openhuman_core::modules::voice::{
     is_hallucinated, HallucinationMode, VoiceCallError,
 };
-use openhuman_core::inference::voice::postprocess::cleanup_transcription;
+use openhuman_core::voice::postprocess::cleanup_transcription;
 use openhuman_core::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
     all_local_inference_controller_schemas, all_local_inference_registered_controllers,
-    DeviceProfile,
 };
+use tinyinference_local::device::DeviceProfile;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
 use openhuman_core::agent::profiles::{
     all_profiles_controller_schemas, all_profiles_registered_controllers,
@@ -170,7 +176,7 @@ use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_
 use openhuman_core::threads::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -246,7 +252,7 @@ impl ChatModel<()> for EchoModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         Ok(ModelResponse::assistant(
             request
                 .messages
@@ -1745,12 +1751,10 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(context_window_for_model("unknown-model"), None);
     assert_eq!(context_window_for_model("   "), None);
 
-    let empty = local_ai_analyze_sentiment(&Config::default(), "   ")
-        .await
-        .expect("empty sentiment falls back to neutral");
-    assert_eq!(empty.value.emotion, "neutral");
-    assert_eq!(empty.value.valence, "neutral");
-    assert_eq!(empty.value.confidence, 1.0);
+    let empty = parse_sentiment_response("   ");
+    assert_eq!(empty.emotion, "neutral");
+    assert_eq!(empty.valence, "neutral");
+    assert_eq!(empty.confidence, 1.0);
 
     assert!(current_thread_id().is_none());
     let scoped = with_thread_id("  thread-coverage  ", async {
@@ -1904,16 +1908,37 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
     ));
     assert!(chain.contains("[REDACTED]"));
 
-    assert!(glob_match("moonshot*k2*", "moonshot/kimi-k2-instruct"));
-    assert!(!glob_match("gpt*mini", "gpt-4o-large"));
+    assert!(model_id_glob_match(
+        "moonshot*k2*",
+        "moonshot/kimi-k2-instruct"
+    ));
+    assert!(!model_id_glob_match("gpt*mini", "gpt-4o-large"));
     config.temperature_unsupported_models = vec!["gpt-5*".into(), "*kimi-k2*".into()];
-    assert_eq!(temperature_for_model("gpt-5.5", 0.7, &config), None);
     assert_eq!(
-        temperature_for_model("moonshot/kimi-k2-instruct", 0.7, &config),
+        effective_temperature(
+            "gpt-5.5",
+            Some(0.7),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         None
     );
     assert_eq!(
-        temperature_for_model("gpt-4o-mini", 0.3, &config),
+        effective_temperature(
+            "moonshot/kimi-k2-instruct",
+            Some(0.7),
+            None,
+            &config.temperature_unsupported_models,
+        ),
+        None
+    );
+    assert_eq!(
+        effective_temperature(
+            "gpt-4o-mini",
+            Some(0.3),
+            None,
+            &config.temperature_unsupported_models,
+        ),
         Some(0.3)
     );
 
@@ -1967,8 +1992,8 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
 
 #[tokio::test]
 async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edges() {
-    use tinyinference::message::Message;
-    use tinyinference::model::{ChatModel, ModelRequest};
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::{ChatModel, ModelRequest};
 
     let state_dir = tempdir().expect("openhuman provider state");
     let provider = OpenHumanBackendModel::new(
@@ -2763,7 +2788,7 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
     assert!(should_default_to_cloud_fallback(&tiny_device));
     assert!(device_supports_local_ai(&capable_device));
     assert!(!should_default_to_cloud_fallback(&capable_device));
-    assert_eq!(recommend_tier(&capable_device), ModelTier::Ram2To4Gb);
+    assert_eq!(recommend_tier(&capable_device), ModelTier::Ram16PlusGb);
 
     let mut config = LocalAiConfig::default();
     apply_preset_to_config(&mut config, ModelTier::Ram4To8Gb);

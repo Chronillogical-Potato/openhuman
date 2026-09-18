@@ -7,7 +7,7 @@ use crate::agent::tinyagents::orchestration::{
     DetachedTaskRegistryError, SteeringCommand, SteeringCommandKind,
 };
 use tinyagents_harness::ids::TaskId;
-use tinyinference::message::Message as TaMessage;
+use tinyinference_llm::message::Message as TaMessage;
 
 use super::cancel::now_ms;
 use super::registry::registry;

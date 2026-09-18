@@ -317,8 +317,9 @@ pub async fn apply_memory_settings(
         // `embeddings::rpc::update_settings`), so a chat model id pasted here
         // would otherwise be stored unchecked and 400 "does not exist" on every
         // memory re-embed (2205 events from one user). Conservative check — see
-        // `embeddings::non_embedding_model_reason`.
-        if let Some(reason) = crate::inference::embeddings::non_embedding_model_reason(&model) {
+        // `tinyinference_embeddings::catalog::non_embedding_model_reason`.
+        if let Some(reason) = tinyinference_embeddings::catalog::non_embedding_model_reason(&model)
+        {
             return Err(format!("invalid embeddings model `{model}`: {reason}"));
         }
         config.memory.embedding_model = model;
@@ -422,7 +423,7 @@ pub async fn apply_local_ai_settings(
         config.local_ai.opt_in_confirmed = v;
     }
     if let Some(provider) = update.provider {
-        config.local_ai.provider = crate::inference::local::provider::normalize_provider(&provider);
+        config.local_ai.provider = tinyinference_local::provider::normalize_provider(&provider);
     }
     if let Some(base_url) = update.base_url {
         config.local_ai.base_url = match base_url {
@@ -430,15 +431,15 @@ pub async fn apply_local_ai_settings(
             Some(base_url) if base_url.trim().is_empty() => None,
             // OMLX is an OpenAI-v1 endpoint: the `/v1` suffix is significant, so it
             // must NOT go through `validate_ollama_url` (which strips the path).
-            // `provider_from_config` maps omlx → Ollama, so guard on the slug here.
+            // `provider_from_name` maps omlx → Ollama, so guard on the slug here.
             Some(base_url)
-                if crate::inference::local::provider::normalize_provider(
-                    &config.local_ai.provider,
-                ) != "omlx"
-                    && crate::inference::local::provider::provider_from_config(config)
-                        == crate::inference::local::provider::LocalAiProvider::Ollama =>
+                if tinyinference_local::provider::normalize_provider(&config.local_ai.provider)
+                    != "omlx"
+                    && tinyinference_local::provider::provider_from_name(
+                        &config.local_ai.provider,
+                    ) == tinyinference_local::provider::LocalAiProvider::Ollama =>
             {
-                Some(crate::inference::local::validate_ollama_url(&base_url)?)
+                Some(tinyinference_local::ollama::validate_ollama_url(&base_url)?)
             }
             Some(base_url) => Some(base_url.trim().trim_end_matches('/').to_string()),
         };

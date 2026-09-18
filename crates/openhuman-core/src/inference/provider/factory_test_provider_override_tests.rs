@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex, OnceLock};
-use tinyinference::model::ChatModel;
+use tinyinference_llm::model::ChatModel;
 
 static OVERRIDE: OnceLock<Mutex<Option<Arc<dyn ChatModel<()>>>>> = OnceLock::new();
 fn cell() -> &'static Mutex<Option<Arc<dyn ChatModel<()>>>> {

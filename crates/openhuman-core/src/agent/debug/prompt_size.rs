@@ -78,9 +78,10 @@ pub struct PromptSizeReport {
     pub tool_bytes: usize,
     /// `prompt_bytes + tool_bytes` — the fixed cost of every turn.
     pub fixed_prefix_bytes: usize,
-    /// Number of tools whose schemas reach the provider. This is the
-    /// *advertised* set, already narrowed by the agent's `ToolScope` belt and
-    /// by toolpack withholding.
+    /// Number of entries in [`DumpedPrompt::tool_specs`]. For a session agent
+    /// that is the provider-facing visible set (belt, policy and toolpack
+    /// withholding applied); for an `integrations_agent` toolkit dump it is
+    /// that toolkit's rendered tools.
     pub tool_count: usize,
     pub sections: Vec<SectionSize>,
     pub tools: Vec<ToolSize>,

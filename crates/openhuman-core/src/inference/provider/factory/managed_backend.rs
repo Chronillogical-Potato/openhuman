@@ -233,11 +233,11 @@ pub(crate) fn make_openhuman_backend_model(
     role: &str,
     config: &Config,
 ) -> anyhow::Result<(
-    std::sync::Arc<dyn tinyinference::model::ChatModel<()>>,
+    std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,
     String,
 )> {
     let (model_client, model) = resolve_managed_backend(role, config)?;
-    let chat: std::sync::Arc<dyn tinyinference::model::ChatModel<()>> =
+    let chat: std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         std::sync::Arc::new(model_client);
     Ok((chat, model))
 }

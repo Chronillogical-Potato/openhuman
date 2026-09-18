@@ -117,8 +117,8 @@ pub fn build_local_provider_with_config(config: &Config) -> Option<ResolvedProvi
 /// the provider for a triage turn (#1257). Kept separate from
 /// `is_local_provider_string`, which only classifies the local HTTP runtimes.
 fn is_local_cli_route(provider_string: &str) -> bool {
-    use crate::inference::provider::claude_code;
     use crate::inference::provider::factory::{CLAUDE_AGENT_SDK_PREFIX, CLAUDE_AGENT_SDK_PROVIDER};
+    use tinyagents_harness::providers::claude_code;
     let s = provider_string.trim();
     s == CLAUDE_AGENT_SDK_PROVIDER
         || s.starts_with(CLAUDE_AGENT_SDK_PREFIX)
@@ -143,10 +143,10 @@ fn is_local_cli_route(provider_string: &str) -> bool {
 /// errors because a local model is down. Only a concrete BYOK **cloud** route is
 /// honoured as-is. A build failure also falls back to the managed backend.
 fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
-    use crate::inference::local::profile::is_local_provider_string;
     use crate::inference::provider::factory::{
         create_chat_model_from_string_with_model_id, PROVIDER_OPENHUMAN,
     };
+    use tinyinference_local::profile::is_local_provider_string;
 
     let resolved = provider::provider_for_role("subconscious", config);
     let r = resolved.trim();

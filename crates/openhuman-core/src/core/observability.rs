@@ -280,7 +280,7 @@ pub enum ExpectedErrorKind {
     /// Drops Sentry TAURI-RUST-83A (~430 events / 40 users on
     /// `openhuman@0.57.13`). Anchored to the `codex cli auth` /
     /// `.codex/auth.json` envelope produced by
-    /// [`crate::inference::openai_oauth::store::import_codex_cli_auth_from_path`]
+    /// [`crate::security::credentials::openai_oauth::store::import_codex_cli_auth_from_path`]
     /// — a genuine keyring/persist failure in `upsert_profile` carries neither
     /// anchor, so a real defect in the import code still reaches Sentry.
     CodexCliAuthUnavailable,
@@ -575,7 +575,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // — recovery is reconnecting OpenAI; Sentry has no remediation path. The
     // markers are distinct from the backend "invalid token" session-expiry
     // wording matched below, so this does not shadow that arm.
-    if crate::inference::provider::is_openai_oauth_session_expired_message(message) {
+    if tinyinference_providers::is_openai_oauth_session_expired_message(message) {
         return Some(ExpectedErrorKind::ProviderUserState);
     }
     // TAURI-RUST-5MV — ollama.com hosted-inference 500 (`Internal Server Error
@@ -642,13 +642,13 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     // backend never emits these phrases. See the predicate's polarity
     // contract. Drops OPENHUMAN-TAURI-WJ / -QW / -HB / -NH re-reports
     // (#2079 / #2076 / #2202).
-    if crate::inference::provider::is_provider_config_rejection_message(message) {
+    if tinyinference_providers::is_provider_config_rejection_message(message) {
         return Some(ExpectedErrorKind::ProviderConfigRejection);
     }
     if is_local_ai_capability_unavailable_message(&lower) {
         return Some(ExpectedErrorKind::LocalAiCapabilityUnavailable);
     }
-    if crate::inference::provider::is_budget_exhausted_message(message) {
+    if crate::hosted::billing::classify::is_budget_exhausted_message(message) {
         return Some(ExpectedErrorKind::BudgetExhausted);
     }
     if is_prompt_injection_blocked_message(&lower) {
@@ -911,15 +911,13 @@ fn is_subconscious_schema_unavailable_message(lower: &str) -> bool {
 }
 
 fn is_embedding_backend_auth_failure(lower: &str) -> bool {
-    lower.contains("embedding api error")
-        && lower.contains("401")
-        && lower.contains("invalid token")
+    tinyinference_embeddings::probe::is_embedding_backend_auth_failure(lower)
 }
 
 /// Detect a custom embeddings endpoint that exposes **no embeddings API** —
 /// the `OpenAiEmbedding` client POSTed `/embeddings` and the host answered
 /// `404 Not Found` (route absent) or `405 Method Not Allowed`. Canonical wire
-/// shape from `crates/openhuman-core/src/inference/embeddings/openai.rs`:
+/// shape from `tinyinference-embeddings/src/cloud.rs`:
 ///
 /// ```text
 /// Embedding API error (404 Not Found): <body>
@@ -936,18 +934,16 @@ fn is_embedding_backend_auth_failure(lower: &str) -> bool {
 /// embeddings endpoint is a real server fault and must keep reaching Sentry; a
 /// `400` (e.g. oversized input) is prevented at source by the chunk cap
 /// (#3598) and likewise stays visible. Reused by
-/// `embeddings::rpc::update_settings` as the save-time hard-block signal so the
+/// `inference::embedding_host::rpc::update_settings` as the save-time hard-block signal so the
 /// two never drift.
 pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
-    (lower.contains("embedding api error") && (lower.contains("(404") || lower.contains("(405")))
-        || (lower.contains("embeddings returned http")
-            && (lower.contains("http 404") || lower.contains("http 405")))
+    tinyinference_embeddings::probe::is_embedding_endpoint_absent(lower)
 }
 
 /// Detect a custom/cloud embeddings endpoint that IS an embeddings API but
 /// **rejected the configured model id** — the user pasted a non-embedding
 /// (chat/reasoning) model into the embeddings model field. Canonical wire shape
-/// from `crates/openhuman-core/src/inference/embeddings/openai.rs` (TAURI-RUST-9SK, ~2205 events):
+/// from `tinyinference-embeddings/src/cloud.rs` (TAURI-RUST-9SK, ~2205 events):
 ///
 /// ```text
 /// Embedding API error (400 Bad Request): {"error":{"message":"Model nvidia/nemotron-3-super-120b-a12b does not exist","code":400}}
@@ -958,7 +954,7 @@ pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
 /// model" remediation (appended to the message at the emit site). The
 /// OpenRouter body — bare `"does not exist"` with an integer `"code":400` —
 /// matches none of the chat-side phrases in
-/// `inference::provider::is_provider_config_rejection_message` (those key on the
+/// `tinyinference_providers::is_provider_config_rejection_message` (those key on the
 /// OpenAI-native `"does not exist or you do not have access"` /
 /// `model_not_found`), so this dedicated matcher is what demotes it.
 ///
@@ -967,22 +963,7 @@ pub(crate) fn is_embedding_endpoint_absent(lower: &str) -> bool {
 /// from a valid embeddings endpoint is a real fault and must keep reaching
 /// Sentry, so this never fires on them.
 fn is_embedding_model_rejected(lower: &str) -> bool {
-    lower.contains("embedding api error")
-        && lower.contains("(400")
-        && (lower.contains("does not exist")
-            || lower.contains("does not support embeddings")
-            // Gemini's OpenAI-compat shim (generativelanguage.googleapis.com)
-            // maps `/v1/embeddings` → `BatchEmbedContents` and rejects a bare
-            // model id with `BatchEmbedContentsRequest.model: unexpected model
-            // name format` / `INVALID_ARGUMENT` on every re-embed (TAURI-RUST-4SA,
-            // 4,494 events / 1 user). The Custom-endpoint path now normalizes the
-            // id to `models/<name>` at the source; this demotes any that slip
-            // through (already-stored bad state, older releases, other compat
-            // hosts) so the per-embed flood stays out of Sentry. Distinct cause
-            // from the #4070/9SK `"does not exist"` family.
-            || lower.contains("unexpected model name format")
-            || (lower.contains("invalid_argument")
-                && lower.contains("batchembedcontentsrequest.model")))
+    tinyinference_embeddings::probe::is_embedding_model_rejected(lower)
 }
 
 /// Detect the memory-store chunk DB's circuit-breaker-open message that
@@ -1033,7 +1014,7 @@ fn is_memory_store_breaker_open(lower: &str) -> bool {
 /// - `"Embedding API error (401 Unauthorized): {…\"error\":\"Invalid token\"…}"`
 ///   — TAURI-RUST-4K5 (~118 events, escalating on 0.56.0). Same OpenHuman
 ///   backend session-expired envelope as 4P0, but the embedding client at
-///   `crates/openhuman-core/src/inference/embeddings/openai.rs:139` wraps it with the
+///   `tinyinference-embeddings/src/cloud.rs` wraps it with the
 ///   `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
 ///   Uses the same conjunctive-anchor pattern so BYO-key embedding 401s
 ///   from third-party providers (OpenAI / Voyage / Cohere) still escalate
@@ -1076,7 +1057,7 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         || (msg.contains("OpenHuman API error (401")
             && msg.contains("\"error\":\"Invalid token\""))
         // TAURI-RUST-4K5 — same OpenHuman backend "Invalid token" envelope
-        // wrapped by `crates/openhuman-core/src/inference/embeddings/openai.rs:139` with the
+        // wrapped by `tinyinference-embeddings/src/cloud.rs` with the
         // `"Embedding API error"` prefix instead of `"OpenHuman API error"`.
         // Same conjunctive-anchor pattern as 4P0: the embedding-scoped
         // prefix gates the match so a third-party BYO-key embedding 401
@@ -3445,7 +3426,7 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
     if event
         .message
         .as_deref()
-        .is_some_and(crate::inference::provider::is_budget_exhausted_message)
+        .is_some_and(crate::hosted::billing::classify::is_budget_exhausted_message)
     {
         return true;
     }
@@ -3454,7 +3435,7 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
         exception
             .value
             .as_deref()
-            .is_some_and(crate::inference::provider::is_budget_exhausted_message)
+            .is_some_and(crate::hosted::billing::classify::is_budget_exhausted_message)
     })
 }
 

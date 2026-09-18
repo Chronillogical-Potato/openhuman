@@ -8,7 +8,7 @@ use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::middleware::{MiddlewareModelOutcome, ModelHandler, ModelMiddleware};
 use tinyagents_harness::retry::FallbackPolicy;
 use tinyagents_registry::{ModelRouter, WorkloadRoute};
-use tinyinference::model::{CapabilitySet, ModelRequest};
+use tinyinference_llm::model::{CapabilitySet, ModelRequest};
 
 use crate::config::{
     MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,

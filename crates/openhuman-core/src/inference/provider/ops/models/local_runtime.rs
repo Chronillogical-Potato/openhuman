@@ -31,11 +31,15 @@ pub fn synthesize_local_runtime_entry(
         // the same `{"data": [...]}` shape the existing parser handles, so
         // we route through that rather than the native `/api/tags`.
         "ollama" => {
-            let base = crate::inference::local::ollama_base_url_from_config(config);
+            let base = tinyinference_local::ollama::ollama_base_url_from_override(
+                config.local_ai.base_url.as_deref(),
+            );
             format!("{}/v1", base.trim_end_matches('/'))
         }
         // `lm_studio_base_url` already ends in `/v1`.
-        "lmstudio" => crate::inference::local::lm_studio::lm_studio_base_url(config),
+        "lmstudio" => {
+            tinyinference_local::lm_studio::lm_studio_base_url(config.local_ai.base_url.as_deref())
+        }
         _ => return None,
     };
 

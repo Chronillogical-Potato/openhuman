@@ -13,21 +13,20 @@
 //! - [`parsing`] — parsing the `/models` response envelope into
 //!   [`ModelInfo`] entries.
 
-use super::super::openai_codex::{
-    openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
-    OpenAiCodexRouting, OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_MODEL_HINTS,
-    OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
+use super::super::openai_codex::resolve_openai_codex_routing;
+use tinyinference_core::sanitize::sanitize_api_error;
+use tinyinference_llm::providers::openai::codex::{
+    openai_codex_client_version, openai_codex_user_agent, OpenAiCodexRouting,
+    OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
-use super::sanitize::sanitize_api_error;
 
 mod catalog_listing;
 mod local_runtime;
 mod managed_provider;
 mod openrouter;
-mod parsing;
-mod types;
-
-pub use types::ModelInfo;
+use tinyinference_llm::catalog::{
+    merge_openai_codex_model_hints, parse_models_response, ModelInfo,
+};
 
 #[cfg(test)]
 use catalog_listing::resolve_local_runtime_key;
@@ -37,7 +36,6 @@ pub use catalog_listing::{
 };
 pub use local_runtime::synthesize_local_runtime_entry;
 pub use openrouter::is_openrouter_provider;
-pub use parsing::{merge_openai_codex_model_hints, model_items_from_body, parse_models_response};
 
 // Cross-submodule wiring: each submodule reaches these through `use super::*;`
 // (mirrors the pre-split `include!`-shared scope).
