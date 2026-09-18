@@ -183,18 +183,37 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
             })
             .collect();
     }
-    // Text-mode requests use `Call as: NAME[...]` declarations.
-    system_text(request)
-        .lines()
-        .filter_map(|line| {
-            line.split_once("Call as:")?
-                .1
-                .split_once('[')
-                .map(|(n, _)| n.trim())
-        })
-        .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
-        .map(str::to_string)
-        .collect()
+    // Text-mode requests normally use `Call as: NAME[...]` declarations. The
+    // integrations prompt also renders dynamic action schemas in an
+    // `### Available Tools` block, so accept its `**NAME**:` entries too.
+    let mut in_available_tools = false;
+    let mut names = Vec::new();
+    for line in system_text(request).lines() {
+        if line == "### Available Tools" {
+            in_available_tools = true;
+            continue;
+        }
+        if in_available_tools && line.starts_with("### ") {
+            in_available_tools = false;
+        }
+        if let Some(name) = line
+            .split_once("Call as:")
+            .and_then(|(_, rest)| rest.split_once('['))
+            .map(|(name, _)| name.trim())
+            .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
+        {
+            names.push(name.to_string());
+        }
+        if in_available_tools {
+            if let Some(name) = line
+                .strip_prefix("**")
+                .and_then(|line| line.split_once("**:"))
+            {
+                names.push(name.0.to_string());
+            }
+        }
+    }
+    names
 }
 
 async fn scripted_chat_completions(Json(body): Json<Value>) -> axum::response::Response {
@@ -732,8 +751,7 @@ async fn run_case_inner(case: Case) {
     for tool in case.must_advertise {
         assert!(
             first_belt.iter().any(|b| b == tool),
-            "[{agent}] must advertise `{tool}`; advertised {first_belt:?}; prompt={:?}",
-            system_text(own[0])
+            "[{agent}] must advertise `{tool}`; advertised {first_belt:?}"
         );
     }
     for request in &own {
