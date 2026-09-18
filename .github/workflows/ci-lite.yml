@@ -687,7 +687,6 @@ jobs:
           agent/harness/session/session_builder_and_listener_tests.rs
           agent/harness/session/turn/tools.rs
           agent/harness/subagent_runner/tool_prep_tests.rs
-          agent/registry/agents/fleet_prompt_tests.rs
           agent/registry/agents/loader.rs
           agent/registry/agents/loader_tests_builtin_registration_tests.rs
           agent/registry/agents/loader_tests_orchestrator_tier_tests.rs

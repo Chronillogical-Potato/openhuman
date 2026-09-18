@@ -337,10 +337,11 @@ const NAMES_NO_TOOL: &[&str] = &[
     "archivist",
 ];
 
-#[cfg(feature = "skills")]
-const SKILL_SETUP_NAME: Option<&str> = Some("skill_setup");
-#[cfg(not(feature = "skills"))]
-const SKILL_SETUP_NAME: Option<&str> = None;
+const SKILL_SETUP_NAME: Option<&str> = if cfg!(feature = "skills") {
+    Some("skill_setup")
+} else {
+    None
+};
 
 /// An agent with a belt must be told about at least one tool on it.
 ///
