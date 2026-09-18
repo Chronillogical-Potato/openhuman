@@ -3095,13 +3095,6 @@
   },
   {
     "rule": "tinyagents-upstream-reexport",
-    "path": "vendor/tinyagents/crates/tinyagents-registry/src/catalog.rs",
-    "line": 22,
-    "text": "pub use tinyagents_harness::cost::ModelPricing;",
-    "occurrence": 1
-  },
-  {
-    "rule": "tinyagents-upstream-reexport",
     "path": "vendor/tinyagents/crates/tinyagents-registry/src/lib.rs",
     "line": 35,
     "text": "pub use tinyagents_harness::error::{Result, TinyAgentsError};",
