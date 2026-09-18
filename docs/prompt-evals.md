@@ -122,6 +122,8 @@ scoring proves too coarse.
 | `mcp-none-configured` | MCP, **error path** | with no MCP server configured, says so; never installs one, never fabricates results | nothing |
 | `web-search-fact` | web search | one built-in `web_search_tool` lookup, not a `research` spawn | nothing |
 
+(Rows are listed here by surface; `cases.json` holds them in run order.)
+
 Prefer read-only cases. Against a real account every write is cleanup that
 someone does by hand, so a case that must write lists what it leaves behind
 in its `writes` field. Cases that depend on account state carry a
@@ -130,6 +132,23 @@ installed, or no MCP server exists. Re-verify those before a run: the account
 changes, and a case whose precondition no longer holds measures something
 else. `mcp-none-configured` is an error-path case by design. Do not install an
 MCP server to make MCP "testable"; that changes the baseline being measured.
+
+Cases run in file order, by increasing account risk. Cases that touch
+nothing run first, because they also validate the rig on real inference; the
+only writing case (`orchestrator-reminder`) runs last.
+**`composio-gmail-read` is gated.** The toolkit-scoped `integrations_agent`
+runs in text mode, so its calls may not reach `calls` in the same shape as
+native tool calls. Until a real transcript has shown one landing in a form its
+`GMAIL_*` forbids match, those forbids are unproven. They would fail to notice
+a send, not prevent it. Run the earlier cases, inspect a real `calls` field,
+and only then run it. Do not repair the matcher mid-run.
+
+Each case with account preconditions checks them with a read-only RPC just
+before every run (`precondition` in `cases.json`: gmail connected, notion skill
+installed, no MCP server). The result, with its evidence, is recorded in the
+row. A failed check skips the run, so a missing connection never reads as a
+prompt failure. Those regexes are unverified against real output, so read
+`precondition.evidence` in the first rows.
 
 A call made through `use_skill` also counts as the packed tool it reaches, so
 a forbidden packed tool is caught either way.

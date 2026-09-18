@@ -106,6 +106,19 @@ for run in $(seq 1 "$RUNS"); do
   esac
 
   echo "── $id run $run/$RUNS ($method) workspace=$ws" >&2
+
+  # Precondition: a read-only RPC checked just before the run. A failure skips
+  # the run and records why — a missing connection must not read as a prompt
+  # failure.
+  pre=$(python3 -c 'import json,sys; c=[c for c in json.load(open(sys.argv[1]))["cases"] if c["id"]==sys.argv[2]][0]; p=c.get("precondition"); print(p["method"] + "\t" + json.dumps(p.get("params", {})) if p else "")' "$CASES" "$id")
+  if [ -n "$pre" ]; then
+    core "${pre%%$'\t'*}" "${pre#*$'\t'}" > "$ws/precondition.json" || true
+    if ! python3 "$ROOT/scripts/prompt-eval/score.py" precondition "$CASES" "$id" "$ws/precondition.json" > "$ws/precondition_result.json"; then
+      python3 -c 'import json,sys,time; print(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "case": sys.argv[1], "run": int(sys.argv[2]), "skipped": "precondition failed", "precondition": json.load(open(sys.argv[3])), "usd": 0.0, "workspace": sys.argv[4]}))' "$id" "$run" "$ws/precondition_result.json" "$ws" >> "$OUT"
+      echo "$id run $run: SKIPPED — precondition failed: $(cat "$ws/precondition_result.json")" >&2
+      continue
+    fi
+  fi
   started=$(date +%s)
   core "$method" "$params" > "$ws/result.json" || echo "case $id: $method exited non-zero (scored anyway)" >&2
   elapsed=$(( $(date +%s) - started ))

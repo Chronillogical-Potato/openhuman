@@ -3,6 +3,7 @@
 
   score.py judge-prompt <cases.json> <case-id> <workspace>   -> judge prompt, or nothing
   score.py score <cases.json> <case-id> <workspace> <secs>    -> one JSON row
+  score.py precondition <cases.json> <case-id> <output-file>  -> {"ok", ...}; exit 1 when it fails
   score.py selftest
 """
 import glob
@@ -143,6 +144,8 @@ def judge_prompt(doc, case, ws):
 
 
 def score(doc, case, ws, secs, run=1):
+    pre_path = os.path.join(ws, "precondition_result.json")
+    pre = json.load(open(pre_path)) if os.path.exists(pre_path) else None
     ts = transcripts(ws)
     result = rpc_value(os.path.join(ws, "result.json"))
     failures = []
@@ -217,6 +220,7 @@ def score(doc, case, ws, secs, run=1):
         "case": case["id"],
         "run": run,
         "surface": case.get("surface", ""),
+        "precondition": pre,
         "writes": case.get("writes", []),
         "git_sha": subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(),
         "models": models,
@@ -234,6 +238,20 @@ def score(doc, case, ws, secs, run=1):
     }
 
 
+def precondition(case, out_path):
+    pre = case["precondition"]
+    try:
+        text = open(out_path, errors="replace").read()
+    except OSError:
+        text = ""
+    ok = bool(text.strip())
+    if ok and pre.get("expect_regex"):
+        ok = re.search(pre["expect_regex"], text) is not None
+    if ok and pre.get("expect_not_regex"):
+        ok = re.search(pre["expect_not_regex"], text) is None
+    return {"what": pre.get("what", ""), "method": pre["method"], "ok": ok, "evidence": text.strip()[:600]}
+
+
 def selftest():
     assert verdict("I think... ACCEPT") == "ACCEPT"
     assert verdict("ACCEPT? no. REJECT") == "REJECT"
@@ -242,6 +260,12 @@ def selftest():
     assert tool_calls([{"role": "assistant", "tool_calls": [
         {"name": "use_skill", "arguments": json.dumps({"skill": "s", "tool": "skill_registry_install"})}]}]) == [
         "use_skill", "skill_registry_install"]
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        f.write('{"result":{"connections":[{"toolkit":"gmail","status":"ACTIVE"}]}}')
+    assert precondition({"precondition": {"method": "m", "expect_regex": "(?is)gmail.{0,200}active"}}, f.name)["ok"]
+    assert not precondition({"precondition": {"method": "m", "expect_not_regex": '"toolkit"'}}, f.name)["ok"]
+    assert not precondition({"precondition": {"method": "m"}}, f.name + ".missing")["ok"]
     assert HALT_LOG.search("[tinyagents::mw] crate successful-repeat tracker halted the run")
     print("score.py selftest ok")
 
@@ -253,6 +277,11 @@ if __name__ == "__main__":
     elif cmd == "judge-prompt":
         doc, case = load_case(sys.argv[2], sys.argv[3])
         print(judge_prompt(doc, case, sys.argv[4]))
+    elif cmd == "precondition":
+        doc, case = load_case(sys.argv[2], sys.argv[3])
+        r = precondition(case, sys.argv[4])
+        print(json.dumps(r))
+        sys.exit(0 if r["ok"] else 1)
     elif cmd == "score":
         doc, case = load_case(sys.argv[2], sys.argv[3])
         run = int(sys.argv[6]) if len(sys.argv) > 6 else 1
