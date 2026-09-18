@@ -6474,6 +6474,7 @@ dependencies = [
  "tinyagents-tracing",
  "tinyinference",
  "tinytools",
+ "tinytools-agent",
  "tokio",
 ]
 
@@ -6855,6 +6856,16 @@ dependencies = [
  "async-trait",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tinytools-agent"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
+ "tinytools",
 ]
 
 [[package]]
