@@ -7,6 +7,7 @@
 //! OpenHuman's `Tool` and `StopHook` traits.
 
 pub mod continuation;
+pub mod migration;
 pub mod runtime;
 pub mod store;
 pub mod tools;

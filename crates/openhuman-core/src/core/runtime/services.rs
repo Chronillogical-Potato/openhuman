@@ -380,7 +380,7 @@ fn spawn_module_preload(_config: &Config) {
 /// Runs startup housekeeping, then starts one-shot boot background work
 /// selected by [`ServiceSet`].
 pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
-    run_startup_housekeeping(config);
+    run_legacy_migrations(config).await;
 
     // The orphaned-run sweep does NOT live here. It runs in
     // `CoreBuilder::build`, which every runtime goes through — these jobs only
@@ -415,13 +415,22 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-fn run_startup_housekeeping(config: &Config) {
+async fn run_legacy_migrations(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
         Ok(count) if count > 0 => {
             log::info!("[cron] removed {count} retired autopilot job(s)");
         }
         Ok(_) => {}
         Err(e) => log::warn!("[cron] failed to prune retired jobs: {e}"),
+    }
+
+    match crate::agent::goals::migration::migrate_legacy_goals(&config.workspace_dir).await {
+        Ok(report) if report.total > 0 => log::info!(
+            "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
+            report.total, report.copied, report.skipped
+        ),
+        Ok(_) => {}
+        Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
     }
 }
 
