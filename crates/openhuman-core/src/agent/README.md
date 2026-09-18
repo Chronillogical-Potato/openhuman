@@ -26,7 +26,6 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 | `debug/` | Renders the exact system prompt a live session would see for a given agent, via `Agent::from_config_for_agent` |
 | `experience/` | Local procedural operating experience capture for self-learning ([README](experience/README.md)) |
 | `file_state/` | Process-wide read/write stamps so parallel sub-agents and worker threads detect stale file contents before writing |
-| `git_attribution/` (`pub(crate)`) | Temporary `prepare-commit-msg` hook that appends OpenHuman's co-author trailer to agent-made commits |
 | `harness/` | `Agent`/`AgentBuilder`, session lifecycle, sub-agent runner, definitions, fork context — the tool-calling loop itself ([README](harness/README.md)) |
 | `harness_init/` | One-time first-run provisioning (Python/spaCy/Kompress/Node) before the harness can run ([README](harness_init/README.md)) |
 | `learning/` | Reflection, tool-outcome tracking, user-profile inference from transcripts ([README](learning/README.md)) |

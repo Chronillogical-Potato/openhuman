@@ -403,9 +403,9 @@ impl ShellTool {
             }
         }
 
-        // Attribute commits made by this agent-owned shell, without persisting
-        // anything in the user's repository or global Git configuration.
-        for (key, value) in crate::agent::git_attribution::hook_env() {
+        // Keep command-valued repository Git settings from executing host
+        // programs when a shell command happens to invoke git.
+        for (key, value) in crate::tools::implementations::filesystem::shell_git_env() {
             cmd.env(key, value);
         }
 
@@ -533,11 +533,8 @@ impl ShellTool {
             }
         }
 
-        // The local/no-op sandbox inherits this process's temporary hook
-        // directory, so commits made through a sandboxed shell are attributed
-        // just like native-shell commits. Docker backends safely ignore an
-        // unavailable host path rather than changing repository configuration.
-        extra_env.extend(crate::agent::git_attribution::hook_env());
+        // Apply the same Git config hardening to local and sandboxed shells.
+        extra_env.extend(crate::tools::implementations::filesystem::shell_git_env());
 
         // Sandbox backends require a finite deadline. Without an explicit
         // `timeout_secs`, substitute the generous effective-unbounded cap so a

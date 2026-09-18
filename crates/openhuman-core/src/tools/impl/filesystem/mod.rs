@@ -34,7 +34,7 @@ mod tests;
 /// Re-exported from the module that owns the whole policy so the `shell` tool
 /// and `git_operations` cannot drift into two different answers about which
 /// config keys are dangerous.
-pub(crate) use git_operations_config::SHELL_NEUTRALISED_CONFIG;
+pub(crate) use git_operations_config::shell_git_env;
 
 pub use apply_patch::ApplyPatchTool;
 pub use csv_export::CsvExportTool;

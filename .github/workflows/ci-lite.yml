@@ -153,6 +153,8 @@ jobs:
               - 'scripts/ci/assert-coverage-presence.sh'
               - 'scripts/ci/coverage-presence-allowlist.txt'
               - 'scripts/ci/check-openhuman-rust-layout.mjs'
+              - 'scripts/ci/check-agent-runtime-boundary.mjs'
+              - 'scripts/ci/agent-runtime-boundary-baseline.json'
               - 'scripts/ci/list-feature-gated-rust-tests.mjs'
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
@@ -430,6 +432,10 @@ jobs:
       - name: Enforce OpenHuman Rust file layout
         if: needs.changes.outputs['rust-core'] == 'true'
         run: node scripts/ci/check-openhuman-rust-layout.mjs
+
+      - name: Enforce agent runtime ownership boundary
+        if: needs.changes.outputs['rust-core'] == 'true'
+        run: pnpm agent:runtime-boundary
 
       - name: Enforce Linux TLS dependency policy
         if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
