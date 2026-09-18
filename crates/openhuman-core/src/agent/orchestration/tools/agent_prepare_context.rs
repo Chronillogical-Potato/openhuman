@@ -29,5 +29,5 @@ pub use tool::AgentPrepareContextTool;
 
 #[cfg(test)]
 use scout_run::{
-    extract_context_bundle, is_expected_billing_failure, log_scout_failure, scout_failure_signal,
+    extract_context_bundle, is_expected_billing_failure, scout_failure_signal,
 };
