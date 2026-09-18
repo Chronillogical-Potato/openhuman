@@ -17,7 +17,7 @@ use crate::security::SecurityPolicy;
 use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
-use tinytools::{PermissionLevel, Tool, ToolScope};
+use tinytools::{PermissionLevel, Tool};
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
