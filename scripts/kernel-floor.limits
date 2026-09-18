@@ -13,6 +13,12 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   290/272/2  2026-09-18  portable skill parsing and filesystem primitives
+#                      moved into the required `tinyskills` crate. The `flows`
+#                      profile still compiles the shared skill metadata types,
+#                      so the path crate itself adds one package and one name.
+#                      Its dependencies were already present and the native
+#                      build count remains unchanged at 2.
 #   288/270/2  2026-09-13  the core/wrapper split moves shared RPC contracts
 #                      and the authenticated HTTP client into the new
 #                      `openhuman-rpc` workspace crate. `openhuman` depends on
@@ -554,4 +560,4 @@
 # 289/271/2 2026-09-18 Tool-call parsing and rendering moved into the required
 #                      `tinytools-agent` protocol crate. This adds that one
 #                      host-visible crate but no native dependency.
-flows:289:271:2
+flows:290:272:2
