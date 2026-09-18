@@ -45,6 +45,7 @@ tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crat
 tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-providers = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 
 [patch.crates-io]
 tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
@@ -52,6 +53,7 @@ tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crat
 tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-providers = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 tinyflows = { path = "vendor/tinyflows/crates/tinyflows" }
 tinychannels = { path = "vendor/tinychannels" }
 

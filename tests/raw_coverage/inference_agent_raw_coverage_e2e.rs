@@ -146,14 +146,14 @@ use openhuman_core::inference::provider::{
 };
 use tinyinference_llm::model::{effective_temperature, model_id_glob_match};
 use tinyinference_llm::sentiment::parse_sentiment_response;
-use openhuman_core::inference::voice::cloud_transcribe::{
+use openhuman_core::voice::cloud_transcribe::{
     transcribe_cloud, CloudTranscribeOptions,
 };
-use openhuman_core::inference::voice::local_speech::{synthesize_piper, PiperOptions};
+use openhuman_core::voice::local_speech::{synthesize_piper, PiperOptions};
 use openhuman_core::modules::voice::{
     is_hallucinated, HallucinationMode, VoiceCallError,
 };
-use openhuman_core::inference::voice::postprocess::cleanup_transcription;
+use openhuman_core::voice::postprocess::cleanup_transcription;
 use openhuman_core::inference::{
     all_inference_controller_schemas, all_inference_registered_controllers,
     all_local_inference_controller_schemas, all_local_inference_registered_controllers,

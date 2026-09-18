@@ -30,7 +30,7 @@ Each of these is an explicit opt-in. Turning on local AI does not silently route
 | **Chat**       | Frontier reasoning quality unless `chat_provider` is explicitly set to a local provider.       |
 | **Reasoning**  | Stronger multi-step quality unless `reasoning_provider` is explicitly set to a local provider. |
 | **Vision**     | Same, unless `vision_provider` points at a local vision-capable model. See below.              |
-| **STT**        | Backend-proxied transcription (`crates/openhuman-core/src/inference/voice/cloud_transcribe.rs`). There is no local STT engine. |
+| **STT**        | Backend-proxied transcription through `tinyinference-voice`, with authentication bound in `crates/openhuman-core/src/voice/cloud_transcribe.rs`. There is no local STT engine. |
 | **TTS**        | Hosted [text-to-speech](../native-tools/voice.md) under the hood (`reply_speech.rs`).          |
 | **Web search** | Backend proxy (no API key on your machine).                                                    |
 

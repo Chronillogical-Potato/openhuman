@@ -420,6 +420,7 @@ tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinferenc
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-providers = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 # TinyTools — the tool vocabulary: the `Tool` trait, `ToolResult`, and the
 # permission / scope / timeout classifications this host enforces around a call.
 #

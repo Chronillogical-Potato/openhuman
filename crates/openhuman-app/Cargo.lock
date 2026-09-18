@@ -4305,6 +4305,7 @@ dependencies = [
  "tinyinference-llm",
  "tinyinference-local",
  "tinyinference-providers",
+ "tinyinference-voice",
  "tinyjuice-bus",
  "tinymcp",
  "tinymcp-bus",
@@ -7387,6 +7388,20 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "tinyinference-voice"
+version = "0.2.1"
+dependencies = [
+ "base64 0.22.1",
+ "log",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tinyinference-local",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-//! WebSocket streaming transcription endpoint.
+//! OpenHuman WebSocket adapter for streaming transcription.
 //!
 //! Accepts a WebSocket connection that receives PCM16 audio chunks (16kHz mono),
 //! accumulates them, and transcribes the completed utterance through the hosted
@@ -45,7 +45,6 @@
 use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
-use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -55,81 +54,12 @@ use crate::config::Config;
 use crate::voice::{create_stt_provider, effective_stt_provider};
 
 const LOG_PREFIX: &str = "[voice-stream]";
-const AUDIO_SAMPLE_RATE: usize = 16_000;
-/// Sliding window retained alongside the full-audio buffer. Nothing consumes it
-/// today (see the "No partial results" note above); it is kept — and kept
-/// bounded — so a streaming-capable engine can be wired to it without
-/// re-deriving the windowing rules.
-const MAX_STREAM_BUFFER_SAMPLES: usize = AUDIO_SAMPLE_RATE * 15; // 15s sliding window
-
-/// Hard cap on the full-audio accumulation buffer.
-///
-/// Derived from `AUDIO_SAMPLE_RATE` (16 kHz mono PCM16) × 60 s × 5 min = 4 800 000 samples
-/// ≈ 9.6 MiB per connection. Clients that send audio beyond this limit are disconnected
-/// gracefully with a `{"type":"error"}` frame so the server never OOMs (issue #1924).
-const MAX_FULL_AUDIO_SAMPLES: usize = AUDIO_SAMPLE_RATE * 60 * 5; // ~5 minutes
-
-#[derive(Debug, Deserialize)]
-struct ClientCommand {
-    #[serde(rename = "type")]
-    cmd_type: String,
-}
-
-fn decode_pcm16le_frame(data: &[u8]) -> Option<Vec<i16>> {
-    if !data.len().is_multiple_of(2) {
-        return None;
-    }
-
-    Some(
-        data.chunks_exact(2)
-            .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
-            .collect(),
-    )
-}
-
-/// Append `samples` to both the sliding window buffer and the full-audio accumulation
-/// buffer, enforcing the hard cap on the latter.
-///
-/// Returns `true` when the full-audio buffer is within the allowed limit (normal path).
-/// Returns `false` when appending `samples` would push `full_audio_buf` beyond
-/// `MAX_FULL_AUDIO_SAMPLES`; in that case the samples are **not** appended and the caller
-/// must disconnect the client to prevent unbounded memory growth (issue #1924).
-fn append_stream_samples(
-    audio_buf: &mut Vec<i16>,
-    full_audio_buf: &mut Vec<i16>,
-    samples: &[i16],
-) -> bool {
-    // Enforce hard cap on the full-audio accumulation buffer first.
-    if full_audio_buf.len().saturating_add(samples.len()) > MAX_FULL_AUDIO_SAMPLES {
-        log::warn!(
-            "{LOG_PREFIX} full_audio_buf cap reached ({} / {} samples); refusing to append {} \
-             more samples — client will be disconnected",
-            full_audio_buf.len(),
-            MAX_FULL_AUDIO_SAMPLES,
-            samples.len(),
-        );
-        return false;
-    }
-
-    full_audio_buf.extend_from_slice(samples);
-    audio_buf.extend_from_slice(samples);
-    if audio_buf.len() > MAX_STREAM_BUFFER_SAMPLES {
-        let drop_count = audio_buf.len() - MAX_STREAM_BUFFER_SAMPLES;
-        audio_buf.drain(..drop_count);
-        log::debug!(
-            "{LOG_PREFIX} sliding window trimmed {} samples, kept {}",
-            drop_count,
-            audio_buf.len()
-        );
-    }
-    true
-}
-
-fn is_stop_command(text: &str) -> bool {
-    serde_json::from_str::<ClientCommand>(text)
-        .map(|cmd| cmd.cmd_type == "stop")
-        .unwrap_or(false)
-}
+#[cfg(test)]
+use tinyinference_voice::streaming::MAX_STREAM_BUFFER_SAMPLES;
+use tinyinference_voice::streaming::{
+    append_stream_samples, decode_pcm16le_frame, is_stop_command, AUDIO_SAMPLE_RATE,
+    MAX_FULL_AUDIO_SAMPLES,
+};
 
 /// Handle an upgraded WebSocket connection for streaming dictation.
 pub async fn handle_dictation_ws(mut socket: WebSocket, config: Arc<Config>) {

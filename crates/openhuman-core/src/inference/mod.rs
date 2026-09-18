@@ -6,9 +6,6 @@
 //!                     `tinyinference-local`
 //! - `provider/` — native chat models, cloud/local routing, auth and errors
 //!                 (was `providers/`)
-//! - `voice/`    — transcription (STT) and TTS inference implementations
-//!                 (moved from `voice/`; audio I/O and the voice RPC surface
-//!                 stay in `crate::voice`)
 //! - `http/`     — OpenAI-compatible `/v1/chat/completions` endpoint
 //! - `tokenjuice/` — host adapter for the `tinyjuice` token-compression module
 //!
@@ -32,7 +29,6 @@ pub mod ops;
 pub mod provider;
 mod schemas;
 pub mod tokenjuice;
-pub mod voice;
 
 pub use ops as rpc;
 pub use schemas::{

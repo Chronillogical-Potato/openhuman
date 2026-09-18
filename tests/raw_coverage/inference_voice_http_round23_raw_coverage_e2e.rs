@@ -28,7 +28,7 @@ use openhuman_core::inference::http;
 use openhuman_core::inference::host_runtime::{
     local_ai_assets_status, local_ai_downloads_progress, LocalAiService,
 };
-use openhuman_core::inference::voice::streaming::handle_dictation_ws;
+use openhuman_core::voice::streaming::handle_dictation_ws;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
