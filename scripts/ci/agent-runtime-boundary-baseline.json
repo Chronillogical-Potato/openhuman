@@ -367,7 +367,7 @@
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/mod.rs",
     "line": 71,
-    "text": "pub(super) use crate::agent::harness::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};",
+    "text": "pub(super) use crate::agent::harness::{with_spawn_depth, MAX_SPAWN_DEPTH};",
     "occurrence": 1
   },
   {
@@ -512,72 +512,16 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/close_subagent.rs",
-    "line": 3,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
+    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
+    "line": 426,
+    "text": "let join = tokio::spawn(crate::agent::turn_origin::propagate(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/close_subagent.rs",
-    "line": 74,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/list_subagents.rs",
-    "line": 3,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/list_subagents.rs",
-    "line": 62,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent.rs",
-    "line": 8,
-    "text": "use crate::agent::harness::fork_context::{current_parent, with_parent_context};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent.rs",
-    "line": 16,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/steer_subagent.rs",
-    "line": 10,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/steer_subagent.rs",
-    "line": 105,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/wait_subagent.rs",
-    "line": 10,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/wait_subagent.rs",
-    "line": 127,
-    "text": "let parent = match current_parent() {",
+    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
+    "line": 427,
+    "text": "crate::agent::turn_workspace::propagate(async move {",
     "occurrence": 1
   },
   {
@@ -1563,7 +1507,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 1000,
+    "line": 1002,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
     "occurrence": 1
   },

@@ -1,13 +1,45 @@
 //! Tool: `close_subagent` - retire a reusable durable sub-agent session.
 
-use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::subagent_sessions::SubagentSessionStore;
 use crate::agent::orchestration::{running_subagents, subagent_sessions};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct CloseSubagentTool;
+
+pub(crate) struct CloseSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl CloseSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CloseSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        CloseSubagentTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl CloseSubagentTool {
     pub fn new() -> Self {
@@ -60,6 +92,18 @@ impl Tool for CloseSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, tool_context)
+            .await
+    }
+}
+
+impl CloseSubagentTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let subagent_session_id = args
             .get("subagent_session_id")
             .and_then(|v| v.as_str())
@@ -71,7 +115,7 @@ impl Tool for CloseSubagentTool {
                 "close_subagent: `subagent_session_id` is required",
             ));
         }
-        let parent = match current_parent() {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(

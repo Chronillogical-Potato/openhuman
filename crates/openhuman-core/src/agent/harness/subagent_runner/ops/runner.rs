@@ -670,6 +670,15 @@ pub async fn run_subagent(
 
         let mut outcome = run_result?;
 
+        // Commit the completed subtree before the soft, awaited artifact
+        // offload. A cancellation while that filesystem work is pending must
+        // not erase direct model usage or descendants that already finished.
+        usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
+            task_id: task_id.clone(),
+            agent_id: definition.id.clone(),
+            usage: outcome.usage,
+        });
+
         // #3883: offload an oversized worker result to `action_dir/outputs/`
         // BEFORE the cap below truncates it, so the parent receives a path plus
         // an abstract and the full-fidelity body survives on disk instead of
@@ -680,12 +689,6 @@ pub async fn run_subagent(
         // Truncate result to the definition's cap if set (shared with the
         // deterministic memory fast path via `apply_max_result_chars`).
         apply_max_result_chars(&mut outcome.output, definition.max_result_chars, &definition.id);
-
-        usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
-            task_id: task_id.clone(),
-            agent_id: definition.id.clone(),
-            usage: outcome.usage,
-        });
 
         tracing::info!(
             agent_id = %definition.id,

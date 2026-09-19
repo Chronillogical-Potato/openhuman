@@ -103,8 +103,8 @@ pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::R
 }
 
 /// Same as [`run_context_scout`] but with an **explicitly-supplied** tool
-/// catalogue — for callers *outside* an agent turn that can't auto-derive the
-/// parent's visible tool set from `current_parent()` (e.g. the subconscious
+/// catalogue — for callers *outside* an agent turn that can't receive the
+/// parent's visible tool set explicitly (e.g. the subconscious
 /// engine's structured tick).
 ///
 /// The caller passes the catalogue of tools the eventual decision agent can

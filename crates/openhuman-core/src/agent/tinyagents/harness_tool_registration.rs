@@ -12,9 +12,10 @@ use tinyagents_registry::{
 };
 
 use crate::agent::orchestration::tools::{
-    AgentPrepareContextDispatch, ContinueSubagentDispatch, DelegateGraphDispatch,
-    DelegationDispatch, SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch,
-    SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
+    AgentPrepareContextDispatch, CloseSubagentDispatch, ContinueSubagentDispatch,
+    DelegateGraphDispatch, DelegationDispatch, ListSubagentsDispatch, SpawnAsyncSubagentDispatch,
+    SpawnParallelAgentsDispatch, SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
+    SteerSubagentDispatch, WaitSubagentDispatch,
 };
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
@@ -112,6 +113,14 @@ pub(super) fn register_turn_tools_and_agents(
                 } else if name == "continue_subagent" {
                     harness
                         .register_tool_dispatch(Arc::new(ContinueSubagentDispatch::new(adapter)));
+                } else if name == "wait_subagent" {
+                    harness.register_tool_dispatch(Arc::new(WaitSubagentDispatch::new(adapter)));
+                } else if name == "steer_subagent" {
+                    harness.register_tool_dispatch(Arc::new(SteerSubagentDispatch::new(adapter)));
+                } else if name == "close_subagent" {
+                    harness.register_tool_dispatch(Arc::new(CloseSubagentDispatch::new(adapter)));
+                } else if name == "list_subagents" {
+                    harness.register_tool_dispatch(Arc::new(ListSubagentsDispatch::new(adapter)));
                 } else if name == "agent_prepare_context" {
                     harness.register_tool_dispatch(Arc::new(AgentPrepareContextDispatch::new(
                         adapter,

@@ -1,6 +1,6 @@
 //! Tool: `list_subagents` - inspect reusable sub-agent sessions for this parent.
 
-use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::{
     running_subagents,
     subagent_sessions::{
@@ -9,10 +9,42 @@ use crate::agent::orchestration::{
 };
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
 use tinyagents_graph::orchestration::{OrchestrationTaskRecord, OrchestrationTaskStatus};
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct ListSubagentsTool;
+
+pub(crate) struct ListSubagentsDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl ListSubagentsDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ListSubagentsDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        ListSubagentsTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl ListSubagentsTool {
     pub fn new() -> Self {
@@ -59,7 +91,19 @@ impl Tool for ListSubagentsTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let parent = match current_parent() {
+        self.execute_with_parent_context(_args, None, tool_context)
+            .await
+    }
+}
+
+impl ListSubagentsTool {
+    async fn execute_with_parent_context(
+        &self,
+        _args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(

@@ -68,7 +68,7 @@ pub(super) use crate::agent::harness::definition::{AgentDefinition, PromptSource
 #[cfg(test)]
 pub(super) use crate::agent::harness::fork_context::ParentExecutionContext;
 #[cfg(test)]
-pub(super) use crate::agent::harness::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
+pub(super) use crate::agent::harness::{with_spawn_depth, MAX_SPAWN_DEPTH};
 #[cfg(test)]
 use tinytools::ToolSpec;
 

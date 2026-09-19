@@ -419,8 +419,12 @@ impl SpawnAsyncSubagentTool {
         // The detached child starts on a fresh task. Its explicit carrier keeps
         // authority, origin, thread, and workspace while deliberately dropping
         // the originating turn's accounting, dispatch refusal, and cancellation.
+        // Approval/origin and workspace policy remain task-local until B2h
+        // moves the security boundary onto this carrier, so propagation below
+        // is a staging bridge for those two scopes only.
         let detached_run_context = run_context.detached_child();
-        let join = tokio::spawn(async move {
+        let join = tokio::spawn(crate::agent::turn_origin::propagate(
+            crate::agent::turn_workspace::propagate(async move {
                 let options = SubagentRunOptions {
                     skill_filter_override: None,
                     toolkit_override,
@@ -678,7 +682,8 @@ impl SpawnAsyncSubagentTool {
                         }
                     }
                 }
-        });
+            }),
+        ));
 
         // Register *after* spawn so the AbortHandle is available. The task owns
         // `status_tx`; this side holds `status_rx` for `wait_subagent`.
