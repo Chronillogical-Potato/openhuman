@@ -531,7 +531,7 @@ jobs:
           OPENHUMAN_BUILD_SHA: ${{ needs.prepare-build.outputs.short_sha }}
           OPENHUMAN_APP_ENV: production
         run: |
-          bash scripts/ci-cancel-aware.sh cargo build --release -p openhuman --bin openhuman-core
+          bash scripts/ci-cancel-aware.sh cargo build --release -p openhuman-cli --bin openhuman-core
           bash scripts/ci-cancel-aware.sh cargo build --release -p openhuman-tui --bin openhuman-tui
       - name: Package and upload tarball to release
         env:

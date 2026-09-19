@@ -226,7 +226,9 @@ jobs:
           # it `--bins` silently skips them and this lane goes green having
           # compiled none of them. fleet.rs carries a `#[cfg(test)] mod`, so those
           # tests would vanish too, with no error.
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --bins --features "${FEATURES}"
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --features "${FEATURES}"
+          # The core binary and developer bins live in the CLI crate.
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --bins --features "${FEATURES}"
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc --features "${FEATURES}"
 
           while IFS= read -r target; do
@@ -235,7 +237,7 @@ jobs:
               while IFS= read -r module; do
                 [ -n "${module}" ] || continue
                 echo "[test-reusable] raw coverage module: ${module}"
-                bash scripts/ci-cancel-aware.sh cargo test -p openhuman --features "${FEATURES}" --test "${target}" -- "${module}::" --test-threads=1
+                bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --features "${FEATURES}" --test "${target}" -- "${module}::" --test-threads=1
               done < <(raw_coverage_modules)
             elif [ "${target}" = "json_rpc_e2e" ]; then
               # JSON-RPC E2E cases change process-global provider routes and
@@ -245,13 +247,13 @@ jobs:
               while IFS= read -r test_name; do
                 [ -n "${test_name}" ] || continue
                 echo "[test-reusable] JSON-RPC E2E test: ${test_name}"
-                bash scripts/ci-cancel-aware.sh cargo test -p openhuman --test "${target}" "${test_name}" -- --exact --test-threads=1
+                bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --test "${target}" "${test_name}" -- --exact --test-threads=1
               done < <(
-                cargo test -p openhuman --test "${target}" -- --list \
+                cargo test -p openhuman-cli --test "${target}" -- --list \
                   | sed -n 's/: test$//p'
               )
             else
-              bash scripts/ci-cancel-aware.sh cargo test -p openhuman --features "${FEATURES}" --test "${target}"
+              bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --features "${FEATURES}" --test "${target}"
             fi
           done < <(integration_test_targets)
 
