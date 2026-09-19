@@ -163,13 +163,13 @@ pub(crate) fn transcript_message_from_chat(
                     .map(str::to_string),
             }
         });
-    let request_id =
-        take_host_metadata(&mut extra_metadata, REPLAYED_METADATA_KEY).and_then(|value| {
-            value
-                .get("request_id")
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_string)
-        });
+    let replayed = take_host_metadata(&mut extra_metadata, REPLAYED_METADATA_KEY);
+    let request_id = replayed.as_ref().and_then(|value| {
+        value
+            .get("request_id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+    });
     tinyagents_session::transcript::TranscriptMessage {
         id: message.id.clone(),
         role: message.role.clone(),
@@ -178,6 +178,7 @@ pub(crate) fn transcript_message_from_chat(
         cache_breakpoints: message.cache_breakpoints.clone(),
         turn_usage,
         request_id,
+        preserve_request_id: replayed.is_some(),
         interrupted: false,
         tool_failure,
     }
@@ -205,11 +206,14 @@ pub(crate) fn chat_message_from_transcript(
     {
         attach_chat_tool_failure_metadata(&mut chat, failure.detail.as_deref());
     }
-    if message.request_id.is_some() {
+    if message.preserve_request_id {
         let mut payload = serde_json::Map::new();
         payload.insert(
             "request_id".to_string(),
-            serde_json::Value::String(message.request_id.unwrap_or_default()),
+            message
+                .request_id
+                .map(serde_json::Value::String)
+                .unwrap_or(serde_json::Value::Null),
         );
         if would_wrap(&chat) {
             payload.insert(WRAPPED_FLAG.to_string(), serde_json::Value::Bool(true));
