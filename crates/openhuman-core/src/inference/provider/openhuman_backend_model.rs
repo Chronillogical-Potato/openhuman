@@ -36,7 +36,6 @@ use tinyinference_llm::providers::openai::OpenAiModel;
 use tinyinference_llm::Error as TiError;
 
 use super::ProviderRuntimeOptions;
-use crate::agent::tinyagents::thread_context;
 use crate::api::config::effective_api_url;
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
@@ -80,6 +79,10 @@ pub struct OpenHumanBackendModel {
     default_model: String,
     native_tool_calling: bool,
     profile: ModelProfile,
+    /// Normalized OpenHuman conversation thread. This is deliberately owned by
+    /// the managed backend model: BYOK and third-party models must never see
+    /// this backend-only extension.
+    thread_id: Option<String>,
 }
 
 impl OpenHumanBackendModel {
@@ -108,7 +111,19 @@ impl OpenHumanBackendModel {
                 streaming_tool_chunks: true,
                 ..ModelProfile::default()
             },
+            thread_id: None,
         }
+    }
+
+    /// Attach the explicit run thread used by OpenHuman's managed inference
+    /// endpoint. Blank values mean no backend thread rather than an empty wire
+    /// field.
+    pub fn with_thread_id(mut self, thread_id: Option<impl AsRef<str>>) -> Self {
+        self.thread_id = thread_id.and_then(|thread_id| {
+            let thread_id = thread_id.as_ref().trim();
+            (!thread_id.is_empty()).then(|| thread_id.to_owned())
+        });
+        self
     }
 
     pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
@@ -445,8 +460,8 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
 /// have not yet migrated to the explicit run carrier still establish this
 /// scope; the shared-runner cutover preserves that boundary until those routes
 /// pass `OpenHumanRunContext.thread_id` end-to-end.
-fn with_thread_id(request: ModelRequest) -> ModelRequest {
-    let Some(thread_id) = thread_context::current_thread_id() else {
+fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {
+    let Some(thread_id) = thread_id else {
         return request;
     };
     let mut options = request.provider_options.clone();
@@ -555,7 +570,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelResponse> {
         let model = self.build_wire_model()?;
-        let response = match model.invoke(state, with_thread_id(request)).await {
+        let response = match model
+            .invoke(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(response) => response,
             Err(e) => {
                 log_managed_dispatch_error(&e, "invoke");
@@ -579,7 +597,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         // survive via `UsageDelta`). The authoritative charged amount is recovered
         // on the non-streaming `invoke` path above. Restoring it for streaming
         // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
-        match model.stream(state, with_thread_id(request)).await {
+        match model
+            .stream(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(stream) => Ok(stream),
             Err(e) => {
                 log_managed_dispatch_error(&e, "stream");

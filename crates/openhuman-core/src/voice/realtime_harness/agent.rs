@@ -146,7 +146,7 @@ async fn run_single_with_timeout(
     prompt: &str,
 ) -> Result<String, String> {
     // Scope the turn with the SAME chat context the web-chat path installs
-    // (`APPROVAL_CHAT_CONTEXT` + `with_thread_id`), so approval-surfaced tools
+    // (`APPROVAL_CHAT_CONTEXT` plus an explicit agent thread), so approval-surfaced tools
     // behave identically on voice. Without it `composio_connect` fails closed
     // for lack of a routable surface, which the model paraphrases to the user as
     // a confabulated "reconnect your Gmail" mid email-summary (#5399). See
@@ -156,10 +156,8 @@ async fn run_single_with_timeout(
         thread_id: VOICE_CHAT_THREAD_ID.to_string(),
         client_id: VOICE_CHAT_CLIENT_ID.to_string(),
     };
-    let scoped_run = crate::agent::tinyagents::thread_context::with_thread_id(
-        VOICE_CHAT_THREAD_ID,
-        agent.run_single(prompt),
-    );
+    agent.set_thread_id(Some(VOICE_CHAT_THREAD_ID));
+    let scoped_run = agent.run_single(prompt);
     let fut = with_origin(
         AgentTurnOrigin::ExternalChannel {
             channel: "voice".to_string(),

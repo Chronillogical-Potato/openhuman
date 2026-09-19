@@ -306,6 +306,19 @@ impl Agent {
         self.rebuild_tool_policy_session();
     }
 
+    /// Bind the OpenHuman conversation thread for the next and subsequent
+    /// turns. Empty input intentionally clears the binding.
+    pub fn set_thread_id(&mut self, thread_id: Option<impl AsRef<str>>) {
+        self.thread_id = thread_id.and_then(|thread_id| {
+            let thread_id = thread_id.as_ref().trim();
+            (!thread_id.is_empty()).then(|| thread_id.to_owned())
+        });
+    }
+
+    pub(crate) fn thread_id(&self) -> Option<&str> {
+        self.thread_id.as_deref()
+    }
+
     /// Override the agent definition name used for session transcript
     /// file paths. Callers (e.g. the web channel) use this to scope
     /// transcripts per thread so each conversation thread gets its own

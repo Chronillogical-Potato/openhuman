@@ -252,13 +252,11 @@ impl Tool for CollapsedDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        execute_collapsed_delegation(
-            &self.targets,
-            args,
-            tool_context,
-            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
-        )
-        .await
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
+        execute_collapsed_delegation(&self.targets, args, tool_context, run_context).await
     }
 }
 

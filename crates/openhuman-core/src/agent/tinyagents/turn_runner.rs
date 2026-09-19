@@ -578,40 +578,31 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    // The legacy thread scope remains for APIs outside the typed TinyAgents
-    // surface. Cancellation is carried solely by the canonical run context and
-    // reaches recursive tools through typed parent dispatch. Route metadata is
-    // likewise carried by the typed run context and canonical model response.
-    let run_thread_id = run_context.thread_id.clone().unwrap_or_default();
     let resolved_route_slot = run_context.resolved_route.clone();
-    let run_result =
-        crate::agent::tinyagents::thread_context::with_thread_id(run_thread_id, async move {
-            if streaming {
-                let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
-                let mut terminal = None;
-                while let Some(item) = stream.next().await {
-                    match item {
-                        AgentStreamItem::Event(_) => {}
-                        AgentStreamItem::Completed(run) => {
-                            terminal = Some(Ok(*run));
-                            break;
-                        }
-                        AgentStreamItem::Failed { error, .. } => {
-                            terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
-                            break;
-                        }
-                    }
+    let run_result = if streaming {
+        let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
+        let mut terminal = None;
+        while let Some(item) = stream.next().await {
+            match item {
+                AgentStreamItem::Event(_) => {}
+                AgentStreamItem::Completed(run) => {
+                    terminal = Some(Ok(*run));
+                    break;
                 }
-                terminal.unwrap_or_else(|| {
-                    Err(tinyagents_harness::TinyAgentsError::Model(
-                        "tinyagents stream ended without terminal run".to_string(),
-                    ))
-                })
-            } else {
-                Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+                AgentStreamItem::Failed { error, .. } => {
+                    terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
+                    break;
+                }
             }
+        }
+        terminal.unwrap_or_else(|| {
+            Err(tinyagents_harness::TinyAgentsError::Model(
+                "tinyagents stream ended without terminal run".to_string(),
+            ))
         })
-        .await;
+    } else {
+        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+    };
     // Drive future returned: run cleanup now (abort poll task + deregister +
     // requeue residual steers) rather than deferring to end-of-scope so the poll
     // loop cannot deliver into the no-longer-drained handle during post-run

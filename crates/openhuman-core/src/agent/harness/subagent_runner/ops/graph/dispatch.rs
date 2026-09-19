@@ -217,7 +217,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     // Build the child turn's crate `ChatModel` set from the source; capability
     // reads (vision/native-tools) + telemetry id now come off the built bundle,
     // so the sub-agent path names crate model types only.
-    let turn_models = source.build(model, temperature, context_window)?;
+    let turn_models = source.build(
+        model,
+        temperature,
+        context_window,
+        run_context.thread_id.as_deref(),
+    )?;
 
     // Vision forwarding (parity with the legacy `run_inner_loop`): rehydrate
     // `[IMAGE:…]` placeholders in the sub-agent's history when either the model

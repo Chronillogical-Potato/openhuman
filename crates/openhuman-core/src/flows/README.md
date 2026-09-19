@@ -54,7 +54,7 @@ from always-compiled code.
 ## Calls into
 
 - `vendor/tinyflows/` — the actual workflow model, validation, compilation, and run engine; this domain never re-implements it.
-- `crates/openhuman-core/src/agent/tinyagents/` — message/tool-call/usage conversions used by the `llm` and `prompt` capabilities, and `thread_context::with_thread_id` around a run; `agent` nodes run a nested harness turn through the `agent` capability (`tinyflows/caps/agent.rs`).
+- `crates/openhuman-core/src/agent/tinyagents/` — message/tool-call/usage conversions used by the `llm` and `prompt` capabilities; `agent` nodes pass an explicit run context into nested harness turns through the `agent` capability (`tinyflows/caps/agent.rs`).
 - `crates/openhuman-core/src/cron/` — `add_flow_schedule_job` arms a schedule-triggered flow as a `JobType::Flow` cron job; the scheduler fires it by publishing `DomainEvent::FlowScheduleTick`, which `bus::FlowTriggerSubscriber` picks up.
 - `crates/openhuman-core/src/platform/socket/medulla/workflows.rs` — `WorkflowBridge` trait implemented by `medulla_bridge`.
 - `crates/openhuman-core/src/skills/` — the `Workflow` / `WorkflowScope` catalogue types used by `catalogue.rs`, and the native `BundledSkill` mechanism that exposes the portable `tinyflows-copilot` authoring manual.

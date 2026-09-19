@@ -168,7 +168,6 @@ use openhuman_core::agent::profiles::{
     AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
 };
 use openhuman_core::security::SecurityPolicy;
-use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::agent::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use tinytools::{Tool, ToolResult, ToolSpec};
@@ -1671,15 +1670,6 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(empty.emotion, "neutral");
     assert_eq!(empty.valence, "neutral");
     assert_eq!(empty.confidence, 1.0);
-
-    assert!(current_thread_id().is_none());
-    let scoped = with_thread_id("  thread-coverage  ", async {
-        assert_eq!(current_thread_id().as_deref(), Some("thread-coverage"));
-        with_thread_id("   ", async { current_thread_id() }).await
-    })
-    .await;
-    assert!(scoped.is_none());
-    assert!(current_thread_id().is_none());
 
     let mut cleanup_config = Config::default();
     assert_eq!(cleanup_transcription(&cleanup_config, "", None).await, "");

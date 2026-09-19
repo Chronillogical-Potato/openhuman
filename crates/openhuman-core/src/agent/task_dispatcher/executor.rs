@@ -222,6 +222,7 @@ pub(super) async fn run_autonomous(
         .profile
         .as_ref()
         .and_then(|p| p.memory_sources.clone());
+    agent.set_thread_id(session_thread_id.as_deref());
     let run = crate::memory::source_scope::with_source_scope(
         memory_scope,
         crate::agent::turn_origin::with_origin(
@@ -229,14 +230,7 @@ pub(super) async fn run_autonomous(
             with_autonomous_iter_cap(TASK_RUN_MAX_ITERATIONS, agent.run_single(prompt)),
         ),
     );
-    let result = match session_thread_id.as_deref() {
-        Some(thread_id) => {
-            crate::agent::tinyagents::thread_context::with_thread_id(thread_id.to_string(), run)
-                .await
-        }
-        None => run.await,
-    }
-    .map_err(|e| format!("{e:#}"));
+    let result = run.await.map_err(|e| format!("{e:#}"));
 
     // Close the run in its thread. Order matters (#5933): persist the closing
     // message FIRST, announce the terminal event SECOND. A client viewing the

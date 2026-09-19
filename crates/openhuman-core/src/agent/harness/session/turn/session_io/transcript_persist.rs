@@ -53,7 +53,7 @@ impl Agent {
             output_tokens,
             cached_input_tokens,
             charged_amount_usd,
-            thread_id: crate::agent::tinyagents::thread_context::current_thread_id(),
+            thread_id: self.thread_id.clone(),
             task_id: None,
         };
 

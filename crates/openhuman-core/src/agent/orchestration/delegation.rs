@@ -53,8 +53,7 @@ pub(crate) async fn run_subagent_delegation(
     // This legacy/direct entrypoint is a genuine root boundary. Live harness
     // tools call `run_subagent_delegation_with_parent_context` below with the
     // owned parent carrier instead.
-    let mut run_context =
-        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+    let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     run_context.parent = current_parent();
     run_subagent_delegation_with_parent_context(
         config,

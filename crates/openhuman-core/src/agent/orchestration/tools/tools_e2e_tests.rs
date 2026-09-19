@@ -120,13 +120,10 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-async-session".into();
     let result = with_parent_context(ctx, async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-async-parent", async {
-            tool.execute(json!({
-                "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
-                "model": "test-model"
-            }))
-            .await
-        })
+        tool.execute(json!({
+            "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
+            "model": "test-model"
+        }))
         .await
     })
     .await
@@ -252,16 +249,13 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     ctx.session_id = "tools-e2e-continue-session".into();
     let session_id = session.subagent_session_id.clone();
     let result = with_parent_context(ctx, async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-continue-parent", async {
-            ContinueSubagentTool::new()
-                .execute(json!({
-                    "task_id": session_id,
-                    "agent_id": "researcher",
-                    "message": "looks good — proceed with continue-durable-canary"
-                }))
-                .await
-        })
-        .await
+        ContinueSubagentTool::new()
+            .execute(json!({
+                "task_id": session_id,
+                "agent_id": "researcher",
+                "message": "looks good — proceed with continue-durable-canary"
+            }))
+            .await
     })
     .await
     .expect("tool execution");

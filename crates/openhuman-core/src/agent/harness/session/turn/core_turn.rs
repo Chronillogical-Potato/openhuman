@@ -275,17 +275,14 @@ impl Agent {
             let user_msg = user_message.to_string();
             let autosave_key = format!("user_msg:{}", uuid::Uuid::new_v4());
             let chars = user_msg.chars().count();
-            // Captured *before* `tokio::spawn` — the ambient thread id is a
-            // `tokio::task_local` (see `tinyagents::thread_context`)
-            // and does not propagate into a spawned task, so it must be read
-            // on this (still-scoped) task and moved in explicitly. Tagging
+            // Captured before `tokio::spawn` from this owned session carrier.
+            // Tagging
             // this document with the live chat thread id is what lets the
             // same-session exclusion filter (`UnifiedMemory::recall` /
             // `memory_hybrid_search`) recognize and drop it later this same
             // turn, so the agent's own on-demand memory search doesn't echo
             // its own triggering request back as a "relevant" result.
-            let session_id_for_autosave =
-                crate::agent::tinyagents::thread_context::current_thread_id();
+            let session_id_for_autosave = self.thread_id.clone();
             log::debug!(
                 "[agent_autosave] enqueue user-message store key={autosave_key} chars={chars} \
                  session_id={}",
@@ -395,8 +392,8 @@ impl Agent {
             );
             None
         } else {
-            let loaded = crate::agent::goals::runtime::load_for_current_thread(
-                &self.workspace_dir,
+            let loaded = crate::agent::goals::runtime::load_for_thread(
+                &self.workspace_dir, self.thread_id(),
             )
             .await;
             // Thread-resume semantics: the user re-engaging a thread reactivates a
@@ -409,8 +406,8 @@ impl Agent {
                         crate::agent::goals::ThreadGoalStatus::Paused
                     ) =>
                 {
-                    crate::agent::goals::runtime::resume_for_current_thread(
-                        &self.workspace_dir,
+                    crate::agent::goals::runtime::resume_for_thread(
+                        &self.workspace_dir, self.thread_id(),
                     )
                     .await
                     .unwrap_or(Some(goal))

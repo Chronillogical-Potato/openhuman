@@ -474,7 +474,7 @@ impl OpenHumanAgentRunner {
     /// dropped to the default chat model once routed through the harness.
     ///
     /// **Synchronous only (B40 / Gap 4).** A flow `agent` node runs here with
-    /// no chat thread bound via `thread_context::current_thread_id()`. If the
+    /// no explicit chat thread on its run context. If the
     /// agent it runs is a delegating agent (orchestrator/subconscious) and
     /// calls `spawn_async_subagent` directly, the tool now refuses (see the
     /// `parent_thread_id.is_none()` guard in

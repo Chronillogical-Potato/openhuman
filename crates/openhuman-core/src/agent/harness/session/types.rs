@@ -226,6 +226,10 @@ pub struct Agent {
     pub(super) explicit_preferences_enabled: bool,
     pub(super) event_session_id: String,
     pub(super) event_channel: String,
+    /// Backend/session thread explicitly owned by this agent run. It is kept
+    /// separate from event identity: CLI and worker event sessions are not
+    /// necessarily user conversation threads.
+    pub(super) thread_id: Option<String>,
     /// Human-readable agent definition name (e.g. `"main"`,
     /// `"code_executor"`). Used as the `{agent}` component in session
     /// transcript paths: `sessions/DDMMYYYY/{agent}_{index}.md`.

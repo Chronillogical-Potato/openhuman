@@ -261,7 +261,7 @@ async fn missing_prompt_returns_error() {
 /// `background_delivery`'s "headless batch" path. Sets up a real parent
 /// turn context (so the call gets past the `current_parent()` /
 /// allowlist / registry checks) but deliberately does NOT wrap the call
-/// in `with_thread_id`, so `current_thread_id()` is None — the exact
+/// without an explicit parent thread, so the child has no thread — the exact
 /// condition that used to sail through to `tokio::spawn` and lose the
 /// result.
 #[tokio::test]

@@ -238,6 +238,7 @@ pub(crate) async fn run_chat_task(
     let (progress_tx, progress_rx) = tokio::sync::mpsc::channel(256);
     agent.set_on_progress(Some(progress_tx));
     agent.set_run_queue(Some(run_queue));
+    agent.set_thread_id(Some(thread_id));
     let turn_state_store = TurnStateStore::new(config.workspace_dir.clone());
     // Stamp the resolved agent onto the bridge metadata so the trace exporter
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
@@ -262,9 +263,9 @@ pub(crate) async fn run_chat_task(
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match crate::agent::tinyagents::thread_context::with_thread_id(
-        thread_id.to_string(),
-        crate::memory::source_scope::with_source_scope(profile.memory_sources.clone(), turn),
+    let result = match crate::memory::source_scope::with_source_scope(
+        profile.memory_sources.clone(),
+        turn,
     )
     .await
     {

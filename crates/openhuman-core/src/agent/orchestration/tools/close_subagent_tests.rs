@@ -21,14 +21,9 @@ async fn rejects_session_from_different_parent_thread() {
     let session = seed_session(&store, "thread-b");
 
     let res = with_parent_context(parent_context(workspace.path()), async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-a", async {
-            CloseSubagentTool::new()
-                .execute(json!({
-                    "subagent_session_id": session.subagent_session_id,
-                }))
-                .await
-        })
-        .await
+        CloseSubagentTool::new()
+            .execute(json!({ "subagent_session_id": session.subagent_session_id }))
+            .await
     })
     .await
     .unwrap();
@@ -49,14 +44,9 @@ async fn closes_session_owned_by_current_parent_thread() {
     let session = seed_session(&store, "thread-a");
 
     let res = with_parent_context(parent_context(workspace.path()), async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-a", async {
-            CloseSubagentTool::new()
-                .execute(json!({
-                    "subagent_session_id": session.subagent_session_id,
-                }))
-                .await
-        })
-        .await
+        CloseSubagentTool::new()
+            .execute(json!({ "subagent_session_id": session.subagent_session_id }))
+            .await
     })
     .await
     .unwrap();

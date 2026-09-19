@@ -111,7 +111,7 @@ impl SpawnAsyncSubagentTool {
         // Async delivery is thread-addressed: the finished result is inserted
         // back into the parent chat thread as a follow-up turn
         // (`background_delivery`). Outside a chat turn (flow `agent` nodes,
-        // CLI, cron) there is no `current_thread_id()` to deliver into, so
+        // CLI and cron runs intentionally have no parent thread to deliver into, so
         // `background_delivery::deliver_batch` logs "dropping headless batch"
         // and the (possibly real, completed) work is silently discarded — the
         // caller sees "Accepted" and never learns the result never arrived.

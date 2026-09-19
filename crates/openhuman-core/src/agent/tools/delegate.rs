@@ -246,7 +246,11 @@ impl DelegateTool {
             None,
             &self.provider_runtime_options,
             agent_config.model.clone(),
-        );
+        )
+        // `metadata` below is diagnostic only; the managed model owns the
+        // actual backend wire extension so configured delegates cannot lose
+        // their parent's thread between typed dispatch and provider invoke.
+        .with_thread_id(tool_context.and_then(ToolRunContext::thread_id));
 
         // Build the message
         let full_prompt = if context.is_empty() {

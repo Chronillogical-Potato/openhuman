@@ -155,12 +155,16 @@ impl Tool for ArchetypeDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
         execute_archetype_delegation(
             &self.agent_id.0,
             &self.tool_name,
             args,
             tool_context,
-            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
+            run_context,
         )
         .await
     }

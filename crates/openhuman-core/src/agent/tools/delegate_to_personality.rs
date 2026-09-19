@@ -106,12 +106,11 @@ impl Tool for DelegateToPersonalityTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        execute_delegate_to_personality(
-            args,
-            tool_context,
-            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
-        )
-        .await
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
+        execute_delegate_to_personality(args, tool_context, run_context).await
     }
 }
 

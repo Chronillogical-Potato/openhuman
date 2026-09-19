@@ -90,6 +90,8 @@ pub(crate) struct ChatTurnGraph {
     /// Declared sandbox mode for the top-level agent. The chat path scopes it
     /// around the shared harness so acting tools see the same mode as workers.
     pub sandbox_mode: SandboxMode,
+    /// Explicit backend/persistence thread for this root turn.
+    pub thread_id: Option<String>,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam
@@ -112,11 +114,11 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
     // on the bundle.
     let provider_id = graph.turn_models.provider_id().to_string();
     with_current_sandbox_mode(graph.sandbox_mode, async {
-        let mut run_context =
-            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
         run_context.progress = graph.on_progress.clone().or(run_context.progress);
         run_context.workspace = graph.workspace_descriptor.clone().or(run_context.workspace);
         run_context.sandbox_mode = Some(graph.sandbox_mode);
+        run_context.thread_id = graph.thread_id;
         run_turn_via_tinyagents_shared(
             run_context,
             graph.turn_models,

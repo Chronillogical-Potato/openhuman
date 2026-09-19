@@ -39,6 +39,17 @@ pub(crate) async fn build_context(
     user_msg: &str,
     min_relevance_score: f64,
 ) -> String {
+    build_context_for_thread(mem, user_msg, min_relevance_score, None).await
+}
+
+/// Build context while explicitly excluding the current conversation from
+/// cross-session recall. Root/session callers pass their owned thread id.
+pub(crate) async fn build_context_for_thread(
+    mem: &dyn Memory,
+    user_msg: &str,
+    min_relevance_score: f64,
+    thread_id: Option<&str>,
+) -> String {
     let mut context = String::new();
     let mut seen_keys = HashSet::new();
 
@@ -119,9 +130,12 @@ pub(crate) async fn build_context(
     // enforced at the SQLite layer (one DB per workspace == one user);
     // the current chat is excluded by passing `session_id` so the block
     // never duplicates the same-chat history.
-    let current_thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
+    let thread_id = thread_id
+        .map(str::trim)
+        .filter(|thread_id| !thread_id.is_empty())
+        .map(ToOwned::to_owned);
     let cross_session_opts = crate::memory::RecallOpts {
-        session_id: current_thread_id.as_deref(),
+        session_id: thread_id.as_deref(),
         cross_session: true,
         min_score: Some(min_relevance_score),
         ..Default::default()
@@ -149,7 +163,7 @@ pub(crate) async fn build_context(
             "[memory-context] cross-chat recall returned {} entries, {} after filtering (exclude={:?})",
             entries.len(),
             cross.len(),
-            current_thread_id
+            thread_id
         );
 
         if !cross.is_empty() {

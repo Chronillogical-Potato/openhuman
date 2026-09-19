@@ -81,9 +81,12 @@ impl Agent {
             .turn_model_source
             .effective_context_window(effective_model)
             .await;
-        let turn_models =
-            self.turn_model_source
-                .build(effective_model, temperature, context_window)?;
+        let turn_models = self.turn_model_source.build(
+            effective_model,
+            temperature,
+            context_window,
+            self.thread_id(),
+        )?;
 
         // Honor custom/BYOK vision models too: they can set `model_vision` even
         // when the provider capability bit is false, and must still rehydrate
@@ -206,6 +209,7 @@ impl Agent {
                         .resolved_definition()
                         .map(|definition| definition.sandbox_mode)
                         .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
+                    thread_id: self.thread_id.clone(),
                 }),
             ),
         );
@@ -525,6 +529,7 @@ impl Agent {
         // — a no-op when there is no active goal for the ambient thread.
         crate::agent::goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
+            self.thread_id(),
             input_tokens,
             output_tokens,
             turn_started.elapsed().as_secs(),

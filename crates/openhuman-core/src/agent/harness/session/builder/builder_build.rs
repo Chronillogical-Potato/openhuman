@@ -284,6 +284,7 @@ impl AgentBuilder {
             explicit_preferences_enabled: self.explicit_preferences_enabled,
             event_session_id,
             event_channel,
+            thread_id: None,
             agent_definition_name: agent_definition_name.clone(),
             // Canonical registry id — captured here at build time
             // before any caller can call `set_agent_definition_name`

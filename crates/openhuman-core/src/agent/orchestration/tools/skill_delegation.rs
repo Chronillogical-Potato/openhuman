@@ -202,12 +202,16 @@ impl Tool for SkillDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
         execute_skill_delegation(
             &self.tool_name,
             &self.connected_toolkits,
             args,
             tool_context,
-            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
+            run_context,
         )
         .await
     }

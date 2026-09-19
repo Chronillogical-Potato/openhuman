@@ -80,7 +80,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     // Phase 3 / Motion A): the harness graph names crate model types only, and
     // reads native-tool / vision capability + telemetry id off the built bundle.
     let context_window = source.effective_context_window(model).await;
-    let turn_models = source.build(model, temperature, context_window)?;
+    let turn_models = source.build(model, temperature, context_window, None)?;
 
     // Native-tool support drives the durable history-suffix dispatcher (native
     // envelope vs prompt-guided text) at the end of this turn; capture it before
@@ -115,8 +115,7 @@ pub(crate) async fn run_channel_turn_via_graph(
         context_window,
         "[channel:graph] routing channel turn through tinyagents harness"
     );
-    let mut run_context =
-        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+    let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     // The channel dispatcher owns this explicit sink. It wins over an embedder
     // scope exactly as it did before this carrier was introduced.
     run_context.progress = on_progress.clone().or(run_context.progress);

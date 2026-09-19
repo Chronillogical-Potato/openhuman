@@ -105,25 +105,22 @@ async fn rejects_if_already_worker_thread() {
     )
     .unwrap();
 
-    crate::agent::tinyagents::thread_context::with_thread_id(thread_id.to_string(), async {
-        let parent = test_parent_ctx(temp.path().to_path_buf());
-        with_parent_context(parent, async {
-            let tool = SpawnWorkerThreadTool::new();
-            let result = tool
-                .execute(json!({
-                    "agent_id": "researcher",
-                    "prompt": "do it",
-                    "task_title": "Task"
-                }))
-                .await
-                .unwrap();
+    let parent = test_parent_ctx(temp.path().to_path_buf());
+    with_parent_context(parent, async {
+        let tool = SpawnWorkerThreadTool::new();
+        let result = tool
+            .execute(json!({
+                "agent_id": "researcher",
+                "prompt": "do it",
+                "task_title": "Task"
+            }))
+            .await
+            .unwrap();
 
-            assert!(result.is_error);
-            assert!(result
-                .output()
-                .contains("cannot spawn other worker threads"));
-        })
-        .await;
+        assert!(result.is_error);
+        assert!(result
+            .output()
+            .contains("cannot spawn other worker threads"));
     })
     .await;
 }
@@ -145,25 +142,22 @@ async fn rejects_if_has_parent_thread_id() {
     )
     .unwrap();
 
-    crate::agent::tinyagents::thread_context::with_thread_id(thread_id.to_string(), async {
-        let parent = test_parent_ctx(temp.path().to_path_buf());
-        with_parent_context(parent, async {
-            let tool = SpawnWorkerThreadTool::new();
-            let result = tool
-                .execute(json!({
-                    "agent_id": "researcher",
-                    "prompt": "do it",
-                    "task_title": "Task"
-                }))
-                .await
-                .unwrap();
+    let parent = test_parent_ctx(temp.path().to_path_buf());
+    with_parent_context(parent, async {
+        let tool = SpawnWorkerThreadTool::new();
+        let result = tool
+            .execute(json!({
+                "agent_id": "researcher",
+                "prompt": "do it",
+                "task_title": "Task"
+            }))
+            .await
+            .unwrap();
 
-            assert!(result.is_error);
-            assert!(result
-                .output()
-                .contains("cannot spawn other worker threads"));
-        })
-        .await;
+        assert!(result.is_error);
+        assert!(result
+            .output()
+            .contains("cannot spawn other worker threads"));
     })
     .await;
 }

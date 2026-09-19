@@ -47,7 +47,7 @@ The **adapter seam** between OpenHuman and the vendored [`tinyagents`](../../../
 | `summarize.rs` | `ModelSummarizer` / `FaultTolerantCachingSummarizer` plus a context-window-aware `SummarizationPolicy` driving the crate's `ContextCompressionMiddleware`. |
 | `embeddings.rs` | `ProviderEmbeddingModel`: adapts `crate::inference::embedding_host::EmbeddingProvider` onto the crate's `EmbeddingModel` trait. |
 | `retriever.rs` | `recall_through_facade` / `build_retriever`: wraps `Memory::recall`, projects onto the crate's `ScoredDoc`, applies the `path_scope` dedupe rule, emits `MemoryLoaded`. |
-| `thread_context.rs` | Task-local ambient `thread_id` (`with_thread_id`, `current_thread_id`) read by the OpenAI-compatible provider when serialising request bodies. |
+| `host/run_context.rs` | Explicit run-owned `thread_id` inherited by children and supplied to managed backend construction. |
 | `todos.rs` | `todos_store` / `scratch_todos_store` (the crate `Store` behind per-thread agent todos, `tinyagents_graph::todos`). |
 | `config.rs` | Maps OpenHuman's `Config` (including model pins) onto `tinyagents_harness::config` structs. |
 | `*_tests.rs` | Sibling test suites for each file/part group above. |
@@ -59,7 +59,7 @@ Most of the module is `pub(crate)` or private. The `pub` items, per `mod.rs`:
 - `config::*`: the host half of the generic-harness config seam.
 - `payload_summarizer::*`: `pub` since issue #6014 so an embedder can pass its own `Arc<dyn PayloadSummarizer>` to `AgentBuilder::payload_summarizer` (the default dispatches a sub-agent, which some embedders cannot do).
 - `routes::ResolvedRouteMiddleware`: records canonical response metadata in the explicit run context; `TinyagentsTurnOutcome` carries it to the bus.
-- `thread_context::*`, `todos::*`, `host::*` (all ten `OpenHuman*` adapter structs), and `TurnModelSource`.
+- `todos::*`, `host::*` (all ten `OpenHuman*` adapter structs), and `TurnModelSource`.
 
 Within the crate the entry point is `run_turn_via_tinyagents_shared` (`pub(crate)`); `run_turn_via_tinyagents` is `#[cfg(test)]` only.
 
