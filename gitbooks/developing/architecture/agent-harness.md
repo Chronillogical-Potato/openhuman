@@ -490,7 +490,7 @@ When the backend doesn't surface a charged amount (older builds, providers that 
 
 `OpenHumanRunContext` is now the live carrier at the shared chat, channel, and
 sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
-dispatch state, thread, route slot, cancellation token, and workspace grant,
+stop hooks, dispatch state, thread, route slot, cancellation token, and workspace grant,
 then pass an owned context to the runner; a recursive sub-agent forks it with
 `child()`, preserving shared cancellation/policy handles while isolating route
 observation and usage accounting. The shared runner creates

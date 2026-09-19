@@ -88,6 +88,7 @@ impl OpenHumanRunContext {
         let mut context = Self::new();
         context.origin = crate::agent::turn_origin::current();
         context.progress = crate::agent::progress_sink::current_progress_sink();
+        context.stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
         context.dispatch = crate::agent::harness::turn_dispatch_guard::current();
         context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
         if let Some(slot) = crate::agent::tinyagents::current_route_slot() {

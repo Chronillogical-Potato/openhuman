@@ -79,21 +79,21 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 29,
+    "line": 27,
     "text": "use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 201,
+    "line": 199,
     "text": "pub(crate) async fn run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 259,
+    "line": 257,
     "text": "} = assemble_turn_harness(",
     "occurrence": 1
   },
@@ -1297,35 +1297,35 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 91,
+    "line": 92,
     "text": "context.dispatch = crate::agent::harness::turn_dispatch_guard::current();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 92,
+    "line": 93,
     "text": "context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 93,
+    "line": 94,
     "text": "if let Some(slot) = crate::agent::tinyagents::current_route_slot() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 96,
+    "line": 97,
     "text": "if let Some(cancellation) = crate::agent::tinyagents::current_run_cancellation() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 99,
+    "line": 100,
     "text": "context.workspace = crate::agent::turn_workspace::current()",
     "occurrence": 1
   },
@@ -1507,28 +1507,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 34,
+    "line": 32,
     "text": "use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 589,
+    "line": 587,
     "text": "let run_result = crate::agent::tinyagents::with_route_slot(run_route_slot, async move {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 590,
+    "line": 588,
     "text": "crate::agent::tinyagents::thread_context::with_thread_id(run_thread_id, async move {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 591,
+    "line": 589,
     "text": "with_run_cancellation(cancellation.clone(), async {",
     "occurrence": 1
   },

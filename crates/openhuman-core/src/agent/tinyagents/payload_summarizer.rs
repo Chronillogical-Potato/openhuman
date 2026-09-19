@@ -57,9 +57,9 @@ use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, LazyLock, Mutex};
-use tinyagents_harness::context::RunContext;
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
-use tinyagents_harness::subagent::SubAgent;
+use tinyinference_llm::message::Message;
 use tracing::{debug, info, warn};
 
 use crate::agent::harness::definition::{AgentDefinition, PromptSource};
@@ -323,7 +323,7 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         // Checked before the breaker: a summary we already have costs nothing,
         // so a broken summarizer is no reason to withhold it.
         let cache_key = summary_cache_key(
-            parent_ctx.thread_id().map(str::to_owned).as_deref(),
+            parent_ctx.thread_id().map(|thread| thread.as_str()),
             tool_name,
             parent_task_hint,
             raw,
@@ -366,6 +366,23 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
             .await;
         self.handle_summarizer_result(tool_name, raw, started, outcome, cache_key)
     }
+}
+
+/// Create the internal summarizer's child context without rebuilding any of
+/// the parent's live capabilities. This deliberately pairs TinyAgents'
+/// canonical `RunContext::child` with OpenHuman's host-state `child` rule.
+fn unary_child_context(
+    parent_ctx: &RunContext<OpenHumanRunContext>,
+    agent_id: &str,
+    max_iterations: usize,
+    max_output_tokens: u32,
+) -> tinyagents_harness::Result<RunContext<OpenHumanRunContext>> {
+    let child_config = RunConfig::new(format!("{agent_id}-summary"))
+        .with_max_model_calls(max_iterations)
+        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
+        .with_max_depth(parent_ctx.config.max_depth())
+        .with_max_turn_output_tokens(max_output_tokens);
+    parent_ctx.child(child_config, parent_ctx.data.child())
 }
 
 impl SubagentPayloadSummarizer {
@@ -411,13 +428,7 @@ impl SubagentPayloadSummarizer {
             .register_model(&model, Arc::new(provider_model))
             .set_default_model(&model);
 
-        let child = SubAgent::new(
-            self.definition.id.clone(),
-            self.definition.when_to_use.clone(),
-            Arc::new(harness),
-        )
-        .with_system_prompt(system_prompt);
-        // Run the summarizer UNARY (non-streaming), not via `invoke_in_parent`.
+        // Run the summarizer UNARY (non-streaming), not via `SubAgent::invoke_in_parent`.
         //
         // `invoke_in_parent` inherits `parent.streaming`, which is `true` for a
         // chat turn, so the child runs the streaming loop and its per-token
@@ -430,25 +441,23 @@ impl SubagentPayloadSummarizer {
         // summarizer: it exists to compress a payload for the ORCHESTRATOR'S
         // CONTEXT, and its only consumer here is `run.text()` below.
         //
-        // `invoke_with_events` runs the child through the unary path
-        // (`run_child(.., streaming = false)`), which per its own contract
-        // "leav[es] the parent's event stream unchanged", while still sharing
-        // the sink so the sub-agent lifecycle events (started/completed) keep
-        // reaching observers. Mirrors `silent_completion`, which is
-        // likewise deliberately silent about an internal repair call.
-        //
-        // Two bits of config that `invoke_in_parent` threaded are dropped by
-        // this entry point and neither matters here: the child `thread_id` (only
-        // used to attribute events we no longer stream) and the inherited
-        // `max_turn_output_tokens` (already enforced independently by the
-        // `MaxTokensModel` wrapper above).
-        let run = child
-            .invoke_with_events(
+        // `RunContext::child` is the canonical inheritance operation: it keeps
+        // the parent cancellation, workspace, stores, events, steering, thread,
+        // and run lineage, while `OpenHumanRunContext::child` isolates the host
+        // route and usage observations. Calling `invoke_in_context` then pins
+        // this internal turn to TinyAgents' unary path, so summary text cannot
+        // become a user-visible streaming delta.
+        let child_context = unary_child_context(
+            parent_ctx,
+            &self.definition.id,
+            self.definition.max_iterations,
+            max_output_tokens,
+        )?;
+        let run = harness
+            .invoke_in_context(
                 &(),
-                parent_ctx.data.child(),
-                parent_ctx.depth(),
-                prompt,
-                &parent_ctx.events,
+                child_context,
+                vec![Message::system(system_prompt), Message::user(prompt)],
             )
             .await?;
         Ok(run.text().unwrap_or_default())

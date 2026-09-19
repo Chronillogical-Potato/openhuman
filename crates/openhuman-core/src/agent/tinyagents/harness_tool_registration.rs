@@ -31,7 +31,7 @@ use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 #[allow(clippy::too_many_arguments)]
 pub(super) fn register_turn_tools_and_agents(
     harness: &mut AgentHarness<(), OpenHumanRunContext>,
-    capability_registry: &mut CapabilityRegistry<OpenHumanRunContext>,
+    capability_registry: &mut CapabilityRegistry<()>,
     tool_sets: &[Arc<Vec<Box<dyn tinytools::Tool>>>],
     allowed: &Option<HashSet<String>>,
     early_exit_set: &HashSet<&str>,
@@ -172,7 +172,7 @@ pub(super) fn register_turn_tools_and_agents(
     // into that stream. The harness is deliberately NOT switched over to these
     // projections yet — that glue swap is explicitly deferred.
     let projected_models = capability_registry.to_model_registry();
-    let projected_tools = capability_registry.to_tool_registry::<()>();
+    let projected_tools = capability_registry.to_tool_registry::<OpenHumanRunContext>();
     tracing::debug!(
         models = projected_models.names().len(),
         tools = projected_tools.names().len(),

@@ -159,8 +159,7 @@ pub(super) fn assemble_turn_harness(
             "[cache] response cache attached (deterministic internal run)"
         );
     }
-    let mut capability_registry: CapabilityRegistry<OpenHumanRunContext> =
-        CapabilityRegistry::new();
+    let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
 
     let cursor: IterationCursor = Arc::default();
     // Shared `call_id → tool_name` map: the forwarder records the name on

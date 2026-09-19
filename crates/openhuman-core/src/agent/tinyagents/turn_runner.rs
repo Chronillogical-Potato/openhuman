@@ -17,8 +17,6 @@ use anyhow::Result;
 use futures::StreamExt;
 use tinyagents_harness::agent_loop::AgentStreamItem;
 use tinyagents_harness::context::RunConfig;
-#[cfg(test)]
-use tinyagents_harness::context::RunContext;
 use tinyagents_harness::events::EventSink;
 use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;

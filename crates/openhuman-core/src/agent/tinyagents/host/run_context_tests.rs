@@ -49,6 +49,21 @@ fn child_inherits_tree_handles_but_isolates_observations_and_usage() {
 }
 
 #[tokio::test]
+async fn snapshots_scoped_stop_hooks_into_the_explicit_carrier() {
+    let hooks: Vec<std::sync::Arc<dyn crate::agent::stop_hooks::StopHook>> =
+        vec![std::sync::Arc::new(
+            crate::agent::stop_hooks::MaxIterationsStopHook::new(3),
+        )];
+
+    crate::agent::stop_hooks::with_stop_hooks(hooks, async {
+        let captured = OpenHumanRunContext::from_current_scopes();
+        assert_eq!(captured.stop_hooks.len(), 1);
+        assert_eq!(captured.stop_hooks[0].name(), "max_iterations");
+    })
+    .await;
+}
+
+#[tokio::test]
 async fn snapshots_live_root_scopes_before_child_dispatch() {
     let root = tempfile::tempdir().expect("workspace");
     let (progress, _rx) = tokio::sync::mpsc::channel(1);
