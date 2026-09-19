@@ -94,7 +94,11 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
         .as_ref()
         .expect("accepted route reaches sidecar");
     assert_eq!(
-        (&route.provider, &route.model, &route.route),
+        (
+            route.provider.as_str(),
+            route.model.as_str(),
+            route.route.as_str()
+        ),
         ("openhuman", "chat-concrete", "chat-v1")
     );
     assert_eq!(observed.tool_calls, 1);

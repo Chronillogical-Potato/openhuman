@@ -1,6 +1,7 @@
 use super::*;
 use crate::agent::tinyagents::TurnModelSource;
 use std::sync::Arc;
+use tinyagents_harness::host::{ContextComposer, TurnContextRequest};
 
 fn hosted_base() -> Arc<crate::agent::tinyagents::host::OpenHumanHostBase> {
     Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
