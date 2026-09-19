@@ -91,8 +91,9 @@ RPC/tool formatting, and OpenHuman's worktree policy.
 - `AgentOrchestrationSession`, `OrchestrationError` — `ops.rs`.
 - `AgentSnapshot`, `OrchestrationTaskStatus`, `SpawnAgentRequest`/`Response`,
   `WaitAgentOptions`/`Response` — `types.rs`.
-- `OpenHumanWorktreeIsolation`, `BaseRef`, `WorktreeError`, `WorktreeStatus` —
-  `worktree.rs`.
+- `OpenHumanWorktreeIsolation` — `worktree.rs`; direct TinyAgents worktree
+  types are `GitWorktreeBaseRef`, `GitWorktreeError`, and
+  `GitWorktreeStatus` from `tinyagents_harness::workspace`.
 - Controller schema/registration pairs re-exported from `mod.rs`:
   `all_agent_team_*`, `all_command_center_*`, `all_workflow_run_*`,
   `all_worktree_*`, `all_subagent_control_*`.
