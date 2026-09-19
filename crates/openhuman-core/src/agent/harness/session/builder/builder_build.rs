@@ -292,7 +292,6 @@ impl AgentBuilder {
             // `refresh_delegation_tools` to re-resolve the agent's
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
-            active_profile_id: self.active_profile_id,
             personality_soul_md: self.personality_soul_md,
             personality_memory_md: self.personality_memory_md,
             memory_subdir,

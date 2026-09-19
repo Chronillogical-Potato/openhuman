@@ -559,20 +559,6 @@ async fn dedicated_profile_experience_recall_merges_shared_legacy_store() {
         .tools(vec![])
         .memory(dedicated)
         .shared_experience_memory(Some(shared))
-        .tool_dispatcher(Box::new(XmlDialect))
-        .workspace_dir(tmp.path().to_path_buf())
-        .event_context("profile-experience-test", "web_chat")
-        .active_profile_id(Some("alice".into()))
-        .profile_memory_storage("memory-alice".into(), "session_raw-alice".into())
-        .learning_enabled(true)
-        .build()
-        .unwrap();
-
-    let enriched = agent
-        .inject_agent_experience_context(
-            "How should I deploy the Rust service?",
-            "original prompt".into(),
-        )
         .await;
 
     assert!(enriched.contains("Legacy shared deployment guidance"));

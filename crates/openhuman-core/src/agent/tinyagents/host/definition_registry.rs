@@ -54,7 +54,7 @@
 //!
 //! [`ResolvedScope`] therefore models wildcard-ness explicitly and never infers
 //! it from emptiness. A genuinely empty scope emits
-//! [`PROFILE_NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
+//! [`NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
 //! and a wildcard-with-denylist is materialized against
 //! [`Self::with_registered_tools`], failing closed when that is absent.
 //!
@@ -63,11 +63,6 @@
 //! `delegate_to_integrations_agent` tool. Emitting a synthetic id here would
 //! invent a delegate the host never authorized.
 //!
-//! **5. Profile model overrides are deliberately not applied.**
-//! `AgentProfile::model_override` has no verified host consumer on the
-//! definition path (the web-chat `model_override` request parameter is a
-//! different value, applied to `Config::default_model`), and the model seam is
-//! `ModelResolver`'s, not the catalogue's. See the `TODO(phase4)` below.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -480,14 +475,6 @@ impl DefinitionRegistry for OpenHumanDefinitionRegistry {
             .unwrap_or_default())
     }
 }
-
-// TODO(phase4): `AgentProfile::model_override` is not applied to the projected
-// `model` field. It has no verified consumer on the host definition path today
-// (`web_chat::session::build_session_agent` applies a *request* `model_override`
-// to `Config::default_model`, which is a different value), and per-session model
-// choice belongs to the `ModelResolver` seam rather than the catalogue. If the
-// host does want a personality to re-pin an agent's model, it likely belongs in
-// the `ModelResolver` adapter reading `profiles::AgentProfile::model_override`.
 
 #[cfg(test)]
 #[path = "definition_registry_tests.rs"]

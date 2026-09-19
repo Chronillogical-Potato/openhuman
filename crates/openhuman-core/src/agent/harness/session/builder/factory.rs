@@ -1031,7 +1031,6 @@ impl Agent {
                 security_policy: security,
                 memory: agent.memory_arc(),
                 shared_experience_memory: agent.shared_experience_memory.clone(),
-                profile_id: agent.active_profile_id.clone(),
                 post_turn_hooks: agent.post_turn_hooks.clone(),
             })
         });

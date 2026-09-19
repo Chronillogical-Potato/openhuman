@@ -251,17 +251,6 @@ pub struct Agent {
     ///
     /// [`AgentDefinitionRegistry`]: crate::agent::harness::definition::AgentDefinitionRegistry
     pub(super) agent_definition_id: String,
-    /// Id of the agent profile this session runs under, when the turn was
-    /// launched with an active profile (`profiles` domain). `None` for the
-    /// default (profile-less) session — the byte-identical legacy path.
-    ///
-    /// Set once at build time from the resolved [`AgentProfile`] and never
-    /// rewritten. Consumed by the profile-scoped agent-experience capture +
-    /// retrieval (1c): records are stamped with this id and only records
-    /// matching it (plus unstamped legacy records) are recalled. The same
-    /// active id also arms the tool-layer sibling-workspace guard, regardless
-    /// of whether this profile uses a dedicated cwd.
-    pub(super) active_profile_id: Option<String>,
     /// Profile-local SOUL.md resolved when the session is built. When set,
     /// IdentitySection uses it instead of the workspace-root identity.
     pub(super) personality_soul_md: Option<String>,
@@ -565,10 +554,6 @@ pub struct AgentBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
-    /// Forwarded to [`Agent::active_profile_id`] at `build()` time. `None`
-    /// (default) means the profile-less session; the profile-launching callers
-    /// (web chat, task dispatcher, cron) set the active profile id here.
-    pub(super) active_profile_id: Option<String>,
     /// Forwarded to [`Agent::personality_soul_md`] at build time.
     pub(super) personality_soul_md: Option<String>,
     /// Forwarded to [`Agent::personality_memory_md`] at build time.

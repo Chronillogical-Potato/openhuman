@@ -205,10 +205,7 @@ impl Agent {
     pub fn host_experience_store(
         &self,
     ) -> crate::agent::tinyagents::host::OpenHumanExperienceStore {
-        crate::agent::tinyagents::host::OpenHumanExperienceStore::with_profile(
-            self.memory_arc(),
-            self.active_profile_id.clone(),
-        )
+        crate::agent::tinyagents::host::OpenHumanExperienceStore::new(self.memory_arc())
         .with_shared_recall_memory(self.shared_experience_memory.clone())
     }
 

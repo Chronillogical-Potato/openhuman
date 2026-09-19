@@ -136,11 +136,6 @@ pub struct OpenHumanExperienceStore {
     /// deliberately do **not** fan out: the profile-local store stays the sole
     /// write target so new records land inside the profile subtree.
     shared_recall_store: Option<AgentExperienceStore>,
-    /// Agent profile the session runs under, stamped onto every write and used
-    /// to partition recall. `None` is the profile-less session, whose records
-    /// stay unstamped and are visible to every profile — the documented legacy
-    /// behaviour, not a fallback we invented.
-    profile_id: Option<String>,
     /// Maximum prior attempts returned by one `recall_for`.
     max_hits: usize,
 }
@@ -149,28 +144,14 @@ impl OpenHumanExperienceStore {
     /// Adapter over `memory`, with no profile partition and the default recall
     /// bound.
     pub fn new(memory: Arc<dyn Memory>) -> Self {
-        Self::with_profile(memory, None)
-    }
-
-    /// [`Self::new`] carrying the session's agent profile id.
-    ///
-    /// Blank ids are normalized to `None` so a caller threading an empty string
-    /// through does not create a distinct, unreachable partition — the same
-    /// normalization `stable_experience_id_for_profile` applies internally.
-    pub fn with_profile(memory: Arc<dyn Memory>, profile_id: Option<String>) -> Self {
-        Self::from_store(AgentExperienceStore::new(memory), profile_id)
+        Self::from_store(AgentExperienceStore::new(memory))
     }
 
     /// Adapter over an already-opened [`AgentExperienceStore`].
-    ///
-    /// The RPC layer opens per-profile stores against different memory
-    /// subtrees; this constructor lets a caller that has already resolved the
-    /// right one hand it over instead of re-deriving it.
-    pub fn from_store(store: AgentExperienceStore, profile_id: Option<String>) -> Self {
+    pub fn from_store(store: AgentExperienceStore) -> Self {
         Self {
             store,
             shared_recall_store: None,
-            profile_id: normalized_profile(profile_id.as_deref()),
             max_hits: DEFAULT_MAX_HITS,
         }
     }
@@ -252,7 +233,7 @@ impl OpenHumanExperienceStore {
                 &task_summary,
                 std::slice::from_ref(&agent_key),
                 outcome,
-                self.profile_id.as_deref(),
+                None,
             ),
             // Left at zero so `put` stamps creation time itself, and preserves
             // the original `created_at_ms` when this id already exists.
@@ -263,7 +244,7 @@ impl OpenHumanExperienceStore {
             source: ExperienceSource::ToolLoop,
             agent_id: normalized_profile(Some(&exp.agent_id)),
             entrypoint: None,
-            profile_id: self.profile_id.clone(),
+            profile_id: None,
             // `capture.rs` fingerprints with the same public helper over an
             // empty sequence and a `Success` outcome, so fingerprints agree
             // across both writers for the same task text.
@@ -399,7 +380,6 @@ impl ExperienceStore for OpenHumanExperienceStore {
             agent_id = %exp.agent_id,
             experience_id = %record.id,
             success = exp.success,
-            profile_id = ?self.profile_id,
             "[tinyagents][experience] recording procedural experience"
         );
         self.store.put(record).await.map_err(|e| {
@@ -420,7 +400,7 @@ impl ExperienceStore for OpenHumanExperienceStore {
             tags: Vec::new(),
             agent_id: normalized_profile(Some(agent_id)),
             entrypoint: None,
-            profile_id: self.profile_id.clone(),
+            profile_id: None,
             // Over-fetch, because the agent filter below runs *after* the
             // domain has already truncated. Agent identity is only a score
             // bonus there, so another agent's highly-relevant records can fill

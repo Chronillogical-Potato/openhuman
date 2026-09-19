@@ -34,7 +34,9 @@ pub(super) async fn run_agent_job(
     // its model hint, iteration cap, and prompt body so the cron job
     // runs with the definition's constraints instead of the generic
     // Agent::from_config defaults.
-    if let Some(ref agent_id) = job.agent_id {
+    let selected_agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
+    {
+        let agent_id = selected_agent_id;
         if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global()
         {
             if let Some(def) = registry.get(agent_id) {
@@ -109,13 +111,13 @@ pub(super) async fn run_agent_job(
                 tracing::warn!(
                     job_id = %job.id,
                     agent_id = %agent_id,
-                    "[cron] agent_id not found in registry — falling back to generic agent"
+                    "[cron] agent_id not found in registry — falling back to canonical orchestrator"
                 );
             }
         } else {
             tracing::warn!(
                 job_id = %job.id,
-                "[cron] AgentDefinitionRegistry not initialized — falling back to generic agent"
+                "[cron] AgentDefinitionRegistry not initialized — falling back to canonical orchestrator"
             );
         }
     }
@@ -237,8 +239,8 @@ pub(super) fn build_agent_for_cron_job(
     config: &Config,
     job: &CronJob,
 ) -> anyhow::Result<BuiltCronAgent> {
-    if let Some(agent_id) = job.agent_id.as_deref() {
-        match Agent::from_config_for_agent(config, agent_id) {
+    let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
+    match Agent::from_config_for_agent(config, agent_id) {
             Ok(agent) => {
                 tracing::debug!(
                     job_id = %job.id,
@@ -252,12 +254,10 @@ pub(super) fn build_agent_for_cron_job(
                     job_id = %job.id,
                     agent_id = %agent_id,
                     error = %e,
-                    "[cron] failed to build agent from definition; falling back to generic agent"
+                    "[cron] failed to build agent from definition; falling back to canonical orchestrator"
                 );
-                Agent::from_config(config).map(|agent| BuiltCronAgent { agent })
+                Agent::from_config_for_agent(config, "orchestrator")
+                    .map(|agent| BuiltCronAgent { agent })
             }
-        }
-    } else {
-        Agent::from_config(config).map(|agent| BuiltCronAgent { agent })
     }
 }

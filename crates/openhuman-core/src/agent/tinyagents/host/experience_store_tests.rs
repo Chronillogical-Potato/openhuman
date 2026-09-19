@@ -68,7 +68,7 @@ async fn recall_spans_the_shared_store_while_writes_stay_profile_local() {
         .await
         .expect("seed the shared store");
 
-    let store = OpenHumanExperienceStore::with_profile(local.clone(), None)
+    let store = OpenHumanExperienceStore::new(local.clone())
         .with_shared_recall_memory(Some(shared.clone()));
 
     // Recall reaches the shared store even though nothing was written to
@@ -327,27 +327,6 @@ fn partial_outcomes_read_as_unsuccessful() {
     assert!(mapped.outcome.contains("do not repeat the failed call"));
 }
 
-#[test]
-fn profile_ids_partition_the_storage_key() {
-    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let none = OpenHumanExperienceStore::with_profile(memory.clone(), None);
-    let alice = OpenHumanExperienceStore::with_profile(memory.clone(), Some("alice".to_string()));
-    let blank = OpenHumanExperienceStore::with_profile(memory, Some("   ".to_string()));
-
-    let e = exp("planner", "migrate the schema", "ok", true);
-    let none_id = none.to_domain(&e).id;
-    let alice_id = alice.to_domain(&e).id;
-    // A blank profile id must normalize to the profile-less partition, not
-    // create a third unreachable one.
-    assert_eq!(none_id, blank.to_domain(&e).id);
-    assert_ne!(none_id, alice_id);
-    assert_eq!(alice.to_domain(&e).profile_id.as_deref(), Some("alice"));
-    assert!(none.to_domain(&e).profile_id.is_none());
-}
-
-#[test]
-fn long_prose_is_truncated_by_characters_not_bytes() {
-    let long = "é".repeat(MAX_SUMMARY_CHARS + 50);
     let record = adapter().to_domain(&exp("planner", &long, "ok", true));
     assert_eq!(record.task_summary.chars().count(), MAX_SUMMARY_CHARS);
 }

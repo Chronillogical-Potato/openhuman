@@ -6443,68 +6443,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'агенты',
   'orchestration.detail.childRefs': 'Дочерние агенты',
   'orchestration.detail.synthesis': 'Итоговый синтез',
-  'settings.profiles.title': 'Профили агента',
-  'settings.profiles.subtitle':
-    'Агенты с характером: у каждого своя душа, память, коннекторы и навыки.',
-  'settings.profiles.menuDesc': 'Создавайте профили агента и управляйте ими',
-  'settings.profiles.new': 'Новый профиль',
-  'settings.profiles.empty': 'Профилей агента пока нет',
-  'settings.profiles.loadError': 'Не удалось загрузить профили',
-  'settings.profiles.active': 'Активный',
-  'settings.profiles.setActive': 'Сделать активным',
-  'settings.profiles.sourceBuiltIn': 'Встроенный',
-  'settings.profiles.sourceCustom': 'Пользовательский',
-  'settings.profiles.deleteConfirm': 'Удалить этот профиль? Это действие нельзя отменить.',
-  'settings.profiles.editor.createTitle': 'Новый профиль',
-  'settings.profiles.editor.editTitle': 'Изменить профиль',
-  'settings.profiles.editor.name': 'Имя',
-  'settings.profiles.editor.id': 'Идентификатор',
-  'settings.profiles.editor.idHint': 'Только строчные буквы, цифры и дефисы.',
-  'settings.profiles.editor.description': 'Описание',
-  'settings.profiles.editor.soul': 'Душа (SOUL.md)',
-  'settings.profiles.editor.soulHint':
-    'Пользовательская идентичность этого профиля. Пусто: используется SOUL.md рабочей области.',
-  'settings.profiles.editor.baseAgent': 'Базовый агент',
-  'settings.profiles.editor.baseAgentHint':
-    'Под каким определением агента работает этот профиль (например, orchestrator).',
-  'settings.profiles.editor.model': 'Модель',
-  'settings.profiles.editor.modelHint':
-    'Необязательная замена модели. Пусто: наследует значение по умолчанию.',
-  'settings.profiles.editor.temperature': 'Температура',
-  'settings.profiles.editor.systemPromptSuffix': 'Суффикс системного запроса',
-  'settings.profiles.editor.agentConversations': 'Вспоминать разговоры агента',
-  'settings.profiles.editor.agentConversationsHint':
-    'Включать память прошлых и межчатовых разговоров в контекст этого профиля.',
-  'settings.profiles.editor.memorySources': 'Источники памяти',
-  'settings.profiles.editor.memorySourcesHint':
-    'Источники памяти, из которых вспоминает этот профиль.',
-  'settings.profiles.editor.connectors': 'Коннекторы',
-  'settings.profiles.editor.connectorsHint':
-    'Наборы инструментов Composio, которые может использовать этот профиль.',
-  'settings.profiles.editor.skills': 'Навыки',
-  'settings.profiles.editor.skillsHint':
-    'Рабочие процессы, которые этот профиль может перечислять и запускать.',
-  'settings.profiles.editor.mcpServers': 'Серверы MCP',
-  'settings.profiles.editor.mcpServersHint':
-    'Серверы MCP, к которым может обращаться этот профиль.',
-  'settings.profiles.editor.dedicatedMemory': 'Выделенная память',
-  'settings.profiles.editor.dedicatedMemoryHint':
-    'Выделить этому профилю собственную память вместо общей памяти по умолчанию.',
-  'settings.profiles.editor.dedicatedWorkspace': 'Выделенное рабочее пространство',
-  'settings.profiles.editor.dedicatedWorkspaceHint':
-    'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
-  'settings.profiles.editor.soulMdFile': 'Файл SOUL.md',
-  'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
-  'settings.profiles.editor.skillsDir': 'Каталог навыков',
-  'settings.profiles.editor.skillsDirHint':
-    'Файлы SKILL.md, размещённые здесь, доступны только этому профилю.',
-  'settings.profiles.editor.all': 'Все',
-  'settings.profiles.editor.selected': 'Выбранные',
-  'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',
-  'settings.profiles.editor.removeAria': 'Удалить {item}',
-  'settings.profiles.editor.notFound': 'Профиль не найден',
-  'settings.profiles.editor.saving': 'Сохранение…',
-  'settings.profiles.editor.idRequired': 'Идентификатор профиля не может быть пустым',
 
   // User-actionable runtime errors (#3931)
   'userErrors.title': 'Требуется действие',

@@ -22,7 +22,6 @@ Hermes-style **procedural experience memory** for agents. Captures what tool seq
 | `crates/openhuman-core/src/agent/experience/store.rs` | `AgentExperienceStore` over `Arc<dyn Memory>`: `put`/`list`/`list_for_profile`/`dismiss`/`dismiss_for_profile`/`retrieve`, `ExperienceQuery`, `retrieve_across_stores` (merge + dedupe over several physical stores), `experience_matches_profile`, the `AGENT_EXPERIENCE_NAMESPACE` const, base64 payload encode/decode, and the lexical/tool/tag overlap scoring (`score_experience`). |
 | `crates/openhuman-core/src/agent/experience/capture.rs` | `AgentExperienceCaptureHook` — a `PostTurnHook` that mines `TurnContext.tool_calls` into experience candidates (`successful_multi_tool_experience`, `repeated_failure_experiences`, `partial_success_experience`), stamps the active profile, and persists them. |
 | `crates/openhuman-core/src/agent/experience/prompt.rs` | `render_experience_hits` (byte-capped markdown under `AGENT_EXPERIENCE_HEADING = "## Relevant Operating Experience"`) and `prepend_experience_block`. |
-| `crates/openhuman-core/src/agent/experience/ops.rs` | `DriverMemory` (implements `Memory` over the bound `MemoryProvider`; `for_config` / `for_subtree`), the RPC param types, and the entry points returning `RpcOutcome<T>` (`capture`/`retrieve`/`list`/`dismiss`). `open_store` / `open_query_stores` resolve the memory subtree(s) for a `profile_id` via `crate::agent::profiles` and bind them with `DriverMemory::for_subtree`. |
 | `crates/openhuman-core/src/agent/experience/schemas.rs` | Controller schemas + `handle_*` dispatchers; `all_controller_schemas` / `all_registered_controllers`. |
 
 ## Public surface
@@ -77,8 +76,6 @@ Records are stored through the `Memory` trait (no dedicated DB), served by `Driv
 
 - `crate::memory` — `Memory` trait, `MemoryCategory`, `memory::binding::{for_config, for_subtree}` (driver binding behind `DriverMemory`), `memory::api::{provider, recall, types, health}` (the provider contract `DriverMemory` adapts), `memory::safety::sanitize_text` (store-time scrub), `memory::source_scope::as_bus_scope` (explicit recall scope), `memory::preferences::recall_by_vector_over`.
 - `crate::config` — `Config::load_or_init` for `workspace_dir` and `subsystems.memory` when the RPC handlers bind a store.
-- `crate::agent::profiles` — `load_profiles`, `effective_memory_suffix`, `memory_subdir_for_suffix` to map a `profile_id` to its memory subtree.
-- `crate::agent::hooks` — `PostTurnHook`, `TurnContext`, `ToolCallRecord` (capture hook contract / turn inputs).
 - `crate::core::all` — `ControllerFuture`, `RegisteredController` for RPC registration.
 - `crate::core` — `ControllerSchema`, `FieldSchema`, `TypeSchema` (schema types); `crate::rpc::RpcOutcome`.
 - `crate::memory::tool_memory::test_helpers::MockMemory` and `crate::memory::guard::test_support::RecordingProvider` — tests only.

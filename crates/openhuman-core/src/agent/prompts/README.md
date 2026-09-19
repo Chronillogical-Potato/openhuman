@@ -88,9 +88,6 @@ Other domains contribute prompt content without living in this directory:
   (`PromptSection` impls, config-gated; `agent/harness/session/builder/factory.rs`
   and `.../builder/helpers.rs` append them with `add_section` /
   `insert_section_before` when learning or explicit preferences are enabled).
-- `agent/profiles/prompt_section.rs` — `AgentProfilePromptSection`, the
-  `## Agent profile` persona body plus the optional cross-profile workspace
-  notice; added by `agent/harness/session/builder/factory.rs`.
 - `tools/agent_policy/prompt.rs` — `render_tool_policy_boundary` is not a
   section: `agent/harness/session/turn/context.rs` string-appends its
   `## Tool Policy Boundary` block after the builder output so the

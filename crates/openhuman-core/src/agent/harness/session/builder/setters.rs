@@ -38,7 +38,6 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
-            active_profile_id: None,
             personality_soul_md: None,
             personality_memory_md: None,
             memory_subdir: None,
@@ -206,18 +205,6 @@ impl AgentBuilder {
         descriptor: Option<tinytools::WorkspaceDescriptor>,
     ) -> Self {
         self.workspace_descriptor = descriptor;
-        self
-    }
-
-    /// Sets the active agent-profile id for this session (1a plumbing).
-    ///
-    /// `None` (default) is the profile-less session. When set, the id is
-    /// carried on the built [`Agent`] and threaded into the post-turn
-    /// [`TurnContext`](crate::agent::hooks::TurnContext) so
-    /// profile-scoped hooks (agent-experience capture) can stamp records with
-    /// it. A `None` here keeps every downstream consumer on its legacy path.
-    pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
-        self.active_profile_id = profile_id;
         self
     }
 

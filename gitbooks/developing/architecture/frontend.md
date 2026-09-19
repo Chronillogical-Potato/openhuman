@@ -241,7 +241,7 @@ const result = await apiClient.post<LoginResponse>("/auth/login", {
 
 - `authApi` / `userApi` — auth + user profile
 - `threadApi`, `threadUsageApi` — chat threads
-- `agentProfilesApi`, `agentTeamApi`, `agentWorkApi`, `subagentApi` — agents
+- `agentTeamApi`, `agentWorkApi`, `subagentApi` — agents
 - `skillsApi`, `skillRegistryApi`, `flowsApi`, `workflowRunsApi` — skills & automation
 - `channelConnectionsApi`, `mcpClientsApi`, `mcpSetupApi`, `tunnelsApi` — connections
 - `memoryTimelineApi`, `memoryFreshnessApi`, `graphCentralityApi`, `namespaceOverviewApi` — memory/graph

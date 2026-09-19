@@ -40,7 +40,6 @@ pub struct OpenHumanHostBundleInputs {
     pub tool_policy: Option<Arc<ToolPolicySession>>,
     pub memory: Arc<dyn Memory>,
     pub shared_experience_memory: Option<Arc<dyn Memory>>,
-    pub profile_id: Option<String>,
     pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
 }
 
@@ -56,7 +55,6 @@ pub struct OpenHumanHostBase {
     pub security_policy: Arc<SecurityPolicy>,
     pub memory: Arc<dyn Memory>,
     pub shared_experience_memory: Option<Arc<dyn Memory>>,
-    pub profile_id: Option<String>,
     pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
 }
 
@@ -107,7 +105,6 @@ impl OpenHumanHostBundleFactory {
                 tool_policy: inputs.tool_policy,
                 memory: inputs.base.memory.clone(),
                 shared_experience_memory: inputs.base.shared_experience_memory.clone(),
-                profile_id: inputs.base.profile_id.clone(),
                 post_turn_hooks: inputs.base.post_turn_hooks.clone(),
             },
             turn,
@@ -149,7 +146,7 @@ impl OpenHumanHostBundleFactory {
         let learning = Arc::new(OpenHumanLearningSink::new(inputs.post_turn_hooks));
         let tool_outcomes = Arc::new(OpenHumanToolOutcomeClassifier::new());
         let experience = Arc::new(
-            OpenHumanExperienceStore::with_profile(inputs.memory, inputs.profile_id)
+            OpenHumanExperienceStore::new(inputs.memory)
                 .with_shared_recall_memory(inputs.shared_experience_memory),
         );
 

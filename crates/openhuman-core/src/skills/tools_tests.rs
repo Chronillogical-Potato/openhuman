@@ -38,64 +38,6 @@ async fn describe_workflow_blocks_disallowed_skill_before_lookup() {
     );
 }
 
-#[tokio::test]
-async fn run_history_is_scoped_to_profile_and_allowlist() {
-    let tmp = tempfile::TempDir::new().expect("tempdir");
-    let mut config = Config::default();
-    config.workspace_dir = tmp.path().to_path_buf();
-    let config = Arc::new(config);
-    let run_id = "aaaaaaaa-1111-2222-3333-444444444444";
-    let path = crate::skills::run_log::run_log_path(tmp.path(), "private-flow", run_id);
-    crate::skills::run_log::write_header_with_profile(
-        &path,
-        "private-flow",
-        run_id,
-        &json!({"secret": true}),
-        "private prompt",
-        Some("alice"),
-    )
-    .await
-    .expect("write header");
-
-    let mut alice = crate::agent::profiles::built_in_profiles()
-        .into_iter()
-        .next()
-        .expect("built-in profile");
-    alice.id = "alice".to_string();
-    let mut bob = alice.clone();
-    bob.id = "bob".to_string();
-
-    let alice_list = WorkflowRecentRunsTool::new(config.clone())
-        .with_active_profile(Some(alice.clone()))
-        .execute(json!({}))
-        .await
-        .expect("alice list");
-    assert!(alice_list.output_for_llm(false).contains(run_id));
-
-    let bob_list = WorkflowRecentRunsTool::new(config.clone())
-        .with_active_profile(Some(bob.clone()))
-        .execute(json!({}))
-        .await
-        .expect("bob list");
-    assert!(!bob_list.output_for_llm(false).contains(run_id));
-
-    let bob_read = WorkflowReadRunLogTool::new(config.clone())
-        .with_active_profile(Some(bob))
-        .execute(json!({"run_id": run_id}))
-        .await;
-    assert!(bob_read.is_err(), "another profile must not read the log");
-
-    let alice_disallowed = WorkflowReadRunLogTool::new(config)
-        .with_active_profile(Some(alice))
-        .with_skill_allowlist(Some(std::collections::HashSet::new()))
-        .execute(json!({"run_id": run_id}))
-        .await;
-    assert!(
-        alice_disallowed.is_err(),
-        "the profile allowlist must also gate run logs"
-    );
-}
-
 #[test]
 fn names_and_levels() {
     let c = cfg();

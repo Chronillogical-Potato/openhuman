@@ -43,7 +43,7 @@ impl Agent {
             // 1c — partition recall by the active profile: this turn sees records
             // stamped with its profile plus unstamped legacy records, and never a
             // sibling profile's. `None` (profile-less) recalls the whole pool.
-            profile_id: self.active_profile_id.clone(),
+            profile_id: None,
             max_hits: MAX_EXPERIENCE_HITS,
         };
 
