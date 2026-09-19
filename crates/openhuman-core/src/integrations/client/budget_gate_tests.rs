@@ -297,9 +297,3 @@ fn usage_budget_exhausted_honors_remaining_and_bypass() {
         "bypassCycleLimit": true,
     })));
 }
-
-// --- pre-HTTP input validation (no network) -----------------------------
-
-fn cfg() -> Config {
-    Config::default()
-}
