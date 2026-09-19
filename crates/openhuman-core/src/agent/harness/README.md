@@ -40,7 +40,7 @@ iterations.
 
 | Module | Role |
 | --- | --- |
-| `session/` | `Agent`/`AgentBuilder`/`TurnOverrides` (`types.rs`), the fluent builder + `Agent::from_config` factory (`builder/`), the turn lifecycle (`turn/`: `context.rs`, `core*.rs`, `graph.rs`, `recall_lanes.rs`, `session_io*.rs`, `tools.rs`), transcript persistence + legacy migration (`transcript*.rs`, `migration.rs`, `turn_checkpoint.rs`). |
+| `session/` | `Agent`/`AgentBuilder`/`TurnOverrides` (`types.rs`), the fluent builder + `Agent::from_config` factory (`builder/`), the turn lifecycle (`turn/`: `context.rs`, `core*.rs`, `graph.rs`, `recall_lanes.rs`, `session_io*.rs`, `tools.rs`), host-side transcript persistence + legacy migration (`session_io/`, `migration.rs`, `turn_checkpoint.rs`). Durable transcript codecs and discovery live in `tinyagents_session::transcript`. |
 | `subagent_runner/` | `run_subagent`/`SubagentRunOptions`/`SubagentRunError` and the build pipeline around the tinyagents graph: model resolution, tool filtering, sandbox/action-root narrowing, checkpoint/handback, transcript mirroring (`autonomous.rs`, `extract_tool.rs`, `handoff.rs`, `tool_prep.rs`, `ops/{provider,prompt,runner,graph,checkpoint,pause_checkpoint}.rs`). |
 | `definition*.rs`, `builtin_definitions.rs`, `definition_loader.rs` | `AgentDefinition`/`AgentDefinitionRegistry`/`SandboxMode`/`ToolScope`/`PromptSource`/`ModelSpec`; loads built-ins from `crate::agent::registry::agents` and user TOML from the workspace/home `agents/` directory. |
 | `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | Transitional task-locals for legacy callers. Live TinyAgents tool dispatch receives `OpenHumanRunContext` directly for parent, attachments, dispatch, and usage. |

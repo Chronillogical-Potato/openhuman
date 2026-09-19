@@ -60,7 +60,7 @@ implements only an adapter at the existing host boundary where conversion from
 | Current OpenHuman source | Destination / action |
 | --- | --- |
 | `agent/harness/session/transcript/{types,jsonl,metadata,paths,reader,writer,legacy_md,markdown,thread_lookup}.rs` | Move/split into `tinyagents-session/src/transcript/`; preserve on-disk JSONL and legacy Markdown reader behavior. |
-| `agent/harness/session/transcript.rs` | Delete after consumers import `tinyagents_session::transcript` directly. |
+| Deleted transcript facade | Consumers import `tinyagents_session::transcript` directly; no OpenHuman forwarding module remains. |
 | `agent/harness/session/transcript_history.rs` | Move generic history/read/locator traits and file implementation to `tinyagents-session/src/transcript/history.rs`; keep any OpenHuman message conversion adapter locally. |
 | `agent/harness/session/runtime/resume.rs` | Split pure transcript-to-model replay/deduplication into session; keep `Agent` mutation and host message-log fallback in OpenHuman. |
 | `agent/session_import/{convert,ops,live}.rs` | Move only pure descriptor/transcript conversion and generic source iteration; retain OpenHuman namespaces, controller/live backend wiring, run-ledger links, and memory import. |
@@ -114,8 +114,8 @@ backend import and memory namespace decisions as thin host calls around them.
 
 **RED:** Add OpenHuman adapter tests proving its `ChatMessage` conversion
 preserves tool calls/reasoning/usage and that an old transcript resumes without
-loss. Add a boundary check that fails on production imports from
-`agent::harness::session::transcript` after migration.
+loss. Add a boundary check that fails if production code restores an
+OpenHuman transcript forwarding facade.
 
 **GREEN:** Update `agent/harness/session/**`, `agent/session_import/**`,
 `agent/tinyagents/{journal,reaper,turn_runner}.rs`, and direct consumers to

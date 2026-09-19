@@ -337,5 +337,7 @@ mod agent_memory_attribution_tests;
 mod agent_turn_loop_packed_tool_tests;
 #[path = "agent_turn_loop_tests.rs"]
 mod agent_turn_loop_tests;
+#[path = "messages_tests.rs"]
+mod messages_tests;
 #[path = "pformat_tests.rs"]
 mod pformat_tests;

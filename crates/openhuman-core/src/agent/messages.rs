@@ -133,11 +133,12 @@ pub struct ChatMessage {
     /// Ascending byte offsets into [`Self::content`] at which the provider may
     /// place a prompt-cache breakpoint. Only meaningful on the system message.
     ///
-    /// `skip_serializing` like `id` and `extra_metadata` above: these are a
-    /// property of *this call*, derived from the freshly assembled prompt, and
-    /// writing them into the JSONL transcript would persist offsets that stop
-    /// matching the moment the prompt is rebuilt. `serde(default)` keeps every
-    /// record already on disk loadable.
+    /// `skip_serializing` applies only to this host runtime shape: these are a
+    /// property of a provider call, not this type's wire representation. The
+    /// explicit adapter persists them in `TranscriptMessage` so a transcript
+    /// round trip remains lossless; a later host may still discard or rebuild
+    /// them when assembling its next prompt. `serde(default)` keeps existing
+    /// host-serialized records loadable.
     #[serde(default, skip_serializing)]
     pub cache_breakpoints: Vec<usize>,
 }
