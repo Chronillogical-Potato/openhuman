@@ -351,7 +351,7 @@ When the orchestrator calls `spawn_subagent`, the default contract is durable an
 
 The child run itself still uses the same runner:
 
-1. Reads the parent's execution context from a task-local - the parent's provider, sandbox mode, cancellation fence, transcript root.
+1. Receives parent cancellation and workspace from its typed run context; remaining legacy provider, sandbox, and transcript inputs stay scoped until their explicit migration lands.
 2. Resolves the sub-agent's model - inline `model` override first, then config-level pins (`[orchestrator].model`, `[teams.*].lead_model`, `[teams.*].agent_model`), then the archetype hint or inherited parent model.
 3. Filters the parent's tool registry per the definition's `tools`, `disallowed_tools`, and `skill_filter`. In `fork` mode, the parent's full registry is inherited verbatim.
 4. Builds a narrow system prompt, omitting the sections the definition asks to strip.
@@ -500,7 +500,7 @@ assembly and middleware registry consume that typed context directly. Route,
 and thread scopes still surround the drive only for legacy tool/model APIs
 outside the typed harness boundary. Recursive fan-out receives cancellation and
 workspace from its typed parent `RunContext` through `ToolDispatch`; it never
-reads a cancellation task-local.
+reads ambient cancellation state.
 
 `OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
 the context, definition, security, model, memory, budget, progress, learning,

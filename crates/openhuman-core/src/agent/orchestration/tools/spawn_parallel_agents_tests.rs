@@ -182,7 +182,7 @@ impl ChatModel<()> for BlockingFanoutModel {
     }
 }
 
-/// The live harness does not recover cancellation from a task-local. Its typed
+/// The live harness does not recover ambient cancellation. Its typed
 /// dispatch receives the parent `RunContext`, so a token cancelled while a
 /// child worker is in flight stops the fan-out at its worker safe point with
 /// the same workspace grant.

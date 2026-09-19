@@ -328,7 +328,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `payload_summarizer.rs`, `summarize.rs` | Move generic summarizer orchestration/trait to harness; OpenHuman model selection/config adapter stays. |
 | `turn_policy.rs`, `turn_outcome.rs`, `turn_run_error.rs`, `turn_run_finalize.rs` | Move generic run policy/outcome/finalization upstream; retain product error/progress/cost projection only. |
 | `turn_models.rs`, remaining `routes.rs` | Keep as `ModelResolver` implementation/config projection, then relocate under the host adapter rather than an integration facade. |
-| `thread_context.rs`, `stop_hooks.rs`, `steering_forwarder.rs` | Replace with explicit run/child context; keep only product stop-hook adapter. The former cancellation task-local is deleted: recursive fan-out receives the parent token through typed tool dispatch. |
+| `thread_context.rs`, `stop_hooks.rs`, `steering_forwarder.rs` | Replace with explicit run/child context; keep only product stop-hook adapter. The former ambient cancellation carrier is deleted: recursive fan-out receives the parent token through typed tool dispatch. |
 | `orchestration.rs`, `delegation.rs`, `topology.rs` | Move generic lifecycle/helpers to graph; keep product topology composition only where it genuinely names product graphs. |
 | `observability/*` | Keep OpenHuman projection (`AgentProgress`, cost, Langfuse); move reusable graph/event/cap mechanics upstream and import directly. |
 | `journal.rs`, `reaper.rs`, `replay/*` | Keep because layout/RPC are product durability contracts; use upstream journal traits directly. |
