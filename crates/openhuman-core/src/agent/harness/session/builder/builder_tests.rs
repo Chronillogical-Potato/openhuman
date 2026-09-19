@@ -47,28 +47,10 @@ fn builtin_def(id: &str) -> crate::agent::harness::definition::AgentDefinition {
         .unwrap_or_else(|| panic!("builtin agent definition not found: {id}"))
 }
 
-// ── Finding #1 (Codex): dedicated memory subtree on the ordinary session path ─
-
-/// Build a non-default profile with the given id + dedicated-memory flag.
-fn custom_profile(id: &str, dedicated_memory: bool) -> crate::agent::profiles::AgentProfile {
-    let mut profile = crate::agent::profiles::store::built_in_default_profile();
-    profile.id = id.to_string();
-    profile.name = id.to_string();
-    profile.built_in = false;
-    profile.is_master = false;
-    profile.memory_dir_suffix = None;
-    profile.dedicated_memory = dedicated_memory;
-    profile
-}
-
 #[path = "builder_tests_explicit_definition_tests.rs"]
 mod explicit_definition_tests;
 #[path = "builder_tests_memory_write_instruction_tests.rs"]
 mod memory_write_instruction_tests;
-#[path = "builder_tests_profile_soul_prompt_tests.rs"]
-mod profile_soul_prompt_tests;
-#[path = "builder_tests_session_agent_profile_tests.rs"]
-mod session_agent_profile_tests;
 #[path = "builder_tests_tool_exposure_tests.rs"]
 mod tool_exposure_tests;
 #[path = "builder_tests_tool_spec_views_tests.rs"]

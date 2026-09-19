@@ -369,31 +369,14 @@ impl Agent {
                 w.dir_name.clone()
             }
         };
-        // Keep the mid-session refresh consistent with the initial catalog
-        // (built in the session factory): include the active profile's private
-        // skills root so profile-local installs are tracked/announced too. `None`
-        // for the profile-less session reproduces the prior behaviour.
-        let profile_skills_root = self
-            .active_profile_id
-            .as_deref()
-            .and_then(|id| crate::agent::profiles::profile_skills_root(&self.workspace_dir, id));
-        // An invalid/absent active profile id silently falls back to shared
-        // discovery. Log the branch id-free (boolean only, never the profile id or
-        // resolved path) per the observability convention for new/changed flows.
-        let profile_local_skills_active = profile_skills_root.is_some();
-        log::debug!(
-            "[agent_loop] refreshing installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active})"
-        );
-        let mut latest = crate::skills::load_workflow_metadata_for_profile(
-            &self.workspace_dir,
-            profile_skills_root.as_deref(),
-        );
+        log::debug!("[agent_loop] refreshing installed-skills metadata (trigger={trigger})");
+        let mut latest = crate::skills::load_workflow_metadata(&self.workspace_dir);
         #[cfg(feature = "flows")]
         if let Some(config) = self.runtime_config.as_deref() {
             latest.extend(crate::flows::catalogue::flow_entries(config));
         }
         log::debug!(
-            "[agent_loop] refreshed installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active}, workflow_count={})",
+            "[agent_loop] refreshed installed-skills metadata (trigger={trigger}, workflow_count={})",
             latest.len()
         );
         let current_ids: std::collections::HashSet<String> =

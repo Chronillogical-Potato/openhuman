@@ -3,7 +3,6 @@
 //! `SessionCacheFingerprint` that decides whether a cached agent can be
 //! reused for the next turn on a thread.
 
-use crate::agent::profiles::{AgentProfile, DEFAULT_PROFILE_ID};
 use crate::agent::Agent;
 use crate::config::Config;
 use serde_json::json;
@@ -22,12 +21,8 @@ pub(super) fn model_registry_signature(config: &Config) -> String {
     serde_json::to_string(&config.model_registry).unwrap_or_default()
 }
 
-pub(super) fn pick_target_agent_id(_config: &Config, profile: &AgentProfile) -> String {
-    if profile.id == DEFAULT_PROFILE_ID {
-        "orchestrator".to_string()
-    } else {
-        profile.agent_id.clone()
-    }
+pub(super) fn pick_target_agent_id(_config: &Config) -> String {
+    "orchestrator".to_string()
 }
 
 pub(crate) fn normalize_model_override(model_override: Option<String>) -> Option<String> {
@@ -51,7 +46,6 @@ pub(super) fn build_session_agent(
     client_id: &str,
     thread_id: &str,
     target_agent_id: &str,
-    profile: &AgentProfile,
     model_override: Option<String>,
     temperature: Option<f64>,
     locale: Option<&str>,
@@ -66,19 +60,15 @@ pub(super) fn build_session_agent(
     }
 
     log::info!(
-        "[web-channel] routing chat turn to '{}' via profile '{}' provider_role='{}' (client_id={}, thread_id={})",
+        "[web-channel] routing chat turn to '{}' provider_role='{}' (client_id={}, thread_id={})",
         target_agent_id,
-        profile.id,
         provider_role,
         client_id,
         thread_id
     );
 
     let locale_directive = locale.and_then(locale_reply_directive);
-    let composed_suffix = compose_system_prompt_suffix(
-        locale_directive.as_deref(),
-        profile.system_prompt_suffix.as_deref(),
-    );
+    let composed_suffix = locale_directive;
     if let Some(s) = locale_directive.as_deref() {
         log::info!(
             "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",
@@ -89,12 +79,7 @@ pub(super) fn build_session_agent(
         );
     }
 
-    let agent_result = Agent::from_config_for_agent_with_profile(
-        &effective,
-        target_agent_id,
-        composed_suffix,
-        Some(profile),
-    );
+    let agent_result = Agent::from_config_for_agent(&effective, target_agent_id);
 
     agent_result
         .map(|mut agent| {
@@ -134,25 +119,12 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
     ))
 }
 
-pub(crate) fn compose_system_prompt_suffix(
-    locale_directive: Option<&str>,
-    profile_suffix: Option<&str>,
-) -> Option<String> {
-    match (locale_directive, profile_suffix) {
-        (None, None) => None,
-        (Some(d), None) => Some(d.to_string()),
-        (None, Some(p)) => Some(p.to_string()),
-        (Some(d), Some(p)) => Some(format!("{d}\n\n{p}")),
-    }
-}
-
 pub(super) fn build_session_fingerprint(
     config: &Config,
     model_override: Option<String>,
     temperature: Option<f64>,
     target_agent_id: String,
     provider_role: &str,
-    profile: &AgentProfile,
 ) -> SessionCacheFingerprint {
     SessionCacheFingerprint {
         model_override,
@@ -161,11 +133,5 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
-        // Any change to the resolved profile record or its canonical on-disk
-        // SOUL/MEMORY files forces a session-agent rebuild — see the field doc.
-        profile_signature: crate::agent::profiles::profile_session_signature(
-            &config.workspace_dir,
-            profile,
-        ),
     }
 }

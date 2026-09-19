@@ -8,8 +8,7 @@
 //!   question as its output; the turn actually pauses only because callers
 //!   list this name in the harness seam's `early_exit_tools`.
 //! - [`DelegateTool`] — hands a subtask to a named agent with its own
-//!   provider/model configuration. [`DelegateToPersonalityTool`] does the
-//!   same for a named personality.
+//!   provider/model configuration.
 //! - [`PlanExitTool`] — ends a plan-mode pass by returning the plan plus
 //!   [`PLAN_EXIT_MARKER`]. The mode switch itself lives outside the tool;
 //!   nothing in this crate consumes the marker yet.
@@ -30,7 +29,6 @@
 //! tools into the catalog.
 mod ask_clarification;
 mod delegate;
-mod delegate_to_personality;
 mod plan_exit;
 pub mod remember_preference;
 // Pure `skill_runtime` client (spawn + await a workflow run) — compiled out
@@ -45,8 +43,6 @@ mod update_task;
 pub use ask_clarification::AskClarificationTool;
 pub use delegate::DelegateTool;
 pub(crate) use delegate::DelegateToolDispatch;
-pub(crate) use delegate_to_personality::DelegateToPersonalityDispatch;
-pub use delegate_to_personality::DelegateToPersonalityTool;
 pub use plan_exit::{PlanExitTool, PLAN_EXIT_MARKER};
 pub use remember_preference::RememberPreferenceTool;
 #[cfg(feature = "skills")]

@@ -33,7 +33,7 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::skills::runtime::{await_run_outcome, spawn_workflow_run_background_with_profile};
+use crate::skills::runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::skills::schemas::resolve_workspace_dir;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
@@ -207,17 +207,7 @@ fn outcome_to_result(
 
 /// `run_workflow` — orchestrator-callable spawn + inline await of another
 /// workflow.
-pub struct RunWorkflowTool {
-    /// Full active profile context inherited by the autonomous workflow agent.
-    active_profile: Option<crate::agent::profiles::AgentProfile>,
-    /// Per-profile allowlist of runnable workflow `dir_name` slugs. `None`
-    /// (the default) means every installed workflow may be run.
-    skill_allowlist: Option<std::collections::HashSet<String>>,
-    /// Active profile's private skills root
-    /// (`<workspace>/personalities/<id>/skills/`). Resolves + implicitly allows
-    /// the owner's profile-local skills. `None` = byte-identical to today.
-    profile_skills_root: Option<std::path::PathBuf>,
-}
+pub struct RunWorkflowTool;
 
 impl Default for RunWorkflowTool {
     fn default() -> Self {
@@ -227,35 +217,7 @@ impl Default for RunWorkflowTool {
 
 impl RunWorkflowTool {
     pub fn new() -> Self {
-        Self {
-            active_profile: None,
-            skill_allowlist: None,
-            profile_skills_root: None,
-        }
-    }
-
-    pub fn with_active_profile(
-        mut self,
-        profile: Option<crate::agent::profiles::AgentProfile>,
-    ) -> Self {
-        self.active_profile = profile;
-        self
-    }
-
-    /// Restrict which workflows this tool may run to a per-profile allowlist.
-    pub fn with_skill_allowlist(
-        mut self,
-        allowlist: Option<std::collections::HashSet<String>>,
-    ) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    /// Resolve (and implicitly allow) the active profile's private skills so a
-    /// turn under profile P can run P's own skills.
-    pub fn with_profile_skills_root(mut self, root: Option<std::path::PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
+        Self
     }
 }
 
@@ -330,32 +292,13 @@ impl Tool for RunWorkflowTool {
                 ));
             }
         };
-        if let Some(allow) = &self.skill_allowlist {
-            // Profile-local skills are implicitly allowed for their owner (they
-            // bypass `allowed_skills`), mirroring `list_workflows`.
-            let profile_local =
-                crate::skills::profile_local_skill_ids(self.profile_skills_root.as_deref());
-            if !profile_local.contains(&workflow_id) && !allow.contains(&workflow_id) {
-                log::debug!("[profiles] run_workflow blocked by profile allowlist: {workflow_id}");
-                return Ok(ToolResult::error(format!(
-                    "run_workflow: workflow `{workflow_id}` is not available to the active agent profile"
-                )));
-            }
-        }
         let inputs = args.get("inputs").cloned();
         let wait_seconds = parse_wait_seconds(&args);
 
         // Fire-and-forget: only the spawn backstop applies — no await, so no
         // re-entrancy/nesting slot to take.
         if wait_seconds == 0 {
-            return match spawn_workflow_run_background_with_profile(
-                workflow_id.clone(),
-                inputs,
-                self.profile_skills_root.clone(),
-                self.active_profile.clone(),
-            )
-            .await
-            {
+            return match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
                 // Count only spawns that actually start against the backstop —
                 // unknown-workflow / bad-input rejections (the Err arm) must not
                 // burn the budget, or rejected calls accumulate and trip the
@@ -389,14 +332,7 @@ impl Tool for RunWorkflowTool {
             Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
         };
 
-        let started = match spawn_workflow_run_background_with_profile(
-            workflow_id.clone(),
-            inputs,
-            self.profile_skills_root.clone(),
-            self.active_profile.clone(),
-        )
-        .await
-        {
+        let started = match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
             Ok(s) => {
                 if let Err(e) = guard::account_spawn() {
                     return Ok(ToolResult::error(format!("run_workflow: {e}")));
@@ -426,11 +362,7 @@ impl Tool for RunWorkflowTool {
 }
 
 /// `await_workflow` — re-attach to a detached run by `run_id` and wait.
-pub struct AwaitWorkflowTool {
-    active_profile_id: Option<String>,
-    skill_allowlist: Option<std::collections::HashSet<String>>,
-    profile_skills_root: Option<std::path::PathBuf>,
-}
+pub struct AwaitWorkflowTool;
 
 impl Default for AwaitWorkflowTool {
     fn default() -> Self {
@@ -440,44 +372,8 @@ impl Default for AwaitWorkflowTool {
 
 impl AwaitWorkflowTool {
     pub fn new() -> Self {
-        Self {
-            active_profile_id: None,
-            skill_allowlist: None,
-            profile_skills_root: None,
-        }
+        Self
     }
-
-    pub fn with_active_profile(
-        mut self,
-        profile: Option<crate::agent::profiles::AgentProfile>,
-    ) -> Self {
-        self.active_profile_id = profile.map(|profile| profile.id);
-        self
-    }
-
-    pub fn with_skill_allowlist(
-        mut self,
-        allowlist: Option<std::collections::HashSet<String>>,
-    ) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    pub fn with_profile_skills_root(mut self, root: Option<std::path::PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
-    }
-}
-
-fn run_visible_to_profile(
-    run: &crate::skills::run_log::ScannedRun,
-    active_profile_id: Option<&str>,
-    skill_allowlist: Option<&std::collections::HashSet<String>>,
-    profile_local_ids: &std::collections::HashSet<String>,
-) -> bool {
-    run.profile_id.as_deref() == active_profile_id
-        && (profile_local_ids.contains(&run.workflow_id)
-            || skill_allowlist.is_none_or(|allowlist| allowlist.contains(&run.workflow_id)))
 }
 
 #[async_trait]
@@ -528,19 +424,9 @@ impl Tool for AwaitWorkflowTool {
         let wait_seconds = parse_wait_seconds(&args);
 
         let workspace = resolve_workspace_dir().await;
-        let profile_local_ids =
-            crate::skills::profile_local_skill_ids(self.profile_skills_root.as_deref());
         let visible_run = crate::skills::run_log::scan_runs(&workspace, None, usize::MAX)
             .into_iter()
-            .find(|run| {
-                run.run_id == run_id
-                    && run_visible_to_profile(
-                        run,
-                        self.active_profile_id.as_deref(),
-                        self.skill_allowlist.as_ref(),
-                        &profile_local_ids,
-                    )
-            });
+            .find(|run| run.run_id == run_id);
         let Some(visible_run) = visible_run else {
             return Ok(ToolResult::error(format!(
                 "await_workflow: no run found for run_id `{run_id}` (it may not exist, is not \

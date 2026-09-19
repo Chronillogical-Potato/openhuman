@@ -41,7 +41,6 @@ pub async fn start_chat(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    profile_id: Option<String>,
     locale: Option<String>,
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
@@ -250,7 +249,6 @@ pub async fn start_chat(
             &message,
             model_override,
             temperature,
-            profile_id,
             locale,
             metadata,
         )
@@ -276,7 +274,6 @@ pub async fn start_chat(
                     .as_millis() as u64,
                 model_override: model_override.clone(),
                 temperature,
-                profile_id: profile_id.clone(),
                 locale: locale.clone(),
             };
             existing.run_queue.push(queued_msg).await;
@@ -376,7 +373,6 @@ pub async fn start_chat(
                     &user_message,
                     model_override,
                     temperature,
-                    profile_id,
                     locale,
                     turn_run_queue_task,
                     metadata,
@@ -543,7 +539,6 @@ fn dispatch_followups(followups: Vec<crate::agent::harness::run_queue::QueuedMes
                     &fup.text,
                     fup.model_override,
                     fup.temperature,
-                    fup.profile_id,
                     fup.locale,
                     Some("followup".to_string()),
                     ChatRequestMetadata::default(),

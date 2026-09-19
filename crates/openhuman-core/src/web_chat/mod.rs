@@ -92,8 +92,7 @@ pub(crate) use schemas::{
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]
 pub(crate) use session::{
-    compose_system_prompt_suffix, locale_reply_directive, normalize_model_override,
-    provider_role_for_model_override,
+    locale_reply_directive, normalize_model_override, provider_role_for_model_override,
 };
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]

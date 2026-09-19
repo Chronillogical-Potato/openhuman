@@ -326,37 +326,13 @@ impl Tool for WorkflowReadResourceTool {
 /// List recent skill runs.
 pub struct WorkflowRecentRunsTool {
     workspace_dir: PathBuf,
-    active_profile_id: Option<String>,
-    skill_allowlist: SkillAllowlist,
-    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowRecentRunsTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            active_profile_id: None,
-            skill_allowlist: None,
-            profile_skills_root: None,
         }
-    }
-
-    pub fn with_active_profile(
-        mut self,
-        profile: Option<crate::agent::profiles::AgentProfile>,
-    ) -> Self {
-        self.active_profile_id = profile.map(|profile| profile.id);
-        self
-    }
-
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
     }
 }
 
@@ -396,19 +372,8 @@ impl Tool for WorkflowRecentRunsTool {
             .and_then(serde_json::Value::as_u64)
             .map(|v| v as usize)
             .unwrap_or(20);
-        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
         let runs = scan_runs(&self.workspace_dir, skill_id, usize::MAX)
             .into_iter()
-            .filter(|run| {
-                run.profile_id.as_deref() == self.active_profile_id.as_deref()
-                    && skill_allowed_including_profile(
-                        &self.skill_allowlist,
-                        &profile_local,
-                        &self.workspace_dir,
-                        self.profile_skills_root.as_deref(),
-                        &run.workflow_id,
-                    )
-            })
             .take(limit)
             .collect::<Vec<_>>();
         Ok(ToolResult::success(serde_json::to_string(&json!({
@@ -425,37 +390,13 @@ impl Tool for WorkflowRecentRunsTool {
 /// Read a slice of a run log.
 pub struct WorkflowReadRunLogTool {
     workspace_dir: PathBuf,
-    active_profile_id: Option<String>,
-    skill_allowlist: SkillAllowlist,
-    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowReadRunLogTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            active_profile_id: None,
-            skill_allowlist: None,
-            profile_skills_root: None,
         }
-    }
-
-    pub fn with_active_profile(
-        mut self,
-        profile: Option<crate::agent::profiles::AgentProfile>,
-    ) -> Self {
-        self.active_profile_id = profile.map(|profile| profile.id);
-        self
-    }
-
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
     }
 }
 
@@ -496,20 +437,9 @@ impl Tool for WorkflowReadRunLogTool {
             .and_then(serde_json::Value::as_u64)
             .map(|v| v as usize)
             .unwrap_or(65536);
-        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
         let run = scan_runs(&self.workspace_dir, None, usize::MAX)
             .into_iter()
-            .find(|run| {
-                run.run_id == run_id
-                    && run.profile_id.as_deref() == self.active_profile_id.as_deref()
-                    && skill_allowed_including_profile(
-                        &self.skill_allowlist,
-                        &profile_local,
-                        &self.workspace_dir,
-                        self.profile_skills_root.as_deref(),
-                        &run.workflow_id,
-                    )
-            })
+            .find(|run| run.run_id == run_id)
             .ok_or_else(|| anyhow::anyhow!("read_workflow_run_log: run `{run_id}` not found"))?;
         let path = PathBuf::from(run.log_path);
         let slice = read_run_log_slice(&path, offset, max_bytes)

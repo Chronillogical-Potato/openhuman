@@ -297,20 +297,11 @@ pub struct DismissResult {
 }
 
 fn profile_memory_subdir(
-    workspace_dir: &std::path::Path,
+    _workspace_dir: &std::path::Path,
     profile_id: Option<&str>,
 ) -> Result<String, String> {
-    let Some(profile_id) = profile_id.map(str::trim).filter(|id| !id.is_empty()) else {
-        return Ok("memory".to_string());
-    };
-    let state = crate::agent::profiles::load_profiles(workspace_dir)?;
-    let profile = state
-        .profiles
-        .iter()
-        .find(|profile| profile.id == profile_id)
-        .ok_or_else(|| format!("agent profile '{profile_id}' not found"))?;
-    let suffix = crate::agent::profiles::effective_memory_suffix(profile);
-    Ok(crate::agent::profiles::memory_subdir_for_suffix(&suffix))
+    let _ = profile_id;
+    Ok("memory".to_string())
 }
 
 /// The experience store for `profile_id`'s memory subtree.
@@ -358,29 +349,11 @@ async fn open_store_in_subdir(
 }
 
 fn query_memory_subdirs(
-    workspace_dir: &std::path::Path,
+    _workspace_dir: &std::path::Path,
     profile_id: Option<&str>,
 ) -> Result<Vec<String>, String> {
-    let state = crate::agent::profiles::load_profiles(workspace_dir)?;
-    let mut subdirs = BTreeSet::from(["memory".to_string()]);
-    let profile_id = profile_id.map(str::trim).filter(|id| !id.is_empty());
-
-    for profile in &state.profiles {
-        if profile_id.is_none_or(|id| profile.id == id) {
-            let suffix = crate::agent::profiles::effective_memory_suffix(profile);
-            subdirs.insert(crate::agent::profiles::memory_subdir_for_suffix(&suffix));
-        }
-    }
-    if let Some(profile_id) = profile_id {
-        if !state
-            .profiles
-            .iter()
-            .any(|profile| profile.id == profile_id)
-        {
-            return Err(format!("agent profile '{profile_id}' not found"));
-        }
-    }
-    Ok(subdirs.into_iter().collect())
+    let _ = profile_id;
+    Ok(vec!["memory".to_string()])
 }
 
 async fn open_query_stores(profile_id: Option<&str>) -> Result<Vec<AgentExperienceStore>, String> {

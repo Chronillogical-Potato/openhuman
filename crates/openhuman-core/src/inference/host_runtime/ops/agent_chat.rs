@@ -84,8 +84,6 @@ pub enum AgentChatTarget<'a> {
     /// [`Agent::from_config_with_definition`].
     Definition {
         definition: &'a crate::agent::harness::definition::AgentDefinition,
-        profile: Option<&'a crate::agent::profiles::AgentProfile>,
-        profile_prompt_suffix: Option<&'a str>,
     },
 }
 
@@ -96,16 +94,9 @@ fn build_turn_agent(config: &Config, target: &AgentChatTarget<'_>) -> Result<Age
             log::debug!("[inference] agent_chat building agent_id={id}");
             Agent::from_config_for_agent(config, id)
         }
-        AgentChatTarget::Definition {
-            definition,
-            profile,
-            profile_prompt_suffix,
-        } => Agent::from_config_with_definition(
-            config,
-            definition,
-            *profile,
-            profile_prompt_suffix.map(str::to_string),
-        ),
+        AgentChatTarget::Definition { definition } => {
+            Agent::from_config_with_definition(config, definition)
+        }
     }
     .map_err(|e| e.to_string())
 }

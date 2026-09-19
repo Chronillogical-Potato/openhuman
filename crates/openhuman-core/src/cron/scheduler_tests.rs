@@ -41,7 +41,6 @@ fn test_job(command: &str) -> CronJob {
         session_target: SessionTarget::Isolated,
         model: None,
         agent_id: None,
-        profile_id: None,
         enabled: true,
         delivery: DeliveryConfig::default(),
         delete_after_run: false,

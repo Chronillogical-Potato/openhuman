@@ -6,7 +6,6 @@
 
 use std::sync::Arc;
 
-use crate::agent::profiles::AgentProfileStore;
 use crate::config::rpc as config_rpc;
 use crate::threads::turn_state::TurnStateStore;
 
@@ -33,7 +32,6 @@ pub(crate) async fn run_chat_task(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    profile_id: Option<String>,
     locale: Option<String>,
     run_queue: Arc<crate::agent::harness::run_queue::RunQueue>,
     metadata: ChatRequestMetadata,
@@ -92,13 +90,9 @@ pub(crate) async fn run_chat_task(
     }
 
     let config = config_rpc::load_config_with_timeout().await?;
-    let (_profiles_state, profile) =
-        AgentProfileStore::new(config.workspace_dir.clone()).resolve(profile_id.as_deref())?;
     let map_key = key_for(thread_id);
-    let model_override = normalize_model_override(profile.model_override.clone())
-        .or_else(|| normalize_model_override(model_override));
-    let temperature = profile.temperature.or(temperature);
-    let target_agent_id = pick_target_agent_id(&config, &profile);
+    let model_override = normalize_model_override(model_override);
+    let target_agent_id = pick_target_agent_id(&config);
     let provider_role = provider_role_for_model_override(model_override.as_deref());
     let current_fp = build_session_fingerprint(
         &config,
@@ -106,7 +100,6 @@ pub(crate) async fn run_chat_task(
         temperature,
         target_agent_id.clone(),
         provider_role,
-        &profile,
     );
 
     // A forked (parallel) turn never reuses or evicts the shared cached agent —
@@ -146,7 +139,6 @@ pub(crate) async fn run_chat_task(
                     client_id,
                     thread_id,
                     &target_agent_id,
-                    &profile,
                     model_override.clone(),
                     temperature,
                     locale.as_deref(),
@@ -160,7 +152,6 @@ pub(crate) async fn run_chat_task(
                 client_id,
                 thread_id,
                 &target_agent_id,
-                &profile,
                 model_override.clone(),
                 temperature,
                 locale.as_deref(),
@@ -254,21 +245,12 @@ pub(crate) async fn run_chat_task(
         config.clone(),
     );
 
-    // Scope source-memory recall to the active profile's allowlist for the
-    // duration of the turn (None = all). Nested inside the thread-id scope so
-    // every memory-tree query the agent makes this turn is gated. See
-    // memory::source_scope.
     // `run_single`'s future is very large; box it so the two ambient-scope
     // wrappers below hold a pointer rather than inlining the whole future into
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match crate::memory::source_scope::with_source_scope(
-        profile.memory_sources.clone(),
-        turn,
-    )
-    .await
-    {
+    let result = match turn.await {
         Ok(response) => {
             // A successful turn proves the thread's balance is usable, so drop
             // any stale budget-exhausted signal before it could mislabel a

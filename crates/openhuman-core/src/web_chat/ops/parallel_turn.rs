@@ -31,7 +31,6 @@ pub(crate) async fn spawn_parallel_turn(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    profile_id: Option<String>,
     locale: Option<String>,
     metadata: ChatRequestMetadata,
 ) {
@@ -68,7 +67,6 @@ pub(crate) async fn spawn_parallel_turn(
                     &user_message,
                     model_override,
                     temperature,
-                    profile_id,
                     locale,
                     run_queue,
                     metadata,
