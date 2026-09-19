@@ -71,6 +71,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             arguments,
             parent.cancellation.clone(),
             parent.workspace.clone(),
+            parent.data.child(),
         )
         .await
     }
@@ -84,12 +85,14 @@ pub(crate) async fn execute_spawn_parallel_agents(
     args: serde_json::Value,
     cancellation: tinyagents_harness::CancellationToken,
     workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let outcome = run_spawn_parallel_graph_with_cancellation_and_workspace(
         args,
         cancellation,
         workspace_descriptor,
+        run_context,
     )
     .await
     .map_err(|e| anyhow::anyhow!(e))?;
@@ -212,6 +215,7 @@ impl Tool for SpawnParallelAgentsTool {
             args,
             tinyagents_harness::CancellationToken::new(),
             workspace_descriptor,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         )
         .await
     }
