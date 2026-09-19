@@ -51,10 +51,8 @@ pub async fn token_usage(
     request: ThreadTokenUsageRequest,
 ) -> Result<RpcOutcome<ApiEnvelope<ThreadTokenUsageResponse>>, String> {
     let dir = workspace_dir().await?;
-    let summary = crate::agent::harness::session::transcript::read_thread_usage_summary(
-        &dir,
-        &request.thread_id,
-    );
+    let summary =
+        tinyagents_session::transcript::read_thread_usage_summary(&dir, &request.thread_id);
 
     // Re-audit cost at CURRENT pricing rather than trusting the
     // `charged_amount_usd` persisted in the transcript: those values were

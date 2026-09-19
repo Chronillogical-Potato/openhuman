@@ -313,12 +313,12 @@ impl AgentBuilder {
     /// session's write handle (`open_stem`), so a fake supplied here takes the
     /// whole turn path off the filesystem. Leave unset in production — `None`
     /// resolves lazily to a
-    /// [`FileTranscriptLocator`][super::super::transcript_history::FileTranscriptLocator]
+    /// [`FileTranscriptLocator`][tinyagents_session::transcript::FileTranscriptLocator]
     /// over the agent's current workspace, which is behaviourally identical to
     /// the pre-S4 free-function calls.
     pub(crate) fn with_session_history_locator(
         mut self,
-        locator: std::sync::Arc<dyn super::super::transcript_history::SessionHistoryLocator>,
+        locator: std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>,
     ) -> Self {
         self.session_history_locator = Some(locator);
         self

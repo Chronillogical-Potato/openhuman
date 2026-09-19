@@ -1,6 +1,5 @@
 //! Keeping what a failed chat turn did (#6281).
 
-use crate::agent::harness::session::transcript::{MessageUsage, TurnUsage};
 use crate::agent::harness::session::turn_checkpoint::{truncate_chars, CHECKPOINT_RESULT_CHARS};
 use crate::agent::harness::session::types::Agent;
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
@@ -9,6 +8,7 @@ use crate::agent::tinyagents::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink,
 };
 use anyhow::Result;
+use tinyagents_session::transcript::{MessageUsage, TurnUsage};
 use tinyinference_llm::message::Message;
 
 /// Leads the note a failed turn leaves in history, so the model (and a reader

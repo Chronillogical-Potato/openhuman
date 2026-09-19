@@ -28,6 +28,37 @@ pub struct ChatMessage {
     pub cache_breakpoints: Vec<usize>,
 }
 
+/// Convert the host's provider-facing record into the neutral durable
+/// transcript record. This is intentionally a field-for-field conversion at
+/// the host boundary: `tinyagents-session` must not know OpenHuman's runtime
+/// message type, while no provider metadata may be discarded before durable
+/// persistence.
+pub(crate) fn transcript_message_from_chat(
+    message: &ChatMessage,
+) -> tinyagents_session::transcript::TranscriptMessage {
+    tinyagents_session::transcript::TranscriptMessage {
+        id: message.id.clone(),
+        role: message.role.clone(),
+        content: message.content.clone(),
+        extra_metadata: message.extra_metadata.clone(),
+        cache_breakpoints: message.cache_breakpoints.clone(),
+    }
+}
+
+/// Convert a neutral durable transcript row back into the host's provider
+/// message shape after the lossless transcript reader has completed replay.
+pub(crate) fn chat_message_from_transcript(
+    message: tinyagents_session::transcript::TranscriptMessage,
+) -> ChatMessage {
+    ChatMessage {
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        extra_metadata: message.extra_metadata,
+        cache_breakpoints: message.cache_breakpoints,
+    }
+}
+
 impl ChatMessage {
     pub fn system(content: impl Into<String>) -> Self {
         Self {

@@ -247,8 +247,6 @@ pub(super) fn sanitize_learned_entry(content: &str) -> String {
 }
 
 #[cfg(test)]
-pub(crate) use super::transcript;
-#[cfg(test)]
 pub(crate) use super::turn_checkpoint::assistant_message_has_tool_calls;
 #[cfg(test)]
 pub(crate) use super::types::Agent;

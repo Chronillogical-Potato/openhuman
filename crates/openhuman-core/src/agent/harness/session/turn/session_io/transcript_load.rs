@@ -1,10 +1,9 @@
 //! Loading a prior session transcript for KV-cache resume, and the locator
 //! that finds it.
 
-use crate::agent::harness::session::transcript_history::{
-    FileTranscriptLocator, SessionHistoryLocator,
-};
 use crate::agent::harness::session::types::Agent;
+use crate::agent::messages::chat_message_from_transcript;
+use tinyagents_session::transcript::{FileTranscriptLocator, TranscriptLocator};
 
 impl Agent {
     // ─────────────────────────────────────────────────────────────────
@@ -18,10 +17,10 @@ impl Agent {
     /// # How this reaches the transcript (S4)
     ///
     /// Both halves of the turn path now go through the seam: writes through
-    /// [`SessionHistory::append_turn`][crate::agent::harness::session::transcript_history::SessionHistory::append_turn],
+    /// [`TranscriptHistory::append_turn`][tinyagents_session::transcript::TranscriptHistory::append_turn],
     /// reads through
-    /// [`SessionHistoryLocator`][crate::agent::harness::session::transcript_history::SessionHistoryLocator]
-    /// + [`SessionTranscriptRead::read_session`][crate::agent::harness::session::transcript_history::SessionTranscriptRead::read_session].
+    /// [`TranscriptLocator`][tinyagents_session::transcript::TranscriptLocator]
+    /// + [`TranscriptRead::read_session`][tinyagents_session::transcript::TranscriptRead::read_session].
     ///
     /// The read is **not** `ChatHistory::messages()`, and that is settled, not
     /// pending: `messages()` returns `Vec<Message>`, and converting back with
@@ -31,7 +30,7 @@ impl Agent {
     /// TAURI-RUST-7 trailing strip inspects, and re-sending a flattened prefix
     /// to a native provider is the `400 assistant message with 'tool_calls'
     /// must be followed by tool messages` failure that strip exists to prevent.
-    /// `read_session` returns the whole [`SessionTranscript`][crate::agent::harness::session::transcript::SessionTranscript]
+    /// `read_session` returns the whole [`SessionTranscript`][tinyagents_session::transcript::SessionTranscript]
     /// instead — the same struct the free function returns, from the same
     /// `read_transcript` call — so compaction replay, `interrupted: true`
     /// partial skipping and the `_meta` header
@@ -80,7 +79,12 @@ impl Agent {
                 // legacy transcript just loaded stays authoritative and
                 // is what feeds the resume below. Gated OFF by default.
                 self.maybe_shadow_read_session_store(&path, &session);
-                let bounded = self.bound_cached_transcript_messages(session.messages);
+                let replay = session
+                    .messages
+                    .into_iter()
+                    .map(chat_message_from_transcript)
+                    .collect();
+                let bounded = self.bound_cached_transcript_messages(replay);
                 if bounded.len() < loaded_count {
                     log::warn!(
                         "[transcript] resume prefix trimmed from {} to {} messages (max_history_messages={})",
@@ -107,7 +111,7 @@ impl Agent {
     /// `build()` (tests do exactly that), and a locator frozen at build time
     /// would silently keep resolving against the directory the agent no longer
     /// uses.
-    pub(crate) fn session_locator(&self) -> std::sync::Arc<dyn SessionHistoryLocator> {
+    pub(crate) fn session_locator(&self) -> std::sync::Arc<dyn TranscriptLocator> {
         match &self.session_history_locator {
             Some(locator) => locator.clone(),
             None => std::sync::Arc::new(FileTranscriptLocator::new(self.workspace_dir.clone())),

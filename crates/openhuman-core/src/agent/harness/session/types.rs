@@ -254,13 +254,13 @@ pub struct Agent {
     /// `session_transcript_path` on first write.
     ///
     /// This is the S4 indirection: the turn path appends through
-    /// [`SessionHistory::append_turn`][super::transcript_history::SessionHistory::append_turn]
+    /// [`TranscriptHistory::append_turn`][tinyagents_session::transcript::TranscriptHistory::append_turn]
     /// rather than calling the format's free function directly.
     ///
     /// It is `Arc<dyn …>` rather than the concrete handle so the turn loop is
     /// written against the seam instead of the implementation. It is now
     /// genuinely substitutable: the handle is produced by
-    /// [`SessionHistoryLocator::open_stem`][super::transcript_history::SessionHistoryLocator::open_stem]
+    /// [`TranscriptLocator::open_stem`][tinyagents_session::transcript::TranscriptLocator::open_stem]
     /// on the locator in `session_history_locator`, so injecting a locator
     /// replaces this session's writes as well as both of its resume reads.
     ///
@@ -268,7 +268,7 @@ pub struct Agent {
     /// into the handle: the dual-write mirror needs the concrete `&Path` for
     /// `file_stem()`, and several tests assert on it directly.
     pub(super) session_history:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistory>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptHistory>>,
     /// Injected transcript locator, or `None` to use real files.
     ///
     /// The single injection point for the whole transcript seam: it resolves
@@ -276,20 +276,21 @@ pub struct Agent {
     /// session's write handle (`open_stem`). `None` is the production default
     /// and is resolved *lazily* by
     /// [`Agent::session_locator`][Self::session_locator] into a
-    /// [`FileTranscriptLocator`][super::transcript_history::FileTranscriptLocator]
+    /// [`FileTranscriptLocator`][tinyagents_session::transcript::FileTranscriptLocator]
     /// over the **current** `workspace_dir` — never
     /// captured at build time, because callers (tests especially) reassign
     /// `workspace_dir` after `build()` and a frozen locator would silently keep
     /// reading the old directory.
     pub(super) session_history_locator:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistoryLocator>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
     /// The logical message set most recently persisted to
     /// `session_transcript_path`, tracked in memory so the append-only writer
     /// can diff each turn's messages against it (pure extension → append tail;
     /// reduction → compaction record) without re-reading the growing file.
     /// Empty until the first persist. Each process writes its own transcript
     /// file, so this in-memory state is always aligned with the file it owns.
-    pub(super) persisted_transcript_messages: Vec<ChatMessage>,
+    pub(super) persisted_transcript_messages:
+        Vec<tinyagents_session::transcript::TranscriptMessage>,
     /// Unique transcript key for this session, formatted as
     /// `"{unix_ts}_{agent_id}"`. Generated once at agent-build time so
     /// every transcript write in this session uses the same filename
@@ -543,7 +544,7 @@ pub struct AgentBuilder {
     /// [`with_session_history_locator`][super::builder::AgentBuilder::with_session_history_locator]
     /// to substitute the transcript backing store for the whole turn path.
     pub(super) session_history_locator:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistoryLocator>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
     /// Forwarded to [`Agent::omit_profile`] at `build()` time. Mirrors the
     /// target definition's `omit_profile` flag; `None` means "fall back
     /// to the safe default" (omit).

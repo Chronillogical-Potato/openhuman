@@ -54,7 +54,7 @@ pub(super) fn persist_subagent_transcript(
     dispatcher: &str,
     iteration: u32,
 ) {
-    use crate::agent::harness::session::transcript;
+    use tinyagents_session::transcript;
 
     let path = match transcript::resolve_keyed_transcript_path(workspace_dir, transcript_stem) {
         Ok(p) => p,
@@ -100,7 +100,13 @@ pub(super) fn persist_subagent_transcript(
         thread_id: thread_id.map(str::to_owned),
         task_id: Some(task_id.to_string()),
     };
-    if let Err(err) = transcript::write_transcript(&path, history, &meta, Some(&turn_usage)) {
+    let durable_history: Vec<_> = history
+        .iter()
+        .map(crate::agent::messages::transcript_message_from_chat)
+        .collect();
+    if let Err(err) =
+        transcript::write_transcript(&path, &durable_history, &meta, Some(&turn_usage))
+    {
         tracing::debug!(
             agent_id,
             error = %err,

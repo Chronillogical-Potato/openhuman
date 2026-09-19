@@ -143,7 +143,7 @@ fn stamp_tool_failures(
     messages: &mut [ChatMessage],
     tool_outcomes: &[crate::agent::tinyagents::ToolCallOutcome],
 ) {
-    use crate::agent::harness::session::transcript;
+    use tinyagents_session::transcript;
     if tool_outcomes.is_empty() {
         return;
     }
@@ -165,7 +165,9 @@ fn stamp_tool_failures(
             "[transcript] stamping tool failure call_id={call_id} name={}",
             outcome.name
         );
-        transcript::attach_tool_failure_metadata(msg, detail.as_deref());
+        let mut durable = crate::agent::messages::transcript_message_from_chat(msg);
+        transcript::attach_tool_failure_metadata(&mut durable, detail.as_deref());
+        *msg = crate::agent::messages::chat_message_from_transcript(durable);
     }
 }
 

@@ -30,8 +30,8 @@ Add these public modules to `tinyagents-session`:
 
 ```text
 transcript::{
-  TranscriptMeta, SessionTranscript, DisplaySessionTranscript,
-  TranscriptRecord, TurnUsage, MessageUsage, ChatHistory,
+  TranscriptMeta, TranscriptMessage, TranscriptToolCall, SessionTranscript,
+  DisplaySessionTranscript, TranscriptRecord, TurnUsage, MessageUsage,
   TranscriptHistory, TranscriptRead, TranscriptLocator,
   read_transcript, read_transcript_display, write_transcript,
   append_turn, compact_context, transcript_path, latest_for_agent,
@@ -39,15 +39,16 @@ transcript::{
 }
 ```
 
-Use `tinyinference_llm::message::Message` and its tool-call representation for
-the persisted model transcript. If an OpenHuman-only field is needed, expose a
-small caller-owned metadata JSON value rather than naming `ChatMessage` or an
-OpenHuman type. Keep stable JSONL `kind` tags forward-compatible: unknown
-records are skipped, not fatal. `tinyagents-session` may depend on
-`tinyinference-llm`, `tinyagents-harness` only for its error/`ChatHistory`
-contract (or relocate that contract to session to avoid an upward dependency),
-serde, serde_json, chrono and std I/O. It must not depend on graph or the new
-orchestration crate.
+Use the neutral `TranscriptMessage`/`TranscriptToolCall` durable model, not a
+`tinyinference_llm::message::Message` or `ChatHistory` conversion. The durable
+model preserves raw tool argument strings (including malformed streamed JSON),
+opaque provider `extra_content`, tool-result correlation ids, usage, thinking,
+trusted/verbatim metadata and caller-owned JSON metadata. Runtime-message
+conversion is an explicit host-boundary operation after read / before write.
+Keep stable JSONL `kind` tags forward-compatible: unknown records are skipped,
+not fatal. `tinyagents-session` may depend on serde, serde_json, chrono and
+std I/O (and its existing shared error substrate), but must not depend on graph,
+the new orchestration crate, or a provider dialect for transcript persistence.
 
 OpenHuman replaces its local types and helpers with direct imports, then
 implements only an adapter at the existing host boundary where conversion from
@@ -80,8 +81,10 @@ ignored; malformed required records fail; append writes only deltas; and path
 derivation is deterministic.
 
 **GREEN:** Add `transcript/{types,jsonl,metadata,paths,reader,writer}.rs` and
-the public API above. Use crate-native message types. Do not change established
-OpenHuman file bytes in this slice.
+the public API above. `TranscriptMessage` is deliberately neutral and
+lossless; do not add a public convenience conversion through a narrower
+provider/harness message. Do not change established OpenHuman file bytes in
+this slice.
 
 ### S2 — history, compaction, and discovery
 

@@ -43,10 +43,10 @@ pub use types::{
     CONVERSATION_REFLECTIONS_NAMESPACE,
 };
 
-use crate::agent::harness::session::transcript::{self, SessionTranscript};
 use crate::memory::Memory;
 use futures::stream::StreamExt;
 use std::path::Path;
+use tinyagents_session::transcript::{self, SessionTranscript};
 
 /// Max number of persist round-trips (markdown write + SQLite tx + embedding)
 /// kept in flight at once during ingestion. Bounds provider load so a

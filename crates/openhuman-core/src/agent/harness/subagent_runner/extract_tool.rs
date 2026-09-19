@@ -29,11 +29,11 @@ use serde_json::{json, Value};
 use tinyagents_graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 
 use super::handoff::{chunk_content, ResultHandoffCache, HANDOFF_MAX_ENTRIES};
-use crate::agent::harness::session::transcript::{
+use crate::agent::messages::{transcript_message_from_chat, ChatMessage};
+use crate::agent::tinyagents::TurnModelSource;
+use tinyagents_session::transcript::{
     resolve_keyed_transcript_path, write_transcript, MessageUsage, TranscriptMeta, TurnUsage,
 };
-use crate::agent::messages::ChatMessage;
-use crate::agent::tinyagents::TurnModelSource;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::ModelRequest;
 use tinytools::{Tool, ToolCallOptions, ToolCategory, ToolResult, ToolRunContext};
@@ -621,7 +621,8 @@ fn write_extract_transcript(
         task_id: None,
     };
 
-    if let Err(e) = write_transcript(&path, &messages, &meta, Some(&turn_usage)) {
+    let durable_messages: Vec<_> = messages.iter().map(transcript_message_from_chat).collect();
+    if let Err(e) = write_transcript(&path, &durable_messages, &meta, Some(&turn_usage)) {
         tracing::warn!(
             error = %e,
             path = %path.display(),

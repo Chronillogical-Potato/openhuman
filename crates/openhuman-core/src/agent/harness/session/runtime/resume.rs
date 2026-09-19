@@ -198,7 +198,12 @@ impl Agent {
                 // Count the tool-role results carried into the resumed prefix —
                 // the fidelity the prose fallback would have silently dropped.
                 let tool_result_msgs = session.messages.iter().filter(|m| m.role == "tool").count();
-                let bounded = self.bound_cached_transcript_messages(session.messages);
+                let replay = session
+                    .messages
+                    .into_iter()
+                    .map(crate::agent::messages::chat_message_from_transcript)
+                    .collect();
+                let bounded = self.bound_cached_transcript_messages(replay);
                 if bounded.len() < loaded_count {
                     log::warn!(
                         "[web-channel] resume prefix trimmed from {} to {} messages \

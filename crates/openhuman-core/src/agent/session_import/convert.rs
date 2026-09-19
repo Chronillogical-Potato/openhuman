@@ -1,7 +1,7 @@
 //! Pure conversion helpers: stem lineage, stream naming, descriptor
 //! assembly, and message-record projection.
 
-use crate::agent::harness::session::transcript::SessionTranscript;
+use tinyagents_session::transcript::SessionTranscript;
 
 use super::types::{
     DescriptorImport, DescriptorSource, DescriptorUsage, JournalMessage, SessionDescriptor,
