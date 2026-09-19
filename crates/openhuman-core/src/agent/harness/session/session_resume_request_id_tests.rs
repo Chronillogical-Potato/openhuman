@@ -187,7 +187,15 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
         "what happened?",
     ))];
     agent.absorb_resumed_transcript_prefix();
-    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let messages: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.clone()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let path = dir.path().join("seeded.jsonl");
@@ -264,7 +272,15 @@ fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request(
         "second question",
     ))];
     agent.absorb_resumed_transcript_prefix();
-    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let messages: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.clone()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
 
     let out = wsp.join("resumed.jsonl");
     transcript::append_transcript_turn(

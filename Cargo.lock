@@ -6530,7 +6530,6 @@ name = "tinyagents-session"
 version = "2.1.2"
 dependencies = [
  "anyhow",
- "async-trait",
  "chrono",
  "log",
  "rusqlite",
@@ -6538,7 +6537,6 @@ dependencies = [
  "serde_json",
  "tinyagents-harness",
  "tinyagents-tracing",
- "tinyinference-llm",
 ]
 
 [[package]]

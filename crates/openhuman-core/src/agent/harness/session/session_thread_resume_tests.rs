@@ -639,12 +639,17 @@ async fn a_resumed_transcript_prefix_is_absorbed_into_history() {
     // Defect (2): what persistence serializes is that same full sequence, so
     // the transcript written after a resume is complete and the *next* resume
     // reads a whole thread rather than a truncated one.
-    let persisted = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let persisted: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.content.as_str()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
     assert_eq!(
-        persisted
-            .iter()
-            .map(|m| m.content.as_str())
-            .collect::<Vec<_>>(),
+        persisted,
         vec![
             "stored system prompt",
             "first question",

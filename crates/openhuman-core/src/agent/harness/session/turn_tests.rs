@@ -113,10 +113,10 @@ impl ChatModel<()> for SequenceProvider {
         // receives the authoritative completed response, while turn-owned
         // continuation deltas remain independently observable.
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 

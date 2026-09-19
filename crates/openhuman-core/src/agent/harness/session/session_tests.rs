@@ -71,10 +71,10 @@ impl ChatModel<()> for MockProvider {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 
@@ -136,10 +136,10 @@ impl ChatModel<()> for RecordingProvider {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 

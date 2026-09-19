@@ -386,7 +386,7 @@ async fn shadow_read_unavailable_and_divergence() {
     // transcript → Unavailable (no shadow), never a divergence.
     let legacy = SessionTranscript {
         meta: meta.clone(),
-        messages: vec![ChatMessage::user("hi"), ChatMessage::assistant("done")],
+        messages: durable_messages(&[ChatMessage::user("hi"), ChatMessage::assistant("done")]),
     };
     assert_eq!(
         shadow_read_compare(ws.path(), stem, &legacy).await,
@@ -401,11 +401,11 @@ async fn shadow_read_unavailable_and_divergence() {
         .expect("live dual-write");
     let diverging = SessionTranscript {
         meta,
-        messages: vec![
+        messages: durable_messages(&[
             ChatMessage::user("hi"),
             ChatMessage::assistant("done"),
             ChatMessage::user("more"),
-        ],
+        ]),
     };
     assert_eq!(
         shadow_read_compare(ws.path(), stem, &diverging).await,

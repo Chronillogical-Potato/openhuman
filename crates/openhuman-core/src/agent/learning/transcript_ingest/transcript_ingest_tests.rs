@@ -12,6 +12,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use tinyagents_session::transcript::{SessionTranscript, TranscriptMeta};
 
+fn durable_messages(
+    messages: impl IntoIterator<Item = ChatMessage>,
+) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
+    messages
+        .into_iter()
+        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
+        .collect()
+}
+
 /// Tiny in-memory `Memory` implementation good enough to drive the
 /// transcript-ingest pipeline. Not exposed outside tests.
 struct InMemory {
@@ -192,12 +201,12 @@ async fn ingest_extracts_high_importance_preference_with_provenance() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_alpha")),
-        messages: vec![
+        messages: durable_messages([
             ChatMessage::user("hi"),
             ChatMessage::assistant("hello"),
             ChatMessage::user("I prefer Postgres over MySQL for any new metadata service we ship."),
             ChatMessage::user("Still need to migrate the auth service before Friday."),
-        ],
+        ]),
     };
 
     let report =
@@ -226,9 +235,9 @@ async fn re_ingest_is_idempotent() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_beta")),
-        messages: vec![ChatMessage::user(
+        messages: durable_messages([ChatMessage::user(
             "I prefer Postgres for everything new — please default to it.",
-        )],
+        )]),
     };
     let path = PathBuf::from("/tmp/200_main.jsonl");
 
@@ -250,7 +259,7 @@ async fn ingest_captures_user_reflection_and_recurring_pattern() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_gamma")),
-        messages: vec![
+        messages: durable_messages([
             ChatMessage::user("I prefer terse responses with no preamble."),
             ChatMessage::user("Going forward I want code-first answers."),
             ChatMessage::user("I always want bullet points when listing options."),
@@ -258,7 +267,7 @@ async fn ingest_captures_user_reflection_and_recurring_pattern() {
                 "I realized we keep reintroducing the same schema bug — \
                  next time write a regression test first.",
             ),
-        ],
+        ]),
     };
 
     let report =
@@ -286,12 +295,12 @@ async fn ingest_filters_low_signal_chatter() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(None),
-        messages: vec![
+        messages: durable_messages([
             ChatMessage::user("ok"),
             ChatMessage::user("thanks!"),
             ChatMessage::assistant("👍"),
             ChatMessage::user("hi there"),
-        ],
+        ]),
     };
 
     let report =
@@ -313,7 +322,7 @@ async fn ingest_persists_candidates_with_bounded_concurrency() {
     // stores in flight at once — the bound assertion below would then fail.
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_bound")),
-        messages: vec![
+        messages: durable_messages([
             ChatMessage::user("I prefer Postgres over MySQL for new metadata services."),
             ChatMessage::user("I prefer tabs over spaces in our Go codebase."),
             ChatMessage::user("I prefer dark mode in every editor I use."),
@@ -324,7 +333,7 @@ async fn ingest_persists_candidates_with_bounded_concurrency() {
             ChatMessage::user("I prefer monorepos for tightly coupled services."),
             ChatMessage::user("I prefer integration tests over heavy mocking."),
             ChatMessage::user("I prefer ISO-8601 timestamps in all our logs."),
-        ],
+        ]),
     };
 
     let report =
