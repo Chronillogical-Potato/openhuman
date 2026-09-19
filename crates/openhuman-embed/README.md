@@ -143,7 +143,7 @@ its own `Provider` (BYOK) never touches the key. `HarnessBuilder::session`
 remains for hosts that drive backend features on behalf of a signed-in user;
 the core stores that session as handed over (`auth.set_credential`) and never
 validates it — obtaining and validating a JWT is the host's job (see
-`crates/openhuman-session`).
+`openhuman_tinyhumans::session`).
 
 ### `Harness`: the one-agent shorthand
 

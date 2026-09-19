@@ -145,7 +145,7 @@ all specified by `headers.rs`). Key surface:
   `send_channel_*`, `*_channel_thread`, `revoke_integration`) all go through
   `authed_json`. Every one of them is bearer-only: the core never obtains,
   exchanges or validates a session — login-token exchange and `/auth/me`
-  validation live in the host's session owner (`crates/openhuman-session`),
+  validation live in the host's session owner (`openhuman_tinyhumans::session`),
   and `fetch_profile` exists only for channel link-checks that read a
   connected channel id off the profile.
 - `connect`, `url_for`, `raw_client` — OAuth connect flow and URL helpers for
@@ -202,7 +202,7 @@ see [`models/mod.rs`](models/mod.rs) for the full list.
   downloads), `MedullaClient` (including its separate SSE handshake), the
   agent's Langfuse ingestion request, and — outside this crate — the host
   session owner's `POST /auth/login-token/consume` / `GET /auth/me`
-  (`crates/openhuman-session`, via `ClientHeaders`).
+  (`openhuman_tinyhumans::session`, via `ClientHeaders`).
 - Never add `x-sdk-name` to third-party endpoints, MCP servers, BYOK
   inference endpoints, or presigned storage redirects.
 - When auditing hand-built backend requests, grep for
