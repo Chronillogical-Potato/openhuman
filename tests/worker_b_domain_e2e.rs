@@ -256,10 +256,6 @@ async fn worker_b_schema_catalog_exposes_all_controller_methods() {
         "openhuman.agent_get_definition",
         "openhuman.agent_reload_definitions",
         "openhuman.agent_triage_evaluate",
-        "openhuman.profiles_list",
-        "openhuman.profiles_select",
-        "openhuman.profiles_upsert",
-        "openhuman.profiles_delete",
         "openhuman.tools_composio_execute",
         "openhuman.tools_web_search",
         "openhuman.tools_seltz_search",
@@ -482,25 +478,6 @@ async fn agent_definitions_profiles_and_validation_paths_are_reachable() {
         (
             "openhuman.agent_get_definition",
             json!({ "id": "missing-worker-b-agent" }),
-            "not found",
-        ),
-        (
-            "openhuman.profiles_upsert",
-            json!({
-                "profile": {
-                    "id": "bad-worker-b-profile",
-                    "name": "Bad Worker B",
-                    "description": "Exercise unknown agent validation",
-                    "agentId": "missing-worker-b-agent",
-                    "allowedTools": [],
-                    "builtIn": false
-                }
-            }),
-            "not found",
-        ),
-        (
-            "openhuman.profiles_select",
-            json!({ "profile_id": "missing-worker-b-profile" }),
             "not found",
         ),
         (

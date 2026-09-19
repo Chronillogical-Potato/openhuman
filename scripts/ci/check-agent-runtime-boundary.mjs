@@ -14,7 +14,7 @@ const noBaseline = process.argv.includes("--no-baseline");
 // Product types need not start with `OpenHuman`, so this is an explicit,
 // reviewed inventory rather than a naming convention.
 const openhumanDomainTypes = new Set([
-  "AgentDefinitionDisplay", "AgentDefinitionModel", "AgentProfile", "AgentProfileStore",
+  "AgentDefinitionDisplay", "AgentDefinitionModel",
   "AgentProgress", "ApprovalDecision", "ChatMessage", "ConversationMessage",
   "ConversationMessagePatch", "ConversationMessageRecord", "DomainEvent",
   "IntegrationAccount", "OpenHumanConfig", "OpenHumanRunContext", "ToolExecutionResult",

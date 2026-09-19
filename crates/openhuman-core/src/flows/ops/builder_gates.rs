@@ -455,7 +455,7 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
                             errors.push(format!(
                                 "Node '{}': `agent_ref` `{agent_ref}` is registered but currently \
                                  disabled — enable it (or pick another agent_ref via \
-                                 list_agent_profiles) before this node can run.",
+                                 list_agent_definitions) before this node can run.",
                                 node.id
                             ));
                         }
@@ -471,7 +471,7 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
                                 "Node '{}': `agent_ref` `{agent_ref}` is not a real agent — it \
                                  names neither a built-in agent definition nor a custom agent \
                                  registry entry, and would fail at run time with an \"unknown \
-                                 agent_ref\" error. Call list_agent_profiles to see the real, \
+                                 agent_ref\" error. Call list_agent_definitions to see the real, \
                                  selectable agent_ref values.",
                                 node.id
                             ));

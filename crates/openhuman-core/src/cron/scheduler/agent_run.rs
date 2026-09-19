@@ -1,5 +1,5 @@
 //! Execution of `JobType::Agent` and `JobType::Flow` jobs: agent construction
-//! (definition / profile attribution) and the single scheduled turn.
+//! (definition selection) and the single scheduled turn.
 
 use super::delivery::is_morning_briefing_job;
 use super::failure_classification::classify_agent_anyhow_for_user;
@@ -128,7 +128,7 @@ pub(super) async fn run_agent_job(
                 "[cron] building isolated agent for scheduled job"
             );
             match build_agent_for_cron_job(&effective, job) {
-                Ok(BuiltCronAgent { mut agent, profile }) => {
+                Ok(BuiltCronAgent { mut agent }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -142,12 +142,9 @@ pub(super) async fn run_agent_job(
                         job_id: job.id.clone(),
                         source: crate::agent::turn_origin::TrustedAutomationSource::Cron,
                     };
-                    let turn = crate::memory::source_scope::with_source_scope(
-                        profile.and_then(|profile| profile.memory_sources),
-                        crate::agent::turn_origin::with_origin(
-                            origin,
-                            agent.run_single(&prefixed_prompt),
-                        ),
+                    let turn = crate::agent::turn_origin::with_origin(
+                        origin,
+                        agent.run_single(&prefixed_prompt),
                     );
                     // Morning briefing only: install a 24h task-recency window
                     // so Composio task-fetch tools (Linear/ClickUp/Notion/Asana)

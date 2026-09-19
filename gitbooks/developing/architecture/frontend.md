@@ -160,7 +160,6 @@ Authoritative list = the `reducer` map in `store/index.ts`. One-line purposes:
 | Slice                | Purpose                                                                 | Persisted?                                                     |
 | -------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `accounts`           | Connected web-app accounts + rail ordering                              | `accounts`, `order`, `lastActiveAccountId` (not the active id) |
-| `agentProfiles`      | Agent profile data                                                      | no                                                             |
 | `announcement`       | Harness-init announcement banner, seen ids                              | `shownIds`                                                     |
 | `backendMeet`        | Backend-driven Google Meet call state (join/leave, transcript, replies) | no                                                             |
 | `channelConnections` | Messaging channel connections (WhatsApp, Slack, …)                      | connections + migration/default-channel fields                 |

@@ -263,7 +263,7 @@ pub struct CronRun {
 ///
 /// A plain `#[derive(Deserialize)]` on `Option<Option<T>>` collapses the absent
 /// and the `null` cases *both* to the outer `None`, so "clear over the wire"
-/// (`{"profile_id": null}`) silently deserializes as "no change" — a no-op. Used
+/// (for example, `{"agent_id": null}`) silently deserializes as "no change" — a no-op. Used
 /// with `#[serde(default, deserialize_with = "deserialize_double_option")]`,
 /// this helper restores the distinction: serde only invokes it when the key is
 /// *present*, so a present `null` becomes `Some(None)` and a present value

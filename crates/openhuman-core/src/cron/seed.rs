@@ -188,7 +188,7 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
         false, // recurring — do not delete after run
         Some(MORNING_BRIEFING_JOB_NAME.to_string()),
         false, // enabled=false — opt-in, created disabled atomically
-        None,  // no profile attribution for the seeded briefing
+        None,
     )?;
 
     tracing::debug!(

@@ -4,7 +4,7 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 
 ## Public surface
 
-- `pub struct Agent` / `pub struct AgentBuilder` / `pub struct TurnOverrides` — `harness/session/types.rs`, re-exported from `harness::session` and `agent` — top-level conversation runtime; entry point for any chat turn. Constructors `Agent::from_config`, `from_config_for_agent`, `from_config_for_agent_with_profile` live in `harness/session/builder/factory.rs`; `run_single` / `run_interactive` in `harness/session/runtime/run_loop.rs`. The `builder/`, `runtime/`, and `turn/` submodules are private.
+- `pub struct Agent` / `pub struct AgentBuilder` / `pub struct TurnOverrides` — `harness/session/types.rs`, re-exported from `harness::session` and `agent` — top-level conversation runtime; entry point for any chat turn. Constructors `Agent::from_config` and `from_config_for_agent` live in `harness/session/builder/factory.rs`; `run_single` / `run_interactive` in `harness/session/runtime/run_loop.rs`. The `builder/`, `runtime/`, and `turn/` submodules are private.
 - `pub fn run_subagent` / `pub struct SubagentRunOptions` / `pub enum SubagentRunError` — `harness/subagent_runner/` — execute a hierarchical sub-agent from a parent tool loop.
 - `pub struct AgentDefinition` / `pub struct AgentDefinitionRegistry` / `pub enum SandboxMode` / `pub enum ToolScope` — `harness/definition/` (`agent_definition.rs`, `registry.rs`, `source.rs`, `tier.rs`, `execution_spec.rs`, `prompt_source.rs`, `subagents.rs`) — sub-agent archetypes loaded from built-ins + workspace TOML.
 - `pub mod harness::fork_context` — task-local parent context for KV-cache reuse.
@@ -32,7 +32,6 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 | `library/` | Safe, user-facing projection of agent definitions (`AgentDefinitionDisplay`) |
 | `orchestration/` | Command center, workflow runs, agent teams, worktrees, subagent control, `spawn_subagent` and its sibling tools ([README](orchestration/README.md)) |
 | `plan_review/` | Interactive plan-review gate that parks a live turn on a thread-scoped plan |
-| `profiles/` | Persistent agent profiles (name, soul, memory sources, skills, MCP, connectors) ([README](profiles/README.md)) |
 | `progress_tracing.rs` + `progress_tracing/` (`pub(crate)`) | Structured OpenTelemetry/Langfuse-style spans off the `progress::AgentProgress` stream ([README](progress_tracing/README.md)) |
 | `prompts/` | Prompt types, section builders, `SystemPromptBuilder` ([README](prompts/README.md)) |
 | `registry/` | User-facing agent registry: defaults, enablement, custom agents, tool policy; `registry/agents/` holds built-in archetypes ([README](registry/README.md)) |
@@ -40,7 +39,7 @@ Multi-agent orchestration domain. Owns the LLM tool-calling loop, sub-agent disp
 | `session_import/` | One-time import of legacy OpenHuman session JSONL/Markdown into TinyAgents stores ([README](session_import/README.md)) |
 | `task_dispatcher/` | Claims a `TaskBoardCard` via compare-and-set and runs one autonomous agent turn against it; `start_board_poller` drives it in the background ([README](task_dispatcher/README.md)) |
 | `tinyagents/` | Integration with the vendored `tinyagents` loop/replay crate: `TurnModelSource`, middleware, journal, `replay/schemas.rs` ([README](tinyagents/README.md)) |
-| `tools/` | Agent-loop control tools (`ask_clarification`, `delegate`, `delegate_to_personality`, `plan_exit`, `remember_preference`, `save_preference`, `run_workflow`, `todo`, `update_task`), re-exported through `crate::tools` |
+| `tools/` | Agent-loop control tools (`ask_clarification`, `delegate`, `plan_exit`, `remember_preference`, `save_preference`, `run_workflow`, `todo`, `update_task`), re-exported through `crate::tools` |
 | `triage/` | Classifies external `TriggerEnvelope`s and escalates to sub-agents ([README](triage/README.md)) |
 
 Flat files: `bus.rs` (`agent.run_turn` native request handler), `cost.rs` (`pub(crate)`, per-turn token/cost accounting), `error.rs` (typed retryable/permanent loop errors), `hooks.rs` (post-turn self-learning hooks), `host_runtime.rs` (native shell execution backend), `message_convert.rs` (`pub(crate)`, transcript/provider conversion), `messages.rs` (transcript types), `multimodal.rs` (attachment handling), `platform_shell.rs` (cross-platform shell selection shared with `host_runtime` and `sandbox::ops`), `progress.rs` (`AgentProgress` channel), `progress_sink.rs` (task-local progress sink for in-process embedders), `stop_hooks.rs` (mid-turn policy halts), `task_board.rs` (per-thread task board over `tinyagents_graph::todos`), `task_session.rs` (`pub(crate)`, task-board runs as conversation threads), `tool_policy.rs` (pre-execution tool-call policy hook), `turn_origin.rs` (task-local trust/routing label read by the approval gate), `turn_workspace.rs` (task-local per-turn filesystem root).

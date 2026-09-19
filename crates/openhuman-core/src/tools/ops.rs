@@ -332,7 +332,7 @@ pub fn all_tools_with_runtime(
         // (researcher / code_executor / …) — the agent analogue of
         // search_tool_catalog. Read-only.
         #[cfg(feature = "flows")]
-        Box::new(ListAgentProfilesTool::new()),
+        Box::new(ListAgentDefinitionsTool::new()),
         // Steer toolkit choice toward what's already connected + surface which
         // toolkits a flow still needs (Phase 5, item 19). Read-only.
         #[cfg(feature = "flows")]
@@ -1177,7 +1177,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "search_tool_catalog",
         "get_tool_contract",
         "get_tool_output_sample",
-        "list_agent_profiles",
+        "list_agent_definitions",
         "list_connectable_toolkits",
         "list_node_kinds",
         "get_node_kind_contract",

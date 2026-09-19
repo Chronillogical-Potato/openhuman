@@ -106,5 +106,3 @@ mod classifier_and_delivery_tests;
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
-#[path = "scheduler_profile_and_shell_tests.rs"]
-mod profile_and_shell_tests;

@@ -101,7 +101,7 @@ fn seed_prunes_legacy_welcome_job() {
         true,
         Some(LEGACY_WELCOME_JOB_NAME.to_string()),
         true, // enabled
-        None, // no profile attribution
+        None,
     )
     .expect("seed legacy welcome");
     assert_eq!(list_jobs(&config).unwrap().len(), 1);

@@ -279,10 +279,6 @@ name = "orchestrator_presentation_wiring"
 path = "../../tests/orchestrator_presentation_wiring.rs"
 
 [[test]]
-name = "personality_e2e"
-path = "../../tests/personality_e2e.rs"
-
-[[test]]
 name = "skill_registry_e2e"
 path = "../../tests/skill_registry_e2e.rs"
 
