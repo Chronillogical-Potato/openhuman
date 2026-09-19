@@ -26,7 +26,7 @@ autoexamples = false
 autobenches = false
 
 [package.metadata.cargo-machete]
-# Named only by `[[bin]]`/`[[test]]` sources through `required-features`.
+# Optional deps are named only by bin/test targets through `required-features`.
 ignored = []
 
 [[bin]]
