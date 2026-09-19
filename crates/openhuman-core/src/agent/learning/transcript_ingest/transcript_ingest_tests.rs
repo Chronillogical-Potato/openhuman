@@ -4,13 +4,13 @@
 //! end-to-end without a SQLite/vector backend.
 
 use super::*;
-use crate::agent::harness::session::transcript::{SessionTranscript, TranscriptMeta};
 use crate::agent::messages::ChatMessage;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use tinyagents_session::transcript::{SessionTranscript, TranscriptMeta};
 
 /// Tiny in-memory `Memory` implementation good enough to drive the
 /// transcript-ingest pipeline. Not exposed outside tests.

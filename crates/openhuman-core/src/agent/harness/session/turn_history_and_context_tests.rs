@@ -1,4 +1,5 @@
 use super::*;
+use tinyagents_session::transcript;
 
 #[test]
 fn trim_history_preserves_system_and_keeps_latest_non_system_entries() {

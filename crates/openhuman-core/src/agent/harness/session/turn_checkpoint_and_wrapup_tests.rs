@@ -1,4 +1,5 @@
 use super::*;
+use tinyagents_session::transcript;
 
 /// Issue #4117 — when the corrective re-prompt call itself fails, enforcement
 /// still guarantees a well-formed block: the deterministic synthesized fallback

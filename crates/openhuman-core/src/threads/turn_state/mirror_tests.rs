@@ -13,10 +13,10 @@ fn fresh(thread_id: &str) -> (tempfile::TempDir, TurnStateMirror) {
 
 // ── Interrupted-partial → session transcript wiring (Task 1) ──────────
 
-use crate::agent::harness::session::transcript::{
+use crate::agent::messages::ChatMessage;
+use tinyagents_session::transcript::{
     self, read_transcript, read_transcript_display, DisplayRecord, TranscriptMeta,
 };
-use crate::agent::messages::ChatMessage;
 
 fn seed_root_transcript(workspace: &std::path::Path, thread_id: &str) -> std::path::PathBuf {
     let stem = "100_orchestrator".to_string();

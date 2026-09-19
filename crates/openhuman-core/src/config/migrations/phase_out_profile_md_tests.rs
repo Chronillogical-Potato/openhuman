@@ -1,10 +1,8 @@
 use super::*;
-use crate::agent::harness::session::transcript::{
-    read_transcript, write_transcript, TranscriptMeta,
-};
 use crate::agent::messages::ChatMessage;
 use std::fs;
 use tempfile::TempDir;
+use tinyagents_session::transcript::{read_transcript, write_transcript, TranscriptMeta};
 
 fn meta() -> TranscriptMeta {
     TranscriptMeta {

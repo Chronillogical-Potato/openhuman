@@ -14,8 +14,8 @@ use super::*;
 /// resume only the transcript whose `_meta.agent_id` matches the caller.
 #[test]
 fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
-    use super::super::transcript::{self, TranscriptMeta};
     use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{self, TranscriptMeta};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -53,7 +53,7 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
     std::fs::create_dir_all(a_path.parent().unwrap()).unwrap();
     transcript::write_transcript(
         &a_path,
-        &a_messages,
+        &durable_messages(a_messages),
         &meta("agent_a", "2026-02-02T00:00:00Z"),
         None,
     )
@@ -69,7 +69,7 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
     std::fs::create_dir_all(b_path.parent().unwrap()).unwrap();
     transcript::write_transcript(
         &b_path,
-        &b_messages,
+        &durable_messages(b_messages),
         &meta("agent_b", "2026-01-01T00:00:00Z"),
         None,
     )

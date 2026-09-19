@@ -10,9 +10,10 @@ use super::*;
 fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // The embedding seam fails loudly when unwired; before the memory
     // extraction this was a direct call and needed no setup.
-    use super::super::transcript::{self, MessageUsage, TranscriptMeta, TurnUsage};
-    use crate::agent::messages::ChatMessage;
-    use crate::inference::provider::ToolCall;
+    use crate::agent::messages::{attach_chat_turn_usage_metadata, ChatMessage};
+    use tinyagents_session::transcript::{
+        self, MessageUsage, TranscriptMeta, TranscriptToolCall, TurnUsage,
+    };
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -22,7 +23,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // call + reasoning on the tool-calling assistant turn and a tool-role
     // result — exactly the fidelity the prose fallback drops. ──
     let mut assistant_toolcall = ChatMessage::assistant("Let me look that up.");
-    transcript::attach_turn_usage_metadata(
+    attach_chat_turn_usage_metadata(
         &mut assistant_toolcall,
         &TurnUsage {
             provider: "openai".to_string(),
@@ -36,7 +37,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
             },
             ts: "2026-01-01T00:00:00Z".to_string(),
             reasoning_content: Some("I should search the web for the price.".to_string()),
-            tool_calls: vec![ToolCall {
+            tool_calls: vec![TranscriptToolCall {
                 id: "call_1".to_string(),
                 name: "web_search".to_string(),
                 arguments: r#"{"query":"btc price"}"#.to_string(),
@@ -73,7 +74,8 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // Root stem: no `__`, so `find_root_transcript_for_thread` accepts it.
     let path = transcript::resolve_keyed_transcript_path(&wsp, "1700000000_orchestrator")
         .expect("resolve transcript path");
-    transcript::write_transcript(&path, &messages, &meta, None).expect("write transcript");
+    transcript::write_transcript(&path, &durable_messages(messages), &meta, None)
+        .expect("write transcript");
 
     // ── Cold boot: a brand-new agent for the same thread whose agent
     // definition name deliberately does NOT match the transcript stem — the
@@ -147,8 +149,8 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
 /// not the full pre-compaction history.
 #[test]
 fn seed_resume_replays_compaction_to_reduced_context() {
-    use super::super::transcript::{self, TranscriptMeta};
     use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{self, TranscriptMeta};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -176,21 +178,21 @@ fn seed_resume_replays_compaction_to_reduced_context() {
 
     // Turn 1: a full exchange. Turn 2: a context reduction (not a prefix) that
     // must land as a compaction record.
-    let full = vec![
+    let full = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("q1"),
         ChatMessage::assistant("a1"),
         ChatMessage::user("q2"),
         ChatMessage::assistant("a2"),
-    ];
+    ]);
     transcript::append_transcript_turn(&path, &[], &full, &meta, None, None)
         .expect("append turn 1");
-    let reduced = vec![
+    let reduced = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::assistant("[summary] q1/q2"),
         ChatMessage::user("q3"),
         ChatMessage::assistant("a3"),
-    ];
+    ]);
     transcript::append_transcript_turn(&path, &full, &reduced, &meta, None, None)
         .expect("append turn 2 (compaction)");
 
@@ -219,8 +221,8 @@ fn seed_resume_replays_compaction_to_reduced_context() {
 /// Resume must pick the newest matching canonical transcript for a thread.
 #[test]
 fn seed_resume_from_thread_transcript_picks_newest_canonical_transcript() {
-    use super::super::transcript::{self, TranscriptMeta};
     use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{self, TranscriptMeta};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -245,11 +247,11 @@ fn seed_resume_from_thread_transcript_picks_newest_canonical_transcript() {
     };
 
     // OLDER transcript in the agent's OWN (shared) dir.
-    let older = vec![
+    let older = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("draft plan"),
         ChatMessage::assistant("early draft, details TBD"),
-    ];
+    ]);
     let old_path = wsp
         .join("session_raw")
         .join("1700000000_orchestrator.jsonl");
@@ -258,11 +260,11 @@ fn seed_resume_from_thread_transcript_picks_newest_canonical_transcript() {
         .expect("write older");
 
     // NEWER transcript in the same canonical store.
-    let newer = vec![
+    let newer = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("finalize plan"),
         ChatMessage::assistant("FINAL: Minimax is the image generator"),
-    ];
+    ]);
     let new_path = wsp
         .join("session_raw")
         .join("1700009999_orchestrator.jsonl");
@@ -469,13 +471,13 @@ fn set_max_tool_iterations_survives_after_definition_backed_construction() {
 #[tokio::test]
 async fn fake_locator_substitutes_the_whole_turn_path() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let canned = crate::agent::harness::session::transcript::SessionTranscript {
+    let canned = tinyagents_session::transcript::SessionTranscript {
         meta: fake_transcript_meta("thr_fake"),
-        messages: vec![
+        messages: durable_messages(vec![
             crate::agent::messages::ChatMessage::system("canned system"),
             crate::agent::messages::ChatMessage::user("canned question"),
             crate::agent::messages::ChatMessage::assistant("canned answer"),
-        ],
+        ]),
     };
     let (mut agent, handle) = agent_with_fake_locator(workspace.path(), Some(canned));
 
@@ -573,13 +575,13 @@ async fn a_resumed_transcript_prefix_is_absorbed_into_history() {
     use crate::agent::messages::{ChatMessage, ConversationMessage};
 
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let canned = crate::agent::harness::session::transcript::SessionTranscript {
+    let canned = tinyagents_session::transcript::SessionTranscript {
         meta: fake_transcript_meta("thr_resume"),
-        messages: vec![
+        messages: durable_messages(vec![
             ChatMessage::system("stored system prompt"),
             ChatMessage::user("first question"),
             ChatMessage::assistant("first answer"),
-        ],
+        ]),
     };
     let (mut agent, _handle) = agent_with_fake_locator(workspace.path(), Some(canned));
     agent.try_load_session_transcript();

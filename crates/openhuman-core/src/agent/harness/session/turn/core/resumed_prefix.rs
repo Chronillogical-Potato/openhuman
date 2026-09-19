@@ -80,11 +80,8 @@ impl Agent {
         self.history = cached
             .into_iter()
             .map(|mut message| {
-                let mut durable = crate::agent::messages::transcript_message_from_chat(&message);
-                tinyagents_session::transcript::mark_replayed_if_unmarked(&mut durable);
-                ConversationMessage::Chat(crate::agent::messages::chat_message_from_transcript(
-                    durable,
-                ))
+                crate::agent::messages::mark_chat_replayed_if_unmarked(&mut message);
+                ConversationMessage::Chat(message)
             })
             .chain(tail)
             .collect();

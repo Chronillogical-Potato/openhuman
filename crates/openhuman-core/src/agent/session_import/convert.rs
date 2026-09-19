@@ -109,7 +109,9 @@ pub fn journal_messages(transcript: &SessionTranscript) -> Vec<JournalMessage> {
     transcript
         .messages
         .iter()
-        .map(JournalMessage::from)
+        .cloned()
+        .map(crate::agent::messages::chat_message_from_transcript)
+        .map(|message| JournalMessage::from(&message))
         .collect()
 }
 

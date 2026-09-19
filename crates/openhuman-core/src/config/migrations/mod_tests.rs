@@ -1,11 +1,9 @@
 use super::*;
-use crate::agent::harness::session::transcript::{
-    read_transcript, write_transcript, TranscriptMeta,
-};
 use crate::agent::messages::ChatMessage;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+use tinyagents_session::transcript::{read_transcript, write_transcript, TranscriptMeta};
 
 /// Simulate a v3 user config: narrow allowed_commands, narrow auto_approve,
 /// and the old hard-coded `max_actions_per_hour = 20`.

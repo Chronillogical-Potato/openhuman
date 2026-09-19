@@ -136,13 +136,13 @@ async fn explicit_worker_thread_replaces_parent_for_model_run_and_transcript() {
     .await
     .expect("worker run");
 
-    let path = crate::agent::harness::session::transcript::resolve_keyed_transcript_path(
+    let path = tinyagents_session::transcript::resolve_keyed_transcript_path(
         workspace.path(),
         "root__worker-thread",
     )
     .expect("transcript path");
-    let persisted = crate::agent::harness::session::transcript::read_transcript(&path)
-        .expect("worker transcript");
+    let persisted =
+        tinyagents_session::transcript::read_transcript(&path).expect("worker transcript");
     assert_eq!(persisted.meta.thread_id.as_deref(), Some("worker-thread"));
     assert_ne!(persisted.meta.thread_id.as_deref(), Some("parent-thread"));
 }

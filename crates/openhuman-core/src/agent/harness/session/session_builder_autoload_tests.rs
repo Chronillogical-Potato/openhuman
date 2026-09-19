@@ -6,8 +6,8 @@
 //! *name*, and every flow's builder is named `workflow_builder`.
 
 use super::*;
-use crate::agent::harness::session::transcript_history::{
-    SessionHistory, SessionHistoryLocator, SessionTranscriptRead,
+use tinyagents_session::transcript::{
+    SessionTranscript, TranscriptHistory, TranscriptLocator, TranscriptMeta, TranscriptRead,
 };
 
 const FLOW_A: &str = "flow A: forward my invoices to accounting";
@@ -18,20 +18,16 @@ struct OtherFlowOnly {
     handle: Arc<FakeSessionHistory>,
 }
 
-impl SessionHistoryLocator for OtherFlowOnly {
-    fn latest_for_agent(&self, _agent_name: &str) -> Option<Arc<dyn SessionTranscriptRead>> {
+impl TranscriptLocator for OtherFlowOnly {
+    fn latest_for_agent(&self, _agent_name: &str) -> Option<Arc<dyn TranscriptRead>> {
         Some(self.handle.clone())
     }
 
-    fn root_for_thread(&self, _thread_id: &str) -> Option<Arc<dyn SessionTranscriptRead>> {
+    fn root_for_thread(&self, _thread_id: &str) -> Option<Arc<dyn TranscriptRead>> {
         None
     }
 
-    fn open_stem(
-        &self,
-        _stem: &str,
-        _seed: crate::agent::harness::session::transcript::TranscriptMeta,
-    ) -> Result<Arc<dyn SessionHistory>> {
+    fn open_stem(&self, _stem: &str, _seed: TranscriptMeta) -> Result<Arc<dyn TranscriptHistory>> {
         Ok(self.handle.clone())
     }
 }
@@ -81,16 +77,14 @@ impl ChatModel<()> for SeenText {
 fn builder_agent(workspace: &std::path::Path) -> (Agent, Arc<SeenText>) {
     let handle = Arc::new(FakeSessionHistory {
         path: workspace.join("session_raw").join("flow_a.jsonl"),
-        canned: Some(
-            crate::agent::harness::session::transcript::SessionTranscript {
-                meta: fake_transcript_meta("thr_flow_a"),
-                messages: vec![
-                    crate::agent::messages::ChatMessage::system("builder system prompt"),
-                    crate::agent::messages::ChatMessage::user(FLOW_A),
-                    crate::agent::messages::ChatMessage::assistant("proposed flow A"),
-                ],
-            },
-        ),
+        canned: Some(SessionTranscript {
+            meta: fake_transcript_meta("thr_flow_a"),
+            messages: durable_messages(vec![
+                crate::agent::messages::ChatMessage::system("builder system prompt"),
+                crate::agent::messages::ChatMessage::user(FLOW_A),
+                crate::agent::messages::ChatMessage::assistant("proposed flow A"),
+            ]),
+        }),
         appended: Mutex::new(Vec::new()),
     });
     let model = Arc::new(SeenText::default());
@@ -98,7 +92,7 @@ fn builder_agent(workspace: &std::path::Path) -> (Agent, Arc<SeenText>) {
         .chat_model(model.clone())
         .tools(vec![Box::new(MockTool)])
         .memory(crate::memory::test_support::noop_memory())
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .agent_definition_name("workflow_builder")
         .workspace_dir(workspace.to_path_buf())
         .with_session_history_locator(Arc::new(OtherFlowOnly { handle }))
