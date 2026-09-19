@@ -6,6 +6,9 @@ use crate::skills::ops_types::{Workflow, WorkflowScope};
 
 pub(super) fn absorb(by_name: &mut HashMap<String, Workflow>, incoming: Vec<Workflow>) {
     for mut skill in incoming {
+        if !is_supported_scope(skill.scope) {
+            continue;
+        }
         let key = skill.name.clone();
         let collision_keys: Vec<String> = by_name
             .iter()
@@ -66,5 +69,17 @@ pub(super) const fn precedence(scope: WorkflowScope) -> u8 {
         WorkflowScope::User => 2,
         WorkflowScope::Project => 3,
         WorkflowScope::Flow => 4,
+        _ => 0,
     }
+}
+
+const fn is_supported_scope(scope: WorkflowScope) -> bool {
+    matches!(
+        scope,
+        WorkflowScope::Builtin
+            | WorkflowScope::Legacy
+            | WorkflowScope::User
+            | WorkflowScope::Project
+            | WorkflowScope::Flow
+    )
 }

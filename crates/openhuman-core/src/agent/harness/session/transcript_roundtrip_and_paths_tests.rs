@@ -290,18 +290,18 @@ fn find_root_transcript_for_thread_skips_subagent_siblings() {
 }
 
 #[test]
-fn find_root_transcript_for_thread_scans_profile_scoped_raw_dirs() {
+fn find_root_transcript_for_thread_scans_canonical_raw_dir() {
     let dir = TempDir::new().unwrap();
-    let scoped_raw = dir.path().join("session_raw-alice");
+    let scoped_raw = raw_session_dir(dir.path());
     fs::create_dir_all(&scoped_raw).unwrap();
 
     let mut meta = sample_meta();
-    meta.thread_id = Some("thread-scoped".into());
-    let expected = scoped_raw.join("1714000000_orchestrator_thread-scoped.jsonl");
+    meta.thread_id = Some("thread-canonical".into());
+    let expected = scoped_raw.join("1714000000_orchestrator_thread-canonical.jsonl");
     write_transcript(&expected, &sample_messages(), &meta, None).unwrap();
 
     assert_eq!(
-        find_root_transcript_for_thread(dir.path(), "thread-scoped"),
+        find_root_transcript_for_thread(dir.path(), "thread-canonical"),
         Some(expected)
     );
 }

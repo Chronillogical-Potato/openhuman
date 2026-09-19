@@ -137,7 +137,7 @@ impl Agent {
     ///
     /// `agent_id: None` keeps the original unscoped behaviour, used by the
     /// desktop orchestrator's web-channel resume, where a `thread_id` is
-    /// driven by one logical agent even across a profile switch (#5351).
+    /// driven by one logical agent (#5351).
     pub fn seed_resume_from_thread_transcript_scoped(
         &mut self,
         thread_id: &str,
@@ -153,21 +153,16 @@ impl Agent {
             return false;
         }
 
-        // The thread's conversation belongs to the THREAD, not the active
-        // profile: the locator resolves cross-dir, newest-wins across the
-        // shared `session_raw/` and every canonical `session_raw-<id>/`
-        // (#5351), so switching profile mid-thread continues the same
-        // conversation. See `FileTranscriptLocator::root_for_thread` for why
-        // this must not be own-dir-first. `agent_id` additionally narrows to
-        // one agent's own transcripts — see
+        // The thread's conversation belongs to the thread. The locator reads
+        // the canonical `session_raw/` store, and `agent_id` additionally
+        // narrows to one agent's own transcripts — see
         // `FileTranscriptLocator::root_for_thread_scoped`.
         let Some(handle) = self
             .session_locator()
             .root_for_thread_scoped(thread_id, agent_id)
         else {
             log::debug!(
-                "[web-channel] no root session_raw transcript for thread={thread_id} in any \
-                 (shared or canonical) session_raw dir — falling back to \
+                "[web-channel] no root session_raw transcript for thread={thread_id} — falling back to \
                  conversation-log prose seeding"
             );
             return false;

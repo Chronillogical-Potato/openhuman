@@ -240,9 +240,9 @@ fn read_thread_usage_summary_sums_multiple_transcripts() {
 }
 
 #[test]
-fn read_thread_usage_summary_scans_profile_scoped_raw_dirs() {
+fn read_thread_usage_summary_scans_canonical_raw_dir() {
     let ws = TempDir::new().unwrap();
-    let raw = ws.path().join("session_raw-alice");
+    let raw = raw_session_dir(ws.path());
     std::fs::create_dir_all(&raw).unwrap();
     let mut meta = sample_meta();
     meta.thread_id = Some("thr-scoped-usage".into());
@@ -258,7 +258,7 @@ fn read_thread_usage_summary_scans_profile_scoped_raw_dirs() {
     .unwrap();
 
     let summary = read_thread_usage_summary(ws.path(), "thr-scoped-usage")
-        .expect("scoped usage summary present");
+        .expect("canonical usage summary present");
     assert_eq!(summary.input_tokens, 321);
     assert_eq!(summary.output_tokens, 45);
     assert_eq!(summary.turn_count, 2);

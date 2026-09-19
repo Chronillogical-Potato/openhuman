@@ -25,7 +25,7 @@ pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) ->
 /// Plain thread-id matching is ambiguous when several distinct agents can be
 /// given the same caller-supplied `thread_id` — every runtime agent on one
 /// [`Runtime`](openhuman_embed's library host) shares the same
-/// `session_raw*` stores, keyed only by thread id in `_meta.thread_id`. Two
+/// `session_raw/` store, keyed only by thread id in `_meta.thread_id`. Two
 /// agents handed the same id would otherwise resolve to whichever one wrote
 /// the newest matching transcript, splicing agent B's history (and its
 /// caller's data) into agent A's turn. `agent_id` filters on
@@ -34,7 +34,7 @@ pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) ->
 ///
 /// `agent_id: None` is the pre-existing unscoped behaviour — used for the
 /// desktop orchestrator, where a `thread_id` is only ever driven by one
-/// logical agent even across a Quick/Reasoning profile switch (#5351).
+/// logical agent (#5351).
 pub fn find_root_transcript_for_thread_scoped(
     workspace_dir: &Path,
     thread_id: &str,

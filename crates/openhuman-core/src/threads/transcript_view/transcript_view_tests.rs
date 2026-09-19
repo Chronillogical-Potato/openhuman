@@ -289,12 +289,12 @@ fn subagent_file_projects_as_nested_item() {
 }
 
 #[test]
-fn profile_scoped_root_and_subagent_project_together() {
+fn canonical_root_and_subagent_project_together() {
     let dir = TempDir::new().unwrap();
-    let raw_dir = dir.path().join("session_raw-alice");
+    let raw_dir = dir.path().join("session_raw");
     std::fs::create_dir_all(&raw_dir).unwrap();
     let root_stem = "450_orchestrator";
-    let thread_id = "thr_profile";
+    let thread_id = "thr_canonical";
 
     write_raw_at(
         &raw_dir.join(format!("{root_stem}.jsonl")),

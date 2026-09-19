@@ -270,7 +270,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `library/` | Keep | Product-facing safe definition projection/RPC DTO. |
 | `orchestration/` | Split | Move generic graph lifecycle/delegation/selection; keep worktrees, workflow business rules, delivery, RPC, ledgers, and host tools. |
 | `plan_review/` | Keep | OpenHuman interactive approval policy and RPC state. |
-| `profiles/` | Keep | Product persistence/prompts/connectors; project definitions into registry. |
+| `profiles/` | Delete | Removed in this migration; agent definitions come from the registry. |
 | `progress_tracing.rs`, `progress_tracing/` | Keep | OpenHuman UI/Langfuse projection and transport. Generic observations/events remain upstream. |
 | `prompts/` | Keep/Split | Keep bundled product prompts and section content. Move behavior-free render helpers/building blocks that name no product type to harness/prompt. |
 | `registry/` | Split | Keep enablement, custom-agent persistence, product defaults and RPC; move definition parsing/validation/lookup to `tinyagents-registry`; delete thin `registry/tools.rs`. |
