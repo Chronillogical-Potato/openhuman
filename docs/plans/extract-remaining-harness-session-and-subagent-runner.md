@@ -337,7 +337,7 @@ deleted module declarations and forwarding surfaces. These final production
 grep gates must be empty (negative checker fixtures are the sole exception):
 
 ```bash
-rg -n 'agent::harness::session|harness::session|mod session;' crates tests
+rg -n 'agent::session_host|tinyagents_runtime::Session' crates tests
 rg -n 'agent::harness::subagent_runner|harness::subagent_runner|mod subagent_runner;' crates tests
 rg -n 'pub use .*tinyagents_(runtime|session|orchestration)|type .*=(.*tinyagents)' crates/openhuman-core/src
 rg -n 'struct RunQueue|impl RunQueue|harness/run_queue' crates/openhuman-core/src/agent

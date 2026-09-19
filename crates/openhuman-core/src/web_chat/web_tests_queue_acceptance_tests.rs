@@ -148,11 +148,9 @@ async fn terminal_turn_dispatches_followup_as_a_fresh_host_turn() {
             .any(|(key, request_id)| key == thread_id && request_id != &primary_request_id)
     })
     .await;
-    assert!(
-        entries
-            .iter()
-            .any(|(key, request_id)| key == thread_id && request_id != &primary_request_id)
-    );
+    assert!(entries
+        .iter()
+        .any(|(key, request_id)| key == thread_id && request_id != &primary_request_id));
 
     cancel_parked_turn(thread_id, &block).await;
 }
@@ -209,21 +207,15 @@ async fn cancellation_discards_pending_lanes_before_a_replacement_turn() {
         .await
         .expect("replacement queue status should be available");
     assert_eq!(replacement.value["total"], 0);
-    assert!(
-        drain_queued_turns_for_test(thread_id, QueueLane::Followup)
-            .await
-            .is_empty()
-    );
-    assert!(
-        drain_queued_turns_for_test(thread_id, QueueLane::Steer)
-            .await
-            .is_empty()
-    );
-    assert!(
-        drain_queued_turns_for_test(thread_id, QueueLane::Collect)
-            .await
-            .is_empty()
-    );
+    assert!(drain_queued_turns_for_test(thread_id, QueueLane::Followup)
+        .await
+        .is_empty());
+    assert!(drain_queued_turns_for_test(thread_id, QueueLane::Steer)
+        .await
+        .is_empty());
+    assert!(drain_queued_turns_for_test(thread_id, QueueLane::Collect)
+        .await
+        .is_empty());
 
     cancel_parked_turn(thread_id, &replacement_block).await;
 }

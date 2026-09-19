@@ -10,7 +10,7 @@ use crate::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnResult, Agen
 use crate::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
+use crate::agent::tinyagents::{SubagentScope, run_turn_via_tinyagents_shared};
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use tinyagents_harness::run_queue::RunQueue;
 use tinytools::WorkspaceDescriptor;

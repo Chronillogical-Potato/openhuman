@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::core::events::DomainEvent;
 use crate::core::socketio::WebChannelEvent;
 use crate::security::prompt_injection::{
-    PromptEnforcementAction, PromptEnforcementContext, enforce_prompt_input,
+    enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 
 use super::super::event_bus::publish_web_channel_event;
@@ -20,7 +20,7 @@ use super::super::run_task::run_chat_task;
 use super::super::types::{ChatRequestMetadata, InFlightEntry, QueueMode};
 use super::super::web_errors::classify_inference_error;
 use super::parallel_turn::spawn_parallel_turn;
-use super::state::{IN_FLIGHT, cancel_in_flight_gracefully, key_for};
+use super::state::{cancel_in_flight_gracefully, key_for, IN_FLIGHT};
 use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };

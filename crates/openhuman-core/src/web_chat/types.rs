@@ -6,7 +6,7 @@
 use serde::Deserialize;
 use tinyagents_harness::run_queue::QueueLane;
 
-use crate::agent::Agent;
+use crate::agent::OpenHumanSessionHost;
 
 /// How a web request arriving during an active turn is handled.
 ///
@@ -72,7 +72,7 @@ pub(crate) struct SessionCacheFingerprint {
 }
 
 pub(super) struct SessionEntry {
-    pub(super) agent: Agent,
+    pub(super) agent: OpenHumanSessionHost,
     pub(super) fingerprint: SessionCacheFingerprint,
 }
 

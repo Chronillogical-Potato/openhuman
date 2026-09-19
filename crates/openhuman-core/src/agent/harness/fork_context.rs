@@ -3,7 +3,7 @@
 //! the [`tinytools::Tool`] trait.
 //!
 //! [`PARENT_CONTEXT`] is set by the parent
-//! [`crate::agent::Agent`] around its `turn` so that any tool
+//! [`crate::agent::OpenHumanSessionHost`] around its `turn` so that any tool
 //! executing inside that turn (in particular `spawn_subagent`) can read
 //! the parent's provider, tool list, and model information.
 //!
@@ -26,7 +26,7 @@ use tinytools::{Tool, ToolSpec};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Snapshot of the parent agent's runtime, made available to any tool
-/// running inside [`crate::agent::Agent::turn`] via the
+/// running inside [`crate::agent::OpenHumanSessionHost::turn`] via the
 /// [`PARENT_CONTEXT`] task-local.
 ///
 /// All heavy fields are `Arc`-shared so cloning the context for sub-agents
@@ -183,7 +183,7 @@ tokio::task_local! {
 
 /// Returns a clone of the current parent execution context, if one is set.
 ///
-/// Returns `None` when called from outside [`crate::agent::Agent::turn`]
+/// Returns `None` when called from outside [`crate::agent::OpenHumanSessionHost::turn`]
 /// (e.g. CLI tool invocation).
 pub fn current_parent() -> Option<ParentExecutionContext> {
     PARENT_CONTEXT.try_with(|ctx| ctx.clone()).ok()

@@ -13,8 +13,8 @@ mod test_hooks;
 mod turn_guards;
 
 pub(super) use budget_correlation::{
-    BudgetCorrelation, classify_budget_correlation, clear_budget_signal, has_fresh_budget_signal,
-    record_budget_signal,
+    classify_budget_correlation, clear_budget_signal, has_fresh_budget_signal,
+    record_budget_signal, BudgetCorrelation,
 };
 
 pub use channel_ops::{
@@ -24,22 +24,22 @@ pub use channel_ops::{
 
 pub use start_chat::start_chat;
 
-pub(super) use state::THREAD_SESSIONS;
 #[cfg(test)]
 pub use state::drain_queued_turns_for_test;
 #[cfg(any(test, debug_assertions))]
 pub use state::parallel_in_flight_entries_for_test;
+pub(super) use state::THREAD_SESSIONS;
 pub use state::{cancel_should_target, in_flight_entries_for_test, invalidate_thread_sessions};
 pub(crate) use state::{event_session_id_for, key_for};
 
 #[cfg(any(test, debug_assertions))]
-pub use test_hooks::RUN_CHAT_TASK_TEST_LOCK;
-#[cfg(any(test, debug_assertions))]
 pub use test_hooks::set_test_forced_run_chat_task_error;
 #[cfg(any(test, debug_assertions))]
-pub(super) use test_hooks::{TEST_FORCED_RUN_CHAT_TASK_ERROR, TEST_RUN_CHAT_TASK_BLOCK};
+pub use test_hooks::RUN_CHAT_TASK_TEST_LOCK;
 #[cfg(any(test, debug_assertions))]
-pub use test_hooks::{TestRunChatTaskBlock, set_test_run_chat_task_block};
+pub use test_hooks::{set_test_run_chat_task_block, TestRunChatTaskBlock};
+#[cfg(any(test, debug_assertions))]
+pub(super) use test_hooks::{TEST_FORCED_RUN_CHAT_TASK_ERROR, TEST_RUN_CHAT_TASK_BLOCK};
 
 pub(crate) use turn_guards::sentry_suppression_reason;
 #[cfg(test)]

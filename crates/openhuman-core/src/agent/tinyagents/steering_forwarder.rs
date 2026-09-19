@@ -24,8 +24,8 @@
 //! is held across the drive future, cleanup happens identically on normal
 //! return, error, and drop-cancellation.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use tinyagents_harness::ids::TaskId;

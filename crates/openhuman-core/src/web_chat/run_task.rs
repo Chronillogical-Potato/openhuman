@@ -10,7 +10,7 @@ use tinyagents_harness::run_queue::RunQueue;
 use crate::config::rpc as config_rpc;
 use crate::threads::turn_state::TurnStateStore;
 
-use super::ops::{BudgetCorrelation, THREAD_SESSIONS, key_for};
+use super::ops::{key_for, BudgetCorrelation, THREAD_SESSIONS};
 use super::progress_bridge::spawn_progress_bridge;
 use super::session::{
     build_session_agent, build_session_fingerprint, normalize_model_override, pick_target_agent_id,
