@@ -11,9 +11,7 @@ use anyhow::Result;
 use futures::StreamExt;
 use tinyagents_harness::agent_loop::AgentStreamItem;
 use tinyagents_harness::events::EventSink;
-use tinyagents_harness::runtime::{
-    AgentHarness, AgentInvocation, AgentTurnRequest, InvocationRuntime,
-};
+use tinyagents_harness::runtime::{AgentInvocation, AgentTurnRequest, InvocationRuntime};
 use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
 
