@@ -13,7 +13,7 @@
 //! [`crate::agent::tinyagents::run_turn_via_tinyagents_shared`], the
 //! shared TinyAgents harness assembly. What this module keeps is the
 //! OpenHuman product shell around that loop — transcript persistence and
-//! legacy-format compatibility ([`migration`]), prompt
+//! legacy-format compatibility from `tinyagents_session::transcript`, prompt
 //! section assembly and KV-cache prefix stability, memory/context injection
 //! policy, post-turn hooks, and the persisted history shape. The migration
 //! plan for moving the durable parts onto TinyAgents store/cache primitives
@@ -36,7 +36,6 @@
 pub(crate) use builder::provider_role_for_definition;
 
 mod builder;
-mod migration;
 mod runtime;
 #[cfg(test)]
 mod tool_progress;
@@ -48,8 +47,6 @@ mod turn;
 // same thing.
 pub(crate) mod turn_checkpoint;
 mod types;
-
-pub use migration::{migrate_session_layout_if_needed, MigrationOutcome};
 
 #[cfg(test)]
 #[path = "session_tests.rs"]
