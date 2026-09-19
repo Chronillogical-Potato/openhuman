@@ -379,8 +379,8 @@ tinyflows-copilot = { path = "../../vendor/tinyflows/crates/tinyflows-copilot", 
 # commit 612ea5e "refactor: split tinyagents into focused crates" and follow-on
 # work): there is no longer a single `tinyagents` package. openhuman now depends
 # directly on the members it actually uses — `tinyagents-harness` (agent loop,
-# tools, middleware), `tinyagents-graph` (durable state graphs), `tinyagents-language`
-# (`.rag`), `tinyagents-registry` (capability/model registry), and
+# tools, middleware), `tinyagents-graph` (durable state graphs),
+# `tinyagents-registry` (capability/model registry), and
 # `tinyagents-session` (durable session history + run ledger, previously gated
 # behind this crate's own `sqlite` feature — it is its own always-on crate now).
 # The `sqlite` feature is enabled on the harness/graph crates now that openhuman's
@@ -413,7 +413,6 @@ tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-defi
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
-tinyagents-language = { path = "../../vendor/tinyagents/crates/tinyagents-language" }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
@@ -639,13 +638,13 @@ once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
 libc = "0.2"
-nu-ansi-term = "0.46"
+nu-ansi-term = "0.50"
 env_logger = { version = "0.11", optional = true }
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.10"
-dirs = "5"
+dirs = "6"
 sha2 = "0.10"
 # NO `git2` HERE, DELIBERATELY — do not add it back. Every use of libgit2 in
 # the memory stack lives in tinycortex: the diff ledger, the wiki mirror
@@ -656,7 +655,6 @@ sha2 = "0.10"
 # hard cargo error, not a warning. Nothing here now enables tinycortex's
 # `git-diff` / `wiki-git` features either, so libgit2 is out of the graph
 # entirely; re-adding a gate for it means re-adding the cohort.
-hmac = "0.12"
 # Archive handling for the Piper voice installer and the document tools. The
 # Node.js and Python toolchain archives are no longer unpacked here — the
 # `tinyruntime` module owns that — which is what let `xz2` and its static
@@ -667,9 +665,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # pulled in transitively by zip's `deflate` feature; declared directly so
 # the installer module can `use flate2::read::GzDecoder`.
 flate2 = "1"
-# Real timeout around a blocking child wait, for the Claude Code auth probe.
-# Guards against a broken binary on PATH hanging the caller forever.
-wait-timeout = "0.2"
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1.0"
 async-trait = "0.1"
@@ -746,11 +741,6 @@ starship-battery = { version = "0.10", optional = true }
 # - bs58: Solana base58 addresses + Tron base58check addresses.
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
 bs58 = { version = "0.5", default-features = false, features = ["std", "check"] }
-# Shared BIP-39 mnemonic → seed for non-EVM chains (BTC P2WPKH derivation,
-# Tron secp256k1 derivation, Solana ed25519 SLIP-0010 derivation). Same crate
-# ethers-signers uses internally, exposed as a direct dep so we can derive
-# off the recovery phrase without going through the EVM signer wrapper.
-coins-bip39 = { version = "0.8", optional = true }
 # Solana off-curve check for ATA derivation (find_program_address).
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
@@ -910,7 +900,6 @@ tokio-tungstenite = { version = "0.29", default-features = false, features = ["c
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { version = "0.4", optional = true }
-rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
 # Turns on `tinyflows-sqlite`'s `test-fixtures` gate for test builds only: the
@@ -925,7 +914,6 @@ tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", fe
 # `key` here does not put the derivation stack back into the product.
 tinywallet = { path = "../../vendor/tinywallet", default-features = false, features = ["key", "btc", "evm", "solana", "tron"] }
 k256 = { version = "0.13", default-features = false, features = ["std", "ecdsa"] }
-coins-bip39 = { version = "0.8" }
 # The fake memory driver the host's own tests bind, in place of an in-process
 # engine (openhuman#6161). It serves every optional family, so a handler that
 # asks for one by accessor gets `Some` rather than taking the `None` arm as
@@ -1183,8 +1171,9 @@ voice = [
 # compile-time surface, `DomainSet` gates it at runtime.
 # `k256` and `coins-bip39` are gone from this list: nothing in the shipped
 # binary derives a key or signs with secp256k1 any more — the wallet module
-# does both. Both crates remain under [dev-dependencies], where test fixtures
-# still derive a known account and check a signature against a fixed vector.
+# does both. `k256` remains under [dev-dependencies], where a test fixture
+# checks a signature against a fixed vector; `coins-bip39` is gone entirely
+# (the fixtures derive through `tinywallet`'s own copy).
 #
 # `curve25519-dalek` stays: `associated_token_account` needs the off-curve check
 # to derive a Solana ATA, which is address arithmetic rather than signing.
@@ -1429,7 +1418,6 @@ medulla = []
 channels = ["dep:tinychannels", "tinychannels/email", "tinychannels/lark"]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
-peripheral-rpi = ["dep:rppal"]
 browser-native = ["dep:fantoccini"]
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
