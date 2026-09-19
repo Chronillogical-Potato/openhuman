@@ -137,6 +137,7 @@ struct OpenHumanTurnPreludeMutable {
 }
 
 impl OpenHumanTurnPrelude {
+    #[allow(clippy::type_complexity)]
     fn current_tool_source(
         &self,
     ) -> (
@@ -366,7 +367,6 @@ impl OpenHumanTurnPrelude {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .build_system_prompt(&context)
-            .map_err(Into::into)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -1569,7 +1569,7 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .prelude
                             .clone();
-                        let prelude = prelude.ok_or_else(|| {
+                        let prelude = prelude.ok_or({
                             tinyagents_runtime::RuntimeError::MissingDependency(
                                 "OpenHumanTurnPrelude",
                             )
@@ -1643,7 +1643,7 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .context_middleware
                             .clone()
-                            .ok_or_else(|| {
+                            .ok_or({
                                 tinyagents_runtime::RuntimeError::MissingDependency(
                                     "TurnContextMiddleware",
                                 )

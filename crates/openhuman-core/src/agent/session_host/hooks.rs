@@ -15,6 +15,7 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 /// The runtime makes the durable commit before `after_commit` and guarantees a
 /// single terminal callback.  OpenHuman adapters use these points for progress,
 /// BUS projection, memory/experience work and usage finalization.
+#[allow(clippy::type_complexity)]
 pub struct OpenHumanSessionHooks {
     before_resume: Arc<
         dyn for<'a> Fn(

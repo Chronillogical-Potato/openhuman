@@ -647,6 +647,7 @@ impl OpenHumanPersistence {
             .map_err(|error| SubagentError::Persistence(error.to_string()))?;
         let file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(path)

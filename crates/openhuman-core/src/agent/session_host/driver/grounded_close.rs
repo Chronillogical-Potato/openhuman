@@ -224,9 +224,11 @@ async fn completion(
             ModelStreamItem::MessageDelta(delta) => buffered.push_str(&delta.text),
             ModelStreamItem::Completed(response) => {
                 let text = response.text();
-                let selected = (!text.trim().is_empty())
-                    .then_some(text)
-                    .unwrap_or(buffered);
+                let selected = if !text.trim().is_empty() {
+                    text
+                } else {
+                    buffered
+                };
                 return (
                     selected,
                     crate::agent::tinyagents::model::usage_info_from_response(&response),

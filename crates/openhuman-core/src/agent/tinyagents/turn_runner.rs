@@ -671,7 +671,7 @@ async fn run_turn_via_tinyagents_inner(
             ..
         }) = run_context.origin.as_ref()
         {
-            journal::register_request_journal_run(&request_id, journal_run_id.as_str());
+            journal::register_request_journal_run(request_id, journal_run_id.as_str());
         }
     }
 

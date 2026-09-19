@@ -514,7 +514,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                             &outcome.task_id,
                             &outcome.agent_id,
                             None,
-                            &question,
+                            question,
                             checkpoint.is_some(),
                         ),
                     ))
