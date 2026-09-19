@@ -6,7 +6,7 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
 
 use serde_json::{Map, Value};
 
@@ -1157,7 +1157,8 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
 /// the complete set (byte-identical to pre-#4796).
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.clone())
         .collect()
@@ -1172,7 +1173,8 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 /// automatically under `harness()`.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.schema.clone())
         .collect()
@@ -1302,7 +1304,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "subsystems" => Some(
             "Kernel subsystem slots and their bound drivers: class, health, contract version, and advertised capabilities.",
         ),
-        _ => None,
+        other => extension_namespace_description(other),
     }
 }
 
@@ -1320,7 +1322,8 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
     // and CLI routing, which are harmless for an about-to-be-rejected gated
     // method — the DomainSet gate is enforced at dispatch
     // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
@@ -1347,7 +1350,8 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
 /// CLI-invokable in any configuration, so reporting a capability fact for one
 /// would name a cause that is not the reason the command is unavailable.
 pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Capability>> {
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
@@ -1362,7 +1366,8 @@ pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Ca
 /// must still produce the CLI's configuration-fact diagnostic before it
 /// dispatches a capability-gated method.
 pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .find(|g| g.controller.rpc_method_name() == method)
         .map(|g| g.capability)
 }
@@ -1384,7 +1389,8 @@ pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
 pub fn sole_capability_for_namespace(namespace: &str) -> Option<Capability> {
     let mut found: Option<Capability> = None;
     let mut any = false;
-    for grouped in { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    for grouped in view.iter()
         .filter(|g| g.controller.schema.namespace == namespace)
     {
         any = true;
@@ -1421,7 +1427,8 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // The memory-capability gate (M5.2) rides here for exactly the same reason:
     // a `memory_tree.*` method hidden because the bound driver never advertised
     // `tree` must not leak back out through a param-validation error.
-    { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    view.iter()
         .chain(internal_registry().iter())
         .find(|g| {
             g.controller.rpc_method_name() == method
@@ -1625,7 +1632,8 @@ pub async fn try_invoke_registered_rpc(
     method: &str,
     params: Map<String, Value>,
 ) -> Option<Result<Value, String>> {
-    let grouped = { let view = registry_view(); view }.iter()
+    let view = registry_view();
+    let grouped = view.iter()
         .chain(internal_registry().iter())
         .find(|g| g.controller.rpc_method_name() == method)?;
 
