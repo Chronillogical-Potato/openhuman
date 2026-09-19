@@ -610,6 +610,7 @@ fn http_schema_dump_includes_openhuman_and_core_methods() {
     );
 }
 
+#[cfg(feature = "http-server")]
 async fn invoke_hosted_method(
     method: &str,
     params: serde_json::Value,
@@ -623,6 +624,7 @@ async fn invoke_hosted_method(
     .await
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_get_current_plan_rejects_unknown_param() {
     let err = invoke_hosted_method(
@@ -634,6 +636,7 @@ async fn billing_get_current_plan_rejects_unknown_param() {
     assert!(err.contains("unknown param 'extra'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_get_summary_rejects_unknown_param() {
     let err = invoke_hosted_method("openhuman.billing_get_summary", json!({ "extra": true }))
@@ -642,6 +645,7 @@ async fn billing_get_summary_rejects_unknown_param() {
     assert!(err.contains("unknown param 'extra'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_purchase_plan_missing_plan_fails_validation() {
     let err = invoke_hosted_method("openhuman.billing_purchase_plan", json!({}))
@@ -650,6 +654,7 @@ async fn billing_purchase_plan_missing_plan_fails_validation() {
     assert!(err.contains("missing required param 'plan'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_top_up_missing_amount_fails_validation() {
     let err = invoke_hosted_method("openhuman.billing_top_up", json!({}))
@@ -658,6 +663,7 @@ async fn billing_top_up_missing_amount_fails_validation() {
     assert!(err.contains("missing required param 'amountUsd'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_top_up_rejects_unknown_param() {
     let err = invoke_hosted_method(
@@ -669,6 +675,7 @@ async fn billing_top_up_rejects_unknown_param() {
     assert!(err.contains("unknown param 'unknownField'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_create_portal_session_rejects_unknown_param() {
     let err = invoke_hosted_method("openhuman.billing_create_portal_session", json!({ "x": 1 }))
@@ -677,6 +684,7 @@ async fn billing_create_portal_session_rejects_unknown_param() {
     assert!(err.contains("unknown param 'x'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_list_members_missing_team_id_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_list_members", json!({}))
@@ -685,6 +693,7 @@ async fn team_list_members_missing_team_id_fails_validation() {
     assert!(err.contains("missing required param 'teamId'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_list_members_rejects_unknown_param() {
     let err = invoke_hosted_method(
@@ -696,6 +705,7 @@ async fn team_list_members_rejects_unknown_param() {
     assert!(err.contains("unknown param 'extra'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_create_invite_missing_team_id_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_create_invite", json!({}))
@@ -704,6 +714,7 @@ async fn team_create_invite_missing_team_id_fails_validation() {
     assert!(err.contains("missing required param 'teamId'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_remove_member_missing_required_params_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_remove_member", json!({ "teamId": "t1" }))
@@ -712,6 +723,7 @@ async fn team_remove_member_missing_required_params_fails_validation() {
     assert!(err.contains("missing required param 'userId'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_change_member_role_missing_role_fails_validation() {
     let err = invoke_hosted_method(
@@ -723,6 +735,7 @@ async fn team_change_member_role_missing_role_fails_validation() {
     assert!(err.contains("missing required param 'role'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_create_coinbase_charge_missing_plan_fails_validation() {
     let err = invoke_hosted_method("openhuman.billing_create_coinbase_charge", json!({}))
@@ -731,6 +744,7 @@ async fn billing_create_coinbase_charge_missing_plan_fails_validation() {
     assert!(err.contains("missing required param 'plan'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn billing_create_coinbase_charge_rejects_unknown_param() {
     let err = invoke_hosted_method(
@@ -742,6 +756,7 @@ async fn billing_create_coinbase_charge_rejects_unknown_param() {
     assert!(err.contains("unknown param 'extra'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_list_invites_missing_team_id_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_list_invites", json!({}))
@@ -750,6 +765,7 @@ async fn team_list_invites_missing_team_id_fails_validation() {
     assert!(err.contains("missing required param 'teamId'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_list_invites_rejects_unknown_param() {
     let err = invoke_hosted_method(
@@ -761,6 +777,7 @@ async fn team_list_invites_rejects_unknown_param() {
     assert!(err.contains("unknown param 'extra'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_revoke_invite_missing_team_id_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_revoke_invite", json!({}))
@@ -769,6 +786,7 @@ async fn team_revoke_invite_missing_team_id_fails_validation() {
     assert!(err.contains("missing required param 'teamId'"));
 }
 
+#[cfg(feature = "http-server")]
 #[tokio::test]
 async fn team_revoke_invite_missing_invite_id_fails_validation() {
     let err = invoke_hosted_method("openhuman.team_revoke_invite", json!({ "teamId": "t1" }))
