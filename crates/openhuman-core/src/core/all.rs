@@ -135,7 +135,9 @@ pub enum DomainGroup {
     /// (`desktop/`).
     Desktop,
     /// Clients of the hosted TinyHumans backend — billing, team, referral, and
-    /// announcements (`hosted/`). A self-hosted build drops these as a unit.
+    /// announcements. Not built into the core: `openhuman-tinyhumans::hosted`
+    /// registers them through [`register_controller_extension`], and this
+    /// group is what the ambient `DomainSet` gates them with.
     Hosted,
     /// Loadable native modules: the module host, its registry, and the `modules`
     /// RPC surface (`modules/`).
@@ -966,30 +968,10 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Sources),
         crate::memory::sources::all_memory_sources_registered_controllers(),
     );
-    // Referral and growth tracking
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::referral::all_referral_registered_controllers(),
-    );
-    // Billing and subscription management
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::billing::all_billing_registered_controllers(),
-    );
-    // Announcements surfaced on harness init
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::announcements::all_announcements_registered_controllers(),
-    );
-    // Team and role management
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::team::all_team_registered_controllers(),
-    );
+    // The hosted TinyHumans proxies (`billing`, `team`, `referral`,
+    // `announcements`, `DomainGroup::Hosted`) are NOT built in: they live in
+    // `openhuman-tinyhumans` and arrive through `register_controller_extension`
+    // when a host installs that crate. A core without it has no such RPCs.
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
     // Gated behind the `e2e-test-support` cargo feature so shipped binaries
     // never even register the destructive wipe RPC. Flipped on by the E2E
@@ -1249,7 +1231,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "memory_sources" => Some(
             "User-configured data connectors (Composio, folders, GitHub repos, RSS, web pages) that feed memory.",
         ),
-        "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
         "run_ledger" => Some(
             "Durable agent and workflow run state, child lineage, events, telemetry, and checkpoint references.",
         ),
@@ -1262,11 +1243,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "agent_team" => Some(
             "Durable agent-team coordination: teams, members, dependency-aware task claiming, and teammate messaging.",
         ),
-        "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
-        "announcements" => {
-            Some("Latest active product announcement surfaced on harness init, via the backend.")
-        }
-        "team" => Some("Team member management, invites, and role changes via the backend."),
         "tool_registry" => Some(
             "Read-only discovery for MCP stdio tools and controller-backed tools, including routes, schemas, version, allowed agents, and health.",
         ),
