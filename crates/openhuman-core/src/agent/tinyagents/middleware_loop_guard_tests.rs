@@ -15,15 +15,23 @@ async fn sampling_tool_output_still_hits_the_byte_budget_backstop() {
         payload.len()
     );
     let mut result = tool_result("get_tool_output_sample", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("sample-budget", "get_tool_output_sample"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_ne!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "get_tool_output_sample must still be subject to the shared byte-budget backstop"
     );
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).contains("truncated by tool_result_budget"),
         "expected the byte-budget truncation marker: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -114,7 +122,9 @@ async fn repeated_tool_failure_pauses_only_after_the_threshold() {
     // nudges (Redirect) on the second, but must NOT pause (halt) yet.
     for _ in 0..2 {
         let mut r = failing_result("flaky", "boom");
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("flaky", "flaky"), &mut r)
+            .await
+            .unwrap();
     }
     assert_eq!(
         drain_pause_count(&handle),
@@ -123,7 +133,9 @@ async fn repeated_tool_failure_pauses_only_after_the_threshold() {
     );
     // Third identical failure exhausts the same-strategy retries → halt.
     let mut r = failing_result("flaky", "boom");
-    mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("flaky", "flaky"), &mut r)
+        .await
+        .unwrap();
     assert_eq!(
         drain_pause_count(&handle),
         1,
@@ -142,15 +154,21 @@ async fn repeated_tool_failure_resets_on_a_success() {
     // Two failures, then a success clears the counter.
     for _ in 0..2 {
         let mut r = failing_result("t", "boom");
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("t", "t"), &mut r)
+            .await
+            .unwrap();
     }
     let mut ok = tool_result("t", "fine"); // error = None
-    mw.after_tool(&mut ctx(), &(), &mut ok).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("t", "t"), &mut ok)
+        .await
+        .unwrap();
     // Two more failures — still below the halt threshold because the counter
     // reset, so the ladder never reaches the third identical repeat.
     for _ in 0..2 {
         let mut r = failing_result("t", "boom");
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("t", "t"), &mut r)
+            .await
+            .unwrap();
     }
     assert_eq!(
         drain_pause_count(&handle),
@@ -172,7 +190,9 @@ async fn repeated_tool_failure_ignores_distinct_errors() {
     // at 4 / halts at 6, both above this count).
     for err in ["e1", "e2", "e3"] {
         let mut r = failing_result("t", err);
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("t", "t"), &mut r)
+            .await
+            .unwrap();
     }
     assert_eq!(
         handle.pending(),
@@ -230,7 +250,9 @@ async fn halt_on_missing_connection_asks_the_user_instead_of_reporting_back() {
             "slack_post",
             "Slack is not connected — connect it in Connections.",
         );
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("slack", "slack_post"), &mut r)
+            .await
+            .unwrap();
     }
     let summary = slot
         .lock()
@@ -269,14 +291,18 @@ async fn repeated_tool_failure_nudges_change_of_strategy_before_the_halt() {
     );
     // First identical failure: not a loop yet — no steering.
     let mut r = failing_result("read_file", "file not found");
-    mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("read-1", "read_file"), &mut r)
+        .await
+        .unwrap();
     assert!(
         handle.drain().is_empty(),
         "a single failure is never a loop"
     );
     // Second identical failure: the nudge fires, still no halt.
     let mut r = failing_result("read_file", "file not found");
-    mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("read-2", "read_file"), &mut r)
+        .await
+        .unwrap();
     let nudges = drain_nudge_messages(&handle);
     assert_eq!(
         nudges.len(),
@@ -359,8 +385,15 @@ async fn repeated_validate_workflow_ok_false_trips_the_breaker() {
             "validate_workflow",
             json!({ "errors": ["node 'x' has no outgoing edge"] }),
         );
-        assert!(r.error.is_none(), "the tool call itself did not error");
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        assert!(!r.is_error, "the tool call itself did not error");
+        mw.after_tool(
+            &mut ctx(),
+            &(),
+            &invocation("validate", "validate_workflow"),
+            &mut r,
+        )
+        .await
+        .unwrap();
         if drain_pause_count(&handle) > 0 {
             halted = true;
             break;
@@ -382,7 +415,14 @@ async fn single_or_unrelated_ok_false_does_not_falsely_trip_the_breaker() {
     );
     // A single validate_workflow ok:false is not a loop.
     let mut r = body_failure_result("validate_workflow", json!({}));
-    mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("validate", "validate_workflow"),
+        &mut r,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         drain_pause_count(&handle),
         0,
@@ -393,7 +433,14 @@ async fn single_or_unrelated_ok_false_does_not_falsely_trip_the_breaker() {
     // a failure signal — it may be legitimate data from that tool.
     for _ in 0..8 {
         let mut r = body_failure_result("some_other_tool", json!({ "count": 0 }));
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(
+            &mut ctx(),
+            &(),
+            &invocation("other", "some_other_tool"),
+            &mut r,
+        )
+        .await
+        .unwrap();
     }
     assert_eq!(
         drain_pause_count(&handle),
@@ -419,7 +466,9 @@ async fn existing_error_is_some_behavior_is_unchanged_by_body_level_check() {
     );
     for _ in 0..2 {
         let mut r = failing_result("flaky", "boom");
-        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        mw.after_tool(&mut ctx(), &(), &invocation("flaky", "flaky"), &mut r)
+            .await
+            .unwrap();
     }
     assert_eq!(
         drain_pause_count(&handle),
@@ -427,7 +476,9 @@ async fn existing_error_is_some_behavior_is_unchanged_by_body_level_check() {
         "no halt before the threshold"
     );
     let mut r = failing_result("flaky", "boom");
-    mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("flaky", "flaky"), &mut r)
+        .await
+        .unwrap();
     assert_eq!(
         drain_pause_count(&handle),
         1,
@@ -444,8 +495,15 @@ async fn existing_error_is_some_behavior_is_unchanged_by_body_level_check() {
     );
     for _ in 0..2 {
         let mut r = body_failure_result("validate_workflow", json!({}));
-        r.error = Some("validation failed".to_string());
-        mw2.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        r = TaToolResult::error(result_text(&r));
+        mw2.after_tool(
+            &mut ctx(),
+            &(),
+            &invocation("validate", "validate_workflow"),
+            &mut r,
+        )
+        .await
+        .unwrap();
     }
     assert_eq!(
         drain_pause_count(&handle2),
@@ -453,8 +511,15 @@ async fn existing_error_is_some_behavior_is_unchanged_by_body_level_check() {
         "two identical error+ok:false results are one repeat each, not two — below the halt threshold"
     );
     let mut r = body_failure_result("validate_workflow", json!({}));
-    r.error = Some("validation failed".to_string());
-    mw2.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+    r = TaToolResult::error(result_text(&r));
+    mw2.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("validate", "validate_workflow"),
+        &mut r,
+    )
+    .await
+    .unwrap();
     assert_eq!(
         drain_pause_count(&handle2),
         1,
@@ -579,16 +644,14 @@ async fn memory_write_without_index_read_gets_a_corrective_note() {
     let mw = MemoryProtocolMiddleware::new();
     let result = run_cycle(&mw, "memory_store", json!({}), "stored entry 42", None).await;
     assert!(
-        result.content.contains(MEMORY_PROTOCOL_MARKER),
+        result_text(&result).contains(MEMORY_PROTOCOL_MARKER),
         "a write with no preceding dedupe read should be annotated: {}",
-        result.content
+        result_text(&result)
     );
-    assert!(result
-        .content
-        .contains("without first reading the memory index"));
-    assert!(result.content.contains("update_memory_md"));
+    assert!(result_text(&result).contains("without first reading the memory index"));
+    assert!(result_text(&result).contains("update_memory_md"));
     // The original tool output is preserved, guidance is appended.
-    assert!(result.content.starts_with("stored entry 42"));
+    assert!(result_text(&result).starts_with("stored entry 42"));
 }
 
 #[tokio::test]
@@ -597,17 +660,15 @@ async fn full_cycle_read_then_write_then_update_only_reminds_on_the_write() {
 
     let read = run_cycle(&mw, "memory_recall", json!({}), "no dupes", None).await;
     assert!(
-        !read.content.contains(MEMORY_PROTOCOL_MARKER),
+        !result_text(&read).contains(MEMORY_PROTOCOL_MARKER),
         "a read is not annotated"
     );
 
     let write = run_cycle(&mw, "memory_store", json!({}), "stored", None).await;
-    assert!(write.content.contains(MEMORY_PROTOCOL_MARKER));
+    assert!(result_text(&write).contains(MEMORY_PROTOCOL_MARKER));
     // The read preceded the write, so no missing-read complaint — just the
     // forward "sync the index" reminder.
-    assert!(!write
-        .content
-        .contains("without first reading the memory index"));
+    assert!(!result_text(&write).contains("without first reading the memory index"));
 
     let update = run_cycle(
         &mw,
@@ -618,7 +679,7 @@ async fn full_cycle_read_then_write_then_update_only_reminds_on_the_write() {
     )
     .await;
     assert!(
-        !update.content.contains(MEMORY_PROTOCOL_MARKER),
+        !result_text(&update).contains(MEMORY_PROTOCOL_MARKER),
         "closing the cycle needs no guidance"
     );
 }
@@ -644,9 +705,9 @@ async fn skill_md_update_does_not_close_the_memory_cycle() {
     // A following write reports drift, proving pending was not cleared.
     let next = run_cycle(&mw, "memory_store", json!({}), "again", None).await;
     assert!(
-        next.content.contains("drifting"),
+        result_text(&next).contains("drifting"),
         "SKILL.md update must not mask the stale MEMORY.md index: {}",
-        next.content
+        result_text(&next)
     );
 }
 
@@ -662,8 +723,8 @@ async fn consolidated_memory_tree_ingest_is_treated_as_a_write() {
     )
     .await;
     assert!(
-        ingest.content.contains(MEMORY_PROTOCOL_MARKER),
+        result_text(&ingest).contains(MEMORY_PROTOCOL_MARKER),
         "memory_tree ingest_document is a write and must be annotated: {}",
-        ingest.content
+        result_text(&ingest)
     );
 }

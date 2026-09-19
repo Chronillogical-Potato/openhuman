@@ -121,6 +121,17 @@ fn tool_result(_name: &str, content: &str) -> TaToolResult {
     TaToolResult::success(content)
 }
 
+fn invocation(call_id: impl AsRef<str>, tool_name: impl Into<String>) -> ToolInvocationIdentity {
+    ToolInvocationIdentity::new(
+        tinyagents_harness::ids::CallId::new(call_id.as_ref()),
+        tool_name,
+    )
+}
+
+fn result_text(result: &TaToolResult) -> String {
+    result.output()
+}
+
 // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
 
 fn outcome_capture_mw() -> ToolOutcomeCaptureMiddleware {
@@ -305,6 +316,8 @@ fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelRespon
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 

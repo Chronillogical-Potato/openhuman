@@ -488,19 +488,21 @@ When the backend doesn't surface a charged amount (older builds, providers that 
 
 ## Explicit run context and host capabilities
 
-Every TinyAgents turn receives an explicit `OpenHumanRunContext`, converted to
-the canonical `RunContext`. It carries OpenHuman-only values such as origin,
+Phase B1 defines and tests an explicit `OpenHumanRunContext`, which converts to
+the canonical `RunContext`. It carries the future explicit values for origin,
 parent execution state, progress, attachment/artifact scope, dispatch and
 recency state, sandbox/depth, route observation, cancellation, thread,
-workspace and stop hooks. Child contexts inherit shared tree handles while
-isolating child route observation and usage accounting, so a child cannot
-overwrite the parent turn's persisted facts.
+workspace and stop hooks. The live task-local and public-route cutovers remain
+deferred: no current turn receives this context yet. Its child rule will inherit
+shared tree handles while isolating child route observation and usage
+accounting, so a child cannot overwrite the parent turn's persisted facts.
 
-`OpenHumanHostBundleFactory` is the one host composition point. It constructs
+`OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
 the context, definition, security, model, memory, budget, progress, learning,
 tool-outcome and experience adapters from the same session/runtime inputs.
 OpenHuman retains all policy decisions; TinyAgents receives only the resulting
-capabilities and canonical run context.
+capabilities and canonical run context once the deferred live cutover wires it
+into invocation.
 
 ## Self-healing recap
 

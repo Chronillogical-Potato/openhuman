@@ -13,7 +13,7 @@ async fn failed_memory_write_does_not_advance_the_protocol() {
     .await;
     // A failed write is not annotated and leaves nothing pending, so a later
     // run-end sweep must not warn about a stale index.
-    assert!(!failed.content.contains(MEMORY_PROTOCOL_MARKER));
+    assert!(!result_text(&failed).contains(MEMORY_PROTOCOL_MARKER));
     let mut run = AgentRun::new();
     // after_agent is a no-op warn path; it must not error.
     mw.after_agent(&mut ctx(), &(), &mut run).await.unwrap();
@@ -24,14 +24,14 @@ async fn second_write_without_an_update_flags_index_drift() {
     let mw = MemoryProtocolMiddleware::new();
     run_cycle(&mw, "memory_recall", json!({}), "checked", None).await;
     let first = run_cycle(&mw, "memory_store", json!({}), "a", None).await;
-    assert!(!first.content.contains("drifting"));
+    assert!(!result_text(&first).contains("drifting"));
 
     // No update_memory_md between the two writes → the index is drifting.
     let second = run_cycle(&mw, "memory_store", json!({}), "b", None).await;
     assert!(
-        second.content.contains("drifting"),
+        result_text(&second).contains("drifting"),
         "a second unsynced write should flag index drift: {}",
-        second.content
+        result_text(&second)
     );
 }
 
@@ -49,15 +49,15 @@ async fn embedder_tool_hooks_post_use_replays_the_normalized_pre_call_arguments(
     };
     mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
 
-    let mut result = TaToolResult {
-        call_id: "call-1".into(),
-        name: "lookup".into(),
-        content: "found".into(),
-        raw: None,
-        error: None,
-        elapsed_ms: 7,
-    };
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = TaToolResult::success("found");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("call-1", "lookup"),
+        &mut result,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(pre.lock().unwrap().len(), 1, "one pre-use notification");
     let post = post.lock().unwrap();
@@ -70,7 +70,10 @@ async fn embedder_tool_hooks_post_use_replays_the_normalized_pre_call_arguments(
         "post-use context must preserve the normalized pre-call arguments, not Null"
     );
     assert_eq!(*success, Some(true));
-    assert_eq!(*duration, Some(7));
+    assert_eq!(
+        *duration, None,
+        "canonical ToolResult carries no elapsed field"
+    );
 }
 
 #[tokio::test]
@@ -113,15 +116,15 @@ async fn embedder_tool_hooks_post_use_without_pre_call_falls_back_to_null() {
 
     // A result with no matching `before_tool` (defensive path) must not panic
     // and falls back to `Null`, the pre-fix behaviour.
-    let mut result = TaToolResult {
-        call_id: "orphan".into(),
-        name: "lookup".into(),
-        content: "found".into(),
-        raw: None,
-        error: None,
-        elapsed_ms: 3,
-    };
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = TaToolResult::success("found");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("orphan", "lookup"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     let post = post.lock().unwrap();
     assert_eq!(post.len(), 1);
     assert_eq!(post[0].1, serde_json::Value::Null);
