@@ -498,8 +498,6 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

@@ -352,8 +352,6 @@ fn prompt_context<'a>(
             name: Some("Ada\nLovelace".to_string()),
             email: Some("ada@example.test".to_string()),
         }),
-        personality_soul_md: Some("personality soul override".to_string()),
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

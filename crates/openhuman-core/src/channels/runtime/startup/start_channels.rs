@@ -212,10 +212,6 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
         &config.agents,
         &config,
         None,
-        None,
-        None,
-        None,
-        None,
     ));
 
     let skills = crate::skills::load_workflow_metadata(&workspace);

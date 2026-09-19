@@ -155,7 +155,7 @@ impl Agent {
 
         // The thread's conversation belongs to the THREAD, not the active
         // profile: the locator resolves cross-dir, newest-wins across the
-        // shared `session_raw/` and every profile-scoped `session_raw-<id>/`
+        // shared `session_raw/` and every canonical `session_raw-<id>/`
         // (#5351), so switching profile mid-thread continues the same
         // conversation. See `FileTranscriptLocator::root_for_thread` for why
         // this must not be own-dir-first. `agent_id` additionally narrows to
@@ -167,7 +167,7 @@ impl Agent {
         else {
             log::debug!(
                 "[web-channel] no root session_raw transcript for thread={thread_id} in any \
-                 (shared or profile-scoped) session_raw dir — falling back to \
+                 (shared or canonical) session_raw dir — falling back to \
                  conversation-log prose seeding"
             );
             return false;

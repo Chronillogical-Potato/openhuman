@@ -109,6 +109,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "agent_experience",
             function: "list",
             description: "List locally stored procedural operating experiences.",
+            inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "experiences",
                 ty: TypeSchema::Array(Box::new(TypeSchema::Ref("AgentExperience"))),

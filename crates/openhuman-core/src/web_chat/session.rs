@@ -68,7 +68,6 @@ pub(super) fn build_session_agent(
     );
 
     let locale_directive = locale.and_then(locale_reply_directive);
-    let composed_suffix = locale_directive;
     if let Some(s) = locale_directive.as_deref() {
         log::info!(
             "[web-channel] injecting locale directive client={} thread={} locale={} directive={:?}",

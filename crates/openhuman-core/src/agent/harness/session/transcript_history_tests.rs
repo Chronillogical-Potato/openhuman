@@ -298,46 +298,6 @@ fn append_turn_is_byte_identical_to_the_free_function() {
     );
 }
 
-/// `new_in_dir` addresses a profile-scoped raw dir.
-///
-/// `new` hardcodes `{workspace}/session_raw/`, which is the wrong directory for
-/// a dedicated-memory profile (`session_raw-<id>/`). Before this constructor
-/// existed, wiring the handle into the turn path would have silently written a
-/// profile session into the shared profile's transcripts.
-#[test]
-fn new_in_dir_writes_into_the_profile_scoped_directory() {
-    let dir = TempDir::new().unwrap();
-    let profile_dir = dir.path().join("session_raw-1");
-
-    let h = SessionTranscriptHistory::new_in_dir(&profile_dir, STEM, meta()).unwrap();
-    h.append_turn(TranscriptTurn {
-        prev: &[],
-        next: &[chat("user", "profile scoped")],
-        meta: &meta(),
-        turn_usage: None,
-        request_id: None,
-    })
-    .unwrap();
-
-    assert_eq!(
-        h.path(),
-        profile_dir.join(format!("{STEM}.jsonl")),
-        "handle must be bound to the profile-scoped dir"
-    );
-    assert!(h.path().exists());
-    assert!(
-        !dir.path()
-            .join("session_raw")
-            .join(format!("{STEM}.jsonl"))
-            .exists(),
-        "nothing may be written into the shared profile's session_raw/"
-    );
-    assert_eq!(
-        read_transcript(h.path()).unwrap().messages[0].content,
-        "profile scoped"
-    );
-}
-
 /// The executable form of this module's "why the write does not cross the crate
 /// trait" note: the same logical message set, written through `append_turn`
 /// versus through `ChatHistory::replace`, produces display lines that differ in

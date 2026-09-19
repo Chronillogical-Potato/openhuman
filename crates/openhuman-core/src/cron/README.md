@@ -33,7 +33,7 @@ Cron publishes through `core/bus.rs` using variants declared in `core/events.rs`
 
 ## Calls into
 
-- `crates/openhuman-core/src/agent/` — `Agent::from_config[_for_agent[_with_profile]]` for agent jobs; `agent::harness::definition::AgentDefinitionRegistry` to resolve `agent_id`; `agent::profiles::load_profiles` to resolve `profile_id`.
+- `crates/openhuman-core/src/agent/` — `Agent::from_config_for_agent` for agent jobs and `agent::harness::definition::AgentDefinitionRegistry` to resolve `agent_id`.
 - `crates/openhuman-core/src/security/` — `SecurityPolicy::from_config` gates shell jobs.
 - `crates/openhuman-core/src/config/` — `Config` provides poll interval, workspace dir, autonomy policy, retry counts, and per-job model overrides.
 - `crates/openhuman-core/src/inference/` — `provider::create_chat_model_with_model_id` resolves workload-hint model specs on agent-definition overrides.

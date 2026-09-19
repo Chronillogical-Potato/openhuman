@@ -1,6 +1,6 @@
 # Skills
 
-Discovery and parsing of agentskills.io-style skills (a directory containing `SKILL.md`/`WORKFLOW.md` with YAML frontmatter and Markdown instructions). Owns scope resolution (Builtin / User / Project / Legacy / Profile), trust-marker enforcement, resource reading, create/install/uninstall, run logging, search, and the agent-tool wrappers over all of it. Skills are surfaced to agents as a compact catalog (`## Installed Skills` in the orchestrator prompt) and launched through the `run_workflow` tool as a separate agent run; skill bodies are not spliced into chat turns. Remote catalog browsing lives in [`catalog/`](catalog/README.md) and run execution lives in [`runtime/`](runtime/README.md); this module owns local metadata only.
+Discovery and parsing of agentskills.io-style skills (a directory containing `SKILL.md`/`WORKFLOW.md` with YAML frontmatter and Markdown instructions). Owns scope resolution (Builtin / User / Project / Legacy / Flow), trust-marker enforcement, resource reading, create/install/uninstall, run logging, search, and the agent-tool wrappers over all of it. Skills are surfaced to agents as a compact catalog (`## Installed Skills` in the orchestrator prompt) and launched through the `run_workflow` tool as a separate agent run; skill bodies are not spliced into chat turns. Remote catalog browsing lives in [`catalog/`](catalog/README.md) and run execution lives in [`runtime/`](runtime/README.md); this module owns local metadata only.
 
 ## Compile-time gate (`skills` feature, see `mod.rs`)
 
@@ -55,13 +55,13 @@ Plus the sub-domain namespaces: `skill_registry.*` (`browse`, `search`, `sources
 
 - `tinytools` — supplies the shared `ToolResult`/`ToolContent` shape directly.
 - `crates/openhuman-core/src/agent/harness/fork_context.rs` — fork context propagates injected skills.
-- `crates/openhuman-core/src/agent/harness/session/turn/context.rs` and `.../turn/tools.rs` — the per-turn `workflows` list handed to `PromptContext`; `refresh_workflows` reloads it via `load_workflow_metadata_for_profile` when a `WorkflowsChanged` event is drained.
+- `crates/openhuman-core/src/agent/harness/session/turn/context.rs` and `.../turn/tools.rs` — the per-turn `workflows` list handed to `PromptContext`; `refresh_workflows` reloads it from the workspace when a `WorkflowsChanged` event is drained.
 - `crates/openhuman-core/src/agent/tools/run_workflow.rs` — the separate `run_workflow`/`AwaitWorkflowTool` launch path.
 - `crates/openhuman-core/src/core/all.rs` — controller registry wiring for `skills`, `skill_registry`, and `skill_runtime`.
 
 ## Tests
 
-Behavior tests live beside their modules as `*_tests.rs` (e.g. `ops_tests.rs` and its `ops_discovery_tests.rs`, `ops_create_and_url_tests.rs`, `ops_uninstall_tests.rs` siblings, `ops_types_tests.rs`, `ops_create_render_skill_toml_tests_tests.rs`, `ops_discover_include_skills_tests_tests.rs`, `ops_discover_profile_scope_tests_tests.rs`, `ops_install_install_fetch_tests_tests.rs`, `preflight_tests.rs`, `registry_tests.rs`, `run_log_tests.rs`, `schemas_tests.rs`, `search_tests.rs`, `tools_tests.rs`, `types_tests.rs`, `bus_tests.rs`), wired via `#[path]` from the module they cover.
+Behavior tests live beside their modules as `*_tests.rs` (e.g. `ops_tests.rs` and its `ops_discovery_tests.rs`, `ops_create_and_url_tests.rs`, `ops_uninstall_tests.rs` siblings, `ops_types_tests.rs`, `ops_create_render_skill_toml_tests_tests.rs`, `ops_discover_include_skills_tests_tests.rs`, `ops_install_install_fetch_tests_tests.rs`, `preflight_tests.rs`, `registry_tests.rs`, `run_log_tests.rs`, `schemas_tests.rs`, `search_tests.rs`, `tools_tests.rs`, `types_tests.rs`, `bus_tests.rs`), wired via `#[path]` from the module they cover.
 
 `e2e_plumbing_tests.rs` and `e2e_run_tests.rs` are mock-LLM end-to-end tests: plumbing (create → registry round-trip, orchestrator turn calling `list_workflows`/`run_workflow`, `await_run_outcome` polling) and run execution (`spawn_workflow_run_background` → terminal `DONE` → `await_run_outcome`, `#[ignore]`d and serial because they set the process-global `OPENHUMAN_WORKSPACE`).
 

@@ -2460,8 +2460,6 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
             name: Some(" Coverage\nUser ".into()),
             email: Some("coverage@example.test".into()),
         }),
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -2568,8 +2566,6 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
                 name: Some("Coverage User".into()),
                 email: None,
             }),
-            personality_soul_md: None,
-            personality_memory_md: None,
             personality_roster: vec![PersonalityRosterEntry {
                 id: "default".into(),
                 name: "Default".into(),

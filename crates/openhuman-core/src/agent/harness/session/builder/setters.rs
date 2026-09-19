@@ -37,10 +37,6 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
-            personality_soul_md: None,
-            personality_memory_md: None,
-            memory_subdir: None,
-            session_raw_subdir: None,
             session_parent_prefix: None,
             session_history_locator: None,
             omit_profile: None,
@@ -195,28 +191,6 @@ impl AgentBuilder {
         descriptor: Option<tinytools::WorkspaceDescriptor>,
     ) -> Self {
         self.workspace_descriptor = descriptor;
-        self
-    }
-
-    /// Binds a session identity override.
-    pub fn personality_soul_md(mut self, soul_md: Option<String>) -> Self {
-        self.personality_soul_md = soul_md;
-        self
-    }
-
-    /// Binds curated memory content to the frozen session prompt.
-    pub fn personality_memory_md(mut self, memory_md: Option<String>) -> Self {
-        self.personality_memory_md = memory_md;
-        self
-    }
-
-    pub fn profile_memory_storage(
-        mut self,
-        memory_subdir: String,
-        session_raw_subdir: String,
-    ) -> Self {
-        self.memory_subdir = Some(memory_subdir);
-        self.session_raw_subdir = Some(session_raw_subdir);
         self
     }
 

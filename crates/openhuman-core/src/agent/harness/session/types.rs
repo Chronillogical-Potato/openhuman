@@ -247,21 +247,6 @@ pub struct Agent {
     ///
     /// [`AgentDefinitionRegistry`]: crate::agent::harness::definition::AgentDefinitionRegistry
     pub(super) agent_definition_id: String,
-    /// Profile-local SOUL.md resolved when the session is built. When set,
-    /// IdentitySection uses it instead of the workspace-root identity.
-    pub(super) personality_soul_md: Option<String>,
-    /// Profile-local curated MEMORY.md resolved when the session is built.
-    /// `None` preserves the workspace-root MEMORY.md fallback.
-    pub(super) personality_memory_md: Option<String>,
-    /// Profile-selected memory subtree name (`memory`, `memory-<id>`, or a
-    /// legacy numeric suffix). Used for memory-tree reads and paired with the
-    /// profile-specific transcript directory below.
-    pub(super) memory_subdir: String,
-    /// Profile-selected JSONL transcript subdirectory (`session_raw` or
-    /// `session_raw-<id>`). It is resolved against the current `workspace_dir`
-    /// at I/O time so relocating an agent does not leave transcripts pinned to
-    /// its original workspace while dedicated-memory profiles remain isolated.
-    pub(super) session_raw_subdir: String,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent **appends** within the
     /// same session.
@@ -293,7 +278,7 @@ pub struct Agent {
     /// and is resolved *lazily* by
     /// [`Agent::session_locator`][Self::session_locator] into a
     /// [`FileTranscriptLocator`][super::transcript_history::FileTranscriptLocator]
-    /// over the **current** `workspace_dir` / `session_raw_subdir` — never
+    /// over the **current** `workspace_dir` — never
     /// captured at build time, because callers (tests especially) reassign
     /// `workspace_dir` after `build()` and a frozen locator would silently keep
     /// reading the old directory.
@@ -549,12 +534,6 @@ pub struct AgentBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
-    /// Forwarded to [`Agent::personality_soul_md`] at build time.
-    pub(super) personality_soul_md: Option<String>,
-    /// Forwarded to [`Agent::personality_memory_md`] at build time.
-    pub(super) personality_memory_md: Option<String>,
-    pub(super) memory_subdir: Option<String>,
-    pub(super) session_raw_subdir: Option<String>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated

@@ -491,8 +491,6 @@ impl SubagentPayloadSummarizer {
             include_memory_md: !self.definition.omit_memory_md,
             curated_snapshot: None,
             user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
-            personality_soul_md: None,
-            personality_memory_md: None,
             personality_roster: vec![],
             // AGENTS.md layers are intentionally excluded from the payload
             // summarizer. This is a narrow internal utility that condenses an

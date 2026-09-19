@@ -22,7 +22,7 @@ use crate::memory::api::types::{
 use crate::memory::Memory;
 use crate::rpc::RpcOutcome;
 use async_trait::async_trait;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// The [`Memory`] view of a bound memory driver.
@@ -325,7 +325,7 @@ pub async fn retrieve(params: RetrieveParams) -> Result<RpcOutcome<Vec<Experienc
     Ok(RpcOutcome::single_log(hits, "agent experiences retrieved"))
 }
 
-pub async fn list(params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
+pub async fn list(_params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
     let stores = open_query_stores().await?;
     let mut by_id: BTreeMap<String, AgentExperience> = BTreeMap::new();
     for store in stores {

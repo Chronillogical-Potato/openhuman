@@ -191,7 +191,7 @@ fn hash_file_stat(hasher: &mut DefaultHasher, path: &Path) {
     }
 }
 
-fn render(inputs: &ChannelPromptInputs, identity: &ChannelIdentity) -> String {
+fn render(inputs: &ChannelPromptInputs, _identity: &ChannelIdentity) -> String {
     let tool_descs: Vec<(&str, &str)> = inputs
         .tool_descs
         .iter()
@@ -241,7 +241,7 @@ fn ensure_blank_line(prompt: &mut String) {
 }
 
 /// Names the profile and which files were inlined — never their contents.
-fn log_render(workspace_dir: &Path, identity: &ChannelIdentity, rendered: &str, reason: &str) {
+fn log_render(workspace_dir: &Path, _identity: &ChannelIdentity, rendered: &str, reason: &str) {
     let memory = if workspace_dir.join("MEMORY.md").is_file() {
         "root"
     } else {

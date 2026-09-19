@@ -116,7 +116,7 @@
 //! # Why discovery is a separate object ([`SessionHistoryLocator`])
 //!
 //! A handle is bound to one *file*. The turn path's two reads are *lookups*:
-//! `(workspace, session_raw_subdir, agent name)` → newest match, and
+//! `(workspace, agent name)` → newest match, and
 //! `_meta.thread_id` → newest **root** transcript. `ChatHistory` has no
 //! discovery concept at all (it is `thread_id`-keyed and returns messages, never
 //! a location), so leaving discovery as free functions would keep the read half
@@ -160,9 +160,9 @@ use crate::agent::message_convert::{history_to_messages, message_to_chat_message
 use crate::agent::messages::ChatMessage;
 
 use super::transcript::{
-    append_transcript_turn, find_latest_transcript_in_subdir, find_root_transcript_for_thread,
+    append_transcript_turn, find_latest_transcript, find_root_transcript_for_thread,
     find_root_transcript_for_thread_scoped, read_transcript, resolve_keyed_transcript_path,
-    resolve_keyed_transcript_path_in_dir, SessionTranscript, TranscriptMeta, TurnUsage,
+    SessionTranscript, TranscriptMeta, TurnUsage,
 };
 
 /// One turn's worth of transcript write, borrowed.
@@ -244,7 +244,7 @@ pub(crate) trait SessionTranscriptRead: Send + Sync {
 /// One injected object covers the whole turn path: both resume reads and the
 /// first-write bind. `Agent` holds it as `Option<Arc<dyn SessionHistoryLocator>>`
 /// and falls back to [`FileTranscriptLocator`] built from the *current*
-/// `workspace_dir`/`session_raw_subdir` — lazily, never frozen at build time,
+/// `workspace_dir` — lazily, never frozen at build time,
 /// because tests reassign `agent.workspace_dir` after `build()` and a
 /// build-time locator would silently keep pointing at the old directory.
 pub(crate) trait SessionHistoryLocator: Send + Sync {
@@ -284,40 +284,26 @@ pub(crate) trait SessionHistoryLocator: Send + Sync {
 }
 
 /// The default [`SessionHistoryLocator`]: real files under
-/// `{workspace_dir}/{session_raw_subdir}`.
+/// `{workspace_dir}/session_raw`.
 ///
 /// Thin by design — each method wraps exactly one `transcript::` free function
 /// and changes nothing about it, so swapping the turn path onto the locator is
 /// behaviour-preserving.
 pub(crate) struct FileTranscriptLocator {
     workspace_dir: PathBuf,
-    session_raw_subdir: String,
 }
 
 impl FileTranscriptLocator {
-    pub(crate) fn new(
-        workspace_dir: impl Into<PathBuf>,
-        session_raw_subdir: impl Into<String>,
-    ) -> Self {
+    pub(crate) fn new(workspace_dir: impl Into<PathBuf>) -> Self {
         Self {
             workspace_dir: workspace_dir.into(),
-            session_raw_subdir: session_raw_subdir.into(),
         }
-    }
-
-    /// `{workspace_dir}/{session_raw_subdir}` — the profile-scoped raw dir.
-    fn raw_dir(&self) -> PathBuf {
-        self.workspace_dir.join(&self.session_raw_subdir)
     }
 }
 
 impl SessionHistoryLocator for FileTranscriptLocator {
     fn latest_for_agent(&self, agent_name: &str) -> Option<Arc<dyn SessionTranscriptRead>> {
-        let path = find_latest_transcript_in_subdir(
-            &self.workspace_dir,
-            &self.session_raw_subdir,
-            agent_name,
-        )?;
+        let path = find_latest_transcript(&self.workspace_dir, agent_name)?;
         log::debug!(
             "[transcript-history] locator latest_for_agent agent={agent_name} path={}",
             path.display()
@@ -329,19 +315,6 @@ impl SessionHistoryLocator for FileTranscriptLocator {
     }
 
     fn root_for_thread(&self, thread_id: &str) -> Option<Arc<dyn SessionTranscriptRead>> {
-        // Cross-dir, newest-wins — NOT scoped to this locator's own
-        // `session_raw-<id>/` (#5351). A thread's conversation belongs to the
-        // THREAD, not the active profile, so this scans the shared
-        // `session_raw/` and every profile-scoped sibling and takes the newest
-        // match. Switching profile mid-thread (the Quick/Reasoning toggle) then
-        // continues the same conversation even when earlier turns were written
-        // under another profile's subtree.
-        //
-        // Deliberately not own-dir-first: that lets an OLDER transcript in this
-        // agent's own dir shadow a NEWER one a sibling holds for the same
-        // thread, dropping recent turns and diverging from the transcript view
-        // and turn mirror, which both use this same resolver. The own dir is
-        // already in the scan, so newest-wins is a superset.
         let path = find_root_transcript_for_thread(&self.workspace_dir, thread_id)?;
         log::debug!(
             "[transcript-history] locator root_for_thread thread={thread_id} path={}",
@@ -380,11 +353,8 @@ impl SessionHistoryLocator for FileTranscriptLocator {
         stem: &str,
         seed: TranscriptMeta,
     ) -> anyhow::Result<Arc<dyn SessionHistory>> {
-        // `new_in_dir` — never `new` — because `new` hardcodes
-        // `{workspace}/session_raw/`, and a dedicated-memory profile's sessions
-        // live in `session_raw-<id>/`.
-        Ok(Arc::new(SessionTranscriptHistory::new_in_dir(
-            self.raw_dir(),
+        Ok(Arc::new(SessionTranscriptHistory::new(
+            &self.workspace_dir,
             stem,
             seed,
         )?))
@@ -421,9 +391,7 @@ fn seed_meta_for_discovered(agent_name: &str) -> TranscriptMeta {
 /// A [`ChatHistory`] backed by one `session_raw/{stem}.jsonl` transcript.
 ///
 /// Construct with [`SessionTranscriptHistory::new`] (workspace-rooted, i.e.
-/// `{workspace}/session_raw/`) or [`SessionTranscriptHistory::new_in_dir`] (an
-/// explicit raw dir — **required** for a dedicated-memory profile, whose
-/// sessions live in `session_raw-<id>/`). The `seed_meta` is used only when the
+/// `{workspace}/session_raw/`). The `seed_meta` is used only when the
 /// transcript file does not exist yet; for an existing file the authoritative
 /// cumulative `_meta` is read back from disk so turn counts and token rollups
 /// keep accumulating rather than resetting.
@@ -432,8 +400,8 @@ pub struct SessionTranscriptHistory {
     ///
     /// Resolved eagerly rather than derived per call from a `(workspace, stem)`
     /// pair: the old shape hardcoded `{workspace}/session_raw/`, which is the
-    /// **wrong directory** for a profile-scoped session and would have silently
-    /// cross-written into the shared profile's transcripts the moment this
+    /// **wrong directory** for a canonical session and would have silently
+    /// cross-written into the canonical session's transcripts the moment this
     /// handle was wired into the turn path.
     path: PathBuf,
     /// `_meta` used for the very first write, before a file exists.
@@ -443,8 +411,6 @@ pub struct SessionTranscriptHistory {
 impl SessionTranscriptHistory {
     /// Binds a history handle to `{workspace_dir}/session_raw/{stem}.jsonl`.
     ///
-    /// Use [`Self::new_in_dir`] when the session is profile-scoped; this
-    /// convenience constructor always resolves under the shared `session_raw/`.
     pub fn new(
         workspace_dir: impl AsRef<Path>,
         stem: &str,
@@ -458,30 +424,12 @@ impl SessionTranscriptHistory {
         Ok(Self { path, seed_meta })
     }
 
-    /// Binds a history handle to `{session_raw_dir}/{stem}.jsonl`.
-    ///
-    /// `session_raw_dir` is `{workspace}/{session_raw_subdir}` — `session_raw`
-    /// for the shared profile, `session_raw-<id>` for a dedicated-memory one.
-    /// The turn path must use this constructor; see [`Self::path`]'s note.
-    pub fn new_in_dir(
-        session_raw_dir: impl AsRef<Path>,
-        stem: &str,
-        seed_meta: TranscriptMeta,
-    ) -> anyhow::Result<Self> {
-        let path = resolve_keyed_transcript_path_in_dir(session_raw_dir.as_ref(), stem)?;
-        log::debug!(
-            "[transcript-history] bound stem={stem} path={}",
-            path.display()
-        );
-        Ok(Self { path, seed_meta })
-    }
-
     /// Binds a handle to an **already-discovered** transcript file, verbatim.
     ///
     /// Deliberately does **not** go through `resolve_keyed_transcript_path*`,
     /// which the two stem constructors above use. That helper `create_dir_all`s
     /// its parent and forces a `.jsonl` extension — both wrong for a discovered
-    /// path: `find_latest_transcript_in_subdir` can still return a legacy `.md`
+    /// path: `find_latest_transcript` can still return a legacy `.md`
     /// file (`read_transcript` routes by extension), and re-resolving would
     /// mangle it into a sibling `.jsonl` that does not exist while creating
     /// stray directories on a pure read.

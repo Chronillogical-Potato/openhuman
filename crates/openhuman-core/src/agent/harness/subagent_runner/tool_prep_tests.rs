@@ -440,8 +440,6 @@ fn render_tools_at(format: crate::agent::prompts::ToolCallFormat, instructions: 
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

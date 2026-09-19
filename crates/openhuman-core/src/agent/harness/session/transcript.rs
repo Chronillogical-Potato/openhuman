@@ -121,10 +121,7 @@ pub(crate) use metadata::attach_tool_failure_metadata;
 #[cfg(test)]
 pub(crate) use metadata::attach_turn_usage_metadata;
 pub(crate) use metadata::mark_replayed_if_unmarked;
-pub use paths::{
-    find_latest_transcript_in_subdir, resolve_keyed_transcript_path,
-    resolve_keyed_transcript_path_in_dir,
-};
+pub use paths::{find_latest_transcript, resolve_keyed_transcript_path};
 pub use reader::{read_transcript, read_transcript_display};
 pub use thread_lookup::{
     find_root_transcript_for_thread, find_root_transcript_for_thread_scoped,
@@ -141,8 +138,8 @@ pub use writer::{append_interrupted_partial, append_transcript_turn, write_trans
 use jsonl::build_message_line;
 #[cfg(test)]
 use paths::{
-    find_latest_transcript, latest_in_dir, md_companion_path, next_index, raw_session_dir,
-    resolve_new_transcript_path, sanitize_agent_name,
+    latest_in_dir, md_companion_path, next_index, raw_session_dir, resolve_new_transcript_path,
+    sanitize_agent_name,
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────

@@ -78,19 +78,8 @@ pub fn resolve_new_transcript_path(workspace_dir: &Path, agent_name: &str) -> Re
 /// The fallback is one-release transitional and can be removed once
 /// existing transcripts have rolled forward.
 pub fn find_latest_transcript(workspace_dir: &Path, agent_name: &str) -> Option<PathBuf> {
-    find_latest_transcript_in_subdir(workspace_dir, "session_raw", agent_name)
-}
-
-/// Find the most recent transcript inside a session's configured raw subtree.
-/// Scoped profile sessions must never fall back to shared transcripts; the
-/// legacy date-grouped/markdown fallback applies only to `session_raw`.
-pub fn find_latest_transcript_in_subdir(
-    workspace_dir: &Path,
-    session_raw_subdir: &str,
-    agent_name: &str,
-) -> Option<PathBuf> {
     let sanitized = sanitize_agent_name(agent_name);
-    let raw_root = workspace_dir.join(session_raw_subdir);
+    let raw_root = raw_session_dir(workspace_dir);
     let sessions_root = workspace_dir.join("sessions");
 
     // Primary path: flat session_raw/ directory. The stem-suffix scan
@@ -100,10 +89,6 @@ pub fn find_latest_transcript_in_subdir(
         if let Some(path) = latest_in_dir(&raw_root, &sanitized) {
             return Some(path);
         }
-    }
-
-    if session_raw_subdir != "session_raw" {
-        return None;
     }
 
     // Fallback: legacy date-grouped layout (one-release migration

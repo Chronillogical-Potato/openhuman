@@ -1,4 +1,4 @@
-//! Thread-keyed lookups over the `session_raw*` stores: locating a thread's
+//! Thread-keyed lookups over the canonical `session_raw` store: locating a thread's
 //! root transcripts and summing its token / cost usage.
 
 use super::paths::raw_session_dir;
@@ -8,9 +8,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Find the newest root transcript whose metadata declares `thread_id`, across
-/// the shared `session_raw/` store and every profile-scoped
-/// `session_raw-<id>/` store.
+/// Find the newest root transcript whose metadata declares `thread_id`.
 ///
 /// Root transcripts live directly under `session_raw/` and do not carry
 /// the `__` separator used for sub-agent siblings. This helper is the
@@ -57,12 +55,10 @@ pub fn find_root_transcript_for_thread_scoped(
 
 pub fn find_root_transcripts_for_thread(workspace_dir: &Path, thread_id: &str) -> Vec<PathBuf> {
     let mut matches = Vec::new();
-    for raw_dir in raw_session_dirs(workspace_dir) {
-        matches.extend(root_transcripts_for_thread_in_dir(&raw_dir, thread_id));
-    }
-    // Already chronological within each directory (see
-    // `root_transcripts_for_thread_in_dir`); re-key across directories on the
-    // same `created` stamp rather than the file name.
+    matches.extend(root_transcripts_for_thread_in_dir(
+        &raw_session_dir(workspace_dir),
+        thread_id,
+    ));
     matches.sort_by_cached_key(|path| {
         let created = read_transcript(path)
             .ok()
@@ -71,24 +67,6 @@ pub fn find_root_transcripts_for_thread(workspace_dir: &Path, thread_id: &str) -
         (created, path.clone())
     });
     matches
-}
-
-fn raw_session_dirs(workspace_dir: &Path) -> Vec<PathBuf> {
-    let mut raw_dirs = vec![raw_session_dir(workspace_dir)];
-    if let Ok(entries) = fs::read_dir(workspace_dir) {
-        raw_dirs.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
-            path.is_dir()
-                && path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        name.strip_prefix("session_raw-")
-                            .is_some_and(|suffix| !suffix.is_empty())
-                    })
-        }));
-    }
-    raw_dirs.sort();
-    raw_dirs
 }
 
 pub fn find_root_transcript_for_thread_in_dir(raw_dir: &Path, thread_id: &str) -> Option<PathBuf> {
@@ -158,29 +136,28 @@ pub fn read_thread_usage_summary(
     // grouped by archetype for the per-agent breakdown.
     let mut root_matches: Vec<PathBuf> = Vec::new();
     let mut sub_matches: Vec<PathBuf> = Vec::new();
-    for raw_dir in raw_session_dirs(workspace_dir) {
-        let Ok(entries) = fs::read_dir(&raw_dir) else {
+    let raw_dir = raw_session_dir(workspace_dir);
+    let Ok(entries) = fs::read_dir(&raw_dir) else {
+        return None;
+    };
+    for path in entries.flatten().map(|entry| entry.path()) {
+        if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
             continue;
         };
-        for path in entries.flatten().map(|entry| entry.path()) {
-            if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
-                continue;
-            }
-            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            let is_subagent = stem.contains("__");
-            let matches_thread = read_transcript_meta_only(&path)
-                .map(|m| m.thread_id.as_deref() == Some(thread_id))
-                .unwrap_or(false);
-            if !matches_thread {
-                continue;
-            }
-            if is_subagent {
-                sub_matches.push(path);
-            } else {
-                root_matches.push(path);
-            }
+        let is_subagent = stem.contains("__");
+        let matches_thread = read_transcript_meta_only(&path)
+            .map(|m| m.thread_id.as_deref() == Some(thread_id))
+            .unwrap_or(false);
+        if !matches_thread {
+            continue;
+        }
+        if is_subagent {
+            sub_matches.push(path);
+        } else {
+            root_matches.push(path);
         }
     }
 

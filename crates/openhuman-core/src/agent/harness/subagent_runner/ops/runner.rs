@@ -1420,8 +1420,6 @@ async fn run_typed_mode(
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
         user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: agents_md.global.clone(),
         agents_md_local: agents_md.local.clone(),

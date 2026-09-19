@@ -230,10 +230,6 @@ impl AgentBuilder {
             .workspace_dir
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
-        let memory_subdir = self.memory_subdir.unwrap_or_else(|| "memory".to_string());
-        let session_raw_subdir = self
-            .session_raw_subdir
-            .unwrap_or_else(|| "session_raw".to_string());
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);
@@ -291,10 +287,6 @@ impl AgentBuilder {
             // `refresh_delegation_tools` to re-resolve the agent's
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
-            personality_soul_md: self.personality_soul_md,
-            personality_memory_md: self.personality_memory_md,
-            memory_subdir,
-            session_raw_subdir,
             session_transcript_path: None,
             session_history: None,
             session_history_locator: self.session_history_locator,

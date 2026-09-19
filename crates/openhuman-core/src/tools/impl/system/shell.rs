@@ -341,7 +341,7 @@ impl ShellTool {
             return (false, ToolResult::error(reason));
         }
 
-        let cwd = self.effective_action_dir_for_context(context);
+        let _cwd = self.effective_action_dir_for_context(context);
 
         if self.security.is_rate_limited() {
             return (

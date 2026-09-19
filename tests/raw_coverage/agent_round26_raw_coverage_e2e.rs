@@ -253,8 +253,6 @@ fn prompt_context<'a>(
             name: Some("Round\nTwenty Six".to_string()),
             email: Some(" round26@example.test ".to_string()),
         }),
-        personality_soul_md: Some("round26 personality soul override".to_string()),
-        personality_memory_md: Some("round26 personality memory override".to_string()),
         personality_roster: vec![PersonalityRosterEntry {
             id: "analyst".to_string(),
             name: "Analyst".to_string(),

@@ -39,7 +39,7 @@ impl Agent {
     /// needs all survive by construction.
     ///
     /// Discovery lives on the locator because it is a *lookup*, not a read:
-    /// this function's key is `(workspace, session_raw_subdir, agent name)`
+    /// this function's key is `(workspace, agent name)`
     /// (newest match, with a legacy `session_raw/DDMMYYYY/` fallback) and the
     /// cold-boot sibling
     /// [`seed_resume_from_thread_transcript`][Agent::seed_resume_from_thread_transcript]
@@ -103,18 +103,14 @@ impl Agent {
     /// The transcript locator for this session — the injected one, or a
     /// [`FileTranscriptLocator`] built from the agent's **current** workspace.
     ///
-    /// Built per call rather than cached: `workspace_dir` and
-    /// `session_raw_subdir` are reassignable after `build()` (tests do exactly
-    /// that), and a locator frozen at build time would silently keep resolving
-    /// against the directory the agent no longer uses. The construction is two
-    /// clones of small strings — cheaper than the `read_dir` it precedes.
+    /// Built per call rather than cached: `workspace_dir` is reassignable after
+    /// `build()` (tests do exactly that), and a locator frozen at build time
+    /// would silently keep resolving against the directory the agent no longer
+    /// uses.
     pub(crate) fn session_locator(&self) -> std::sync::Arc<dyn SessionHistoryLocator> {
         match &self.session_history_locator {
             Some(locator) => locator.clone(),
-            None => std::sync::Arc::new(FileTranscriptLocator::new(
-                self.workspace_dir.clone(),
-                self.session_raw_subdir.clone(),
-            )),
+            None => std::sync::Arc::new(FileTranscriptLocator::new(self.workspace_dir.clone())),
         }
     }
 }

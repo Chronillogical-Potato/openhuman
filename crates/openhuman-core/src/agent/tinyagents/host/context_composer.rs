@@ -290,8 +290,6 @@ impl ContextComposer for OpenHumanContextComposer {
             // documented `None` behaviour.
             curated_snapshot: None,
             user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
-            personality_soul_md: None,
-            personality_memory_md: None,
             // TODO(phase4): the master agent's personality roster is built
             // from the profiles domain (`crate::profiles`); the
             // existing main-agent path leaves this empty too (see the

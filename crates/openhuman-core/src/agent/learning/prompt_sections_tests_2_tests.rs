@@ -81,8 +81,6 @@ fn prompt_context(learned: LearnedContextData) -> PromptContext<'static> {
         include_profile: false,
         include_memory_md: false,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

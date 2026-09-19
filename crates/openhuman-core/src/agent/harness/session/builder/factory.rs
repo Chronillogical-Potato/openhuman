@@ -159,8 +159,6 @@ impl Agent {
             config.workspace_dir.clone(),
         )?;
 
-        let memory_subdir = "memory".to_string();
-        let session_raw_subdir = "raw".to_string();
         // The session's store, through the same binding the archivist resolves
         // two statements down — so one subtree yields one store rather than an
         // engine handle beside a driver over the same files.
@@ -181,7 +179,7 @@ impl Agent {
         // and degrades to the null driver otherwise, which is the same footing
         // the archivist has had here all along.
         let memory: Arc<dyn Memory> =
-            crate::agent::experience::ops::DriverMemory::for_subtree(config, &memory_subdir)
+            crate::agent::experience::ops::DriverMemory::for_config(config)
                 .map_err(|e| anyhow::anyhow!("session memory binding: {e}"))?;
         // The archivist takes the bound driver for this session's memory
         // subtree — the same subtree `session_memory` opened — rather than the
@@ -189,8 +187,7 @@ impl Agent {
         // That handle was the #5378 `:290` blocker: a concrete connection no
         // module or remote driver can supply. The engine's connection is now
         // exclusively the engine's. Lane C (#6040) rides the same binding.
-        let (archivist_provider, auto_recall) =
-            super::helpers::bind_session_memory(config, &memory_subdir)?;
+        let (archivist_provider, auto_recall) = super::helpers::bind_session_memory(config)?;
 
         // Load the user's persisted tool preferences once. They drive two
         // things below: granting the App UI Control / App Automation mutation
@@ -993,7 +990,6 @@ impl Agent {
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
             .workspace_descriptor(workspace_descriptor)
-            .profile_memory_storage(memory_subdir, session_raw_subdir)
             .workflows({
                 let mut catalogue = crate::skills::load_workflow_metadata(&config.workspace_dir);
                 #[cfg(feature = "flows")]

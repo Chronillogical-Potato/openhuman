@@ -69,13 +69,6 @@ const PANELS = [
     text: 'Categories',
   },
   {
-    id: 'profiles',
-    route: 'profiles',
-    heading: 'Agent Profiles',
-    marker: null,
-    text: 'New profile',
-  },
-  {
     id: 'agent-access',
     route: 'agent-access',
     heading: 'Agent OS access',

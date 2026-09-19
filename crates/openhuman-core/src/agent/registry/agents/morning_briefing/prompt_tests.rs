@@ -24,8 +24,6 @@ fn ctx_with_identity(identity: Option<UserIdentity>) -> PromptContext<'static> {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: identity,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

@@ -310,8 +310,6 @@ fn prompt_context<'a>(
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: Vec::new(),
         agents_md_global: None,
         agents_md_local: None,
@@ -648,7 +646,6 @@ fn prompt_builder_renders_dynamic_user_files_and_identity_branches() -> Result<(
     assert!(prompt.contains("## Current Date & Time"));
 
     ctx.curated_snapshot = None;
-    ctx.personality_memory_md = Some("Personality memory".to_string());
     let user_files = render_user_files(&ctx)?;
     assert!(user_files.contains("Personality memory"));
     assert!(!user_files.contains("Workspace memory body"));

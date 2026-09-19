@@ -289,7 +289,6 @@ impl SecurityPolicy {
         }
         let workspace_root = self.workspace_root().await;
         self.check_resolved_against_forbidden(&resolved, &workspace_root)?;
-        self.check_cross_profile(&resolved)?;
         log::debug!(
             "[security] validate_path: '{}' resolved to '{}'",
             path,
@@ -358,7 +357,6 @@ impl SecurityPolicy {
         let workspace_root = self.workspace_root().await;
         self.check_resolved_against_forbidden(&canonical_ancestor, &workspace_root)?;
         self.check_resolved_against_forbidden(&result, &workspace_root)?;
-        self.check_cross_profile(&result)?;
 
         log::debug!(
             "[security] validate_parent_path: '{}' resolved parent to '{}'",
@@ -366,10 +364,6 @@ impl SecurityPolicy {
             resolved_parent.display()
         );
         Ok(result)
-    }
-
-    pub(super) fn check_cross_profile(&self, resolved: &Path) -> Result<(), String> {
-        Ok(())
     }
 
     /// Returns `true` if `path` falls under one of the internal-state
