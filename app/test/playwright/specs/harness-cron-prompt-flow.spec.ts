@@ -133,17 +133,32 @@ test.describe('Harness - Cron prompt-flow', () => {
           content: '',
           toolCalls: [
             {
-              id: 'call_cron_add_1',
-              name: 'cron_add',
+              id: 'call_schedule_task_add_1',
+              name: 'schedule_task',
               arguments: JSON.stringify({
+                prompt: 'Create a daily 9am morning reminder.',
+                blocking: true,
+              }),
+            },
+          ],
+        },
+        {
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_cron_add_1',
+              name: 'cron',
+              arguments: JSON.stringify({
+                action: 'add',
                 name: 'morning_reminder',
-                schedule: '0 9 * * *',
+                schedule: { kind: 'cron', expr: '0 9 * * *' },
                 prompt: 'morning reminder',
                 enabled: true,
               }),
             },
           ],
         },
+        { content: 'The morning reminder is scheduled.' },
         { content: `Done! I have set up a daily 9am morning reminder for you. ${CANARY}` },
       ])
     );
@@ -188,15 +203,30 @@ test.describe('Harness - Cron prompt-flow', () => {
           content: '',
           toolCalls: [
             {
-              id: 'call_cron_update_1',
-              name: 'cron_update',
+              id: 'call_schedule_task_update_1',
+              name: 'schedule_task',
               arguments: JSON.stringify({
-                id: 'morning_reminder_update_test',
-                schedule: '0 8 * * *',
+                prompt: 'Change the morning reminder to 8am.',
+                blocking: true,
               }),
             },
           ],
         },
+        {
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_cron_update_1',
+              name: 'cron',
+              arguments: JSON.stringify({
+                action: 'update',
+                job_id: 'morning_reminder_update_test',
+                patch: { schedule: { kind: 'cron', expr: '0 8 * * *' } },
+              }),
+            },
+          ],
+        },
+        { content: 'The morning reminder schedule is updated.' },
         { content: `Done! I have changed your morning reminder to 8am. ${CANARY}` },
       ])
     );
@@ -217,12 +247,26 @@ test.describe('Harness - Cron prompt-flow', () => {
           content: '',
           toolCalls: [
             {
-              id: 'call_cron_remove_1',
-              name: 'cron_remove',
-              arguments: JSON.stringify({ id: 'morning_reminder_delete_test' }),
+              id: 'call_schedule_task_remove_1',
+              name: 'schedule_task',
+              arguments: JSON.stringify({ prompt: 'Delete the morning reminder.', blocking: true }),
             },
           ],
         },
+        {
+          content: '',
+          toolCalls: [
+            {
+              id: 'call_cron_remove_1',
+              name: 'cron',
+              arguments: JSON.stringify({
+                action: 'remove',
+                job_id: 'morning_reminder_delete_test',
+              }),
+            },
+          ],
+        },
+        { content: 'The morning reminder is deleted.' },
         { content: `Done! I have deleted the morning reminder. ${CANARY}` },
       ])
     );
