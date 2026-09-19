@@ -6,8 +6,43 @@ fn jwt_with_payload(payload_json: &str) -> String {
     format!("eyJhbGciOiJIUzI1NiJ9.{payload}.sig")
 }
 
-// The SDK owns the parsing rules and tests them directly. What matters here
-// is that the `chrono` conversion this crate depends on stays correct.
+#[test]
+fn bearer_value_trims_surrounding_whitespace_only() {
+    assert_eq!(bearer_authorization_value("my_token"), "Bearer my_token");
+    assert_eq!(
+        bearer_authorization_value("  spaced_token  "),
+        "Bearer spaced_token"
+    );
+    assert_eq!(bearer_authorization_value(""), "Bearer ");
+    assert_eq!(bearer_authorization_value("   "), "Bearer ");
+    // Interior whitespace is preserved — see the doc comment.
+    assert_eq!(
+        bearer_authorization_value("token with spaces"),
+        "Bearer token with spaces"
+    );
+}
+
+#[test]
+fn decode_jwt_payload_reads_claims_and_accepts_padded_base64() {
+    let token = jwt_with_payload(r#"{"sub":"u1","exp":1700000000}"#);
+    let payload = decode_jwt_payload(&token).unwrap();
+    assert_eq!(payload["sub"], "u1");
+    assert_eq!(payload["exp"], 1_700_000_000);
+
+    use base64::Engine;
+    let padded = base64::engine::general_purpose::URL_SAFE.encode(r#"{"sub":"padded"}"#);
+    let token = format!("h.{padded}.s");
+    assert_eq!(decode_jwt_payload(&token).unwrap()["sub"], "padded");
+}
+
+#[test]
+fn decode_jwt_payload_none_for_non_jwt_input() {
+    assert!(decode_jwt_payload("").is_none());
+    assert!(decode_jwt_payload("not-a-jwt").is_none());
+    assert!(decode_jwt_payload("a.!!!.c").is_none());
+    assert!(decode_jwt_payload("embedded.harness.local").is_none());
+}
+
 #[test]
 fn decode_jwt_exp_reads_integer_exp() {
     let token = jwt_with_payload(r#"{"sub":"u1","exp":1700000000}"#);

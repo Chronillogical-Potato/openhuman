@@ -4258,6 +4258,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "openhuman-tinyhumans"
+version = "0.63.29"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "log",
+ "openhuman",
+ "openhuman-embed",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tinyhumans-sdk",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "openhuman-tui"
 version = "0.63.29"
 dependencies = [

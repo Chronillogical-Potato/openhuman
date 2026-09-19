@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use tinyhumans_sdk::TinyHumansClient;
 
 use crate::integrations::types::IntegrationPricing;
 
@@ -40,15 +39,18 @@ pub(super) fn sanitize_backend_url(backend_url: &str) -> String {
 }
 
 /// Shared client for all integration tools. Holds backend URL, auth token,
-/// a reusable `reqwest::Client`, and a lazily-fetched pricing cache.
+/// the download `reqwest::Client`, and a lazily-fetched pricing cache. JSON
+/// traffic rides the process [`BackendTransport`](crate::api::transport::BackendTransport).
 pub struct IntegrationClient {
     pub backend_url: String,
     pub auth_token: String,
+    /// `auth_token` in the shape the transport takes: always a session JWT
+    /// here (see `errors.rs::handle_session_jwt_unauthorized`).
+    pub(super) credential: crate::security::credentials::session_support::BackendCredential,
     pub(super) budget_config: Option<Arc<crate::config::Config>>,
-    pub(super) sdk: TinyHumansClient,
-    // Temporary compatibility exception: the SDK's binary primitive returns
-    // bytes only, while file storage also consumes Content-Type and
-    // Content-Disposition. Remove when the SDK exposes response metadata.
+    // The binary download path never rode the SDK: file storage also consumes
+    // Content-Type and Content-Disposition, and the presigned-redirect hop
+    // must not carry attribution headers (see `new_inner`).
     pub(super) download_client: reqwest::Client,
     pub(super) pricing: tokio::sync::OnceCell<IntegrationPricing>,
 }
@@ -83,26 +85,11 @@ impl IntegrationClient {
         // to fix up the input so the regression is observable in logs.
         let backend_url = sanitize_backend_url(&backend_url);
 
-        // Platform-appropriate TLS backend — see [`crate::util::tls`].
-        // Windows uses schannel (native-tls) to honor the OS cert store;
-        // macOS / Linux keep rustls which avoids the OpenSSL runtime dep and
-        // has historically been more reliable on staging TLS handshakes.
+        // JSON traffic goes through the process backend transport
+        // (`TransportProfile::Integrations`: platform TLS, 60 s timeout,
+        // product identity — see `api::headers`). Only the binary download
+        // client is built here.
         //
-        // `/agent-integrations/*` is backend traffic like any other, so it
-        // carries the same product identity as `BackendOAuthClient`. The SDK
-        // merges its own default headers into every request, so `http_client`
-        // needs nothing beyond `with_default_headers` below.
-        let product_headers = crate::api::product::product_identity_headers();
-        let http_client = crate::util::tls::tls_client_builder()
-            .http1_only()
-            .timeout(Duration::from_secs(60))
-            .connect_timeout(Duration::from_secs(15))
-            .build()
-            .expect("failed to build integration HTTP client");
-        let sdk = TinyHumansClient::new(&backend_url)
-            .with_token(Some(auth_token.clone()))
-            .with_http_client(http_client.clone())
-            .with_default_headers(product_headers);
         // `download_client` deliberately does NOT carry the product identity.
         // Its one caller (`get_bytes`) fetches
         // `/agent-integrations/file-storage/files/{id}/download`, which answers
@@ -124,11 +111,14 @@ impl IntegrationClient {
             .build()
             .expect("failed to build integration download HTTP client");
 
+        let credential = crate::security::credentials::session_support::BackendCredential::Session(
+            auth_token.clone(),
+        );
         Self {
             backend_url,
             auth_token,
+            credential,
             budget_config,
-            sdk,
             download_client,
             pricing: tokio::sync::OnceCell::new(),
         }

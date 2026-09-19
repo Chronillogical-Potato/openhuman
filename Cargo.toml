@@ -14,6 +14,7 @@ members = [
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
     "crates/openhuman-session",
+    "crates/openhuman-tinyhumans",
     "crates/openhuman-tui",
 ]
 exclude = [
@@ -34,6 +35,8 @@ repository = "https://github.com/tinyhumansai/openhuman"
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
 openhuman-session = { path = "crates/openhuman-session" }
+openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
+openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 
 # Patches are workspace-root settings; Cargo ignores them in member manifests.
 [patch."https://github.com/tinyhumansai/tinymemory"]

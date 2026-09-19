@@ -120,6 +120,17 @@ Layout under a runtime-owned root:
 <root>/agents/<agent>/action/                  default action_dir
 ```
 
+### Backend connection
+
+The core knows the hosted TinyHumans backend only through
+`BackendTransport` (re-exported here). `openhuman-embed` alone installs
+none: agents, memory, skills, tools and RPC run without any TinyHumans
+connection, and every hosted-backend surface (billing, `/agent-integrations/*`
+tools, channel relay, cloud voice) answers with a typed
+`BACKEND_UNAVAILABLE:` error. Use `openhuman-tinyhumans` — its
+`RuntimeBuilder` mirrors this one and installs the SDK-backed transport on
+`build()` — or pass your own to `RuntimeBuilder::backend_transport`.
+
 ### Authentication
 
 Library mode has no user login. `RuntimeBuilder::api_key` installs a
