@@ -58,6 +58,7 @@
     "rust:check": "pnpm --filter openhuman-app rust:check",
     "rust:clippy": "cargo clippy -p openhuman -- -D warnings && pnpm --filter openhuman-app rust:clippy",
     "rust:layout": "node scripts/ci/check-openhuman-rust-layout.mjs",
+    "dep:audit": "bash scripts/dep-audit/run.sh",
     "agent:runtime-boundary": "node scripts/ci/check-agent-runtime-boundary.mjs",
     "typecheck": "pnpm --filter openhuman-app compile",
     "tauri:ios:init": "bash scripts/ios-init.sh",
