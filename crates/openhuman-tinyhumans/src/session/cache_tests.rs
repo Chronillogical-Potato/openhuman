@@ -1,6 +1,6 @@
 use super::*;
-use crate::client::ClientHeaders;
-use crate::test_support::{me_user, Backend, MeAnswer, LIVE_JWT};
+use crate::session::client::ClientHeaders;
+use crate::session::test_support::{me_user, Backend, MeAnswer, LIVE_JWT};
 use serde_json::json;
 
 fn client(backend: &Backend) -> SessionClient {

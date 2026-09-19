@@ -1,13 +1,13 @@
 //! Tauri commands the renderer uses to drive login, logout and the current
 //! user. Each is a one-line delegate to the managed `SessionHost`; the
-//! `Err(String)` carries `openhuman_session::SessionError`'s stable
+//! `Err(String)` carries `openhuman_tinyhumans::SessionError`'s stable
 //! `PREFIX:` so the frontend can classify without parsing prose.
 
-use openhuman_session::{CachedUser, SessionState};
+use openhuman_tinyhumans::{CachedUser, SessionState};
 
 use super::SessionHost;
 
-fn err(error: openhuman_session::SessionError) -> String {
+fn err(error: openhuman_tinyhumans::SessionError) -> String {
     error.to_string()
 }
 

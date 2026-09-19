@@ -2,7 +2,7 @@
 
 Credential management for the backend credential the core authenticates with and for provider/OAuth auth profiles. Owns the on-disk **auth-profiles** store (encrypted JSON + OS keychain), the `app-session` / `api-key` credential slots and everything the core does when one is installed or removed, per-provider token storage (e.g. API keys, OAuth token sets), the backend OAuth connect/handoff flows, and the Composio direct-mode (BYO key) credential slot. Exposes everything under the `auth.*` JSON-RPC / CLI namespace and runs the canonical sign-out teardown when a `SessionExpired` event fires.
 
-**The core never obtains, validates, exchanges or refreshes a credential.** Login-token exchange, `GET /auth/me` validation and the current-user cache are the host's job — the Tauri shell and the TUI through `crates/openhuman-session`, an embedder through `openhuman_embed::Auth`, an operator through the CLI or the boot env vars. They hand the result over with `auth.set_credential`.
+**The core never obtains, validates, exchanges or refreshes a credential.** Login-token exchange, `GET /auth/me` validation and the current-user cache are the host's job — the Tauri shell and the TUI through `openhuman_tinyhumans::session`, an embedder through `openhuman_embed::Auth`, an operator through the CLI or the boot env vars. They hand the result over with `auth.set_credential`.
 
 ## Responsibilities
 

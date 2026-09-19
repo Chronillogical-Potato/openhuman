@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_support::{me_user, Backend, MeAnswer, ENV_LOCK, LIVE_JWT};
+use crate::session::test_support::{me_user, Backend, MeAnswer, ENV_LOCK, LIVE_JWT};
 use serde_json::json;
 
 fn headers() -> ClientHeaders {

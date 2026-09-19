@@ -8,7 +8,7 @@
 //! - [`snapshot`] — the `app_state_snapshot` / `update_local_state` RPC handlers.
 //!
 //! The current user is no longer refreshed here: the host that owns the
-//! session (the desktop shell's `openhuman-session`) caches `/auth/me`, and
+//! session (the desktop shell's `openhuman_tinyhumans::session`) caches `/auth/me`, and
 //! the snapshot reports the payload the host handed the core at login.
 
 mod runtime_snapshot;

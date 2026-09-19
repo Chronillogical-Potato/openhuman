@@ -20,7 +20,7 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
 | `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
-| `crates/openhuman-session/` | Host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
+| `crates/openhuman-tinyhumans/` | The TinyHumans layer above embed: SDK-backed backend transport, a `RuntimeBuilder` that boots connected, and the host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
 | `gitbooks/` | Public product and contributor documentation |
@@ -270,7 +270,7 @@ progress events.
   and does only what it owns with it: user-dir activation, gated services,
   the scheduler gate, Sentry and prompt identity. Login-token exchange,
   `GET /auth/me` and the current-user cache belong to the host's session
-  owner: `crates/openhuman-session` behind the Tauri shell's `auth_*`
+  owner: `openhuman_tinyhumans::session` behind the Tauri shell's `auth_*`
   commands and the TUI, `openhuman_embed::Auth` for embedders, the CLI or
   `OPENHUMAN_BACKEND_API_KEY` / `OPENHUMAN_BACKEND_SESSION_TOKEN` for
   headless hosts. Do not add backend auth endpoints back to the core.
@@ -345,8 +345,10 @@ sits above `openhuman-embed` and is installed once per process
 agents, memory, tools and RPC without any TinyHumans connection and answers
 backend-touching calls with `BackendApiError::BackendUnavailable` /
 `BACKEND_UNAVAILABLE:`. Never add `tinyhumans-sdk` back to the core; the only
-crates allowed to depend on it are `openhuman-tinyhumans` and, until it is
-merged in, `openhuman-session`.
+crate allowed to depend on it is `openhuman-tinyhumans`. Every host that boots
+a core (`crates/openhuman-app/src/main.rs` and `lib.rs::run`,
+`crates/openhuman-tui/src/runner.rs`) calls `openhuman_tinyhumans::install`
+first.
 
 Add missing backend routes to the vendored SDK (its unexposed-route registry
 is the route policy the transport enforces) and name them from the core;
@@ -369,7 +371,7 @@ Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 - `IntegrationClient`, except redirected file downloads
 - `MedullaClient`, including its separate SSE handshake
 - the host session owner's `POST /auth/login-token/consume` and
-  `GET /auth/me` (`crates/openhuman-session`, through `ClientHeaders`)
+  `GET /auth/me` (`openhuman_tinyhumans::session`, through `ClientHeaders`)
 - the agent Langfuse ingestion request
 
 Set `ProductIdentity` once during startup before building clients. Do not add

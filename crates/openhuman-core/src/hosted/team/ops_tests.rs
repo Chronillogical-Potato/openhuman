@@ -1,5 +1,11 @@
 use super::*;
 
+// --- pre-HTTP input validation (no network) -----------------------------
+
+fn cfg() -> Config {
+    Config::default()
+}
+
 #[test]
 fn build_api_path_encodes_reserved_characters_in_segments() {
     let path = build_api_path(&["teams", "team/with?reserved", "members", "user#frag"])

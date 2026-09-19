@@ -8,10 +8,11 @@ use wiremock::matchers::{header, header_exists, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// `install` writes the core's process-global transport slot; the tests that
-/// touch it must not interleave.
-fn global_lock() -> &'static std::sync::Mutex<()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+/// touch it must not interleave. Async-aware so the guard can live across
+/// the awaits in those tests.
+fn global_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
 fn request<'a>(
@@ -201,7 +202,7 @@ async fn sdk_route_policy_refuses_unexposed_routes_before_sending() {
 
 #[tokio::test]
 async fn install_makes_the_core_resolve_this_transport() {
-    let _guard = global_lock().lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = global_lock().lock().await;
     let _t = crate::install(crate::InstallOptions::default()).unwrap();
     assert!(crate::is_installed());
     assert_eq!(
@@ -231,7 +232,7 @@ async fn backend_client_round_trips_through_the_installed_transport() {
         .mount(&server)
         .await;
 
-    let _guard = global_lock().lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = global_lock().lock().await;
     let _t = crate::install(crate::InstallOptions::default()).unwrap();
     let client = openhuman_core::api::BackendOAuthClient::new(&server.uri()).unwrap();
     let value = client
