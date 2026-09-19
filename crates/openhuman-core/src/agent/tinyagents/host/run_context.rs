@@ -4,8 +4,11 @@
 //! This type owns the product values that used to be recovered from ambient
 //! task-locals: approval origin, host progress, attachment and artifact scope,
 //! parent dispatch state, and the handles a tool needs to continue a run.
-//! Phase B1 defines and tests this canonical conversion; it is not yet the live
-//! turn carrier. The task-local and public-route cutovers remain later work.
+//! The shared turn seam receives this as its live OpenHuman carrier. The
+//! existing middleware registry still uses `RunContext<()>`, so that seam maps
+//! only canonical TinyAgents values (cancellation and workspace) while the
+//! remaining host-local consumers migrate. `into_tinyagents` is the target
+//! conversion once the middleware registry becomes generic over this carrier.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -23,8 +26,7 @@ use crate::agent::tinyagents::resolved_route::RouteSlot;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 use crate::agent::turn_origin::AgentTurnOrigin;
 
-/// Explicit OpenHuman data carried by a prospective top-level or child agent
-/// run once the Phase B task-local cutover wires it into live invocation.
+/// Explicit OpenHuman data carried by a top-level or child agent run.
 ///
 /// Shared members (`Arc`s, cancellation and workspace descriptor) retain the
 /// identity required by a recursive run tree. [`Self::child`] deliberately

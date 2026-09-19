@@ -20,18 +20,15 @@ use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::events::EventSink;
 use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
-use tinytools::WorkspaceDescriptor;
-use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
 use crate::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
 use crate::agent::messages::ChatMessage;
-use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};
 use crate::agent::tinyagents::host::steering::shared_steering_registry;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware::TurnContextMiddleware;
 use crate::agent::tinyagents::observability::{CapPauser, OpenhumanEventBridge, SubagentScope};
-use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;
 use crate::agent::tinyagents::turn_models::TurnModels;
 use crate::agent::tinyagents::turn_outcome::TinyagentsTurnOutcome;
 use crate::agent::tinyagents::turn_policy::effective_max_iterations;
@@ -199,6 +196,7 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// the question via [`TinyagentsTurnOutcome::early_exit_tool`].
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_turn_via_tinyagents_shared(
+    run_context: OpenHumanRunContext,
     turn_models: TurnModels,
     provider_id: String,
     model: &str,
@@ -206,7 +204,6 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     allowed: Option<HashSet<String>>,
     max_iterations: usize,
-    on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
     context_window: Option<u64>,
     run_queue: Option<Arc<RunQueue>>,
@@ -215,7 +212,6 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     max_output_tokens: Option<u32>,
     context_mw: TurnContextMiddleware,
     tool_policy: Option<ToolPolicyEnforcement>,
-    workspace_descriptor: Option<WorkspaceDescriptor>,
     deterministic_cacheable: bool,
     // #4457 (defect C): when `true`, the seam does NOT emit the terminal
     // `TurnCompleted` — the caller emits it itself *after* its post-run wrap-up
@@ -227,6 +223,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `false` and rely on this seam's emit for parity with the legacy engine.
     defer_turn_completed_to_caller: bool,
 ) -> Result<TinyagentsTurnOutcome> {
+    // The host context is the sole turn carrier. Pulling the sender into this
+    // local keeps the event bridge API compact without creating a second
+    // parameter path for progress.
+    let on_progress = run_context.progress.clone();
     // `0` means "unset" → the legacy default (a native-bus / test convention);
     // otherwise the harness model-call cap would be zero and abort the run before
     // the first provider call.
@@ -360,15 +360,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
-    let cancellation = tinyagents_harness::CancellationToken::new();
+    let cancellation = run_context.cancellation.clone();
+    // The OpenHuman carrier remains the entry boundary even while the current
+    // harness middleware inventory is specialized to `()`. Map only the
+    // canonical generic values here; the follow-up changes every middleware to
+    // `OpenHumanRunContext` and replaces this bridge with `into_tinyagents`.
     let mut ctx = RunContext::new(config, ()).with_cancellation(cancellation.clone());
-    if let Some(descriptor) = workspace_descriptor {
-        tracing::debug!(
-            root = %descriptor.root.display(),
-            policy_id = %descriptor.policy_id,
-            "[tinyagents] attaching workspace descriptor"
-        );
-        ctx = ctx.with_workspace(descriptor);
+    if let Some(workspace) = run_context.workspace.clone() {
+        ctx = ctx.with_workspace(workspace);
     }
     // Assemble the run's store registry: the tool-result artifact index (when
     // present) and — behind the default-ON session dual-write flag — the
@@ -473,7 +472,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             // The child still gets its advisory `Pause` either way.
             let dispatch_guard = subagent_scope
                 .is_none()
-                .then(crate::agent::harness::turn_dispatch_guard::current)
+                .then(|| run_context.dispatch.clone())
                 .flatten();
             events.subscribe(CapPauser::new(
                 handle.clone(),
@@ -506,7 +505,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         if let Some(crate::agent::turn_origin::AgentTurnOrigin::WebChat {
             request_id: Some(request_id),
             ..
-        }) = crate::agent::turn_origin::current()
+        }) = run_context.origin.as_ref()
         {
             journal::register_request_journal_run(&request_id, journal_run_id.as_str());
         }
@@ -527,14 +526,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let steer_thread_label = subagent_scope
         .as_ref()
         .map(|s| s.task_id.clone())
-        .or_else(|| match crate::agent::turn_origin::current() {
+        .or_else(|| match run_context.origin.as_ref() {
             Some(crate::agent::turn_origin::AgentTurnOrigin::WebChat { thread_id, .. }) => {
-                Some(thread_id)
+                Some(thread_id.clone())
             }
             Some(crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
                 reply_target,
                 ..
-            }) => Some(reply_target),
+            }) => Some(reply_target.clone()),
             _ => None,
         })
         .unwrap_or_default();
@@ -582,33 +581,30 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    let run_result = with_run_cancellation(cancellation.clone(), async {
-        if streaming {
-            let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
-            let mut terminal = None;
-            while let Some(item) = stream.next().await {
-                match item {
-                    AgentStreamItem::Event(_) => {}
-                    AgentStreamItem::Completed(run) => {
-                        terminal = Some(Ok(*run));
-                        break;
-                    }
-                    AgentStreamItem::Failed { error, .. } => {
-                        terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
-                        break;
-                    }
+    let run_result = if streaming {
+        let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
+        let mut terminal = None;
+        while let Some(item) = stream.next().await {
+            match item {
+                AgentStreamItem::Event(_) => {}
+                AgentStreamItem::Completed(run) => {
+                    terminal = Some(Ok(*run));
+                    break;
+                }
+                AgentStreamItem::Failed { error, .. } => {
+                    terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
+                    break;
                 }
             }
-            terminal.unwrap_or_else(|| {
-                Err(tinyagents_harness::TinyAgentsError::Model(
-                    "tinyagents stream ended without terminal run".to_string(),
-                ))
-            })
-        } else {
-            Box::pin(harness.invoke_in_context(&(), ctx, input)).await
         }
-    })
-    .await;
+        terminal.unwrap_or_else(|| {
+            Err(tinyagents_harness::TinyAgentsError::Model(
+                "tinyagents stream ended without terminal run".to_string(),
+            ))
+        })
+    } else {
+        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+    };
     // Drive future returned: run cleanup now (abort poll task + deregister +
     // requeue residual steers) rather than deferring to end-of-scope so the poll
     // loop cannot deliver into the no-longer-drained handle during post-run

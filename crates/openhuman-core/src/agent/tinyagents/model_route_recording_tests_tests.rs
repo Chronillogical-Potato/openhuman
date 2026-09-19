@@ -21,7 +21,6 @@ async fn selected_model_records_concrete_route_and_fallback_overwrites_primary()
     let primary = RouteRecordingModel::new(Arc::new(SuccessfulModel), "openhuman", "chat-v1");
     let fallback =
         RouteRecordingModel::new(Arc::new(SuccessfulModel), "anthropic", "claude-sonnet-4");
-
     let observed = with_resolved_provider_route_scope(async {
         primary
             .invoke(&(), ModelRequest::default())
@@ -47,7 +46,6 @@ async fn selected_model_records_concrete_route_and_fallback_overwrites_primary()
 #[tokio::test]
 async fn streamed_model_records_concrete_route_before_stream_consumption() {
     let model = RouteRecordingModel::new(Arc::new(SuccessfulModel), "openhuman", "reasoning-v1");
-
     let observed = with_resolved_provider_route_scope(async {
         let _stream = model
             .stream(&(), ModelRequest::default())

@@ -25,7 +25,6 @@ async fn with_thread_id_injects_when_ambient_thread_present() {
 
 #[test]
 fn with_thread_id_is_noop_without_ambient_thread() {
-    // No thread scope active → provider_options stays whatever it was (null).
     let request = ModelRequest::new(vec![Message::user("hi")]);
     let updated = with_thread_id(request);
     assert!(updated.provider_options.get("thread_id").is_none());

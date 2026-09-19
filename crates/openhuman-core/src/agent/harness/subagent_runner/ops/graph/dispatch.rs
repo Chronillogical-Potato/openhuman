@@ -260,6 +260,11 @@ pub(in super::super) async fn run_subagent_via_graph(
     let native_tools = turn_models.native_tools();
     let provider_id = turn_models.provider_id().to_string();
     let run_result = Box::pin(run_turn_via_tinyagents_shared(
+        crate::agent::tinyagents::host::OpenHumanRunContext {
+            progress: on_progress.clone(),
+            workspace: workspace_descriptor.clone(),
+            ..Default::default()
+        },
         turn_models,
         provider_id,
         model,
@@ -279,8 +284,6 @@ pub(in super::super) async fn run_subagent_via_graph(
         // inheriting the parent's full surface (shell/file-write/spawn).
         Some(allowed_names),
         max_iterations,
-        // Parent's progress sink — child events ride it, scoped below.
-        on_progress,
         subagent_scope,
         // Resolved above — drives the sub-agent context-window summarization step.
         context_window,
@@ -312,8 +315,6 @@ pub(in super::super) async fn run_subagent_via_graph(
         // Sub-agents gate via their own SubagentToolSource policy path, not the
         // session `.tool_policy()`; no enforcement threaded here.
         None,
-        // Isolated worker descriptor, when worktree isolation prepared one.
-        workspace_descriptor,
         // Sub-agent turns run tools with external effects; not a deterministic
         // internal run, so response caching stays off (safe default).
         false,

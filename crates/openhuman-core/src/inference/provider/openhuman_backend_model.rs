@@ -441,9 +441,10 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
     response
 }
 
-/// Inject the ambient `thread_id` (when set) into the request's
-/// `provider_options` so the crate emits it as a top-level `thread_id` body field
-/// — parity with the host `with_openhuman_thread_id` extension.
+/// Inject the current run's thread into provider options. Root entrypoints that
+/// have not yet migrated to the explicit run carrier still establish this
+/// scope; the shared-runner cutover preserves that boundary until those routes
+/// pass `OpenHumanRunContext.thread_id` end-to-end.
 fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
     let Some(thread_id) = thread_context::current_thread_id() else {
         return request;
@@ -455,8 +456,7 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
     if let Some(map) = options.as_object_mut() {
         map.insert("thread_id".to_string(), Value::String(thread_id));
     }
-    request = request.with_provider_options(options);
-    request
+    request.with_provider_options(options)
 }
 
 /// Publish a `SessionExpired` event when the local `exp` precheck in

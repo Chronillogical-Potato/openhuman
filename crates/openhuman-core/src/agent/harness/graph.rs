@@ -115,6 +115,10 @@ pub(crate) async fn run_channel_turn_via_graph(
         "[channel:graph] routing channel turn through tinyagents harness"
     );
     let outcome = run_turn_via_tinyagents_shared(
+        crate::agent::tinyagents::host::OpenHumanRunContext {
+            progress: on_progress.clone(),
+            ..Default::default()
+        },
         turn_models,
         provider_id,
         model,
@@ -122,9 +126,6 @@ pub(crate) async fn run_channel_turn_via_graph(
         vec![extra_arc, tools_registry],
         allowed,
         max_iterations,
-        // Mirror the harness event stream onto AgentProgress when the caller
-        // (e.g. channel dispatch) supplied a progress sink.
-        on_progress,
         // Top-level (parent) turn — no child-progress attribution.
         None,
         // Resolved above — drives the context-window summarization step.
@@ -146,8 +147,6 @@ pub(crate) async fn run_channel_turn_via_graph(
         // channel path has no session `ContextManager` to source config from).
         crate::agent::tinyagents::TurnContextMiddleware::defaults(),
         // Channel/CLI path carries its own gating; no session `.tool_policy()`.
-        None,
-        // Channel turns do not yet carry SDK workspace descriptors.
         None,
         // Interactive channel/CLI turn — never serve a cached model response.
         false,

@@ -113,6 +113,12 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
     let provider_id = graph.turn_models.provider_id().to_string();
     with_current_sandbox_mode(graph.sandbox_mode, async {
         run_turn_via_tinyagents_shared(
+            crate::agent::tinyagents::host::OpenHumanRunContext {
+                progress: graph.on_progress.clone(),
+                workspace: graph.workspace_descriptor.clone(),
+                sandbox_mode: Some(graph.sandbox_mode),
+                ..Default::default()
+            },
             graph.turn_models,
             provider_id,
             &graph.model,
@@ -126,8 +132,6 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             vec![graph.tools, graph.synthesized_tools],
             visible_tool_names,
             graph.max_iterations,
-            // Mirror the harness event stream onto this session's progress sink.
-            graph.on_progress,
             // Top-level chat turn — no child-progress attribution.
             None,
             graph.context_window,
@@ -156,10 +160,6 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             graph.context_mw,
             // Builder-configured tool policy enforcement (session chat path).
             graph.tool_policy,
-            // Per-profile dedicated workspace descriptor (section D). `None` for the
-            // common shared-`action_dir` case; `Some` binds acting tools' default
-            // cwd to `<action_dir>/profiles/<id>` for a `dedicated_workspace` profile.
-            graph.workspace_descriptor,
             // Interactive chat turn — response caching MUST stay off so a live user
             // turn is never served a cached model response (correctness/safety).
             false,
