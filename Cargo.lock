@@ -4089,7 +4089,6 @@ dependencies = [
  "tinyflows-copilot",
  "tinyflows-sqlite",
  "tinyhosts",
- "tinyhumans-sdk",
  "tinyinference-core",
  "tinyinference-embeddings",
  "tinyinference-llm",
@@ -4240,6 +4239,7 @@ dependencies = [
  "tinyhumans-sdk",
  "tokio",
  "url",
+ "urlencoding",
  "wiremock",
 ]
 
