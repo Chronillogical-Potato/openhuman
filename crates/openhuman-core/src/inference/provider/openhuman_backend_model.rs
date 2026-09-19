@@ -467,7 +467,10 @@ fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelReques
         options = Value::Object(serde_json::Map::new());
     }
     if let Some(map) = options.as_object_mut() {
-        map.insert("thread_id".to_string(), Value::String(thread_id));
+        map.insert(
+            "thread_id".to_string(),
+            Value::String(thread_id.to_string()),
+        );
     }
     request.with_provider_options(options)
 }

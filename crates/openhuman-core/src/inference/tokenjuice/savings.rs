@@ -130,8 +130,9 @@ pub fn record(
         return;
     }
     let mut st = state().lock().unwrap_or_else(|p| p.into_inner());
+    let attribution_model = st.attribution_model.clone();
     st.aggregate.record_saving(
-        &st.attribution_model,
+        &attribution_model,
         compressor.as_str(),
         original_tokens,
         compacted_tokens,
