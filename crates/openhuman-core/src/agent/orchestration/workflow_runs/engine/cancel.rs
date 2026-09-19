@@ -74,9 +74,9 @@ pub(super) fn lookup_cancel_signal(run_id: &str) -> Option<WorkflowCancelSignal>
 /// losing stop cannot cancel a successor installed by resume.
 pub(super) fn cancel_signal_if_current(run_id: &str, signal: &WorkflowCancelSignal) -> bool {
     let current = lookup_cancel_signal(run_id);
-    if !current
+    if current
         .as_ref()
-        .is_some_and(|current| current.generation == signal.generation)
+        .is_none_or(|current| current.generation != signal.generation)
     {
         return false;
     }
