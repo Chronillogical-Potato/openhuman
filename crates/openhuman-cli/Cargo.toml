@@ -313,6 +313,7 @@ clap = { version = "4.5", features = ["derive"], optional = true }
 dhat = { version = "0.3", optional = true }
 dotenvy = "0.15"
 env_logger = "0.11"
+libc = "0.2"
 log = "0.4"
 sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
 serde = { version = "1", features = ["derive"] }

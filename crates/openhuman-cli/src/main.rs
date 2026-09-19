@@ -272,6 +272,15 @@ fn main() {
     // Collect command-line arguments, skipping the binary name.
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    // The core carries no backend client; every CLI subcommand that reaches
+    // the hosted backend (serve, auth, billing, composio, ...) needs the
+    // `openhuman-tinyhumans` transport installed before it dispatches.
+    if let Err(err) = openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
+    {
+        eprintln!("failed to install the TinyHumans backend transport: {err}");
+        std::process::exit(1);
+    }
+
     // Delegate to the core library to handle the command.
     if let Err(err) = openhuman_core::run_core_from_args(&args) {
         eprintln!("{err}");
