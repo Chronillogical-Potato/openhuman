@@ -149,7 +149,11 @@ vocabulary. `tinyagents-harness` must not expose a second public Tool trait or
 ToolResult shape. Harness-only correlation (`call_id`, elapsed time, run id)
 belongs to an internal invocation record/event, not the tool result.
 
-`AgentHarness::register_tool` accepts `Arc<dyn tinytools::Tool>`. The harness
+`AgentHarness::register_tool` accepts `Arc<dyn tinytools::Tool>`. A recursive
+canonical tool that needs its typed parent (for example OpenHuman's
+`spawn_parallel_agents`) uses `AgentHarness::register_tool_dispatch` and an
+explicit `ToolDispatch<State, Ctx>` instead of recovering state from a
+task-local. The harness
 implements its execution context as `tinytools::ToolRunContext` and performs
 injected-argument, timeout, cancellation, and event handling around the
 canonical call. OpenHuman tools implement `tinytools::Tool` directly; the
@@ -324,7 +328,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `payload_summarizer.rs`, `summarize.rs` | Move generic summarizer orchestration/trait to harness; OpenHuman model selection/config adapter stays. |
 | `turn_policy.rs`, `turn_outcome.rs`, `turn_run_error.rs`, `turn_run_finalize.rs` | Move generic run policy/outcome/finalization upstream; retain product error/progress/cost projection only. |
 | `turn_models.rs`, remaining `routes.rs` | Keep as `ModelResolver` implementation/config projection, then relocate under the host adapter rather than an integration facade. |
-| `thread_context.rs`, `run_cancellation_context.rs`, `stop_hooks.rs`, `steering_forwarder.rs` | Replace with explicit run/child context; keep only product stop-hook adapter. |
+| `thread_context.rs`, `stop_hooks.rs`, `steering_forwarder.rs` | Replace with explicit run/child context; keep only product stop-hook adapter. The former cancellation task-local is deleted: recursive fan-out receives the parent token through typed tool dispatch. |
 | `orchestration.rs`, `delegation.rs`, `topology.rs` | Move generic lifecycle/helpers to graph; keep product topology composition only where it genuinely names product graphs. |
 | `observability/*` | Keep OpenHuman projection (`AgentProgress`, cost, Langfuse); move reusable graph/event/cap mechanics upstream and import directly. |
 | `journal.rs`, `reaper.rs`, `replay/*` | Keep because layout/RPC are product durability contracts; use upstream journal traits directly. |

@@ -93,9 +93,6 @@ impl OpenHumanRunContext {
         context.stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
         context.dispatch = crate::agent::harness::turn_dispatch_guard::current();
         context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
-        if let Some(cancellation) = crate::agent::tinyagents::current_run_cancellation() {
-            context.cancellation = cancellation;
-        }
         context.workspace = crate::agent::turn_workspace::current()
             .filter(|root| root.is_dir())
             .map(|root| tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"));

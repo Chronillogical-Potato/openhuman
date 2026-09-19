@@ -29,7 +29,6 @@ use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware::TurnContextMiddleware;
 use crate::agent::tinyagents::observability::{CapPauser, OpenhumanEventBridge, SubagentScope};
-use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;
 use crate::agent::tinyagents::turn_models::TurnModels;
 use crate::agent::tinyagents::turn_outcome::TinyagentsTurnOutcome;
 use crate::agent::tinyagents::turn_policy::effective_max_iterations;
@@ -363,7 +362,6 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
-    let cancellation = run_context.cancellation.clone();
     let mut run_context = run_context;
     run_context.tool_result_artifact_index = tool_result_artifact_index.clone();
     run_context.tool_outcomes = Some(tool_outcome_sink.clone());
@@ -580,41 +578,38 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    // Thread and cancellation scopes remain for legacy tool/model APIs outside
-    // the typed TinyAgents surface. Route metadata is carried exclusively by
-    // the typed run context and canonical model response.
+    // The legacy thread scope remains for APIs outside the typed TinyAgents
+    // surface. Cancellation is carried solely by the canonical run context and
+    // reaches recursive tools through typed parent dispatch. Route metadata is
+    // likewise carried by the typed run context and canonical model response.
     let run_thread_id = run_context.thread_id.clone().unwrap_or_default();
     let resolved_route_slot = run_context.resolved_route.clone();
     let run_result =
         crate::agent::tinyagents::thread_context::with_thread_id(run_thread_id, async move {
-            with_run_cancellation(cancellation.clone(), async {
-                if streaming {
-                    let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
-                    let mut terminal = None;
-                    while let Some(item) = stream.next().await {
-                        match item {
-                            AgentStreamItem::Event(_) => {}
-                            AgentStreamItem::Completed(run) => {
-                                terminal = Some(Ok(*run));
-                                break;
-                            }
-                            AgentStreamItem::Failed { error, .. } => {
-                                terminal =
-                                    Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
-                                break;
-                            }
+            if streaming {
+                let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
+                let mut terminal = None;
+                while let Some(item) = stream.next().await {
+                    match item {
+                        AgentStreamItem::Event(_) => {}
+                        AgentStreamItem::Completed(run) => {
+                            terminal = Some(Ok(*run));
+                            break;
+                        }
+                        AgentStreamItem::Failed { error, .. } => {
+                            terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
+                            break;
                         }
                     }
-                    terminal.unwrap_or_else(|| {
-                        Err(tinyagents_harness::TinyAgentsError::Model(
-                            "tinyagents stream ended without terminal run".to_string(),
-                        ))
-                    })
-                } else {
-                    Box::pin(harness.invoke_in_context(&(), ctx, input)).await
                 }
-            })
-            .await
+                terminal.unwrap_or_else(|| {
+                    Err(tinyagents_harness::TinyAgentsError::Model(
+                        "tinyagents stream ended without terminal run".to_string(),
+                    ))
+                })
+            } else {
+                Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+            }
         })
         .await;
     // Drive future returned: run cleanup now (abort poll task + deregister +

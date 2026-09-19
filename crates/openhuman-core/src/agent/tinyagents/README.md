@@ -41,7 +41,7 @@ The **adapter seam** between OpenHuman and the vendored [`tinyagents`](../../../
 | `payload_summarizer.rs` | `PayloadSummarizer` trait, `SummarizeOutcome`/`UnavailableReason`, and the default `SubagentPayloadSummarizer` that compresses oversized tool results through the `summarizer` sub-agent instead of hard-truncating them. |
 | `policy_denial.rs` | `maybe_enrich_policy_block`: rewrites `[policy-blocked]` tool results into structured what/why/workaround messages that tell the model to relay the denial rather than fabricate output. Called from `ToolOutcomeCaptureMiddleware`. |
 | `abort_guard.rs` | `AbortOnDrop`: ties a detached streaming-producer task's lifetime to its consumer stream so a dropped turn aborts the in-flight provider call (issue #4460). |
-| `run_cancellation_context.rs` | Task-local carrier for the current run's `CancellationToken`, for tools that fan out nested graph work. |
+| `host/run_context.rs` + typed tool dispatch | `OpenHumanRunContext` owns one root `CancellationToken`; child contexts share it and recursive tools receive it from their typed parent `RunContext`. |
 | `steering_forwarder.rs` | `SteeringForwarderGuard`: forwards `RunQueue` steer/collect messages into the harness `SteeringHandle`; abort-on-drop so drop-based cancellation always deregisters it (issue #4456). |
 | `stop_hooks.rs` | `StopHookMiddleware`: evaluates OpenHuman `StopHook`s after each model call and pauses the run via steering on the first `Stop` decision. |
 | `summarize.rs` | `ModelSummarizer` / `FaultTolerantCachingSummarizer` plus a context-window-aware `SummarizationPolicy` driving the crate's `ContextCompressionMiddleware`. |
@@ -106,10 +106,10 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 attachments, artifacts, dispatch, cancellation, thread, workspace and stop
 hooks) across the OpenHuman turn boundary. The shared runner builds
 `RunContext<OpenHumanRunContext>` with `into_tinyagents`, and the OpenHuman
-assembly plus middleware stack are specialized to that context. Route, thread,
-and cancellation task-local scopes remain only around the drive while legacy
-tool/model consumers still require them; they are seeded solely from the typed
-carrier.
+assembly plus middleware stack are specialized to that context. Route and
+thread task-local scopes remain only around the drive while legacy tool/model
+consumers still require them. Cancellation reaches recursive tools solely
+through the typed parent run.
 
 ## Notes
 

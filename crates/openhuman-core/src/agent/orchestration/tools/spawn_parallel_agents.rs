@@ -13,9 +13,11 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     format_spawn_parallel_success, run_spawn_parallel_graph_with_cancellation_and_workspace,
     SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
 };
-use crate::agent::tinyagents::current_run_cancellation;
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::ToolDispatch;
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
@@ -30,6 +32,91 @@ impl SpawnParallelAgentsTool {
 impl Default for SpawnParallelAgentsTool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Typed-parent dispatch for `spawn_parallel_agents`.
+///
+/// The canonical `Tool` declaration remains usable for schema, policy, and
+/// capability registration, while this dispatch is the only harness execution
+/// path. It receives the live parent run rather than recovering cancellation
+/// from a task-local, so nested graph fan-out observes the exact parent token
+/// and workspace grant.
+pub(crate) struct SpawnParallelAgentsDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl SpawnParallelAgentsDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SpawnParallelAgentsDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        execute_spawn_parallel_agents(
+            arguments,
+            parent.cancellation.clone(),
+            parent.workspace.clone(),
+        )
+        .await
+    }
+}
+
+/// Executes the graph from explicitly supplied parent-run values.
+///
+/// This is shared by the typed harness dispatch and standalone tool execution;
+/// neither path consults ambient run state.
+pub(crate) async fn execute_spawn_parallel_agents(
+    args: serde_json::Value,
+    cancellation: tinyagents_harness::CancellationToken,
+    workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
+) -> anyhow::Result<ToolResult> {
+    tracing::debug!("[spawn_parallel_agents] execute entry");
+    let outcome = run_spawn_parallel_graph_with_cancellation_and_workspace(
+        args,
+        cancellation,
+        workspace_descriptor,
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!(e))?;
+    match outcome {
+        SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
+            format_spawn_parallel_success(&collected),
+        )),
+        SpawnParallelGraphOutcome::InvalidRequest(
+            SpawnParallelTaskValidationError::MissingTasks(message),
+        ) => {
+            tracing::debug!("[spawn_parallel_agents] missing_tasks_parameter");
+            Err(anyhow::anyhow!(message))
+        }
+        SpawnParallelGraphOutcome::InvalidRequest(
+            SpawnParallelTaskValidationError::InvalidTasks(message),
+        ) => {
+            tracing::debug!(error = %message, "[spawn_parallel_agents] invalid_tasks_array");
+            Err(anyhow::anyhow!(message))
+        }
+        SpawnParallelGraphOutcome::InvalidRequest(SpawnParallelTaskValidationError::Rejected(
+            message,
+        )) => {
+            tracing::debug!("[spawn_parallel_agents] rejected_too_few_tasks");
+            Ok(ToolResult::error(message))
+        }
+        SpawnParallelGraphOutcome::Rejected(message) => Ok(ToolResult::error(message)),
+        SpawnParallelGraphOutcome::Cancelled(message) => Ok(ToolResult::error(message)),
     }
 }
 
@@ -120,46 +207,13 @@ impl Tool for SpawnParallelAgentsTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        tracing::debug!("[spawn_parallel_agents] execute entry");
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
-        let cancellation = current_run_cancellation().unwrap_or_else(|| {
-            tracing::debug!(
-                "[spawn_parallel_agents] no active tinyagents run cancellation token; using local token"
-            );
-            tinyagents_harness::CancellationToken::new()
-        });
-        let outcome = run_spawn_parallel_graph_with_cancellation_and_workspace(
+        execute_spawn_parallel_agents(
             args,
-            cancellation,
+            tinyagents_harness::CancellationToken::new(),
             workspace_descriptor,
         )
         .await
-        .map_err(|e| anyhow::anyhow!(e))?;
-        match outcome {
-            SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
-                format_spawn_parallel_success(&collected),
-            )),
-            SpawnParallelGraphOutcome::InvalidRequest(
-                SpawnParallelTaskValidationError::MissingTasks(message),
-            ) => {
-                tracing::debug!("[spawn_parallel_agents] missing_tasks_parameter");
-                Err(anyhow::anyhow!(message))
-            }
-            SpawnParallelGraphOutcome::InvalidRequest(
-                SpawnParallelTaskValidationError::InvalidTasks(message),
-            ) => {
-                tracing::debug!(error = %message, "[spawn_parallel_agents] invalid_tasks_array");
-                Err(anyhow::anyhow!(message))
-            }
-            SpawnParallelGraphOutcome::InvalidRequest(
-                SpawnParallelTaskValidationError::Rejected(message),
-            ) => {
-                tracing::debug!("[spawn_parallel_agents] rejected_too_few_tasks");
-                Ok(ToolResult::error(message))
-            }
-            SpawnParallelGraphOutcome::Rejected(message) => Ok(ToolResult::error(message)),
-            SpawnParallelGraphOutcome::Cancelled(message) => Ok(ToolResult::error(message)),
-        }
     }
 }
 

@@ -10,6 +10,7 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     WorkerDispatchMode,
 };
 use crate::agent::prompts::ToolCallFormat;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::Agent;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
@@ -21,8 +22,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use tinyagents_harness::tool::ToolDispatch;
 use tinyinference_llm::message::{AssistantMessage, Message};
-use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
 use tinyinference_llm::tool::ToolCall;
 use tinytools::ToolTimeout;
 use tinytools::{PermissionLevel, Tool, ToolResult};
@@ -152,6 +154,91 @@ fn parent_context_with_tools(
     let mut parent = parent_context(max_parallel_tools);
     parent.all_tools = Arc::new(tools);
     parent
+}
+
+/// A child model that signals once fan-out has entered a worker, then remains
+/// in flight until the graph cancellation token drops its invocation future.
+struct BlockingFanoutModel {
+    started: Arc<tokio::sync::Notify>,
+}
+
+#[async_trait]
+impl ChatModel<()> for BlockingFanoutModel {
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
+        self.started.notify_waiters();
+        std::future::pending().await
+    }
+
+    async fn stream(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelStream> {
+        panic!("the unobserved fan-out test must use unary model invocation")
+    }
+}
+
+/// The live harness does not recover cancellation from a task-local. Its typed
+/// dispatch receives the parent `RunContext`, so a token cancelled while a
+/// child worker is in flight stops the fan-out at its worker safe point with
+/// the same workspace grant.
+#[tokio::test]
+async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
+    let _ = AgentDefinitionRegistry::init_global_builtins();
+    let cancellation = tinyagents_harness::CancellationToken::new();
+    let workspace = tinytools::WorkspaceDescriptor::new("/work/parent-action");
+    let started = Arc::new(tokio::sync::Notify::new());
+    let parent_run = OpenHumanRunContext::new()
+        .with_cancellation(cancellation.clone())
+        .with_workspace(workspace.clone())
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
+    let dispatch = SpawnParallelAgentsDispatch::new(Arc::new(SpawnParallelAgentsTool::new()));
+    let mut parent = parent_context(4);
+    parent.turn_model_source =
+        crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(BlockingFanoutModel {
+            started: started.clone(),
+        }));
+
+    let run = with_parent_context(parent, async {
+        dispatch
+            .execute(
+                &(),
+                json!({
+                    "tasks": [
+                        { "agent_id": "researcher", "prompt": "one" },
+                        { "agent_id": "critic", "prompt": "two" }
+                    ]
+                }),
+                tinytools::ToolCallOptions::default(),
+                &parent_run,
+            )
+            .await
+    });
+    tokio::pin!(run);
+    let worker_started = started.notified();
+    tokio::pin!(worker_started);
+    tokio::select! {
+        result = &mut run => panic!("fan-out completed before its worker entered: {result:?}"),
+        _ = &mut worker_started => {}
+    }
+
+    cancellation.cancel();
+    let result = timeout(Duration::from_secs(5), &mut run)
+        .await
+        .expect("cancelled fan-out must finish")
+        .expect("typed dispatch result");
+
+    assert_eq!(parent_run.workspace, Some(workspace));
+    assert!(result.is_error, "{}", result.output());
+    assert!(
+        result.output().contains("cancelled at worker"),
+        "typed dispatch must pass the parent token into fan-out: {}",
+        result.output()
+    );
 }
 
 fn definition_with_tool_scope(

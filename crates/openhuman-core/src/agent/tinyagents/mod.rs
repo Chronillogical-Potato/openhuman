@@ -49,7 +49,6 @@ pub(crate) mod reaper;
 pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
-pub(crate) mod run_cancellation_context;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
 mod summarize;
@@ -75,7 +74,6 @@ pub(crate) use middleware::{
     TurnContextMiddleware,
 };
 pub(crate) use observability::SubagentScope;
-pub(crate) use run_cancellation_context::current_run_cancellation;
 pub(crate) use topology::all_graph_topologies;
 pub use turn_models::TurnModelSource;
 pub(crate) use turn_models::TurnModels;

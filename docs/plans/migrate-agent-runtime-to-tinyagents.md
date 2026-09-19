@@ -225,7 +225,7 @@ observer. Replace reads of:
 - `fork_context`, `sandbox_context`, `spawn_depth_context`,
   `task_recency_context`, `turn_attachments_context`, `turn_dispatch_guard`,
   `turn_subagent_usage`;
-- `progress_sink`, `resolved_route`, `run_cancellation_context`,
+- `progress_sink`, `resolved_route`,
   `thread_context`, `turn_origin`, and `turn_workspace` task-local scopes.
 
 Delete each task-local module once its final caller receives context directly.

@@ -490,15 +490,17 @@ When the backend doesn't surface a charged amount (older builds, providers that 
 
 `OpenHumanRunContext` is now the live carrier at the shared chat, channel, and
 sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
-stop hooks, dispatch state, thread, route slot, cancellation token, and workspace grant,
-then pass an owned context to the runner; a recursive sub-agent forks it with
+stop hooks, dispatch state, thread, route slot, and workspace grant, then own
+or explicitly receive one cancellation token before passing the context to the
+runner; a recursive sub-agent forks it with
 `child()`, preserving shared cancellation/policy handles while isolating route
 observation and usage accounting. The shared runner creates
 `RunContext<OpenHumanRunContext>` through `into_tinyagents`, and the OpenHuman
 assembly and middleware registry consume that typed context directly. Route,
-thread, and cancellation scopes still surround the drive only for legacy
-tool/model APIs outside the typed harness boundary; their values are seeded
-from the carrier rather than rediscovered by the middleware.
+and thread scopes still surround the drive only for legacy tool/model APIs
+outside the typed harness boundary. Recursive fan-out receives cancellation and
+workspace from its typed parent `RunContext` through `ToolDispatch`; it never
+reads a cancellation task-local.
 
 `OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
 the context, definition, security, model, memory, budget, progress, learning,
