@@ -89,6 +89,8 @@ fn rpc_bearer() -> &'static str {
 }
 
 fn ensure_rpc_auth() {
+
+    crate::tinyhumans_boot::boot();
     let _ = rpc_bearer();
 }
 

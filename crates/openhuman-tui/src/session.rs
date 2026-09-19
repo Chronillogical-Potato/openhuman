@@ -1,4 +1,4 @@
-//! The TUI's session owner: `openhuman-session` over an in-process
+//! The TUI's session owner: `openhuman-tinyhumans` over an in-process
 //! [`CoreRuntime`]. Login-token exchange and `/auth/me` happen here, in the
 //! TUI process; the core only receives the resulting credential through
 //! `auth.set_credential`.
@@ -7,7 +7,7 @@ use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use openhuman_core::core::runtime::CoreRuntime;
-use openhuman_session::{ClientHeaders, CoreLink, SessionManager};
+use openhuman_tinyhumans::{ClientHeaders, CoreLink, SessionManager};
 
 /// `CoreLink` over `CoreRuntime::invoke` — no HTTP, no bearer.
 pub struct InProcessLink(pub Arc<CoreRuntime>);

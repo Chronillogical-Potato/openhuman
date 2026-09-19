@@ -5,15 +5,24 @@
 //! [`crate::api::rest`] for authenticated (bearer-only) REST calls,
 //! [`crate::api::product`] for the `x-sdk-name` product identity every
 //! backend-bound request carries,
+//! [`crate::api::transport`] for the backend port every request rides
+//! (the SDK-backed implementation lives in `openhuman-tinyhumans`),
+//! [`crate::api::headers`] for the attribution headers and client profiles
+//! that implementation builds from,
+//! [`crate::api::classify`] for backend error-body classification shared
+//! across domains,
 //! and [`crate::api::socket`] for Socket.IO WebSocket URLs.
 //! [`crate::api::models`] holds shared DTOs for realtime (server-adjacent).
 
+pub mod classify;
 pub mod config;
+pub mod headers;
 pub mod jwt;
 pub mod models;
 pub mod product;
 pub mod rest;
 pub mod socket;
+pub mod transport;
 
 pub use config::{
     api_base_from_env, effective_api_url, effective_backend_api_url, normalize_api_base_url,
@@ -29,3 +38,7 @@ pub use rest::{
     BackendOAuthClient, ConnectResponse, IntegrationSummary, IntegrationTokensHandoff,
 };
 pub use socket::websocket_url;
+pub use transport::{
+    install_backend_transport, installed_backend_transport, resolve_backend_transport,
+    BackendRequest, BackendTransport, BackendTransportError, TransportProfile,
+};

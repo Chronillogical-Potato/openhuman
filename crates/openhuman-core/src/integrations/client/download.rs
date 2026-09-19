@@ -2,7 +2,7 @@
 //! download route bypasses the JSON envelope and needs `Content-Type` /
 //! `Content-Disposition` metadata the SDK's binary primitive doesn't expose.
 
-use tinyhumans_sdk::Error as SdkError;
+use crate::api::transport::BackendTransportError;
 
 use super::construct::IntegrationClient;
 use super::requests::{emit_backend_egress, enforce_backend_egress};
@@ -79,8 +79,8 @@ impl IntegrationClient {
             let body_text = resp.text().await.unwrap_or_default();
             let body =
                 serde_json::from_str(&body_text).unwrap_or(serde_json::Value::String(body_text));
-            return Err(Self::map_sdk_error(
-                SdkError::Status {
+            return Err(Self::map_transport_error(
+                BackendTransportError::Status {
                     status: status.as_u16(),
                     body,
                 },

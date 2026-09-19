@@ -32,7 +32,7 @@ Both are referenced from `.github/PULL_REQUEST_TEMPLATE.md`.
 
 Resource-footprint work for the embeddable core. Drivers live in
 `scripts/profile/`; the scenario binary is
-`crates/openhuman-core/src/bin/library_profile/main.rs` (`library-profile`,
+`crates/openhuman-cli/src/bin/library_profile/main.rs` (`library-profile`,
 behind the `rss-bench` feature).
 
 - `library-benchmarking.md` — the benchmark environment: scenarios, driver

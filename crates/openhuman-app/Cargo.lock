@@ -1310,17 +1310,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
-name = "dbus"
-version = "0.9.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ab69f03cc8c4340c9c8e315114e1658e6775a9b16a04357973aa21cec22b32e"
-dependencies = [
- "libc",
- "libdbus-sys",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "debugid"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3299,15 +3288,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
-name = "libdbus-sys"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "328c4789d42200f1eeec05bd86c9c13c7f091d2ba9a6ea35acdf51f31bc0f043"
-dependencies = [
- "pkg-config",
-]
-
-[[package]]
 name = "libloading"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3577,7 +3557,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.20",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3717,7 +3697,6 @@ version = "4.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5b4c1b4f2aa9f25f63a7a49d3dd0ed567b3670da15330a66b29434be899b891"
 dependencies = [
- "dbus",
  "futures-lite",
  "log",
  "mac-notification-sys",
@@ -3732,16 +3711,6 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3b335231dfd352ffb0f8017f3b6027a4917f7df785ea2143d8af2adc66980ae"
 dependencies = [
- "winapi",
-]
-
-[[package]]
-name = "nu-ansi-term"
-version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
-dependencies = [
- "overload",
  "winapi",
 ]
 
@@ -4255,7 +4224,7 @@ dependencies = [
  "cron",
  "curve25519-dalek",
  "directories 6.0.0",
- "dirs 5.0.1",
+ "dirs 6.0.0",
  "dotenvy",
  "ed25519-dalek",
  "enigo",
@@ -4266,14 +4235,13 @@ dependencies = [
  "glob",
  "hex",
  "hkdf",
- "hmac",
  "hostname",
  "iana-time-zone",
  "keyring",
  "lettre",
  "libc",
  "log",
- "nu-ansi-term 0.46.0",
+ "nu-ansi-term",
  "once_cell",
  "openhuman-rpc",
  "parking_lot",
@@ -4299,7 +4267,6 @@ dependencies = [
  "tinyagents-definition",
  "tinyagents-graph",
  "tinyagents-harness",
- "tinyagents-language",
  "tinyagents-orchestration",
  "tinyagents-registry",
  "tinyagents-session",
@@ -4344,7 +4311,6 @@ dependencies = [
  "url",
  "urlencoding",
  "uuid",
- "wait-timeout",
  "walkdir",
  "windows-sys 0.61.2",
  "x25519-dalek",
@@ -4363,9 +4329,7 @@ dependencies = [
  "directories 5.0.1",
  "hex",
  "log",
- "mac-notification-sys",
  "nix 0.29.0",
- "notify-rust",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
@@ -4373,7 +4337,7 @@ dependencies = [
  "objc2-web-kit",
  "openhuman",
  "openhuman-rpc",
- "openhuman-session",
+ "openhuman-tinyhumans",
  "parking_lot",
  "rand 0.9.5",
  "reqwest 0.12.28",
@@ -4404,6 +4368,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "openhuman-embed"
+version = "0.63.29"
+dependencies = [
+ "anyhow",
+ "log",
+ "openhuman",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "openhuman-rpc"
 version = "0.63.29"
 dependencies = [
@@ -4415,12 +4395,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "openhuman-session"
+name = "openhuman-tinyhumans"
 version = "0.63.29"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "log",
+ "openhuman",
+ "openhuman-embed",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -4528,12 +4511,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
 ]
-
-[[package]]
-name = "overload"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pango"
@@ -6148,7 +6125,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6903,7 +6880,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",
@@ -8004,7 +7981,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
  "matchers",
- "nu-ansi-term 0.50.3",
+ "nu-ansi-term",
  "once_cell",
  "regex-automata",
  "sharded-slab",
@@ -8032,7 +8009,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.20",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -8104,7 +8081,7 @@ checksum = "f2f6fb2847f6742cd76af783a2a2c49e9375d0a111c7bef6f71cd9e738c72d6e"
 dependencies = [
  "memoffset",
  "tempfile",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

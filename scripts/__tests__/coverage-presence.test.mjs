@@ -190,7 +190,7 @@ test("skips non-Rust paths, crate roots and src/bin", () => {
     {
       "src/lib.rs": WITH_FN,
       "src/main.rs": WITH_FN,
-      "crates/openhuman-core/src/bin/tool.rs": WITH_FN,
+      "crates/openhuman-cli/src/bin/tool.rs": WITH_FN,
       "src/a/README.md": "# doc\n",
     },
     [],
@@ -198,7 +198,7 @@ test("skips non-Rust paths, crate roots and src/bin", () => {
       "--files",
       "src/lib.rs",
       "src/main.rs",
-      "crates/openhuman-core/src/bin/tool.rs",
+      "crates/openhuman-cli/src/bin/tool.rs",
       "src/a/README.md",
     ],
   );

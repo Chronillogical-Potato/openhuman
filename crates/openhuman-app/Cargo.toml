@@ -36,8 +36,11 @@ serde_json = "1"
 [dependencies]
 openhuman-rpc = { path = "../openhuman-rpc", features = ["http-client"] }
 # The desktop session owner (login-token exchange, /auth/me, current-user
-# cache). No core dependency of its own; see crates/openhuman-session/README.md.
-openhuman-session = { path = "../openhuman-session" }
+# cache) and the SDK-backed backend transport the core needs installed at
+# boot. `default-features = false`: the shell controls every product gate
+# through the `openhuman_core` line above, and this crate must not re-enable
+# defaults behind `check-feature-forwarding`'s back.
+openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
 tauri = { version = "2.11", default-features = false, features = [
@@ -232,7 +235,6 @@ nix = { version = "0.29", default-features = false, features = ["hostname", "sig
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = "0.3.2"
-mac-notification-sys = "0.6"
 # iMessage scanner reads ~/Library/Messages/chat.db read-only on macOS
 # (rusqlite is declared once in the general [dependencies] table above).
 objc2-user-notifications = "0.3.2"
@@ -241,9 +243,6 @@ objc2-foundation = { version = "0.3.2", features = ["NSTimer", "block2"] }
 # Native WKWebView host for the floating mascot window — bypasses CEF
 # (which can't render transparent windowed-mode browsers).
 objc2-web-kit = { version = "0.3.2", features = ["block2"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-notify-rust = { version = "4", default-features = false, features = ["dbus"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # AttachConsole — re-attach to the parent shell when the binary runs as a CLI

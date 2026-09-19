@@ -26,6 +26,7 @@ comments of the scripts inside them.
 | `theme-codemod/` | Codemod collapsing audited `light dark:` Tailwind pairings into the semantic theme utilities (`node scripts/theme-codemod/migrate.mjs [--write]`; see `gitbooks/developing/theming.md`). |
 | `agent-batch/` | Validates a batch spec of parallel agent branches, checks file overlap, prints per-agent launch prompts, and reports status (`pnpm agent-batch <validate\|overlap\|launch\|status> <spec.json>`). |
 | `deep-work/` | Issue-to-PR workflow automation over worktrees and AI agents: `pnpm deep-work start\|pick\|continue\|status\|list\|cleanup`. |
+| `dep-audit/` | Cargo dependency audit (unused, duplicate-version, heavy, cross-repo drift) over the root workspace, `openhuman-app`, and every Cargo submodule, driven by `tinyanalyzer` — see [dep-audit/README.md](dep-audit/README.md). |
 
 ## pnpm-wired entry points
 
@@ -37,6 +38,7 @@ comments of the scripts inside them.
 | `pnpm mock:api` | `mock-api-server.mjs` |
 | `pnpm debug ...` | `debug/cli.sh` |
 | `pnpm rust:layout` | `ci/check-openhuman-rust-layout.mjs` |
+| `pnpm dep:audit` | `dep-audit/run.sh` |
 | `pnpm test:inventory` | `generate-test-inventory.mjs` |
 | `pnpm pr:checklist` | `check-pr-checklist.mjs` |
 | `pnpm prompt:report` | `prompt-report.sh` — every agent's fixed prefix (prompt + tool schemas), largest first; report-only |

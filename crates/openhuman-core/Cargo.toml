@@ -2,9 +2,11 @@
 # domain modules live directly under `src/`, alongside backend API and runtime
 # composition. Shared RPC contracts and clients belong to `openhuman-rpc`; the
 # typed embedding facade belongs to `openhuman-embed`.
-# Auto-discovery is disabled because
-# Cargo only scans beside this manifest; the repository layout gate requires
-# every root `tests/*.rs` and `examples/*.rs` file to have an explicit target.
+# This package is the LIBRARY only. The `openhuman-core` binary, the other
+# developer bins, and every root `tests/*.rs` / `examples/*.rs` target belong
+# to `crates/openhuman-cli`, which depends on `openhuman-tinyhumans` for the
+# backend transport the core itself no longer carries. Auto-discovery stays
+# off so a stray file beside this manifest can never become a target here.
 [package]
 name = "openhuman"
 version.workspace = true
@@ -49,274 +51,6 @@ autobenches = false
 # time after.
 [package.metadata.cargo-machete]
 ignored = []
-
-[[bin]]
-name = "openhuman-core"
-path = "src/main.rs"
-
-[[bin]]
-name = "test-mcp-stub"
-path = "src/bin/test_mcp_stub.rs"
-
-[[bin]]
-name = "openhuman-fleet"
-path = "src/bin/fleet.rs"
-# The fleet supervisor embeds the axum control-plane server, so it only builds
-# with the HTTP transport compiled in (#5048). Under `--no-default-features`
-# (no `http-server`) this target is skipped rather than failing to link.
-required-features = ["http-server", "bin-tools"]
-
-# Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
-# `rss-bench` feature so no benchmark code enters the shipped build. Build with
-# `cargo build --release --features rss-bench --bin rss-bench`.
-#
-# It survives the engine removal because it never measured the engine: it builds
-# an `Agent` roster over its own in-file `NoopMemory` and samples RSS, and its
-# own doc comment explains that it hand-rolls that store rather than asking the
-# factory, because `create_memory(backend = "none")` never returned a no-op
-# backend. What the feature used to name the engine crates for was two
-# `library-profile` *scenarios* — see that target's comment below; the binary
-# itself is still here.
-[[bin]]
-name = "rss-bench"
-path = "src/bin/rss_bench.rs"
-required-features = ["rss-bench"]
-
-# Stateful library profiling workloads (real sub-agent delegation, flows graphs
-# and skill runs under a hermetic mock provider). Local/dev only, and the
-# subject of every script in `scripts/profile/`.
-#
-# Two of its scenarios are gone with the in-process engine: `memory-ingest`
-# drained the memory queue and `cold-phases` checkpointed the engine bootstrap
-# through `tinymemory_core::store::MemoryClient`. The other six never named an
-# engine symbol, which is why this binary survives rather than going with them.
-[[bin]]
-name = "library-profile"
-path = "src/bin/library_profile/main.rs"
-required-features = ["rss-bench"]
-
-# ── Integration tests that need a PRODUCT gate ──────────────────────────────
-#
-# `[features] default` is the contributor set and no longer turns on `voice`,
-# `web3`, `crash-reporting` or `inference`. These four `tests/` targets name
-# symbols that only exist behind those gates, so without a `required-features`
-# line a bare `cargo test` fails to COMPILE — not skip, fail — and the failure
-# is in a file the contributor did not touch.
-#
-# `required-features` makes cargo skip the target instead, which is the honest
-# outcome: the test exercises a domain that build does not contain. The CI
-# product lanes pass `--features "$(scripts/ci/product-features.sh)"`, so every
-# one of these still runs there, against the code that ships.
-#
-# Autodiscovery stays on for the other ~59 `tests/*.rs` targets; declaring a
-# target explicitly only opts THAT file out of it.
-#
-# This replaces the per-symbol `#[cfg]` cleanup tracked in #5021 for these four
-# files. #5021 is still the right fix for symbols named in the middle of an
-# otherwise gate-free target — required-features is the blunt instrument, and
-# it costs the whole target when the gate is off.
-[[test]]
-name = "observability_smoke"
-path = "../../tests/observability_smoke.rs"
-# The `is_*_event` Sentry filters are all `#[cfg(feature = "crash-reporting")]`.
-required-features = ["crash-reporting"]
-
-[[test]]
-name = "x402_twit_sh_live"
-path = "../../tests/x402_twit_sh_live.rs"
-# `x402::tools::X402RequestTool` — the x402 domain is part of the web3 family.
-required-features = ["web3"]
-
-[[test]]
-name = "json_rpc_e2e"
-path = "../../tests/json_rpc_e2e.rs"
-# `voice::reply_speech::{test_seam, TEST_SEAM_ENV}` — the reply-speech seam
-# only exists in the real voice module, not the stub.
-required-features = ["voice"]
-
-[[test]]
-name = "raw_coverage_all"
-path = "../../tests/raw_coverage_all.rs"
-# The merged raw-coverage target spans ~76 former files, so it reaches the
-# widest surface of any single target: `lettre` (pulled in through the voice
-# gate's `tinychannels/email`) and the local inference download service.
-required-features = ["voice", "inference"]
-
-[[test]]
-name = "agent_approval_memory_coverage_e2e"
-path = "../../tests/agent_approval_memory_coverage_e2e.rs"
-
-[[test]]
-name = "agent_builder_public"
-path = "../../tests/agent_builder_public.rs"
-
-[[test]]
-name = "agent_harness_e2e"
-path = "../../tests/agent_harness_e2e.rs"
-
-[[test]]
-name = "agent_prompt_comprehension_e2e"
-path = "../../tests/agent_prompt_comprehension_e2e.rs"
-
-[[test]]
-name = "agent_harness_public"
-path = "../../tests/agent_harness_public.rs"
-
-[[test]]
-name = "agent_multimodal_public"
-path = "../../tests/agent_multimodal_public.rs"
-
-[[test]]
-name = "agent_turn_overrides_e2e"
-path = "../../tests/agent_turn_overrides_e2e.rs"
-
-[[test]]
-name = "calendar_grounding_e2e"
-path = "../../tests/calendar_grounding_e2e.rs"
-
-[[test]]
-name = "channels_host_boundary_e2e"
-path = "../../tests/channels_host_boundary_e2e.rs"
-
-[[test]]
-name = "cli_model_overrides_e2e"
-path = "../../tests/cli_model_overrides_e2e.rs"
-
-[[test]]
-name = "cli_sigpipe"
-path = "../../tests/cli_sigpipe.rs"
-
-[[test]]
-name = "composio_list_tools_stack_overflow_regression"
-path = "../../tests/composio_list_tools_stack_overflow_regression.rs"
-
-[[test]]
-name = "composio_post_oauth_retry_e2e"
-path = "../../tests/composio_post_oauth_retry_e2e.rs"
-
-[[test]]
-name = "config_auth_app_state_connectivity_e2e"
-path = "../../tests/config_auth_app_state_connectivity_e2e.rs"
-
-[[test]]
-name = "cwd_jail_e2e"
-path = "../../tests/cwd_jail_e2e.rs"
-
-[[test]]
-name = "domain_modules_e2e"
-path = "../../tests/domain_modules_e2e.rs"
-
-[[test]]
-name = "embeddings_rpc_e2e"
-path = "../../tests/embeddings_rpc_e2e.rs"
-
-[[test]]
-name = "inference_provider_e2e"
-path = "../../tests/inference_provider_e2e.rs"
-
-[[test]]
-name = "keyring_secretstore_e2e"
-path = "../../tests/keyring_secretstore_e2e.rs"
-
-[[test]]
-name = "keyring_secretstore_fresh_e2e"
-path = "../../tests/keyring_secretstore_fresh_e2e.rs"
-
-[[test]]
-name = "learning_phase4_integration_test"
-path = "../../tests/learning_phase4_integration_test.rs"
-
-[[test]]
-name = "linux_cef_deb_runtime_e2e"
-path = "../../tests/linux_cef_deb_runtime_e2e.rs"
-
-[[test]]
-name = "live_flows_demo_e2e"
-path = "../../tests/live_flows_demo_e2e.rs"
-
-[[test]]
-name = "live_routing_e2e"
-path = "../../tests/live_routing_e2e.rs"
-
-[[test]]
-name = "mcp_registry_e2e"
-path = "../../tests/mcp_registry_e2e.rs"
-
-[[test]]
-name = "mcp_registry_multi_server"
-path = "../../tests/mcp_registry_multi_server.rs"
-
-[[test]]
-name = "mcp_setup_e2e"
-path = "../../tests/mcp_setup_e2e.rs"
-
-[[test]]
-name = "mcp_stdio_integration"
-path = "../../tests/mcp_stdio_integration.rs"
-
-[[test]]
-name = "memory_roundtrip_e2e"
-path = "../../tests/memory_roundtrip_e2e.rs"
-
-[[test]]
-name = "memory_sources_e2e"
-path = "../../tests/memory_sources_e2e.rs"
-
-[[test]]
-name = "observability_wallet_expected_e2e"
-path = "../../tests/observability_wallet_expected_e2e.rs"
-
-[[test]]
-name = "ollama_lifecycle_e2e"
-path = "../../tests/ollama_lifecycle_e2e.rs"
-
-[[test]]
-name = "orchestrator_parallel_fanout_routing"
-path = "../../tests/orchestrator_parallel_fanout_routing.rs"
-
-[[test]]
-name = "orchestrator_presentation_wiring"
-path = "../../tests/orchestrator_presentation_wiring.rs"
-
-[[test]]
-name = "skill_registry_e2e"
-path = "../../tests/skill_registry_e2e.rs"
-
-[[test]]
-name = "skills_mcp_registry_live"
-path = "../../tests/skills_mcp_registry_live.rs"
-
-[[test]]
-name = "transcript_search_e2e"
-path = "../../tests/transcript_search_e2e.rs"
-
-[[test]]
-name = "web_cancel_request_scoping"
-path = "../../tests/web_cancel_request_scoping.rs"
-
-[[test]]
-name = "worker_b_domain_e2e"
-path = "../../tests/worker_b_domain_e2e.rs"
-
-[[test]]
-name = "worker_c_modules_e2e"
-path = "../../tests/worker_c_modules_e2e.rs"
-
-[[example]]
-name = "embed_headless"
-path = "../../examples/embed_headless.rs"
-
-[[example]]
-name = "embed_kernel"
-path = "../../examples/embed_kernel.rs"
-
-[[example]]
-name = "run_memory_doctor"
-path = "../../examples/run_memory_doctor.rs"
-
-[[example]]
-name = "run_memory_reconcile"
-path = "../../examples/run_memory_reconcile.rs"
 
 [lib]
 name = "openhuman_core"
@@ -379,8 +113,8 @@ tinyflows-copilot = { path = "../../vendor/tinyflows/crates/tinyflows-copilot", 
 # commit 612ea5e "refactor: split tinyagents into focused crates" and follow-on
 # work): there is no longer a single `tinyagents` package. openhuman now depends
 # directly on the members it actually uses — `tinyagents-harness` (agent loop,
-# tools, middleware), `tinyagents-graph` (durable state graphs), `tinyagents-language`
-# (`.rag`), `tinyagents-registry` (capability/model registry), and
+# tools, middleware), `tinyagents-graph` (durable state graphs),
+# `tinyagents-registry` (capability/model registry), and
 # `tinyagents-session` (durable session history + run ledger, previously gated
 # behind this crate's own `sqlite` feature — it is its own always-on crate now).
 # The `sqlite` feature is enabled on the harness/graph crates now that openhuman's
@@ -413,7 +147,6 @@ tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-defi
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
-tinyagents-language = { path = "../../vendor/tinyagents/crates/tinyagents-language" }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
@@ -608,10 +341,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde_yaml = "0.9"
-# dhat — heap profiler for the offline `library-profile` benchmark binary only.
-# Default-OFF, dev-only: pulled in solely by the `rss-bench-dhat` feature so it
-# never enters the shipped desktop/library build (same posture as `rss-bench`).
-dhat = { version = "0.3", optional = true }
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -639,13 +368,12 @@ once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
 libc = "0.2"
-nu-ansi-term = "0.46"
-env_logger = { version = "0.11", optional = true }
+nu-ansi-term = "0.50"
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.10"
-dirs = "5"
+dirs = "6"
 sha2 = "0.10"
 # NO `git2` HERE, DELIBERATELY — do not add it back. Every use of libgit2 in
 # the memory stack lives in tinycortex: the diff ledger, the wiki mirror
@@ -656,7 +384,6 @@ sha2 = "0.10"
 # hard cargo error, not a warning. Nothing here now enables tinycortex's
 # `git-diff` / `wiki-git` features either, so libgit2 is out of the graph
 # entirely; re-adding a gate for it means re-adding the cohort.
-hmac = "0.12"
 # Archive handling for the Piper voice installer and the document tools. The
 # Node.js and Python toolchain archives are no longer unpacked here — the
 # `tinyruntime` module owns that — which is what let `xz2` and its static
@@ -667,9 +394,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # pulled in transitively by zip's `deflate` feature; declared directly so
 # the installer module can `use flate2::read::GzDecoder`.
 flate2 = "1"
-# Real timeout around a blocking child wait, for the Claude Code auth probe.
-# Guards against a broken binary on PATH hanging the caller forever.
-wait-timeout = "0.2"
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1.0"
 async-trait = "0.1"
@@ -715,7 +439,6 @@ hostname = "0.4.2"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
-clap = { version = "4.5", features = ["derive"], optional = true }
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"], optional = true }
 # HTTP + Socket.IO server transport — the `/rpc` JSON-RPC endpoint, `/v1`
 # OpenAI-compat router, agentbox/http_host sub-servers, and the Socket.IO
@@ -746,11 +469,6 @@ starship-battery = { version = "0.10", optional = true }
 # - bs58: Solana base58 addresses + Tron base58check addresses.
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
 bs58 = { version = "0.5", default-features = false, features = ["std", "check"] }
-# Shared BIP-39 mnemonic → seed for non-EVM chains (BTC P2WPKH derivation,
-# Tron secp256k1 derivation, Solana ed25519 SLIP-0010 derivation). Same crate
-# ethers-signers uses internally, exposed as a direct dep so we can derive
-# off the recovery phrase without going through the EVM signer wrapper.
-coins-bip39 = { version = "0.8", optional = true }
 # Solana off-curve check for ATA derivation (find_program_address).
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
@@ -910,7 +628,6 @@ tokio-tungstenite = { version = "0.29", default-features = false, features = ["c
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { version = "0.4", optional = true }
-rppal = { version = "0.22", optional = true }
 
 [dev-dependencies]
 # Turns on `tinyflows-sqlite`'s `test-fixtures` gate for test builds only: the
@@ -925,7 +642,6 @@ tinyflows-sqlite = { path = "../../vendor/tinyflows/crates/tinyflows-sqlite", fe
 # `key` here does not put the derivation stack back into the product.
 tinywallet = { path = "../../vendor/tinywallet", default-features = false, features = ["key", "btc", "evm", "solana", "tron"] }
 k256 = { version = "0.13", default-features = false, features = ["std", "ecdsa"] }
-coins-bip39 = { version = "0.8" }
 # The fake memory driver the host's own tests bind, in place of an in-process
 # engine (openhuman#6161). It serves every optional family, so a handler that
 # asks for one by accessor gets `Some` rather than taking the `None` arm as
@@ -939,12 +655,8 @@ coins-bip39 = { version = "0.8" }
 # refuses to depend on `tinymemory-core`, and its CI asserts that, because a
 # conformance suite that reached an engine could not prove interchangeability.
 tinymemory-conformance = { path = "../../vendor/tinymemory/crates/tinymemory-conformance" }
-# Dual-declared on purpose (same shape as the `sentry`/`axum` entries): the
-# optional dependency above is bin-only behind `bin-tools`, but
-# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module),
-# `tests/memory_graph_sync_e2e.rs`, `tests/x402_twit_sh_live.rs` and
-# `examples/embed_headless.rs` all call it with no feature #[cfg]. Without this
-# line the test build breaks the moment `bin-tools` is off.
+# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module)
+# initialises it; the bins that used to share it live in `crates/openhuman-cli`.
 env_logger = "0.11"
 # Enable sentry's TestTransport for runtime smoke of the observability
 # before_send filter (see tests/observability_smoke.rs). `default-features
@@ -1183,8 +895,9 @@ voice = [
 # compile-time surface, `DomainSet` gates it at runtime.
 # `k256` and `coins-bip39` are gone from this list: nothing in the shipped
 # binary derives a key or signs with secp256k1 any more — the wallet module
-# does both. Both crates remain under [dev-dependencies], where test fixtures
-# still derive a known account and check a signature against a fixed vector.
+# does both. `k256` remains under [dev-dependencies], where a test fixture
+# checks a signature against a fixed vector; `coins-bip39` is gone entirely
+# (the fixtures derive through `tinywallet`'s own copy).
 #
 # `curve25519-dalek` stays: `associated_token_account` needs the off-curve check
 # to derive a Solana ATA, which is address arithmetic rather than signing.
@@ -1429,7 +1142,6 @@ medulla = []
 channels = ["dep:tinychannels", "tinychannels/email", "tinychannels/lark"]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
-peripheral-rpi = ["dep:rppal"]
 browser-native = ["dep:fantoccini"]
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
@@ -1441,23 +1153,13 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # build (app/scripts/e2e-build.sh) flips it on. Shipped binaries never have
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
-# Compiles the embedded-RSS benchmark bin (#5046). Default-OFF and absent from
-# `scripts/ci/product-features.txt`, so nothing shipped enables it. It is in
-# NEITHER the contributor nor the product set, which is why the
-# `Rust RSS Benchmark` lane names it explicitly.
-#
-# The list is EMPTY, and that is the whole point of this edit. It used to read
-# `["dep:tinycortex", "dep:tinymemory-core"]`, but not for the benchmark's sake:
-# a `[[bin]]` cannot use a dev-dependency, so this feature was what turned the
-# engine on for the two `library-profile` bins that shared the gate. Those
-# measured the in-process engine and went with it. The benchmark itself names no
-# engine symbol and never did.
+# Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
+# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
+# `crates/openhuman-cli` need. Default-OFF and absent from
+# `scripts/ci/product-features.txt`, so nothing shipped enables it. The
+# `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
+# variant live in `crates/openhuman-cli`.
 rss-bench = []
-# Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
-# binary. Default-OFF, dev-only: installs dhat's global allocator, which
-# perturbs RSS/timing numbers, so it is a separate opt-in feature rather than
-# folded into `rss-bench`. Never forwarded to the shipped build.
-rss-bench-dhat = ["rss-bench", "dep:dhat"]
 # Compiles `memory::host_impls`, the host side of the seam traits the memory
 # ENGINE declares, for builds that embed that engine in-process.
 #
@@ -1471,16 +1173,6 @@ rss-bench-dhat = ["rss-bench", "dep:dhat"]
 # Unit tests get it from `cfg(test)`. Integration tests under `tests/` are
 # separate crates and `cfg(test)` does NOT reach them, which is the whole reason
 # this feature exists rather than a bare `#[cfg(test)]`.
-# Builds the `rss-bench` benchmark binary (#5046). Default-OFF, so it is never
-# part of the shipped desktop/library build and the feature-forwarding gate
-# (which only inspects the `default` list) never requires forwarding it.
-# CLI argument parsing + logger init for the developer/ops binaries under
-# `src/bin/` — today only `openhuman-fleet`. Default-OFF and NOT in `default`:
-# nothing in the library reaches `clap` or `env_logger` (the one hit in
-# `core/logging.rs` is a doc comment), so the shipped desktop build has no
-# reason to carry a 14-crate CLI stack. Each owning `[[bin]]` declares
-# `required-features = ["bin-tools"]`, so those targets are simply skipped
-# rather than failing to link when it is off.
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge
 # signal", which is the same answer the real probe gives on a server or
@@ -1499,7 +1191,6 @@ file-logging = ["dep:tracing-appender", "dep:tracing-log"]
 
 scheduler-gate = ["dep:starship-battery"]
 
-bin-tools = ["dep:clap", "dep:env_logger"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

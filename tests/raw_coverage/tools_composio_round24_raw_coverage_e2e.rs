@@ -33,6 +33,7 @@ struct MockState {
 
 #[tokio::test]
 async fn round24_composio_direct_covers_v3_v2_fallbacks_and_account_shapes() {
+    crate::tinyhumans_boot::boot();
     let state = MockState::default();
     let base = start_loopback(
         Router::new()

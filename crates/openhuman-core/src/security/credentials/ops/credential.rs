@@ -2,7 +2,7 @@
 //! backend credential the core authenticates with.
 //!
 //! The core never obtains, validates, exchanges or refreshes a credential.
-//! A host (the Tauri shell through `openhuman-session`, the TUI, an embedder,
+//! A host (the Tauri shell through `openhuman_tinyhumans::session`, the TUI, an embedder,
 //! an operator's CLI) hands over a session JWT, a TinyHumans API key or the
 //! offline local token together with whatever it already knows about the
 //! user, and the core does the things only it can do with that: activate the

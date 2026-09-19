@@ -164,7 +164,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
               - 'crates/openhuman-embed/**'
-              - 'crates/openhuman-session/**'
+              - 'crates/openhuman-tinyhumans/**'
               - 'crates/openhuman-tui/**'
               - 'Cargo.lock'
               - 'build.rs'
@@ -199,7 +199,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/Cargo.toml'
               - 'crates/openhuman-embed/Cargo.toml'
-              - 'crates/openhuman-session/Cargo.toml'
+              - 'crates/openhuman-tinyhumans/Cargo.toml'
               - 'crates/openhuman-tui/Cargo.toml'
               - 'Cargo.lock'
               - 'build.rs'
@@ -217,7 +217,7 @@ jobs:
               - 'crates/openhuman-core/src/**'
               - 'crates/openhuman-embed/src/**'
               - 'crates/openhuman-embed/tests/**'
-              - 'crates/openhuman-session/src/**'
+              - 'crates/openhuman-tinyhumans/src/**'
               - 'crates/openhuman-tui/src/**'
               - 'crates/openhuman-tui/tests/**'
               - 'tests/**'
@@ -481,14 +481,14 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
 
-      - name: Check session crate
+      - name: Check tinyhumans crate
         if: needs.changes.outputs['rust-core'] == 'true'
-        # `openhuman-session` is the host-side login/session owner shared by the
-        # Tauri shell and the TUI. It has no `openhuman` dependency, so it
-        # compiles in seconds and its tests run against in-process stubs.
+        # `openhuman-tinyhumans` is the SDK-backed backend transport plus the
+        # host-side login/session owner shared by the Tauri shell and the TUI.
+        # Its tests run against wiremock / in-process stubs, never the backend.
         run: |
-          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-session --all-targets -- -D warnings
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-session
+          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-tinyhumans
 
       - name: Cache CEF binary distribution
         if: needs.changes.outputs['rust-tauri'] == 'true'

@@ -5,7 +5,7 @@
 //! The core reports the credential it holds and the user payload the host
 //! handed over with `auth.set_credential` (the host's own `/auth/me`
 //! answer). The *live* current user is the host's business — the desktop
-//! shell's `openhuman-session` cache — so this snapshot never talks to the
+//! shell's `openhuman_tinyhumans::session` cache — so this snapshot never talks to the
 //! backend.
 
 use super::runtime_snapshot::{

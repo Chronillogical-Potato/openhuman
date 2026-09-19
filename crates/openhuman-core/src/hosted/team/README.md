@@ -25,7 +25,7 @@ Team management RPC adapters. This domain is a **thin proxy to the hosted backen
 
 Re-exported from `mod.rs`:
 
-- **Ops (all `async fn(... ) -> Result<RpcOutcome<Value>, String>`):** `get_usage`, `list_members`, `list_teams`, `get_team`, `create_team`, `update_team`, `delete_team`, `switch_team`, `leave_team`, `join_team`, `create_invite`, `remove_member`, `change_member_role`, `list_invites`, `revoke_invite`.
+- **Ops (all `async fn(... ) -> Result<RpcOutcome<Value>, String>`):** `get_usage` (re-exported from `integrations::client::budget_gate`, which owns the `/teams/me/usage` probe, its failure backoff and the managed-tool budget gate — the integrations client is its main consumer), `list_members`, `list_teams`, `get_team`, `create_team`, `update_team`, `delete_team`, `switch_team`, `leave_team`, `join_team`, `create_invite`, `remove_member`, `change_member_role`, `list_invites`, `revoke_invite`.
 - **Schemas:** `all_team_controller_schemas`, `all_team_registered_controllers`, `team_schemas`.
 
 Internal helpers in `ops.rs` (`require_token`, `normalize_id`, `build_api_path`, `get_authed_value`) are private.

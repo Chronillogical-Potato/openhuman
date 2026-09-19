@@ -71,7 +71,7 @@ fi
 # contributor set. Without them the four `required-features` integration
 # targets (json_rpc_e2e, raw_coverage_all, observability_smoke,
 # x402_twit_sh_live) are silently SKIPPED and the run still exits 0 — the same
-# trap `--features bin-tools` already guards for the `crates/openhuman-core/src/bin/` targets.
+# trap `--features bin-tools` already guards for the `crates/openhuman-cli/src/bin/` targets.
 # Source of truth: scripts/ci/product-features.txt.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
 
@@ -183,8 +183,11 @@ run_full_suite() {
   # temporary executable paths). Keep this aggregate invocation deterministic;
   # integration targets below retain their own, narrower isolation strategies.
   TINYCONNECTORS_TEST_MODULE="${TINYCONNECTORS_TEST_MODULE:-$connectors_module}" \
-    cargo_test --lib --bins -- --test-threads=1 \
+    cargo_test --lib -- --test-threads=1 \
     --skip a_build_only_runtime_is_swept_before_it_can_be_invoked "$@"
+  # The core binary and the developer bins live in `crates/openhuman-cli`;
+  # `--workspace --bins` picks them up there (plus the TUI binary).
+  cargo_test --bins -- --test-threads=1 "$@"
   run_build_only_reaper_test "$@"
   cargo_test --doc -- "$@"
 

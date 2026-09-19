@@ -120,6 +120,17 @@ Layout under a runtime-owned root:
 <root>/agents/<agent>/action/                  default action_dir
 ```
 
+### Backend connection
+
+The core knows the hosted TinyHumans backend only through
+`BackendTransport` (re-exported here). `openhuman-embed` alone installs
+none: agents, memory, skills, tools and RPC run without any TinyHumans
+connection, and every hosted-backend surface (billing, `/agent-integrations/*`
+tools, channel relay, cloud voice) answers with a typed
+`BACKEND_UNAVAILABLE:` error. Use `openhuman-tinyhumans` — its
+`RuntimeBuilder` mirrors this one and installs the SDK-backed transport on
+`build()` — or pass your own to `RuntimeBuilder::backend_transport`.
+
 ### Authentication
 
 Library mode has no user login. `RuntimeBuilder::api_key` installs a
@@ -132,7 +143,7 @@ its own `Provider` (BYOK) never touches the key. `HarnessBuilder::session`
 remains for hosts that drive backend features on behalf of a signed-in user;
 the core stores that session as handed over (`auth.set_credential`) and never
 validates it — obtaining and validating a JWT is the host's job (see
-`crates/openhuman-session`).
+`openhuman_tinyhumans::session`).
 
 ### `Harness`: the one-agent shorthand
 
@@ -248,7 +259,7 @@ Every feature on this crate is a pass-through to the same-named feature on
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
 `crash-reporting`, `medulla`, `channels`, `sandbox-landlock`,
-`sandbox-bubblewrap`, `peripheral-rpi`, `browser-native`, `whatsapp-web`,
+`sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
 `file-logging`, `scheduler-gate`.
 
 Three of them also gate items on this crate's own public surface:
