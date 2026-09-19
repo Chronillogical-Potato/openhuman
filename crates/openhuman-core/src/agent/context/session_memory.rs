@@ -15,8 +15,8 @@
 //!
 //! This module is purely state-tracking: it owns the thresholds and a
 //! `should_extract` decision, but the actual `spawn_subagent` call is
-//! issued by the caller (the `Agent::turn` epilogue) so we avoid a
-//! circular dependency with `harness::subagent_runner`.
+//! issued by the caller (the `OpenHumanSessionHost::turn` epilogue) so we avoid a
+//! circular dependency with `subagent_host`.
 
 /// Minimum number of *new* tokens (input + output) since the last
 /// extraction before we consider running another extraction.

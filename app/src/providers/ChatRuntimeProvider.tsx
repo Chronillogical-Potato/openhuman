@@ -224,9 +224,9 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
 /**
  * Message id for a reply the CORE already persisted before announcing it.
  *
- * Core-initiated turns (`client_id === 'system'`: autonomous task sessions and
- * background sub-agent result delivery via `run_system_turn_on_thread`) write
- * their own closing message — `task_session::append_final`, keyed
+ * Core-initiated turns (`client_id === 'system'`: background sub-agent result
+ * delivery and system flows) write their own closing message through the
+ * conversation store, keyed
  * `agent:<run_id>` — and only then emit `chat_done` / `chat_error` with that
  * run id as `request_id`. Reusing the same id here makes our own
  * `addInferenceResponse` append collapse onto the core's row (the conversation

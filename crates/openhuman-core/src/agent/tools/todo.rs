@@ -94,10 +94,9 @@ impl Tool for TodoTool {
                     "description": "Ordered lightweight execution steps.",
                     "items": { "type": "string" }
                 },
-                "assignedAgent": { "type": "string", "description": "Agent id expected to pick up this task." },
                 "allowedTools": {
                     "type": "array",
-                    "description": "Task-local tool names or toolkit slugs the assigned agent may use.",
+                    "description": "Task-local tool names or toolkit slugs available while working this task.",
                     "items": { "type": "string" }
                 },
                 "approvalMode": {
@@ -208,7 +207,7 @@ impl TodoTool {
                 return Ok(ToolResult::error(format!(
                     "unknown op '{other}' (expected \
                  add|edit|update_status|decide_plan|remove|replace|clear|list)"
-                )))
+                )));
             }
         };
 
@@ -305,12 +304,12 @@ fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
             Some(other) => {
                 return Err(anyhow::anyhow!(
                     "invalid approvalMode '{other}' (expected required|not_required|null)"
-                ))
+                ));
             }
             None => {
                 return Err(anyhow::anyhow!(
                     "invalid approvalMode type (expected required|not_required|null)"
-                ))
+                ));
             }
         },
         None => None,
@@ -320,7 +319,6 @@ fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
         status,
         objective: optional_string(args, "objective"),
         plan: optional_string_array(args, "plan")?,
-        assigned_agent: optional_string(args, "assignedAgent"),
         allowed_tools: optional_string_array(args, "allowedTools")?,
         approval_mode,
         acceptance_criteria: optional_string_array(args, "acceptanceCriteria")?,

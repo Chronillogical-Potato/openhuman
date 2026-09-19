@@ -179,13 +179,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Per-fetch task cap (u32 range); defaults from config.",
                     required: false,
                 },
-                FieldSchema {
-                    name: "assigned_executor",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Optional executor handle (personality/skill/agent id) every \
-                              card from this source is pre-assigned to.",
-                    required: false,
-                },
             ],
             outputs: vec![FieldSchema {
                 name: "source",
@@ -438,7 +431,6 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
         let interval_secs = read_optional::<u64>(&params, "interval_secs")?;
         let target = read_optional::<SourceTarget>(&params, "target")?;
         let max = read_optional_u32(&params, "max_tasks_per_fetch")?;
-        let assigned_executor = read_optional::<String>(&params, "assigned_executor")?;
         to_json(
             ops::add(
                 &config,
@@ -449,7 +441,6 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
                 interval_secs,
                 target,
                 max,
-                assigned_executor,
             )
             .await?,
         )

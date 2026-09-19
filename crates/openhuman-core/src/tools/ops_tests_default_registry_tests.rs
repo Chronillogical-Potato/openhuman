@@ -10,7 +10,7 @@ fn all_tools_includes_spawn_subagent() {
     // Regression guard: the `spawn_subagent` tool must be present
     // in the default registry so parent agents can delegate to
     // sub-agents at runtime. If this test fails, the dispatch path
-    // in `agent::harness::subagent_runner` becomes unreachable.
+    // in `agent::subagent_host` becomes unreachable.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     // The embedding seam fails loudly when unwired.

@@ -40,4 +40,4 @@ pub(crate) use staging::{
     SpawnParallelTaskPreflight, WorkerDispatchMode,
 };
 #[cfg(test)]
-pub(crate) use types::{ParallelAgentLineage, ParallelAgentResult};
+pub(crate) use types::{ParallelAgentLineage, ParallelAgentResult, ParallelAgentStatus};

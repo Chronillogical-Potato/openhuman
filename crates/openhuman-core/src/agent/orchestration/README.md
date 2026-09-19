@@ -138,7 +138,7 @@ targets from the global agent registry. `delegate_graph` has a dedicated typed
 registration for its durable plan→execute→review loop, while the optional
 config-driven `delegate` registration preserves the configured executor and
 races it against the inherited cancellation token. Execution itself routes through
-`agent::harness::run_subagent`.
+`agent::subagent_host::run_subagent`.
 
 ## Persistence
 
@@ -159,7 +159,7 @@ races it against the inherited cancellation token. Execution itself routes throu
 
 ## Policy inheritance
 
-Policy inheritance is delegated to `agent::harness::run_subagent`, which
+Policy inheritance is delegated to `agent::subagent_host::run_subagent`, which
 derives child tools, model routing, sandbox context, spawn depth, and
 progress from the parent `ParentExecutionContext`. This module only adds
 lineage and lifecycle semantics; it must not widen tool visibility beyond

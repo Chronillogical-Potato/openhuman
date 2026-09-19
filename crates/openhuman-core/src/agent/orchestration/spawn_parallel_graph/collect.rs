@@ -10,7 +10,7 @@ use tokio::sync::mpsc::Sender;
 use crate::agent::file_state;
 use crate::agent::progress::AgentProgress;
 
-use super::types::ParallelAgentResult;
+use super::types::{ParallelAgentResult, ParallelAgentStatus};
 
 #[derive(Clone)]
 pub(crate) struct SpawnParallelCollected {
@@ -67,19 +67,23 @@ pub(crate) async fn project_spawn_parallel_result(
     progress_sink: Option<&Sender<AgentProgress>>,
     result: &ParallelAgentResult,
 ) {
-    match result {
-        ParallelAgentResult {
-            success: true,
-            agent_id,
-            task_id,
-            elapsed_ms,
-            iterations,
-            output,
-            worktree_path,
-            changed_files,
-            dirty_status,
-            ..
-        } => {
+    match result.status {
+        ParallelAgentStatus::Completed | ParallelAgentStatus::Incomplete => {
+            let ParallelAgentResult {
+                agent_id,
+                task_id,
+                elapsed_ms,
+                iterations,
+                output,
+                worktree_path,
+                changed_files,
+                dirty_status,
+                emit_lifecycle_effects,
+                ..
+            } = result;
+            if !emit_lifecycle_effects {
+                return;
+            }
             tracing::debug!(
                 parent_session = %parent_session,
                 task_id = %task_id,
@@ -121,13 +125,59 @@ pub(crate) async fn project_spawn_parallel_result(
                 }
             }
         }
-        ParallelAgentResult {
-            success: false,
-            agent_id,
-            task_id,
-            error,
-            ..
-        } => {
+        ParallelAgentStatus::AwaitingUser => {
+            let ParallelAgentResult {
+                agent_id,
+                task_id,
+                awaiting_question,
+                checkpoint_path,
+                emit_lifecycle_effects,
+                ..
+            } = result;
+            if !emit_lifecycle_effects {
+                return;
+            }
+            let question = awaiting_question
+                .clone()
+                .unwrap_or_else(|| "parallel subagent needs input".into());
+            crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+                parent_session.to_string(),
+                task_id.clone(),
+                agent_id.clone(),
+                question.clone(),
+            );
+            if let Some(tx) = progress_sink {
+                if let Err(err) = tx
+                    .send(AgentProgress::SubagentAwaitingUser {
+                        agent_id: agent_id.clone(),
+                        task_id: task_id.clone(),
+                        question,
+                        worker_thread_id: None,
+                        checkpoint_path: checkpoint_path.clone(),
+                    })
+                    .await
+                {
+                    tracing::debug!(
+                        parent_session = %parent_session,
+                        task_id = %task_id,
+                        agent_id = %agent_id,
+                        error = %err,
+                        "[spawn_parallel_agents] progress_send_failed awaiting_user"
+                    );
+                }
+            }
+        }
+        ParallelAgentStatus::Cancelled | ParallelAgentStatus::Failed => {
+            let ParallelAgentResult {
+                agent_id,
+                task_id,
+                error,
+                emit_lifecycle_effects,
+                ..
+            } = result;
+            if !emit_lifecycle_effects && matches!(result.status, ParallelAgentStatus::Cancelled) {
+                return;
+            }
             let message = error
                 .clone()
                 .unwrap_or_else(|| "unknown failure".to_string());

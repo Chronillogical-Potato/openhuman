@@ -21,6 +21,7 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 use crate::agent::tools::{DelegateToolDispatch, TodoToolDispatch, UpdateTaskDispatch};
+use crate::memory::agent::CallMemoryAgentDispatch;
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
 /// `capability_registry` projection), project the visible agent set as
@@ -133,6 +134,8 @@ pub(super) fn register_turn_tools_and_agents(
                     harness.register_tool_dispatch(Arc::new(TodoToolDispatch::new(adapter)));
                 } else if name == "update_task" {
                     harness.register_tool_dispatch(Arc::new(UpdateTaskDispatch::new(adapter)));
+                } else if name == "call_memory_agent" {
+                    harness.register_tool_dispatch(Arc::new(CallMemoryAgentDispatch::new(adapter)));
                 } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
                     harness.register_tool_dispatch(Arc::new(dispatch));
                 } else {

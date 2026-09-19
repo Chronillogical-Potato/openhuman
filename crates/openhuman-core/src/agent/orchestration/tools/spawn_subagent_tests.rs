@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::harness::subagent_runner::SubagentMode;
+use crate::agent::subagent_host::SubagentMode;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -15,6 +15,8 @@ fn sample_outcome(output: &str) -> SubagentRunOutcome {
         final_history: Vec::new(),
         usage: Default::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     }
 }
 
@@ -156,7 +158,7 @@ async fn no_registry_returns_clear_error() {
         .unwrap();
     // Either: registry uninitialised → clear init error, OR
     // registry was initialised by a previous test → "no parent context"
-    // because we're not running inside an Agent::turn. Both are
+    // because we're not running inside an OpenHumanSessionHost::turn. Both are
     // acceptable: the tool gracefully refuses.
     assert!(result.is_error);
 }

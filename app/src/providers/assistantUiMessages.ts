@@ -422,7 +422,7 @@ function mergeAssistantRun(messages: readonly ThreadMessage[]): ThreadMessage {
 
 /**
  * A row the core persisted as a complete, self-contained delivery — an
- * autonomous task result, a worker-thread hand-off, a workflow proposal. Core
+ * background sub-agent result, a worker-thread hand-off, or a workflow proposal. Core
  * writers stamp `extraMetadata.scope` on every such row; the legacy segmented
  * path never did. That positive marker is what tells an async delivery apart
  * from a paragraph of the answer next to it, since neither carries a request

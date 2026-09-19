@@ -14,11 +14,11 @@ use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
 pub(crate) fn tinyagents_depth_error(
     err: &tinyagents_harness::TinyAgentsError,
-) -> Option<crate::agent::harness::subagent_runner::SubagentRunError> {
+) -> Option<crate::agent::subagent_host::SubagentRunError> {
     match err {
         tinyagents_harness::TinyAgentsError::SubAgentDepth(max_depth)
         | tinyagents_harness::TinyAgentsError::RecursionLimit(max_depth) => Some(
-            crate::agent::harness::subagent_runner::SubagentRunError::SpawnDepthExceeded {
+            crate::agent::subagent_host::SubagentRunError::SpawnDepthExceeded {
                 attempted_depth: max_depth.saturating_add(1),
                 max_depth: *max_depth,
             },
@@ -272,7 +272,7 @@ fn build_turn_models_crate(
 /// agent harness holds instead of a provider-specific client (issue #4249, Phase 3
 /// / Motion A).
 ///
-/// An [`Agent`](crate::agent::Agent) (and each channel/subagent turn
+/// An [`Agent`](crate::agent::OpenHumanSessionHost) (and each channel/subagent turn
 /// request) is model-agnostic: it holds this source and builds a *tiered* crate
 /// [`ChatModel`] set (primary + workload-tier fallback routes + summarizer) per
 /// turn. Production sources retain only crate-native role/config metadata;

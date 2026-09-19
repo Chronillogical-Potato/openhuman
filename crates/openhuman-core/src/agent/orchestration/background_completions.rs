@@ -227,11 +227,18 @@ pub(crate) fn record_awaiting_input(
     task_id: impl Into<String>,
     agent_id: impl Into<String>,
     question: &str,
+    checkpointed: bool,
     parent_thread_id: Option<String>,
 ) {
-    let summary = format!(
-        "[SUBAGENT_NEEDS_INPUT] the async sub-agent paused to ask the user a question and will \
-         not continue on its own: {question}"
+    let parent_session = parent_session.into();
+    let task_id = task_id.into();
+    let agent_id = agent_id.into();
+    let summary = crate::agent::orchestration::tools::awaiting_user::awaiting_user_envelope(
+        &task_id,
+        &agent_id,
+        None,
+        question,
+        checkpointed,
     );
     record_outcome(
         parent_session,

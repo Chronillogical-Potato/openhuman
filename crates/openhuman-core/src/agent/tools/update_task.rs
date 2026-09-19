@@ -2,8 +2,8 @@
 //!
 //! `todo` only reaches the *current* thread's board. `update_task` addresses a
 //! card **by id** on a *target* board — defaulting to the proactive
-//! `task-sources` board — so the orchestrator (or an autonomous task run on its
-//! own thread) can advance the task it's working: move it to
+//! `task-sources` board — so the orchestrator can advance the task it is
+//! working: move it to
 //! `in_progress`/`blocked`/`done`, or update its objective/notes/evidence/blocker.
 //!
 //! It is a thin wrapper over [`crate::agent::todos::ops::edit`], which

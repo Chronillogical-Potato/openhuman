@@ -1,6 +1,5 @@
 #[async_trait]
 impl Tool for SpawnSubagentTool {
-
     fn name(&self) -> &str {
         "spawn_subagent"
     }
@@ -122,6 +121,26 @@ impl SpawnSubagentTool {
         tool_context: Option<&dyn ToolRunContext>,
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, run_context, None)
+            .await
+    }
+
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        live_parent: Option<
+            &tinyagents_harness::context::RunContext<
+                crate::agent::tinyagents::host::OpenHumanRunContext,
+            >,
+        >,
+    ) -> anyhow::Result<ToolResult> {
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_subagent requires a live harness run context.",
+            ));
+        };
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -239,9 +258,7 @@ impl SpawnSubagentTool {
             // live fetch returns empty (no signed-in user, backend
             // unreachable, …) so offline behaviour is unchanged.
             let parent_ctx = run_context.parent.clone();
-            let live_integrations: Vec<
-                crate::agent::prompts::ConnectedIntegration,
-            > = {
+            let live_integrations: Vec<crate::agent::prompts::ConnectedIntegration> = {
                 match crate::config::Config::load_or_init().await {
                     Ok(config) => {
                         use crate::integrations::composio::FetchConnectedIntegrationsStatus;
@@ -422,8 +439,25 @@ impl SpawnSubagentTool {
                 agent_id = %definition.id,
                 "[spawn_subagent] routing to reusable async sub-agent by default"
             );
+            let detached_data = live_parent.data.detached_child();
+            let detached_cancellation = detached_data.cancellation.clone();
+            let detached_parent = live_parent
+                .child(
+                    tinyagents_harness::context::RunConfig::new(format!(
+                        "async-subagent-{}",
+                        uuid::Uuid::new_v4()
+                    )),
+                    detached_data,
+                )
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                .with_cancellation(detached_cancellation);
             return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                .execute_with_parent_context(async_args, tool_context, run_context)
+                .execute_with_live_parent_context(
+                    async_args,
+                    tool_context,
+                    run_context,
+                    detached_parent,
+                )
                 .await;
         }
 
@@ -516,8 +550,12 @@ impl SpawnSubagentTool {
             run_queue: None,
         };
 
-        match run_subagent(definition, &prompt, options).await {
+        let run =
+            run_subagent_with_parent(live_parent, definition.clone(), prompt.clone(), options)
+                .await;
+        match run {
             Ok(outcome) => {
+                let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
                 match &outcome.status {
                     SubagentRunStatus::AwaitingUser {
                         question,
@@ -528,24 +566,26 @@ impl SpawnSubagentTool {
                         // awaiting event and return structured envelope so
                         // the orchestrator can relay the question and later
                         // call continue_subagent.
-                        crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+                        if emit_lifecycle_effects {
+                            crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                             parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
                             question.clone(),
                         );
-                        if let Some(ref tx) = progress_sink {
-                            let _ = tx
-                                .send(AgentProgress::SubagentAwaitingUser {
-                                    agent_id: outcome.agent_id.clone(),
-                                    task_id: outcome.task_id.clone(),
-                                    question: question.clone(),
-                                    worker_thread_id: worker_thread_id.clone(),
-                                    checkpoint_path: checkpoint
-                                        .as_ref()
-                                        .map(|p| p.to_string_lossy().to_string()),
-                                })
-                                .await;
+                            if let Some(ref tx) = progress_sink {
+                                let _ = tx
+                                    .send(AgentProgress::SubagentAwaitingUser {
+                                        agent_id: outcome.agent_id.clone(),
+                                        task_id: outcome.task_id.clone(),
+                                        question: question.clone(),
+                                        worker_thread_id: worker_thread_id.clone(),
+                                        checkpoint_path: checkpoint
+                                            .as_ref()
+                                            .map(|p| p.to_string_lossy().to_string()),
+                                    })
+                                    .await;
+                            }
                         }
                         let envelope = super::awaiting_user::awaiting_user_envelope(
                             &outcome.task_id,
@@ -568,7 +608,8 @@ impl SpawnSubagentTool {
                             &outcome.task_id,
                             &outcome.artifact_paths,
                         );
-                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                        if emit_lifecycle_effects {
+                            crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
@@ -577,20 +618,21 @@ impl SpawnSubagentTool {
                             outcome.iterations,
                         );
 
-                        if let Some(ref tx) = progress_sink {
-                            let _ = tx
-                                .send(AgentProgress::SubagentCompleted {
-                                    agent_id: outcome.agent_id.clone(),
-                                    task_id: outcome.task_id.clone(),
-                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                    iterations: outcome.iterations as u32,
-                                    output_chars: outcome.output.chars().count(),
-                                    output: outcome.output.clone(),
-                                    worktree_path: None,
-                                    changed_files: Vec::new(),
-                                    dirty_status: None,
-                                })
-                                .await;
+                            if let Some(ref tx) = progress_sink {
+                                let _ = tx
+                                    .send(AgentProgress::SubagentCompleted {
+                                        agent_id: outcome.agent_id.clone(),
+                                        task_id: outcome.task_id.clone(),
+                                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                        iterations: outcome.iterations as u32,
+                                        output_chars: outcome.output.chars().count(),
+                                        output: outcome.output.clone(),
+                                        worktree_path: None,
+                                        changed_files: Vec::new(),
+                                        dirty_status: None,
+                                    })
+                                    .await;
+                            }
                         }
 
                         if dedicated_thread {
@@ -641,7 +683,8 @@ impl SpawnSubagentTool {
                             iterations = outcome.iterations,
                             "[spawn_subagent] sub-agent stopped incomplete — returning structured handback"
                         );
-                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                        if emit_lifecycle_effects {
+                            crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
@@ -649,20 +692,21 @@ impl SpawnSubagentTool {
                             outcome.output.chars().count(),
                             outcome.iterations,
                         );
-                        if let Some(ref tx) = progress_sink {
-                            let _ = tx
-                                .send(AgentProgress::SubagentCompleted {
-                                    agent_id: outcome.agent_id.clone(),
-                                    task_id: outcome.task_id.clone(),
-                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                    iterations: outcome.iterations as u32,
-                                    output_chars: outcome.output.chars().count(),
-                                    output: outcome.output.clone(),
-                                    worktree_path: None,
-                                    changed_files: Vec::new(),
-                                    dirty_status: None,
-                                })
-                                .await;
+                            if let Some(ref tx) = progress_sink {
+                                let _ = tx
+                                    .send(AgentProgress::SubagentCompleted {
+                                        agent_id: outcome.agent_id.clone(),
+                                        task_id: outcome.task_id.clone(),
+                                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                        iterations: outcome.iterations as u32,
+                                        output_chars: outcome.output.chars().count(),
+                                        output: outcome.output.clone(),
+                                        worktree_path: None,
+                                        changed_files: Vec::new(),
+                                        dirty_status: None,
+                                    })
+                                    .await;
+                            }
                         }
                         let envelope = format!(
                             "[SUBAGENT_INCOMPLETE]\n\
@@ -679,6 +723,34 @@ impl SpawnSubagentTool {
                             outcome.task_id, outcome.agent_id, outcome.output,
                         );
                         Ok(ToolResult::success(envelope))
+                    }
+                    SubagentRunStatus::Cancelled => {
+                        tracing::info!(
+                            agent_id = %outcome.agent_id,
+                            task_id = %outcome.task_id,
+                            "[spawn_subagent] sub-agent cancelled"
+                        );
+                        if emit_lifecycle_effects {
+                            let message = "sub-agent was cancelled".to_string();
+                            crate::agent::orchestration::subagent_events::publish_subagent_failed(
+                                parent_session,
+                                outcome.task_id.clone(),
+                                outcome.agent_id.clone(),
+                                message.clone(),
+                            );
+                            if let Some(ref tx) = progress_sink {
+                                let _ = tx
+                                    .send(AgentProgress::SubagentFailed {
+                                        agent_id: outcome.agent_id.clone(),
+                                        task_id: outcome.task_id.clone(),
+                                        error: message,
+                                    })
+                                    .await;
+                            }
+                        }
+                        Ok(ToolResult::error(
+                            "spawn_subagent: delegated sub-agent was cancelled",
+                        ))
                     }
                 }
             }

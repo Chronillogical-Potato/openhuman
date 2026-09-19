@@ -18,13 +18,53 @@ use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::definition::SandboxMode;
 use crate::agent::harness::fork_context::{AgentContextPreparedSource, ParentExecutionContext};
-use crate::agent::harness::subagent_runner::SubagentUsage;
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore;
 use crate::agent::progress::AgentProgress;
 use crate::agent::stop_hooks::StopHook;
+use crate::agent::subagent_host::SubagentUsage;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
+use crate::agent::tinyagents::{
+    turn_outcome::ToolCallOutcome, turn_policy::ToolPolicyEnforcement, TurnContextMiddleware,
+};
 use crate::agent::turn_origin::AgentTurnOrigin;
 use tinyinference_llm::model::ResolvedModelRoute;
+
+/// Allocate a durable-unique root [`RunConfig`](tinyagents_harness::context::RunConfig).
+///
+/// A root config id is a cross-turn lifecycle identity, not a display label:
+/// callers must retain the returned config/id for every boundary belonging to
+/// that one root turn. Child configs are derived with [`RunContext::child`],
+/// never by reusing a root literal such as `"agent_turn"`.
+pub(crate) fn fresh_root_run_config(kind: &str) -> tinyagents_harness::context::RunConfig {
+    tinyagents_harness::context::RunConfig::new(format!("{kind}-{}", uuid::Uuid::new_v4()))
+}
+
+/// Builds an owned direct child for the neutral subagent lifecycle.
+///
+/// The durable key is derived from `parent` *before* a child exists, preserving
+/// the parent's root id, immediate run id, and thread. `child_config.run_id`
+/// must be a durable-unique child execution id; this helper cannot prove global
+/// uniqueness for a caller-supplied value. The resulting TinyAgents and
+/// OpenHuman cancellation carriers are the same shared token, so either the
+/// lifecycle executor or host child observes cancellation across the tree.
+pub(crate) fn direct_subagent_child(
+    parent: &tinyagents_harness::context::RunContext<OpenHumanRunContext>,
+    task_id: impl Into<String>,
+    child_config: tinyagents_harness::context::RunConfig,
+) -> tinyagents_harness::Result<(
+    tinyagents_orchestration::subagent::SubagentTaskKey,
+    tinyagents_harness::context::RunContext<OpenHumanRunContext>,
+)> {
+    let task_id = task_id.into();
+    let task_key =
+        tinyagents_orchestration::subagent::SubagentTaskKey::from_context(parent, task_id, None);
+    let child_data = parent
+        .data
+        .child()
+        .with_cancellation(parent.cancellation.clone());
+    let child = parent.child(child_config, child_data)?;
+    Ok((task_key, child))
+}
 
 /// One delegated run's token and cost totals, retained for the parent-turn
 /// usage breakdown.
@@ -44,6 +84,33 @@ pub struct LastTurnUsage {
     pub cost_usd: f64,
     pub context_window: u64,
     pub subagents: Vec<SubagentUsageEntry>,
+}
+
+/// Runtime-written sidecars for one OpenHuman session transition.
+///
+/// The host supplies this explicit sink in `before_turn`; the driver and its
+/// middleware fill it without mutating a second host history or transcript.
+/// `after_commit` reads it only after the runtime durable append succeeds.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct SessionTurnSidecar {
+    pub model_calls: usize,
+    pub tool_calls: usize,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub cost_usd: f64,
+    /// The selected model's context window for this exact request.  The
+    /// provider response's generic usage cannot represent this host datum.
+    pub context_window: u64,
+    /// Completed child runs observed before the root driver returned.  This is
+    /// copied into the sidecar before transcript append so transcript billing
+    /// and the post-commit UI use the same complete ledger.
+    pub subagents: Vec<SubagentUsageEntry>,
+    pub duration: Option<Duration>,
+    pub tool_outcomes: Vec<ToolCallOutcome>,
+    pub hit_cap: bool,
+    pub wrap_up_injected: bool,
+    pub resolved_route: Option<ResolvedModelRoute>,
 }
 
 /// Immutable inputs to the host's pre-dispatch policy.
@@ -202,10 +269,32 @@ pub struct OpenHumanRunContext {
     pub cancellation: tinyagents_harness::cancel::CancellationToken,
     /// Thread attached to provider requests and host persistence.
     pub thread_id: Option<String>,
+    /// The durable root identity selected for this actual host turn. It is
+    /// populated before the runtime hands this carrier to the session and is
+    /// reused by the hosted harness boundary so a session turn remains one
+    /// coherent root lineage rather than two literal-named roots.
+    root_run_id: Option<String>,
     /// Direct canonical workspace descriptor; never use the old harness re-export.
     pub workspace: Option<tinytools::WorkspaceDescriptor>,
     /// Per-turn tool result capture shared with the event bridge.
     pub(crate) tool_outcomes: Option<ToolOutcomeSink>,
+    /// Fail-closed OpenHuman tool-policy snapshot for this exact turn.
+    pub(crate) tool_policy: Option<ToolPolicyEnforcement>,
+    /// Exact executable durable tools selected by the host hook for this turn.
+    /// The driver must consume this request-scoped source rather than its
+    /// construction-time registry, so later visibility/revocation changes are
+    /// authoritative at execution as well as prompt rendering.
+    pub(crate) current_tools: Option<Arc<Vec<Box<dyn tinytools::Tool>>>>,
+    /// Exact executable dynamic/delegation tools selected with
+    /// [`Self::current_tools`] for this turn.
+    pub(crate) current_synthesized_tools: Option<Arc<Vec<Box<dyn tinytools::Tool>>>>,
+    /// Context middleware snapshot prepared for this exact turn.
+    pub(crate) context_middleware: Option<TurnContextMiddleware>,
+    /// Model/harness sidecars consumed only after a durable commit.
+    pub(crate) session_sidecar: Arc<Mutex<SessionTurnSidecar>>,
+    /// Required structured-output contract for this exact host turn. The
+    /// driver repairs it before returning a candidate to runtime validation.
+    pub(crate) required_output: Option<tinyagents_harness::config::RequiredOutput>,
 }
 
 impl Default for OpenHumanRunContext {
@@ -236,8 +325,15 @@ impl OpenHumanRunContext {
             resolved_route: Arc::new(Mutex::new(None)),
             cancellation: tinyagents_harness::cancel::CancellationToken::new(),
             thread_id: None,
+            root_run_id: None,
             workspace: None,
             tool_outcomes: None,
+            tool_policy: None,
+            current_tools: None,
+            current_synthesized_tools: None,
+            context_middleware: None,
+            session_sidecar: Arc::new(Mutex::new(SessionTurnSidecar::default())),
+            required_output: None,
         }
     }
 
@@ -245,6 +341,20 @@ impl OpenHumanRunContext {
     pub fn with_workspace(mut self, workspace: tinytools::WorkspaceDescriptor) -> Self {
         self.workspace = Some(workspace);
         self
+    }
+
+    /// Creates (once) this host turn's durable-unique root config.
+    ///
+    /// The returned root id is stable across the session/runtime and hosted
+    /// harness boundaries for this one actual turn. Callers creating a new
+    /// root must call this once rather than construct a config from a repeated
+    /// literal; callers creating children must use [`direct_subagent_child`].
+    pub(crate) fn root_run_config(&mut self, kind: &str) -> tinyagents_harness::context::RunConfig {
+        let run_id = self
+            .root_run_id
+            .get_or_insert_with(|| fresh_root_run_config(kind).run_id.as_str().to_owned())
+            .clone();
+        tinyagents_harness::context::RunConfig::new(run_id)
     }
 
     /// Binds a direct runner to its explicit parent without exposing the

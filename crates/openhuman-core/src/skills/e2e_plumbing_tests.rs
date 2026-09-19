@@ -18,7 +18,7 @@
 //! NOTE on scope: the autonomous run `run_workflow` spawns builds its model
 //! from config, so
 //! these tests deliberately do not drive an inner run to DONE via a mock LLM —
-//! that generic autonomous-run path is covered by the subagent_runner suite.
+//! that generic autonomous-run path is covered by the subagent-host suite.
 //! Here we confirm everything up to and around that boundary.
 
 use std::sync::Arc;
@@ -46,7 +46,7 @@ use tinytools::Tool;
 // ── Mock LLM ─────────────────────────────────────────────────────────────
 // Minimal scripted model: pops queued ModelResponses in order. Mirrors the
 // scripted models in other harness test files (e.g.
-// `agent/harness/subagent_runner/ops_tests.rs`; kept local so this file is
+// `agent/subagent_host/ops_tests.rs`; kept local so this file is
 // self-contained).
 struct ScriptedModel {
     responses: Mutex<Vec<tinyinference_llm::Result<ModelResponse>>>,

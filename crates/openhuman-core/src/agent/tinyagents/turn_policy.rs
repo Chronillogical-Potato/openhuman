@@ -255,14 +255,14 @@ pub(crate) fn effective_max_iterations(max_iterations: usize) -> usize {
 /// registration site that enforces it.
 ///
 /// **This is a strict subset of the caller-side strip**, not a mirror of it
-/// (issue #6157). `subagent_runner::tool_prep::is_subagent_spawn_tool` also
+/// (issue #6157). `subagent_host::tool_prep::is_subagent_spawn_tool` also
 /// resolves each archetype's `delegate_name` override through the definition
 /// registry — `plan`, `research`, `run_code`, `review_code`, … — none of which
 /// carry the `delegate_` prefix this match relies on. Matching them here would
 /// put a registry lookup on the per-tool registration loop, so the caller
 /// stays responsible for the override names: every path that feeds `allowed`
 /// runs `is_subagent_spawn_tool` first, including the dynamic per-spawn tools
-/// (`subagent_runner::ops::runner`). Widen this predicate in lockstep if that
+/// (`subagent_host::ops::runner`). Widen this predicate in lockstep if that
 /// ever stops being true.
 pub(crate) fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
     name == "spawn_subagent"

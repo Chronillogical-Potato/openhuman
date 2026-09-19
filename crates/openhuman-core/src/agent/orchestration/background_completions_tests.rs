@@ -283,12 +283,13 @@ fn record_awaiting_input_queues_a_framed_needs_input_for_delivery() {
         "sub-a",
         "researcher",
         "Which repo should I open the PR against?",
+        true,
         Some("thread-A".into()),
     );
     assert_eq!(pending_count(s), 1);
     let drained = take_pending(s);
     assert_eq!(drained[0].outcome, BackgroundAgentOutcome::AwaitingInput);
-    assert!(drained[0].summary.starts_with("[SUBAGENT_NEEDS_INPUT]"));
+    assert!(drained[0].summary.starts_with("[SUBAGENT_AWAITING_USER]"));
     assert!(drained[0].summary.contains("Which repo"));
 }
 

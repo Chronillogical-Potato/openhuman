@@ -139,7 +139,7 @@ async fn a_raw_result_file_read_cannot_open_is_stored_as_the_processed_copy() {
 async fn handoff_leaves_an_artifact_read_for_the_pager_but_still_hands_off_other_results() {
     use crate::agent::tinyagents::middleware::turn_context::{HandoffConfig, HandoffMiddleware};
     let mw = HandoffMiddleware::new(HandoffConfig {
-        cache: Arc::new(crate::agent::harness::subagent_runner::ResultHandoffCache::new()),
+        cache: Arc::new(crate::agent::subagent_host::ResultHandoffCache::new()),
         agent_id: "agent-1".to_string(),
         task_id: "task-1".to_string(),
     });

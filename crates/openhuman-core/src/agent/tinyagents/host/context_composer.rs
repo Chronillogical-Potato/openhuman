@@ -21,7 +21,7 @@
 //! Prompt assembly is **not** reimplemented here. Everything this file does is
 //! translate a [`TurnContextRequest`] into a `PromptContext` and hand it to the
 //! existing `SystemPromptBuilder::with_defaults()` chain — the same chain
-//! `agent::harness::session::turn::context::build_system_prompt` uses. That
+//! `agent::session_host::turn::context::build_system_prompt` uses. That
 //! keeps one source of truth for section ordering, the grounding contract, and
 //! the global style suffix.
 //!
@@ -114,7 +114,7 @@ pub struct OpenHumanContextComposer {
     ///
     // TODO(phase4): this should be resolved per `req.thread_id` rather than
     // snapshotted at construction. The real fetch lives in
-    // `crate::agent::harness::session::turn::context` (see the
+    // `crate::agent::session_host::turn::context` (see the
     // `LearnedContextData { … }` assembly around `sanitize_learned_entry` /
     // `tree_root_summaries`), which reads the learning store and the memory
     // tree summarizer. It is not a free function and is not thread-keyed
@@ -125,7 +125,7 @@ pub struct OpenHumanContextComposer {
     /// Whether the user's PROFILE.md layer is injected.
     ///
     /// The live subagent path derives this from the resolved definition's
-    /// `omit_profile` (`subagent_runner/ops/runner.rs`). The crate hands this
+    /// `omit_profile` (`subagent_host/ops/runner.rs`). The crate hands this
     /// seam an opaque agent id, so the wiring site supplies it explicitly via
     /// [`Self::with_omissions`]; hardcoding it would inject a file a specialist
     /// definition deliberately excludes.
@@ -162,7 +162,7 @@ impl OpenHumanContextComposer {
     /// Applies a definition's user-file omission policy.
     ///
     /// Pass `!definition.omit_profile` / `!definition.omit_memory_md`, matching
-    /// `subagent_runner/ops/runner.rs`. Without this a specialist composes with
+    /// `subagent_host/ops/runner.rs`. Without this a specialist composes with
     /// the main agent's files regardless of what its definition says.
     pub fn with_omissions(mut self, include_profile: bool, include_memory_md: bool) -> Self {
         self.include_profile = include_profile;
@@ -278,7 +278,7 @@ impl ContextComposer for OpenHumanContextComposer {
             tool_call_format: self.tool_call_format,
             connected_integrations: &self.connected_integrations,
             connected_identities_md: render_connected_identities(),
-            // Mirrors `subagent_runner/ops/runner.rs`, which derives these from
+            // Mirrors `subagent_host/ops/runner.rs`, which derives these from
             // the resolved definition's `omit_profile` / `omit_memory_md`. The
             // crate hands this seam a bare agent id, so the wiring site supplies
             // them via `with_omissions`; the default is the main-agent
@@ -294,7 +294,7 @@ impl ContextComposer for OpenHumanContextComposer {
             // from the profiles domain (`crate::profiles`); the
             // existing main-agent path leaves this empty too (see the
             // `personality_roster: vec![]` TODO in
-            // `agent/harness/session/turn/context.rs`), so this matches
+            // `agent/session_host/turn/context.rs`), so this matches
             // current behaviour rather than regressing it.
             personality_roster: Vec::new(),
             agents_md_global: agents_md.global,

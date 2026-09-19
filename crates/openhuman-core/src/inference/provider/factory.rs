@@ -96,7 +96,7 @@ use subprocess_providers::{
 use tiers::is_abstract_tier_model;
 
 /// Test-only seam: inject a mock [`ChatModel`] so e2e tests can drive the
-/// autonomous run paths (`spawn_workflow_run_background`, the task dispatcher)
+/// autonomous run paths (for example `spawn_workflow_run_background`)
 /// with a scripted LLM and no network. Process-global because those runs are
 /// detached `tokio::spawn`s — a thread/task-local would not reach them.
 ///

@@ -199,8 +199,10 @@ pub(crate) fn prompt_guided_text_response(text: String, request: &ModelRequest) 
         return ModelResponse::assistant(text);
     }
 
-    let response =
-        tinyagents_harness::tool::apply_prompt_tool_calls(ModelResponse::assistant(text.clone()));
+    let response = tinyinference_llm::prompt_tools::recover_tool_calls(
+        ModelResponse::assistant(text.clone()),
+        &request.tools,
+    );
     if !response.message.tool_calls.is_empty() {
         return response;
     }

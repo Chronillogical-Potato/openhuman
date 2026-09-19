@@ -78,7 +78,6 @@ fn card_patch(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
         status,
         objective: opt_str(args, "objective"),
         plan: opt_str_vec(args, "plan"),
-        assigned_agent: opt_str(args, "assigned_agent"),
         allowed_tools: opt_str_vec(args, "allowed_tools"),
         approval_mode: None,
         acceptance_criteria: opt_str_vec(args, "acceptance_criteria"),
@@ -185,7 +184,7 @@ impl Tool for TodoAddTool {
     fn description(&self) -> &str {
         "Add a todo card to a thread's task board. `content` is the task \
          summary; optional fields capture an `objective`, an ordered `plan`, \
-         `acceptance_criteria`, an `assigned_agent`, `allowed_tools`, free-form \
+         `acceptance_criteria`, `allowed_tools`, free-form \
          `notes`, a `blocker`, and an initial `status` \
          (todo|awaiting_approval|ready|in_progress|blocked|done|rejected)."
     }
@@ -200,7 +199,6 @@ impl Tool for TodoAddTool {
                 "objective": { "type": "string" },
                 "plan": { "type": "array", "items": { "type": "string" } },
                 "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
-                "assigned_agent": { "type": "string" },
                 "allowed_tools": { "type": "array", "items": { "type": "string" } },
                 "evidence": { "type": "array", "items": { "type": "string" } },
                 "notes": { "type": "string" },
@@ -271,7 +269,6 @@ impl Tool for TodoEditTool {
                 "objective": { "type": "string" },
                 "plan": { "type": "array", "items": { "type": "string" } },
                 "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
-                "assigned_agent": { "type": "string" },
                 "allowed_tools": { "type": "array", "items": { "type": "string" } },
                 "evidence": { "type": "array", "items": { "type": "string" } },
                 "notes": { "type": "string" },

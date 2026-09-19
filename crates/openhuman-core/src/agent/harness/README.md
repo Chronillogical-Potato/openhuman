@@ -3,8 +3,7 @@
 Product shell around the tinyagents tool loop. The model/tool iteration
 itself runs in `crate::agent::tinyagents` (via
 `run_turn_via_tinyagents_shared`); this module owns everything OpenHuman
-layers on top: the `Agent`/`AgentBuilder` session, transcript persistence and
-legacy-format migration, sub-agent dispatch, agent archetypes, post-turn
+layers on top: agent-definition/prompt helpers, post-turn
 memory/archival hooks, mid-turn message steering, and oversized-tool-result
 handling.
 
@@ -18,9 +17,9 @@ iterations.
 - Own the `Agent` struct and its per-turn lifecycle: prompt/context assembly,
   tool dispatch, transcript persistence, KV-cache prefix stability
   (`session/`).
-- Dispatch sub-agents: resolve an `AgentDefinition`, filter tools, build a
-  narrow prompt, run the child turn, and return one compact tool result to
-  the parent (`subagent_runner/`).
+- Supply the product definition/prompt inputs used by `../subagent_host/`.
+  That host implements the TinyAgents sub-agent lifecycle traits directly;
+  this module does not export a compatibility runner.
 - Define sub-agent archetypes (built-in + workspace TOML) and the task-local
   plumbing that lets a spawned tool see its parent's runtime context
   (`definition*.rs`, `builtin_definitions.rs`, `fork_context.rs`,
@@ -41,11 +40,11 @@ iterations.
 | Module | Role |
 | --- | --- |
 | `session/` | `Agent`/`AgentBuilder`/`TurnOverrides` (`types.rs`), the fluent builder + `Agent::from_config` factory (`builder/`), the turn lifecycle (`turn/`: `context.rs`, `core*.rs`, `graph.rs`, `recall_lanes.rs`, `session_io*.rs`, `tools.rs`), host-side transcript persistence + legacy migration (`session_io/`, `migration.rs`, `turn_checkpoint.rs`). Durable transcript codecs and discovery live in `tinyagents_session::transcript`. |
-| `subagent_runner/` | `run_subagent`/`SubagentRunOptions`/`SubagentRunError` and the build pipeline around the tinyagents graph: model resolution, tool filtering, sandbox/action-root narrowing, checkpoint/handback, transcript mirroring (`autonomous.rs`, `extract_tool.rs`, `handoff.rs`, `tool_prep.rs`, `ops/{provider,prompt,runner,graph,checkpoint,pause_checkpoint}.rs`). |
+| `../subagent_host/` | Direct OpenHuman planner/executor/persistence adapters for `tinyagents-orchestration::subagent`: model resolution, tool filtering, sandbox/action-root narrowing, checkpoint/handback and transcript mirroring. |
 | `definition*.rs`, `builtin_definitions.rs`, `definition_loader.rs` | `AgentDefinition`/`AgentDefinitionRegistry`/`SandboxMode`/`ToolScope`/`PromptSource`/`ModelSpec`; loads built-ins from `crate::agent::registry::agents` and user TOML from the workspace/home `agents/` directory. |
 | `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | Transitional task-locals for legacy callers. Live TinyAgents tool dispatch receives `OpenHumanRunContext` directly for parent, attachments, dispatch, and usage. |
 | `graph.rs` | `run_channel_turn_via_graph` (`pub(crate)`) — the channel/CLI turn graph, thin over `run_turn_via_tinyagents_shared`; called by the `agent.run_turn` native-bus handler in `agent/bus.rs`. |
-| `agent_graph.rs` | `AgentGraph` (`Default`/`Custom`), `AgentTurnRequest`, `AgentTurnResult`, `AgentTurnUsage` — per-agent sub-agent turn-graph selection consulted by `subagent_runner`'s `run_typed_mode`. Every built-in agent currently selects `Default`. |
+| `agent_graph.rs` | `AgentGraph` (`Default`/`Custom`), `AgentTurnRequest`, `AgentTurnResult`, `AgentTurnUsage` — per-agent sub-agent turn-graph selection consumed by `subagent_host`. Every built-in agent currently selects `Default`. |
 | `archivist/` | `ArchivistHook` (`types.rs`, `PostTurnHook` impl in `hook_impl.rs`) — post-turn episodic insert, segment boundary detection + lifecycle, LLM recap with heuristic fallback, lesson extraction from tool failures, and raw-prose ingestion into the memory tree when `config.learning.chat_to_tree_enabled` (`boundary.rs`, `lifecycle.rs`, `recap.rs`, `resummarise.rs`, `store.rs`, `tree_ingest.rs`, `events_heuristic.rs`). |
 | `artifact_offload/` | The `outputs/` / `workspace/` convention under `action_dir`: prompt half (`contract.rs`) and host policy half (`policy.rs`); mechanics (thresholds, path resolution, pointer rendering, the writer) live in `tinyagents_harness::artifacts` and are re-exported here. |
 | `run_queue/` | `RunQueue` and `QueuedMessage` — steer/followup/collect lanes wrapping `tinyagents_harness::run_queue`; `QueueStatus` is re-exported from the crate. |
@@ -57,9 +56,9 @@ iterations.
 
 ## Public surface
 
-- `Agent`, `AgentBuilder`, `TurnOverrides` — re-exported from `session`; the
+- `OpenHumanSessionHost`, `SessionHostBuilder`, `TurnOverrides` — re-exported from `session_host`; the
   entry point for any chat turn. External callers import these from
-  `crate::agent`, which re-exports them from `harness::session`.
+  `crate::agent`, which re-exports them from `session_host`.
 - `run_subagent`, `SubagentRunOptions`, `SubagentRunError` — hierarchical
   sub-agent dispatch from a parent tool loop.
 - `AgentDefinition`, `AgentDefinitionRegistry`, `DefinitionSource`,
@@ -106,15 +105,14 @@ iterations.
 - `agent/tinyagents/` middleware calls `credentials::scrub_credentials` on
   every tool result.
 - `agent/orchestration/tools/*` (`spawn_subagent`, `spawn_parallel_agents`,
-  `spawn_async_subagent`, `continue_subagent`, `steer_subagent`, …) and
-  `agent/task_dispatcher/executor.rs` call into `subagent_runner` and the
-  task-local context modules.
+  `spawn_async_subagent`, `continue_subagent`, `steer_subagent`, …) call into
+  `subagent_host` and the task-local context modules.
 
 ## Tests
 
 - Unit: `harness_tests.rs`, `harness_gap_tests.rs`, plus `*_tests.rs` files
   beside each sub-module (`session/session_tests*.rs`,
-  `subagent_runner/{ops_tests*,handoff_tests,extract_tool_tests,tool_prep_tests}.rs`,
+  `../subagent_host/{ops_tests*,handoff_tests,extract_tool_tests,tool_prep_tests}.rs`,
   `run_queue/run_queue_tests.rs`, `tool_result_artifacts/mod_tests.rs`,
   `artifact_offload/artifact_offload_tests.rs`).
 - Integration: `tests/agent_harness_public.rs`, `tests/agent_harness_e2e.rs`.
@@ -122,7 +120,7 @@ iterations.
 ## Notes / gotchas
 
 - `session/mod.rs` cites `docs/tinyagents-harness-migration-audit.md`, and
-  `artifact_offload/mod.rs`, `agent_graph.rs`, `subagent_runner/ops/runner.rs`
+  `artifact_offload/mod.rs`, `agent_graph.rs`, `../subagent_host/ops/runner.rs`
   cite `plan-agents.md` (`docs/specs/plan-agents.md`) as the plan for moving
   durable state, the sub-agent graph, and offload mechanics onto TinyAgents
   primitives. Neither file is checked into this repo; the plan is not

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::Agent;
+use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
@@ -108,7 +108,7 @@ async fn test_orchestrator_has_current_date_context() -> Result<()> {
     let captured_messages = Arc::new(Mutex::new(Vec::new()));
     let model = calendar_model(captured_messages.clone());
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(model)
         .tools(vec![Box::new(MockCalendarTool)])
         .tool_dispatcher(Box::new(NativeDialect))
@@ -206,10 +206,10 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
     def.model = openhuman_core::agent::harness::definition::ModelSpec::Inherit;
 
     let _ = openhuman_core::agent::harness::with_parent_context(parent, async {
-        openhuman_core::agent::harness::run_subagent(
+        openhuman_core::agent::subagent_host::run_subagent(
             &def,
             "list my calendar events for today",
-            openhuman_core::agent::harness::SubagentRunOptions::default(),
+            openhuman_core::agent::subagent_host::SubagentRunOptions::default(),
         )
         .await
     })

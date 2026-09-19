@@ -85,7 +85,7 @@ pub(crate) fn synthesize_block(contract: &RequiredOutput) -> String {
 /// satisfies the leading-position rule directly, whether the caller keeps the
 /// re-prompt as the whole reply (the non-streamed *replace* path) or appends it
 /// after prose that was already streamed (the *append* path); see
-/// `Agent::enforce_required_output`.
+/// `OpenHumanSessionHost::enforce_required_output`.
 pub(crate) fn repair_instruction(contract: &RequiredOutput) -> String {
     let keys = contract.all_keys().join("\", \"");
     format!(

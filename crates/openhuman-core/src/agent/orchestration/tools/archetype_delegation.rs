@@ -178,6 +178,31 @@ pub(crate) async fn execute_archetype_delegation(
     tool_context: Option<&dyn ToolRunContext>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    execute_archetype_delegation_with_live_parent(
+        agent_id,
+        tool_name,
+        args,
+        tool_context,
+        run_context,
+        None,
+    )
+    .await
+}
+
+/// Typed-harness counterpart that preserves a live parent for the blocking
+/// archetype child.
+pub(crate) async fn execute_archetype_delegation_with_live_parent(
+    agent_id: &str,
+    tool_name: &str,
+    args: serde_json::Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
+) -> anyhow::Result<ToolResult> {
     let raw_prompt = args
         .get("prompt")
         .and_then(|v| v.as_str())
@@ -214,7 +239,7 @@ pub(crate) async fn execute_archetype_delegation(
         super::dispatch::DispatchMode::PreferAsync
     };
 
-    super::dispatch_subagent(
+    super::dispatch::dispatch_subagent_with_live_parent(
         agent_id,
         tool_name,
         &prompt,
@@ -223,6 +248,7 @@ pub(crate) async fn execute_archetype_delegation(
         tool_context,
         mode,
         run_context,
+        live_parent,
     )
     .await
 }

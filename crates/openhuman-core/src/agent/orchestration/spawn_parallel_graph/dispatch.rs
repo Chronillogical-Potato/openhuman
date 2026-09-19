@@ -19,7 +19,8 @@ use super::staging::{
     ParallelWorktreeRequest, SpawnParallelTaskPreflight, WorkerDispatchMode,
 };
 use super::types::{
-    ParallelAgentLineage, ParallelAgentResult, ParallelAgentTask, SpawnParallelWorker,
+    ParallelAgentLineage, ParallelAgentResult, ParallelAgentStatus, ParallelAgentTask,
+    SpawnParallelWorker,
 };
 
 pub(crate) fn spawn_parallel_lineage(
@@ -85,8 +86,11 @@ async fn create_spawn_parallel_worktree(
                                 task_id,
                             ),
                             success: false,
+                            status: ParallelAgentStatus::Failed,
                             output: None,
                             error: Some(format!("worktree isolation failed: {err}")),
+                            awaiting_question: None,
+                            checkpoint_path: None,
                             ownership: task.ownership.clone(),
                             elapsed_ms: 0,
                             iterations: 0,
@@ -94,6 +98,7 @@ async fn create_spawn_parallel_worktree(
                             worktree_path: None,
                             changed_files: Vec::new(),
                             dirty_status: None,
+                            emit_lifecycle_effects: false,
                         })
                     }
                 }
@@ -109,10 +114,13 @@ async fn create_spawn_parallel_worktree(
                     agent_id: definition.id.clone(),
                     lineage: spawn_parallel_lineage(parent_session, session_parent_prefix, task_id),
                     success: false,
+                    status: ParallelAgentStatus::Failed,
                     output: None,
                     error: Some(
                         "worktree isolation requested but action_dir is unavailable".to_string(),
                     ),
+                    awaiting_question: None,
+                    checkpoint_path: None,
                     ownership: task.ownership.clone(),
                     elapsed_ms: 0,
                     iterations: 0,
@@ -120,6 +128,7 @@ async fn create_spawn_parallel_worktree(
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    emit_lifecycle_effects: false,
                 })
             }
         },
@@ -196,8 +205,11 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
                     agent_id: rejection.agent_id,
                     lineage,
                     success: false,
+                    status: ParallelAgentStatus::Failed,
                     output: None,
                     error: Some(rejection.error),
+                    awaiting_question: None,
+                    checkpoint_path: None,
                     ownership: rejection.ownership,
                     elapsed_ms: 0,
                     iterations: 0,
@@ -205,6 +217,7 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
                     worktree_path: None,
                     changed_files: Vec::new(),
                     dirty_status: None,
+                    emit_lifecycle_effects: false,
                 });
                 continue;
             }

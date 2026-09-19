@@ -17,7 +17,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use tinyagents_harness::agent_loop::AgentStreamItem;
-use tinyagents_harness::context::RunConfig;
 use tinyagents_harness::events::EventSink;
 use tinyagents_harness::host::{ContextComposer, TurnContextRequest};
 use tinyagents_harness::runtime::{
@@ -27,7 +26,7 @@ use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
 
 use crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
-use crate::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
+use crate::agent::harness::MAX_SPAWN_DEPTH;
 use crate::agent::messages::ChatMessage;
 use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};
 use crate::agent::tinyagents::host::steering::shared_steering_registry;
@@ -41,6 +40,7 @@ use crate::agent::tinyagents::turn_run_error::map_turn_run_error;
 use crate::agent::tinyagents::turn_run_finalize::finalize_turn_outcome;
 use crate::agent::tinyagents::{journal, routes, steering_forwarder};
 use tinyagents_harness::ids::TaskId;
+use tinyagents_harness::run_queue::RunQueue;
 
 use super::ToolPolicyEnforcement;
 
@@ -123,7 +123,7 @@ pub(crate) async fn run_turn_via_tinyagents(
 
     // Bound the run: one model call per legacy "iteration", and allow generous
     // tool calls (the loop also stops when the model stops requesting tools).
-    let config = RunConfig::new("agent_turn")
+    let config = crate::agent::tinyagents::host::run_context::fresh_root_run_config("agent-turn")
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
         .with_max_depth(MAX_SPAWN_DEPTH)
@@ -252,7 +252,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     max_iterations: usize,
     subagent_scope: Option<SubagentScope>,
     context_window: Option<u64>,
-    run_queue: Option<Arc<RunQueue>>,
+    run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     early_exit_tools: &[&str],
     pause_at_cap: bool,
     max_output_tokens: Option<u32>,
@@ -312,7 +312,7 @@ pub(crate) async fn run_root_turn_via_hosted_agent(
     allowed: Option<HashSet<String>>,
     max_iterations: usize,
     context_window: Option<u64>,
-    run_queue: Option<Arc<RunQueue>>,
+    run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     early_exit_tools: &[&str],
     pause_at_cap: bool,
     max_output_tokens: Option<u32>,
@@ -346,7 +346,7 @@ pub(crate) async fn run_root_turn_via_hosted_agent(
 
 #[allow(clippy::too_many_arguments)]
 async fn run_turn_via_tinyagents_inner(
-    run_context: OpenHumanRunContext,
+    mut run_context: OpenHumanRunContext,
     turn_models: TurnModels,
     provider_id: String,
     model: &str,
@@ -356,7 +356,7 @@ async fn run_turn_via_tinyagents_inner(
     max_iterations: usize,
     subagent_scope: Option<SubagentScope>,
     context_window: Option<u64>,
-    run_queue: Option<Arc<RunQueue>>,
+    run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     early_exit_tools: &[&str],
     pause_at_cap: bool,
     max_output_tokens: Option<u32>,
@@ -478,7 +478,15 @@ async fn run_turn_via_tinyagents_inner(
         );
     }
 
-    let mut config = RunConfig::new("agent_turn")
+    // The hosted graph is the execution boundary of the same root turn the
+    // runtime/session already created. Retain that root config id here instead
+    // of manufacturing a second literal `agent_turn` root.
+    let mut config = run_context
+        .root_run_config(if subagent_scope.is_some() {
+            "openhuman-subagent"
+        } else {
+            "openhuman-agent-turn"
+        })
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
         .with_max_depth(MAX_SPAWN_DEPTH)
@@ -516,13 +524,12 @@ async fn run_turn_via_tinyagents_inner(
     // rounds plus any mid-turn steer/collect messages injected as user turns.
     // Anchoring here (instead of the last-user-message suffix) keeps injected
     // steers from moving the boundary and truncating persisted history on both
-    // the parent (`session/turn/core.rs`) and subagent (`subagent_runner`) paths.
+    // the parent (`session/turn/core.rs`) and subagent (`subagent_host`) paths.
     let request_base_len = input.len();
 
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
-    let mut run_context = run_context;
     run_context.tool_result_artifact_index = tool_result_artifact_index.clone();
     run_context.tool_outcomes = Some(tool_outcome_sink.clone());
     let mut ctx = run_context.clone().into_tinyagents(config);

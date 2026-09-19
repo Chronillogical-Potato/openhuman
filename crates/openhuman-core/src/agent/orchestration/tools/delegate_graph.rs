@@ -58,8 +58,22 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent);
+        let graph_parent = parent
+            .child(
+                tinyagents_harness::context::RunConfig::new(format!(
+                    "delegation-graph-{}",
+                    uuid::Uuid::new_v4()
+                )),
+                parent.data.child(),
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
         DelegateGraphTool::new()
-            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                Some(Arc::new(graph_parent)),
+            )
             .await
     }
 }
@@ -164,6 +178,25 @@ impl DelegateGraphTool {
         tool_context: Option<&dyn ToolRunContext>,
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, run_context, None)
+            .await
+    }
+
+    /// The typed harness creates an owned graph child before invoking this
+    /// path. The graph's static stage callback then derives direct children
+    /// from it without dropping lineage.
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        live_parent: Option<Arc<RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>>,
+    ) -> anyhow::Result<ToolResult> {
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "delegate_graph requires a live harness run context.",
+            ));
+        };
         let agent_id = match args.get("agent_id").and_then(|v| v.as_str()) {
             Some(s) if !s.trim().is_empty() => s.trim().to_string(),
             _ => return Ok(ToolResult::error("delegate: `agent_id` is required.")),
@@ -183,7 +216,7 @@ impl DelegateGraphTool {
             None => {
                 return Ok(ToolResult::error(
                     "delegate: agent definition registry not initialized.",
-                ))
+                ));
             }
         };
         let definition = match registry.get(&agent_id) {
@@ -191,7 +224,7 @@ impl DelegateGraphTool {
             None => {
                 return Ok(ToolResult::error(format!(
                     "delegate: agent definition '{agent_id}' not found in registry."
-                )))
+                )));
             }
         };
 
@@ -200,7 +233,7 @@ impl DelegateGraphTool {
             Err(e) => {
                 return Ok(ToolResult::error(format!(
                     "delegate: failed to load config: {e}"
-                )))
+                )));
             }
         };
 
@@ -212,17 +245,20 @@ impl DelegateGraphTool {
             tool_context
                 .and_then(|ctx| ctx.workspace().cloned())
                 .or_else(|| run_context.workspace.clone()),
-            run_context,
+            live_parent,
         )
         .await
         {
             Ok(state) => {
+                if state.cancelled {
+                    return Ok(ToolResult::error(format!(
+                        "delegate cancelled for '{agent_id}'."
+                    )));
+                }
                 let final_output = state
                     .final_output
                     .unwrap_or_else(|| "(delegation produced no final output)".to_string());
-                let note = if state.cancelled {
-                    " (cancelled)"
-                } else if state.revisions > 0 {
+                let note = if state.revisions > 0 {
                     " (after revision)"
                 } else {
                     ""

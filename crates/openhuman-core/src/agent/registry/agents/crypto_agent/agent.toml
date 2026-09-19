@@ -31,7 +31,7 @@ hint = "burst"
 #
 # This list holds ONLY names that resolve to a registered tool. An unregistered
 # name is silently dropped by the tool filter at spawn time
-# (`ToolScope::Named`, `harness/subagent_runner/tool_prep.rs`), so it never
+# (`ToolScope::Named`, `subagent_host/tool_prep.rs`), so it never
 # reaches the model and an aspirational entry buys nothing — it only misleads
 # the next reader, and the prompt that was written against it described calls
 # that could never resolve.

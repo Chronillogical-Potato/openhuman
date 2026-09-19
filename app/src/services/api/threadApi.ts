@@ -44,8 +44,8 @@ const generateTitleLog = debug('threadApi.generateTitleIfNeeded');
 
 /**
  * The core's `sender` vocabulary is `user` | `agent`, but some core writers
- * stored the assistant side as `assistant` (autonomous task sessions before
- * #5933, channel-session mirrors). Fold that alias onto `agent` at the transport
+ * stored the assistant side as `assistant` (legacy system writers and
+ * channel-session mirrors). Fold that alias onto `agent` at the transport
  * boundary so every `sender === 'agent'` check in the renderers — and the
  * assistant-ui role mapping — treats such a row as the assistant instead of
  * painting it as a user turn.

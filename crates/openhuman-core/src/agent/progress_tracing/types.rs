@@ -18,7 +18,7 @@ pub enum RunType {
     /// Interactive user chat turn (desktop UI / socket / PTT / dictation).
     #[default]
     InteractiveChat,
-    /// Autonomous background run from the task dispatcher.
+    /// Autonomous background run.
     AutonomousTask,
     /// Inbound message relayed from an external channel (Telegram, Discord,
     /// Slack, …) through the channel bus.
