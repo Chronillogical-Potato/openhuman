@@ -37,9 +37,7 @@ use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry
 // temporarily disabled (see tinyhumansai/openhuman#1624).
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
-use super::{
-    ArchetypeDelegationTool, CollapsedDelegationTool, DelegateTarget, SkillDelegationTool, Tool,
-};
+use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
 use crate::agent::orchestration::tools::DelegationTarget;
 
 /// Synthesise the delegation tool list for an agent based on its
@@ -80,7 +78,6 @@ pub fn collect_orchestrator_tools(
     connected_integrations: &[ConnectedIntegration],
 ) -> Vec<Box<dyn Tool>> {
     let mut tools: Vec<Box<dyn Tool>> = Vec::new();
-    let mut archetype_targets: Vec<DelegateTarget> = Vec::new();
 
     // Orchestrator-only tool: spawn_worker_thread.
     // Temporarily disabled — worker threads do not yet have a proper UI
@@ -134,15 +131,10 @@ pub fn collect_orchestrator_tools(
                 // state that rule should gain it there, once, rather than
                 // paying for it on every delegate schema on every turn.
                 tools.push(Box::new(ArchetypeDelegationTool {
-                    tool_name: tool_name.clone(),
+                    tool_name,
                     agent_id: DelegationTarget(target.id.clone()),
                     tool_description: target.when_to_use.clone(),
                 }));
-                archetype_targets.push(DelegateTarget {
-                    tool_name,
-                    agent_id: target.id.clone(),
-                    description: target.when_to_use.clone(),
-                });
             }
             SubagentEntry::Skills(wildcard) => {
                 if !wildcard.matches_all() {
@@ -250,14 +242,6 @@ pub fn collect_orchestrator_tools(
                 }
             }
         }
-    }
-
-    // Keep the individual wrappers registered (and therefore replayable), but
-    // advertise the one action-dispatched surface they were hidden in favour
-    // of. Without this final assembly step every archetype delegate has
-    // `ToolExposure::Hidden` and the model sees no route to any specialist.
-    if let Some(tool) = CollapsedDelegationTool::for_targets(archetype_targets) {
-        tools.push(Box::new(tool));
     }
 
     log::info!(

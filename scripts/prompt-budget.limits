@@ -202,28 +202,36 @@
 #               `toolpacks::registry` cites as its reason for never packing the
 #               fleet tools. Deleting the section wholesale would have removed
 #               a known bug's fix along with the redundancy.
+#
+#   2026-09-19  Re-measured after the coordinated vendor refresh. The updated
+#               agent/tool contracts make the pack proxy reachable on several
+#               narrow belts and expand the planner, profile-memory and trigger
+#               instructions; those are intentional upstream surfaces, not
+#               duplicated local prose. The same refresh removes 8,662 B of
+#               wildcard schemas from morning_briefing and tools_agent, and
+#               those savings are ratcheted here at the same time.
 
-morning_briefing:15295:76791
+morning_briefing:14987:68129
 trigger_triage:9207:0
 workflow_builder:79094:30397
 summarizer:9021:0
-tools_agent:9285:76791
-orchestrator:30294:30812
-code_executor:13320:12591
+tools_agent:8986:68129
+orchestrator:30213:30818
+code_executor:13294:14910
 crypto_agent:12986:12357
 task_manager_agent:7097:15834
-planner:9920:5917
+planner:10603:6559
 skill_creator:7304:12664
 flow_discovery:10780:9641
-profile_memory_agent:7554:12132
+profile_memory_agent:8237:12774
 settings_agent:7040:11065
-context_scout:11076:7343
-skill_executor:9594:7505
+context_scout:11076:7349
+skill_executor:9594:7511
 scheduler_agent:9628:7227
 agent_memory:10422:6836
 mcp_setup:10361:5078
-skill_setup:7253:7598
-trigger_reactor:8264:6740
+skill_setup:7253:7604
+trigger_reactor:8877:7382
 mcp_agent:8920:4472
 flow_memory_agent:9687:3947
 tool_maker:6266:6087
@@ -314,4 +322,7 @@ tool:save_workflow:1957
 tool:spawn_parallel_agents:1851
 tool:todo:1831
 tool:search_tool_catalog:1695
-tool:use_skill:2090
+tool:use_skill:2096
+# One action-dispatched memory surface replaces the separately registered
+# memory operations while keeping read/write/forget routing explicit.
+tool:memory:3937
