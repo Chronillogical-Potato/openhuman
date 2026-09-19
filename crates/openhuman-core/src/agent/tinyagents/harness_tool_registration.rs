@@ -12,14 +12,14 @@ use tinyagents_registry::{
 };
 
 use crate::agent::orchestration::tools::{
-    AgentPrepareContextDispatch, ContinueSubagentDispatch, DelegationDispatch,
-    SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch, SpawnSubagentDispatch,
-    SpawnWorkerThreadDispatch,
+    AgentPrepareContextDispatch, ContinueSubagentDispatch, DelegateGraphDispatch,
+    DelegationDispatch, SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch,
+    SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
 };
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
-use crate::agent::tools::DelegateToPersonalityDispatch;
+use crate::agent::tools::{DelegateToPersonalityDispatch, DelegateToolDispatch};
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
 /// `capability_registry` projection), project the visible agent set as
@@ -120,6 +120,10 @@ pub(super) fn register_turn_tools_and_agents(
                     harness.register_tool_dispatch(Arc::new(DelegateToPersonalityDispatch::new(
                         adapter,
                     )));
+                } else if name == "delegate_graph" {
+                    harness.register_tool_dispatch(Arc::new(DelegateGraphDispatch::new(adapter)));
+                } else if name == "delegate" {
+                    harness.register_tool_dispatch(Arc::new(DelegateToolDispatch::new(adapter)));
                 } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
                     harness.register_tool_dispatch(Arc::new(dispatch));
                 } else {

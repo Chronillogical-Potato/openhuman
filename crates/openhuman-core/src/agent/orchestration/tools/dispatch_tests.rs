@@ -6,7 +6,10 @@ use tinytools::Tool;
 use super::super::collapsed_delegation::{
     dispatch_targets_from_schema, CollapsedDelegationTool, DelegateTarget,
 };
-use crate::agent::tools::AskClarificationTool;
+use super::super::delegate_graph::DelegateGraphDispatch;
+use crate::agent::tools::{AskClarificationTool, DelegateToolDispatch};
+use tinyagents_harness::context::RunConfig;
+use tinyagents_harness::tool::ToolDispatch;
 
 struct DelegationRegistrationTool {
     name: &'static str,
@@ -34,6 +37,7 @@ impl Tool for DelegationRegistrationTool {
 
 #[test]
 fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
+    let _ = crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
     let collapsed: Arc<dyn Tool> = Arc::new(
         CollapsedDelegationTool::for_targets(vec![DelegateTarget {
             tool_name: "research".to_string(),
@@ -61,6 +65,71 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
             "every synthesised delegation name must select the typed dispatch"
         );
     }
+}
+
+#[test]
+fn delegate_graph_is_not_misclassified_as_an_archetype_delegate() {
+    let graph: Arc<dyn Tool> = Arc::new(DelegationRegistrationTool {
+        name: "delegate_graph",
+        parameters: serde_json::json!({}),
+    });
+    assert!(
+        DelegationDispatch::for_tool(graph).is_none(),
+        "delegate_graph must retain its dedicated durable-graph dispatcher"
+    );
+}
+
+#[tokio::test]
+async fn delegate_graph_dispatch_uses_its_durable_graph_argument_path() {
+    let tool: Arc<dyn Tool> = Arc::new(DelegationRegistrationTool {
+        name: "delegate_graph",
+        parameters: serde_json::json!({}),
+    });
+    let dispatch = DelegateGraphDispatch::new(tool);
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .into_tinyagents(RunConfig::new("delegate-graph-parent"));
+
+    let result = dispatch
+        .execute(
+            &(),
+            serde_json::json!({"task": "review this change"}),
+            tinytools::ToolCallOptions::default(),
+            &parent,
+        )
+        .await
+        .expect("dedicated dispatcher returns a tool result");
+    assert!(result.is_error);
+    assert!(
+        result.output().contains("`agent_id` is required"),
+        "delegate_graph must execute its concrete graph validation, not an archetype lookup: {}",
+        result.output()
+    );
+}
+
+#[tokio::test]
+async fn config_delegate_dispatch_honours_the_parent_cancellation_token() {
+    let tool: Arc<dyn Tool> = Arc::new(DelegationRegistrationTool {
+        name: "delegate",
+        parameters: serde_json::json!({}),
+    });
+    let dispatch = DelegateToolDispatch::new(tool);
+    let cancellation = tinyagents_harness::CancellationToken::new();
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .with_cancellation(cancellation.clone())
+        .into_tinyagents(RunConfig::new("config-delegate-parent").with_thread("thread-parent"));
+    cancellation.cancel();
+
+    let result = dispatch
+        .execute(
+            &(),
+            serde_json::json!({"agent": "configured", "prompt": "work"}),
+            tinytools::ToolCallOptions::default(),
+            &parent,
+        )
+        .await
+        .expect("cancellation is reported as a tool result");
+    assert!(result.is_error);
+    assert!(result.output().contains("cancelled"), "{}", result.output());
 }
 
 #[test]

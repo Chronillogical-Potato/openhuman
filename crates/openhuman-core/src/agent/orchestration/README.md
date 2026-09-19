@@ -131,7 +131,10 @@ OpenHumanRunContext>` wrappers and fork the parent carrier for every child,
 so cancellation, origin, progress, dispatch state, thread, and workspace stay
 attached. `delegate_to` retains its concrete enum-to-agent routing table in
 its schema metadata at registration; it never broadens a call by rebuilding
-targets from the global agent registry. Execution itself routes through
+targets from the global agent registry. `delegate_graph` has a dedicated typed
+registration for its durable plan→execute→review loop, while the optional
+config-driven `delegate` registration preserves the configured executor and
+races it against the inherited cancellation token. Execution itself routes through
 `agent::harness::run_subagent`.
 
 ## Persistence

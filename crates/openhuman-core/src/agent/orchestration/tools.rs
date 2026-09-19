@@ -72,6 +72,7 @@ pub use close_subagent::CloseSubagentTool;
 pub use collapsed_delegation::{CollapsedDelegationTool, DelegateTarget, DELEGATE_TO_TOOL_NAME};
 pub(crate) use continue_subagent::ContinueSubagentDispatch;
 pub use continue_subagent::ContinueSubagentTool;
+pub(crate) use delegate_graph::DelegateGraphDispatch;
 pub use delegate_graph::DelegateGraphTool;
 pub use list_subagents::ListSubagentsTool;
 pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};

@@ -44,6 +44,7 @@ mod update_task;
 
 pub use ask_clarification::AskClarificationTool;
 pub use delegate::DelegateTool;
+pub(crate) use delegate::DelegateToolDispatch;
 pub(crate) use delegate_to_personality::DelegateToPersonalityDispatch;
 pub use delegate_to_personality::DelegateToPersonalityTool;
 pub use plan_exit::{PlanExitTool, PLAN_EXIT_MARKER};

@@ -723,21 +723,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/delegation.rs",
-    "line": 107,
+    "line": 58,
     "text": "run_context.parent = current_parent();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/delegation.rs",
-    "line": 153,
-    "text": "if current_parent().is_some() {",
+    "line": 182,
+    "text": "with_parent_context(parent, run).await",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/delegation.rs",
-    "line": 159,
+    "line": 187,
     "text": "with_parent_context(parent, run).await",
     "occurrence": 1
   },

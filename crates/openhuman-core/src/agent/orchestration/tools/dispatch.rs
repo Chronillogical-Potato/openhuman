@@ -52,7 +52,22 @@ impl DelegationDispatch {
                     .collect();
                 DelegationDispatchKind::Integrations { connected_toolkits }
             }
-            name if name.starts_with("delegate_") => DelegationDispatchKind::Archetype,
+            // Only synthesized archetype delegate names enter this path.
+            // `delegate_graph` is a concrete durable graph tool with its own
+            // typed dispatcher, and arbitrary `delegate_*` tools must not be
+            // mistaken for an agent target merely because of their spelling.
+            name if AgentDefinitionRegistry::global().is_some_and(|registry| {
+                registry.list().into_iter().any(|definition| {
+                    definition
+                        .delegate_name
+                        .clone()
+                        .unwrap_or_else(|| format!("delegate_{}", definition.id))
+                        == name
+                })
+            }) =>
+            {
+                DelegationDispatchKind::Archetype
+            }
             _ => return None,
         };
         Some(Self { tool, kind })

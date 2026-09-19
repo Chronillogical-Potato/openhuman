@@ -28,7 +28,6 @@ use tinyagents_graph::delegation::{
     DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
 };
 use tinyagents_graph::SqliteCheckpointer;
-use tinyagents_harness::CancellationToken;
 use tinytools::WorkspaceDescriptor;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
@@ -51,11 +50,43 @@ pub(crate) async fn run_subagent_delegation(
     max_revisions: usize,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<DelegationState, String> {
+    // This legacy/direct entrypoint is a genuine root boundary. Live harness
+    // tools call `run_subagent_delegation_with_parent_context` below with the
+    // owned parent carrier instead.
+    let mut run_context =
+        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+    run_context.parent = current_parent();
+    run_subagent_delegation_with_parent_context(
+        config,
+        definition,
+        task_prompt,
+        max_revisions,
+        parent_workspace_descriptor,
+        run_context,
+    )
+    .await
+}
+
+/// Typed live entrypoint for the durable delegation graph.
+///
+/// The graph does create a durable graph id for its checkpoints, but each
+/// stage retains the caller's cancellation, origin, dispatch, progress,
+/// conversation thread, and workspace through the supplied carrier.
+pub(crate) async fn run_subagent_delegation_with_parent_context(
+    config: Arc<Config>,
+    definition: AgentDefinition,
+    task_prompt: String,
+    max_revisions: usize,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> Result<DelegationState, String> {
     let thread_id = format!("delegrun-{}", uuid::Uuid::new_v4());
     // The graph and every stage share this cancellation token. A stage gets an
     // owned host carrier before it enters `run_subagent`, rather than making a
     // fresh context after the graph has spawned work.
-    let cancellation = CancellationToken::new();
+    let parent_context = run_context.parent.clone();
+    let stage_context = run_context.clone();
+    let graph_cancellation = run_context.cancellation.clone();
     // Durable graph checkpoints ride the crate's `SqliteCheckpointer` (issue
     // #4249, 04.3) at a dedicated `graph_checkpoints.db` under the workspace —
     // a separate SQLite file from OpenHuman's session-db pool, so the crate's
@@ -93,18 +124,15 @@ pub(crate) async fn run_subagent_delegation(
         // Re-entrant per-stage worker: clones its captures each call so the graph
         // node handler stays `Fn` while each stage dispatches a fresh sub-agent.
         let parent_workspace_descriptor = parent_workspace_descriptor.clone();
-        let cancellation = cancellation.clone();
-        let stage_cancellation = cancellation.clone();
+        let stage_cancellation = graph_cancellation.clone();
         let run_stage = move |stage: DelegationStage, state: DelegationState| {
             let definition = definition.clone();
             let task = task_prompt.clone();
             let workspace_descriptor = parent_workspace_descriptor.clone();
             let cancellation = stage_cancellation.clone();
+            let mut run_context = stage_context.child();
             async move {
                 let prompt = build_stage_prompt(stage, &task, &state);
-                let mut run_context =
-                    crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
-                run_context.parent = current_parent();
                 run_context.workspace = workspace_descriptor.clone().or(run_context.workspace);
                 run_context.cancellation = cancellation;
                 match run_subagent(
@@ -135,7 +163,7 @@ pub(crate) async fn run_subagent_delegation(
             max_revisions,
             checkpointer: Some(checkpointer),
             thread_id: Some(thread_id),
-            cancel: cancellation,
+            cancel: graph_cancellation,
             // Automated (non-human-gated) delegation: the reviewer stage decides
             // approve/revise on its own. The durable human-approval interrupt
             // (see `tinyagents_graph::delegation::run_delegation_durable`) is opt-in and
@@ -150,8 +178,8 @@ pub(crate) async fn run_subagent_delegation(
             .map(|outcome| outcome.state)
     };
 
-    if current_parent().is_some() {
-        run.await
+    if let Some(parent) = parent_context {
+        with_parent_context(parent, run).await
     } else {
         let parent = build_root_parent(&config, "delegation_engine", "delegation", "delegation")
             .await

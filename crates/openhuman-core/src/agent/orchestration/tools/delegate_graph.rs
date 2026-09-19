@@ -11,11 +11,13 @@
 //! loop; use `spawn_subagent` for a single focused hand-off.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::orchestration::delegation::run_subagent_delegation;
+use crate::agent::orchestration::delegation::run_subagent_delegation_with_parent_context;
 use crate::config::Config;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
@@ -26,6 +28,41 @@ const MAX_MAX_REVISIONS: usize = 5;
 
 /// Runs the durable multi-stage delegation graph for a chosen sub-agent.
 pub struct DelegateGraphTool;
+
+/// Typed harness dispatch for the durable graph delegation tool. This must be
+/// registered before the synthesized `delegate_*` family: `delegate_graph`
+/// has its own plan→execute→review semantics and is not an archetype target.
+pub(crate) struct DelegateGraphDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl DelegateGraphDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for DelegateGraphDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        DelegateGraphTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl Default for DelegateGraphTool {
     fn default() -> Self {
@@ -110,6 +147,23 @@ impl Tool for DelegateGraphTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
+        )
+        .await
+    }
+}
+
+impl DelegateGraphTool {
+    /// Execute the concrete durable graph with an explicit child carrier.
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
         let agent_id = match args.get("agent_id").and_then(|v| v.as_str()) {
             Some(s) if !s.trim().is_empty() => s.trim().to_string(),
             _ => return Ok(ToolResult::error("delegate: `agent_id` is required.")),
@@ -150,12 +204,15 @@ impl Tool for DelegateGraphTool {
             }
         };
 
-        match run_subagent_delegation(
+        match run_subagent_delegation_with_parent_context(
             config,
             definition,
             task,
             max_revisions,
-            tool_context.and_then(|ctx| ctx.workspace().cloned()),
+            tool_context
+                .and_then(|ctx| ctx.workspace().cloned())
+                .or_else(|| run_context.workspace.clone()),
+            run_context,
         )
         .await
         {
