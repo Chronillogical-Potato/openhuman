@@ -36,7 +36,7 @@ use crate::agent::messages::ChatMessage;
 use crate::agent::tinyagents::TurnModelSource;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::ModelRequest;
-use tinytools::{Tool, ToolCategory, ToolResult};
+use tinytools::{Tool, ToolCallOptions, ToolCategory, ToolResult, ToolRunContext};
 
 // ── Tunables ──────────────────────────────────────────────────────────
 
@@ -198,6 +198,27 @@ impl Tool for ExtractFromResultTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        self.execute_inner(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_inner(args, context.and_then(ToolRunContext::thread_id))
+            .await
+    }
+}
+
+impl ExtractFromResultTool {
+    async fn execute_inner(
+        &self,
+        args: Value,
+        thread_id: Option<&str>,
+    ) -> anyhow::Result<ToolResult> {
+        let thread_id = thread_id.map(str::to_owned);
         let result_id = args.get("result_id").and_then(|v| v.as_str()).unwrap_or("");
         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -235,7 +256,12 @@ impl Tool for ExtractFromResultTool {
                 "[extract_from_result] single-shot extraction"
             );
             return self
-                .extract_single_shot(&cached.tool_name, &cached.content, query)
+                .extract_single_shot(
+                    &cached.tool_name,
+                    &cached.content,
+                    query,
+                    thread_id.as_deref(),
+                )
                 .await;
         }
 
@@ -345,6 +371,7 @@ impl Tool for ExtractFromResultTool {
                         Err(s) => Err(s.as_str()),
                     },
                     &model,
+                    thread_id.as_deref(),
                 );
 
                 // The per-chunk result is the fan-out's *item*, not its error:
@@ -416,6 +443,7 @@ impl ExtractFromResultTool {
         tool_name: &str,
         content: &str,
         query: &str,
+        thread_id: Option<&str>,
     ) -> anyhow::Result<ToolResult> {
         let user_prompt = format!(
             "Tool name: {tool_name}\n\nQuery: {query}\n\n\
@@ -458,6 +486,7 @@ impl ExtractFromResultTool {
                 Err(s) => Err(s.as_str()),
             },
             &self.model,
+            thread_id,
         );
 
         match provider_result {
@@ -499,6 +528,7 @@ fn write_extract_transcript(
     user_prompt: &str,
     assistant_output: Result<&str, &str>,
     model: &str,
+    thread_id: Option<&str>,
 ) {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -586,7 +616,7 @@ fn write_extract_transcript(
         output_tokens: 0,
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
-        thread_id: crate::agent::tinyagents::thread_context::current_thread_id(),
+        thread_id: thread_id.map(str::to_owned),
         task_id: None,
     };
 
