@@ -335,18 +335,33 @@ module release before migrating a host call to it.
 
 ## Backend API
 
-Backend calls use the vendored `tinyhumans-sdk`. Add missing backend routes to
-that SDK rather than recreating them in `crates/openhuman-core/src/api/`.
+The core does not depend on `tinyhumans-sdk`. It reaches the hosted backend
+only through the port `crates/openhuman-core/src/api/transport/`
+(`BackendTransport`, `BackendRequest`, `BackendTransportError`); the SDK-backed
+implementation is `crates/openhuman-tinyhumans` (`SdkBackendTransport`), which
+sits above `openhuman-embed` and is installed once per process
+(`openhuman_tinyhumans::install`, or `RuntimeBuilder` for library hosts, or
+`CoreBuilder::backend_transport`). A core with no transport installed runs
+agents, memory, tools and RPC without any TinyHumans connection and answers
+backend-touching calls with `BackendApiError::BackendUnavailable` /
+`BACKEND_UNAVAILABLE:`. Never add `tinyhumans-sdk` back to the core; the only
+crates allowed to depend on it are `openhuman-tinyhumans` and, until it is
+merged in, `openhuman-session`.
+
+Add missing backend routes to the vendored SDK (its unexposed-route registry
+is the route policy the transport enforces) and name them from the core;
+do not recreate route implementations in `crates/openhuman-core/src/api/`.
 
 `crates/openhuman-core/src/api/` owns OpenHuman session-token lookup, base URL
-selection, transport configuration, and error classification. Authenticated
-`BackendOAuthClient` requests go through `authed_json`, whose private
-`finish_authed_json` (`crates/openhuman-core/src/api/rest.rs`) classifies
-transient transport failures and maps 401/404 responses to typed
-`BackendApiError` variants; `IntegrationClient::map_sdk_error`
+selection, attribution headers and client profiles (`headers.rs`), and error
+classification. Authenticated `BackendOAuthClient` requests go through
+`authed_json`, whose private `finish_authed_json`
+(`crates/openhuman-core/src/api/rest.rs`) classifies transient transport
+failures and maps 401/404 responses to typed `BackendApiError` variants;
+`IntegrationClient::map_transport_error`
 (`crates/openhuman-core/src/integrations/client/errors.rs`) plays the same
-role for integrations. Route new SDK calls through those helpers instead of
-matching `tinyhumans_sdk::Error` by hand.
+role for integrations. Route new backend calls through those helpers instead
+of matching `BackendTransportError` by hand.
 
 Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 
