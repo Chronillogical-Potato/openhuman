@@ -505,7 +505,7 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
         max_input_tokens: Some(u64::from(price.context_window)),
         max_output_tokens: None,
         deprecation_date: None,
-        pricing: tinyagents_registry::ModelPricing {
+        pricing: tinyagents_harness::cost::ModelPricing {
             input_per_token: per_token(price.input_per_mtok_usd),
             output_per_token: per_token(price.output_per_mtok_usd),
             cache_read_input_per_token: per_token(price.cached_input_per_mtok_usd),
@@ -570,7 +570,7 @@ fn local_catalog_entry(model: &LocalCatalogModel) -> tinyagents_registry::ModelC
         deprecation_date: None,
         // Local runtimes are not billed per token; leave every price unset (not
         // zero — `None` means "not applicable", not "free of charge").
-        pricing: tinyagents_registry::ModelPricing::default(),
+        pricing: tinyagents_harness::cost::ModelPricing::default(),
         capabilities: tinyagents_registry::ModelCapabilities {
             streaming: model.streaming,
             tool_calling: model.tool_calling,

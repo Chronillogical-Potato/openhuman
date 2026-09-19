@@ -11,7 +11,7 @@ use tinyagents_registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
 
-use crate::agent::tinyagents::tools::{EarlyExitHook, SharedToolAdapter};
+use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
@@ -79,7 +79,9 @@ pub(super) fn register_turn_tools_and_agents(
             );
         }
         if !registered.contains(name) && admitted && !spawn_stripped {
-            if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.to_vec(), name) {
+            if let Some(mut adapter) =
+                CanonicalSharedToolAdapter::for_name(tool_sets.to_vec(), name)
+            {
                 if early_exit_set.contains(name) {
                     if let Some(hook) = early_exit_hook {
                         adapter = adapter.with_early_exit(hook.clone());
@@ -169,7 +171,7 @@ pub(super) fn register_turn_tools_and_agents(
     // into that stream. The harness is deliberately NOT switched over to these
     // projections yet — that glue swap is explicitly deferred.
     let projected_models = capability_registry.to_model_registry();
-    let projected_tools = capability_registry.to_tool_registry();
+    let projected_tools = capability_registry.to_tool_registry::<()>();
     tracing::debug!(
         models = projected_models.names().len(),
         tools = projected_tools.names().len(),

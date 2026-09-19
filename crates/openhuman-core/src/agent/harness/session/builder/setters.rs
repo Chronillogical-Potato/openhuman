@@ -203,7 +203,7 @@ impl AgentBuilder {
     /// tools resolve their default cwd to the profile's dedicated workspace.
     pub fn workspace_descriptor(
         mut self,
-        descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
+        descriptor: Option<tinytools::WorkspaceDescriptor>,
     ) -> Self {
         self.workspace_descriptor = descriptor;
         self

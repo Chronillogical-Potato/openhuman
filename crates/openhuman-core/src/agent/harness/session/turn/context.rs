@@ -9,7 +9,6 @@ use crate::agent::prompts::{
 };
 use crate::memory::MemoryCategory;
 use crate::tools::agent_policy::render_tool_policy_boundary;
-use tinytools::Tool;
 
 use anyhow::Result;
 

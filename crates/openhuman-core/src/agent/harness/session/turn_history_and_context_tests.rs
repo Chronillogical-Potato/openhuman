@@ -118,10 +118,9 @@ fn build_parent_context_propagates_own_descriptor_on_root_turn() {
     // reaches subagents spawned via spawn_subagent/spawn_async_subagent, and they
     // silently fall back to the shared action_dir instead of
     // `<action_dir>/profiles/<id>`.
-    let descriptor = tinyagents_harness::workspace::WorkspaceDescriptor::new(
-        std::path::PathBuf::from("/tmp/act/profiles/alice"),
-    )
-    .with_policy_id("openhuman.profile:alice");
+    let descriptor =
+        tinytools::WorkspaceDescriptor::new(std::path::PathBuf::from("/tmp/act/profiles/alice"))
+            .with_policy_id("openhuman.profile:alice");
 
     let mut agent = make_agent(None);
     // No ambient parent context is installed in this test, so current_parent()

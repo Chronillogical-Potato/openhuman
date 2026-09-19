@@ -19,8 +19,8 @@
 //!
 //! 1. **`State` erasure.** The trait is generic over the harness state
 //!    (`ModelResolver<State>` must return `Arc<dyn ChatModel<State>>`), but
-//!    every model OpenHuman builds is a `ChatModel<()>` — the core's harness
-//!    carries its per-turn context in task-locals and `RunContext`, not in a
+//!    every model OpenHuman builds is a `ChatModel<()>` — the core carries
+//!    per-turn values explicitly in `OpenHumanRunContext` and `RunContext`, not in a
 //!    typed state value. [`StatelessModel`] bridges the two: it implements
 //!    `ChatModel<State>` for *any* `State` by discarding the state reference and
 //!    invoking the inner model with `&()`. That is lossless today precisely
@@ -205,7 +205,7 @@ fn workload_role_for(req: &ModelResolveRequest) -> &'static str {
 ///
 /// Not a general-purpose adapter: it is sound only because OpenHuman's models
 /// genuinely ignore the harness state (they carry per-turn context in
-/// task-locals and `RunContext`). Both `invoke` and `stream` are forwarded so a
+/// `OpenHumanRunContext` and `RunContext`). Both `invoke` and `stream` are forwarded so a
 /// streaming provider keeps streaming — falling through to the trait's default
 /// `stream` would silently downgrade every resolved model to replayed unary.
 struct StatelessModel {

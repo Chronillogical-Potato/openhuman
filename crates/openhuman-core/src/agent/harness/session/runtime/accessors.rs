@@ -376,10 +376,7 @@ impl Agent {
     /// still decided by its [`SecurityPolicy`](crate::security::SecurityPolicy),
     /// so a caller that wants tools rooted somewhere new must build the agent
     /// from a config whose `action_dir` already permits it.
-    pub fn set_workspace_descriptor(
-        &mut self,
-        descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
-    ) {
+    pub fn set_workspace_descriptor(&mut self, descriptor: Option<tinytools::WorkspaceDescriptor>) {
         self.workspace_descriptor = descriptor;
     }
 

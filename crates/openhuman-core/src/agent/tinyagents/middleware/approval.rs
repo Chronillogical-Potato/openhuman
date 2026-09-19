@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use crate::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
@@ -24,7 +24,7 @@ use tinytools::Tool;
 /// once the tool resolves.
 ///
 /// This replaces the inline approval block that used to live in
-/// `execute_openhuman_tool`, giving approval a stable middleware name and
+/// canonical tool dispatch, giving approval a stable middleware name and
 /// letting it short-circuit cleanly. Tool-*internal* security (path/command
 /// policy via `live_policy`) stays inside each tool — it needs tool-specific
 /// operation semantics the harness boundary can't reconstruct generically.
@@ -119,14 +119,7 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
                             reason = %reason,
                             "[tinyagents::mw] approval gate denied tool call"
                         );
-                        return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                            call_id: call.id,
-                            name: call.name,
-                            content: reason.clone(),
-                            raw: None,
-                            error: Some(reason),
-                            elapsed_ms: 0,
-                        }));
+                        return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(reason)));
                     }
                     GateOutcome::Allow => audit_id = request_id,
                 }
@@ -145,12 +138,13 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
         if let Some(id) = audit_id {
             if let Some(gate) = ApprovalGate::try_global() {
                 if let MiddlewareToolOutcome::Result(res) = &outcome {
-                    let exec = if res.error.is_some() {
+                    let exec = if res.is_error {
                         ExecutionOutcome::Failure
                     } else {
                         ExecutionOutcome::Success
                     };
-                    gate.record_execution(&id, exec, res.error.as_deref());
+                    let error = res.is_error.then(|| res.output());
+                    gate.record_execution(&id, exec, error.as_deref());
                 }
             }
         }

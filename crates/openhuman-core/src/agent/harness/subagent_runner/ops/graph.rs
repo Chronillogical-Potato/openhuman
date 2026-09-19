@@ -12,7 +12,7 @@
 //! are removed); `run_typed_mode` calls it unconditionally.
 //!
 //! **Available tools.** The sub-agent reuses the parent's harness tools plus the
-//! per-spawn dynamic tools, advertised via [`SharedToolAdapter`] over the shared
+//! per-spawn dynamic tools, advertised via the canonical shared-tool adapter over the shared
 //! `Arc<Vec<Box<dyn Tool>>>` tool sets (`[dynamic_tools, parent_tools]` — dynamic
 //! first so a shadowing dynamic tool executes, matching advertisement), filtered
 //! by `allowed_names`. `ask_user_clarification` is the early-exit tool.

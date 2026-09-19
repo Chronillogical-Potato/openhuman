@@ -13,8 +13,8 @@ use std::sync::Arc;
 use tinyagents_graph::export::GraphTopology;
 use tinyagents_graph::{ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult};
 use tinyagents_harness::retry::RetryPolicy;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_harness::{CancellationToken, TinyAgentsError};
+use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::definition::AgentDefinition;

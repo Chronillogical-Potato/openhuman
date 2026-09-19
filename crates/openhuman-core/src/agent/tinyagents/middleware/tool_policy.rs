@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
 use tinytools::Tool;
@@ -178,17 +178,9 @@ impl ToolPolicyMiddleware {
             &is_callable,
             &route,
         );
-        let (content, error) = match rendered {
-            Ok(text) => (text, None),
-            Err(message) => (message.clone(), Some(message)),
-        };
-        Some(TaToolResult {
-            call_id: call.id.clone(),
-            name: call.name.clone(),
-            content,
-            raw: None,
-            error,
-            elapsed_ms: 0,
+        Some(match rendered {
+            Ok(text) => TaToolResult::success(text),
+            Err(message) => TaToolResult::error(message),
         })
     }
 
@@ -328,14 +320,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 channel = self.channel.as_str(),
                 "[tinyagents::mw] tool blocked by channel permission ceiling"
             );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: message.clone(),
-                raw: None,
-                error: Some(message),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(message)));
         }
 
         let context = ToolCallContext::session(
@@ -384,14 +369,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 },
             }
             .render();
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: content.clone(),
-                raw: None,
-                error: Some(content),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(content)));
         }
 
         // `use_skill`'s disclosure half (a `skill` with no `tool`) renders its

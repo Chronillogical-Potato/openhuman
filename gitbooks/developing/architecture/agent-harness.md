@@ -486,9 +486,21 @@ Every provider response carries a `UsageInfo` block - input tokens, output token
 
 When the backend doesn't surface a charged amount (older builds, providers that don't bill through it), a small per-tier rate table provides a token-rate floor estimate. Direct cost from the backend always wins when available.
 
-## Fork context - KV-cache reuse across the harness
+## Explicit run context and host capabilities
 
-The harness uses a task-local `ParentExecutionContext` to thread parent state into sub-agents without exploding every function signature. The same pattern carries the current sandbox mode, the interrupt fence, and the stop-hook list. Sub-agents that inherit the parent's provider, model, and prompt prefix get to **share the parent's KV-cache prefix** on the inference backend - measurably cheaper than re-prefilling from scratch.
+Every TinyAgents turn receives an explicit `OpenHumanRunContext`, converted to
+the canonical `RunContext`. It carries OpenHuman-only values such as origin,
+parent execution state, progress, attachment/artifact scope, dispatch and
+recency state, sandbox/depth, route observation, cancellation, thread,
+workspace and stop hooks. Child contexts inherit shared tree handles while
+isolating child route observation and usage accounting, so a child cannot
+overwrite the parent turn's persisted facts.
+
+`OpenHumanHostBundleFactory` is the one host composition point. It constructs
+the context, definition, security, model, memory, budget, progress, learning,
+tool-outcome and experience adapters from the same session/runtime inputs.
+OpenHuman retains all policy decisions; TinyAgents receives only the resulting
+capabilities and canonical run context.
 
 ## Self-healing recap
 

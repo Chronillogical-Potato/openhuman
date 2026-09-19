@@ -15,9 +15,9 @@ use tinyagents_harness::no_progress::{
     fingerprint_arguments, SuccessfulRepeat, SuccessfulRepeatTracker,
 };
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::message::{ContentBlock, Message};
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinytools::ToolResult as TaToolResult;
 
 use super::loop_guards::is_repeat_call_exempt;
 use crate::agent::context::CLEARED_PLACEHOLDER;
@@ -218,14 +218,15 @@ impl Middleware<()> for RepeatProgressMiddleware {
             assistant_visible_text(&response.message).trim(),
             call_sig
         );
-        // Per-call signatures for the recurrence ledger, keyed by `call_id` so
-        // each result can be matched to the arguments that produced it.
+        // Per-tool signatures for the recurrence ledger. The canonical
+        // post-tool hook supplies the resolved tool name rather than copying
+        // transport call ids into `ToolResult`.
         let call_sigs = tool_calls
             .iter()
             .filter(|call| !is_repeat_call_exempt(&call.name))
             .map(|call| {
                 (
-                    call.id.clone(),
+                    call.name.clone(),
                     format!(
                         "{}\u{1}{}",
                         call.name,
@@ -258,6 +259,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         // Fold this result into the pending batch; the call guard only acts once
@@ -271,12 +273,15 @@ impl Middleware<()> for RepeatProgressMiddleware {
             };
             let already_halted = batch.halted;
             let mut recurrence = SuccessfulRepeat::Continue;
-            if result.error.is_some() {
+            if result.is_error {
                 batch.all_ok = false;
-            } else if let Some(sig) = batch.call_sigs.get(&result.call_id) {
-                recurrence = self.state.tracker.record_call_outcome(sig, &result.content);
+            } else if let Some(sig) = batch.call_sigs.get(tool_name) {
+                recurrence = self.state.tracker.record_call_outcome(
+                    sig,
+                    &crate::agent::tinyagents::middleware::tool_result_text(result),
+                );
                 if let Ok(mut recorded) = self.state.recorded.lock() {
-                    recorded.insert(result.call_id.clone());
+                    recorded.insert(tool_name.to_string());
                 }
             }
             if matches!(recurrence, SuccessfulRepeat::Halt(_)) {
@@ -316,7 +321,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
             _ => return Ok(()),
         };
         tracing::warn!(
-            tool = %result.name,
+            tool = tool_name,
             "[tinyagents::mw] crate successful-repeat tracker halted the run"
         );
         self.halt(summary);

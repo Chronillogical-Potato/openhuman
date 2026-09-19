@@ -498,7 +498,7 @@ pub(super) fn assemble_turn_harness(
     // Phase 1): an external-effect tool intercepts through the global
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
     // an approved call records a terminal audit row. Replaces the inline approval
-    // block that used to live in `execute_openhuman_tool`.
+    // block that used to live in the legacy tool adapter.
     harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
         tool_sets.clone(),
     )));

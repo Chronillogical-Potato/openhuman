@@ -612,7 +612,7 @@ fn pool_outcome_to_result(
 fn node_timeout_policy(args: &serde_json::Value) -> ToolTimeout {
     match args.get("timeout_secs").and_then(|v| v.as_u64()) {
         None | Some(0) => ToolTimeout::Unbounded,
-        Some(secs) => ToolTimeout::Secs(secs.min(NODE_TIMEOUT_MAX_SECS)),
+        Some(secs) => ToolTimeout::Millis(secs.min(NODE_TIMEOUT_MAX_SECS).saturating_mul(1000)),
     }
 }
 

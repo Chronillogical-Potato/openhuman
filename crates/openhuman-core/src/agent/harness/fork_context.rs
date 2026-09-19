@@ -18,7 +18,7 @@ use crate::skills::Workflow;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
 use tinytools::{Tool, ToolSpec};
 
 // ─────────────────────────────────────────────────────────────────────────────

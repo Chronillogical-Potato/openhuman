@@ -172,9 +172,7 @@ pub async fn agent_chat_for(
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
             // default cwd here, and so spawned sub-agents inherit the same root.
-            agent.set_workspace_descriptor(Some(
-                tinyagents_harness::workspace::WorkspaceDescriptor::new(root.clone()),
-            ));
+            agent.set_workspace_descriptor(Some(tinytools::WorkspaceDescriptor::new(root.clone())));
             agent
         }
         None => build_turn_agent(config, &target)?,

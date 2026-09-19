@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyagents_harness::tool::ToolResult as TaToolResult;
+use tinytools::ToolResult as TaToolResult;
 
 /// `after_tool`: capture each tool call's execution outcome (success + content)
 /// into a shared sink before the harness folds the result into a `Message::tool`
@@ -47,6 +47,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
@@ -59,17 +60,17 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         // carry a `Workaround:` suffix) are left untouched. This runs before
         // classification below, which still recognises the preserved marker.
         if let Some(enriched) = crate::agent::tinyagents::policy_denial::maybe_enrich_policy_block(
-            &result.name,
-            &result.content,
+            tool_name,
+            &crate::agent::tinyagents::middleware::tool_result_text(result),
         ) {
             tracing::debug!(
-                tool = result.name.as_str(),
+                tool = tool_name,
                 "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
             );
-            result.content = enriched;
+            crate::agent::tinyagents::middleware::replace_tool_result_text(result, enriched);
         }
 
-        let success = result.error.is_none();
+        let success = !result.is_error;
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. The classifier
         // owns all marker precedence now (policy-blocked / policy-denied / TTL
@@ -83,14 +84,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         let failure = if success {
             None
         } else {
-            let error = result.error.as_deref().unwrap_or("");
-            let combined: std::borrow::Cow<'_, str> = if error.is_empty() {
-                std::borrow::Cow::Borrowed(result.content.as_str())
-            } else if result.content.is_empty() || result.content == error {
-                std::borrow::Cow::Borrowed(error)
-            } else {
-                std::borrow::Cow::Owned(format!("{error}\n{}", result.content))
-            };
+            let combined = crate::agent::tinyagents::middleware::tool_result_text(result);
             let timed_out = combined.contains("timed out");
             Some(crate::tools::status::classify(&combined, timed_out))
         };
@@ -99,21 +93,23 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             // for old/deserialized completion events; TinyAgents 1.6 supplies
             // these fields directly on live `ToolCompleted` events.
             map.insert(
-                result.call_id.clone(),
+                tool_name.to_string(),
                 (
                     success,
                     failure,
-                    result.elapsed_ms,
-                    result.content.chars().count(),
+                    0,
+                    crate::agent::tinyagents::middleware::tool_result_text(result)
+                        .chars()
+                        .count(),
                 ),
             );
         }
         if let Ok(mut sink) = self.sink.lock() {
             sink.push(crate::agent::tinyagents::ToolCallOutcome {
-                call_id: result.call_id.clone(),
-                name: result.name.clone(),
+                call_id: tool_name.to_string(),
+                name: tool_name.to_string(),
                 success,
-                content: result.content.clone(),
+                content: crate::agent::tinyagents::middleware::tool_result_text(result),
             });
         }
         Ok(())

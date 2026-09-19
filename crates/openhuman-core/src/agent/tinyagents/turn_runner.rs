@@ -19,8 +19,8 @@ use tinyagents_harness::agent_loop::AgentStreamItem;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::events::EventSink;
 use tinyagents_harness::store::StoreRegistry;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_registry::DiagnosticSeverity;
+use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
@@ -32,8 +32,6 @@ use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::agent::tinyagents::middleware::TurnContextMiddleware;
 use crate::agent::tinyagents::observability::{CapPauser, OpenhumanEventBridge, SubagentScope};
 use crate::agent::tinyagents::run_cancellation_context::with_run_cancellation;
-#[cfg(test)]
-use crate::agent::tinyagents::tools::ToolAdapter;
 use crate::agent::tinyagents::turn_models::TurnModels;
 use crate::agent::tinyagents::turn_outcome::TinyagentsTurnOutcome;
 use crate::agent::tinyagents::turn_policy::effective_max_iterations;
@@ -78,7 +76,7 @@ pub(crate) async fn run_turn_via_tinyagents(
         .set_default_model(model);
     let tool_count = resolved_tools.len();
     for tool in resolved_tools {
-        harness.register_tool(Arc::new(ToolAdapter::new(tool)));
+        harness.register_tool(tool);
     }
 
     // Bound the run: one model call per legacy "iteration", and allow generous
@@ -171,7 +169,7 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// exactly `specs` (already filtered/deduped by the caller's visibility rules).
 ///
 /// This is the entry point the channel/sub-agent routes use to retire the
-/// in-house `live` turn machine: it registers a [`SharedToolAdapter`](super::tools::SharedToolAdapter)
+/// in-house `live` turn machine: it registers a canonical shared-tool adapter
 /// per advertised spec so the same `Arc`-shared tools the legacy loop runs are
 /// reused without cloning.
 ///
@@ -595,7 +593,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
                         terminal = Some(Ok(*run));
                         break;
                     }
-                    AgentStreamItem::Failed(error) => {
+                    AgentStreamItem::Failed { error, .. } => {
                         terminal = Some(Err(tinyagents_harness::TinyAgentsError::Model(error)));
                         break;
                     }

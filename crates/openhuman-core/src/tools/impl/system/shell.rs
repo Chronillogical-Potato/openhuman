@@ -231,7 +231,7 @@ impl Tool for ShellTool {
         match args.get("timeout_secs").and_then(|v| v.as_u64()) {
             // `0` (or absent) means "no deadline".
             None | Some(0) => ToolTimeout::Unbounded,
-            Some(secs) => ToolTimeout::Secs(secs),
+            Some(secs) => ToolTimeout::Millis(secs.saturating_mul(1000)),
         }
     }
 

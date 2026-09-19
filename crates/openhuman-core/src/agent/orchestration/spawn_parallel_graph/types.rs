@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
 
 use super::request::ParallelAgentTask;
 use crate::agent::harness::definition::AgentDefinition;

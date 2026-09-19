@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 /// Delivers tool lifecycle events to hooks installed by an embedding host.
 pub(crate) struct EmbedderToolHooksMiddleware {
@@ -103,7 +103,7 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
         self.arguments_by_call_id
             .lock()
             .expect("embedder tool-hook arguments poisoned")
-            .insert(call.id.clone(), call.arguments.clone());
+            .insert(call.name.clone(), call.arguments.clone());
         Ok(())
     }
 
@@ -111,23 +111,30 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         let arguments = self
             .arguments_by_call_id
             .lock()
             .expect("embedder tool-hook arguments poisoned")
-            .remove(&result.call_id)
+            .remove(tool_name)
             .unwrap_or(serde_json::Value::Null);
         let context = crate::agent::hooks::ToolHookContext {
             event: crate::agent::hooks::ToolHookEvent::PostToolUse,
-            call_id: result.call_id.clone(),
-            tool_name: result.name.clone(),
+            // The canonical post-tool hook supplies the canonical tool name;
+            // call ids are intentionally not duplicated in ToolResult.
+            call_id: tool_name.to_string(),
+            tool_name: tool_name.to_string(),
             arguments,
-            success: Some(result.error.is_none()),
-            duration_ms: Some(result.elapsed_ms),
-            output: Some(result.content.clone()),
-            error: result.error.clone(),
+            success: Some(!result.is_error),
+            duration_ms: None,
+            output: Some(crate::agent::tinyagents::middleware::tool_result_text(
+                result,
+            )),
+            error: result
+                .is_error
+                .then(|| crate::agent::tinyagents::middleware::tool_result_text(result)),
             session_id: None,
             agent_id: None,
         };
@@ -144,8 +151,10 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
                         chars = additional.chars().count(),
                         "[tinyagents::mw] tool hook appended context to the result"
                     );
-                    result.content.push_str("\n\n");
-                    result.content.push_str(additional.trim_end());
+                    crate::agent::tinyagents::middleware::append_tool_result_text(
+                        result,
+                        format!("\n\n{}", additional.trim_end()),
+                    );
                 }
             }
         }

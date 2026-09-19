@@ -4,8 +4,8 @@
 
 use std::path::PathBuf;
 
-use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_harness::CancellationToken;
+use tinytools::WorkspaceDescriptor;
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::current_parent;

@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{AgentRun, Middleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 /// Agents are told to follow a **read-index → dedupe → write → update-index**
 /// cycle around durable memory, but the contract was never enforced, so it was
@@ -70,7 +70,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
             crate::agent::harness::memory_protocol::classify_memory_op(&call.name, &call.arguments);
         if op != crate::agent::harness::memory_protocol::MemoryOp::Other {
             if let Ok(mut ops) = self.pending_ops.lock() {
-                ops.insert(call.id.clone(), op);
+                ops.insert(call.name.clone(), op);
             }
         }
         Ok(())
@@ -80,6 +80,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         // Consume the op captured for this call (removing it so the map can't
@@ -88,13 +89,13 @@ impl Middleware<()> for MemoryProtocolMiddleware {
             .pending_ops
             .lock()
             .ok()
-            .and_then(|mut ops| ops.remove(&result.call_id));
+            .and_then(|mut ops| ops.remove(tool_name));
         let Some(op) = op else {
             return Ok(());
         };
         // Only successful memory ops advance the protocol — a failed write did
         // not mutate memory and must not demand an index update.
-        if result.error.is_some() {
+        if result.is_error {
             return Ok(());
         }
         let observation = {
@@ -104,17 +105,17 @@ impl Middleware<()> for MemoryProtocolMiddleware {
             };
             tracker.observe(op)
         };
-        if let Some(note) = observation.guidance(&result.name) {
+        if let Some(note) = observation.guidance(tool_name) {
             tracing::debug!(
-                tool = result.name.as_str(),
+                tool = tool_name,
                 missing_index_read = observation.missing_index_read,
                 index_drift = observation.index_drift,
                 "[tinyagents::mw] memory-protocol guidance appended to tool result"
             );
-            if !result.content.is_empty() {
-                result.content.push_str("\n\n");
-            }
-            result.content.push_str(&note);
+            crate::agent::tinyagents::middleware::append_tool_result_text(
+                result,
+                format!("\n\n{note}"),
+            );
         }
         Ok(())
     }

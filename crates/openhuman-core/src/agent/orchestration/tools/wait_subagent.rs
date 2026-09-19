@@ -69,11 +69,11 @@ impl Tool for WaitSubagentTool {
     /// Without this the harness kills the tool at the global `Inherit` timeout
     /// (120s by default) *before* the wait can return its "still running"
     /// success, so a legitimate long wait is reported as a tool failure. The
-    /// harness adds its own small grace on top of `Secs`, so the tool always
+    /// harness adds its own small grace on top of `Millis`, so the tool always
     /// gets to finish and report first. Same reasoning as
     /// `spawn_parallel_agents`, which opts out for the same class of bug.
     fn timeout_policy(&self, args: &serde_json::Value) -> ToolTimeout {
-        ToolTimeout::Secs(requested_timeout_secs(args))
+        ToolTimeout::Millis(requested_timeout_secs(args).saturating_mul(1000))
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

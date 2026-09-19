@@ -64,20 +64,6 @@
   },
   {
     "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/harness_tool_registration.rs",
-    "line": 14,
-    "text": "use crate::agent::tinyagents::tools::{EarlyExitHook, SharedToolAdapter};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/harness_tool_registration.rs",
-    "line": 82,
-    "text": "if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.to_vec(), name) {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/middleware/arg_recovery.rs",
     "line": 123,
     "text": ".map(|tool| crate::agent::tinyagents::convert::spec_to_schema(&tool.spec()))",
@@ -92,111 +78,6 @@
   },
   {
     "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools_tests.rs",
-    "line": 61,
-    "text": "execute_openhuman_tool(&HangingTool, call(\"hang\", serde_json::json!({})), None).await;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools_tests.rs",
-    "line": 75,
-    "text": "let result = execute_openhuman_tool(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 80,
-    "text": "pub(crate) struct ToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 85,
-    "text": "impl ToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 94,
-    "text": "impl Tool<()> for ToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 104,
-    "text": "super::convert::spec_to_schema(&self.inner.spec())",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 116,
-    "text": "Ok(execute_openhuman_tool(self.inner.as_ref(), call, None).await)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 125,
-    "text": "Ok(execute_openhuman_tool(self.inner.as_ref(), call, Some(&context)).await)",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 194,
-    "text": "pub(crate) async fn execute_openhuman_tool(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 322,
-    "text": "pub(crate) struct SharedToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 332,
-    "text": "impl SharedToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 348,
-    "text": "schema: super::convert::spec_to_schema(&spec),",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 363,
-    "text": "impl Tool<()> for SharedToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 398,
-    "text": "impl SharedToolAdapter {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/tools.rs",
-    "line": 411,
-    "text": "let result = execute_openhuman_tool(tool.as_ref(), call, context).await;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
     "line": 30,
     "text": "use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};",
@@ -205,28 +86,14 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 36,
-    "text": "use crate::agent::tinyagents::tools::ToolAdapter;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 81,
-    "text": "harness.register_tool(Arc::new(ToolAdapter::new(tool)));",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 203,
+    "line": 201,
     "text": "pub(crate) async fn run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 258,
+    "line": 256,
     "text": "} = assemble_turn_harness(",
     "occurrence": 1
   },
@@ -555,7 +422,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1514,
+    "line": 1513,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
@@ -1444,7 +1311,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 439,
+    "line": 441,
     "text": "super::record_resolved_provider_route(&self.provider, &self.model);",
     "occurrence": 1
   },
@@ -1619,28 +1486,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 478,
+    "line": 476,
     "text": ".then(crate::agent::harness::turn_dispatch_guard::current)",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 511,
+    "line": 509,
     "text": "}) = crate::agent::turn_origin::current()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 532,
+    "line": 530,
     "text": ".or_else(|| match crate::agent::turn_origin::current() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 587,
+    "line": 585,
     "text": "let run_result = with_run_cancellation(cancellation.clone(), async {",
     "occurrence": 1
   },
@@ -1927,28 +1794,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 219,
+    "line": 217,
     "text": "if let Some(tx) = crate::agent::progress_sink::current_progress_sink() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 230,
+    "line": 228,
     "text": "let run = crate::agent::turn_origin::with_origin(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 237,
+    "line": 235,
     "text": "crate::agent::tinyagents::thread_context::with_thread_id(id, run).await",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 295,
+    "line": 293,
     "text": "crate::agent::tinyagents::thread_context::with_thread_id(id, run).await",
     "occurrence": 1
   },
@@ -2312,7 +2179,7 @@
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/orchestration/worktree.rs",
-    "line": 56,
+    "line": 54,
     "text": "pub use tinyagents_harness::workspace::{",
     "occurrence": 1
   },

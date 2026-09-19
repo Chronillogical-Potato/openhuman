@@ -28,8 +28,8 @@ use tinyagents_graph::delegation::{
     DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
 };
 use tinyagents_graph::SqliteCheckpointer;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_harness::CancellationToken;
+use tinytools::WorkspaceDescriptor;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
 

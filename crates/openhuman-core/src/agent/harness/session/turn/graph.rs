@@ -13,7 +13,7 @@
 //! instead of erroring.
 //!
 //! **Available tools.** The agent's resolved harness tool set (`tools`),
-//! advertised via `SharedToolAdapter`
+//! advertised via the canonical shared-tool adapter
 //! and filtered by `visible_tool_names`. The chat turn surfaces clarifying
 //! questions inline rather than pausing, so it advertises **no early-exit
 //! tools**.
@@ -86,7 +86,7 @@ pub(crate) struct ChatTurnGraph {
     /// workspace — acting tools then resolve their default cwd to
     /// `<action_dir>/profiles/<id>` via `ToolExecutionContext.workspace`. `None`
     /// (the common case) keeps the shared-`action_dir` cwd behaviour.
-    pub workspace_descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
+    pub workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     /// Declared sandbox mode for the top-level agent. The chat path scopes it
     /// around the shared harness so acting tools see the same mode as workers.
     pub sandbox_mode: SandboxMode,

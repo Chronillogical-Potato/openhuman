@@ -11,10 +11,10 @@ use tinyagents_harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents_harness::steering::SteeringPolicy;
 use tinyagents_harness::subagent::SubAgent;
 use tinyagents_harness::testkit::{FakeTool, ScriptedModel, SlowModel};
-use tinyagents_harness::tool::ToolResult;
 use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolResult;
 
 const CAP: usize = 3;
 

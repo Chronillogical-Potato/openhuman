@@ -11,9 +11,9 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
 use tinyagents_harness::runtime::AgentHarness;
-use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
 use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
@@ -172,14 +172,15 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         // A tool result reaches a provider only with the next request, so it
         // also sits past `accepted_len` until that request is answered.
         if let Ok(mut guard) = self.sink.lock() {
             guard.messages.push(Message::tool(
-                result.call_id.clone(),
-                result.content.clone(),
+                tool_name,
+                crate::agent::tinyagents::middleware::tool_result_text(result),
             ));
         }
         Ok(())
@@ -379,7 +380,7 @@ impl Middleware<()> for HandoffMiddleware {
         .is_some()
         {
             if let Ok(mut reads) = self.artifact_reads.lock() {
-                reads.insert(call.id.clone());
+                reads.insert(call.name.clone());
             }
         }
         Ok(())
@@ -389,29 +390,30 @@ impl Middleware<()> for HandoffMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
+        tool_name: &str,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         let artifact_read = self
             .artifact_reads
             .lock()
-            .map(|mut reads| reads.remove(&result.call_id))
+            .map(|mut reads| reads.remove(tool_name))
             .unwrap_or(false);
         if artifact_read {
             tracing::debug!(
-                tool = %result.name,
-                call_id = %result.call_id,
+                tool = tool_name,
                 task_id = %self.task_id,
                 "[tinyagents::mw] artifact read: skipping result handoff so the artifact pager sees the bytes"
             );
             return Ok(());
         }
-        result.content = crate::agent::harness::subagent_runner::apply_handoff(
+        let handoff = crate::agent::harness::subagent_runner::apply_handoff(
             &self.cache,
-            &result.name,
+            tool_name,
             &self.task_id,
             &self.agent_id,
-            std::mem::take(&mut result.content),
+            crate::agent::tinyagents::middleware::tool_result_text(result),
         );
+        crate::agent::tinyagents::middleware::replace_tool_result_text(result, handoff);
         Ok(())
     }
 }

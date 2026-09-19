@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use tinytools::Tool;
 
@@ -61,14 +61,7 @@ impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
                 "Tool '{}' is only available via explicit CLI/RPC invocation, not in the autonomous agent loop.",
                 call.name
             );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: content.clone(),
-                raw: None,
-                error: Some(content),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(content)));
         }
         next.run(ctx, state, call).await
     }

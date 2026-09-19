@@ -76,8 +76,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tinyagents_definition::Result;
 use tinyagents_definition::{AgentDefinition, DefinitionRegistry};
-use tinyagents_harness::error::Result;
 
 use crate::agent::harness::definition::{
     AgentDefinition as HostAgentDefinition, AgentDefinitionRegistry, AgentTier, ModelSpec,

@@ -384,7 +384,7 @@ impl Agent {
             let before = tools.len();
             tools.retain(|tool| {
                 tool.permission_level() <= PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), ToolScope::CliRpcOnly)
+                    && !matches!(tool.scope(), tinytools::ToolScope::CliRpcOnly)
             });
             log::info!(
                 "[agent::builder] read-only tool filter applied: before={} after={}",
@@ -1481,7 +1481,7 @@ pub(crate) fn provider_role_for_definition(
 pub(crate) fn derive_profile_workspace_descriptor(
     action_dir: &std::path::Path,
     profile: Option<&crate::agent::profiles::AgentProfile>,
-) -> Option<tinyagents_harness::workspace::WorkspaceDescriptor> {
+) -> Option<tinytools::WorkspaceDescriptor> {
     let (profile_id, dir) = profile.and_then(|p| {
         crate::agent::profiles::dedicated_workspace_dir(action_dir, p)
             .map(|dir| (p.id.clone(), dir))
@@ -1504,13 +1504,12 @@ pub(crate) fn derive_profile_workspace_descriptor(
         "[profiles] session bound to dedicated workspace as default cwd"
     );
     Some(
-        tinyagents_harness::workspace::WorkspaceDescriptor::new(dir)
+        tinytools::WorkspaceDescriptor::new(dir)
             .with_policy_id(crate::agent::profiles::workspace_policy_id(&profile_id)),
     )
 }
 
-fn derive_turn_workspace_descriptor() -> Option<tinyagents_harness::workspace::WorkspaceDescriptor>
-{
+fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
     let root = crate::agent::turn_workspace::current()?;
     if !root.is_dir() {
         tracing::warn!(
@@ -1524,10 +1523,7 @@ fn derive_turn_workspace_descriptor() -> Option<tinyagents_harness::workspace::W
         root = %root.display(),
         "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
     );
-    Some(
-        tinyagents_harness::workspace::WorkspaceDescriptor::new(root)
-            .with_policy_id("turn-workspace"),
-    )
+    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }
 
 fn build_profile_security(

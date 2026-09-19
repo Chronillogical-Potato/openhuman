@@ -24,7 +24,7 @@ use tinytools_agent::dialect::{
 };
 
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
-use crate::inference::provider::{ChatResponse, ToolCall};
+use crate::inference::provider::ChatResponse;
 
 /// Convert the host provider response at its boundary into the canonical
 /// dialect input. The dialect crate owns all parsing after this field-wise map.

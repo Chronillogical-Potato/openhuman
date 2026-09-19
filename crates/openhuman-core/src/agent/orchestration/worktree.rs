@@ -39,10 +39,8 @@
 
 use std::path::{Path, PathBuf};
 
-use tinyagents_harness::tool::SandboxMode;
-use tinyagents_harness::workspace::{
-    GitWorktreeIsolation, WorkspaceDescriptor, WorkspaceIsolation,
-};
+use tinyagents_harness::workspace::{GitWorktreeIsolation, WorkspaceIsolation};
+use tinytools::{SandboxMode, WorkspaceDescriptor};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;

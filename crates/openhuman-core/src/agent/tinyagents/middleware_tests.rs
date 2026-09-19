@@ -16,10 +16,10 @@ use async_trait::async_trait;
 
 use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
 use tinyinference_llm::model::{ModelResponse, SegmentRole};
 use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
 use crate::agent::tinyagents::payload_summarizer::{

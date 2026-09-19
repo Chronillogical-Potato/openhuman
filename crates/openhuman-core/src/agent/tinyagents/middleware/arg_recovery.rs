@@ -110,7 +110,7 @@ impl Middleware<()> for ArgRecoveryMiddleware {
 /// tool sets.
 ///
 /// Built via the same [`spec_to_schema`](crate::agent::tinyagents::convert::spec_to_schema)
-/// conversion the runner uses for [`SharedToolAdapter::schema`], so the
+/// conversion the runner uses for canonical tool schemas, so the
 /// `parameters` we validate against are byte-identical to the ones the crate's
 /// fatal `validate_call` gate checks — otherwise our pre-validation could
 /// disagree with the crate and either miss a fatal case or stub a call the crate

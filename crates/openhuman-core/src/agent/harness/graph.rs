@@ -16,7 +16,7 @@
 //!
 //! **Available tools.** Reuses the bus handler's `Arc`-shared tool sets
 //! (`tools_registry: Arc<Vec<Box<dyn Tool>>>` + per-turn `extra_tools`),
-//! advertised via `SharedToolAdapter`
+//! advertised via the canonical shared-tool adapter
 //! and filtered by `visible_tool_names`. `ask_user_clarification` is the
 //! early-exit tool: it pauses the turn and returns its question as the turn's
 //! text, which the channel relays as the reply.

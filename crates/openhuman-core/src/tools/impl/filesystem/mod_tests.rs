@@ -10,7 +10,7 @@ use crate::security::policy::TrustedAccess;
 use std::path::Path;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::tool::ToolExecutionContext;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
 
 /// A run context carrying a workspace descriptor rooted at `root`, exactly as
 /// the session builder / sub-agent runner / `cwd` RPC param produce one.
