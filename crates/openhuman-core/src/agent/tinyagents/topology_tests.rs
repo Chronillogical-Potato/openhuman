@@ -22,7 +22,7 @@ fn all_topologies_includes_delegation_and_workflow_scheduler() {
     let reports = all_graph_topologies();
     for name in [
         "delegation",
-        "workflow_runs:scheduler",
+        "workflow_runs:scheduler_preview",
         "spawn_parallel_graph",
     ] {
         let report = reports

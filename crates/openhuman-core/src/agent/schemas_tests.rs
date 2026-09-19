@@ -105,7 +105,10 @@ async fn graph_topologies_handler_exports_structural_reports() {
         .filter_map(|g| g.get("name").and_then(Value::as_str))
         .collect();
     assert!(names.contains(&"delegation"), "saw {names:?}");
-    assert!(names.contains(&"workflow_runs:scheduler"), "saw {names:?}");
+    assert!(
+        names.contains(&"workflow_runs:scheduler_preview"),
+        "saw {names:?}"
+    );
     let agents = result
         .get("agents")
         .and_then(Value::as_array)
