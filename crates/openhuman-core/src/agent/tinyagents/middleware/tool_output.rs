@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::AgentEvent;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
@@ -145,7 +145,7 @@ impl Middleware<()> for ToolOutputMiddleware {
                 "[tinyagents::mw] call reads a persisted tool-result artifact"
             );
             if let Ok(mut reads) = self.artifact_reads.lock() {
-                reads.insert(call.name.clone(), read);
+                reads.insert(call.id.clone(), read);
             }
         }
         Ok(())
@@ -155,9 +155,11 @@ impl Middleware<()> for ToolOutputMiddleware {
         &self,
         ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         let mut content = crate::agent::tinyagents::middleware::tool_result_text(result);
         // A read of a persisted artifact is the model following the envelope's
         // `read_with` instruction. Every stage below would defeat it: the
@@ -169,7 +171,7 @@ impl Middleware<()> for ToolOutputMiddleware {
             .artifact_reads
             .lock()
             .ok()
-            .and_then(|mut reads| reads.remove(tool_name));
+            .and_then(|mut reads| reads.remove(&call_id));
         if let Some(read) = artifact_read {
             tracing::info!(
                 tool = tool_name,
@@ -365,7 +367,7 @@ impl Middleware<()> for ToolOutputMiddleware {
                 full_output,
                 self.artifact_store.as_ref(),
                 tool_name,
-                Some(tool_name),
+                Some(&call_id),
                 self.budget_bytes,
             )
             .await;
@@ -378,10 +380,10 @@ impl Middleware<()> for ToolOutputMiddleware {
                 );
                 if let Some(path) = outcome.artifact_path.as_deref() {
                     if let Some(store) = ctx.stores.get(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE) {
-                        let key = tool_name.to_string();
+                        let key = call_id.clone();
                         let mut fields = serde_json::Map::new();
                         fields.insert("tool".to_string(), tool_name.into());
-                        fields.insert("call_id".to_string(), tool_name.into());
+                        fields.insert("call_id".to_string(), call_id.clone().into());
                         fields.insert("artifact_path".to_string(), path.to_string().into());
                         fields.insert(
                             "original_bytes".to_string(),
@@ -396,12 +398,14 @@ impl Middleware<()> for ToolOutputMiddleware {
                         if let Err(err) = index_result {
                             tracing::warn!(
                                 tool = tool_name,
+                                call_id = %call_id,
                                 error = %err,
                                 "[tinyagents::mw] failed to index tool_result_artifact"
                             );
                         } else {
                             tracing::debug!(
                                 tool = tool_name,
+                                call_id = %call_id,
                                 artifact_path = %path,
                                 "[tinyagents::mw] indexed tool_result_artifact in run store"
                             );
@@ -435,5 +439,61 @@ impl Middleware<()> for ToolOutputMiddleware {
         crate::agent::tinyagents::middleware::replace_tool_result_text(result, content);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tinyagents_harness::context::{RunConfig, RunContext};
+
+    fn context() -> RunContext<()> {
+        RunContext::new(RunConfig::new("tool-output-identity-test"), ())
+    }
+
+    #[tokio::test]
+    async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
+        let temp = tempfile::tempdir().expect("temporary artifact root");
+        let middleware = ToolOutputMiddleware {
+            budget_bytes: 8,
+            payload_summarizer: None,
+            task_hint: None,
+            artifact_store: Some(ToolResultArtifactStore::new(
+                temp.path().to_path_buf(),
+                "identity-session",
+            )),
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
+            runtime_config: None,
+            tool_policies: HashMap::new(),
+            artifact_reads: Default::default(),
+        };
+        let mut ctx = context();
+
+        let first = ToolInvocationIdentity::new("echo-1", "echo");
+        let mut first_result = TaToolResult::success("first result is deliberately oversized");
+        middleware
+            .after_tool(&mut ctx, &(), &first, &mut first_result)
+            .await
+            .expect("first artifact is persisted");
+
+        let second = ToolInvocationIdentity::new("echo-2", "echo");
+        let mut second_result = TaToolResult::success("second result is deliberately oversized");
+        middleware
+            .after_tool(&mut ctx, &(), &second, &mut second_result)
+            .await
+            .expect("second artifact is persisted");
+
+        let root = temp
+            .path()
+            .join("artifacts/tool-results/identity-session/echo");
+        assert_eq!(
+            std::fs::read_to_string(root.join("echo-1.txt")).expect("first artifact"),
+            "first result is deliberately oversized"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("echo-2.txt")).expect("second artifact"),
+            "second result is deliberately oversized"
+        );
     }
 }

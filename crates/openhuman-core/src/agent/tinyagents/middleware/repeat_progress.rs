@@ -10,7 +10,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyagents_harness::no_progress::{
     fingerprint_arguments, SuccessfulRepeat, SuccessfulRepeatTracker,
 };
@@ -218,15 +218,14 @@ impl Middleware<()> for RepeatProgressMiddleware {
             assistant_visible_text(&response.message).trim(),
             call_sig
         );
-        // Per-tool signatures for the recurrence ledger. The canonical
-        // post-tool hook supplies the resolved tool name rather than copying
-        // transport call ids into `ToolResult`.
+        // Per-call signatures for the recurrence ledger. The invocation
+        // identity joins each post-tool result to the provider call id.
         let call_sigs = tool_calls
             .iter()
             .filter(|call| !is_repeat_call_exempt(&call.name))
             .map(|call| {
                 (
-                    call.name.clone(),
+                    call.id.clone(),
                     format!(
                         "{}\u{1}{}",
                         call.name,
@@ -259,9 +258,11 @@ impl Middleware<()> for RepeatProgressMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         // Fold this result into the pending batch; the call guard only acts once
         // the batch is complete so it sees whole-batch success.
         let (already_halted, recurrence, completed) = {
@@ -275,13 +276,13 @@ impl Middleware<()> for RepeatProgressMiddleware {
             let mut recurrence = SuccessfulRepeat::Continue;
             if result.is_error {
                 batch.all_ok = false;
-            } else if let Some(sig) = batch.call_sigs.get(tool_name) {
+            } else if let Some(sig) = batch.call_sigs.get(&call_id) {
                 recurrence = self.state.tracker.record_call_outcome(
                     sig,
                     &crate::agent::tinyagents::middleware::tool_result_text(result),
                 );
                 if let Ok(mut recorded) = self.state.recorded.lock() {
-                    recorded.insert(tool_name.to_string());
+                    recorded.insert(call_id);
                 }
             }
             if matches!(recurrence, SuccessfulRepeat::Halt(_)) {

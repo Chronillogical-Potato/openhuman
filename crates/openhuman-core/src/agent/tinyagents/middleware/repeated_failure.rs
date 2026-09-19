@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyagents_harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::message::Message as TaMessage;
@@ -235,7 +235,7 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         // The tool result carries no arguments, so capture a fingerprint here and
         // correlate it by call_id in `after_tool`.
         if let Ok(mut sigs) = self.arg_sigs.lock() {
-            sigs.insert(call.name.clone(), args_fingerprint(&call.arguments));
+            sigs.insert(call.id.clone(), args_fingerprint(&call.arguments));
         }
         Ok(())
     }
@@ -244,15 +244,16 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
         let content = crate::agent::tinyagents::middleware::tool_result_text(result);
         let arg_fp = self
             .arg_sigs
             .lock()
             .ok()
-            .and_then(|mut sigs| sigs.remove(tool_name))
+            .and_then(|mut sigs| sigs.remove(&invocation.call_id().to_string()))
             .unwrap_or_default();
         let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 

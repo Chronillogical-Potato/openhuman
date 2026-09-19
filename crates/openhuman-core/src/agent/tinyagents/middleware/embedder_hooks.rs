@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
@@ -103,7 +103,7 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
         self.arguments_by_call_id
             .lock()
             .expect("embedder tool-hook arguments poisoned")
-            .insert(call.name.clone(), call.arguments.clone());
+            .insert(call.id.clone(), call.arguments.clone());
         Ok(())
     }
 
@@ -111,20 +111,20 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let call_id = invocation.call_id().to_string();
+        let tool_name = invocation.tool_name();
         let arguments = self
             .arguments_by_call_id
             .lock()
             .expect("embedder tool-hook arguments poisoned")
-            .remove(tool_name)
+            .remove(&call_id)
             .unwrap_or(serde_json::Value::Null);
         let context = crate::agent::hooks::ToolHookContext {
             event: crate::agent::hooks::ToolHookEvent::PostToolUse,
-            // The canonical post-tool hook supplies the canonical tool name;
-            // call ids are intentionally not duplicated in ToolResult.
-            call_id: tool_name.to_string(),
+            call_id,
             tool_name: tool_name.to_string(),
             arguments,
             success: Some(!result.is_error),

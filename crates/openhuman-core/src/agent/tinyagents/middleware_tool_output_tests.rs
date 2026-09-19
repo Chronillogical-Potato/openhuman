@@ -4,6 +4,7 @@ use crate::agent::tinyagents::middleware::tool_output::ToolOutputMiddleware;
 // fully-qualified), so the module itself no longer references the type.
 use super::*;
 use tinyagents_harness::middleware::MicrocompactMiddleware;
+use tinytools::{ToolRuntime, ToolTimeout};
 
 // #4462: image-aware token estimation. A base64 image marker must be priced
 // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise
@@ -352,9 +353,9 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "big".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
@@ -391,9 +392,9 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
@@ -452,9 +453,9 @@ async fn tool_output_honors_a_tools_own_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "capped".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
@@ -691,9 +692,9 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,

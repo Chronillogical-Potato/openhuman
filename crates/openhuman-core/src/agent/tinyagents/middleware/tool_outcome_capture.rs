@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinytools::ToolResult as TaToolResult;
 
 /// `after_tool`: capture each tool call's execution outcome (success + content)
@@ -47,9 +47,11 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
         // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
         // return a bare marker line with no workaround and no relay directive, so
@@ -93,7 +95,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             // for old/deserialized completion events; TinyAgents 1.6 supplies
             // these fields directly on live `ToolCompleted` events.
             map.insert(
-                tool_name.to_string(),
+                call_id.clone(),
                 (
                     success,
                     failure,
@@ -106,12 +108,58 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         }
         if let Ok(mut sink) = self.sink.lock() {
             sink.push(crate::agent::tinyagents::ToolCallOutcome {
-                call_id: tool_name.to_string(),
+                call_id,
                 name: tool_name.to_string(),
                 success,
                 content: crate::agent::tinyagents::middleware::tool_result_text(result),
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tinyagents_harness::context::{RunConfig, RunContext};
+
+    fn context() -> RunContext<()> {
+        RunContext::new(RunConfig::new("outcome-capture-test"), ())
+    }
+
+    #[tokio::test]
+    async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
+        let sink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let failure_map = std::sync::Arc::new(std::sync::Mutex::new(Default::default()));
+        let middleware = ToolOutcomeCaptureMiddleware::new(sink.clone(), failure_map.clone());
+        let mut ctx = context();
+
+        let success = ToolInvocationIdentity::new("echo-success", "echo");
+        let mut success_result = TaToolResult::success("done");
+        middleware
+            .after_tool(&mut ctx, &(), &success, &mut success_result)
+            .await
+            .expect("successful result is captured");
+
+        let failure = ToolInvocationIdentity::new("echo-failure", "echo");
+        let mut failure_result = TaToolResult::error("request timed out");
+        middleware
+            .after_tool(&mut ctx, &(), &failure, &mut failure_result)
+            .await
+            .expect("failed result is captured");
+
+        let outcomes = sink.lock().expect("outcome sink");
+        assert_eq!(outcomes.len(), 2);
+        assert_eq!(outcomes[0].call_id, "echo-success");
+        assert!(outcomes[0].success);
+        assert_eq!(outcomes[1].call_id, "echo-failure");
+        assert!(!outcomes[1].success);
+        drop(outcomes);
+
+        let recorded = failure_map.lock().expect("failure lookup");
+        assert_eq!(recorded.len(), 2, "same tool names cannot overwrite calls");
+        assert_eq!(recorded["echo-success"].0, true);
+        assert_eq!(recorded["echo-failure"].0, false);
+        assert!(recorded["echo-failure"].1.is_some());
     }
 }

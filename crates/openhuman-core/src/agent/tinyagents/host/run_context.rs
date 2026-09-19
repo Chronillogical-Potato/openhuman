@@ -3,9 +3,9 @@
 //! `tinyagents_harness::context::RunContext` owns generic runtime mechanics.
 //! This type owns the product values that used to be recovered from ambient
 //! task-locals: approval origin, host progress, attachment and artifact scope,
-//! parent dispatch state, and the handles a tool needs to continue a run.  A
-//! caller passes it through every turn and child invocation, then converts it
-//! into the canonical TinyAgents context with [`Self::into_tinyagents`].
+//! parent dispatch state, and the handles a tool needs to continue a run.
+//! Phase B1 defines and tests this canonical conversion; it is not yet the live
+//! turn carrier. The task-local and public-route cutovers remain later work.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -23,7 +23,8 @@ use crate::agent::tinyagents::resolved_route::RouteSlot;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 use crate::agent::turn_origin::AgentTurnOrigin;
 
-/// Explicit OpenHuman data carried by a single top-level or child agent run.
+/// Explicit OpenHuman data carried by a prospective top-level or child agent
+/// run once the Phase B task-local cutover wires it into live invocation.
 ///
 /// Shared members (`Arc`s, cancellation and workspace descriptor) retain the
 /// identity required by a recursive run tree. [`Self::child`] deliberately
@@ -118,9 +119,10 @@ impl OpenHumanRunContext {
 
     /// Builds the explicit child state for a recursive invocation.
     ///
-    /// Cancellation, workspace, progress, policy hooks and dispatch state are
-    /// inherited. Route observation and usage accounting are isolated, so a
-    /// completed child cannot mutate facts subsequently persisted for its
+    /// This inheritance rule is tested in B1 and is ready for the later live
+    /// plumbing. Cancellation, workspace, progress, policy hooks and dispatch
+    /// state are inherited. Route observation and usage accounting are isolated,
+    /// so a completed child cannot mutate facts subsequently persisted for its
     /// parent.
     pub fn child(&self) -> Self {
         let mut child = self.clone();

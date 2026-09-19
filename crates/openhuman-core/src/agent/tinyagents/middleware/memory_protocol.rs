@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::{AgentRun, Middleware};
+use tinyagents_harness::middleware::{AgentRun, Middleware, ToolInvocationIdentity};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
@@ -28,7 +28,7 @@ pub struct MemoryProtocolMiddleware {
     /// call_id → classified op, captured in `before_tool` (the tool result carries
     /// no arguments, yet `update_memory_md` and `memory_tree` can only be
     /// classified from their `file` / `mode` argument). Correlated back by
-    /// `result.call_id` in `after_tool`.
+    /// the invocation identity in `after_tool`.
     pending_ops: std::sync::Mutex<
         std::collections::HashMap<String, crate::agent::harness::memory_protocol::MemoryOp>,
     >,
@@ -70,7 +70,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
             crate::agent::harness::memory_protocol::classify_memory_op(&call.name, &call.arguments);
         if op != crate::agent::harness::memory_protocol::MemoryOp::Other {
             if let Ok(mut ops) = self.pending_ops.lock() {
-                ops.insert(call.name.clone(), op);
+                ops.insert(call.id.clone(), op);
             }
         }
         Ok(())
@@ -80,16 +80,17 @@ impl Middleware<()> for MemoryProtocolMiddleware {
         &self,
         _ctx: &mut RunContext<()>,
         _state: &(),
-        tool_name: &str,
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
         // Consume the op captured for this call (removing it so the map can't
         // grow unbounded). Absent → a non-memory tool: nothing to enforce.
         let op = self
             .pending_ops
             .lock()
             .ok()
-            .and_then(|mut ops| ops.remove(tool_name));
+            .and_then(|mut ops| ops.remove(&invocation.call_id().to_string()));
         let Some(op) = op else {
             return Ok(());
         };

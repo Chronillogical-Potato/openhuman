@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
+use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
 use tinyinference_llm::model::{ModelResponse, SegmentRole};
@@ -117,15 +117,8 @@ impl Tool for FakeTool {
     }
 }
 
-fn tool_result(name: &str, content: &str) -> TaToolResult {
-    TaToolResult {
-        call_id: "c1".into(),
-        name: name.into(),
-        content: content.into(),
-        raw: None,
-        error: None,
-        elapsed_ms: 0,
-    }
+fn tool_result(_name: &str, content: &str) -> TaToolResult {
+    TaToolResult::success(content)
 }
 
 // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
@@ -253,9 +246,8 @@ fn large_sample_response_json(row_count: usize) -> String {
 // ── RepeatedToolFailureMiddleware ───────────────────────────────────────
 
 fn failing_result(name: &str, err: &str) -> TaToolResult {
-    let mut r = tool_result(name, err);
-    r.error = Some(err.to_string());
-    r
+    let _ = name;
+    TaToolResult::error(err)
 }
 
 /// Count how many of the steering commands drained from `handle` are
@@ -327,11 +319,14 @@ async fn run_successful_repeat_cycle(
     mw.after_model(&mut ctx(), &(), &mut response)
         .await
         .unwrap();
-    let mut result = tool_result(tool, output);
-    // Answer the call `repeated_success_response` issued.
-    result.call_id = "repeat-1".into();
-    result.error = error.map(str::to_string);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = match error {
+        Some(error) => TaToolResult::error(error),
+        None => tool_result(tool, output),
+    };
+    let invocation = ToolInvocationIdentity::new("repeat-1", tool);
+    mw.after_tool(&mut ctx(), &(), &invocation, &mut result)
+        .await
+        .unwrap();
 }
 
 // ── MemoryProtocolMiddleware (issue #4116) ──────────────────────────────
@@ -355,9 +350,14 @@ async fn run_cycle(
         invalid: None,
     };
     mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-    let mut result = tool_result(name, content); // call_id "c1" matches
-    result.error = error.map(|e| e.to_string());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = match error {
+        Some(error) => TaToolResult::error(error),
+        None => tool_result(name, content),
+    };
+    let invocation = ToolInvocationIdentity::new("c1", name);
+    mw.after_tool(&mut ctx(), &(), &invocation, &mut result)
+        .await
+        .unwrap();
     result
 }
 
