@@ -488,14 +488,16 @@ When the backend doesn't surface a charged amount (older builds, providers that 
 
 ## Explicit run context and host capabilities
 
-Phase B1 defines and tests an explicit `OpenHumanRunContext`, which converts to
-the canonical `RunContext`. It carries the future explicit values for origin,
-parent execution state, progress, attachment/artifact scope, dispatch and
-recency state, sandbox/depth, route observation, cancellation, thread,
-workspace and stop hooks. The live task-local and public-route cutovers remain
-deferred: no current turn receives this context yet. Its child rule will inherit
-shared tree handles while isolating child route observation and usage
-accounting, so a child cannot overwrite the parent turn's persisted facts.
+`OpenHumanRunContext` is now the live carrier at the shared chat, channel, and
+sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
+dispatch state, thread, route slot, cancellation token, and workspace grant,
+then pass an owned context to the runner; a recursive sub-agent forks it with
+`child()`, preserving shared cancellation/policy handles while isolating route
+observation and usage accounting. The TinyAgents middleware registry is still
+specialized to `RunContext<()>`, so the seam currently maps its canonical
+cancellation and workspace values into that runtime context. Deleting the
+legacy scopes and using `RunContext<OpenHumanRunContext>` throughout remains a
+follow-up once that registry is generic.
 
 `OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
 the context, definition, security, model, memory, budget, progress, learning,

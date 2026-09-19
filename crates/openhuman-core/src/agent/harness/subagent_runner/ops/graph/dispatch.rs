@@ -259,12 +259,16 @@ pub(in super::super) async fn run_subagent_via_graph(
     // (and the telemetry id) before `turn_models` is moved into the runner.
     let native_tools = turn_models.native_tools();
     let provider_id = turn_models.provider_id().to_string();
+    // This graph is entered from a parent tool call on the same task. Snapshot
+    // that owned carrier and fork it so cancellation, origin, thread, progress,
+    // workspace grants, and dispatch state follow the child while its route and
+    // subagent-usage slots remain isolated.
+    let mut child_context =
+        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes().child();
+    child_context.progress = on_progress.clone().or(child_context.progress);
+    child_context.workspace = workspace_descriptor.clone().or(child_context.workspace);
     let run_result = Box::pin(run_turn_via_tinyagents_shared(
-        crate::agent::tinyagents::host::OpenHumanRunContext {
-            progress: on_progress.clone(),
-            workspace: workspace_descriptor.clone(),
-            ..Default::default()
-        },
+        child_context,
         turn_models,
         provider_id,
         model,

@@ -112,13 +112,13 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
     // on the bundle.
     let provider_id = graph.turn_models.provider_id().to_string();
     with_current_sandbox_mode(graph.sandbox_mode, async {
+        let mut run_context =
+            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+        run_context.progress = graph.on_progress.clone().or(run_context.progress);
+        run_context.workspace = graph.workspace_descriptor.clone().or(run_context.workspace);
+        run_context.sandbox_mode = Some(graph.sandbox_mode);
         run_turn_via_tinyagents_shared(
-            crate::agent::tinyagents::host::OpenHumanRunContext {
-                progress: graph.on_progress.clone(),
-                workspace: graph.workspace_descriptor.clone(),
-                sandbox_mode: Some(graph.sandbox_mode),
-                ..Default::default()
-            },
+            run_context,
             graph.turn_models,
             provider_id,
             &graph.model,

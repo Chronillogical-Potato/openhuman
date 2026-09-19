@@ -114,11 +114,13 @@ pub(crate) async fn run_channel_turn_via_graph(
         context_window,
         "[channel:graph] routing channel turn through tinyagents harness"
     );
+    let mut run_context =
+        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes();
+    // The channel dispatcher owns this explicit sink. It wins over an embedder
+    // scope exactly as it did before this carrier was introduced.
+    run_context.progress = on_progress.clone().or(run_context.progress);
     let outcome = run_turn_via_tinyagents_shared(
-        crate::agent::tinyagents::host::OpenHumanRunContext {
-            progress: on_progress.clone(),
-            ..Default::default()
-        },
+        run_context,
         turn_models,
         provider_id,
         model,

@@ -79,6 +79,30 @@ impl Default for OpenHumanRunContext {
 }
 
 impl OpenHumanRunContext {
+    /// Snapshot the values already scoped by a live legacy entrypoint.
+    ///
+    /// This is the transition boundary: roots construct one owned carrier from
+    /// their current scopes, then recursive paths pass [`Self::child`] instead
+    /// of depending on task-local inheritance. Explicit root inputs overwrite
+    /// these snapshots only when they intentionally own the same value.
+    pub(crate) fn from_current_scopes() -> Self {
+        let mut context = Self::new();
+        context.origin = crate::agent::turn_origin::current();
+        context.progress = crate::agent::progress_sink::current_progress_sink();
+        context.dispatch = crate::agent::harness::turn_dispatch_guard::current();
+        context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
+        if let Some(slot) = crate::agent::tinyagents::current_route_slot() {
+            context.resolved_route = slot;
+        }
+        if let Some(cancellation) = crate::agent::tinyagents::current_run_cancellation() {
+            context.cancellation = cancellation;
+        }
+        context.workspace = crate::agent::turn_workspace::current()
+            .filter(|root| root.is_dir())
+            .map(|root| tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"));
+        context
+    }
+
     /// Builds an unbound context. Entry points set only the values their turn
     /// actually owns; `None` is an explicit absence, not an ambient fallback.
     pub fn new() -> Self {
