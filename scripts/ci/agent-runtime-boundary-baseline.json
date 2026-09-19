@@ -2389,7 +2389,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 998,
+    "line": 999,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
     "occurrence": 1
   },

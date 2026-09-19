@@ -11,8 +11,17 @@ use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelRequest, ModelResponse, ResolvedModelRoute, RouteRecordingModel,
 };
+use tokio::sync::Barrier;
 
 struct FailingModel;
+
+/// A deterministic two-run gate. Each invocation waits until the test has
+/// observed both contexts at the same model-call boundary, then waits again
+/// for the test to release them together.
+struct GatedModel {
+    entered: Arc<Barrier>,
+    release: Arc<Barrier>,
+}
 
 #[async_trait]
 impl ChatModel<()> for FailingModel {
@@ -27,10 +36,24 @@ impl ChatModel<()> for FailingModel {
     }
 }
 
+#[async_trait]
+impl ChatModel<()> for GatedModel {
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
+        self.entered.wait().await;
+        self.release.wait().await;
+        Ok(ModelResponse::assistant("done"))
+    }
+}
+
 async fn run_recorded_route(
     streaming: bool,
     fallback: bool,
     route: ResolvedModelRoute,
+    successful_model: Arc<dyn ChatModel<()>>,
 ) -> ResolvedModelRoute {
     let mut harness: AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext> =
         AgentHarness::new();
@@ -47,7 +70,7 @@ async fn run_recorded_route(
         route.clone()
     };
     let successful = Arc::new(RouteRecordingModel::new(
-        Arc::new(ScriptedModel::replies(vec!["done"])),
+        successful_model,
         served_route.clone(),
     ));
     if fallback {
@@ -92,12 +115,16 @@ async fn run_recorded_route(
         .expect("middleware records canonical response route")
 }
 
+fn scripted_success() -> Arc<dyn ChatModel<()>> {
+    Arc::new(ScriptedModel::replies(vec!["done"]))
+}
+
 #[tokio::test]
 async fn resolved_route_middleware_records_primary_routes_for_unary_and_streaming_runs() {
     for streaming in [false, true] {
         let route = ResolvedModelRoute::new("openhuman", "chat-concrete", "chat-v1");
         assert_eq!(
-            run_recorded_route(streaming, false, route.clone()).await,
+            run_recorded_route(streaming, false, route.clone(), scripted_success()).await,
             route,
             "streaming={streaming}"
         );
@@ -109,7 +136,7 @@ async fn resolved_route_middleware_records_successful_fallback_for_unary_and_str
     for streaming in [false, true] {
         let route = ResolvedModelRoute::new("anthropic", "claude-concrete", "backup");
         assert_eq!(
-            run_recorded_route(streaming, true, route.clone()).await,
+            run_recorded_route(streaming, true, route.clone(), scripted_success()).await,
             route,
             "streaming={streaming}"
         );
@@ -120,10 +147,33 @@ async fn resolved_route_middleware_records_successful_fallback_for_unary_and_str
 async fn resolved_route_middleware_isolates_concurrent_run_contexts() {
     let first = ResolvedModelRoute::new("openai", "first", "chat-v1");
     let second = ResolvedModelRoute::new("anthropic", "second", "reasoning-v1");
-    let (first_observed, second_observed) = tokio::join!(
-        run_recorded_route(false, false, first.clone()),
-        run_recorded_route(true, false, second.clone()),
-    );
+    // The test is the third barrier participant. Both invoked model calls have
+    // reached the first barrier before it can advance to the release barrier;
+    // neither can return its response (and write its own route) until then.
+    let entered = Arc::new(Barrier::new(3));
+    let release = Arc::new(Barrier::new(3));
+    let first_task = tokio::spawn(run_recorded_route(
+        false,
+        false,
+        first.clone(),
+        Arc::new(GatedModel {
+            entered: entered.clone(),
+            release: release.clone(),
+        }),
+    ));
+    let second_task = tokio::spawn(run_recorded_route(
+        true,
+        false,
+        second.clone(),
+        Arc::new(GatedModel {
+            entered: entered.clone(),
+            release: release.clone(),
+        }),
+    ));
+    entered.wait().await;
+    release.wait().await;
+    let first_observed = first_task.await.expect("first route task joins");
+    let second_observed = second_task.await.expect("second route task joins");
     assert_eq!(first_observed, first);
     assert_eq!(second_observed, second);
 }
