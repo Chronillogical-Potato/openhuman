@@ -65,11 +65,12 @@ impl OpenHumanSessionHost {
             .take();
         if let Some(handle) = pending {
             match handle.await {
-                Ok(citations) => self
-                    .runtime_state
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .last_turn_citations = citations,
+                Ok(citations) => {
+                    self.runtime_state
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .last_turn_citations = citations
+                }
                 // A panicked or aborted collection must not fail the turn — the
                 // citations are decorative, the reply is not.
                 Err(err) => {

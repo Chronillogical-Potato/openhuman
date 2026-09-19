@@ -15,7 +15,7 @@ use tinyagents_graph::{ClosureStateReducer, CompiledGraph, GraphBuilder, NodeCon
 use tokio::sync::Mutex;
 
 use crate::agent::harness::agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult};
-use crate::agent::harness::subagent_runner::SubagentRunError;
+use crate::agent::subagent_host::SubagentRunError;
 
 const RESEARCHER_GRAPH_PHASES: &[&str] = &["route_research", "run_research_turn", "finalize"];
 
@@ -72,33 +72,33 @@ fn build_researcher_graph(
             },
         ))
         .add_node(phases[0], phase_node(phases[0]))
-        .add_node(phases[1], |state: ResearcherGraphState, _ctx: NodeContext| {
-            Box::pin(async move {
-                let request = state
-                    .request
-                    .lock()
-                    .await
-                    .take()
-                    .ok_or_else(|| tinyagents_harness::TinyAgentsError::Graph(
-                        "researcher graph missing turn request".to_string(),
-                    ))?;
-                tracing::debug!(
-                    agent_id = %request.agent_id,
-                    task_id = %request.task_id,
-                    "[researcher_graph] running shared sub-agent turn leaf"
-                );
-                let result =
-                    crate::agent::harness::subagent_runner::run_agent_turn_request_via_default_graph(
-                        request,
-                    )
-                    .await
-                    .map_err(|err| err.to_string());
-                *state.result.lock().await = Some(result);
-                Ok(NodeResult::Update(ResearcherGraphUpdate::PhaseEntered(
-                    "run_research_turn",
-                )))
-            })
-        })
+        .add_node(
+            phases[1],
+            |state: ResearcherGraphState, _ctx: NodeContext| {
+                Box::pin(async move {
+                    let request = state.request.lock().await.take().ok_or_else(|| {
+                        tinyagents_harness::TinyAgentsError::Graph(
+                            "researcher graph missing turn request".to_string(),
+                        )
+                    })?;
+                    tracing::debug!(
+                        agent_id = %request.agent_id,
+                        task_id = %request.task_id,
+                        "[researcher_graph] running shared sub-agent turn leaf"
+                    );
+                    let result =
+                        crate::agent::subagent_host::run_agent_turn_request_via_default_graph(
+                            request,
+                        )
+                        .await
+                        .map_err(|err| err.to_string());
+                    *state.result.lock().await = Some(result);
+                    Ok(NodeResult::Update(ResearcherGraphUpdate::PhaseEntered(
+                        "run_research_turn",
+                    )))
+                })
+            },
+        )
         .add_node(phases[2], phase_node(phases[2]))
         .add_edge(phases[0], phases[1])
         .add_edge(phases[1], phases[2])

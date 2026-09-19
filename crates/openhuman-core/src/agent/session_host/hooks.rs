@@ -55,32 +55,32 @@ impl OpenHumanSessionHooks {
     /// it cannot relabel an already durable turn.
     pub fn new(
         before_resume: impl for<'a> Fn(
-            &'a mut SessionTurnRequest,
-            &'a mut TurnOptions<OpenHumanRunContext>,
-            SessionStateView<'a>,
-        ) -> HookFuture<'a, ResumePreparation>
-        + Send
-        + Sync
-        + 'static,
+                &'a mut SessionTurnRequest,
+                &'a mut TurnOptions<OpenHumanRunContext>,
+                SessionStateView<'a>,
+            ) -> HookFuture<'a, ResumePreparation>
+            + Send
+            + Sync
+            + 'static,
         before: impl for<'a> Fn(
-            &'a mut SessionTurnRequest,
-            &'a mut TurnOptions<OpenHumanRunContext>,
-            SessionStateView<'a>,
-        ) -> HookFuture<'a, TurnPreparation>
-        + Send
-        + Sync
-        + 'static,
+                &'a mut SessionTurnRequest,
+                &'a mut TurnOptions<OpenHumanRunContext>,
+                SessionStateView<'a>,
+            ) -> HookFuture<'a, TurnPreparation>
+            + Send
+            + Sync
+            + 'static,
         before_commit: impl for<'a> Fn(
-            &'a SessionTurnOutcome,
-            &'a TranscriptTurnOptions<OpenHumanRunContext>,
-        ) -> HookFuture<'a, ()>
-        + Send
-        + Sync
-        + 'static,
+                &'a SessionTurnOutcome,
+                &'a TranscriptTurnOptions<OpenHumanRunContext>,
+            ) -> HookFuture<'a, ()>
+            + Send
+            + Sync
+            + 'static,
         committed: impl Fn(CommitReceipt<OpenHumanRunContext>) -> HookFuture<'static, ()>
-        + Send
-        + Sync
-        + 'static,
+            + Send
+            + Sync
+            + 'static,
         terminal: impl Fn(SessionTerminal) -> HookFuture<'static, ()> + Send + Sync + 'static,
     ) -> Self {
         Self {

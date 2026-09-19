@@ -91,7 +91,7 @@ static OH_WORKLOAD_ROUTER: LazyLock<ModelRouter> = LazyLock::new(|| {
 /// Today the only reliably-derivable, safe-to-require signal is **vision**: when
 /// the turn's effective model is the dedicated `vision-v1` tier the turn was
 /// routed there because it carries image input (this is exactly what the
-/// `model_vision` selection in `subagent_runner/ops/graph.rs` encodes), so we
+/// `model_vision` selection in `subagent_host/ops/graph.rs` encodes), so we
 /// require `image_in` — which keeps the primary vision model selectable while
 /// filtering any non-vision fallback pre-dispatch.
 ///

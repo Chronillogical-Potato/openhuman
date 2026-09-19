@@ -13,10 +13,10 @@
 //! prompt with a filtered tool list, on a cheaper model where applicable.
 //!
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
-};
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
+};
 use crate::memory::conversations::{
     self as conversations, ConversationMessage, CreateConversationThread,
 };
@@ -65,7 +65,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent);
         SpawnSubagentTool::new()
-            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                Some(parent),
+            )
             .await
     }
 }

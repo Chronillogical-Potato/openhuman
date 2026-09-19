@@ -1977,7 +1977,7 @@ fn is_filesystem_user_path_invalid_message(lower: &str) -> bool {
 /// `"empty response"`) so the sibling phrases stay actionable:
 /// `"summarizer returned empty response, falling through"`
 /// (`payload_summarizer`) and `"provider returned an empty response;
-/// returning empty extraction"` (`subagent_runner::extract_tool`) are
+/// returning empty extraction"` (`subagent_host::extract_tool`) are
 /// internal fall-through paths with different wording and are NOT
 /// silenced.
 fn is_empty_provider_response_message(lower: &str) -> bool {

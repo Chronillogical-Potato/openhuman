@@ -15,7 +15,8 @@
 //!   to external triggers (webhooks, cron jobs) using small local models.
 //! - **`tinytools_agent::dialect`**: Canonical strategies for formatting and
 //!   parsing tool calls (XML, JSON, P-Format).
-//! - **[`harness::subagent_runner`]**: Logic for spawning "sub-agents" from
+//! - **[`subagent_host`]**: OpenHuman's planner, executor and persistence
+//!   adapters for sub-agents driven by the neutral TinyAgents lifecycle.
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 pub mod artifacts;
 pub mod bus;
@@ -67,8 +68,10 @@ pub mod session_db;
 pub mod session_host;
 pub mod session_import;
 pub mod stop_hooks;
-pub mod task_dispatcher;
-pub(crate) mod task_session;
+/// Product-specific adapters around `tinyagents_orchestration::subagent`.
+/// Generic lifecycle ordering and task-key coalescing live in TinyAgents;
+/// definitions, prompts, tools, policy, checkpoints and progress remain here.
+pub mod subagent_host;
 pub mod tinyagents;
 pub mod todos;
 pub mod tool_policy;

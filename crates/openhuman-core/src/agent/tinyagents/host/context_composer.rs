@@ -125,7 +125,7 @@ pub struct OpenHumanContextComposer {
     /// Whether the user's PROFILE.md layer is injected.
     ///
     /// The live subagent path derives this from the resolved definition's
-    /// `omit_profile` (`subagent_runner/ops/runner.rs`). The crate hands this
+    /// `omit_profile` (`subagent_host/ops/runner.rs`). The crate hands this
     /// seam an opaque agent id, so the wiring site supplies it explicitly via
     /// [`Self::with_omissions`]; hardcoding it would inject a file a specialist
     /// definition deliberately excludes.
@@ -162,7 +162,7 @@ impl OpenHumanContextComposer {
     /// Applies a definition's user-file omission policy.
     ///
     /// Pass `!definition.omit_profile` / `!definition.omit_memory_md`, matching
-    /// `subagent_runner/ops/runner.rs`. Without this a specialist composes with
+    /// `subagent_host/ops/runner.rs`. Without this a specialist composes with
     /// the main agent's files regardless of what its definition says.
     pub fn with_omissions(mut self, include_profile: bool, include_memory_md: bool) -> Self {
         self.include_profile = include_profile;
@@ -278,7 +278,7 @@ impl ContextComposer for OpenHumanContextComposer {
             tool_call_format: self.tool_call_format,
             connected_integrations: &self.connected_integrations,
             connected_identities_md: render_connected_identities(),
-            // Mirrors `subagent_runner/ops/runner.rs`, which derives these from
+            // Mirrors `subagent_host/ops/runner.rs`, which derives these from
             // the resolved definition's `omit_profile` / `omit_memory_md`. The
             // crate hands this seam a bare agent id, so the wiring site supplies
             // them via `with_omissions`; the default is the main-agent

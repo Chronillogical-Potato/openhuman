@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::harness::subagent_runner::SubagentMode;
+use crate::agent::subagent_host::SubagentMode;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -15,6 +15,8 @@ fn sample_outcome(output: &str) -> SubagentRunOutcome {
         final_history: Vec::new(),
         usage: Default::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     }
 }
 

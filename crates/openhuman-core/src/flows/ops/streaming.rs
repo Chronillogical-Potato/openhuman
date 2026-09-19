@@ -3,7 +3,7 @@ use super::*;
 // ─────────────────────────────────────────────────────────────────────────────
 // Copilot / scout streaming (Phase B) — bridge a builder/scout turn's live
 // AgentProgress onto the web-channel socket, keyed by a chat thread, exactly
-// like an interactive chat turn. Blueprint: `agent/task_dispatcher/executor.rs`.
+// like an interactive chat turn.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Where to stream a `flows_build` / `flows_discover` turn. When present, the
@@ -14,7 +14,7 @@ use super::*;
 /// tool cards, and workflow-proposal cards live instead of spinning for the
 /// whole (up to 300s) headless run.
 ///
-/// Broadcast client id is always `"system"` (like cron / task-session runs), so
+/// Broadcast client id is always `"system"` (like cron-triggered runs), so
 /// any client viewing the thread receives the events (the frontend keys by
 /// `thread_id`). The blocking `{ proposal, assistant_text }` return is
 /// unchanged — streaming is purely additive, opt-in per call.
@@ -85,7 +85,7 @@ pub(super) fn attach_flow_progress_bridge(
 
 /// Emit the terminal chat event a streamed builder/scout turn owes its viewers.
 /// The progress bridge only streams intermediate deltas; without this the live
-/// session spins forever. Mirrors how `task_dispatcher/executor.rs` finalizes a
+/// session spins forever.
 /// streamed run: a success delivers a `chat_done` (via the shared presentation
 /// path, so segmentation/reaction match a normal turn), a failure publishes a
 /// `chat_error`. Broadcast as `"system"` so any viewer of the thread receives

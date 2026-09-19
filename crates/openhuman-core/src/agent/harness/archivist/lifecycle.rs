@@ -2,7 +2,7 @@
 //! `ArchivistHook`.
 
 use super::boundary::{BoundaryConfig, BoundaryDecision};
-use super::events_heuristic::{ExtractedEventKind, extract_events_heuristic};
+use super::events_heuristic::{extract_events_heuristic, ExtractedEventKind};
 use super::helpers::{extract_profile_key, uuid_v4};
 use super::types::ArchivistHook;
 use crate::config::Config;

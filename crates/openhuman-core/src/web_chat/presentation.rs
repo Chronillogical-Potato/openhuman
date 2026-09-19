@@ -238,10 +238,10 @@ pub(crate) async fn deliver_response(
 
 /// Deliver an agent response as exactly one `chat_done` bubble — no
 /// segmentation, no reaction — for turns the core runs on its own behalf
-/// (autonomous task sessions, background sub-agent result delivery).
+/// (background sub-agent result delivery).
 ///
 /// Those turns persist their closing message themselves, as a single row,
-/// before announcing it (`task_session::append_final`). Splitting the reply
+/// before announcing it (`background_delivery`). Splitting the reply
 /// into `chat_segment` bubbles would have a viewing client persist one row per
 /// segment beside that single row (#5933), so the conversational segmentation
 /// of [`deliver_response`] is deliberately not offered here.

@@ -170,7 +170,7 @@ pub fn render_subagent_system_prompt_with_format(
     // 2. Filtered tool catalogue. Indices are taken in ascending order
     //    from `allowed_indices`, which itself preserves `parent_tools`
     //    order, so the rendering is deterministic. We use `.get(i)`
-    //    defensively even though the current caller (subagent_runner)
+    //    defensively even though the current caller (subagent host)
     //    only produces in-range indices — a future caller that derives
     //    indices from a different source must not be able to panic this
     //    renderer with a stale index.

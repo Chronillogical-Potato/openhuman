@@ -19,7 +19,7 @@ model/tool execution; `ChatMessage`/provider conversion; prompt-injection and
 security policy; memory extraction; BUS/progress/RPC/UI projection; backend
 import selection; and every product-specific transcript field or migration.
 
-In particular, do not move `session_memory`, `task_session`, web-chat's live
+In particular, do not move `session_memory`, web-chat's live
 session cache, session-import controller schemas, `Agent::run_single`, or
 anything in `turn/` that constructs a host turn. The target must never depend
 on `openhuman`, `tinyagents-graph`, provider credentials, or product prompts.
@@ -65,7 +65,7 @@ implements only an adapter at the existing host boundary where conversion from
 | `agent/harness/session/runtime/resume.rs` | Split pure transcript-to-model replay/deduplication into session; keep `Agent` mutation and host message-log fallback in OpenHuman. |
 | `agent/session_import/{convert,ops,live}.rs` | Move only pure descriptor/transcript conversion and generic source iteration; retain OpenHuman namespaces, controller/live backend wiring, run-ledger links, and memory import. |
 | `agent/harness/session/{mod.rs,types.rs,builder/**,runtime/**,turn/**,tool_progress.rs,migration.rs}` | Keep: host session construction/execution, tools, policy, memory, progress, and migration policy. |
-| `agent/context/session_memory.rs`, `agent/task_session.rs`, `web_chat/**`, `threads/**` | Keep. |
+| `agent/context/session_memory.rs`, `web_chat/**`, `threads/**` | Keep. |
 | All transcript/session-import tests named below | Port their host-independent cases to the matching TinyAgents module; retain OpenHuman adapter/integration tests. |
 
 ## TDD slices

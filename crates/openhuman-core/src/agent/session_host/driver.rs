@@ -19,7 +19,7 @@ use tinytools_agent::dialect::ToolDialect;
 use crate::agent::{
     messages::ChatMessage,
     session_host::turn::graph::{self, ChatTurnGraph},
-    tinyagents::{TurnModelSource, host::OpenHumanHostBase, host::OpenHumanRunContext},
+    tinyagents::{host::OpenHumanHostBase, host::OpenHumanRunContext, TurnModelSource},
 };
 
 /// Immutable host composition consumed by [`OpenHumanSessionDriver`].
@@ -496,13 +496,11 @@ mod tests {
         assert_eq!(partial.history.len(), 2);
         assert_eq!(partial.history[0].text(), "stable prefix");
         assert_eq!(partial.history[1].text(), "request");
-        assert!(
-            partial
-                .partial
-                .expect("display partial")
-                .content
-                .contains("provider rejected follow-up")
-        );
+        assert!(partial
+            .partial
+            .expect("display partial")
+            .content
+            .contains("provider rejected follow-up"));
     }
 
     #[test]

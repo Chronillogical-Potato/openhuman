@@ -150,7 +150,7 @@ impl OpenHumanSessionHost {
     /// without rebuilding the session — see `ComposioActionTool`,
     /// `ProviderContext::execute`, the 5 migrated agent tools in
     /// `composio/tools.rs`, and the spawn-time per-action tool build
-    /// path in `subagent_runner/ops.rs`.
+    /// path in `subagent_host/ops.rs`.
     pub async fn fetch_connected_integrations(&mut self) {
         let config = match self.runtime_config.clone() {
             Some(config) => config,

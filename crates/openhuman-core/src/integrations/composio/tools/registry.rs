@@ -21,7 +21,7 @@ pub fn all_composio_agent_tools(config: &crate::config::Config) -> Vec<Box<dyn T
     // direct-mode users (#1710). Per-action dispatch inside each tool
     // re-resolves through the factory so the live `composio.mode`
     // toggle keeps winning.
-    if !crate::agent::harness::subagent_runner::user_is_signed_in_to_composio(config) {
+    if !crate::agent::subagent_host::user_is_signed_in_to_composio(config) {
         tracing::debug!(
             "[composio] agent tools not registered — user is not signed in to composio \
              (no backend session and no direct API key)"

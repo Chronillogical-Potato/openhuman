@@ -658,7 +658,7 @@ impl CoreBuilder {
         )
         .await?;
 
-        // Legacy goal, task-board, and run-ledger rows must be copied before
+        // Legacy goal and task-board rows must be copied before
         // `build()` exposes in-process RPC or agent turns. Running these from
         // `serve()` is too late for embedders that only build and invoke.
         if let Some(cfg) = config.as_ref() {

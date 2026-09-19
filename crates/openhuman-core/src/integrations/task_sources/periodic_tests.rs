@@ -25,7 +25,6 @@ fn source_for(id: &str, interval_secs: u64, provider: ProviderSlug) -> TaskSourc
         interval_secs,
         target: SourceTarget::TodoOnly,
         max_tasks_per_fetch: 25,
-        assigned_executor: None,
         created_at: Utc::now(),
         last_fetch_at: None,
         last_status: None,

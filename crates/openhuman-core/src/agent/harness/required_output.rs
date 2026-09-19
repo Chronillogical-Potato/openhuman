@@ -57,7 +57,11 @@ pub(crate) fn find_required_block(
     let has_all = keys
         .iter()
         .all(|key| obj.get(key).is_some_and(|v| !v.is_null()));
-    if has_all { Some(first) } else { None }
+    if has_all {
+        Some(first)
+    } else {
+        None
+    }
 }
 
 /// A minimal, schema-valid block synthesised when the model omits the block and

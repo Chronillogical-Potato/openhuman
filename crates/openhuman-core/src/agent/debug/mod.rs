@@ -315,7 +315,7 @@ fn session_dump(agent: &OpenHumanSessionHost, agent_id: &str, text: String) -> D
 }
 
 /// Render the integrations_agent prompt bound to a single Composio
-/// toolkit. Mirrors the subagent_runner's per-toolkit path: strips
+/// toolkit. Mirrors the subagent host's per-toolkit path: strips
 /// Workflow-category parent tools, injects one [`ComposioActionTool`] per
 /// action in the toolkit, and narrows the `connected_integrations`
 /// slice to only the requested toolkit before calling the agent's
@@ -357,7 +357,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     // time so the dump reflects the **current** backend state rather
     // than the session-start bulk fetch's snapshot (which can return an
     // empty list for some toolkits even when the per-toolkit endpoint
-    // returns actions). Mirrors subagent_runner's typed-mode fallback:
+    // returns actions). Mirrors the subagent host's typed-mode fallback:
     // an empty fresh list or a network error keeps the cached catalogue
     // rather than blanking it.
     match &client_kind {
@@ -398,7 +398,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         }
     }
 
-    // Build the tool list that subagent_runner would produce for a
+    // Build the tool list that the subagent host would produce for a
     // real spawn. Tool visibility honours the TOML scope on the
     // `integrations_agent` definition — `named = [...]` narrows, and
     // `wildcard = {}` means "every parent tool". The dynamic
@@ -508,12 +508,12 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
 
     // Mirror the runner's text-mode mutation: when integrations_agent
     // has any tools the runner appends `build_text_mode_tool_instructions`
-    // to the system message (see `subagent_runner::run_typed_mode`,
+    // to the system message (see `subagent_host::run_typed_mode`,
     // `force_text_mode` branch). Reproduce it here so
     // the dump matches what the LLM actually receives on turn 1.
     if !rendered_tools.is_empty() {
         text.push_str("\n\n");
-        text.push_str(&crate::agent::harness::subagent_runner::build_text_mode_tool_instructions());
+        text.push_str(&crate::agent::subagent_host::build_text_mode_tool_instructions());
     }
 
     let tool_names: Vec<String> = rendered_tools

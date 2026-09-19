@@ -147,7 +147,7 @@ pub(super) fn install_context_ladder(
     // **Top-level turns only**, the same cut `CapPauser`'s dispatch guard takes.
     // A sub-agent reaching its own cap is a routine outcome, not a user-visible
     // dead end: it summarises, hands the result back to its parent, and
-    // `subagent_runner` already owns that checkpoint. The harm this fixes — a
+    // `subagent_host` already owns that checkpoint. The harm this fixes — a
     // person left with a status line where an answer should be — belongs to the
     // turn that answers a human. It also leaves a child's budget alone: the
     // conclusion costs a call, and turning every delegated run's N tool rounds

@@ -270,7 +270,6 @@ async fn round22_todo_tool_covers_crud_and_patch_error_branches() {
             "status": "pending",
             "objective": "Raise coverage on tools",
             "plan": ["write test", "run validation"],
-            "assignedAgent": "coverage_worker",
             "allowedTools": ["cargo", "composio"],
             "approvalMode": null,
             "acceptanceCriteria": ["tests pass"],

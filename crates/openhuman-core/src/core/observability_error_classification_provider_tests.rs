@@ -360,7 +360,7 @@ fn does_not_classify_unrelated_empty_response_phrases() {
     for raw in [
         // payload_summarizer.rs:261 — internal fall-through, not a failure.
         "[payload_summarizer] summarizer returned empty response, falling through",
-        // subagent_runner/extract_tool.rs:379 — graceful empty extraction.
+        // subagent_host/extract_tool.rs — graceful empty extraction.
         "[extract_from_result] provider returned an empty response; returning empty extraction",
         // Generic mention without the model-subject anchor.
         "warning: empty response body from health probe",

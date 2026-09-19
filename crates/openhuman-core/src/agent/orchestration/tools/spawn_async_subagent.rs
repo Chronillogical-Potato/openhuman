@@ -5,7 +5,6 @@
 //! events and, when possible, persisted in the child worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::messages::ChatMessage;
 use crate::agent::orchestration::running_subagents::{self, SubagentStatus};
 use crate::agent::orchestration::subagent_sessions::{
@@ -13,11 +12,14 @@ use crate::agent::orchestration::subagent_sessions::{
     SubagentSessionUpsert,
 };
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 use crate::memory::conversations::{self as conversations, ConversationMessage};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
-use tinyagents_harness::context::RunContext;
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
@@ -53,8 +55,22 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent);
+        let detached_data = parent.data.detached_child();
+        let detached_cancellation = detached_data.cancellation.clone();
+        let detached_parent = parent
+            .child(
+                RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                detached_data,
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?
+            .with_cancellation(detached_cancellation);
         SpawnAsyncSubagentTool::new()
-            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                detached_parent,
+            )
             .await
     }
 }
@@ -147,29 +163,32 @@ impl Tool for SpawnAsyncSubagentTool {
 
     async fn execute_with_context(
         &self,
-        args: serde_json::Value,
-        options: ToolCallOptions,
-        tool_context: Option<&dyn ToolRunContext>,
+        _args: serde_json::Value,
+        _options: ToolCallOptions,
+        _tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_context_inner(
-            args,
-            options,
-            tool_context,
-            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
-        )
-        .await
+        Ok(ToolResult::error(
+            "spawn_async_subagent requires a live harness run context.",
+        ))
     }
 }
 
 impl SpawnAsyncSubagentTool {
-    pub(crate) async fn execute_with_parent_context(
+    pub(crate) async fn execute_with_live_parent_context(
         &self,
         args: serde_json::Value,
         tool_context: Option<&dyn ToolRunContext>,
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        detached_parent: RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_context_inner(args, ToolCallOptions::default(), tool_context, run_context)
-            .await
+        self.execute_with_context_inner(
+            args,
+            ToolCallOptions::default(),
+            tool_context,
+            run_context,
+            Some(detached_parent),
+        )
+        .await
     }
 }
 

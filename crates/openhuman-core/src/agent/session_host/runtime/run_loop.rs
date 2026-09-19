@@ -7,7 +7,7 @@ use crate::agent::error::AgentError;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::security::prompt_injection::{
-    PromptEnforcementAction, PromptEnforcementContext, enforce_prompt_input,
+    enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
 use anyhow::Result;
 

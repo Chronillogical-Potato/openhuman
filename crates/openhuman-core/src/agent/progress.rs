@@ -164,7 +164,7 @@ pub enum AgentProgress {
     },
 
     /// A sub-agent's inner LLM iteration is starting. Emitted **only
-    /// from inside [`crate::agent::harness::subagent_runner`]**
+    /// from inside [`crate::agent::subagent_host`]**
     /// when the parent context carries an `on_progress` sink — the
     /// outer parent loop uses [`Self::IterationStarted`] for its own
     /// rounds. Carries the child's `task_id` so the UI can attribute
@@ -237,7 +237,7 @@ pub enum AgentProgress {
     /// streamed token to a specific live subagent row (via `task_id`)
     /// and render it inside that row's transcript instead of merging it
     /// into the parent's own streaming buffer. Emitted **only from
-    /// inside [`crate::agent::harness::subagent_runner`]** when
+    /// inside [`crate::agent::subagent_host`]** when
     /// the parent context carries an `on_progress` sink.
     SubagentTextDelta {
         agent_id: String,

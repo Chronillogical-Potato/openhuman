@@ -491,7 +491,7 @@ fn a_bare_command_name_is_not_second_guessed() {
     assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
 }
 
-/// `subagentStart` has a call site in `subagent_runner`; `subagentStop` does
+/// `subagentStart` has a call site in `subagent_host`; `subagentStop` does
 /// not — `ops::subagent_stopped` is never called. Reporting it as wired is the
 /// one outcome `is_wired`'s own documentation calls the worst this system can
 /// produce: the author believes a policy is enforced and nothing says otherwise.
@@ -499,7 +499,7 @@ fn a_bare_command_name_is_not_second_guessed() {
 fn subagent_stop_is_reported_as_not_yet_fired() {
     assert!(
         HookEvent::SubagentStart.is_wired(),
-        "subagentStart is fired from subagent_runner"
+        "subagentStart is fired from subagent_host"
     );
     assert!(
         !HookEvent::SubagentStop.is_wired(),

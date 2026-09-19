@@ -71,6 +71,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             parent.cancellation.clone(),
             parent.workspace.clone(),
             parent.data.child(),
+            Some(parent),
         )
         .await
     }
@@ -85,6 +86,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
     cancellation: tinyagents_harness::CancellationToken,
     workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
@@ -102,6 +104,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
         cancellation,
         workspace_descriptor,
         run_context,
+        live_parent,
     )
     .await
     .map_err(|e| anyhow::anyhow!(e))?;
@@ -235,6 +238,7 @@ impl Tool for SpawnParallelAgentsTool {
             tinyagents_harness::CancellationToken::new(),
             workspace_descriptor,
             crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            None,
         )
         .await
     }

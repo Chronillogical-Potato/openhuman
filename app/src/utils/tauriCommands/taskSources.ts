@@ -63,9 +63,6 @@ export interface TaskSource {
   intervalSecs: number;
   target: TaskSourceTarget;
   maxTasksPerFetch: number;
-  /** Static executor routing (G7): personality/skill/agent handle every card
-   *  from this source is pre-assigned to. */
-  assignedExecutor?: string;
   createdAt: string;
   lastFetchAt?: string;
   lastStatus?: string;
@@ -111,8 +108,6 @@ export interface TaskSourcePatch {
   target?: TaskSourceTarget;
   maxTasksPerFetch?: number;
   connectionId?: string;
-  /** Executor routing (G7): personality/skill/agent handle to pre-assign. */
-  assignedExecutor?: string;
 }
 
 export interface TaskSourceAddParams {
@@ -123,7 +118,6 @@ export interface TaskSourceAddParams {
   interval_secs?: number;
   target?: TaskSourceTarget;
   max_tasks_per_fetch?: number;
-  assigned_executor?: string;
 }
 
 function ensureTauri(): void {

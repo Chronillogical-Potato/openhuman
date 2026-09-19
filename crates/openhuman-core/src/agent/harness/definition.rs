@@ -15,7 +15,7 @@
 //! Sub-agents are dispatched at runtime by the `spawn_subagent` tool, which
 //! looks up an [`AgentDefinition`] by id in the global
 //! [`AgentDefinitionRegistry`] and hands it to
-//! [`super::subagent_runner::run_subagent`].
+//! [`crate::agent::subagent_host::run_subagent`].
 //!
 //! This file intentionally has zero references to the rest of the agent
 //! runtime — it is pure data so the model can be unit-tested in isolation
@@ -34,14 +34,14 @@ mod subagents;
 mod tier;
 
 pub use agent_definition::{
-    AgentDefinition, EXTENDED_MAX_TOOL_ITERATIONS, IterationPolicy, TriggerMemoryAgent,
+    AgentDefinition, IterationPolicy, TriggerMemoryAgent, EXTENDED_MAX_TOOL_ITERATIONS,
 };
 pub use execution_spec::{ModelSpec, SandboxMode, ToolScope};
 pub use prompt_source::{PromptBuilder, PromptSource};
 pub use registry::AgentDefinitionRegistry;
 pub use source::DefinitionSource;
 pub use subagents::{SkillsWildcard, SubagentEntry};
-pub use tier::{AgentTier, validate_tier_transition};
+pub use tier::{validate_tier_transition, AgentTier};
 
 /// Sentinel used to represent an explicit zero-tool scope.
 pub const NO_TOOLS_SENTINEL: &str = "__no_tools__";

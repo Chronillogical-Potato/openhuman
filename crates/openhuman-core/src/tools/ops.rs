@@ -174,11 +174,11 @@ pub fn all_tools_with_runtime(
         // calling `spawn_subagent { agent_id, prompt, … }`. The runner
         // builds a narrow Agent from an `AgentDefinition` lookup and
         // returns a single text result. See
-        // `agent::harness::subagent_runner` for the dispatch path.
+        // `agent::subagent_host` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
         // Interactive clarification early-exit. Sub-agents pause on this tool
-        // (checkpoint → `AwaitingUser`, see `subagent_runner::ops::graph`) and
+        // (checkpoint → `AwaitingUser`, see `subagent_host`) and
         // the orchestrator resumes them via `continue_subagent` (#4291).
         // Several agent scopes (orchestrator, crypto, markets, scheduler,
         // mcp_setup, desktop control) name it, so it must exist in the base

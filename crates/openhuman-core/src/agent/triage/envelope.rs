@@ -10,18 +10,6 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use crate::agent::todos::ops::BoardLocation;
-
-/// Links a trigger to the task-board card it concerns, so the triage
-/// `apply_decision` arm can hand the card to the deterministic dispatcher
-/// (claim + autonomous run + write-back) instead of the one-shot triage
-/// sub-agent. `None` for triggers with no board card (composio/webhook/cron).
-#[derive(Debug, Clone)]
-pub struct TaskCardLink {
-    pub card_id: String,
-    pub location: BoardLocation,
-}
-
 /// Where the trigger came from, plus source-specific identifiers the
 /// triage prompt wants to surface (toolkit/trigger slug, cron job id,
 /// webhook tunnel id, etc.).
@@ -96,10 +84,6 @@ pub struct TriggerEnvelope {
     /// pipeline can report a meaningful `latency_ms` when it
     /// publishes [`crate::core::events::DomainEvent::TriggerEvaluated`].
     pub received_at: DateTime<Utc>,
-
-    /// Set when this trigger corresponds to a task-board card, so the
-    /// triage escalation arm routes it through the deterministic dispatcher.
-    pub card_link: Option<TaskCardLink>,
 }
 
 impl TriggerEnvelope {
@@ -134,7 +118,6 @@ impl TriggerEnvelope {
             display_label: format!("composio/{toolkit}/{trigger}"),
             payload,
             received_at: Utc::now(),
-            card_link: None,
         }
     }
 
@@ -153,7 +136,6 @@ impl TriggerEnvelope {
             display_label: format!("webhook/{method}/{path}"),
             payload,
             received_at: Utc::now(),
-            card_link: None,
         }
     }
 
@@ -171,7 +153,6 @@ impl TriggerEnvelope {
             display_label: format!("cron/{job_name}"),
             payload: serde_json::json!({ "output": output }),
             received_at: Utc::now(),
-            card_link: None,
         }
     }
 
@@ -190,16 +171,7 @@ impl TriggerEnvelope {
             display_label: format!("external/{caller_id}"),
             payload,
             received_at: Utc::now(),
-            card_link: None,
         }
-    }
-
-    /// Attach a task-board card link so the triage escalation arm dispatches
-    /// the card deterministically (claim + autonomous run + write-back).
-    #[must_use]
-    pub fn with_task_card(mut self, card_id: String, location: BoardLocation) -> Self {
-        self.card_link = Some(TaskCardLink { card_id, location });
-        self
     }
 }
 

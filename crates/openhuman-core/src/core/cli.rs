@@ -384,7 +384,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
     // A single agent turn is a very large async state machine (system prompt +
     // hundreds of tool specs + the nested provider/tool loop), and delegating
     // to a sub-agent runs another full turn one level down. Even with the inner
-    // sub-agent future boxed (`subagent_runner::ops`), that nesting overflows
+    // sub-agent future boxed (`subagent_host::ops`), that nesting overflows
     // tokio's default 2 MiB worker-thread stack and aborts the whole process
     // (SIGABRT: "thread 'tokio-rt-worker' has overflowed its stack"), taking
     // the JSON-RPC server down mid-request. Give workers a roomier stack.

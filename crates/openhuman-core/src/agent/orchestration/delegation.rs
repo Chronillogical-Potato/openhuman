@@ -13,14 +13,15 @@
 //!
 //! Layering: the delegation *graph* lives in the `tinyagents` adapter seam; this
 //! production glue lives in `agent_orchestration`, which already depends on both
-//! the seam and `subagent_runner` (so the seam stays free of orchestration deps).
+//! the seam and `subagent_host` (so the seam stays free of orchestration deps).
 
 use std::sync::Arc;
 
 use crate::agent::harness::definition::AgentDefinition;
-use crate::agent::harness::fork_context::{current_parent, with_parent_context};
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
-use crate::agent::orchestration::parent_context::build_root_parent;
+use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 use crate::agent::tinyagents::host::delegation::run_or_resume_with_tracing;
 use crate::config::Config;
 use tinyagents_graph::checkpoint::Checkpointer;
@@ -28,43 +29,10 @@ use tinyagents_graph::delegation::{
     DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
 };
 use tinyagents_graph::SqliteCheckpointer;
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinytools::WorkspaceDescriptor;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
-
-/// Run the durable plan→execute⇄review→finalize delegation graph for
-/// `definition` against `task_prompt`, dispatching every stage to
-/// [`run_subagent`] and checkpointing the typed state to the session DB so the
-/// run is resumable. Returns the terminal [`DelegationState`] (its
-/// `final_output` holds the synthesized answer).
-///
-/// Reuses the caller's enclosing agent turn when one is present (e.g. the
-/// `delegate` tool). When none is — a controller/background caller — a root
-/// parent is built so the nested `run_subagent` calls still resolve a provider,
-/// tool registry, memory, and model (mirroring the workflow engine + team
-/// runtime).
-pub(crate) async fn run_subagent_delegation(
-    config: Arc<Config>,
-    definition: AgentDefinition,
-    task_prompt: String,
-    max_revisions: usize,
-    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
-) -> Result<DelegationState, String> {
-    // This legacy/direct entrypoint is a genuine root boundary. Live harness
-    // tools call `run_subagent_delegation_with_parent_context` below with the
-    // owned parent carrier instead.
-    let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
-    run_context.parent = current_parent();
-    run_subagent_delegation_with_parent_context(
-        config,
-        definition,
-        task_prompt,
-        max_revisions,
-        parent_workspace_descriptor,
-        run_context,
-    )
-    .await
-}
 
 /// Typed live entrypoint for the durable delegation graph.
 ///
@@ -77,15 +45,13 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
     task_prompt: String,
     max_revisions: usize,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
-    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Arc<RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> Result<DelegationState, String> {
     let thread_id = format!("delegrun-{}", uuid::Uuid::new_v4());
     // The graph and every stage share this cancellation token. A stage gets an
     // owned host carrier before it enters `run_subagent`, rather than making a
     // fresh context after the graph has spawned work.
-    let parent_context = run_context.parent.clone();
-    let stage_context = run_context.clone();
-    let graph_cancellation = run_context.cancellation.clone();
+    let graph_cancellation = live_parent.cancellation.clone();
     // Durable graph checkpoints ride the crate's `SqliteCheckpointer` (issue
     // #4249, 04.3) at a dedicated `graph_checkpoints.db` under the workspace —
     // a separate SQLite file from OpenHuman's session-db pool, so the crate's
@@ -124,24 +90,94 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
         // node handler stays `Fn` while each stage dispatches a fresh sub-agent.
         let parent_workspace_descriptor = parent_workspace_descriptor.clone();
         let stage_cancellation = graph_cancellation.clone();
+        let stage_parent = live_parent.clone();
         let run_stage = move |stage: DelegationStage, state: DelegationState| {
             let definition = definition.clone();
             let task = task_prompt.clone();
             let workspace_descriptor = parent_workspace_descriptor.clone();
             let cancellation = stage_cancellation.clone();
-            let mut run_context = stage_context.child();
+            let stage_parent = stage_parent.clone();
             async move {
                 let prompt = build_stage_prompt(stage, &task, &state);
-                run_context.workspace = workspace_descriptor.clone().or(run_context.workspace);
-                run_context.cancellation = cancellation;
-                match run_subagent(
-                    &definition,
-                    &prompt,
-                    delegation_subagent_options(workspace_descriptor, run_context),
+                let mut stage_context = stage_parent.data.child();
+                stage_context.workspace = workspace_descriptor.clone().or(stage_context.workspace);
+                stage_context.cancellation = cancellation;
+                let stage_parent = stage_parent
+                    .child(
+                        RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
+                        stage_context.clone(),
+                    )
+                    .map_err(|error| format!("delegation stage context: {error}"))?;
+                match run_subagent_with_parent(
+                    &stage_parent,
+                    definition,
+                    prompt.clone(),
+                    delegation_subagent_options(workspace_descriptor, stage_context),
                 )
                 .await
                 {
                     Ok(outcome) => {
+                        let should_emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+                        match outcome.status {
+                            SubagentRunStatus::Completed => {}
+                            SubagentRunStatus::AwaitingUser {
+                                question,
+                                checkpoint,
+                                ..
+                            } => {
+                                // A durable delegation graph cannot safely advance
+                                // plan/review state while one of its stages is
+                                // paused. Surface the exact durable child handle so
+                                // the caller can continue that stage instead of
+                                // silently stranding the checkpoint behind a generic
+                                // graph error.
+                                if should_emit_lifecycle_effects {
+                                    let parent_session = stage_parent
+                                        .data
+                                        .parent
+                                        .as_ref()
+                                        .map(|parent| parent.session_id.clone())
+                                        .unwrap_or_else(|| "standalone".to_string());
+                                    crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+                                        parent_session,
+                                        outcome.task_id.clone(),
+                                        outcome.agent_id.clone(),
+                                        question.clone(),
+                                    );
+                                    if let Some(progress) = stage_parent.data.progress.clone() {
+                                        let _ = progress
+                                            .send(AgentProgress::SubagentAwaitingUser {
+                                                agent_id: outcome.agent_id.clone(),
+                                                task_id: outcome.task_id.clone(),
+                                                question: question.clone(),
+                                                worker_thread_id: None,
+                                                checkpoint_path: checkpoint
+                                                    .as_ref()
+                                                    .map(|path| path.to_string_lossy().to_string()),
+                                            })
+                                            .await;
+                                    }
+                                }
+                                return Err(format!(
+                                    "[SUBAGENT_AWAITING_USER]\nagent_id: {}\ntask_id: {}\nquestion: {}\ncheckpointed: {}\n[/SUBAGENT_AWAITING_USER]\n\
+                                     delegation stage {stage:?} is awaiting user input; relay the answer with continue_subagent using this task_id.",
+                                    outcome.agent_id,
+                                    outcome.task_id,
+                                    serde_json::to_string(&question).unwrap_or_else(|_| {
+                                        "\"<unserializable question>\"".to_string()
+                                    }),
+                                    checkpoint.is_some(),
+                                ));
+                            }
+                            SubagentRunStatus::Incomplete { reason } => {
+                                return Err(format!(
+                                    "delegation stage {stage:?} stopped incomplete: {reason}"
+                                ));
+                            }
+                            SubagentRunStatus::Cancelled => {
+                                return Err(format!("delegation stage {stage:?} was cancelled"));
+                            }
+                        }
                         let approved = matches!(stage, DelegationStage::Review)
                             && review_approves(&outcome.output);
                         Ok(DelegationStageOutput {
@@ -177,14 +213,7 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
             .map(|outcome| outcome.state)
     };
 
-    if let Some(parent) = parent_context {
-        with_parent_context(parent, run).await
-    } else {
-        let parent = build_root_parent(&config, "delegation_engine", "delegation", "delegation")
-            .await
-            .map_err(|e| format!("delegation: failed to build root parent: {e}"))?;
-        with_parent_context(parent, run).await
-    }
+    run.await
 }
 
 /// Per-stage prompt builder: each stage sees the task plus the accumulated state

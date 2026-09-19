@@ -29,7 +29,6 @@ fn github_source(repo: Option<&str>) -> TaskSource {
         interval_secs: 1800,
         target: SourceTarget::AgentTodoProactive,
         max_tasks_per_fetch: 25,
-        assigned_executor: None,
         created_at: Utc::now(),
         last_fetch_at: None,
         last_status: None,
@@ -101,11 +100,9 @@ fn temp_config() -> (tempfile::TempDir, Config) {
 }
 
 #[tokio::test]
-async fn add_card_stamps_objective_assigned_agent_and_metadata() {
+async fn add_card_stamps_objective_and_metadata() {
     let (_tmp, config) = temp_config();
-    let mut src = github_source(Some("octo/repo"));
-    // Whitespace around the executor must be trimmed into assigned_agent.
-    src.assigned_executor = Some("  agent-x  ".into());
+    let src = github_source(Some("octo/repo"));
     let e = enriched("123", Some("https://github.com/octo/repo/issues/123"), 0.7);
 
     add_card(&config, &src, &e, None)
@@ -118,7 +115,6 @@ async fn add_card_stamps_objective_assigned_agent_and_metadata() {
     // Display title is the `[provider] title` form; objective is the bare title.
     assert_eq!(card.title, "[GitHub] Fix the bug");
     assert_eq!(card.objective.as_deref(), Some("Fix the bug"));
-    assert_eq!(card.assigned_agent.as_deref(), Some("agent-x"));
     let meta = card
         .source_metadata
         .as_ref()
@@ -168,25 +164,6 @@ async fn pull_request_card_carries_review_objective_and_kind_metadata() {
         .as_ref()
         .expect("source_metadata present");
     assert_eq!(meta["kind"], json!("pull_request"));
-}
-
-#[tokio::test]
-async fn add_card_drops_whitespace_only_assigned_executor() {
-    let (_tmp, config) = temp_config();
-    let mut src = github_source(None);
-    src.assigned_executor = Some("   ".into());
-    let e = enriched("9", None, 0.4);
-
-    add_card(&config, &src, &e, None)
-        .await
-        .expect("add_card succeeds");
-
-    let cards = board_cards(&config).await.expect("board_cards");
-    assert_eq!(cards.len(), 1);
-    assert!(
-        cards[0].assigned_agent.is_none(),
-        "whitespace-only executor should not assign the card"
-    );
 }
 
 #[test]

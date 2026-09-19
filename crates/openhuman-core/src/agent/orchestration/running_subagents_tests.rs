@@ -257,10 +257,10 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
     // surface in the roster, so a cold-booted orchestrator can resume by
     // subagent_session_id instead of re-delegating from scratch.
     {
-        use crate::agent::harness::subagent_runner::SubagentRunStatus;
         use crate::agent::orchestration::subagent_sessions::{
             self, SubagentSessionSelector, SubagentSessionStore, SubagentSessionUpsert,
         };
+        use crate::agent::subagent_host::SubagentRunStatus;
         let durable_ws = tempfile::tempdir().expect("durable roster tempdir");
         let store = SubagentSessionStore {
             workspace_dir: durable_ws.path().to_path_buf(),

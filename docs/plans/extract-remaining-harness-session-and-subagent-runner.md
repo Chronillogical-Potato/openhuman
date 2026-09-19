@@ -1,5 +1,12 @@
 # Extract the remaining session and sub-agent runtime from OpenHuman
 
+**Status:** Phases 0–5 are landed on the migration branch. Phase 6 is in
+progress: the old `harness/subagent_runner` tree is being replaced directly by
+`agent/subagent_host`, whose lifecycle is driven by
+`tinyagents_orchestration::subagent`. The branch must not be described as
+complete until its host persistence, caller migration, deletion audit, and
+validation gates have passed.
+
 ## End state and rules
 
 This extraction deletes `crates/openhuman-core/src/agent/harness/session/` and
@@ -16,7 +23,7 @@ Final ownership:
 | new `tinyagents-runtime` | generic stateful session builder/driver, history, prefix/tool snapshots, transcript deltas and partial persistence |
 | `tinyagents-orchestration::subagent` | generic plan/prepare/execute/pause/persist sub-agent lifecycle |
 | `agent/session_host` | OpenHuman prompt, memory/experience, security, progress/BUS, finalization, tool policy and factories |
-| `agent/subagent_host` and orchestration host adapters | OpenHuman definition/tier/model/tool/security/memory/artifact/progress/mirroring policy and RPC/tool DTOs |
+| `agent/subagent_host` and orchestration host adapters | OpenHuman definition/tier/model/tool/security/memory/artifact/progress/mirroring policy, durable checkpoint projection, and RPC/tool DTOs |
 
 No extraction may weaken these invariants: terminal lifecycle events are unique;
 cancellation is propagated and has one truthful terminal result; nested usage
@@ -308,22 +315,28 @@ resume/worker-mirror tests; queue steering/cancellation/explicit context/
 spawn-depth/recency/sandbox/workspace tests; usage rollup and unique
 progress/BUS event tests; and artifact/offload/handoff/error taxonomy tests.
 
-**GREEN:** Create `crates/openhuman-core/src/agent/subagent_host/{mod,planner,
-executor,persistence,definition,prompt,tools,graph,progress,artifacts,resume,
-tests}.rs`. Planner resolves definition/tier/security/tool/model/memory/prompt
-policy and emits a filtered immutable `PreparedSubagent`. Executor inherits
-`OpenHumanRunContext`; provider/model routing, artifact paths, progress and
-worker mirroring stay host-owned. Persistence implements OpenHuman checkpoint
-file/session-DB behavior where no neutral session adapter exists. Migrate
+**GREEN:** Create `crates/openhuman-core/src/agent/subagent_host/` as direct
+adapters over `tinyagents_orchestration::subagent::{SubagentDriver,
+SubagentPlanner, SubagentExecutor, SubagentPersistence}`. The planner resolves
+definition/tier/security/tool/model/memory/prompt policy and emits a filtered
+immutable `PreparedSubagent`; the executor inherits `OpenHumanRunContext` and
+keeps provider/model routing, artifact paths, progress and worker mirroring
+host-owned. Persistence owns the OpenHuman checkpoint/session-DB projection
+where no neutral session adapter exists. Its durable identity is the complete
+`(root_run_id, parent_run_id, thread_id, task_id)` key; continuation recovers
+that original key instead of deriving one from a fresh turn. Migrate
 `agent/orchestration/{ops.rs,delegation.rs,running_subagents/**,
 spawn_parallel_graph/**,subagent_sessions/**,tools/**}`, `agent/triage/**`,
-`agent/registry/**`, `agent/task_dispatcher/**`, `tools/orchestrator_tools.rs`
-and integration/raw tests.
+`agent/registry/**`, `tools/orchestrator_tools.rs` and integration/raw tests.
+`agent/task_dispatcher/**` is obsolete after upstream removed tasks: remove its
+poller, executor, public module, callers and tests rather than carrying it into
+the new host layer.
 
 Use `tinyagents_harness::handoff::ResultHandoffCache` directly; only the
 OpenHuman-configured size threshold remains at the host callsite. Move the
 OpenHuman `ExtractFromResultTool` into `subagent_host`. Delete the complete old
-runner tree and its exports in the same change.
+runner tree and its exports in the same change: `subagent_host` is the final
+host owner, never a forwarding compatibility module.
 
 **Verify:** `pnpm debug rust subagent`, `pnpm debug rust spawn_subagent`,
 `pnpm debug rust continue_subagent`, `pnpm debug rust agent_harness`, and
@@ -339,6 +352,7 @@ grep gates must be empty (negative checker fixtures are the sole exception):
 ```bash
 rg -n 'agent::session_host|tinyagents_runtime::Session' crates tests
 rg -n 'agent::harness::subagent_runner|harness::subagent_runner|mod subagent_runner;' crates tests
+rg -n 'agent/task_dispatcher|mod task_dispatcher;' crates tests
 rg -n 'pub use .*tinyagents_(runtime|session|orchestration)|type .*=(.*tinyagents)' crates/openhuman-core/src
 rg -n 'struct RunQueue|impl RunQueue|harness/run_queue' crates/openhuman-core/src/agent
 rg -n 'ResultHandoffCache' crates/openhuman-core/src/agent/harness

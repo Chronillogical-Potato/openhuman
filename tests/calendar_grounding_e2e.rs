@@ -206,10 +206,10 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
     def.model = openhuman_core::agent::harness::definition::ModelSpec::Inherit;
 
     let _ = openhuman_core::agent::harness::with_parent_context(parent, async {
-        openhuman_core::agent::harness::run_subagent(
+        openhuman_core::agent::subagent_host::run_subagent(
             &def,
             "list my calendar events for today",
-            openhuman_core::agent::harness::SubagentRunOptions::default(),
+            openhuman_core::agent::subagent_host::SubagentRunOptions::default(),
         )
         .await
     })

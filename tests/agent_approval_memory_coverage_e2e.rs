@@ -472,7 +472,7 @@ async fn approval_preauthorize_flow_rejects_malformed_params_over_the_wire() {
 /// Both unclassified tools are on the live agent path:
 /// `ComposioExecuteTool` via `all_composio_agent_tools`
 /// (`tools_part_03.rs:339`), and `ComposioActionTool` via the subagent runner
-/// (`agent/harness/subagent_runner/ops/provider.rs:193`, `runner.rs:1100`).
+/// (`agent/subagent_host/ops/provider.rs:193`, `runner.rs:1100`).
 ///
 /// # Why it is written as a classification assertion
 ///

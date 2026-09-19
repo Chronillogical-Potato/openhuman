@@ -13,10 +13,10 @@
 //! shared with the session's `DriverMemory`, so recall and tool-memory rules
 //! always address the same durable data.
 
-use crate::memory::Memory;
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::auto_recall::AutoRecall;
-use crate::memory::tool_memory::{ToolMemoryRule, tool_memory_store};
+use crate::memory::tool_memory::{tool_memory_store, ToolMemoryRule};
+use crate::memory::Memory;
 use std::sync::Arc;
 
 use crate::agent::prompts::SystemPromptBuilder;
@@ -111,8 +111,8 @@ pub(super) fn add_memory_prompt_sections(
     agent_id: &str,
 ) -> SystemPromptBuilder {
     use crate::agent::learning::{
-        MEMORY_READ_TOOLS, MEMORY_STORE_TOOL, MEMORY_WRITE_DELEGATE_TOOL, MemoryAccessSection,
-        MemoryWriteSection, SAVE_PREFERENCE_TOOL, any_tool_offered,
+        any_tool_offered, MemoryAccessSection, MemoryWriteSection, MEMORY_READ_TOOLS,
+        MEMORY_STORE_TOOL, MEMORY_WRITE_DELEGATE_TOOL, SAVE_PREFERENCE_TOOL,
     };
     let mut prompt_builder = prompt_builder;
     if any_tool_offered(&MEMORY_READ_TOOLS, tools, delegation_tools, visible) {

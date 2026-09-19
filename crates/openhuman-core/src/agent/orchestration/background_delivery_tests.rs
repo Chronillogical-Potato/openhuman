@@ -56,6 +56,44 @@ fn requeue_restores_a_failed_batch() {
     let _ = background_completions::take_pending(s); // cleanup
 }
 
+#[tokio::test]
+async fn persistence_failure_requeues_batch_without_terminal_announcement() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let session = "bd-persistence-failure";
+    record_completion(
+        session,
+        "sub-1",
+        "researcher",
+        "durable reply",
+        Some("thread-9".into()),
+    );
+    let announced = Arc::new(AtomicBool::new(false));
+    let announced_for_delivery = Arc::clone(&announced);
+
+    try_deliver_with(session.to_string(), move |_thread_id, _notice| {
+        let announced = Arc::clone(&announced_for_delivery);
+        async move {
+            persist_then_announce(
+                Ok("delivery reply".to_string()),
+                |_content, _success| Err("append failed".to_string()),
+                |_| announced.store(true, Ordering::SeqCst),
+            )
+        }
+    })
+    .await;
+
+    assert!(
+        background_completions::has_pending(session),
+        "the actual delivery loop must requeue a batch whose durable append fails"
+    );
+    assert!(
+        !announced.load(Ordering::SeqCst),
+        "neither chat_done nor chat_error may be published before persistence succeeds"
+    );
+    let _ = background_completions::take_pending(session);
+}
+
 #[test]
 fn interleave_recheck_requeues_when_user_turn_starts_after_drain() {
     // Mirrors try_deliver's M1 guard: a user turn can start between

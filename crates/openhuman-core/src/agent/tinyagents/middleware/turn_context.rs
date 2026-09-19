@@ -331,7 +331,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 /// `extract_from_result` tool) plus the ids used in handoff log lines.
 #[derive(Clone)]
 pub(crate) struct HandoffConfig {
-    pub(crate) cache: Arc<crate::agent::harness::subagent_runner::ResultHandoffCache>,
+    pub(crate) cache: Arc<crate::agent::subagent_host::ResultHandoffCache>,
     pub(crate) agent_id: String,
     pub(crate) task_id: String,
 }
@@ -444,7 +444,7 @@ impl TurnContextMiddleware {
 /// the artifact pager a short `extract_from_result` pointer instead of the
 /// bytes the model asked for (#6284).
 pub(crate) struct HandoffMiddleware {
-    cache: Arc<crate::agent::harness::subagent_runner::ResultHandoffCache>,
+    cache: Arc<crate::agent::subagent_host::ResultHandoffCache>,
     agent_id: String,
     task_id: String,
     /// Call ids of artifact reads, recorded in `before_tool` (where the
@@ -511,7 +511,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Han
             );
             return Ok(());
         }
-        let handoff = crate::agent::harness::subagent_runner::apply_handoff(
+        let handoff = crate::agent::subagent_host::apply_handoff(
             &self.cache,
             tool_name,
             &self.task_id,

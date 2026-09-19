@@ -276,7 +276,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `registry/` | Split | Keep enablement, custom-agent persistence, product defaults and RPC; move definition parsing/validation/lookup to `tinyagents-registry`; delete thin `registry/tools.rs`. |
 | `session_db/` | Keep | OpenHuman RPC controllers over TinyAgents ledger. |
 | `session_import/` | Keep | Legacy OpenHuman source and disk migration. |
-| `task_dispatcher/` | Split | Keep service/poller/executor and product tool binding; generic claim/select/prompt algorithms belong in `tinyagents-graph::todos`. |
+| `task_dispatcher/` | Delete | Upstream removed the task runtime. Delete the obsolete poller, executor, task-board binding and their callers; do not recreate a host shim. |
 | `tinyagents/` | Split/Delete | Host adapters and product journal/projections stay; generic assembly, model/tool wrappers, middleware, task-local routing and graph wrappers move upstream, then the integration facade disappears. |
 | `tools/` | Keep | Product control tools, changed to implement `tinytools::Tool` directly. Generic todo/delegation mechanics move to graph/harness. |
 | `tools.rs` | Keep aggregator | Re-export OpenHuman-owned product tools only; import all upstream types at use sites. |
@@ -294,7 +294,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `progress.rs`, `progress_sink.rs` | Keep adapter | UI contract/sink mapping remain; task-local delivery becomes explicit `RunContext` data. |
 | `schemas.rs` | Keep | OpenHuman RPC controllers. |
 | `task_board.rs` | Delete facade | Call `tinyagents_graph::todos` directly; keep only product migrations at their owning startup module. |
-| `task_session.rs` | Keep/Shrink | OpenHuman conversation/task binding; use host-driven invocation. |
+| `task_session.rs` | Delete | It existed solely for the removed autonomous task-board dispatcher. |
 | `tool_policy.rs` | Keep policy | Product restrictions/approval facts; invoke through `SecurityGate`/canonical tool declarations. |
 | `turn_origin.rs`, `turn_workspace.rs` | Keep types/delete scopes | Product origin/workspace rules remain, but task-local accessors are replaced by explicit run context. |
 | `mod.rs`, `README.md` | Update | Export only OpenHuman-owned public API and describe the host boundary. |
@@ -315,8 +315,9 @@ all consumers import the owner directly, not that behavior is dropped.
 | `tool_result_artifacts/` | Keep host store | OpenHuman action-dir artifact persistence implementing the upstream artifact callback/store seam. |
 | `credentials.rs`, `memory_context.rs`, `memory_context_safety.rs` | Keep host policy/adapters | Feed explicit context/capability requests; move only host-free formatting/traversal helpers. |
 | `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | explicit `RunContext`/child context | Delete task-local shells. |
-| `subagent_runner/` generic recursion/drive | host-capability `invoke_agent` + `tinyagents-graph` | Keep only OpenHuman request/result mapping if still needed. |
-| `subagent_runner/handoff.rs`, `extract_tool.rs` | `tinyagents-harness::handoff` | Delete OpenHuman wrapper/cache after upstream storage/chunk/extract parity and direct imports. |
+| `subagent_runner/` | Delete | The complete legacy tree is replaced by direct `agent/subagent_host` adapters over `tinyagents-orchestration::subagent`; generic lifecycle ordering, coalescing and mutually exclusive persistence are upstream. |
+| `subagent_host/` | Keep host adapter | OpenHuman implements `SubagentPlanner`, `SubagentExecutor` and `SubagentPersistence`: definitions, policy, provider/model selection, tool narrowing, workspace/security, progress, artifacts and durable product checkpoint/session projection remain host-owned. |
+| `subagent_host/handoff.rs`, `extract_tool.rs` | Host callsite / `tinyagents-harness::handoff` | Use `ResultHandoffCache` directly; retain only OpenHuman's configured threshold and product extraction tool. |
 | `session/` loop/turn assembly | `AgentHarness::invoke_agent[_stream]` | Keep OpenHuman transcript/checkpoint persistence and a thin product-facing constructor only if it adds a real OpenHuman API; no runtime duplication. |
 | credentials, memory, profile, prompt and sandbox inputs | Host adapters | Keep host implementations; no generic mechanics. |
 

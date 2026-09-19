@@ -39,7 +39,7 @@
 //! through `run_subagent`, and the `SqliteCheckpointer` under the workspace) is
 //! a separate concern and lives in
 //! [`agent_orchestration::delegation`](crate::agent::orchestration::delegation),
-//! which depends on both this seam and `subagent_runner` — so this seam stays
+//! which depends on both this seam and `subagent_host` — so this seam stays
 //! free of orchestration dependencies.
 
 use std::future::Future;

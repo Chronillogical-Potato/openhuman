@@ -14,13 +14,13 @@ use crate::agent::{
     message_convert::{dialect_response_from_provider, message_to_native_chat_message},
     messages::ChatMessage,
     session_host::turn_checkpoint::{
-        self, CloseVerdict, build_deterministic_checkpoint, build_deterministic_final_summary,
+        self, build_deterministic_checkpoint, build_deterministic_final_summary,
         close_verification_prompt, final_answer_instruction, parse_close_verdict,
-        render_tool_results, results_from_tool_outcomes,
+        render_tool_results, results_from_tool_outcomes, CloseVerdict,
     },
     tinyagents::{TinyagentsTurnOutcome, TurnModelSource},
 };
-use crate::inference::provider::{AGENT_TURN_MAX_OUTPUT_TOKENS, ChatResponse, UsageInfo};
+use crate::inference::provider::{ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS};
 
 /// Accounting from model calls performed after the harness loop has ended.
 #[derive(Default)]

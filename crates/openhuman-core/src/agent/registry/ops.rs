@@ -205,7 +205,7 @@ pub fn merge_entries(
 /// `agent::session_host::builder::factory`) on a harness-registry lookup
 /// miss so a custom agent can be synthesized into a real
 /// `AgentDefinition` (via `definition_from_registry_entry`) and run with its
-/// real tool belt, instead of erroring (chat/task-dispatcher) or degrading to
+/// real tool belt, instead of erroring in chat or degrading to
 /// a persona-only completion (flows). Deliberately sync — unlike
 /// [`get_agent`]/[`list_agents`] — because the factory already holds a
 /// `&Config` in scope and must not spawn an async config reload mid-build.
@@ -218,7 +218,7 @@ pub fn merge_entries(
 ///
 /// A **disabled** custom entry is deliberately treated as a miss (`None`),
 /// same as an unknown id — never synthesized into a runnable definition here.
-/// Every caller of this function (chat, task-dispatcher, flows' registry
+/// Every caller of this function (chat and flows' registry
 /// routing) resolves an agent id directly to "runnable or not"; without this
 /// filter a disabled custom agent referenced by an existing profile or a
 /// direct caller could still run through the harness path, silently

@@ -403,12 +403,12 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
 /// composer's Stop button (issue: the original FE-only version hid the
 /// button but never touched the running turn, since `flows_build` runs the
 /// agent inline and never registers in `web_chat::IN_FLIGHT` or
-/// `task_dispatcher::ACTIVE_RUNS`).
+/// any autonomous-run registry).
 ///
 /// When `request_id` is `Some`, the cancel only fires if it matches the turn
 /// currently registered on `thread_id` — a stale Stop click for a
 /// superseded/earlier request can't kill a newer turn that has since started
-/// on the same thread (mirrors `task_dispatcher::cancel_session_scoped`,
+/// on the same thread (the same rule applies to autonomous work,
 /// #4760). `None` cancels whatever turn is on the thread. Returns whether a
 /// turn was found and signalled; `false` is not an error — it just means
 /// nothing was in flight to cancel (already settled, or never started).

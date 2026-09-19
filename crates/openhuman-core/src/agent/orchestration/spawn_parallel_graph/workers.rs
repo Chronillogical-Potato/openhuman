@@ -7,16 +7,23 @@ use std::path::PathBuf;
 use tinyagents_graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents_harness::{CancellationToken, TinyAgentsError};
 
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
+use crate::agent::subagent_host::{
+    run_subagent, run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 
 use super::staging::WorkerDispatchMode;
-use super::types::{ParallelAgentResult, SpawnParallelWorker};
+use super::types::{ParallelAgentResult, ParallelAgentStatus, SpawnParallelWorker};
 
 pub(crate) async fn run_spawn_parallel_workers(
     prepared: Vec<SpawnParallelWorker>,
     action_root: Option<PathBuf>,
     cancel: CancellationToken,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
 ) -> tinyagents_harness::Result<Vec<ParallelAgentResult>> {
     let n = prepared.len();
     let serial_write_count = prepared
@@ -45,7 +52,13 @@ pub(crate) async fn run_spawn_parallel_workers(
                 return Err(TinyAgentsError::Cancelled);
             }
             results.push(
-                run_one_parallel_task(worker, action_root.clone(), run_context.child()).await,
+                run_one_parallel_task(
+                    worker,
+                    action_root.clone(),
+                    run_context.child(),
+                    live_parent,
+                )
+                .await,
             );
         }
         return Ok(results);
@@ -67,7 +80,7 @@ pub(crate) async fn run_spawn_parallel_workers(
     let outcome = map_reduce(prepared, options, move |_i, worker| {
         let repo_root = action_root_for_workers.clone();
         let run_context = run_context_for_workers.child();
-        async move { Ok(run_one_parallel_task(worker, repo_root, run_context).await) }
+        async move { Ok(run_one_parallel_task(worker, repo_root, run_context, live_parent).await) }
     })
     .await?;
 
@@ -96,6 +109,11 @@ async fn run_one_parallel_task(
     worker: SpawnParallelWorker,
     repo_root: Option<PathBuf>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
 ) -> ParallelAgentResult {
     let SpawnParallelWorker {
         definition,
@@ -137,7 +155,11 @@ async fn run_one_parallel_task(
         workspace_descriptor,
         run_queue: None,
     };
-    let run_result = run_subagent(&definition, &prompt, options).await;
+    let run_result = if let Some(parent) = live_parent {
+        run_subagent_with_parent(parent, definition.clone(), prompt.clone(), options).await
+    } else {
+        run_subagent(&definition, &prompt, options).await
+    };
 
     // After the worker finishes, snapshot the worktree's changed files +
     // dirty status so the parent can detect cross-worker overlaps and the UI
@@ -180,21 +202,59 @@ async fn run_one_parallel_task(
 
     match run_result {
         Ok(outcome) => {
+            let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+            let (status, success, error, awaiting_question, checkpoint_path) = match &outcome.status
+            {
+                SubagentRunStatus::Completed => {
+                    (ParallelAgentStatus::Completed, true, None, None, None)
+                }
+                SubagentRunStatus::AwaitingUser {
+                    question,
+                    checkpoint,
+                    ..
+                } => (
+                    ParallelAgentStatus::AwaitingUser,
+                    false,
+                    None,
+                    Some(question.clone()),
+                    checkpoint
+                        .as_ref()
+                        .map(|path| path.to_string_lossy().to_string()),
+                ),
+                SubagentRunStatus::Incomplete { reason } => (
+                    ParallelAgentStatus::Incomplete,
+                    false,
+                    Some(reason.clone()),
+                    None,
+                    None,
+                ),
+                SubagentRunStatus::Cancelled => (
+                    ParallelAgentStatus::Cancelled,
+                    false,
+                    Some("parallel subagent was cancelled".into()),
+                    None,
+                    None,
+                ),
+            };
             tracing::debug!(
                 task_id = %outcome.task_id,
                 agent_id = %outcome.agent_id,
                 elapsed_ms = outcome.elapsed.as_millis() as u64,
                 iterations = outcome.iterations,
                 output_chars = outcome.output.chars().count(),
-                "[spawn_parallel_agents] task_success"
+                status = ?status,
+                "[spawn_parallel_agents] task_outcome"
             );
             ParallelAgentResult {
                 task_id: outcome.task_id,
                 agent_id: outcome.agent_id,
                 lineage,
-                success: true,
+                success,
+                status,
                 output: Some(outcome.output),
-                error: None,
+                error,
+                awaiting_question,
+                checkpoint_path,
                 ownership: task.ownership,
                 elapsed_ms: outcome.elapsed.as_millis() as u64,
                 iterations: outcome.iterations as u32,
@@ -202,6 +262,7 @@ async fn run_one_parallel_task(
                 worktree_path: worktree_str,
                 changed_files,
                 dirty_status,
+                emit_lifecycle_effects,
             }
         }
         Err(err) => {
@@ -217,8 +278,11 @@ async fn run_one_parallel_task(
                 agent_id: definition.id,
                 lineage,
                 success: false,
+                status: ParallelAgentStatus::Failed,
                 output: None,
                 error: Some(err.to_string()),
+                awaiting_question: None,
+                checkpoint_path: None,
                 ownership: task.ownership,
                 elapsed_ms: started.elapsed().as_millis() as u64,
                 iterations: 0,
@@ -226,6 +290,7 @@ async fn run_one_parallel_task(
                 worktree_path: worktree_str,
                 changed_files,
                 dirty_status,
+                emit_lifecycle_effects: false,
             }
         }
     }

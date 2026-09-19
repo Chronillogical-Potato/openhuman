@@ -130,7 +130,7 @@ pub(crate) async fn build_root_parent(
 /// surface cannot install a hand-rolled parent, and — the TAURI-RUST-HMW
 /// failure mode — cannot *forget* to install one at all and have every nested
 /// `spawn_subagent` die at runtime with
-/// [`SubagentRunError::NoParentContext`](crate::agent::harness::subagent_runner::SubagentRunError::NoParentContext).
+/// [`SubagentRunError::NoParentContext`](crate::agent::subagent_host::SubagentRunError::NoParentContext).
 /// Running a background surface and establishing its root context become the
 /// same act.
 ///

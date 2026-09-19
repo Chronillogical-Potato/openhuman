@@ -10,8 +10,8 @@ use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::session_host::types::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::inference::provider;
-use crate::memory::Memory;
 use crate::memory::tool_memory::capture::ToolMemoryCaptureHook;
+use crate::memory::Memory;
 use crate::security::SecurityPolicy;
 use crate::tools;
 use anyhow::Result;
@@ -880,7 +880,7 @@ impl OpenHumanSessionHost {
         //
         // Workflows_agent and every other typed sub-agent are unaffected
         // because they never build via `from_config_for_agent` — they
-        // are spawned through `subagent_runner` which constructs its
+        // are spawned through `subagent_host` which constructs its
         // prompt and history directly.
         //
         // See the docstring on `SessionHostBuilder::agent_definition_name`
@@ -1053,7 +1053,7 @@ impl OpenHumanSessionHost {
 ///    the exact same `build_session_agent_inner` path (and therefore the
 ///    exact same `SecurityPolicy` / tool-filtering / approval gate) as a
 ///    built-in. This closes the gap where a custom agent either hard-errored
-///    (chat, task-dispatcher) or silently ran tool-less/persona-only (flows'
+///    (chat) or silently ran tool-less/persona-only (flows'
 ///    `RegistryFallback`) — see the cross-cutting fix in the PR that added
 ///    this function.
 /// 3. **Orchestrator legacy fallback** — `orchestrator` alone is allowed to

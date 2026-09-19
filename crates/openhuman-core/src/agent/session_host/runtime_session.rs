@@ -18,9 +18,9 @@ use tinyinference_llm::message::Message;
 
 use crate::agent::{
     session_host::{
-        OpenHumanSessionHooks, OpenHumanTranscriptCodec, driver::OpenHumanSessionDriver,
+        driver::OpenHumanSessionDriver, OpenHumanSessionHooks, OpenHumanTranscriptCodec,
     },
-    tinyagents::{TurnContextMiddleware, host::OpenHumanRunContext},
+    tinyagents::{host::OpenHumanRunContext, TurnContextMiddleware},
 };
 
 use super::types::OpenHumanSessionHost;
@@ -312,7 +312,7 @@ impl OpenHumanTurnPrelude {
         &self,
         learned: crate::agent::prompts::LearnedContextData,
     ) -> Result<String> {
-        use crate::agent::prompts::{PromptContext, PromptTool, tool_call_format_from_dialect};
+        use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
             .lock()
@@ -887,13 +887,13 @@ impl OpenHumanTurnPrelude {
         let prompt = format!(
             "Search the user's memory tree and return only context relevant to the next agent turn.\n\nUser prompt:\n{user_message}"
         );
-        let options = crate::agent::harness::SubagentRunOptions {
+        let options = crate::agent::subagent_host::SubagentRunOptions {
             task_id: Some(format!("mem-trigger-{}", uuid::Uuid::new_v4())),
             model_override: Some(parent_context.model_name.clone()),
             run_context: OpenHumanRunContext::new().with_parent(parent_context.clone()),
             ..Default::default()
         };
-        match crate::agent::harness::run_subagent(&definition, &prompt, options).await {
+        match crate::agent::subagent_host::run_subagent(&definition, &prompt, options).await {
             Ok(outcome) if !outcome.output.trim().is_empty() => (
                 format!(
                     "## Memory agent context\n\n{}\n\n---\n\n{enriched}",
@@ -1068,10 +1068,10 @@ impl OpenHumanTurnPrelude {
             stats.session_memory_current_turn
         );
         tokio::spawn(async move {
-            let result = crate::agent::harness::run_subagent(
+            let result = crate::agent::subagent_host::run_subagent(
                 &definition,
                 crate::agent::context::ARCHIVIST_EXTRACTION_PROMPT,
-                crate::agent::harness::SubagentRunOptions {
+                crate::agent::subagent_host::SubagentRunOptions {
                     run_context: OpenHumanRunContext::new().with_parent(parent),
                     ..Default::default()
                 },
@@ -1347,6 +1347,7 @@ impl OpenHumanSessionHost {
         context.thread_id = self.thread_id.clone();
         context.workspace = self.workspace_descriptor.clone();
         let cancellation = context.cancellation.clone();
+        let root_config = context.root_run_config("openhuman-session");
         let options = TurnOptions {
             request_id: crate::agent::turn_origin::current_request_id(),
             thread_id: self.thread_id.clone(),
@@ -1361,9 +1362,7 @@ impl OpenHumanSessionHost {
                 ResumeMode::Never
             },
             cancellation,
-            run_context: context.into_tinyagents(tinyagents_harness::context::RunConfig::new(
-                "openhuman-session",
-            )),
+            run_context: context.into_tinyagents(root_config),
         };
         let outcome = self
             .runtime_session

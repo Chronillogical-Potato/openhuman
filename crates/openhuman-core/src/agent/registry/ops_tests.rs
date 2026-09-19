@@ -89,7 +89,7 @@ fn find_custom_in_config_misses_unknown_id() {
 fn find_custom_in_config_ignores_disabled_custom_entries() {
     // Regression test (P2 review comment on this PR): a disabled custom
     // agent must be treated as a miss here, exactly like an unknown id —
-    // otherwise a direct factory caller (chat, task-dispatcher) that
+    // otherwise a direct factory caller (such as chat) that
     // references a disabled custom agent's id (e.g. via an existing
     // profile) would still synthesize it into a runnable definition,
     // bypassing the disabled flag that the flows path already enforces

@@ -375,7 +375,7 @@ fn the_no_tools_sentinel_can_never_name_a_real_tool() {
 
 #[test]
 fn is_empty_tool_scope_distinguishes_the_three_states() {
-    use crate::agent::harness::definition::{NO_TOOLS_SENTINEL, is_empty_tool_scope};
+    use crate::agent::harness::definition::{is_empty_tool_scope, NO_TOOLS_SENTINEL};
     use std::collections::HashSet;
 
     // Unset — the historical "everything" sentinel.

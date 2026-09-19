@@ -272,7 +272,7 @@ impl OpenHumanSessionHost {
     /// its `AgentDefinition::effective_max_iterations()`, which is the correct
     /// behavior for direct-invocation call sites. A handful of callers need a
     /// *different* cap than the definition's declared budget (e.g. long-running
-    /// workflow/task-dispatcher runs that intentionally exceed any single
+    /// workflow runs that intentionally exceed any single
     /// agent's normal budget). Those callers should apply their override
     /// AFTER construction via this setter, so the shared definition-cap logic
     /// in the builder doesn't get silently clobbered by pre-construction

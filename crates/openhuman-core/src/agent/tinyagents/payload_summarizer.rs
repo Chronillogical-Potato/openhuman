@@ -64,7 +64,7 @@ use tracing::{debug, info, warn};
 
 use crate::agent::harness::definition::{AgentDefinition, PromptSource};
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::harness::subagent_runner;
+use crate::agent::subagent_host;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 
 /// A successful compression, carried by [`SummarizeOutcome::Summarized`].
@@ -395,7 +395,7 @@ impl SubagentPayloadSummarizer {
             anyhow!("payload summarizer cannot use invoke_in_parent without ParentExecutionContext")
         })?;
         let config_loaded = crate::config::Config::load_or_init().await;
-        let (source, model) = subagent_runner::resolve_subagent_source(
+        let (source, model) = subagent_host::resolve_subagent_source(
             &self.definition.model,
             &self.definition.id,
             config_loaded.as_ref().ok(),
@@ -515,7 +515,7 @@ impl SubagentPayloadSummarizer {
                 ));
             }
         };
-        Ok(subagent_runner::append_subagent_role_contract(
+        Ok(subagent_host::append_subagent_role_contract(
             system_prompt,
             &self.definition.id,
         ))

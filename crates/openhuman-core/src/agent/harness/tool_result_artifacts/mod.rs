@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::memory::safety::{SanitizationReport, Sanitized, sanitize_text};
+use crate::memory::safety::{sanitize_text, SanitizationReport, Sanitized};
 use async_trait::async_trait;
 use serde_json::Value;
 use tinyagents_harness::store::Store;

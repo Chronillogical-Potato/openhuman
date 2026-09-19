@@ -65,12 +65,10 @@ fn codec_marks_failed_tool_rows_from_the_explicit_turn_sidecar() {
             },
         )
         .unwrap();
-    assert!(
-        rows[0]
-            .tool_failure
-            .as_ref()
-            .is_some_and(|failure| failure.failed)
-    );
+    assert!(rows[0]
+        .tool_failure
+        .as_ref()
+        .is_some_and(|failure| failure.failed));
 }
 
 #[test]
@@ -98,7 +96,7 @@ fn codec_attaches_sidecar_usage_and_exact_tool_arguments_to_atomic_append() {
     context.append_subagent_usage(crate::agent::tinyagents::host::SubagentUsageEntry {
         task_id: "child-usage".into(),
         agent_id: "researcher".into(),
-        usage: crate::agent::harness::subagent_runner::SubagentUsage {
+        usage: crate::agent::subagent_host::SubagentUsage {
             input_tokens: 5,
             output_tokens: 2,
             cached_input_tokens: 1,
@@ -142,7 +140,7 @@ fn last_turn_usage_reports_the_same_holistic_totals_as_transcript_billing() {
         .push(crate::agent::tinyagents::host::SubagentUsageEntry {
             task_id: "child-ui".into(),
             agent_id: "researcher".into(),
-            usage: crate::agent::harness::subagent_runner::SubagentUsage {
+            usage: crate::agent::subagent_host::SubagentUsage {
                 input_tokens: 5,
                 output_tokens: 2,
                 cached_input_tokens: 1,
@@ -234,7 +232,7 @@ async fn committed_goal_accounting_uses_direct_and_completed_child_usage() {
         .push(crate::agent::tinyagents::host::SubagentUsageEntry {
             task_id: "child-goal".into(),
             agent_id: "researcher".into(),
-            usage: crate::agent::harness::subagent_runner::SubagentUsage {
+            usage: crate::agent::subagent_host::SubagentUsage {
                 input_tokens: 5,
                 output_tokens: 3,
                 ..Default::default()

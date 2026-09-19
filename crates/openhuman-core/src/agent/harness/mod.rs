@@ -14,7 +14,6 @@
 //!   identity, global skills) to keep sub-agent prompts small.
 //!
 //! ## Key Sub-modules
-//! - **[`subagent_runner`]**: The core logic for executing a sub-agent.
 //! - **[`definition`]**: Data structures for defining an agent's archetype.
 //! - **[`fork_context`]**: Task-local storage for parent context sharing.
 //!
@@ -36,7 +35,6 @@ pub(crate) mod memory_protocol;
 pub(crate) mod required_output;
 pub mod sandbox_context;
 pub(crate) mod spawn_depth_context;
-pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod tool_result_artifacts;
 
@@ -49,12 +47,11 @@ pub use definition::{
     SandboxMode, ToolScope, TriggerMemoryAgent,
 };
 pub use fork_context::{
-    AgentContextPreparedSource, ParentExecutionContext, current_agent_context_prepared_sources,
-    current_parent, with_agent_context_prepared_sources, with_parent_context,
+    current_agent_context_prepared_sources, current_parent, with_agent_context_prepared_sources,
+    with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
-pub(crate) use spawn_depth_context::{MAX_SPAWN_DEPTH, with_spawn_depth};
-pub use subagent_runner::{SubagentRunError, SubagentRunOptions, run_subagent};
+pub(crate) use spawn_depth_context::{with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
 
 pub(crate) use graph::run_channel_turn_via_graph;

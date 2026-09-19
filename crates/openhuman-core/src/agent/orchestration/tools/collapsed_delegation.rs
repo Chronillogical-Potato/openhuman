@@ -333,6 +333,23 @@ pub(crate) async fn execute_collapsed_delegation(
     tool_context: Option<&dyn ToolRunContext>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    execute_collapsed_delegation_with_live_parent(targets, args, tool_context, run_context, None)
+        .await
+}
+
+/// Typed-harness counterpart that preserves the exact parent run for a
+/// blocking child rather than recreating a synthetic root from host data.
+pub(crate) async fn execute_collapsed_delegation_with_live_parent(
+    targets: &[DelegateTarget],
+    args: Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
+) -> anyhow::Result<ToolResult> {
     let requested = args.get("agent").and_then(Value::as_str).map(str::trim);
     let Some(target) =
         requested.and_then(|agent| targets.iter().find(|target| target.tool_name == agent))
@@ -389,7 +406,7 @@ pub(crate) async fn execute_collapsed_delegation(
     // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
     // into run records and the UI, and reporting every hand-off as
     // `delegate` would erase which specialist was chosen from every trace.
-    super::dispatch_subagent(
+    super::dispatch::dispatch_subagent_with_live_parent(
         &target.agent_id,
         &target.tool_name,
         &prompt,
@@ -398,6 +415,7 @@ pub(crate) async fn execute_collapsed_delegation(
         tool_context,
         mode,
         run_context,
+        live_parent,
     )
     .await
 }
