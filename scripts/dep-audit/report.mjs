@@ -11,11 +11,13 @@
 // version drift for crates that several targets depend on directly.
 //
 // Every unused-dependency flag is re-checked here with a textual scan of the
-// package's own sources, because tinyanalyzer's check does not see crate names
-// inside attributes (`#[derive(thiserror::Error)]`, `#[serde(...)]`). A flag
-// whose crate name *does* appear somewhere in the package is reported as
-// "attribute/macro use" instead of "remove", so nothing is silently hidden but
-// the reader knows which rows are real.
+// package's own sources (see `textualUse`), because tinyanalyzer's check does
+// not see crate names inside attributes (`#[tokio::test]`,
+// `#[derive(thiserror::Error)]`). A flag whose crate *is* referenced as a path
+// somewhere is reported as "keep" instead of "remove", so nothing is silently
+// hidden but the reader knows which rows are real. Each "remove" row also says
+// whether deleting the line shrinks the build ("graph win") or merely tidies
+// the manifest because another workspace package still pulls the crate in.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -337,19 +339,43 @@ function driftAcross(reports) {
     }
   }
   const rows = [];
+  let patchOnly = 0;
   for (const [name, perTarget] of byCrate) {
     if (perTarget.size < 2) continue;
     const versions = new Set([...perTarget.values()].flatMap((s) => [...s]));
     if (versions.size < 2) continue;
+    // Patch-level drift (1.0.103 vs 1.0.104) is lockfile staleness; cargo
+    // unifies it in the root build. Only semver-incompatible drift costs a
+    // second copy, so only that is reported.
+    const compat = new Set([...versions].map(compatKey));
+    if (compat.size < 2) {
+      patchOnly += 1;
+      continue;
+    }
+    const byVersion = new Map();
+    for (const [t, vs] of perTarget) {
+      for (const v of vs) {
+        if (!byVersion.has(v)) byVersion.set(v, []);
+        byVersion.get(v).push(t);
+      }
+    }
     rows.push({
       name,
-      targets: [...perTarget.entries()]
-        .map(([t, vs]) => ({ target: t, versions: [...vs].sort(semverish) }))
-        .sort((a, b) => a.target.localeCompare(b.target)),
       versions: [...versions].sort(semverish),
+      by_version: [...byVersion.entries()]
+        .sort((a, b) => semverish(a[0], b[0]))
+        .map(([v, ts]) => ({ version: v, targets: ts.sort() })),
     });
   }
-  return rows.sort((a, b) => b.versions.length - a.versions.length || a.name.localeCompare(b.name));
+  rows.sort((a, b) => b.versions.length - a.versions.length || a.name.localeCompare(b.name));
+  rows.patch_only = patchOnly;
+  return rows;
+}
+
+/** Semver compatibility bucket: `0.x.y` -> `0.x`, `x.y.z` -> `x`. */
+function compatKey(v) {
+  const [major, minor] = v.split(/[.+-]/);
+  return major === "0" ? `0.${minor}` : major;
 }
 
 function semverish(a, b) {
@@ -471,17 +497,19 @@ function renderMarkdown(summary, n) {
   // --- Drift ---------------------------------------------------------------
   push(`## 4. Version drift across repositories`, ``);
   push(
-    `Crates that two or more targets depend on *directly* but resolve to different versions. When the root workspace ${code("[patch]")}-es a submodule in, both versions end up in the root build (section 2), so aligning the submodule's requirement with the root's removes a duplicate for free.`,
+    `Crates that two or more targets depend on *directly* but resolve to semver-incompatible versions. When the root workspace ${code("[patch]")}-es a submodule in, both versions end up in the root build (section 2), so aligning the submodule's requirement with the root's removes a duplicate for free. Rows are ordered by how many distinct versions are in play.`,
     ``,
   );
   if (summary.drift.length === 0) {
     push(`_None._`);
   } else {
-    push(`| Crate | Versions | Per target |`, `| --- | --- | --- |`);
+    push(`| Crate | Version | Targets |`, `| --- | --- | --- |`);
     for (const d of summary.drift) {
-      const per = d.targets.map((t) => `${t.target}: ${t.versions.join("/")}`).join("; ");
-      push(`| ${code(d.name)} | ${d.versions.map(code).join(", ")} | ${per} |`);
+      d.by_version.forEach((bv, i) => {
+        push(`| ${i === 0 ? code(d.name) : ""} | ${code(bv.version)} | ${bv.targets.join(", ")} |`);
+      });
     }
+    push(``, `_${summary.drift.patch_only} more crate(s) drift only at patch level (lockfile staleness; cargo unifies them) and are not listed._`);
   }
   push(``);
   return lines.join("\n");
