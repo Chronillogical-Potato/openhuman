@@ -877,7 +877,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/mcp/server/tools/dispatch.rs",
-    "line": 393,
+    "line": 396,
     "text": "crate::agent::turn_origin::with_origin(origin, agent.run_single(&prompt)),",
     "occurrence": 1
   },
@@ -1143,7 +1143,7 @@
   {
     "rule": "tinyagents-moved-symbol-alias",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/tool/mod.rs",
-    "line": 111,
+    "line": 109,
     "text": "pub struct ToolRegistry<State: Send + Sync, Ctx: Send + Sync> {",
     "occurrence": 1
   },
@@ -1346,43 +1346,64 @@
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 55,
+    "line": 51,
     "text": "use bridge::{ChatMessage, ChatResponse, ProviderDelta};",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 220,
+    "line": 219,
     "text": "messages: &[ChatMessage],",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 283,
+    "line": 282,
     "text": "fn coalesce_system_prompt(messages: &[ChatMessage]) -> Option<String> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 326,
+    "line": 325,
     "text": "fn request_messages(request: &ModelRequest) -> Vec<ChatMessage> {",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/mod.rs",
-    "line": 349,
+    "line": 348,
     "text": "ChatMessage::new(role, content)",
     "occurrence": 1
   },
   {
     "rule": "tinyagents-tool-calling-facade",
-    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 1161,
-    "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/dialect.rs",
+    "line": 18,
+    "text": "use tinytools_agent::dialect::PFormatDialect;",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-tool-calling-facade",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/dialect.rs",
+    "line": 19,
+    "text": "use tinytools_agent::types::{ParseOptions, ParsedToolCall};",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-tool-calling-facade",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/dialect.rs",
+    "line": 20,
+    "text": "use tinytools_agent::{PFormatRegistry, StreamScrubber};",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-tool-calling-facade",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/tools.rs",
+    "line": 1284,
+    "text": "use tinytools_agent::repair::args;",
     "occurrence": 1
   },
   {
