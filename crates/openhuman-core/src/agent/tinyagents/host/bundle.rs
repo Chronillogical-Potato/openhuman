@@ -65,6 +65,8 @@ pub struct OpenHumanHostInvocationInputs {
     pub base: Arc<OpenHumanHostBase>,
     pub tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
     pub tool_policy: Option<Arc<ToolPolicySession>>,
+    /// The current turn's already-selected model route set.
+    pub model_resolver: Option<Arc<dyn ModelResolver<()>>>,
 }
 
 /// OpenHuman's ten concrete capability adapters plus their erased crate bundle.
@@ -96,7 +98,7 @@ impl OpenHumanHostBundleFactory {
         inputs: OpenHumanHostInvocationInputs,
         turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
-        Self::build(
+        let mut bundle = Self::build(
             OpenHumanHostBundleInputs {
                 config: inputs.base.config.clone(),
                 definitions: inputs.base.definitions.clone(),
@@ -109,7 +111,11 @@ impl OpenHumanHostBundleFactory {
                 post_turn_hooks: inputs.base.post_turn_hooks.clone(),
             },
             turn,
-        )
+        );
+        if let Some(model_resolver) = inputs.model_resolver {
+            bundle.capabilities.models = model_resolver;
+        }
+        bundle
     }
 
     /// Constructs all ten concrete adapters from a single session input set.

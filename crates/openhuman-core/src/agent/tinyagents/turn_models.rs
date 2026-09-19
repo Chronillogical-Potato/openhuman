@@ -3,10 +3,13 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use crate::agent::tinyagents::model::{
     BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel,
 };
 use crate::agent::tinyagents::routes;
+use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
 use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
 pub(crate) fn tinyagents_depth_error(
@@ -79,6 +82,37 @@ impl TurnModels {
     /// Whether the source provider is vision-capable.
     pub(crate) fn supports_vision(&self) -> bool {
         self.supports_vision
+    }
+}
+
+/// Host resolver for one live invocation. It exposes the exact pre-built
+/// primary and fallback route models already selected by OpenHuman, rather
+/// than constructing a fresh config-routed model during hosted preparation.
+pub(crate) struct TurnModelResolver {
+    primary: TurnChatModel,
+    routes: std::collections::HashMap<String, TurnChatModel>,
+}
+
+impl TurnModelResolver {
+    pub(crate) fn from_turn_models(models: &TurnModels) -> Self {
+        Self {
+            primary: models.primary.clone(),
+            routes: models.routes.iter().cloned().collect(),
+        }
+    }
+}
+
+#[async_trait]
+impl ModelResolver<()> for TurnModelResolver {
+    async fn resolve(
+        &self,
+        request: &ModelResolveRequest,
+    ) -> tinyagents_harness::Result<TurnChatModel> {
+        Ok(request
+            .model_pin()
+            .and_then(|name| self.routes.get(name))
+            .cloned()
+            .unwrap_or_else(|| self.primary.clone()))
     }
 }
 
