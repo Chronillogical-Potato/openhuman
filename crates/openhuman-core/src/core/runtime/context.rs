@@ -704,6 +704,7 @@ impl CoreContext {
             tool_groups: Default::default(),
             embedder_config: None,
             user_skill_roots: true,
+            backend_transport: None,
         })
     }
 
@@ -732,6 +733,7 @@ impl CoreContext {
             tool_groups: Default::default(),
             embedder_config: Some(config),
             user_skill_roots: true,
+            backend_transport: None,
         })
     }
 }
