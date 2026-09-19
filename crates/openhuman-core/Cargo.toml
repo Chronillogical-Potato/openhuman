@@ -655,12 +655,8 @@ k256 = { version = "0.13", default-features = false, features = ["std", "ecdsa"]
 # refuses to depend on `tinymemory-core`, and its CI asserts that, because a
 # conformance suite that reached an engine could not prove interchangeability.
 tinymemory-conformance = { path = "../../vendor/tinymemory/crates/tinymemory-conformance" }
-# Dual-declared on purpose (same shape as the `sentry`/`axum` entries): the
-# optional dependency above is bin-only behind `bin-tools`, but
-# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module),
-# `tests/memory_graph_sync_e2e.rs`, `tests/x402_twit_sh_live.rs` and
-# `examples/embed_headless.rs` all call it with no feature #[cfg]. Without this
-# line the test build breaks the moment `bin-tools` is off.
+# `agent_orchestration::tools::tools_e2e_tests` (a #[cfg(test)] LIB module)
+# initialises it; the bins that used to share it live in `crates/openhuman-cli`.
 env_logger = "0.11"
 # Enable sentry's TestTransport for runtime smoke of the observability
 # before_send filter (see tests/observability_smoke.rs). `default-features
