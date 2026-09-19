@@ -10,7 +10,7 @@
 //! another worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::subagent_host::{run_subagent, run_subagent_with_parent, SubagentRunOptions};
+use crate::agent::subagent_host::{run_subagent_with_parent, SubagentRunOptions};
 use crate::memory::conversations;
 use async_trait::async_trait;
 use serde_json::json;
@@ -177,6 +177,11 @@ impl SpawnWorkerThreadTool {
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
         live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
     ) -> anyhow::Result<ToolResult> {
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_worker_thread requires a live harness run context.",
+            ));
+        };
         let started = std::time::Instant::now();
 
         let agent_id = args
@@ -342,11 +347,9 @@ impl SpawnWorkerThreadTool {
             "[spawn_worker_thread] dispatching run_subagent"
         );
 
-        let run = if let Some(parent) = live_parent {
-            run_subagent_with_parent(parent, definition.clone(), prompt.clone(), options).await
-        } else {
-            run_subagent(definition, &prompt, options).await
-        };
+        let run =
+            run_subagent_with_parent(live_parent, definition.clone(), prompt.clone(), options)
+                .await;
         match run {
             Ok(outcome) => {
                 let owns_effects = outcome.should_emit_lifecycle_effects();

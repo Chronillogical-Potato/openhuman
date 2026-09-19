@@ -8,7 +8,7 @@ use tinyagents_graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents_harness::{CancellationToken, TinyAgentsError};
 
 use crate::agent::subagent_host::{
-    run_subagent, run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
 };
 
 use super::staging::WorkerDispatchMode;
@@ -19,10 +19,8 @@ pub(crate) async fn run_spawn_parallel_workers(
     action_root: Option<PathBuf>,
     cancel: CancellationToken,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
-    live_parent: Option<
-        &tinyagents_harness::context::RunContext<
-            crate::agent::tinyagents::host::OpenHumanRunContext,
-        >,
+    live_parent: &tinyagents_harness::context::RunContext<
+        crate::agent::tinyagents::host::OpenHumanRunContext,
     >,
 ) -> tinyagents_harness::Result<Vec<ParallelAgentResult>> {
     let n = prepared.len();
@@ -109,10 +107,8 @@ async fn run_one_parallel_task(
     worker: SpawnParallelWorker,
     repo_root: Option<PathBuf>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
-    live_parent: Option<
-        &tinyagents_harness::context::RunContext<
-            crate::agent::tinyagents::host::OpenHumanRunContext,
-        >,
+    live_parent: &tinyagents_harness::context::RunContext<
+        crate::agent::tinyagents::host::OpenHumanRunContext,
     >,
 ) -> ParallelAgentResult {
     let SpawnParallelWorker {
@@ -155,11 +151,8 @@ async fn run_one_parallel_task(
         workspace_descriptor,
         run_queue: None,
     };
-    let run_result = if let Some(parent) = live_parent {
-        run_subagent_with_parent(parent, definition.clone(), prompt.clone(), options).await
-    } else {
-        run_subagent(&definition, &prompt, options).await
-    };
+    let run_result =
+        run_subagent_with_parent(live_parent, definition.clone(), prompt.clone(), options).await;
 
     // After the worker finishes, snapshot the worktree's changed files +
     // dirty status so the parent can detect cross-worker overlaps and the UI

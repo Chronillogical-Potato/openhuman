@@ -249,7 +249,10 @@ async fn core_tool_instructions() -> Result<Value, ToolCallError> {
         })
         .collect();
     Ok(tool_text_success(
-        tinyagents_harness::tool::prompt_tool_instructions(&schemas),
+        tinyinference_llm::prompt_tools::tool_instructions(
+            &schemas,
+            &tinyinference_llm::model::ToolChoice::Auto,
+        ),
     ))
 }
 

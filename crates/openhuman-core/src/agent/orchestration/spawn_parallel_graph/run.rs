@@ -26,10 +26,8 @@ pub(crate) async fn run_spawn_parallel_tasks_with_cancellation_and_workspace(
     cancel: CancellationToken,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
-    live_parent: Option<
-        &tinyagents_harness::context::RunContext<
-            crate::agent::tinyagents::host::OpenHumanRunContext,
-        >,
+    live_parent: &tinyagents_harness::context::RunContext<
+        crate::agent::tinyagents::host::OpenHumanRunContext,
     >,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let parent = match run_context.parent.clone() {
