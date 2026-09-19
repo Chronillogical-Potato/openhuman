@@ -25,6 +25,7 @@ hint = "coding"
 # OPENHUMAN_LSP_ENABLED — listing it here is harmless when the gate is
 # off (the tool is simply not registered).
 named = [
+    "composio_execute",
     "shell",
     "file_read",
     "file_write",
