@@ -78,17 +78,17 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 
 - The vendored crates under `vendor/tinyagents/`: `tinyagents-harness`, `tinyagents-graph`, `tinyagents-registry`, plus `tinyinference` and `tinytools` from `vendor/tinyagents/vendor/`, all declared as path dependencies in `crates/openhuman-core/Cargo.toml`. Per AGENTS.md, use this vendored copy; a second path to the same crates creates incompatible Rust types.
 - `crate::agent::message_convert` for `ChatMessage` ↔ crate `Message` conversion.
-- `crate::agent::harness::{run_queue, tool_result_artifacts, subagent_runner}` and `crate::agent::{messages, progress, stop_hooks, cost, hooks}`: the OpenHuman-side turn plumbing this seam plugs into.
+- `crate::agent::harness::{run_queue, tool_result_artifacts}` and `crate::agent::{messages, progress, stop_hooks, cost, hooks, subagent_host}`: the OpenHuman-side turn plumbing this seam plugs into.
 - `crate::tools`: the canonical `tinytools::Tool` trait resolved by `CanonicalSharedToolAdapter`, and `tools::registry::denials` for recording policy blocks.
 - `crate::platform::cost`: the global cost tracker fed by `observability/event_bridge.rs` and `turn_outcome.rs`.
 - `crate::config` and `crate::inference`: tier constants, `Config`, providers, and embedding providers.
 
 ## Used by
 
-- `agent/harness/session/turn/graph.rs`: the chat-turn route into `run_turn_via_tinyagents_shared`.
+- `agent/session_host/turn/graph.rs`: the chat-turn route into `run_turn_via_tinyagents_shared`.
 - `agent/harness/graph.rs`: the channel/CLI bus turn route.
-- `agent/harness/subagent_runner/ops/graph.rs`: the sub-agent spawn route. It and the session route both build their context-window summarizer through `TurnModelSource::build_summarizer`.
-- `agent/harness/session/builder/setters.rs`, `agent/harness/subagent_runner/ops/{provider,runner}.rs`, `channels/`: construct `TurnModelSource`.
+- `agent/subagent_host/`: the sub-agent spawn route. It and the session route both build their context-window summarizer through `TurnModelSource::build_summarizer`.
+- `agent/session_host/builder/setters.rs`, `agent/subagent_host/ops/{provider,runner}.rs`, `channels/`: construct `TurnModelSource`.
 - `agent/bus.rs`: reads `TinyagentsTurnOutcome::resolved_route` after a turn.
 - `core/all.rs` (replay controllers) and `core/runtime/builder.rs` (`reaper::reap_orphaned_runs`).
 - `agent/todos/`: `todos::*` stores.

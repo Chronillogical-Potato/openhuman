@@ -1,24 +1,24 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use openhuman_core::agent::harness::definition::AgentTier;
+use openhuman_core::agent::harness::{
+    AgentDefinition, DefinitionSource, ModelSpec, ParentExecutionContext, PromptSource,
+    SandboxMode, SubagentRunOptions, ToolScope, run_subagent, with_parent_context,
+};
 use openhuman_core::agent::prompts::{
-    render_ambient_environment, render_subagent_system_prompt, render_tools, render_user_files,
     ConnectedIntegration, CuratedMemoryPromptSnapshot, LearnedContextData, NamespaceSummary,
     PersonalityRosterEntry, PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
-    ToolCallFormat, UserIdentity,
+    ToolCallFormat, UserIdentity, render_ambient_environment, render_subagent_system_prompt,
+    render_tools, render_user_files,
 };
-use tinytools_agent::dialect::NativeDialect;
-use openhuman_core::agent::harness::definition::AgentTier;
-use openhuman_core::agent::harness::session::Agent;
-use openhuman_core::agent::harness::{
-    run_subagent, with_parent_context, AgentDefinition, DefinitionSource, ModelSpec,
-    ParentExecutionContext, PromptSource, SandboxMode, SubagentRunOptions, ToolScope,
-};
+use openhuman_core::agent::session_host::OpenHumanSessionHost;
 use openhuman_core::config::AgentConfig;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
 };
-use tinytools::{PermissionLevel, Tool, ToolResult, ToolContent};
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
+use tinytools::{PermissionLevel, Tool, ToolContent, ToolResult};
 
 use parking_lot::Mutex;
 use serde_json::json;
@@ -265,8 +265,8 @@ fn build_agent(
     workspace: &Path,
     provider: Arc<ScriptedModel>,
     tools: Vec<Box<dyn Tool>>,
-) -> Result<Agent> {
-    let mut agent = Agent::builder()
+) -> Result<OpenHumanSessionHost> {
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider)
         .tools(tools)
         .memory(Arc::new(StubMemory::default()))
@@ -362,8 +362,7 @@ fn parent_context(workspace: PathBuf, provider: Arc<ScriptedModel>) -> ParentExe
         ]
         .into_iter()
         .collect(),
-        turn_model_source:
-            openhuman_core::agent::tinyagents::TurnModelSource::from_model(provider),
+        turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(provider),
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),
         // #6145: empty means "same surface as `all_tool_specs`" — the
@@ -478,19 +477,19 @@ async fn builder_reports_missing_required_fields_in_validation_order() -> Result
     let tmp = TempDir::new()?;
     let provider = ScriptedModel::new(vec![text_response("unused")]);
 
-    let err = match Agent::builder().build() {
+    let err = match OpenHumanSessionHost::builder().build() {
         Ok(_) => panic!("builder without tools should fail"),
         Err(err) => err,
     };
     assert!(err.to_string().contains("tools are required"));
 
-    let err = match Agent::builder().tools(Vec::new()).build() {
+    let err = match OpenHumanSessionHost::builder().tools(Vec::new()).build() {
         Ok(_) => panic!("builder without provider should fail"),
         Err(err) => err,
     };
     assert!(err.to_string().contains("provider is required"));
 
-    let err = match Agent::builder()
+    let err = match OpenHumanSessionHost::builder()
         .tools(Vec::new())
         .chat_model(provider)
         .workspace_dir(tmp.path().to_path_buf())
@@ -593,7 +592,8 @@ fn prompt_builder_renders_dynamic_user_files_and_identity_branches() -> Result<(
     let tools = vec![PromptTool::with_schema(
         "echo",
         "Echo tool",
-        json!({"type":"object","properties":{"zeta":{"type":"string"},"alpha":{"type":"string"}}}).to_string(),
+        json!({"type":"object","properties":{"zeta":{"type":"string"},"alpha":{"type":"string"}}})
+            .to_string(),
     )];
     let mut learned = LearnedContextData::default();
     learned.reflections = vec!["  prefers concise updates  ".to_string(), " ".to_string()];
@@ -732,34 +732,38 @@ async fn dispatch_is_refused_once_the_turn_has_requested_a_cap_pause() -> Result
     let outcome = async {
         let mut root = openhuman_core::agent::tinyagents::host::OpenHumanRunContext::new();
         root.parent = Some(parent);
-        let dispatch = Arc::new(openhuman_core::agent::tinyagents::host::TurnDispatchState::new(None));
+        let dispatch =
+            Arc::new(openhuman_core::agent::tinyagents::host::TurnDispatchState::new(None));
         root.dispatch = Some(dispatch.clone());
         // No ceiling, so the budget gate can never fire here and the only thing
         // under test is the pause.
-                // Control: inside the guard, with nothing recorded, a dispatch
-                // must still go through. Without this a gate that refused every
-                // call would satisfy the assertion below.
-                let allowed = run_subagent(
-                    &definition(None),
-                    "before the cap",
-                    SubagentRunOptions { run_context: root.child(), ..Default::default() },
-                )
-                .await;
+        // Control: inside the guard, with nothing recorded, a dispatch
+        // must still go through. Without this a gate that refused every
+        // call would satisfy the assertion below.
+        let allowed = run_subagent(
+            &definition(None),
+            "before the cap",
+            SubagentRunOptions {
+                run_context: root.child(),
+                ..Default::default()
+            },
+        )
+        .await;
 
-                dispatch.record_pause_requested(15, 15);
+        dispatch.record_pause_requested(15, 15);
 
-                let refused = run_subagent(
-                    &definition(None),
-                    "after the cap",
-                    SubagentRunOptions {
-                        task_id: Some("post-pause-dispatch".to_string()),
-                        run_context: root.child(),
-                        ..SubagentRunOptions::default()
-                    },
-                )
-                .await;
+        let refused = run_subagent(
+            &definition(None),
+            "after the cap",
+            SubagentRunOptions {
+                task_id: Some("post-pause-dispatch".to_string()),
+                run_context: root.child(),
+                ..SubagentRunOptions::default()
+            },
+        )
+        .await;
 
-                (allowed, refused)
+        (allowed, refused)
     }
     .await;
 
@@ -773,7 +777,7 @@ async fn dispatch_is_refused_once_the_turn_has_requested_a_cap_pause() -> Result
     );
 
     match refused {
-        Err(openhuman_core::agent::harness::SubagentRunError::PauseRequested {
+        Err(openhuman_core::agent::subagent_host::SubagentRunError::PauseRequested {
             completed_model_calls,
             cap,
         }) => {
@@ -806,36 +810,43 @@ async fn dispatch_is_refused_when_less_budget_remains_than_the_slowest_child() -
     let outcome = async {
         let mut root = openhuman_core::agent::tinyagents::host::OpenHumanRunContext::new();
         root.parent = Some(parent);
-        let dispatch = Arc::new(openhuman_core::agent::tinyagents::host::TurnDispatchState::new(Some(std::time::Duration::from_secs(3600))));
+        let dispatch = Arc::new(
+            openhuman_core::agent::tinyagents::host::TurnDispatchState::new(Some(
+                std::time::Duration::from_secs(3600),
+            )),
+        );
         root.dispatch = Some(dispatch.clone());
         // A generous ceiling, so `remaining` stays far above the sample the
         // control records and only the deliberate one below can trip the gate.
-                // Control: a budget of an hour against a one-millisecond
-                // observed maximum must still allow a dispatch.
-                dispatch.record_subagent_elapsed(std::time::Duration::from_millis(1));
-                let allowed = run_subagent(
-                    &definition(None),
-                    "while budget remains",
-                    SubagentRunOptions { run_context: root.child(), ..Default::default() },
-                )
-                .await;
+        // Control: a budget of an hour against a one-millisecond
+        // observed maximum must still allow a dispatch.
+        dispatch.record_subagent_elapsed(std::time::Duration::from_millis(1));
+        let allowed = run_subagent(
+            &definition(None),
+            "while budget remains",
+            SubagentRunOptions {
+                run_context: root.child(),
+                ..Default::default()
+            },
+        )
+        .await;
 
-                // Now fold in a child that took far longer than the whole
-                // ceiling. `remaining` is at most an hour; the observed maximum
-                // is a hundred, so the refusal is a fact rather than a race.
-                dispatch.record_subagent_elapsed(std::time::Duration::from_secs(360_000));
-                let refused = run_subagent(
-                    &definition(None),
-                    "after the budget is gone",
-                    SubagentRunOptions {
-                        task_id: Some("over-budget-dispatch".to_string()),
-                        run_context: root.child(),
-                        ..SubagentRunOptions::default()
-                    },
-                )
-                .await;
+        // Now fold in a child that took far longer than the whole
+        // ceiling. `remaining` is at most an hour; the observed maximum
+        // is a hundred, so the refusal is a fact rather than a race.
+        dispatch.record_subagent_elapsed(std::time::Duration::from_secs(360_000));
+        let refused = run_subagent(
+            &definition(None),
+            "after the budget is gone",
+            SubagentRunOptions {
+                task_id: Some("over-budget-dispatch".to_string()),
+                run_context: root.child(),
+                ..SubagentRunOptions::default()
+            },
+        )
+        .await;
 
-                (allowed, refused)
+        (allowed, refused)
     }
     .await;
 
@@ -849,13 +860,11 @@ async fn dispatch_is_refused_when_less_budget_remains_than_the_slowest_child() -
     );
 
     match refused {
-        Err(
-            openhuman_core::agent::harness::SubagentRunError::DispatchBudgetExhausted {
-                remaining_ms,
-                observed_max_ms,
-                observed_samples,
-            },
-        ) => {
+        Err(openhuman_core::agent::subagent_host::SubagentRunError::DispatchBudgetExhausted {
+            remaining_ms,
+            observed_max_ms,
+            observed_samples,
+        }) => {
             assert_eq!(
                 observed_max_ms, 360_000_000,
                 "the refusal must quote the turn's own measured maximum"

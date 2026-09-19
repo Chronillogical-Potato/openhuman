@@ -225,6 +225,31 @@ pub(crate) async fn execute_skill_delegation(
     tool_context: Option<&dyn ToolRunContext>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    execute_skill_delegation_with_live_parent(
+        tool_name,
+        connected_toolkits,
+        args,
+        tool_context,
+        run_context,
+        None,
+    )
+    .await
+}
+
+/// Typed-harness counterpart that preserves a live parent for the blocking
+/// integrations child.
+pub(crate) async fn execute_skill_delegation_with_live_parent(
+    tool_name: &str,
+    connected_toolkits: &[(String, String)],
+    args: serde_json::Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
+) -> anyhow::Result<ToolResult> {
     let raw_toolkit = args
         .get("toolkit")
         .and_then(|v| v.as_str())
@@ -317,7 +342,7 @@ pub(crate) async fn execute_skill_delegation(
     // email, create the page, …) are usually approval-gated mid-turn and
     // the orchestrator's reply reports the concrete result. The durable
     // async default applies to archetype delegations only for now.
-    super::dispatch_subagent(
+    super::dispatch::dispatch_subagent_with_live_parent(
         "integrations_agent",
         tool_name,
         &prompt,
@@ -326,6 +351,7 @@ pub(crate) async fn execute_skill_delegation(
         tool_context,
         super::dispatch::DispatchMode::Blocking,
         run_context,
+        live_parent,
     )
     .await
 }

@@ -2,7 +2,7 @@
 //!
 //! Consumers (e.g. the web channel provider) create an
 //! `mpsc::Sender<AgentProgress>` and attach it to the [`Agent`] via
-//! [`Agent::set_on_progress`] before calling [`Agent::run_single`].
+//! [`OpenHumanSessionHost::set_on_progress`] before calling [`OpenHumanSessionHost::run_single`].
 //! The agent's turn loop sends events through this channel as it
 //! progresses — tool calls starting/completing, iteration boundaries,
 //! sub-agent lifecycle, etc.
@@ -164,7 +164,7 @@ pub enum AgentProgress {
     },
 
     /// A sub-agent's inner LLM iteration is starting. Emitted **only
-    /// from inside [`crate::agent::harness::subagent_runner`]**
+    /// from inside [`crate::agent::subagent_host`]**
     /// when the parent context carries an `on_progress` sink — the
     /// outer parent loop uses [`Self::IterationStarted`] for its own
     /// rounds. Carries the child's `task_id` so the UI can attribute
@@ -237,7 +237,7 @@ pub enum AgentProgress {
     /// streamed token to a specific live subagent row (via `task_id`)
     /// and render it inside that row's transcript instead of merging it
     /// into the parent's own streaming buffer. Emitted **only from
-    /// inside [`crate::agent::harness::subagent_runner`]** when
+    /// inside [`crate::agent::subagent_host`]** when
     /// the parent context carries an `on_progress` sink.
     SubagentTextDelta {
         agent_id: String,

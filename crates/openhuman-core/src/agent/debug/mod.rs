@@ -2,9 +2,9 @@
 //! would see for a given agent.
 //!
 //! Instead of re-implementing prompt assembly, this module routes
-//! through [`Agent::from_config_for_agent`] — the same entry point the
+//! through [`OpenHumanSessionHost::from_config_for_agent`] — the same entry point the
 //! Tauri web channel and CLI use — and then calls
-//! [`Agent::build_system_prompt`] on the constructed session. The
+//! [`OpenHumanSessionHost::build_system_prompt`] on the constructed session. The
 //! output is byte-identical to what the LLM would receive on turn 1 of
 //! that agent.
 //!
@@ -31,8 +31,8 @@ pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
 pub use wire::render as render_wire_dump;
 
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, PromptSource};
-use crate::agent::harness::session::Agent;
 use crate::agent::prompts::{LearnedContextData, PromptContext, PromptTool, ToolCallFormat};
+use crate::agent::session_host::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::integrations::composio::ComposioActionTool;
 use tinytools::{Tool, ToolCategory};
@@ -123,7 +123,7 @@ fn tool_specs_of(tools: &[Box<dyn Tool>]) -> Vec<serde_json::Value> {
 }
 
 /// Render and return the system prompt for a single agent via the
-/// real [`Agent::from_config_for_agent`] construction path.
+/// real [`OpenHumanSessionHost::from_config_for_agent`] construction path.
 pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPrompt> {
     let config = load_dump_config(
         options.workspace_dir_override.clone(),
@@ -263,7 +263,7 @@ async fn load_dump_config(
 /// Build a real [`Agent`] via `from_config_for_agent`, populate live
 /// connected integrations, and render the turn-1 system prompt.
 async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPrompt> {
-    let mut agent = Agent::from_config_for_agent(config, agent_id)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, agent_id)
         .with_context(|| format!("building session agent for `{agent_id}`"))?;
 
     // Match turn-1 behaviour: fetch the user's active Composio
@@ -283,7 +283,7 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
 }
 
 /// Package a built session agent's rendered prompt and tool surface.
-fn session_dump(agent: &Agent, agent_id: &str, text: String) -> DumpedPrompt {
+fn session_dump(agent: &OpenHumanSessionHost, agent_id: &str, text: String) -> DumpedPrompt {
     // The whole callable surface, so the dump shows the `delegate_*` tools
     // the refresh above just synthesised alongside the durable registry.
     let tools = agent.all_tool_refs();
@@ -315,13 +315,13 @@ fn session_dump(agent: &Agent, agent_id: &str, text: String) -> DumpedPrompt {
 }
 
 /// Render the integrations_agent prompt bound to a single Composio
-/// toolkit. Mirrors the subagent_runner's per-toolkit path: strips
+/// toolkit. Mirrors the subagent host's per-toolkit path: strips
 /// Workflow-category parent tools, injects one [`ComposioActionTool`] per
 /// action in the toolkit, and narrows the `connected_integrations`
 /// slice to only the requested toolkit before calling the agent's
 /// dynamic prompt builder.
 async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<DumpedPrompt> {
-    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
         .with_context(|| format!("building integrations_agent session for `{toolkit}`"))?;
     agent.fetch_connected_integrations().await;
 
@@ -357,7 +357,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     // time so the dump reflects the **current** backend state rather
     // than the session-start bulk fetch's snapshot (which can return an
     // empty list for some toolkits even when the per-toolkit endpoint
-    // returns actions). Mirrors subagent_runner's typed-mode fallback:
+    // returns actions). Mirrors the subagent host's typed-mode fallback:
     // an empty fresh list or a network error keeps the cached catalogue
     // rather than blanking it.
     match &client_kind {
@@ -398,7 +398,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         }
     }
 
-    // Build the tool list that subagent_runner would produce for a
+    // Build the tool list that the subagent host would produce for a
     // real spawn. Tool visibility honours the TOML scope on the
     // `integrations_agent` definition — `named = [...]` narrows, and
     // `wildcard = {}` means "every parent tool". The dynamic
@@ -508,12 +508,12 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
 
     // Mirror the runner's text-mode mutation: when integrations_agent
     // has any tools the runner appends `build_text_mode_tool_instructions`
-    // to the system message (see `subagent_runner::run_typed_mode`,
+    // to the system message (see `subagent_host::run_typed_mode`,
     // `force_text_mode` branch). Reproduce it here so
     // the dump matches what the LLM actually receives on turn 1.
     if !rendered_tools.is_empty() {
         text.push_str("\n\n");
-        text.push_str(&crate::agent::harness::subagent_runner::build_text_mode_tool_instructions());
+        text.push_str(&crate::agent::subagent_host::build_text_mode_tool_instructions());
     }
 
     let tool_names: Vec<String> = rendered_tools
@@ -593,7 +593,7 @@ async fn connected_toolkits_for(config: &Config) -> Result<Vec<String>> {
     // reuse its `fetch_connected_integrations` cache — the call is
     // deduped backend-side via `INTEGRATIONS_CACHE`, so repeated
     // invocations in `dump_all_agent_prompts` only hit the wire once.
-    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
         .with_context(|| "building integrations_agent probe session for toolkit discovery")?;
     agent.fetch_connected_integrations().await;
     Ok(agent

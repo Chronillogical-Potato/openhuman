@@ -1,11 +1,13 @@
 //! Subagent dispatch logic shared by all agent delegation tools.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
-use tinyagents_harness::context::RunContext;
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{ToolCallOptions, ToolResult};
@@ -99,11 +101,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
                         )));
                     }
                 };
-                super::collapsed_delegation::execute_collapsed_delegation(
+                super::collapsed_delegation::execute_collapsed_delegation_with_live_parent(
                     targets,
                     arguments,
                     Some(&tool_context),
                     child,
+                    Some(parent),
                 )
                 .await
             }
@@ -113,12 +116,13 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
                     .cloned()
                     .map(|slug| (slug, String::new()))
                     .collect();
-                super::skill_delegation::execute_skill_delegation(
+                super::skill_delegation::execute_skill_delegation_with_live_parent(
                     self.tool.name(),
                     &connected_toolkits,
                     arguments,
                     Some(&tool_context),
                     child,
+                    Some(parent),
                 )
                 .await
             }
@@ -137,12 +141,13 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
                         self.tool.name()
                     )));
                 };
-                super::archetype_delegation::execute_archetype_delegation(
+                super::archetype_delegation::execute_archetype_delegation_with_live_parent(
                     &agent_id,
                     self.tool.name(),
                     arguments,
                     Some(&tool_context),
                     child,
+                    Some(parent),
                 )
                 .await
             }
@@ -177,6 +182,39 @@ pub(crate) async fn dispatch_subagent(
     mode: DispatchMode,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    dispatch_subagent_with_live_parent(
+        agent_id,
+        tool_name,
+        prompt,
+        skill_filter,
+        model_override,
+        tool_context,
+        mode,
+        run_context,
+        None,
+    )
+    .await
+}
+
+/// Dispatch one inline child against the caller's actual TinyAgents parent
+/// when the typed tool boundary has one. Standalone callers retain the
+/// explicit-carrier fallback above because no live parent exists for them.
+pub(crate) async fn dispatch_subagent_with_live_parent(
+    agent_id: &str,
+    tool_name: &str,
+    prompt: &str,
+    skill_filter: Option<&str>,
+    model_override: Option<&str>,
+    tool_context: Option<&dyn ToolRunContext>,
+    mode: DispatchMode,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+) -> anyhow::Result<ToolResult> {
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "delegation requires a live harness run context.",
+        ));
+    };
     let parent_workspace_descriptor = tool_context
         .and_then(|ctx| ctx.workspace().cloned())
         .or_else(|| run_context.workspace.clone());
@@ -299,8 +337,22 @@ pub(crate) async fn dispatch_subagent(
             // agent-turn futures) overflows the test-thread stack on deep
             // parallel-delegation flows.
             return Box::pin(async move {
+                let detached_data = live_parent.data.detached_child();
+                let detached_cancellation = detached_data.cancellation.clone();
+                let detached_parent = live_parent
+                    .child(
+                        RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                        detached_data,
+                    )
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                    .with_cancellation(detached_cancellation);
                 super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                    .execute_with_parent_context(async_args, tool_context, run_context)
+                    .execute_with_live_parent_context(
+                        async_args,
+                        tool_context,
+                        run_context,
+                        detached_parent,
+                    )
                     .await
             })
             .await;
@@ -399,167 +451,207 @@ pub(crate) async fn dispatch_subagent(
         run_queue: None,
     };
 
-    match run_subagent(definition, prompt, options).await {
-        Ok(outcome) => match &outcome.status {
-            // The delegated sub-agent paused on `ask_user_clarification`.
-            // The runner has already checkpointed its conversation, so the
-            // orchestrator must relay the question and resume via
-            // `continue_subagent` — NOT re-spawn a fresh, stateless
-            // sub-agent. Dropping this status was the #4291 infinite re-spawn
-            // loop: a paused mcp_setup was reported as a plain success, the
-            // orchestrator's only continuation was to re-delegate, and the new
-            // run paused again. Mirrors the `spawn_subagent` AwaitingUser path.
-            SubagentRunStatus::AwaitingUser {
-                question,
-                checkpoint,
-                ..
-            } => {
-                crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+    let run =
+        run_subagent_with_parent(live_parent, definition.clone(), prompt.to_owned(), options).await;
+    match run {
+        Ok(outcome) => {
+            let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+            match &outcome.status {
+                // The delegated sub-agent paused on `ask_user_clarification`.
+                // The runner has already checkpointed its conversation, so the
+                // orchestrator must relay the question and resume via
+                // `continue_subagent` — NOT re-spawn a fresh, stateless
+                // sub-agent. Dropping this status was the #4291 infinite re-spawn
+                // loop: a paused mcp_setup was reported as a plain success, the
+                // orchestrator's only continuation was to re-delegate, and the new
+                // run paused again. Mirrors the `spawn_subagent` AwaitingUser path.
+                SubagentRunStatus::AwaitingUser {
+                    question,
+                    checkpoint,
+                    ..
+                } => {
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                     parent_session,
                     outcome.task_id.clone(),
                     outcome.agent_id.clone(),
                     question.clone(),
                 );
-                if let Some(progress) = run_context.progress.clone() {
-                    let _ = progress
-                        .send(AgentProgress::SubagentAwaitingUser {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            question: question.clone(),
-                            // Synchronous delegate dispatch has no worker
-                            // sub-thread (that is a `spawn_subagent` concept).
-                            worker_thread_id: None,
-                            checkpoint_path: checkpoint
-                                .as_ref()
-                                .map(|p| p.to_string_lossy().to_string()),
-                        })
-                        .await;
-                }
-                log::info!(
-                    "[agent] {} paused for user input via {} (task_id={}) — \
+                        if let Some(progress) = run_context.progress.clone() {
+                            let _ = progress
+                                .send(AgentProgress::SubagentAwaitingUser {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    question: question.clone(),
+                                    // Synchronous delegate dispatch has no worker
+                                    // sub-thread (that is a `spawn_subagent` concept).
+                                    worker_thread_id: None,
+                                    checkpoint_path: checkpoint
+                                        .as_ref()
+                                        .map(|p| p.to_string_lossy().to_string()),
+                                })
+                                .await;
+                        }
+                    }
+                    log::info!(
+                        "[agent] {} paused for user input via {} (task_id={}) — \
                      returning awaiting-user envelope; orchestrator must resume \
                      with continue_subagent, not re-delegate",
-                    agent_id,
-                    tool_name,
-                    outcome.task_id,
-                );
-                Ok(awaiting_outcome_to_tool_result(
-                    &outcome,
-                    question,
-                    checkpoint.is_some(),
-                ))
-            }
-            SubagentRunStatus::Completed => {
-                crate::agent::orchestration::subagent_events::publish_subagent_completed(
-                    parent_session,
-                    outcome.task_id.clone(),
-                    outcome.agent_id.clone(),
-                    outcome.elapsed.as_millis() as u64,
-                    outcome.output.chars().count(),
-                    outcome.iterations,
-                );
-                // Also send to the per-request progress sink (mirrors
-                // `spawn_subagent.rs`) so the web channel bridge emits
-                // `subagent_done` to the frontend. Without this the delegated
-                // subagent's timeline row (created on `SubagentSpawned` above)
-                // stays "running" forever — `publish_subagent_completed` only
-                // fires the internal DomainEvent bus, not the per-request
-                // progress channel the UI's timeline is driven from.
-                if let Some(progress) = run_context.progress.clone() {
-                    let _ = progress
-                        .send(AgentProgress::SubagentCompleted {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
-                            output_chars: outcome.output.chars().count(),
-                            output: outcome.output.clone(),
-                            // Synchronous delegate dispatch has no worktree
-                            // isolation (that is a `spawn_subagent` concept).
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
-                }
-                log::info!(
-                    "[agent] {} completed via {} iterations={} output_chars={}",
-                    agent_id,
-                    tool_name,
-                    outcome.iterations,
-                    outcome.output.chars().count()
-                );
-                // A sub-agent that emitted a tool call instead of executing one
-                // "completes" with markup where the answer should be. Passing
-                // that through reads as a finished result, so frame it the way
-                // an iteration-cap stop is framed (#6033, #4096 precedent).
-                if is_unexecuted_tool_call_stub(&outcome.output) {
-                    log::info!(
-                        "[agent] {} returned an unexecuted tool-call stub (task_id={} output_chars={}) — reframing as incomplete",
+                        agent_id,
                         tool_name,
                         outcome.task_id,
+                    );
+                    Ok(awaiting_outcome_to_tool_result(
+                        &outcome,
+                        question,
+                        checkpoint.is_some(),
+                    ))
+                }
+                SubagentRunStatus::Completed => {
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                            parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
+                        // Also send to the per-request progress sink (mirrors
+                        // `spawn_subagent.rs`) so the web channel bridge emits
+                        // `subagent_done` to the frontend. Without this the delegated
+                        // subagent's timeline row (created on `SubagentSpawned` above)
+                        // stays "running" forever — `publish_subagent_completed` only
+                        // fires the internal DomainEvent bus, not the per-request
+                        // progress channel the UI's timeline is driven from.
+                        if let Some(progress) = run_context.progress.clone() {
+                            let _ = progress
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
+                                    // Synchronous delegate dispatch has no worktree
+                                    // isolation (that is a `spawn_subagent` concept).
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
+                    log::info!(
+                        "[agent] {} completed via {} iterations={} output_chars={}",
+                        agent_id,
+                        tool_name,
+                        outcome.iterations,
                         outcome.output.chars().count()
                     );
-                    return Ok(ToolResult::success(incomplete_envelope(
+                    // A sub-agent that emitted a tool call instead of executing one
+                    // "completes" with markup where the answer should be. Passing
+                    // that through reads as a finished result, so frame it the way
+                    // an iteration-cap stop is framed (#6033, #4096 precedent).
+                    if is_unexecuted_tool_call_stub(&outcome.output) {
+                        log::info!(
+                            "[agent] {} returned an unexecuted tool-call stub (task_id={} output_chars={}) — reframing as incomplete",
+                            tool_name,
+                            outcome.task_id,
+                            outcome.output.chars().count()
+                        );
+                        return Ok(ToolResult::success(incomplete_envelope(
+                            tool_name,
+                            "returned an unexecuted tool call instead of a result",
+                            &outcome.output,
+                            mode,
+                        )));
+                    }
+                    Ok(ToolResult::success(with_inline_result_note(
+                        outcome.output,
+                        mode,
+                    )))
+                }
+                // A stuck halt / iteration-cap stop returns `Incomplete`; frame the
+                // partial progress so the orchestrator can't mistake it for a
+                // finished result or re-run the identical delegation unchanged
+                // (#4096). Still a lifecycle-completed run, so publish
+                // SubagentCompleted like the `Completed` arm.
+                SubagentRunStatus::Incomplete { reason } => {
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                            parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
+                        // Same progress-sink mirror as the `Completed` arm above —
+                        // an incomplete stop is still lifecycle-completed, so the
+                        // timeline row must be released from "running" here too.
+                        if let Some(progress) = run_context.progress.clone() {
+                            let _ = progress
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
+                    log::info!(
+                        "[agent] {} stopped incomplete via {} (task_id={}) iterations={} — \
+                     returning partial-progress envelope, not a finished result",
+                        agent_id,
                         tool_name,
-                        "returned an unexecuted tool call instead of a result",
+                        outcome.task_id,
+                        outcome.iterations,
+                    );
+                    Ok(ToolResult::success(incomplete_envelope(
+                        tool_name,
+                        reason,
                         &outcome.output,
                         mode,
-                    )));
+                    )))
                 }
-                Ok(ToolResult::success(with_inline_result_note(
-                    outcome.output,
-                    mode,
-                )))
-            }
-            // A stuck halt / iteration-cap stop returns `Incomplete`; frame the
-            // partial progress so the orchestrator can't mistake it for a
-            // finished result or re-run the identical delegation unchanged
-            // (#4096). Still a lifecycle-completed run, so publish
-            // SubagentCompleted like the `Completed` arm.
-            SubagentRunStatus::Incomplete { reason } => {
-                crate::agent::orchestration::subagent_events::publish_subagent_completed(
-                    parent_session,
-                    outcome.task_id.clone(),
-                    outcome.agent_id.clone(),
-                    outcome.elapsed.as_millis() as u64,
-                    outcome.output.chars().count(),
-                    outcome.iterations,
-                );
-                // Same progress-sink mirror as the `Completed` arm above —
-                // an incomplete stop is still lifecycle-completed, so the
-                // timeline row must be released from "running" here too.
-                if let Some(progress) = run_context.progress.clone() {
-                    let _ = progress
-                        .send(AgentProgress::SubagentCompleted {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
-                            output_chars: outcome.output.chars().count(),
-                            output: outcome.output.clone(),
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
+                SubagentRunStatus::Cancelled => {
+                    log::info!(
+                        "[agent] {} was cancelled via {} (task_id={})",
+                        agent_id,
+                        tool_name,
+                        outcome.task_id,
+                    );
+                    if emit_lifecycle_effects {
+                        let message = "sub-agent was cancelled".to_string();
+                        crate::agent::orchestration::subagent_events::publish_subagent_failed(
+                            parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            message.clone(),
+                        );
+                        if let Some(progress) = run_context.progress.clone() {
+                            let _ = progress
+                                .send(AgentProgress::SubagentFailed {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    error: message,
+                                })
+                                .await;
+                        }
+                    }
+                    Ok(ToolResult::error(format!(
+                        "{tool_name}: delegated sub-agent was cancelled"
+                    )))
                 }
-                log::info!(
-                    "[agent] {} stopped incomplete via {} (task_id={}) iterations={} — \
-                     returning partial-progress envelope, not a finished result",
-                    agent_id,
-                    tool_name,
-                    outcome.task_id,
-                    outcome.iterations,
-                );
-                Ok(ToolResult::success(incomplete_envelope(
-                    tool_name,
-                    reason,
-                    &outcome.output,
-                    mode,
-                )))
             }
-        },
+        }
         Err(err) => {
             let message = err.to_string();
             crate::agent::orchestration::subagent_events::publish_subagent_failed(
@@ -601,7 +693,7 @@ pub(crate) async fn dispatch_subagent(
 /// they answered. Report it as a failure instead, while the parent can still
 /// act on it.
 fn awaiting_outcome_to_tool_result(
-    outcome: &crate::agent::harness::subagent_runner::SubagentRunOutcome,
+    outcome: &crate::agent::subagent_host::SubagentRunOutcome,
     question: &str,
     checkpointed: bool,
 ) -> ToolResult {

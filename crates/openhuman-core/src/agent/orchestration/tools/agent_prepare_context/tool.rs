@@ -44,7 +44,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent);
         AgentPrepareContextTool::new()
-            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                Some(parent),
+            )
             .await
     }
 }
@@ -242,6 +247,19 @@ impl AgentPrepareContextTool {
         tool_context: Option<&dyn ToolRunContext>,
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, run_context, None)
+            .await
+    }
+
+    /// Typed-harness entrypoint that retains the actual parent run for the
+    /// blocking scout child.
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+    ) -> anyhow::Result<ToolResult> {
         let prepared_sources = run_context.prepared_context_sources.as_ref();
         if !prepared_sources.is_empty() {
             tracing::info!(
@@ -267,6 +285,7 @@ impl AgentPrepareContextTool {
                 .and_then(ToolRunContext::thread_id)
                 .map(str::to_owned),
             run_context,
+            live_parent,
         )
         .await
     }

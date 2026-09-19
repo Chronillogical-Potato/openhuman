@@ -92,9 +92,6 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     // configured external sources onto the agent's todo board.
     crate::integrations::task_sources::bus::register_task_sources_subscriber();
     crate::integrations::task_sources::start_periodic_poll();
-    // Board poller: dispatch the highest-urgency `todo` card on the
-    // task-sources board (catch-all for cards without a proactive trigger).
-    crate::agent::task_dispatcher::start_board_poller();
     // Native request handlers. Re-registering is safe (latest wins) so
     // this is idempotent even if `bootstrap_core_runtime` also runs.
     // Must happen before `run_message_dispatch_loop` begins, because

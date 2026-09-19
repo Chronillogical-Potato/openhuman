@@ -29,10 +29,10 @@ use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry
 use crate::agent::harness::fork_context::{
     current_parent, with_parent_context, ParentExecutionContext,
 };
-use crate::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunOptions, SubagentRunOutcome,
-};
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
+};
 use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -472,7 +472,7 @@ impl AgentOrchestrationSession {
         agent_id: &str,
         status_tx: &watch::Sender<ChildState>,
         progress_sink: Option<mpsc::Sender<AgentProgress>>,
-        result: Result<SubagentRunOutcome, crate::agent::harness::SubagentRunError>,
+        result: Result<SubagentRunOutcome, SubagentRunError>,
     ) {
         // A cancelled child has already reached a terminal status via
         // `abort_all`; do not overwrite it with a late completion.
@@ -482,41 +482,114 @@ impl AgentOrchestrationSession {
 
         match result {
             Ok(outcome) => {
-                let _ = status_tx.send(ChildState {
-                    status: OrchestrationTaskStatus::Completed,
-                    result_summary: Some(outcome.output.clone()),
-                    error: None,
-                    updated_at: now(),
-                });
-                BUS.publish(DomainEvent::AgentOrchestrationCompleted {
-                    session_id: self.session_id.clone(),
-                    orchestration_id: orchestration_id.to_string(),
-                    agent_id: outcome.agent_id.clone(),
-                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: outcome.output.chars().count(),
-                    iterations: outcome.iterations,
-                });
-                if let Some(progress) = progress_sink {
-                    let _ = progress
-                        .send(AgentProgress::SubagentCompleted {
+                let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+                match outcome.status {
+                    SubagentRunStatus::Completed => {
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Completed,
+                            result_summary: Some(outcome.output.clone()),
+                            error: None,
+                            updated_at: now(),
+                        });
+                        if !emit_lifecycle_effects {
+                            return;
+                        }
+                        BUS.publish(DomainEvent::AgentOrchestrationCompleted {
+                            session_id: self.session_id.clone(),
+                            orchestration_id: orchestration_id.to_string(),
                             agent_id: outcome.agent_id.clone(),
-                            task_id: orchestration_id.to_string(),
                             elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
                             output_chars: outcome.output.chars().count(),
-                            output: outcome.output.clone(),
-                            // Not a dropped value: these three describe a
-                            // worker's *own* isolated checkout, and this path
-                            // never creates one — it only inherits the parent's
-                            // descriptor (above). `spawn_parallel_agents`
-                            // populates them from the descriptor it freshly
-                            // created per worker, and reports `None` for an
-                            // inherited one for the same reason.
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
+                            iterations: outcome.iterations,
+                        });
+                        if let Some(progress) = progress_sink {
+                            let _ = progress
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: orchestration_id.to_string(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
+                    SubagentRunStatus::AwaitingUser { question, .. } => {
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Awaiting,
+                            result_summary: Some(question.clone()),
+                            error: None,
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentAwaitingUser {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        question,
+                                        worker_thread_id: None,
+                                        checkpoint_path: None,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
+                    SubagentRunStatus::Incomplete { reason } => {
+                        let message = format!("sub-agent stopped incomplete: {reason}");
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Failed,
+                            result_summary: Some(outcome.output),
+                            error: Some(message.clone()),
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            BUS.publish(DomainEvent::AgentOrchestrationFailed {
+                                session_id: self.session_id.clone(),
+                                orchestration_id: orchestration_id.to_string(),
+                                agent_id: outcome.agent_id.clone(),
+                                error: message.clone(),
+                            });
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentFailed {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        error: message,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
+                    SubagentRunStatus::Cancelled => {
+                        let message = "sub-agent was cancelled".to_string();
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Cancelled,
+                            result_summary: None,
+                            error: Some(message.clone()),
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            BUS.publish(DomainEvent::AgentOrchestrationClosed {
+                                session_id: self.session_id.clone(),
+                                orchestration_id: orchestration_id.to_string(),
+                                reason: Some(message.clone()),
+                            });
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentFailed {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        error: message,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
                 }
             }
             Err(error) => {

@@ -71,8 +71,8 @@ describe('threadApi', () => {
             createdAt: '2026-04-10T12:01:00Z',
           },
           {
-            // Written by an autonomous task run before the core switched its
-            // closing message to the `agent` vocabulary.
+            // Written by a legacy core writer before it switched its closing
+            // message to the `agent` vocabulary.
             id: 'assistant:legacy',
             content: 'done',
             type: 'text',

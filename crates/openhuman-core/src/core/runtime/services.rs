@@ -214,9 +214,8 @@ pub(crate) struct BootstrapJobPlan {
     /// Workspace memory-source periodic sync — repos, folders, RSS, web pages
     /// (`memory_sync::workspace::start_workspace_periodic_sync`).
     pub workspace_memory_sync: bool,
-    /// Proactive task pollers (`task_sources::start_periodic_poll` +
-    /// `agent::task_dispatcher::start_board_poller`).
-    pub proactive_task_pollers: bool,
+    /// Proactive external task-source polling (`task_sources::start_periodic_poll`).
+    pub task_source_pollers: bool,
     /// Eager native-module preload (`modules::boot::load_declared_modules`):
     /// the memory module resolving at boot, off the request path.
     pub module_preload: bool,
@@ -233,7 +232,7 @@ pub(crate) fn bootstrap_job_plan(services: &ServiceSet) -> BootstrapJobPlan {
         memory_queue: services.memory_queue,
         composio_integration_sync: services.integrations,
         workspace_memory_sync: services.memory_sync,
-        proactive_task_pollers: services.cron,
+        task_source_pollers: services.cron,
         // The memory module is the only eager module, so its preload is memory
         // background work and rides the same flag as the queue.
         module_preload: services.memory_queue,
@@ -349,12 +348,11 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
         log::debug!("[runtime.bootstrap] workspace periodic sync disabled by ServiceSet");
     }
 
-    if plan.proactive_task_pollers {
-        log::debug!("[runtime.bootstrap] starting proactive task pollers (task sources + board)");
+    if plan.task_source_pollers {
+        log::debug!("[runtime.bootstrap] starting task-source poller");
         crate::integrations::task_sources::start_periodic_poll();
-        crate::agent::task_dispatcher::start_board_poller();
     } else {
-        log::debug!("[runtime.bootstrap] proactive task pollers disabled by ServiceSet");
+        log::debug!("[runtime.bootstrap] task-source polling disabled by ServiceSet");
     }
 
     log::debug!("[runtime.bootstrap] bootstrap job dispatch complete");
@@ -412,7 +410,7 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-/// Migrates legacy goal, task-board, and run-ledger state before a built
+/// Migrates legacy goal and task-board state before a built
 /// runtime can expose those crate-backed stores to in-process or HTTP callers.
 pub(crate) async fn run_legacy_migrations(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
@@ -443,17 +441,6 @@ pub(crate) async fn run_legacy_migrations(config: &Config) {
         ),
         Ok(_) => {}
         Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
-    }
-
-    match crate::agent::todos::runs::migrate_legacy_task_runs(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => log::info!(
-            "[todos] legacy→crate run-ledger migration: total={} copied={} skipped={}",
-            report.total,
-            report.copied,
-            report.skipped
-        ),
-        Ok(_) => {}
-        Err(e) => log::warn!("[todos] legacy→crate run-ledger migration failed: {e}"),
     }
 }
 

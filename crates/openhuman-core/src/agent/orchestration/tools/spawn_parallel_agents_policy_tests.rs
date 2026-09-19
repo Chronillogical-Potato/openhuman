@@ -61,8 +61,11 @@ fn result_omits_worktree_fields_when_absent() {
         agent_id: "a".into(),
         lineage: test_lineage("t1"),
         success: true,
+        status: crate::agent::orchestration::spawn_parallel_graph::ParallelAgentStatus::Completed,
         output: Some("ok".into()),
         error: None,
+        awaiting_question: None,
+        checkpoint_path: None,
         ownership: None,
         elapsed_ms: 5,
         iterations: 1,
@@ -70,6 +73,7 @@ fn result_omits_worktree_fields_when_absent() {
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
+        emit_lifecycle_effects: false,
     };
     let v = serde_json::to_value(&result).unwrap();
     assert!(v.get("worktreePath").is_none());
@@ -84,8 +88,11 @@ fn result_serializes_worktree_fields_when_present() {
         agent_id: "coder".into(),
         lineage: test_lineage("t2"),
         success: true,
+        status: crate::agent::orchestration::spawn_parallel_graph::ParallelAgentStatus::Completed,
         output: None,
         error: None,
+        awaiting_question: None,
+        checkpoint_path: None,
         ownership: None,
         elapsed_ms: 9,
         iterations: 2,
@@ -93,6 +100,7 @@ fn result_serializes_worktree_fields_when_present() {
         worktree_path: Some("/repo/.claude/worktrees/t2".into()),
         changed_files: vec!["src/a.rs".into()],
         dirty_status: Some(true),
+        emit_lifecycle_effects: false,
     };
     let v = serde_json::to_value(&result).unwrap();
     assert_eq!(v["worktreePath"], "/repo/.claude/worktrees/t2");

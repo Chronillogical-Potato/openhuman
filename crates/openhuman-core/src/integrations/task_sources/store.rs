@@ -181,10 +181,6 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
     if let Some(connection_id) = patch.connection_id {
         source.connection_id = Some(connection_id).filter(|s| !s.trim().is_empty());
     }
-    if let Some(assigned_executor) = patch.assigned_executor {
-        source.assigned_executor = Some(assigned_executor).filter(|s| !s.trim().is_empty());
-    }
-
     let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
     let target_json = serde_json::to_string(&source.target).context("serialize target")?;
     let interval_i64 = i64::try_from(source.interval_secs)
@@ -194,9 +190,8 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
         conn.execute(
             "UPDATE task_sources
              SET provider = ?1, connection_id = ?2, name = ?3, enabled = ?4, filter = ?5,
-                 interval_secs = ?6, target = ?7, max_tasks_per_fetch = ?8,
-                 assigned_executor = ?9
-             WHERE id = ?10",
+                 interval_secs = ?6, target = ?7, max_tasks_per_fetch = ?8
+             WHERE id = ?9",
             params![
                 source.provider.as_str(),
                 source.connection_id,
@@ -206,7 +201,6 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
                 interval_i64,
                 target_json,
                 i64::from(source.max_tasks_per_fetch),
-                source.assigned_executor,
                 id,
             ],
         )
@@ -394,8 +388,7 @@ pub fn clear_all(config: &Config) -> Result<usize> {
 }
 
 const SELECT_SOURCE_COLUMNS: &str = "SELECT id, provider, connection_id, name, enabled, filter, \
-     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status, \
-     assigned_executor \
+     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status \
      FROM task_sources";
 
 fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
@@ -425,7 +418,6 @@ fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
         target,
         max_tasks_per_fetch: u32::try_from(row.get::<_, i64>(8)?)
             .map_err(|_| sql_conv("invalid max_tasks_per_fetch in task_sources DB"))?,
-        assigned_executor: row.get(12)?,
         created_at: parse_rfc3339(&created_at_raw).map_err(sql_conv)?,
         last_fetch_at: match last_fetch_raw {
             Some(raw) => Some(parse_rfc3339(&raw).map_err(sql_conv)?),
@@ -502,7 +494,7 @@ const TASK_SOURCES_SCHEMA_VERSION: i64 = 1;
 /// the next call. The version gate restores that: a `user_version` lower than
 /// the expected version — 0 for a fresh file, or an older/partial schema
 /// swapped in under a live process (missing `ingested_tasks` or a migrated
-/// column such as `card_id`/`assigned_executor`) — falls through to the
+/// column such as `card_id`) — falls through to the
 /// idempotent [`init_schema`] and is re-migrated rather than trusted and later
 /// failing on the incomplete schema (CodeRabbit / Codex review on #5709). An
 /// on-disk version *higher* than expected is treated as already-initialized
@@ -607,8 +599,7 @@ fn init_schema(conn: &mut Connection) -> Result<()> {
             max_tasks_per_fetch INTEGER NOT NULL,
             created_at          TEXT NOT NULL,
             last_fetch_at       TEXT,
-            last_status         TEXT,
-            assigned_executor   TEXT
+            last_status         TEXT
          );
          CREATE TABLE IF NOT EXISTS ingested_tasks (
             source_id    TEXT NOT NULL,
@@ -628,8 +619,6 @@ fn init_schema(conn: &mut Connection) -> Result<()> {
     // Additive migration: add card_id to existing databases that pre-date
     // this column. Tolerate "duplicate column" in case of a concurrent open.
     add_column_if_missing(&tx, "ingested_tasks", "card_id", "TEXT")?;
-    // G7: static executor routing on a source.
-    add_column_if_missing(&tx, "task_sources", "assigned_executor", "TEXT")?;
 
     // Stamp the schema version last, so [`ensure_schema_initialized`] only
     // trusts a cache hit whose on-disk schema is fully migrated. Bump

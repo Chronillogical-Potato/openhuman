@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::agent::harness::AgentContextPreparedSource;
-use crate::agent::harness::SubagentRunError;
+use crate::agent::subagent_host::SubagentRunError;
 use serde_json::json;
 use tinytools::Tool;
 #[test]

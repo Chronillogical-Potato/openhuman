@@ -14,7 +14,6 @@
 //!   identity, global skills) to keep sub-agent prompts small.
 //!
 //! ## Key Sub-modules
-//! - **[`subagent_runner`]**: The core logic for executing a sub-agent.
 //! - **[`definition`]**: Data structures for defining an agent's archetype.
 //! - **[`fork_context`]**: Task-local storage for parent context sharing.
 //!
@@ -34,11 +33,8 @@ pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 pub(crate) mod memory_protocol;
 pub(crate) mod required_output;
-pub mod run_queue;
 pub mod sandbox_context;
-pub mod session;
 pub(crate) mod spawn_depth_context;
-pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod tool_result_artifacts;
 
@@ -56,7 +52,6 @@ pub use fork_context::{
 };
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{with_spawn_depth, MAX_SPAWN_DEPTH};
-pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
 
 pub(crate) use graph::run_channel_turn_via_graph;

@@ -238,7 +238,7 @@ fn awaiting_user_outcome_maps_to_resume_envelope_not_bare_success() {
     // orchestrator resumes via continue_subagent) — NOT a plain success
     // carrying the question as if the task were done, which made the
     // orchestrator re-spawn a fresh mcp_setup and loop.
-    use crate::agent::harness::subagent_runner::{
+    use crate::agent::subagent_host::{
         SubagentMode, SubagentRunOutcome, SubagentRunStatus, SubagentUsage,
     };
     use std::time::Duration;
@@ -259,6 +259,8 @@ fn awaiting_user_outcome_maps_to_resume_envelope_not_bare_success() {
         final_history: Vec::new(),
         usage: SubagentUsage::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     };
 
     let res = awaiting_outcome_to_tool_result(&outcome, &question, true);
@@ -312,7 +314,7 @@ fn subagent_failure_envelope_forbids_fabricated_success() {
 /// user a question whose answer is discarded.
 #[test]
 fn an_unpersisted_synchronous_pause_is_a_failure_not_an_awaiting_user_envelope() {
-    use crate::agent::harness::subagent_runner::{
+    use crate::agent::subagent_host::{
         SubagentMode, SubagentRunOutcome, SubagentRunStatus, SubagentUsage,
     };
     use std::time::Duration;
@@ -333,6 +335,8 @@ fn an_unpersisted_synchronous_pause_is_a_failure_not_an_awaiting_user_envelope()
         final_history: Vec::new(),
         usage: SubagentUsage::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     };
 
     let res = awaiting_outcome_to_tool_result(&outcome, &question, false);
@@ -365,7 +369,7 @@ fn an_unpersisted_synchronous_pause_is_a_failure_not_an_awaiting_user_envelope()
 /// An error path is not exempt (#5951 review, CodeRabbit).
 #[test]
 fn the_question_in_an_unpersisted_pause_failure_is_encoded_not_interpolated() {
-    use crate::agent::harness::subagent_runner::{
+    use crate::agent::subagent_host::{
         SubagentMode, SubagentRunOutcome, SubagentRunStatus, SubagentUsage,
     };
     use std::time::Duration;
@@ -386,6 +390,8 @@ fn the_question_in_an_unpersisted_pause_failure_is_encoded_not_interpolated() {
         final_history: Vec::new(),
         usage: SubagentUsage::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     };
 
     let out = awaiting_outcome_to_tool_result(&outcome, evil, false).output();

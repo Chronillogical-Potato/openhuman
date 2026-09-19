@@ -71,6 +71,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             parent.cancellation.clone(),
             parent.workspace.clone(),
             parent.data.child(),
+            Some(parent),
         )
         .await
     }
@@ -78,14 +79,20 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
 /// Executes the graph from explicitly supplied parent-run values.
 ///
-/// This is shared by the typed harness dispatch and standalone tool execution;
-/// neither path consults ambient run state.
+/// This is shared by typed harness callers and requires their live parent;
+/// standalone raw-tool execution fails closed.
 pub(crate) async fn execute_spawn_parallel_agents(
     args: serde_json::Value,
     cancellation: tinyagents_harness::CancellationToken,
     workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "spawn_parallel_agents requires a live harness run context.",
+        ));
+    };
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
         Ok(tasks) => tasks,
@@ -102,6 +109,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
         cancellation,
         workspace_descriptor,
         run_context,
+        live_parent,
     )
     .await
     .map_err(|e| anyhow::anyhow!(e))?;
@@ -235,6 +243,7 @@ impl Tool for SpawnParallelAgentsTool {
             tinyagents_harness::CancellationToken::new(),
             workspace_descriptor,
             crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            None,
         )
         .await
     }

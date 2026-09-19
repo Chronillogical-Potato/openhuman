@@ -1,8 +1,8 @@
 //! `rss-bench` — steady-state RSS benchmark for an embedded `openhuman_core`
 //! agent roster (#5046).
 //!
-//! Mirrors the OpenCompany embedding contract: a bare [`Agent`] built directly
-//! via [`Agent::builder`] (no `CoreBuilder`, no RPC, no background services)
+//! Mirrors the OpenCompany embedding contract: a bare [`OpenHumanSessionHost`] built directly
+//! via [`OpenHumanSessionHost::builder`] (no `CoreBuilder`, no RPC, no background services)
 //! with an injected mock model, an in-process `"none"` memory backend, and a
 //! per-agent temp workspace. Builds a 1-agent and an 8-agent roster, runs one
 //! deterministic warm-up turn per agent to fault in lazy allocations, settles,
@@ -26,15 +26,14 @@
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use openhuman_core::agent::harness::AgentDefinitionRegistry;
-use openhuman_core::agent::Agent;
+use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use openhuman_core::platform::proc_metrics::{
     self, BenchReport, ProcSample, RosterResult, REPORT_SCHEMA_VERSION, RSS_BUDGET_KIB,
     RSS_HARD_CAP_KIB,
 };
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use tinytools::{Tool, ToolResult};
-use tinytools_agent::dialect::NativeDialect;
 
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -154,36 +153,28 @@ impl Memory for NoopMemory {
 /// A built roster plus the temp workspaces that must outlive it — dropping the
 /// `TempDir`s would delete the agents' workspaces mid-measurement.
 struct Roster {
-    agents: Vec<Agent>,
+    agents: Vec<OpenHumanSessionHost>,
     _workspaces: Vec<TempDir>,
 }
 
 /// Build `n` bare agents, each with its own temp workspace, mock model,
 /// `"none"` memory backend, and a single host-supplied tool.
 fn build_roster(n: usize) -> Result<Roster> {
-    // Hosted turns require the process-level definition authority even when
-    // this fixture supplies its own model, memory, and tools. Built-ins keep
-    // the benchmark hermetic: no workspace scan or network access occurs.
-    AgentDefinitionRegistry::init_global_builtins()
-        .context("initialize built-in agent definitions for benchmark roster")?;
     let mut agents = Vec::with_capacity(n);
     let mut workspaces = Vec::with_capacity(n);
-    for _ in 0..n {
+    for i in 0..n {
         let workspace = TempDir::new().context("create temp workspace")?;
         let path = workspace.path().to_path_buf();
 
         let memory: Arc<dyn Memory> = Arc::new(NoopMemory);
 
-        let agent = Agent::builder()
+        let agent = OpenHumanSessionHost::builder()
             .chat_model(Arc::new(MockModel))
             .tools(vec![Box::new(EchoTool)])
             .memory(memory)
             .tool_dispatcher(Box::new(NativeDialect))
             .model_name("bench-mock".into())
-            // Hosted execution resolves a stable definition id from the
-            // process registry. The roster index belongs in its isolated
-            // workspace, not the authority id.
-            .agent_definition_name("orchestrator".to_string())
+            .agent_definition_name(format!("bench-{i}"))
             .workspace_dir(path.clone())
             .action_dir(path)
             .auto_save(false)

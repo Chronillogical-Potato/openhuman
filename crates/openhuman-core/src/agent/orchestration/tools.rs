@@ -18,7 +18,7 @@
 //! All tools are re-exported through `crate::tools` (`tools/mod.rs`:
 //! `pub use crate::agent::orchestration::tools::*`), which is how the agent
 //! tool-calling loop discovers them. Execution itself goes through
-//! `agent::harness::run_subagent`; this module only owns the tool-call
+//! `agent::subagent_host::run_subagent`; this module only owns the tool-call
 //! surface (schema, argument parsing, response formatting).
 
 #[path = "tools/agent_prepare_context.rs"]
@@ -26,7 +26,7 @@ mod agent_prepare_context;
 #[path = "tools/archetype_delegation.rs"]
 mod archetype_delegation;
 #[path = "tools/awaiting_user.rs"]
-mod awaiting_user;
+pub(crate) mod awaiting_user;
 #[path = "tools/close_subagent.rs"]
 mod close_subagent;
 #[path = "tools/collapsed_delegation.rs"]
@@ -54,7 +54,6 @@ mod steer_subagent;
 #[cfg(test)]
 #[path = "tools/tools_e2e_tests.rs"]
 mod tools_e2e_tests;
-mod use_skill_dispatch;
 #[path = "tools/wait.rs"]
 mod wait;
 #[path = "tools/wait_subagent.rs"]
@@ -62,8 +61,7 @@ mod wait_subagent;
 #[path = "tools/worker_thread.rs"]
 mod worker_thread;
 
-pub(crate) use dispatch::{dispatch_subagent, DelegationDispatch};
-pub(crate) use use_skill_dispatch::UseSkillDispatch;
+pub(crate) use dispatch::DelegationDispatch;
 
 pub(crate) use agent_prepare_context::AgentPrepareContextDispatch;
 pub use agent_prepare_context::{

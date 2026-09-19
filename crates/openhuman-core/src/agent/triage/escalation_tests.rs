@@ -213,7 +213,7 @@ async fn apply_decision_drop_gates_linked_card_to_rejected() {
     crate::core::bus::init().await.expect("bus init");
     let (_dir, location, card_id) = seed_task_card().await;
 
-    let envelope = envelope("esc-drop-card").with_task_card(card_id.clone(), location.clone());
+    let envelope = envelope("esc-drop-card");
     apply_decision(run(TriageAction::Drop), &envelope)
         .await
         .expect("drop should not fail");
@@ -227,8 +227,8 @@ async fn apply_decision_drop_gates_linked_card_to_rejected() {
         .map(|c| c.status);
     assert_eq!(
         status,
-        Some(TaskCardStatus::Rejected),
-        "a dropped card-linked trigger must be gated terminally so the board poller skips it"
+        Some(TaskCardStatus::Todo),
+        "triage no longer mutates task-board cards after dispatcher removal"
     );
 }
 
@@ -241,7 +241,7 @@ async fn apply_decision_acknowledge_gates_linked_card_to_rejected() {
     crate::core::bus::init().await.expect("bus init");
     let (_dir, location, card_id) = seed_task_card().await;
 
-    let envelope = envelope("esc-ack-card").with_task_card(card_id.clone(), location.clone());
+    let envelope = envelope("esc-ack-card");
     apply_decision(run(TriageAction::Acknowledge), &envelope)
         .await
         .expect("acknowledge should not fail");
@@ -253,7 +253,7 @@ async fn apply_decision_acknowledge_gates_linked_card_to_rejected() {
         .into_iter()
         .find(|c| c.id == card_id)
         .map(|c| c.status);
-    assert_eq!(status, Some(TaskCardStatus::Rejected));
+    assert_eq!(status, Some(TaskCardStatus::Todo));
 }
 
 #[tokio::test]

@@ -18,6 +18,64 @@ fn converts_explicit_values_to_the_canonical_tinyagents_context() {
 }
 
 #[test]
+fn concurrent_root_configs_are_unique_while_one_turn_keeps_its_id() {
+    let left = std::thread::spawn(|| fresh_root_run_config("openhuman-session"));
+    let right = std::thread::spawn(|| fresh_root_run_config("openhuman-session"));
+    let left = left.join().expect("left root config");
+    let right = right.join().expect("right root config");
+    assert_ne!(left.run_id, right.run_id);
+
+    let mut host = OpenHumanRunContext::new();
+    let first = host.root_run_config("openhuman-session");
+    let same_turn_boundary = host.root_run_config("openhuman-agent-turn");
+    assert_eq!(first.run_id, same_turn_boundary.run_id);
+}
+
+#[test]
+fn direct_subagent_child_derives_explicit_key_before_owned_lineage_child() {
+    let mut host = OpenHumanRunContext::new();
+    host.thread_id = Some("thread-a".into());
+    let parent = host.into_tinyagents(
+        tinyagents_harness::context::RunConfig::new("root-run").with_thread("thread-a"),
+    );
+
+    let (key, child) = direct_subagent_child(
+        &parent,
+        "task-42",
+        tinyagents_harness::context::RunConfig::new("child-execution-42"),
+    )
+    .expect("direct child");
+
+    assert_eq!(key.root_run_id, "root-run");
+    assert_eq!(key.parent_run_id, "root-run");
+    assert_eq!(key.thread_id.as_deref(), Some("thread-a"));
+    assert_eq!(key.task_id, "task-42");
+    assert_eq!(child.run_id().as_str(), "child-execution-42");
+    assert_eq!(child.lineage().root_run_id.as_str(), "root-run");
+    assert_eq!(
+        child.lineage().parent_run_id.as_ref(),
+        Some(parent.run_id())
+    );
+    assert_eq!(child.thread_id().map(|id| id.as_str()), Some("thread-a"));
+}
+
+#[test]
+fn direct_subagent_child_shares_tinyagents_and_host_cancellation_tree() {
+    let parent = OpenHumanRunContext::new()
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("root-cancel"));
+    let (_, child) = direct_subagent_child(
+        &parent,
+        "cancel-task",
+        tinyagents_harness::context::RunConfig::new("child-cancel"),
+    )
+    .expect("direct child");
+
+    parent.cancellation.cancel();
+    assert!(child.cancellation.is_cancelled());
+    assert!(child.data.cancellation.is_cancelled());
+}
+
+#[test]
 fn child_inherits_tree_handles_but_isolates_observations_and_usage() {
     let mut parent = OpenHumanRunContext::new();
     parent.thread_id = Some("thread-a".to_string());
@@ -90,7 +148,7 @@ fn child_ledgers_are_isolated_and_parent_keeps_completed_child_totals() {
     left.append_subagent_usage(SubagentUsageEntry {
         task_id: "left-task".into(),
         agent_id: "researcher".into(),
-        usage: crate::agent::harness::subagent_runner::SubagentUsage {
+        usage: crate::agent::subagent_host::SubagentUsage {
             input_tokens: 3,
             output_tokens: 2,
             cached_input_tokens: 1,
@@ -102,7 +160,7 @@ fn child_ledgers_are_isolated_and_parent_keeps_completed_child_totals() {
     left.record_completed_subagent_usage(SubagentUsageEntry {
         task_id: "completed-child".into(),
         agent_id: "researcher".into(),
-        usage: crate::agent::harness::subagent_runner::SubagentUsage::default(),
+        usage: crate::agent::subagent_host::SubagentUsage::default(),
     });
     assert_eq!(root.subagent_usage_entries().len(), 1);
     assert_eq!(left.subagent_usage_entries().len(), 1);
@@ -115,7 +173,7 @@ fn failed_outer_run_promotes_completed_nested_usage_once() {
     outer.append_subagent_usage(SubagentUsageEntry {
         task_id: "nested".into(),
         agent_id: "researcher".into(),
-        usage: crate::agent::harness::subagent_runner::SubagentUsage {
+        usage: crate::agent::subagent_host::SubagentUsage {
             input_tokens: 7,
             ..Default::default()
         },

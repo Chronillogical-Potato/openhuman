@@ -90,8 +90,8 @@ export interface ChatDoneEvent {
   request_id?: string;
   /**
    * Socket.IO client that owns the turn. `"system"` marks a turn the core ran
-   * on its own behalf (autonomous task sessions, background sub-agent result
-   * delivery, cron/flow agents); such turns are broadcast to every client.
+   * on its own behalf (background sub-agent result delivery, cron/flow
+   * agents); such turns are broadcast to every client.
    * Always on the wire (`WebChannelEvent.client_id`); declared here for the
    * consumers that key off it.
    */
@@ -174,8 +174,8 @@ export interface ChatErrorEvent {
   request_id?: string;
   /**
    * Socket.IO client that owns the turn. `"system"` marks a turn the core ran
-   * on its own behalf (autonomous task sessions, background sub-agent result
-   * delivery, cron/flow agents); such turns are broadcast to every client.
+   * on its own behalf (background sub-agent result delivery, cron/flow
+   * agents); such turns are broadcast to every client.
    * Always on the wire (`WebChannelEvent.client_id`); declared here for the
    * consumers that key off it.
    */

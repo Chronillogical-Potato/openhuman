@@ -237,7 +237,7 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
         &store,
         &session.subagent_session_id,
         "sub-earlier-task",
-        &crate::agent::harness::subagent_runner::SubagentRunStatus::Completed,
+        &crate::agent::subagent_host::SubagentRunStatus::Completed,
         vec![
             ChatMessage::user("original task from an earlier turn"),
             ChatMessage::assistant("earlier proposal result"),

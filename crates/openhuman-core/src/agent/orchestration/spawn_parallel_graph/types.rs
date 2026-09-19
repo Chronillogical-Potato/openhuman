@@ -45,6 +45,19 @@ pub(crate) struct SpawnParallelWorker {
     pub(crate) dispatch_mode: WorkerDispatchMode,
 }
 
+/// Terminal or suspended lifecycle state projected by one parallel worker.
+/// `success` remains the concise aggregate flag, while this preserves enough
+/// detail to avoid treating a pause or cancellation as a completed child.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ParallelAgentStatus {
+    Completed,
+    AwaitingUser,
+    Incomplete,
+    Cancelled,
+    Failed,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ParallelAgentLineage {
@@ -60,10 +73,15 @@ pub(crate) struct ParallelAgentResult {
     pub(crate) agent_id: String,
     pub(crate) lineage: ParallelAgentLineage,
     pub(crate) success: bool,
+    pub(crate) status: ParallelAgentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) awaiting_question: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) checkpoint_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) ownership: Option<String>,
     pub(crate) elapsed_ms: u64,
@@ -84,4 +102,8 @@ pub(crate) struct ParallelAgentResult {
     /// user can choose). `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) dirty_status: Option<bool>,
+    /// True only when this worker invocation committed the neutral lifecycle
+    /// record, and therefore owns terminal event/progress publication.
+    #[serde(skip)]
+    pub(crate) emit_lifecycle_effects: bool,
 }

@@ -486,8 +486,8 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         });
       });
 
-      // The same `agent:<run_id>` id `task_session::append_final` used, so the
-      // core's idempotent store collapses this append onto its own row instead
+      // The same `agent:<run_id>` id the core persisted, so the idempotent
+      // store collapses this append onto its own row instead
       // of keeping a second copy of the reply.
       await waitFor(() =>
         expect(threadApi.appendMessage).toHaveBeenCalledWith(

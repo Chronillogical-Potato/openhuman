@@ -2,28 +2,20 @@
 mod noop_memory;
 
 use async_trait::async_trait;
-use tinytools_agent::dialect::{NativeDialect, XmlDialect};
+use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::agent::harness::definition::AgentTier;
-use openhuman_core::agent::harness::subagent_runner::run_subagent;
 use openhuman_core::agent::harness::{
-    with_parent_context, AgentDefinition, DefinitionSource, ModelSpec, ParentExecutionContext,
-    PromptSource, SandboxMode, SubagentRunError, SubagentRunOptions, ToolScope,
+    AgentDefinition, DefinitionSource, ModelSpec, ParentExecutionContext, PromptSource,
+    SandboxMode, SubagentRunError, SubagentRunOptions, ToolScope, with_parent_context,
 };
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::agent::progress::AgentProgress;
-use openhuman_core::agent::tool_policy::{
-    ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
-};
-use openhuman_core::agent::Agent;
-use openhuman_core::config::{AgentConfig, Config, ContextConfig, MemoryConfig};
 use openhuman_core::agent::messages::ConversationMessage;
-use openhuman_core::memory::{
-    Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
-};
+use openhuman_core::agent::progress::AgentProgress;
+use openhuman_core::agent::subagent_host::run_subagent;
+use openhuman_core::agent::tool_policy::{ToolPolicy, ToolPolicyDecision, ToolPolicyRequest};
+use openhuman_core::config::{AgentConfig, Config, ContextConfig, MemoryConfig};
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use tinytools::ToolCallOptions;
-use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
-use tinytools::ToolScope as RuntimeToolScope;
+use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use serde_json::json;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -36,8 +28,12 @@ use tinyinference_llm::model::{
 };
 use tinyinference_llm::tool::{ToolCall, ToolDelta};
 use tinyinference_llm::usage::Usage;
+use tinytools::ToolCallOptions;
+use tinytools::ToolScope as RuntimeToolScope;
+use tinytools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 struct EnvGuard {
     key: &'static str,
@@ -75,8 +71,7 @@ fn ensure_memory_seams() {
         std::thread::Builder::new()
             .name("agent-session-turn-raw-coverage-seams".to_string())
             .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-            })
+            .spawn(|| {})
             .expect("spawn agent session turn raw coverage seam installer")
             .join()
             .expect("agent session turn raw coverage seam installer panicked");
@@ -171,7 +166,11 @@ impl ChatModel<()> for ScriptedModel {
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
+    async fn stream(
+        &self,
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.capture(&request, true);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
@@ -285,12 +284,13 @@ impl Memory for StaticMemory {
             if let Some(started) = &self.recall_started {
                 started.notify_one();
             }
-            let mut cancellation_guard = self.recall_cancelled.as_ref().map(|cancelled| {
-                RecallCancellationGuard {
-                    cancelled: cancelled.clone(),
-                    armed: true,
-                }
-            });
+            let mut cancellation_guard =
+                self.recall_cancelled
+                    .as_ref()
+                    .map(|cancelled| RecallCancellationGuard {
+                        cancelled: cancelled.clone(),
+                        armed: true,
+                    });
             if let Some(release) = &self.release_recall {
                 release.notified().await;
             }
@@ -558,7 +558,7 @@ fn reasoning_text_response(text: &str, reasoning: &str, usage: Usage) -> ModelRe
         raw: None,
         resolved_model: None,
         continue_turn: None,
-            served_from_cache: false,
+        served_from_cache: false,
     }
 }
 
@@ -579,7 +579,7 @@ fn tool_response(id: &str, name: &str, args: serde_json::Value) -> ModelResponse
         raw: None,
         resolved_model: None,
         continue_turn: None,
-            served_from_cache: false,
+        served_from_cache: false,
     }
 }
 
@@ -620,8 +620,8 @@ fn agent_with(
     dispatcher: Box<dyn tinytools_agent::dialect::ToolDialect>,
     config: AgentConfig,
     context_config: ContextConfig,
-) -> Agent {
-    Agent::builder()
+) -> OpenHumanSessionHost {
+    OpenHumanSessionHost::builder()
         .chat_model(model)
         .tools(tools)
         .memory(noop_memory::noop_memory())
@@ -731,9 +731,11 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths_inner()
     while let Ok(event) = progress_rx.try_recv() {
         progress.push(event);
     }
-    assert!(progress
-        .iter()
-        .any(|event| matches!(event, AgentProgress::TurnStarted)));
+    assert!(
+        progress
+            .iter()
+            .any(|event| matches!(event, AgentProgress::TurnStarted))
+    );
     assert!(progress.iter().any(|event| matches!(
         event,
         AgentProgress::TextDelta { delta, iteration: 1 } if delta == "stream text"
@@ -751,11 +753,13 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths_inner()
     let requests = provider.requests();
     assert!(requests[0].stream_was_requested);
     assert_eq!(requests[0].tool_names, vec!["round17_echo"]);
-    assert!(requests[1]
-        .messages
-        .iter()
-        .any(|message| matches!(message, Message::Tool(_))
-            && message.text().contains("**echo-output:alpha**")));
+    assert!(
+        requests[1]
+            .messages
+            .iter()
+            .any(|message| matches!(message, Message::Tool(_))
+                && message.text().contains("**echo-output:alpha**"))
+    );
 
     let (_seeded_tmp, seeded_workspace) = workspace("seeded-resume");
     let mut seeded = agent_with(
@@ -832,7 +836,7 @@ async fn turn_citation_task_replaces_previous_handle_and_joins_successfully_inne
         release_recall: Some(never_release_first),
         recall_cancelled: Some(first_cancelled.clone()),
     });
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(ScriptedModel::new(vec![
             text_response("first answer"),
             text_response("second answer"),
@@ -850,19 +854,19 @@ async fn turn_citation_task_replaces_previous_handle_and_joins_successfully_inne
         .build()
         .unwrap();
 
-    assert_eq!(agent.turn("first citation query").await.unwrap(), "first answer");
+    assert_eq!(
+        agent.turn("first citation query").await.unwrap(),
+        "first answer"
+    );
     timeout(Duration::from_secs(1), first_started.notified())
         .await
         .expect("first citation recall should be in flight");
     // Starting a second turn must abort the blocked first task before installing
     // the query-specific citation task joined below.
-    let second_answer = timeout(
-        Duration::from_secs(1),
-        agent.turn("second citation query"),
-    )
-    .await
-    .expect("replacement turn must not wait for the blocked first recall")
-    .unwrap();
+    let second_answer = timeout(Duration::from_secs(1), agent.turn("second citation query"))
+        .await
+        .expect("replacement turn must not wait for the blocked first recall")
+        .unwrap();
     assert_eq!(second_answer, "second answer");
     timeout(Duration::from_secs(1), async {
         while !first_cancelled.load(Ordering::SeqCst) {
@@ -922,7 +926,7 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
     let hook_notify = Arc::new(Notify::new());
     let mut channel_permissions = std::collections::HashMap::new();
     channel_permissions.insert("round17-channel".to_string(), "read_only".to_string());
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider.clone())
         .tools(vec![
             Round17Tool::boxed("round17_ok", "ok-output", ok_calls.clone()),
@@ -1180,18 +1184,22 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
     assert_eq!(requests[0].model, "override-model");
     assert_eq!(requests[0].temperature, 0.4);
     assert_eq!(requests[0].tool_names, vec!["round17_echo"]);
-    assert!(requests[0]
-        .messages
-        .iter()
-        .any(|message| matches!(message, Message::System(_))
-            && message.text().contains("Sub-agent Role Contract")
-            && message.text().contains("round17 child prompt")));
-    assert!(requests[0]
-        .messages
-        .iter()
-        .any(|message| matches!(message, Message::User(_))
-            && message.text().contains("spawn context")
-            && message.text().contains("delegate this")));
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .any(|message| matches!(message, Message::System(_))
+                && message.text().contains("Sub-agent Role Contract")
+                && message.text().contains("round17 child prompt"))
+    );
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .any(|message| matches!(message, Message::User(_))
+                && message.text().contains("spawn context")
+                && message.text().contains("delegate this"))
+    );
 
     let error_parent = ParentExecutionContext {
         turn_model_source: openhuman_core::agent::tinyagents::TurnModelSource::from_model(
@@ -1210,9 +1218,11 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
     .await
     .unwrap_err();
     assert!(matches!(provider_err, SubagentRunError::Provider(_)));
-    assert!(provider_err
-        .to_string()
-        .contains("subagent provider offline"));
+    assert!(
+        provider_err
+            .to_string()
+            .contains("subagent provider offline")
+    );
 }
 
 fn definition(

@@ -64,8 +64,8 @@ pub struct AutonomyConfig {
     /// Intended to be enabled only in Full access mode.
     #[serde(default)]
     pub allow_tool_install: bool,
-    /// When enabled, an agent-authored task brief must be approved before an
-    /// assigned agent treats it as executable work.
+    /// When enabled, an agent-authored task brief must be approved before it
+    /// becomes executable work.
     #[serde(default = "default_true")]
     pub require_task_plan_approval: bool,
 }

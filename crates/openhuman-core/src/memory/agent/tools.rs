@@ -10,16 +10,54 @@
 //! Supports both sync (blocking) and async (fire-and-forget) modes.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::{RunConfig, RunContext};
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolScope};
 
 const AGENT_ID: &str = "agent_memory";
 
 pub struct CallMemoryAgentTool;
+
+/// Typed-harness dispatch for the nested memory agent. This is a real child
+/// of the tool's live run, never a root reconstructed from a task-local.
+pub(crate) struct CallMemoryAgentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl CallMemoryAgentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CallMemoryAgentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        CallMemoryAgentTool::new()
+            .execute_with_live_parent_context(arguments, Some(&context), Some(parent))
+            .await
+    }
+}
 
 impl CallMemoryAgentTool {
     pub fn new() -> Self {
@@ -102,6 +140,21 @@ impl Tool for CallMemoryAgentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, None)
+            .await
+    }
+}
+
+impl CallMemoryAgentTool {
+    /// Executes through the live TinyAgents parent. A direct `Tool` execution
+    /// cannot synthesize a safe parent lineage, so it fails closed instead of
+    /// silently creating a root subagent.
+    async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+    ) -> anyhow::Result<ToolResult> {
         let query = args
             .get("query")
             .and_then(|v| v.as_str())
@@ -116,14 +169,13 @@ impl Tool for CallMemoryAgentTool {
 
         let is_async = args.get("async").and_then(|v| v.as_bool()).unwrap_or(false);
 
-        let parent = current_parent();
-        if parent.is_none() {
+        let Some(live_parent) = live_parent else {
             return Ok(ToolResult::error(
-                "call_memory_agent: no parent agent context — this tool must be \
-                 called from within an agent turn."
+                "call_memory_agent: no live parent run — this tool must be \
+                 called through the agent harness."
                     .to_string(),
             ));
-        }
+        };
 
         let registry = AgentDefinitionRegistry::global()
             .ok_or_else(|| anyhow::anyhow!("call_memory_agent: agent registry not initialised"))?;
@@ -139,7 +191,9 @@ impl Tool for CallMemoryAgentTool {
                 )
             })?;
 
-        let parent = parent.expect("checked above");
+        let parent = live_parent.data.parent.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("call_memory_agent: live run omitted parent agent context")
+        })?;
         if !parent.allowed_subagent_ids.contains(AGENT_ID) {
             log::warn!(
                 "[call_memory_agent] blocked memory subagent outside parent allowlist parent_agent={} requested_agent={} allowed={:?}",
@@ -191,6 +245,7 @@ impl Tool for CallMemoryAgentTool {
             task_id: Some(task_id.clone()),
             worktree_action_dir,
             workspace_descriptor,
+            run_context: live_parent.data.child(),
             ..Default::default()
         };
 
@@ -198,8 +253,17 @@ impl Tool for CallMemoryAgentTool {
             let def = definition.clone();
             let prompt_clone = prompt.clone();
             let tid = task_id.clone();
+            let detached_data = live_parent.data.detached_child();
+            let detached_cancellation = detached_data.cancellation.clone();
+            let detached_parent = live_parent
+                .child(
+                    RunConfig::new(format!("memory-agent-{task_id}")),
+                    detached_data,
+                )
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                .with_cancellation(detached_cancellation);
             tokio::spawn(async move {
-                match run_subagent(&def, &prompt_clone, options).await {
+                match run_subagent_with_parent(&detached_parent, def, prompt_clone, options).await {
                     Ok(outcome) => {
                         log::info!(
                             "[call_memory_agent] async task_id={} completed iterations={} elapsed={:?}",
@@ -222,7 +286,7 @@ impl Tool for CallMemoryAgentTool {
 
         // Synchronous path — block until the memory agent finishes.
         let started = std::time::Instant::now();
-        match run_subagent(definition, &prompt, options).await {
+        match run_subagent_with_parent(live_parent, definition.to_owned(), prompt, options).await {
             Ok(outcome) => {
                 let elapsed = started.elapsed();
                 log::info!(
@@ -246,6 +310,9 @@ impl Tool for CallMemoryAgentTool {
                         result.push_str(&format!(
                             "\n\n⚠️ The memory agent stopped before finishing ({reason})."
                         ));
+                    }
+                    SubagentRunStatus::Cancelled => {
+                        result.push_str("\n\n⚠️ The memory agent was cancelled.");
                     }
                 }
 

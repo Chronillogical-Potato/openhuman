@@ -7,16 +7,19 @@
 //!   * **batched** — every result ready at delivery time goes in one turn,
 //!     each tagged by its sub-agent process id.
 //!
-//! The turn is run via [`task_dispatcher::run_system_turn_on_thread`], which
-//! streams it into the thread exactly like a chat turn (the same bridge cron /
-//! welcome agents use), so it renders in the desktop UI.
+//! The delivery turn is host-owned here rather than sharing the removed
+//! task-board dispatcher. It persists its reply before announcing `chat_done`,
+//! so a reconnect cannot lose a completed delegated result.
 
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use serde_json::json;
 
+use crate::agent::session_host::OpenHumanSessionHost;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use tinybus::EventHandler;
@@ -135,6 +138,20 @@ fn requeue(session: &str, batch: Vec<background_completions::CompletedBackground
 /// Drain + deliver pending completions for a session — if idle and not already
 /// delivering. Batches everything ready at this instant into one system turn.
 async fn try_deliver(session: String) {
+    try_deliver_with(session, |thread_id, notice| async move {
+        run_system_turn_on_thread(thread_id, notice).await
+    })
+    .await;
+}
+
+/// Delivery-loop core with an injected turn executor. Keeping the queue and
+/// retry boundary independent from host execution lets tests prove a failed
+/// durable append is requeued before any terminal announcement is observable.
+async fn try_deliver_with<F, Fut>(session: String, mut deliver: F)
+where
+    F: FnMut(String, String) -> Fut,
+    Fut: Future<Output = Result<String, String>>,
+{
     if is_busy(&session) || !background_completions::has_pending(&session) {
         return;
     }
@@ -172,9 +189,7 @@ async fn try_deliver(session: String) {
                  session={session} thread_id={thread_id}",
                 batch.len()
             );
-            if let Err(e) =
-                crate::agent::task_dispatcher::run_system_turn_on_thread(thread_id, notice).await
-            {
+            if let Err(e) = deliver(thread_id, notice).await {
                 log::warn!(
                     "[background_delivery] delivery turn failed session={session} error={e}"
                 );
@@ -193,6 +208,111 @@ async fn try_deliver(session: String) {
         .lock()
         .expect("delivering poisoned")
         .remove(&session);
+}
+
+/// Run one system-authored delivery turn on an existing conversation thread.
+/// This is intentionally separate from task-board execution: it only delivers
+/// a detached sub-agent result already produced by `background_completions`.
+async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<String, String> {
+    let config = crate::config::Config::load_or_init()
+        .await
+        .map_err(|error| format!("load config: {error:#}"))?;
+    let run_id = format!("bgdeliver-{}", uuid::Uuid::new_v4());
+    let mut host = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+        .map_err(|error| format!("build delivery host: {error:#}"))?;
+    host.set_event_context(run_id.clone(), "background_delivery");
+    host.set_thread_id(Some(&thread_id));
+    let result = crate::agent::turn_origin::with_origin(
+        crate::agent::turn_origin::AgentTurnOrigin::Cli,
+        host.run_single(&prompt),
+    )
+    .await
+    .map_err(|error| format!("{error:#}"));
+
+    persist_then_announce(
+        result,
+        |content, success| {
+            persist_delivery_reply(
+                config.workspace_dir.clone(),
+                &thread_id,
+                &run_id,
+                content.to_string(),
+                success,
+            )
+            .map_err(|error| {
+                tracing::warn!(%thread_id, %run_id, %error, "[background_delivery] could not persist reply before announcement");
+                error
+            })
+        },
+        |result| match result {
+            Ok(response) => crate::web_chat::presentation::deliver_response_single_bubble(
+                "system", &thread_id, &run_id, response, None,
+            ),
+            Err(error) => {
+                crate::web_chat::publish_web_channel_event(crate::core::socketio::WebChannelEvent {
+                    event: "chat_error".to_string(),
+                    client_id: "system".to_string(),
+                    thread_id: thread_id.clone(),
+                    request_id: run_id.clone(),
+                    message: Some(error.clone()),
+                    error_type: Some("agent_error".to_string()),
+                    ..Default::default()
+                })
+            }
+        },
+    )
+}
+
+/// Persist a terminal reply, then announce it. A persistence failure returns
+/// before `announce` runs, allowing the outer delivery loop to requeue the
+/// completed background batch without publishing a phantom terminal event.
+fn persist_then_announce<P, A>(
+    result: Result<String, String>,
+    persist: P,
+    announce: A,
+) -> Result<String, String>
+where
+    P: FnOnce(&str, bool) -> Result<(), String>,
+    A: FnOnce(&Result<String, String>),
+{
+    let (content, success) = match &result {
+        Ok(text) => (text.trim().to_string(), true),
+        Err(error) => (format!("Run failed: {error}"), false),
+    };
+    if !content.is_empty() {
+        persist(&content, success)?;
+    }
+    announce(&result);
+    result
+}
+
+/// Durably append a background-delivery reply before publishing its terminal
+/// chat event. Callers must propagate failures: publishing `chat_done` or
+/// `chat_error` without a stored row loses the result across reconnects.
+fn persist_delivery_reply(
+    workspace_dir: std::path::PathBuf,
+    thread_id: &str,
+    run_id: &str,
+    content: String,
+    success: bool,
+) -> Result<(), String> {
+    crate::memory::conversations::append_message(
+        workspace_dir,
+        thread_id,
+        crate::memory::conversations::ConversationMessage {
+            id: crate::memory::conversations::run_reply_message_id(run_id),
+            content,
+            message_type: "text".to_string(),
+            extra_metadata: json!({
+                "scope": "background_delivery",
+                "success": success,
+                "requestId": run_id,
+            }),
+            sender: "agent".to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        },
+    )
+    .map(|_| ())
 }
 
 /// Register the delivery subscriber on the global event bus. Keeps the

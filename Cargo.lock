@@ -134,7 +134,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -145,7 +145,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1591,16 +1591,7 @@ version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16f5094c54661b38d03bd7e50df373292118db60b585c08a411c6d840017fe7d"
 dependencies = [
- "dirs-sys 0.5.0",
-]
-
-[[package]]
-name = "dirs"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
-dependencies = [
- "dirs-sys 0.4.1",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -1609,19 +1600,7 @@ version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e8aa94d75141228480295a7d0e7feb620b1a5ad9f12bc40be62411e38cce4e"
 dependencies = [
- "dirs-sys 0.5.0",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
-dependencies = [
- "libc",
- "option-ext",
- "redox_users 0.4.6",
- "windows-sys 0.48.0",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -1632,8 +1611,8 @@ checksum = "e01a3366d27ee9890022452ee61b2b63a67e6f13f58900b651ff5665f0bb1fab"
 dependencies = [
  "libc",
  "option-ext",
- "redox_users 0.5.2",
- "windows-sys 0.60.2",
+ "redox_users",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1866,7 +1845,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3604,7 +3583,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3888,6 +3867,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-io-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33fafba39597d6dc1fb709123dfa8289d39406734be322956a69f0931c73bb15"
+dependencies = [
+ "libc",
+ "objc2-core-foundation",
+]
+
+[[package]]
 name = "objc2-io-surface"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4037,7 +4026,7 @@ dependencies = [
  "cron",
  "curve25519-dalek",
  "directories",
- "dirs 6.0.0",
+ "dirs",
  "dotenvy",
  "ed25519-dalek",
  "enigo",
@@ -4079,7 +4068,7 @@ dependencies = [
  "sha2 0.10.9",
  "socketioxide",
  "starship-battery",
- "sysinfo",
+ "sysinfo 0.33.1",
  "tar",
  "tempfile",
  "thiserror 2.0.20",
@@ -4088,6 +4077,7 @@ dependencies = [
  "tinyagents-harness",
  "tinyagents-orchestration",
  "tinyagents-registry",
+ "tinyagents-runtime",
  "tinyagents-session",
  "tinybus",
  "tinychannels",
@@ -4099,7 +4089,6 @@ dependencies = [
  "tinyflows-copilot",
  "tinyflows-sqlite",
  "tinyhosts",
- "tinyhumans-sdk",
  "tinyinference-core",
  "tinyinference-embeddings",
  "tinyinference-llm",
@@ -4115,8 +4104,8 @@ dependencies = [
  "tinymemory-sources",
  "tinyruntime-bus",
  "tinyskills",
- "tinytools",
- "tinytools-agent",
+ "tinytools 0.3.0",
+ "tinytools-agent 0.3.0",
  "tinyvoice-bus",
  "tinywallet",
  "tinywallet-bus",
@@ -4138,7 +4127,7 @@ dependencies = [
  "wiremock",
  "x25519-dalek",
  "zeroize",
- "zip",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -4186,8 +4175,8 @@ dependencies = [
  "tinymcp",
  "tinymcp-bus",
  "tinymemory-api",
- "tinytools",
- "tinytools-agent",
+ "tinytools 0.3.0",
+ "tinytools-agent 0.3.0",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
@@ -4206,7 +4195,7 @@ name = "openhuman-embed"
 version = "0.63.29"
 dependencies = [
  "anyhow",
- "dirs 6.0.0",
+ "dirs",
  "env_logger",
  "log",
  "openhuman",
@@ -4250,6 +4239,7 @@ dependencies = [
  "tinyhumans-sdk",
  "tokio",
  "url",
+ "urlencoding",
  "wiremock",
 ]
 
@@ -4914,7 +4904,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5172,17 +5162,6 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
-dependencies = [
- "getrandom 0.2.17",
- "libredox",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "redox_users"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
@@ -5392,7 +5371,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5976,7 +5955,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6216,6 +6195,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sysinfo"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92ab6a2f8bfe508deb3c6406578252e491d299cbbf3bc0529ecc3313aee4a52f"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6242,7 +6235,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6255,7 +6248,7 @@ dependencies = [
  "parking_lot",
  "rustix",
  "signal-hook",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6436,18 +6429,15 @@ version = "2.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
- "chrono",
  "futures",
- "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "tinyagents-harness",
  "tinyagents-language",
  "tinyagents-tracing",
  "tinyinference-llm",
- "tinytools",
+ "tinytools 0.3.0",
  "tokio",
 ]
 
@@ -6458,9 +6448,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "bytes",
  "chrono",
- "dirs 5.0.1",
+ "dirs",
  "flate2",
  "futures",
  "log",
@@ -6476,8 +6465,8 @@ dependencies = [
  "tinyagents-tracing",
  "tinyinference-embeddings",
  "tinyinference-llm",
- "tinytools",
- "tinytools-agent",
+ "tinytools 0.3.0",
+ "tinytools-agent 0.3.0",
  "tokio",
  "uuid",
  "wait-timeout",
@@ -6504,7 +6493,9 @@ dependencies = [
  "serde_json",
  "tinyagents-graph",
  "tinyagents-harness",
+ "tinyagents-runtime",
  "tinyagents-session",
+ "tinyinference-llm",
  "tokio",
  "uuid",
 ]
@@ -6517,11 +6508,24 @@ dependencies = [
  "serde",
  "serde_json",
  "tinyagents-definition",
- "tinyagents-graph",
  "tinyagents-harness",
  "tinyagents-language",
  "tinyinference-llm",
- "tinytools",
+ "tinytools 0.3.0",
+]
+
+[[package]]
+name = "tinyagents-runtime"
+version = "2.1.2"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "thiserror 2.0.20",
+ "tinyagents-harness",
+ "tinyagents-session",
+ "tinyinference-llm",
+ "tinytools 0.3.0",
+ "tokio",
 ]
 
 [[package]]
@@ -6558,7 +6562,7 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "ureq",
- "zip",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -6790,16 +6794,16 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
+ "tinytools-agent 0.3.0 (git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71)",
  "tokio",
  "tracing",
- "url",
 ]
 
 [[package]]
 name = "tinyinference-local"
 version = "0.3.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "flate2",
  "futures",
@@ -6812,7 +6816,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
- "sysinfo",
+ "sysinfo 0.38.4",
  "tar",
  "thiserror 2.0.20",
  "tinyinference-core",
@@ -6822,24 +6826,20 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "zip",
+ "zip 8.6.0",
 ]
 
 [[package]]
 name = "tinyinference-providers"
 version = "0.3.0"
 dependencies = [
- "async-trait",
- "base64 0.22.1",
- "rand 0.9.5",
+ "base64 0.23.1",
+ "rand 0.10.2",
  "reqwest",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "thiserror 2.0.20",
- "tinyinference-core",
- "tinyinference-llm",
- "tokio",
  "tracing",
  "url",
 ]
@@ -6848,8 +6848,7 @@ dependencies = [
 name = "tinyinference-voice"
 version = "0.3.0"
 dependencies = [
- "base64 0.22.1",
- "log",
+ "base64 0.23.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -6872,7 +6871,7 @@ version = "0.3.2"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
- "dirs 6.0.0",
+ "dirs",
  "futures-util",
  "parking_lot",
  "reqwest",
@@ -6996,7 +6995,18 @@ dependencies = [
 
 [[package]]
 name = "tinytools"
-version = "0.2.0"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "tinytools"
+version = "0.3.0"
+source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7006,12 +7016,23 @@ dependencies = [
 
 [[package]]
 name = "tinytools-agent"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "regex",
  "serde",
  "serde_json",
- "tinytools",
+ "tinytools 0.3.0",
+]
+
+[[package]]
+name = "tinytools-agent"
+version = "0.3.0"
+source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
+dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
+ "tinytools 0.3.0 (git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71)",
 ]
 
 [[package]]
@@ -7466,6 +7487,12 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typenum"
@@ -8172,7 +8199,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8199,6 +8226,27 @@ checksum = "dd04d41d93c4992d421894c18c8b43496aa748dd4c081bac0dc93eb0489272b6"
 dependencies = [
  "windows-core 0.58.0",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows"
+version = "0.62.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527fadee13e0c05939a6a05d5bd6eec6cd2e3dbd648b9f8e447c6518133d8580"
+dependencies = [
+ "windows-collections",
+ "windows-core 0.62.2",
+ "windows-future",
+ "windows-numerics",
+]
+
+[[package]]
+name = "windows-collections"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610"
+dependencies = [
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -8235,6 +8283,17 @@ dependencies = [
  "windows-link",
  "windows-result 0.4.1",
  "windows-strings 0.5.1",
+]
+
+[[package]]
+name = "windows-future"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d6f90251fe18a279739e78025bd6ddc52a7e22f921070ccdc67dde84c605cb"
+dependencies = [
+ "windows-core 0.62.2",
+ "windows-link",
+ "windows-threading",
 ]
 
 [[package]]
@@ -8286,6 +8345,16 @@ name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
+name = "windows-numerics"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26"
+dependencies = [
+ "windows-core 0.62.2",
+ "windows-link",
+]
 
 [[package]]
 name = "windows-result"
@@ -8344,15 +8413,6 @@ dependencies = [
 
 [[package]]
 name = "windows-sys"
-version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "677d2418bec65e3338edb076e806bc1ec15693c5d0104683f2efe857f61056a9"
-dependencies = [
- "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-sys"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
@@ -8395,21 +8455,6 @@ dependencies = [
 
 [[package]]
 name = "windows-targets"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a2fa6e2155d7247be68c096456083145c183cbbbc2764150dda45a87197940c"
-dependencies = [
- "windows_aarch64_gnullvm 0.48.5",
- "windows_aarch64_msvc 0.48.5",
- "windows_i686_gnu 0.48.5",
- "windows_i686_msvc 0.48.5",
- "windows_x86_64_gnu 0.48.5",
- "windows_x86_64_gnullvm 0.48.5",
- "windows_x86_64_msvc 0.48.5",
-]
-
-[[package]]
-name = "windows-targets"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973"
@@ -8442,16 +8487,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-threading"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37"
+dependencies = [
+ "windows-link",
+]
+
+[[package]]
 name = "windows_aarch64_gnullvm"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "597a5118570b68bc08d8d59125332c54f1ba9d9adeedeef5b99b02ba2b0698f8"
-
-[[package]]
-name = "windows_aarch64_gnullvm"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b38e32f0abccf9987a4e3079dfb67dcd799fb61361e53e2882c3cbaf0d905d8"
 
 [[package]]
 name = "windows_aarch64_gnullvm"
@@ -8473,12 +8521,6 @@ checksum = "e08e8864a60f06ef0d0ff4ba04124db8b0fb3be5776a5cd47641e942e58c4d43"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc35310971f3b2dbbf3f0690a219f40e2d9afcf64f9ab7cc1be722937c26b4bc"
-
-[[package]]
-name = "windows_aarch64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
@@ -8494,12 +8536,6 @@ name = "windows_i686_gnu"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c61d927d8da41da96a81f029489353e68739737d3beca43145c8afec9a31a84f"
-
-[[package]]
-name = "windows_i686_gnu"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a75915e7def60c94dcef72200b9a8e58e5091744960da64ec734a6c6e9b3743e"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -8533,12 +8569,6 @@ checksum = "44d840b6ec649f480a41c8d80f9c65108b92d89345dd94027bfe06ac444d1060"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f55c233f70c4b27f66c523580f78f1004e8b5a8b659e05a4eb49d4166cca406"
-
-[[package]]
-name = "windows_i686_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
@@ -8554,12 +8584,6 @@ name = "windows_x86_64_gnu"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8de912b8b8feb55c064867cf047dda097f92d51efad5b491dfb98f6bbb70cb36"
-
-[[package]]
-name = "windows_x86_64_gnu"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53d40abd2583d23e4718fddf1ebec84dbff8381c07cae67ff7768bbf19c6718e"
 
 [[package]]
 name = "windows_x86_64_gnu"
@@ -8581,12 +8605,6 @@ checksum = "26d41b46a36d453748aedef1486d5c7a85db22e56aff34643984ea85514e94a3"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b7b52767868a23d5bab768e390dc5f5c55825b6d30b86c844ff2dc7414044cc"
-
-[[package]]
-name = "windows_x86_64_gnullvm"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
@@ -8602,12 +8620,6 @@ name = "windows_x86_64_msvc"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
-
-[[package]]
-name = "windows_x86_64_msvc"
-version = "0.48.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
 name = "windows_x86_64_msvc"
@@ -8932,6 +8944,20 @@ dependencies = [
  "indexmap",
  "memchr",
  "thiserror 2.0.20",
+ "zopfli",
+]
+
+[[package]]
+name = "zip"
+version = "8.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "typed-path",
  "zopfli",
 ]
 
