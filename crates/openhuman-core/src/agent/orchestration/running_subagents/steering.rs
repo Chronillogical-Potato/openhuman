@@ -206,7 +206,6 @@ pub async fn steer(
             queued_at_ms: now_ms(),
             model_override: None,
             temperature: None,
-            profile_id: None,
             locale: None,
         })
         .await;
@@ -261,7 +260,6 @@ pub(crate) async fn steer_control(
             queued_at_ms: now_ms(),
             model_override: None,
             temperature: None,
-            profile_id: None,
             locale: None,
         })
         .await;

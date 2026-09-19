@@ -6,39 +6,6 @@ fn cfg() -> Arc<Config> {
 }
 
 #[test]
-fn skill_allowed_respects_optional_allowlist() {
-    // None = all skills visible.
-    assert!(skill_allowed(&None, "deep-research"));
-    // Some(set) restricts to named dir_name slugs.
-    let set: std::collections::HashSet<String> =
-        ["deep-research".to_string()].into_iter().collect();
-    assert!(skill_allowed(&Some(set.clone()), "deep-research"));
-    assert!(!skill_allowed(&Some(set), "ship-and-babysit"));
-    // Empty allowlist blocks everything (profile selected no skills).
-    assert!(!skill_allowed(
-        &Some(std::collections::HashSet::new()),
-        "anything"
-    ));
-}
-
-#[tokio::test]
-async fn describe_workflow_blocks_disallowed_skill_before_lookup() {
-    let allow: std::collections::HashSet<String> =
-        ["allowed-skill".to_string()].into_iter().collect();
-    let tool = WorkflowDescribeTool::new(cfg()).with_skill_allowlist(Some(allow));
-    let res = tool
-        .execute(json!({ "workflow_id": "blocked-skill" }))
-        .await
-        .expect("execute");
-    assert!(res.is_error, "disallowed skill must return an error result");
-    let text = serde_json::to_string(&res.content).expect("serialize content");
-    assert!(
-        text.contains("not available to the active agent profile"),
-        "expected profile-allowlist rejection, got: {text}"
-    );
-}
-
-#[test]
 fn names_and_levels() {
     let c = cfg();
     assert_eq!(WorkflowListTool::new(c.clone()).name(), "list_workflows");

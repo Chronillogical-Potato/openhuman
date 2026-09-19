@@ -11,25 +11,15 @@ use crate::config::Config;
 use tinytools::{Tool, ToolResult};
 
 use super::super::ops_discover::{
-    discover_workflows_with_profile, is_workspace_trusted, profile_local_skill_ids,
-    read_workflow_resource_with_profile,
+    discover_workflows, is_workspace_trusted, read_workflow_resource,
 };
-use super::super::ops_types::WorkflowScope;
-use super::super::registry::get_workflow_with_profile;
+use super::super::registry::get_workflow;
 use super::super::run_log::{read_run_log_slice, scan_runs};
-use super::helpers::{
-    read_required_str, read_workflow_id, skill_allowed, skill_allowed_including_profile,
-    SkillAllowlist,
-};
+use super::helpers::{read_required_str, read_workflow_id};
 
 /// List installed skills.
 pub struct WorkflowListTool {
     workspace_dir: PathBuf,
-    skill_allowlist: SkillAllowlist,
-    /// 2a — the active profile's private skills root
-    /// (`<workspace>/personalities/<id>/skills/`). `None` for the profile-less
-    /// session and other profiles, so the listed set is byte-identical to today.
-    profile_skills_root: Option<PathBuf>,
     /// User-scope root to scan, when it must not be the real `$HOME`.
     ///
     /// `None` — production — resolves `dirs::home_dir()` at call time, exactly
@@ -41,8 +31,6 @@ impl WorkflowListTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            skill_allowlist: None,
-            profile_skills_root: None,
             home_dir: None,
         }
     }
@@ -50,8 +38,8 @@ impl WorkflowListTool {
     /// Scan `home` as the user scope instead of `dirs::home_dir()`.
     ///
     /// Every other layer of discovery already takes the home directory as a
-    /// parameter — `discover_workflows_inner`, `discover_workflows_with_profile`
-    /// and `install_workflow_from_url_with_home` all do — and this tool was the
+    /// parameter — `discover_workflows_inner` and
+    /// `install_workflow_from_url_with_home` both do — and this tool was the
     /// one place that resolved it internally, which made it the one place a test
     /// could not isolate.
     ///
@@ -66,22 +54,6 @@ impl WorkflowListTool {
     #[must_use]
     pub fn with_home_dir(mut self, home: Option<PathBuf>) -> Self {
         self.home_dir = home;
-        self
-    }
-
-    /// Scope the listed workflows to a per-profile allowlist of `dir_name`
-    /// slugs. `None` leaves all workflows visible.
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    /// Surface the active profile's private skills
-    /// (`<workspace>/personalities/<id>/skills/`) in this list. Profile-local
-    /// skills are implicitly allowed for their owner (they bypass the
-    /// `skill_allowlist`) and win same-name collisions against global skills.
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
         self
     }
 }
@@ -110,27 +82,7 @@ impl Tool for WorkflowListTool {
             .clone()
             .or_else(crate::skills::ops_discover::discovery_home_dir);
         let trusted = is_workspace_trusted(&self.workspace_dir);
-        let mut workflows = discover_workflows_with_profile(
-            home.as_deref(),
-            Some(&self.workspace_dir),
-            self.profile_skills_root.as_deref(),
-            trusted,
-        );
-        if self.skill_allowlist.is_some() {
-            let before = workflows.len();
-            // Profile-local skills are implicitly allowed for their owner — they
-            // bypass the `allowed_skills` allowlist (which scopes only global
-            // skills). Keep any skill whose scope is `Profile`.
-            workflows.retain(|w| {
-                w.scope == WorkflowScope::Builtin
-                    || w.scope == WorkflowScope::Profile
-                    || skill_allowed(&self.skill_allowlist, &w.dir_name)
-            });
-            log::debug!(
-                "[profiles] list_workflows scoped to profile allowlist: before={before} after={}",
-                workflows.len()
-            );
-        }
+        let workflows = discover_workflows(home.as_deref(), Some(&self.workspace_dir), trusted);
         Ok(ToolResult::success(serde_json::to_string(&json!({
             "count": workflows.len(),
             "workflows": workflows,
@@ -145,31 +97,13 @@ impl Tool for WorkflowListTool {
 /// Describe one skill (definition + declared inputs).
 pub struct WorkflowDescribeTool {
     workspace_dir: PathBuf,
-    skill_allowlist: SkillAllowlist,
-    /// Active profile's private skills root — resolves + implicitly allows the
-    /// owner's profile-local skills. `None` = byte-identical to today.
-    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowDescribeTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            skill_allowlist: None,
-            profile_skills_root: None,
         }
-    }
-
-    /// Scope describe access to a per-profile allowlist of `dir_name` slugs.
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    /// Resolve (and implicitly allow) the active profile's private skills.
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
     }
 }
 
@@ -197,25 +131,8 @@ impl Tool for WorkflowDescribeTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][workflows] describe invoked");
         let skill_id = read_workflow_id(&args)?;
-        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
-        if !skill_allowed_including_profile(
-            &self.skill_allowlist,
-            &profile_local,
-            &self.workspace_dir,
-            self.profile_skills_root.as_deref(),
-            &skill_id,
-        ) {
-            log::debug!("[profiles] describe_workflow blocked by profile allowlist: {skill_id}");
-            return Ok(ToolResult::error(format!(
-                "describe_workflow: workflow `{skill_id}` is not available to the active agent profile"
-            )));
-        }
-        let def = get_workflow_with_profile(
-            &self.workspace_dir,
-            &skill_id,
-            self.profile_skills_root.as_deref(),
-        )
-        .ok_or_else(|| anyhow::anyhow!("describe_workflow: workflow `{skill_id}` not found"))?;
+        let def = get_workflow(&self.workspace_dir, &skill_id)
+            .ok_or_else(|| anyhow::anyhow!("describe_workflow: workflow `{skill_id}` not found"))?;
         Ok(ToolResult::success(serde_json::to_string(&json!({
             "definition": def.definition,
             "inputs": def.inputs,
@@ -231,33 +148,13 @@ impl Tool for WorkflowDescribeTool {
 /// Read a bundled resource file from a skill.
 pub struct WorkflowReadResourceTool {
     workspace_dir: PathBuf,
-    skill_allowlist: SkillAllowlist,
-    /// Active profile's private skills root — resolves + implicitly allows the
-    /// owner's profile-local skills. `None` = byte-identical to today.
-    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowReadResourceTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            skill_allowlist: None,
-            profile_skills_root: None,
         }
-    }
-
-    /// Scope resource reads to a per-profile allowlist of `dir_name` slugs, so a
-    /// restricted profile can't exfiltrate the bundled scripts/docs of a
-    /// workflow outside its skill set.
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    /// Resolve (and implicitly allow) the active profile's private skills.
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
     }
 }
 
@@ -288,29 +185,10 @@ impl Tool for WorkflowReadResourceTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         log::debug!("[tool][workflows] read_resource invoked");
         let skill_id = read_workflow_id(&args)?;
-        let profile_local = profile_local_skill_ids(self.profile_skills_root.as_deref());
-        if !skill_allowed_including_profile(
-            &self.skill_allowlist,
-            &profile_local,
-            &self.workspace_dir,
-            self.profile_skills_root.as_deref(),
-            &skill_id,
-        ) {
-            log::debug!(
-                "[profiles] read_workflow_resource blocked by profile allowlist: {skill_id}"
-            );
-            return Ok(ToolResult::error(format!(
-                "read_workflow_resource: workflow `{skill_id}` is not available to the active agent profile"
-            )));
-        }
         let relative_path = read_required_str(&args, "relative_path")?;
-        let content = read_workflow_resource_with_profile(
-            &self.workspace_dir,
-            &skill_id,
-            Path::new(&relative_path),
-            self.profile_skills_root.as_deref(),
-        )
-        .map_err(|e| anyhow::anyhow!("read_workflow_resource: {e}"))?;
+        let content =
+            read_workflow_resource(&self.workspace_dir, &skill_id, Path::new(&relative_path))
+                .map_err(|e| anyhow::anyhow!("read_workflow_resource: {e}"))?;
         Ok(ToolResult::success(serde_json::to_string(&json!({
             "workflow_id": skill_id,
             "relative_path": relative_path,

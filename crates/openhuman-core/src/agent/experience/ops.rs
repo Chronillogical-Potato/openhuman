@@ -59,7 +59,6 @@ use std::sync::Arc;
 /// `agent::experience` — it is contract-to-trait plumbing, not an
 /// agent-experience concept. It sits here because both of its callers do
 /// (`open_store_in_subdir` below, and the session builder's
-/// `shared_experience_memory`).
 pub struct DriverMemory {
     provider: Arc<dyn MemoryProvider>,
 }

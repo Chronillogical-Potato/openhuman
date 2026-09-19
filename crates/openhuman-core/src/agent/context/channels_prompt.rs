@@ -30,13 +30,10 @@ pub(crate) const BOOTSTRAP_MAX_CHARS: usize = 20_000;
 /// Identity content that takes the place of a workspace-root file in the
 /// rendered prompt.
 ///
-/// A channel turn runs under the active agent profile (#6027), and a profile
-/// may carry its own `SOUL.md` and `MEMORY.md` under `personalities/<id>/`.
-/// When present, each **replaces** the root file in its slot — the same
-/// replace-not-append rule the desktop `IdentitySection` applies — so the
+/// When present, each override replaces the root file in its slot, so the
 /// model never sees two identities side by side. `IDENTITY.md` and
-/// `PROFILE.md` are never overridden; they describe the workspace, not the
-/// persona. An empty override renders exactly what the root files render.
+/// `PROFILE.md` are never overridden because they describe the workspace.
+/// An empty override renders exactly what the root files render.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PromptIdentityOverride<'a> {
     /// Replaces the root `SOUL.md` slot.

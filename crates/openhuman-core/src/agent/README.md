@@ -62,7 +62,7 @@ Flat files: `bus.rs` (`agent.run_turn` native request handler), `cost.rs` (`pub(
 ## Called by
 
 - `crates/openhuman-core/src/channels/runtime/dispatch/` (`processor*.rs`, `routing.rs`) — drives chat turns through the `agent.run_turn` native handler; `web_chat/` (`session.rs`, `run_task.rs`) builds `Agent`s directly.
-- `crates/openhuman-core/src/cron/scheduler/agent_run.rs::run_agent_job` — builds an `Agent` directly via `Agent::from_config_for_agent[_with_profile]` / `Agent::from_config` and delivers output through `scheduler/delivery.rs::deliver_if_configured`; it does not go through triage.
+- `crates/openhuman-core/src/cron/scheduler/agent_run.rs::run_agent_job` — builds an `Agent` directly via `Agent::from_config_for_agent` and delivers output through `scheduler/delivery.rs::deliver_if_configured`; it does not go through triage.
 - `crates/openhuman-core/src/skills/webhooks/{ops,bus}.rs` — webhook ingestion routes through `triage::run_triage` + `apply_decision`.
 - `crates/openhuman-core/src/memory/sync/composio/bus*.rs` — Composio trigger envelopes go through `agent::triage`.
 - `crates/openhuman-core/src/integrations/task_sources/route.rs` — external task-source events go through the same `TriggerEnvelope` → `run_triage` → `apply_decision` path.

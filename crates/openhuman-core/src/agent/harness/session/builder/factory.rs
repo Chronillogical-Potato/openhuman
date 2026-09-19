@@ -191,7 +191,6 @@ impl Agent {
         // exclusively the engine's. Lane C (#6040) rides the same binding.
         let (archivist_provider, auto_recall) =
             super::helpers::bind_session_memory(config, &memory_subdir)?;
-        let shared_experience_memory = None;
 
         // Load the user's persisted tool preferences once. They drive two
         // things below: granting the App UI Control / App Automation mutation
@@ -983,7 +982,6 @@ impl Agent {
             .synthesized_tools(delegation_tools)
             .visible_tool_names(visible)
             .memory(memory)
-            .shared_experience_memory(shared_experience_memory)
             .auto_recall(Some(auto_recall))
             .tool_dispatcher(tool_dispatcher)
             .prompt_builder(prompt_builder)
@@ -1030,7 +1028,6 @@ impl Agent {
                 definitions,
                 security_policy: security,
                 memory: agent.memory_arc(),
-                shared_experience_memory: agent.shared_experience_memory.clone(),
                 post_turn_hooks: agent.post_turn_hooks.clone(),
             })
         });

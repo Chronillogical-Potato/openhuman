@@ -23,8 +23,6 @@ fn inputs() -> (OpenHumanHostBundleInputs, OpenHumanRunContext) {
             tool_sets: Vec::new(),
             tool_policy: None,
             memory,
-            shared_experience_memory: None,
-            profile_id: Some("profile-a".to_string()),
             post_turn_hooks: Vec::new(),
         },
         turn,

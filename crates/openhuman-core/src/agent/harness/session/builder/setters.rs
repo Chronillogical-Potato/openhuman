@@ -18,7 +18,6 @@ impl AgentBuilder {
             visible_tool_names: None,
             subagent_tool_ceiling_names: None,
             memory: None,
-            shared_experience_memory: None,
             auto_recall: None,
             prompt_builder: None,
             tool_dispatcher: None,
@@ -116,13 +115,6 @@ impl AgentBuilder {
         self
     }
 
-    /// Retains the shared store for experience recall when `memory` is a
-    /// dedicated profile subtree.
-    pub fn shared_experience_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
-        self.shared_experience_memory = memory;
-        self
-    }
-
     /// Binds Lane C, the gated pre-turn auto-recall of facts about the user
     /// (#6040). `None` leaves the lane out of the turn entirely.
     pub fn auto_recall(
@@ -197,9 +189,7 @@ impl AgentBuilder {
         self
     }
 
-    /// Sets the per-profile workspace descriptor (section D of agent-profile
-    /// homes). When set, the top-level chat turn threads it through so acting
-    /// tools resolve their default cwd to the profile's dedicated workspace.
+    /// Sets the optional workspace descriptor for acting tools' default cwd.
     pub fn workspace_descriptor(
         mut self,
         descriptor: Option<tinytools::WorkspaceDescriptor>,
@@ -208,14 +198,13 @@ impl AgentBuilder {
         self
     }
 
-    /// Binds the active profile's SOUL.md as the session identity override.
+    /// Binds a session identity override.
     pub fn personality_soul_md(mut self, soul_md: Option<String>) -> Self {
         self.personality_soul_md = soul_md;
         self
     }
 
-    /// Binds the active profile's curated MEMORY.md to the frozen session
-    /// prompt. `None` keeps the legacy workspace-root fallback.
+    /// Binds curated memory content to the frozen session prompt.
     pub fn personality_memory_md(mut self, memory_md: Option<String>) -> Self {
         self.personality_memory_md = memory_md;
         self

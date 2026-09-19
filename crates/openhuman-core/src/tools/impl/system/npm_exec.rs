@@ -232,15 +232,6 @@ impl NpmExecTool {
             Ok(p) => p,
             Err(msg) => return Ok(ToolResult::error(msg)),
         };
-        let guard_command = std::iter::once(subcommand.as_str())
-            .chain(extra_args.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(" ");
-        if let Err(reason) =
-            super::check_cross_profile_command(&path_policy, &guard_command, &cwd, "npm_exec")
-        {
-            return Ok(ToolResult::error(reason));
-        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",

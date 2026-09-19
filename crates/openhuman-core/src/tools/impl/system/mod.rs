@@ -65,8 +65,7 @@ pub use workspace_state::WorkspaceStateTool;
 /// process-global is mutated and concurrent turns cannot race each other. It
 /// cannot widen the hard invariants either — `is_always_forbidden` and
 /// `is_workspace_internal_path` are both evaluated *before* any trusted-root
-/// shortcut. Cross-profile command scanning
-/// ([`check_cross_profile_command`]) is unaffected and still applies.
+/// shortcut.
 ///
 /// The root always originates from trusted in-process code (the session
 /// builder, the sub-agent runner, or the `cwd` RPC parameter) — never from
@@ -91,18 +90,4 @@ pub(super) fn security_for_tool_context(
         });
     }
     scoped
-}
-
-/// Apply the dedicated-workspace profile boundary to an arbitrary process
-/// command before it is spawned. Process tools do not funnel their runtime file
-/// writes through `SecurityPolicy::validate_path`, so shell, Node, and npm must
-/// all share this defense-in-depth scan.
-pub(super) fn check_cross_profile_command(
-    security: &SecurityPolicy,
-    command: &str,
-    cwd: &Path,
-    tool: &str,
-) -> Result<(), String> {
-    let _ = (security, command, cwd, tool);
-    Ok(())
 }

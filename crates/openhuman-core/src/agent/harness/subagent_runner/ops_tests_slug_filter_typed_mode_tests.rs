@@ -293,7 +293,6 @@ async fn run_queue_steer_lands_in_subagent_history() {
             queued_at_ms: 0,
             model_override: None,
             temperature: None,
-            profile_id: None,
             locale: None,
         })
         .await;

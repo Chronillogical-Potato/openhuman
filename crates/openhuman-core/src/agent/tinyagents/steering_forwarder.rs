@@ -275,7 +275,6 @@ impl Drop for SteeringForwarderGuard {
                                 queued_at_ms: now_ms(),
                                 model_override: None,
                                 temperature: None,
-                                profile_id: None,
                                 locale: None,
                             })
                             .await;

@@ -619,13 +619,6 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 14.1.6 | Bounded live core-log buffer                                           | RU    | `crates/openhuman-core/src/core/logging.rs`                                                                   | ✅     | Preserves ordering; bounds both line count and individual line length                                                                                   |
 | 14.1.7 | Interactive terminal session (raw mode, streaming)                     | MS    | manual PTY smoke; `docs/RELEASE-MANUAL-SMOKE.md`                                        | 🚫     | Requires a real PTY to verify steering/queue input, overlays, and terminal restoration                                                                  |
 
-## 15. Agent Profile Homes (multi-agent profiles)
-
-### 15.1 Profile Homes & Isolation
-
-| ID     | Feature                                                        | Layer | Test path(s)                                                                                      | Status | Notes                                                                                                          |
-| ------ | -------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
-
 ## 16. Embedded Library Harness (`openhuman_embed::Harness`)
 
 ### 16.1 One-call agent turns for a host process

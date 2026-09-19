@@ -51,74 +51,6 @@ async fn records_and_recalls_a_prior_attempt() {
 }
 
 #[tokio::test]
-async fn recall_spans_the_shared_store_while_writes_stay_profile_local() {
-    // Stand in for a dedicated-profile session: `local` is the profile
-    // subtree, `shared` the workspace store a pre-profile build wrote into.
-    let local: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let shared: Arc<dyn Memory> = Arc::new(MockMemory::default());
-
-    // Seed the shared store the way a pre-profile build did — unstamped.
-    OpenHumanExperienceStore::new(shared.clone())
-        .record(&exp(
-            "planner",
-            "migrate the customer schema",
-            "the legacy attempt hit a lock timeout",
-            false,
-        ))
-        .await
-        .expect("seed the shared store");
-
-    let store = OpenHumanExperienceStore::new(local.clone())
-        .with_shared_recall_memory(Some(shared.clone()));
-
-    // Recall reaches the shared store even though nothing was written to
-    // the profile-local one.
-    let found = store
-        .recall_for("planner", "migrate the customer schema")
-        .await
-        .expect("recall");
-    assert_eq!(
-        found.len(),
-        1,
-        "a profile session must still see pre-profile experience"
-    );
-    assert!(found[0].outcome.contains("lock timeout"));
-
-    // A new record lands in the profile-local store, not the shared one.
-    store
-        .record(&exp("planner", "rotate the signing key", "clean run", true))
-        .await
-        .expect("record");
-
-    // The domain scores rather than filters, so an unrelated query still
-    // returns the seeded row — assert on which task each store *holds*,
-    // not on the result count.
-    let holds_new_task = |found: &[Experience]| {
-        found
-            .iter()
-            .any(|e| e.task.contains("rotate the signing key"))
-    };
-
-    let shared_only = OpenHumanExperienceStore::new(shared)
-        .recall_for("planner", "rotate the signing key")
-        .await
-        .expect("recall from the shared store");
-    assert!(
-        !holds_new_task(&shared_only),
-        "writes must not fan out into the shared store, got: {shared_only:?}"
-    );
-
-    let local_only = OpenHumanExperienceStore::new(local)
-        .recall_for("planner", "rotate the signing key")
-        .await
-        .expect("recall from the profile-local store");
-    assert!(
-        holds_new_task(&local_only),
-        "the profile-local store is the write target, got: {local_only:?}"
-    );
-}
-
-#[tokio::test]
 async fn recall_excludes_another_agents_attempt() {
     // The domain only score-boosts an agent match, so without the adapter's
     // post-filter this would return the writer's record too.
@@ -301,7 +233,6 @@ fn partial_outcomes_read_as_unsuccessful() {
             source: ExperienceSource::ToolLoop,
             agent_id: Some("planner".into()),
             entrypoint: None,
-            profile_id: None,
             task_fingerprint: "fp".into(),
             task_summary: "migrate the schema".into(),
             tools_used: vec![],

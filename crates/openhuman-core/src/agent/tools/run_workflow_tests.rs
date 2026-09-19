@@ -47,41 +47,6 @@ async fn await_workflow_missing_run_id_returns_tool_error() {
 }
 
 #[test]
-fn detached_run_visibility_requires_profile_and_allowlist() {
-    let run = crate::skills::run_log::ScannedRun {
-        run_id: "run-1".to_string(),
-        workflow_id: "private-flow".to_string(),
-        profile_id: Some("alice".to_string()),
-        started: String::new(),
-        status: "DONE".to_string(),
-        duration_ms: None,
-        finished: None,
-        log_path: "/tmp/run.log".to_string(),
-    };
-    let allowed = ["private-flow".to_string()].into_iter().collect();
-    let empty = std::collections::HashSet::new();
-
-    assert!(run_visible_to_profile(
-        &run,
-        Some("alice"),
-        Some(&allowed),
-        &empty
-    ));
-    assert!(!run_visible_to_profile(
-        &run,
-        Some("bob"),
-        Some(&allowed),
-        &empty
-    ));
-    assert!(!run_visible_to_profile(
-        &run,
-        Some("alice"),
-        Some(&empty),
-        &empty
-    ));
-}
-
-#[test]
 fn wait_seconds_defaults_and_clamps() {
     assert_eq!(parse_wait_seconds(&json!({})), DEFAULT_WAIT_SECONDS);
     assert_eq!(parse_wait_seconds(&json!({"wait_seconds": 5})), 5);

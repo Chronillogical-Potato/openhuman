@@ -54,10 +54,6 @@
 //!    stored fields; this adapter also redacts on the way *in* before
 //!    truncating, so a secret cannot survive by being pushed past the truncation
 //!    boundary. Nothing here bypasses that guard.
-//! 5. **No profile invention.** OpenHuman partitions experience by agent
-//!    profile. The crate has no notion of one, so the profile is supplied to the
-//!    adapter at construction and stamped onto every write; a profile-less
-//!    adapter reproduces the legacy, unpartitioned behaviour byte-for-byte.
 
 use std::sync::Arc;
 
@@ -116,33 +112,19 @@ const ADAPTER_CONFIDENCE: f32 = 0.6;
 /// [`ExperienceStore`] over OpenHuman's `agent_experience` domain.
 ///
 /// Holds an [`AgentExperienceStore`] (itself a thin façade over
-/// `Arc<dyn Memory>` pinned to the experience namespace) plus the two pieces of
-/// host context the crate cannot supply: the active agent profile and the
-/// recall bound.
+/// `Arc<dyn Memory>` pinned to the experience namespace) and a recall bound.
 #[derive(Clone)]
 pub struct OpenHumanExperienceStore {
     /// The namespace-scoped procedural store. All reads and writes go through
     /// it, so the `agent_experience` namespace confinement and the domain's
     /// redaction on `put` apply to everything this adapter does.
     store: AgentExperienceStore,
-    /// Additional store consulted by `recall_for` only, never written.
-    ///
-    /// A dedicated-profile session keeps its procedural records in a
-    /// profile-local memory subtree, but pre-profile builds wrote unstamped
-    /// records into the shared workspace store. The live turn path
-    /// (`session/turn/core.rs`) therefore queries both, profile-local first,
-    /// and this adapter has to match it or a profile session would silently
-    /// stop recalling everything it learned before profiles existed. Writes
-    /// deliberately do **not** fan out: the profile-local store stays the sole
-    /// write target so new records land inside the profile subtree.
-    shared_recall_store: Option<AgentExperienceStore>,
     /// Maximum prior attempts returned by one `recall_for`.
     max_hits: usize,
 }
 
 impl OpenHumanExperienceStore {
-    /// Adapter over `memory`, with no profile partition and the default recall
-    /// bound.
+    /// Adapter over `memory` with the default recall bound.
     pub fn new(memory: Arc<dyn Memory>) -> Self {
         Self::from_store(AgentExperienceStore::new(memory))
     }
@@ -151,20 +133,8 @@ impl OpenHumanExperienceStore {
     pub fn from_store(store: AgentExperienceStore) -> Self {
         Self {
             store,
-            shared_recall_store: None,
             max_hits: DEFAULT_MAX_HITS,
         }
-    }
-
-    /// Adds a second store that [`ExperienceStore::recall_for`] reads and
-    /// [`ExperienceStore::record`] never writes.
-    ///
-    /// Used for the shared, pre-profile workspace store behind a
-    /// dedicated-profile session. `None` is a no-op, so a profile-less session
-    /// keeps the single-store behaviour.
-    pub fn with_shared_recall_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
-        self.shared_recall_store = memory.map(AgentExperienceStore::new);
-        self
     }
 
     /// How many candidates to pull from the domain before the agent filter.
@@ -218,7 +188,7 @@ impl OpenHumanExperienceStore {
             //
             // The agent id is folded in through the `tool_sequence` slot, which
             // is otherwise empty here. That looks odd, so: the domain digest
-            // covers task summary + tool sequence + outcome + profile and
+            // covers task summary + tool sequence + outcome and
             // deliberately **excludes** `agent_id`, because the native capture
             // hook always supplies a real tool sequence, which incidentally
             // keeps two agents' rows apart. This adapter has no tool trace to
@@ -237,9 +207,8 @@ impl OpenHumanExperienceStore {
             // The runtime writes mechanically when a task finishes, which is
             // the tool loop's vantage point rather than a reflection step.
             source: ExperienceSource::ToolLoop,
-            agent_id: normalized_profile(Some(&exp.agent_id)),
+            agent_id: normalized_agent_id(Some(&exp.agent_id)),
             entrypoint: None,
-            profile_id: None,
             // `capture.rs` fingerprints with the same public helper over an
             // empty sequence and a `Success` outcome, so fingerprints agree
             // across both writers for the same task text.
@@ -262,8 +231,8 @@ impl OpenHumanExperienceStore {
     }
 }
 
-/// Trims a profile / agent id, mapping blank to `None`.
-fn normalized_profile(raw: Option<&str>) -> Option<String> {
+/// Trims an agent id, mapping blank to `None`.
+fn normalized_agent_id(raw: Option<&str>) -> Option<String> {
     raw.map(str::trim)
         .filter(|id| !id.is_empty())
         .map(str::to_string)
@@ -393,9 +362,8 @@ impl ExperienceStore for OpenHumanExperienceStore {
             // an invented seed would skew the overlap terms.
             tools: Vec::new(),
             tags: Vec::new(),
-            agent_id: normalized_profile(Some(agent_id)),
+            agent_id: normalized_agent_id(Some(agent_id)),
             entrypoint: None,
-            profile_id: None,
             // Over-fetch, because the agent filter below runs *after* the
             // domain has already truncated. Agent identity is only a score
             // bonus there, so another agent's highly-relevant records can fill
@@ -406,15 +374,7 @@ impl ExperienceStore for OpenHumanExperienceStore {
             max_hits: self.candidate_hits(),
         };
 
-        // Profile-local store first, then the shared pre-profile one. Same
-        // order and same dedupe-by-id/re-rank as the live turn path, so a
-        // record visible to a native turn is visible here too.
-        let mut stores = vec![self.store.clone()];
-        if let Some(shared) = &self.shared_recall_store {
-            stores.push(shared.clone());
-        }
-
-        let hits = retrieve_across_stores(&stores, query)
+        let hits = retrieve_across_stores(&[self.store.clone()], query)
             .await
             .map_err(|e| TinyAgentsError::Memory(format!("recall agent experience: {e}")))?;
 

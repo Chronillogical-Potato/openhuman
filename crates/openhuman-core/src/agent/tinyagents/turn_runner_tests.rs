@@ -10,8 +10,6 @@ fn hosted_base() -> Arc<crate::agent::tinyagents::host::OpenHumanHostBase> {
         ),
         security_policy: Arc::new(crate::security::policy::SecurityPolicy::default()),
         memory: crate::memory::test_support::noop_memory(),
-        shared_experience_memory: None,
-        profile_id: None,
         post_turn_hooks: Vec::new(),
     })
 }

@@ -258,7 +258,6 @@ impl AgentBuilder {
             memory: self
                 .memory
                 .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
-            shared_experience_memory: self.shared_experience_memory,
             auto_recall: self.auto_recall,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher

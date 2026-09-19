@@ -80,11 +80,8 @@ pub(crate) struct ChatTurnGraph {
     /// The agent's builder-configured tool policy + session context, enforced at
     /// the tool boundary. `None` when the session has no explicit policy.
     pub tool_policy: Option<crate::agent::tinyagents::ToolPolicyEnforcement>,
-    /// Optional per-profile workspace descriptor (section D of agent-profile
-    /// homes). `Some` when the session's active profile opted into a dedicated
-    /// workspace — acting tools then resolve their default cwd to
-    /// `<action_dir>/profiles/<id>` via `ToolExecutionContext.workspace`. `None`
-    /// (the common case) keeps the shared-`action_dir` cwd behaviour.
+    /// Optional workspace descriptor for acting tools' default cwd. `None`
+    /// keeps the shared-`action_dir` cwd behaviour.
     pub workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     /// Declared sandbox mode for the top-level agent. The chat path scopes it
     /// around the shared harness so acting tools see the same mode as workers.

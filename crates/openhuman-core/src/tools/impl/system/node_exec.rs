@@ -211,20 +211,6 @@ impl NodeExecTool {
             ));
         }
         let path_policy = super::security_for_tool_context(&self.security, context, "node_exec");
-        let guard_command = inline_code.clone().unwrap_or_else(|| {
-            std::iter::once(script_path.as_deref().unwrap_or_default())
-                .chain(extra_args.iter().map(String::as_str))
-                .collect::<Vec<_>>()
-                .join(" ")
-        });
-        if let Err(reason) = super::check_cross_profile_command(
-            &path_policy,
-            &guard_command,
-            &path_policy.action_dir,
-            "node_exec",
-        ) {
-            return Ok(ToolResult::error(reason));
-        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",

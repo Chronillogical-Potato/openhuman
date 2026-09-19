@@ -1,41 +1,5 @@
 use super::*;
 
-#[tokio::test]
-async fn cross_profile_guard_blocks_write_into_sibling_profile() {
-    let (_root, action_root, policy) = cross_profile_policy(true);
-    let sibling = action_root.join("profiles").join("bob").join("loot.txt");
-    let err = policy
-        .validate_parent_path(sibling.to_str().unwrap())
-        .await
-        .expect_err("write into sibling profile must be blocked");
-    assert!(err.contains(POLICY_BLOCKED_MARKER), "err: {err}");
-    assert!(err.contains("bob"), "error should name the sibling: {err}");
-}
-
-#[tokio::test]
-async fn cross_profile_guard_allows_write_into_own_profile() {
-    let (_root, action_root, policy) = cross_profile_policy(true);
-    let own = action_root.join("profiles").join("alice").join("notes.txt");
-    let resolved = policy
-        .validate_parent_path(own.to_str().unwrap())
-        .await
-        .expect("write into own profile must be allowed");
-    assert!(resolved.ends_with("notes.txt"));
-}
-
-#[tokio::test]
-async fn cross_profile_guard_disarmed_allows_sibling_write() {
-    // Same setup, guard OFF (active_profile None): the sibling write is allowed,
-    // proving the guard only tightens and the shared path is byte-identical.
-    let (_root, action_root, policy) = cross_profile_policy(false);
-    let sibling = action_root.join("profiles").join("bob").join("loot.txt");
-    let resolved = policy
-        .validate_parent_path(sibling.to_str().unwrap())
-        .await
-        .expect("with the guard disarmed the sibling write must be allowed");
-    assert!(resolved.ends_with("loot.txt"));
-}
-
 // -- AutonomyLevel ------------------------------------------------
 
 #[test]

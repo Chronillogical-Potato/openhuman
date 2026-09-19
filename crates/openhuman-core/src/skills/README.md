@@ -18,7 +18,7 @@ Stub signatures must match the real ones exactly; `cargo check --no-default-feat
 | --- | --- |
 | `ops.rs` | Facade re-exporting `ops_create`/`ops_discover`/`ops_install`/`ops_parse`/`bundled::install_bundled_skills`; the module doc explains scope precedence and the trust marker. |
 | `ops_create.rs` | Scaffolds new `WORKFLOW.md`/`SKILL.md` skills on disk from declared `[[inputs]]`. |
-| `ops_discover.rs` | Scans root directories, resolves scope precedence and collisions, skips symlinked bundle entries, and `init_workflows_dir` creates the legacy `<workspace>/skills/` dir. `load_workflow_metadata_for_profile` and `discover_workflows_with_profile` take a profile-local skills root and `include_skills` list so a profile can see its own private skills. |
+| `ops_discover.rs` | Scans workspace, user, bundled, and legacy root directories; resolves scope precedence and collisions; skips symlinked bundle entries; and creates the legacy `<workspace>/skills/` directory. |
 | `ops_install.rs` | Facade over submodules `ops_install/fetch.rs`/`ops_install/url_validation.rs`: the hardened HTTPS skill-URL installer (size cap, timeout clamp, non-https/private-IP/non-SKILL.md rejection, GitHub blob→raw normalization). Localhost HTTP installs require `OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP=1` and are for local fixtures only. |
 | `ops_parse.rs` | Splits `SKILL.md`/`WORKFLOW.md` into frontmatter + body, builds the resource inventory, reads a single resource. |
 | `ops_types.rs` | Ungated carve-out: `Workflow`, `WorkflowFrontmatter`, `WorkflowScope` (`Builtin`, `User`, `Project`, `Legacy`, `Profile`, `Flow`), filename/size constants (`MAX_WORKFLOW_RESOURCE_BYTES = 128 KiB`). |
@@ -70,4 +70,4 @@ Catalog refresh in a live session (`refresh_workflows`) is covered by `crates/op
 ## Notes
 
 - Per AGENTS.md, skill discovery rejects symlinked bundles — copy skills into the `Harness` workspace rather than symlinking them.
-- `WorkflowScope` precedence on name collision (`ops_discover::precedence`), lowest to highest: `Builtin` < `Legacy` < `User` < `Project` < `Profile` (profile-local skills are private to the active agent profile and shadow a same-named global one for its owner). `Flow` is a distinct, non-collision-checked scope: a Flows automation row from `flows.db` surfaced in the same catalogue rather than a `SKILL.md` bundle on disk.
+- `WorkflowScope` precedence on name collision (`ops_discover::precedence`), lowest to highest: `Builtin` < `Legacy` < `User` < `Project`. `Flow` is a distinct, non-collision-checked scope: a Flows automation row from `flows.db` surfaced in the same catalogue rather than a `SKILL.md` bundle on disk.

@@ -151,10 +151,6 @@ pub struct Agent {
     pub(super) subagent_tool_ceiling_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,
     pub(super) memory: Arc<dyn Memory>,
-    /// Shared memory store retained alongside a dedicated profile store so live
-    /// experience recall can merge unstamped legacy guidance. `None` for the
-    /// shared/default memory path.
-    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     /// Lane C — the gated pre-turn recall of facts about the user (#6040).
     /// `None` when the session was built without a memory binding (tests,
     /// embedders that bring their own `Memory`); the lane then stays silent.
@@ -525,7 +521,6 @@ pub struct AgentBuilder {
     /// Channel-policy restrictions are intersected during [`Self::build`].
     pub(super) subagent_tool_ceiling_names: Option<std::collections::HashSet<String>>,
     pub(super) memory: Option<Arc<dyn Memory>>,
-    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     /// Forwarded to [`Agent::auto_recall`] at build time. Defaults to `None`.
     pub(super) auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     pub(super) prompt_builder: Option<SystemPromptBuilder>,

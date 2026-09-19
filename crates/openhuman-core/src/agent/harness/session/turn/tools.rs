@@ -23,15 +23,9 @@ impl Agent {
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
     pub(super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
-        // Prefer an ambient `current_parent()` descriptor (a nested subagent
-        // inherits its enclosing worktree/profile workspace threaded down the
-        // spawn chain). Fall back to THIS session agent's own descriptor: on a
-        // ROOT chat turn `current_parent()` is `None`, so without the fallback a
-        // dedicated-workspace profile's descriptor (`<action_dir>/profiles/<id>`,
-        // set on the Agent at build time) would never reach delegated subagents
-        // spawned via `spawn_subagent` / `spawn_async_subagent`, and they'd drop
-        // to the shared `action_dir` — the profile isolation would silently not
-        // apply to common delegated writes.
+        // Prefer an ambient `current_parent()` descriptor so nested subagents
+        // inherit their enclosing workspace. On a root turn the ambient value
+        // is absent, so fall back to this session's own descriptor.
         let workspace_descriptor = harness::current_parent()
             .and_then(|parent| parent.workspace_descriptor)
             .or_else(|| self.workspace_descriptor.clone());

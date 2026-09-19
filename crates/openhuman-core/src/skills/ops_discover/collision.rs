@@ -65,7 +65,6 @@ pub(super) const fn precedence(scope: WorkflowScope) -> u8 {
         WorkflowScope::Legacy => 1,
         WorkflowScope::User => 2,
         WorkflowScope::Project => 3,
-        WorkflowScope::Profile => 4,
-        WorkflowScope::Flow => 5,
+        WorkflowScope::Flow => 4,
     }
 }
