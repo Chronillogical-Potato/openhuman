@@ -1,0 +1,389 @@
+# The `openhuman-core` binary, the developer/benchmark bins, and every root
+# `tests/*.rs` / `examples/*.rs` target. They used to live in the core package;
+# they moved here because a core that carries no backend client cannot host the
+# binary that must talk to the hosted backend — `main.rs` installs the
+# `openhuman-tinyhumans` transport before dispatching, and the mock-backend
+# integration suites boot the same way through `tests/support/tinyhumans_boot.rs`.
+#
+# Auto-discovery is off because Cargo only scans beside this manifest; the
+# repository layout gate (`scripts/ci/check-openhuman-rust-layout.mjs`)
+# requires every root `tests/*.rs` and `examples/*.rs` file to have an explicit
+# target HERE.
+[package]
+name = "openhuman-cli"
+version.workspace = true
+edition.workspace = true
+description = "OpenHuman core CLI binary, developer bins, and the repository integration tests"
+license.workspace = true
+repository.workspace = true
+publish = false
+autobins = false
+# Shared with the core: globs tests/raw_coverage/*.rs into the single
+# `raw_coverage_all` target and exports OPENHUMAN_REPOSITORY_ROOT.
+build = "../../build.rs"
+autotests = false
+autoexamples = false
+autobenches = false
+
+[package.metadata.cargo-machete]
+# Named only by `[[bin]]`/`[[test]]` sources through `required-features`.
+ignored = []
+
+[[bin]]
+name = "openhuman-core"
+path = "src/main.rs"
+
+[[bin]]
+name = "test-mcp-stub"
+path = "src/bin/test_mcp_stub.rs"
+
+[[bin]]
+name = "openhuman-fleet"
+path = "src/bin/fleet.rs"
+# The fleet supervisor embeds the axum control-plane server, so it only builds
+# with the HTTP transport compiled in (#5048). Under `--no-default-features`
+# (no `http-server`) this target is skipped rather than failing to link.
+required-features = ["http-server", "bin-tools"]
+
+# Embedded-RSS benchmark harness (#5046). Gated behind the default-OFF
+# `rss-bench` feature so no benchmark code enters the shipped build. Build with
+# `cargo build --release --features rss-bench --bin rss-bench`.
+#
+# It survives the engine removal because it never measured the engine: it builds
+# an `Agent` roster over its own in-file `NoopMemory` and samples RSS, and its
+# own doc comment explains that it hand-rolls that store rather than asking the
+# factory, because `create_memory(backend = "none")` never returned a no-op
+# backend. What the feature used to name the engine crates for was two
+# `library-profile` *scenarios* — see that target's comment below; the binary
+# itself is still here.
+[[bin]]
+name = "rss-bench"
+path = "src/bin/rss_bench.rs"
+required-features = ["rss-bench"]
+
+# Stateful library profiling workloads (real sub-agent delegation, flows graphs
+# and skill runs under a hermetic mock provider). Local/dev only, and the
+# subject of every script in `scripts/profile/`.
+#
+# Two of its scenarios are gone with the in-process engine: `memory-ingest`
+# drained the memory queue and `cold-phases` checkpointed the engine bootstrap
+# through `tinymemory_core::store::MemoryClient`. The other six never named an
+# engine symbol, which is why this binary survives rather than going with them.
+[[bin]]
+name = "library-profile"
+path = "src/bin/library_profile/main.rs"
+required-features = ["rss-bench"]
+
+# ── Integration tests that need a PRODUCT gate ──────────────────────────────
+#
+# `[features] default` is the contributor set and no longer turns on `voice`,
+# `web3`, `crash-reporting` or `inference`. These four `tests/` targets name
+# symbols that only exist behind those gates, so without a `required-features`
+# line a bare `cargo test` fails to COMPILE — not skip, fail — and the failure
+# is in a file the contributor did not touch.
+#
+# `required-features` makes cargo skip the target instead, which is the honest
+# outcome: the test exercises a domain that build does not contain. The CI
+# product lanes pass `--features "$(scripts/ci/product-features.sh)"`, so every
+# one of these still runs there, against the code that ships.
+#
+# Autodiscovery stays on for the other ~59 `tests/*.rs` targets; declaring a
+# target explicitly only opts THAT file out of it.
+#
+# This replaces the per-symbol `#[cfg]` cleanup tracked in #5021 for these four
+# files. #5021 is still the right fix for symbols named in the middle of an
+# otherwise gate-free target — required-features is the blunt instrument, and
+# it costs the whole target when the gate is off.
+[[test]]
+name = "observability_smoke"
+path = "../../tests/observability_smoke.rs"
+# The `is_*_event` Sentry filters are all `#[cfg(feature = "crash-reporting")]`.
+required-features = ["crash-reporting"]
+
+[[test]]
+name = "x402_twit_sh_live"
+path = "../../tests/x402_twit_sh_live.rs"
+# `x402::tools::X402RequestTool` — the x402 domain is part of the web3 family.
+required-features = ["web3"]
+
+[[test]]
+name = "json_rpc_e2e"
+path = "../../tests/json_rpc_e2e.rs"
+# `voice::reply_speech::{test_seam, TEST_SEAM_ENV}` — the reply-speech seam
+# only exists in the real voice module, not the stub.
+required-features = ["voice"]
+
+[[test]]
+name = "raw_coverage_all"
+path = "../../tests/raw_coverage_all.rs"
+# The merged raw-coverage target spans ~76 former files, so it reaches the
+# widest surface of any single target: `lettre` (pulled in through the voice
+# gate's `tinychannels/email`) and the local inference download service.
+required-features = ["voice", "inference"]
+
+[[test]]
+name = "agent_approval_memory_coverage_e2e"
+path = "../../tests/agent_approval_memory_coverage_e2e.rs"
+
+[[test]]
+name = "agent_builder_public"
+path = "../../tests/agent_builder_public.rs"
+
+[[test]]
+name = "agent_harness_e2e"
+path = "../../tests/agent_harness_e2e.rs"
+
+[[test]]
+name = "agent_prompt_comprehension_e2e"
+path = "../../tests/agent_prompt_comprehension_e2e.rs"
+
+[[test]]
+name = "agent_harness_public"
+path = "../../tests/agent_harness_public.rs"
+
+[[test]]
+name = "agent_multimodal_public"
+path = "../../tests/agent_multimodal_public.rs"
+
+[[test]]
+name = "agent_turn_overrides_e2e"
+path = "../../tests/agent_turn_overrides_e2e.rs"
+
+[[test]]
+name = "calendar_grounding_e2e"
+path = "../../tests/calendar_grounding_e2e.rs"
+
+[[test]]
+name = "channels_host_boundary_e2e"
+path = "../../tests/channels_host_boundary_e2e.rs"
+
+[[test]]
+name = "cli_model_overrides_e2e"
+path = "../../tests/cli_model_overrides_e2e.rs"
+
+[[test]]
+name = "cli_sigpipe"
+path = "../../tests/cli_sigpipe.rs"
+
+[[test]]
+name = "composio_list_tools_stack_overflow_regression"
+path = "../../tests/composio_list_tools_stack_overflow_regression.rs"
+
+[[test]]
+name = "composio_post_oauth_retry_e2e"
+path = "../../tests/composio_post_oauth_retry_e2e.rs"
+
+[[test]]
+name = "config_auth_app_state_connectivity_e2e"
+path = "../../tests/config_auth_app_state_connectivity_e2e.rs"
+
+[[test]]
+name = "cwd_jail_e2e"
+path = "../../tests/cwd_jail_e2e.rs"
+
+[[test]]
+name = "domain_modules_e2e"
+path = "../../tests/domain_modules_e2e.rs"
+
+[[test]]
+name = "embeddings_rpc_e2e"
+path = "../../tests/embeddings_rpc_e2e.rs"
+
+[[test]]
+name = "inference_provider_e2e"
+path = "../../tests/inference_provider_e2e.rs"
+
+[[test]]
+name = "keyring_secretstore_e2e"
+path = "../../tests/keyring_secretstore_e2e.rs"
+
+[[test]]
+name = "keyring_secretstore_fresh_e2e"
+path = "../../tests/keyring_secretstore_fresh_e2e.rs"
+
+[[test]]
+name = "learning_phase4_integration_test"
+path = "../../tests/learning_phase4_integration_test.rs"
+
+[[test]]
+name = "linux_cef_deb_runtime_e2e"
+path = "../../tests/linux_cef_deb_runtime_e2e.rs"
+
+[[test]]
+name = "live_flows_demo_e2e"
+path = "../../tests/live_flows_demo_e2e.rs"
+
+[[test]]
+name = "live_routing_e2e"
+path = "../../tests/live_routing_e2e.rs"
+
+[[test]]
+name = "mcp_registry_e2e"
+path = "../../tests/mcp_registry_e2e.rs"
+
+[[test]]
+name = "mcp_registry_multi_server"
+path = "../../tests/mcp_registry_multi_server.rs"
+
+[[test]]
+name = "mcp_setup_e2e"
+path = "../../tests/mcp_setup_e2e.rs"
+
+[[test]]
+name = "mcp_stdio_integration"
+path = "../../tests/mcp_stdio_integration.rs"
+
+[[test]]
+name = "memory_roundtrip_e2e"
+path = "../../tests/memory_roundtrip_e2e.rs"
+
+[[test]]
+name = "memory_sources_e2e"
+path = "../../tests/memory_sources_e2e.rs"
+
+[[test]]
+name = "observability_wallet_expected_e2e"
+path = "../../tests/observability_wallet_expected_e2e.rs"
+
+[[test]]
+name = "ollama_lifecycle_e2e"
+path = "../../tests/ollama_lifecycle_e2e.rs"
+
+[[test]]
+name = "orchestrator_parallel_fanout_routing"
+path = "../../tests/orchestrator_parallel_fanout_routing.rs"
+
+[[test]]
+name = "orchestrator_presentation_wiring"
+path = "../../tests/orchestrator_presentation_wiring.rs"
+
+[[test]]
+name = "skill_registry_e2e"
+path = "../../tests/skill_registry_e2e.rs"
+
+[[test]]
+name = "skills_mcp_registry_live"
+path = "../../tests/skills_mcp_registry_live.rs"
+
+[[test]]
+name = "transcript_search_e2e"
+path = "../../tests/transcript_search_e2e.rs"
+
+[[test]]
+name = "web_cancel_request_scoping"
+path = "../../tests/web_cancel_request_scoping.rs"
+
+[[test]]
+name = "worker_b_domain_e2e"
+path = "../../tests/worker_b_domain_e2e.rs"
+
+[[test]]
+name = "worker_c_modules_e2e"
+path = "../../tests/worker_c_modules_e2e.rs"
+
+[[example]]
+name = "embed_headless"
+path = "../../examples/embed_headless.rs"
+
+[[example]]
+name = "embed_kernel"
+path = "../../examples/embed_kernel.rs"
+
+[[example]]
+name = "run_memory_doctor"
+path = "../../examples/run_memory_doctor.rs"
+
+[[example]]
+name = "run_memory_reconcile"
+path = "../../examples/run_memory_reconcile.rs"
+
+
+[dependencies]
+# Direct core access: every test and bin names `openhuman_core::` paths.
+# `default-features = false` so the gates below are the only ones on.
+openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+openhuman-embed = { path = "../openhuman-embed", default-features = false }
+openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
+openhuman-rpc.workspace = true
+anyhow = "1.0"
+async-trait = "0.1"
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive"], optional = true }
+dhat = { version = "0.3", optional = true }
+dotenvy = "0.15"
+env_logger = "0.11"
+log = "0.4"
+sentry = { version = "0.47.0", default-features = false, optional = true, features = ["backtrace", "contexts", "panic", "tracing", "debug-images", "httpdate"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+
+[dev-dependencies]
+aes-gcm = "0.10"
+base64 = "0.22"
+filetime = "0.2"
+flate2 = "1"
+futures-util = "0.3"
+parking_lot = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+sha2 = "0.10"
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
+tinychannels = { version = "0.1", features = ["relay-websocket"] }
+tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinymcp = { path = "../../vendor/tinymcp/crates/tinymcp", default-features = false, features = ["rustls-tls"] }
+tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus", features = ["schemars"] }
+tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
+tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
+tokio = { version = "1", features = ["full", "test-util"] }
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "native-tls"] }
+tower = { version = "0.5", default-features = false }
+wiremock = "0.6"
+
+[features]
+# Same contributor set as the core's `default`, forwarded. The product lanes
+# pass `--features "$(scripts/ci/product-features.sh)"`; every product gate
+# name resolves here so `cargo test --workspace --features ...` keeps working.
+default = ["openhuman-core/default", "openhuman-tinyhumans/default"]
+http-server = ["openhuman-core/http-server", "openhuman-tinyhumans/http-server"]
+inference = ["openhuman-core/inference", "openhuman-tinyhumans/inference"]
+documents = ["openhuman-core/documents", "openhuman-tinyhumans/documents"]
+hosting = ["openhuman-core/hosting", "openhuman-tinyhumans/hosting"]
+modules = ["openhuman-core/modules", "openhuman-tinyhumans/modules"]
+voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
+web3 = ["openhuman-core/web3", "openhuman-tinyhumans/web3"]
+runtime-node = ["openhuman-core/runtime-node", "openhuman-tinyhumans/runtime-node"]
+contacts = ["openhuman-core/contacts", "openhuman-tinyhumans/contacts"]
+media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
+flows = ["openhuman-core/flows", "openhuman-tinyhumans/flows"]
+skills = ["openhuman-core/skills", "openhuman-tinyhumans/skills"]
+mcp = ["openhuman-core/mcp", "openhuman-tinyhumans/mcp"]
+medulla = ["openhuman-core/medulla", "openhuman-tinyhumans/medulla"]
+channels = ["openhuman-core/channels", "openhuman-tinyhumans/channels"]
+sandbox-landlock = ["openhuman-core/sandbox-landlock", "openhuman-tinyhumans/sandbox-landlock"]
+sandbox-bubblewrap = ["openhuman-core/sandbox-bubblewrap", "openhuman-tinyhumans/sandbox-bubblewrap"]
+peripheral-rpi = ["openhuman-core/peripheral-rpi", "openhuman-tinyhumans/peripheral-rpi"]
+browser-native = ["openhuman-core/browser-native", "openhuman-tinyhumans/browser-native"]
+fantoccini = ["openhuman-core/fantoccini"]
+landlock = ["openhuman-core/landlock", "openhuman-tinyhumans/landlock"]
+whatsapp-web = ["openhuman-core/whatsapp-web", "openhuman-tinyhumans/whatsapp-web"]
+e2e-test-support = ["openhuman-core/e2e-test-support"]
+rss-bench = ["openhuman-core/rss-bench"]
+file-logging = ["openhuman-core/file-logging", "openhuman-tinyhumans/file-logging"]
+scheduler-gate = ["openhuman-core/scheduler-gate", "openhuman-tinyhumans/scheduler-gate"]
+# Sentry init in `main.rs` plus the `observability_smoke` test target.
+crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting", "openhuman-tinyhumans/crash-reporting"]
+# CLI argument parsing + logger init for `openhuman-fleet`.
+bin-tools = ["dep:clap"]
+# dhat heap profiling for `library-profile`; perturbs RSS, so opt-in only.
+rss-bench-dhat = ["rss-bench", "dep:dhat"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
