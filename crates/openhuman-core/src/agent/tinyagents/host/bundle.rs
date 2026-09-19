@@ -44,6 +44,29 @@ pub struct OpenHumanHostBundleInputs {
     pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
 }
 
+/// Process/session-owned dependencies shared by hosted invocations.
+///
+/// This deliberately excludes mutable turn authority: tools, tool-policy
+/// sessions, progress and the concrete capability bundle are created for each
+/// [`OpenHumanHostInvocationInputs`]. Keeping the split visible prevents a
+/// concurrent turn from replacing another turn's security or tool surface.
+pub struct OpenHumanHostBase {
+    pub config: Arc<Config>,
+    pub definitions: Arc<AgentDefinitionRegistry>,
+    pub security_policy: Arc<SecurityPolicy>,
+    pub memory: Arc<dyn Memory>,
+    pub shared_experience_memory: Option<Arc<dyn Memory>>,
+    pub profile_id: Option<String>,
+    pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
+}
+
+/// Explicit inputs which vary for every hosted agent invocation.
+pub struct OpenHumanHostInvocationInputs {
+    pub base: Arc<OpenHumanHostBase>,
+    pub tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    pub tool_policy: Option<Arc<ToolPolicySession>>,
+}
+
 /// OpenHuman's ten concrete capability adapters plus their erased crate bundle.
 ///
 /// Typed handles make it possible to verify wiring without downcasting trait
@@ -67,6 +90,28 @@ pub struct OpenHumanHostBundle {
 pub struct OpenHumanHostBundleFactory;
 
 impl OpenHumanHostBundleFactory {
+    /// Builds one full capability bundle from immutable host base dependencies
+    /// and this invocation's tool/security authority.
+    pub fn build_for_invocation(
+        inputs: OpenHumanHostInvocationInputs,
+        turn: &OpenHumanRunContext,
+    ) -> OpenHumanHostBundle {
+        Self::build(
+            OpenHumanHostBundleInputs {
+                config: inputs.base.config.clone(),
+                definitions: inputs.base.definitions.clone(),
+                security_policy: inputs.base.security_policy.clone(),
+                tool_sets: inputs.tool_sets,
+                tool_policy: inputs.tool_policy,
+                memory: inputs.base.memory.clone(),
+                shared_experience_memory: inputs.base.shared_experience_memory.clone(),
+                profile_id: inputs.base.profile_id.clone(),
+                post_turn_hooks: inputs.base.post_turn_hooks.clone(),
+            },
+            turn,
+        )
+    }
+
     /// Constructs all ten concrete adapters from a single session input set.
     ///
     /// The run context supplies per-turn state, while `inputs` supplies durable

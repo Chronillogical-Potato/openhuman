@@ -44,7 +44,10 @@ pub mod tool_outcome_classifier;
 
 pub use agent_memory::OpenHumanAgentMemory;
 pub use budget_gate::OpenHumanBudgetGate;
-pub use bundle::{OpenHumanHostBundle, OpenHumanHostBundleFactory, OpenHumanHostBundleInputs};
+pub use bundle::{
+    OpenHumanHostBase, OpenHumanHostBundle, OpenHumanHostBundleFactory, OpenHumanHostBundleInputs,
+    OpenHumanHostInvocationInputs,
+};
 pub use context_composer::OpenHumanContextComposer;
 pub use definition_registry::OpenHumanDefinitionRegistry;
 pub use experience_store::OpenHumanExperienceStore;
