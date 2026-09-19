@@ -27,8 +27,8 @@ const KEYWORD_RESPONSES = [
       {
         toolCall: {
           id: 'call_research_1',
-          name: 'research',
-          arguments: JSON.stringify({ prompt: 'Tell me a marker phrase' }),
+          name: 'delegate_to',
+          arguments: JSON.stringify({ agent: 'research', prompt: 'Tell me a marker phrase' }),
         },
       },
       { finish: 'tool_calls' },

@@ -82,7 +82,8 @@ fn integration(toolkit: &str, description: &str) -> ConnectedIntegration {
 /// Baseline: an orchestrator with 2 AgentId entries + a Skills
 /// wildcard, against a registry that knows both targets and a
 /// connected_integrations list with three toolkits, should produce
-/// 2 archetype tools + 1 collapsed integrations delegation tool
+/// 2 hidden archetype tools + the collapsed archetype surface + 1 collapsed
+/// integrations delegation tool
 /// (#1335) — independent of how many integrations are connected.
 #[test]
 fn collects_agentid_entries_and_collapses_skills_wildcard() {
@@ -107,6 +108,7 @@ fn collects_agentid_entries_and_collapses_skills_wildcard() {
             "research",           // researcher's delegate_name override
             "delegate_archivist", // archivist has no delegate_name → default
             "delegate_to_integrations_agent",
+            "delegate_to",
         ],
         "skills wildcard must collapse to a single delegate_to_integrations_agent tool"
     );
@@ -126,6 +128,12 @@ fn collects_agentid_entries_and_collapses_skills_wildcard() {
     assert!(desc.contains("gmail"));
     assert!(desc.contains("github"));
     assert!(desc.contains("notion"));
+
+    let archetype_tool = tools.iter().find(|t| t.name() == "delegate_to").unwrap();
+    let schema = archetype_tool.parameters_schema();
+    let agents = schema["properties"]["agent"]["enum"].as_array().unwrap();
+    let agents: Vec<&str> = agents.iter().map(|value| value.as_str().unwrap()).collect();
+    assert_eq!(agents, vec!["research", "delegate_archivist"]);
 }
 
 /// The collapsed delegation tool's count is constant in the
@@ -161,7 +169,7 @@ fn skills_wildcard_with_no_integrations_produces_no_delegation_tool() {
     let tools = collect_orchestrator_tools(&orch, &reg, &[]);
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     // `spawn_worker_thread` is temporarily disabled — see #1624.
-    assert_eq!(names, vec!["research", "delegate_archivist"]);
+    assert_eq!(names, vec!["research", "delegate_archivist", "delegate_to"]);
 }
 
 /// An AgentId entry whose target carries a `delegate_name` override
@@ -183,7 +191,7 @@ fn subagent_with_delegate_name_override_synthesises_the_override_name() {
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert_eq!(
         names,
-        vec!["do_custom"],
+        vec!["do_custom", "delegate_to"],
         "custom_agent subagent entry must synthesise a tool named after its \
          `delegate_name` override (`do_custom`), not the default \
          `delegate_custom_agent`"
@@ -217,7 +225,7 @@ fn a_delegate_name_override_wins_over_the_default_delegate_prefix() {
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert_eq!(
         names,
-        vec!["do_crypto"],
+        vec!["do_crypto", "delegate_to"],
         "a subagent entry must synthesise its stable delegate_name \
          (`do_crypto`), not the default `delegate_crypto_agent`"
     );
@@ -242,7 +250,7 @@ fn unknown_subagent_id_is_skipped_not_fatal() {
     let tools = collect_orchestrator_tools(&orch, &reg, &[]);
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     // `spawn_worker_thread` is temporarily disabled — see #1624.
-    assert_eq!(names, vec!["research"]);
+    assert_eq!(names, vec!["research", "delegate_to"]);
 }
 
 /// An empty `subagents` list should produce zero tools — regular

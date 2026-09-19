@@ -128,6 +128,14 @@ test.describe('Agent profiles — create', () => {
     await page.getByRole('button', { name: 'Create' }).click();
     await expect.poll(coreIds, { timeout: 20_000 }).toContain(ID);
 
+    // The core write becomes observable just before the upsert response gets
+    // back to the editor. Reloading in that small window cancels the thunk's
+    // success redirect and reloads `/settings/profiles/new`, which tests the
+    // editor route rather than profile persistence.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Agent Profiles', {
+      timeout: 30_000,
+    });
+
     await page.reload();
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);

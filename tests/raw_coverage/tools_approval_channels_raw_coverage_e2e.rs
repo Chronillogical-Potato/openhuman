@@ -1634,7 +1634,10 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     );
 
     let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
-    assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
+    assert_eq!(
+        names,
+        vec!["research", "delegate_to_integrations_agent", "delegate_to"]
+    );
 
     let research = &tools[0];
     // The delegation tool's description is the target agent's `when_to_use`
@@ -1691,6 +1694,18 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
         .expect("blank prompt returns tool error after slug normalization");
     assert!(blank_prompt.is_error);
     assert!(blank_prompt.output().contains("prompt"));
+
+    let collapsed = &tools[2];
+    assert_eq!(
+        collapsed.parameters_schema().pointer("/properties/agent/enum"),
+        Some(&json!(["research"]))
+    );
+    let missing_agent = collapsed
+        .execute(json!({ "prompt": "research this" }))
+        .await
+        .expect("missing agent returns tool error");
+    assert!(missing_agent.is_error);
+    assert!(missing_agent.output().contains("agent"));
 }
 
 #[tokio::test]

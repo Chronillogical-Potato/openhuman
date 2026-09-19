@@ -108,6 +108,13 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('send-message-button').click();
 }
 
+async function approvePendingTool(page: Page): Promise<void> {
+  const dialog = page.getByRole('alertdialog', { name: 'Approval needed' });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test.describe('Harness - Cron prompt-flow', () => {
   test.beforeEach(async ({ page }) => {
     await resetMock();
@@ -143,6 +150,7 @@ test.describe('Harness - Cron prompt-flow', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await sendMessage(page, 'remind me every morning at 9am');
+    await approvePendingTool(page);
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(
       agentMessageText(page, /Done! I have set up a daily 9am morning reminder/i)
@@ -195,6 +203,7 @@ test.describe('Harness - Cron prompt-flow', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await sendMessage(page, 'change my morning reminder to 8am');
+    await approvePendingTool(page);
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(agentMessageText(page, /changed your morning reminder to 8am/i)).toBeVisible();
   });
@@ -220,6 +229,7 @@ test.describe('Harness - Cron prompt-flow', () => {
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
     await sendMessage(page, 'delete the morning reminder');
+    await approvePendingTool(page);
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(agentMessageText(page, /deleted the morning reminder/i)).toBeVisible();
   });

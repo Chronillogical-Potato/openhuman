@@ -106,6 +106,13 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('send-message-button').click();
 }
 
+async function approvePendingTool(page: Page): Promise<void> {
+  const dialog = page.getByRole('alertdialog', { name: 'Approval needed' });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test.describe('Harness - Cross-channel bridge flow', () => {
   test('web chat fallback path completes a channel-style two-turn sequence', async ({ page }) => {
     await resetMock();
@@ -135,6 +142,7 @@ test.describe('Harness - Cross-channel bridge flow', () => {
     await openChat(page);
     await createNewThread(page);
     await sendMessage(page, 'set up a daily standup reminder at 9am');
+    await approvePendingTool(page);
 
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(
