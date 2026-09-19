@@ -1,4 +1,3 @@
-use super::spawn_depth_context::current_spawn_depth;
 use super::*;
 
 #[tokio::test]
