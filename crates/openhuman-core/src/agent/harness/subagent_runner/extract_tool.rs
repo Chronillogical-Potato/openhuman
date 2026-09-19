@@ -326,6 +326,7 @@ impl ExtractFromResultTool {
             let parent_chain = parent_chain.clone();
             let owner_agent_id = owner_agent_id.clone();
             let model = model.clone();
+            let thread_id = thread_id.clone();
             async move {
                 let user_prompt = format!(
                     "Tool name: {tool_name}\nChunk {idx} of {total}\n\n\
