@@ -41,6 +41,10 @@ pub mod session;
 pub mod transport;
 
 pub use install::{install, is_installed, InstallError, InstallOptions};
+pub use openhuman_embed::{
+    BackendRequest, BackendTransport, BackendTransportError, TransportProfile,
+};
+pub use runtime::{RuntimeBuilder, RuntimeError};
 pub use session::{
     cache::{CachedUser, CurrentUserCache},
     client::{ClientHeaders, FetchMeError, SessionClient, SessionClientError},
@@ -52,8 +56,4 @@ pub use session::{
     link::{self, CoreAuthState, CoreLink},
     manager::{SessionError, SessionEvent, SessionManager, SessionState},
 };
-pub use openhuman_embed::{
-    BackendRequest, BackendTransport, BackendTransportError, TransportProfile,
-};
-pub use runtime::{RuntimeBuilder, RuntimeError};
 pub use transport::{map_sdk_error, SdkBackendTransport};

@@ -1,5 +1,7 @@
 use super::*;
-use crate::session::test_support::{EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB, LOCAL_TOKEN, OPAQUE_TOKEN};
+use crate::session::test_support::{
+    EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB, LOCAL_TOKEN, OPAQUE_TOKEN,
+};
 use serde_json::json;
 
 #[test]

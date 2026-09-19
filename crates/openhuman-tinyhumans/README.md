@@ -48,6 +48,7 @@ openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())?;
 | `transport` | `SdkBackendTransport`: one `reqwest::Client` per `TransportProfile`, built from the core's `api::headers` so TLS, timeouts and `x-core-version` / `x-tauri-version` / `x-sdk-name` are exactly what the core specifies; SDK route policy; `tinyhumans_sdk::Error` → `BackendTransportError` |
 | `install` | process-global installation, idempotent |
 | `RuntimeBuilder` | embed builder + transport |
+| `session` | the host-side login/session owner (formerly the `openhuman-session` crate): `SessionClient` (login-token exchange, `GET /auth/me`), `CurrentUserCache`, `CoreLink` (credential handoff into whichever core the host owns), `SessionManager`, process-global `identity` for sync Sentry hooks. May use core utilities (`util::tls`, `api::product`) but never `openhuman_core::security::*` — the core only *takes* a credential |
 | `jwt` | the SDK's JWT readers, for hosts that already depend on this crate |
 
 Routes and error classification stay in the core (`api/rest.rs`,
@@ -62,4 +63,6 @@ cargo test -p openhuman-tinyhumans
 
 `transport_tests.rs` pins the wire shape the core's classifiers depend on
 (bearer vs `x-api-key`, attribution headers, `Status` / `Envelope` mapping,
-SDK route refusal) against a wiremock backend.
+SDK route refusal) against a wiremock backend. `session/*_tests.rs` drive
+the login/session owner against an in-process axum stub backend and a stub
+`CoreLink`.
