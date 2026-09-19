@@ -31,8 +31,6 @@ pub use turn_handler::handle_voice_harness_turn;
 #[cfg(test)]
 use crate::agent::progress::AgentProgress;
 #[cfg(test)]
-use agent::VOICE_DIRECTIVE;
-#[cfg(test)]
 use prompt::{
     is_answerable_prompt, is_content_free, messages_to_history_pairs, readback_payload,
     should_arm_speak_back, spoken_delta, VOICE_READBACK_PREFIX,
