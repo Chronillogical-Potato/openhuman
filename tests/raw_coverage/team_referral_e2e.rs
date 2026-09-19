@@ -23,6 +23,7 @@ use support::{assert_no_error, error_message, logs, mock_log, peel, Harness};
 /// mock backend, plus the request each one actually put on the wire.
 #[tokio::test]
 async fn team_uncovered_controllers_round_trip_against_the_backend() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", false).await;
     let log = mock_log();
@@ -195,6 +196,7 @@ async fn team_uncovered_controllers_round_trip_against_the_backend() {
 /// fire before any request — including the path-injection guard.
 #[tokio::test]
 async fn team_rejects_bad_ids_and_surfaces_backend_failures() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", false).await;
     harness.login().await;
@@ -309,6 +311,7 @@ async fn team_rejects_bad_ids_and_surfaces_backend_failures() {
 /// Both referral controllers, happy path and the two failure shapes.
 #[tokio::test]
 async fn referral_stats_and_claim_round_trip() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", false).await;
     let log = mock_log();
@@ -396,6 +399,7 @@ async fn referral_stats_and_claim_round_trip() {
 /// Referral, like billing, must refuse locally when no session is stored.
 #[tokio::test]
 async fn referral_without_a_session_refuses_locally() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", false).await;
     let log = mock_log();
@@ -425,6 +429,7 @@ async fn referral_without_a_session_refuses_locally() {
 /// two on. Its three fields have to agree with each other and with the crate.
 #[tokio::test]
 async fn update_version_reports_the_running_binary() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", true).await;
 
@@ -461,6 +466,7 @@ async fn update_version_reports_the_running_binary() {
 /// closed it must refuse *before* reaching the network, and say why.
 #[tokio::test]
 async fn update_run_refuses_when_rpc_mutations_are_disabled() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start(
         r#"
@@ -509,6 +515,7 @@ rpc_mutations_enabled = false
 /// `~/tinyhuman/bugs/e2e-wave-update-check-unmockable.md`.
 #[tokio::test]
 async fn update_check_lands_in_one_of_its_two_documented_shapes() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", true).await;
 
@@ -559,6 +566,7 @@ async fn update_check_lands_in_one_of_its_two_documented_shapes() {
 /// refusals it owes the caller.
 #[tokio::test]
 async fn migrate_openclaw_dry_run_counts_sources_without_importing() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", true).await;
 
@@ -662,6 +670,7 @@ async fn migrate_openclaw_dry_run_counts_sources_without_importing() {
 /// A source workspace with nothing importable reports *why* it found nothing.
 #[tokio::test]
 async fn migrate_openclaw_reports_where_it_looked_when_it_finds_nothing() {
+    crate::tinyhumans_boot::boot();
     let _lock = support::env_lock();
     let harness = Harness::start("", true).await;
 

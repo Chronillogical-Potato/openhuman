@@ -180,6 +180,7 @@ fn temp_config() -> (tempfile::TempDir, Config) {
 
 #[test]
 fn generated_tool_admission_covers_provenance_and_rejection_paths() {
+    crate::tinyhumans_boot::boot();
     let mut trusted = BTreeSet::new();
     trusted.insert("trusted.provider".to_string());
     trusted.insert(" invalid provider ".to_string());
@@ -266,6 +267,7 @@ fn generated_tool_admission_covers_provenance_and_rejection_paths() {
 
 #[tokio::test]
 async fn generated_tool_wrapper_executes_and_exposes_metadata() {
+    crate::tinyhumans_boot::boot();
     let adapter = Arc::new(RecordingGeneratedAdapter);
     let mut write_tool = basic_generated_definition("write_status");
     write_tool.permission_level = PermissionLevel::Write;
@@ -312,6 +314,7 @@ async fn generated_tool_wrapper_executes_and_exposes_metadata() {
 
 #[test]
 fn tool_registries_schemas_and_local_helpers_cover_safe_branches() {
+    crate::tinyhumans_boot::boot();
     let (_tmp, config) = temp_config();
     let config = Arc::new(config);
     let security = Arc::new(SecurityPolicy::from_config(
@@ -389,6 +392,7 @@ fn tool_registries_schemas_and_local_helpers_cover_safe_branches() {
 
 #[test]
 fn channel_definitions_validate_all_auth_modes_and_controller_metadata() {
+    crate::tinyhumans_boot::boot();
     let definitions = all_channel_definitions();
     let ids = definitions
         .iter()
@@ -473,6 +477,7 @@ fn channel_definitions_validate_all_auth_modes_and_controller_metadata() {
 
 #[test]
 fn whatsapp_webhook_parser_covers_allowed_and_skipped_payloads() {
+    crate::tinyhumans_boot::boot();
     let channel = WhatsAppChannel::new(
         "token".to_string(),
         "phone-id".to_string(),
@@ -564,6 +569,7 @@ fn whatsapp_webhook_parser_covers_allowed_and_skipped_payloads() {
 
 #[test]
 fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
+    crate::tinyhumans_boot::boot();
     assert!(NO_RECONNECT_CLOSE_CODES.contains(&4012));
     assert!(AUTH_FAILED_CODES.contains(&40001));
     assert!(AUTH_RETRYABLE_CODES.contains(&40010));
@@ -674,6 +680,7 @@ fn yuanbao_config_wire_and_splitter_helpers_cover_public_deterministic_paths() {
 
 #[test]
 fn yuanbao_media_and_proto_helpers_cover_public_roundtrips() {
+    crate::tinyhumans_boot::boot();
     assert_eq!(guess_mime_type("PHOTO.JPG"), "image/jpeg");
     assert_eq!(
         guess_mime_type("slides.pptx"),
@@ -862,6 +869,7 @@ fn yuanbao_media_and_proto_helpers_cover_public_roundtrips() {
 
 #[tokio::test]
 async fn channel_trait_defaults_and_cli_channel_cover_message_paths() {
+    crate::tinyhumans_boot::boot();
     struct TestChannel;
 
     #[async_trait]
