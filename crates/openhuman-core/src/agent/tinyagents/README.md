@@ -32,7 +32,7 @@ The **adapter seam** between OpenHuman and the vendored [`tinyagents`](../../../
 | `middleware.rs` + `middleware/` | The named OpenHuman middleware stack. `turn_context.rs`: `TurnContextMiddleware` (bundles config and installs the enabled hooks), `TranscriptSnapshotMiddleware`/`TranscriptSnapshotSink`, `HandoffConfig`/`HandoffMiddleware` (oversized sub-agent results stashed for `extract_from_result`). `prompt_cache.rs`: `PromptCacheSegmentMiddleware`. `tool_output.rs`: `ToolOutputMiddleware` (per-result byte cap and optional payload summarizer). `approval.rs`: `ApprovalSecurityMiddleware`. `cli_rpc_only.rs`: `CliRpcOnlyMiddleware`. `tool_policy.rs`: the `ToolPolicyMiddleware` struct and impl (records blocks into `crate::tools::registry::denials`). `tool_outcome_capture.rs`: `ToolOutcomeCaptureMiddleware`. `embedder_hooks.rs`: `EmbedderToolHooksMiddleware`. `arg_recovery.rs`: `ArgRecoveryMiddleware`. `memory_protocol.rs`: `MemoryProtocolMiddleware`. `cost_budget.rs`: `CostBudgetMiddleware`. `repeated_failure.rs`: `RepeatedToolFailureMiddleware`. `loop_guards.rs`: `TerminalInferenceFailure`. `repeat_progress.rs`: `RepeatProgressMiddleware` (adjacent-repeat streaks plus a run-wide `(call, result)` recurrence ledger) and `RepeatEvictionObserver` (registered last; resets the ledger when compaction evicts a recorded result, #6275). `message_trim.rs`: `ImageAwareMessageTrimMiddleware`. `final_call_wrap_up.rs`: `FinalCallWrapUpMiddleware`. `artifact_index_toc.rs`: `ArtifactIndexTocMiddleware` (issue #6014). `credential_scrub.rs`: `CredentialScrubMiddleware` (issue #4453). |
 | `model.rs` | Helpers and wrappers over native crate `ChatModel` values: message/response translation, usage merging, stream-delta forwarding, `MaxTokensModel`, `ProfileOverrideModel`, `RouteRecordingModel`. |
 | `convert.rs` | `spec_to_schema`: OpenHuman `ToolSpec` → crate `ToolSchema`. Message conversion lives in `crate::agent::message_convert`. |
-| `tools.rs` | `SharedToolAdapter` / `ToolAdapter`: wrap `Arc<dyn crate::tools::Tool>` as a crate `Tool`; `EarlyExitHook` for `ask_user_clarification`-style pauses; `execute_openhuman_tool`. |
+| `tools.rs` | `CanonicalSharedToolAdapter`: resolves an OpenHuman shared tool registry and forwards the canonical `tinytools::Tool` contract; `EarlyExitHook` pauses successful `ask_user_clarification`-style calls. |
 | `routes.rs` | `WORKLOAD_ROUTE_TIERS` (the tier inventory projected into the model registry), `RequiredCapabilitiesMiddleware`, `FallbackObserverMiddleware`, `UsageCarryMiddleware`, and the per-model fallback policy. |
 | `resolved_route.rs` | Task-local slot recording the provider/model that actually served the latest call (`ResolvedProviderRoute`, `with_resolved_provider_route_scope`, `record_resolved_provider_route`). |
 | `topology.rs` | `all_graph_topologies`: behaviour-free `GraphTopology` exports of every custom OpenHuman graph for debug/inspection. |
@@ -81,7 +81,7 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 - The vendored crates under `vendor/tinyagents/`: `tinyagents-harness`, `tinyagents-graph`, `tinyagents-registry`, plus `tinyinference` and `tinytools` from `vendor/tinyagents/vendor/`, all declared as path dependencies in `crates/openhuman-core/Cargo.toml`. Per AGENTS.md, use this vendored copy; a second path to the same crates creates incompatible Rust types.
 - `crate::agent::message_convert` for `ChatMessage` ↔ crate `Message` conversion.
 - `crate::agent::harness::{run_queue, tool_result_artifacts, subagent_runner}` and `crate::agent::{messages, progress, stop_hooks, cost, hooks}`: the OpenHuman-side turn plumbing this seam plugs into.
-- `crate::tools`: the `Tool` trait wrapped by `SharedToolAdapter`, and `tools::registry::denials` for recording policy blocks.
+- `crate::tools`: the canonical `tinytools::Tool` trait resolved by `CanonicalSharedToolAdapter`, and `tools::registry::denials` for recording policy blocks.
 - `crate::platform::cost`: the global cost tracker fed by `observability/event_bridge.rs` and `turn_outcome.rs`.
 - `crate::config` and `crate::inference`: tier constants, `Config`, providers, and embedding providers.
 
@@ -96,7 +96,7 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 - `agent/todos/`: `todos::*` stores.
 - `memory/tools/{recall,store}.rs` and `memory/auto_recall/`: `host::agent_memory::DEFAULT_AGENT_MEMORY_NAMESPACE`.
 - `flows/tinyflows/caps/{llm,prompt}.rs`: the message-conversion re-exports and `model::usage_info_from_response`.
-- `tools/README.md` names `SharedToolAdapter` and `ToolPolicyMiddleware` as the primary tinyagents-side tool consumers.
+- `tools/README.md` names `CanonicalSharedToolAdapter` and `ToolPolicyMiddleware` as the primary tinyagents-side tool consumers.
 
 ## Host adapters
 
