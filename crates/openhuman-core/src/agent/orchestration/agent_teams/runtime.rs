@@ -36,8 +36,8 @@ use crate::agent::orchestration::{
 };
 use crate::config::Config;
 use tinyagents_session::run_ledger::{
-    self, AgentTeamMemberStatus, AgentTeamTask, ClaimOutcome, RunEvent,
-    RunEventAppend, RunEventListRequest,
+    self, AgentTeamMemberStatus, AgentTeamTask, ClaimOutcome, RunEvent, RunEventAppend,
+    RunEventListRequest,
 };
 
 use tinyagents_orchestration::teams::{claimable_task, run_member_graph, MemberOutcome, TeamError};
