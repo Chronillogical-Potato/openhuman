@@ -519,6 +519,7 @@ mod tests {
                     "chat-concrete",
                     "chat-v1",
                 )),
+                pricing_model: None,
                 model_calls: 2,
                 tool_outcomes: vec![crate::agent::tinyagents::ToolCallOutcome {
                     call_id: "call-1".into(),

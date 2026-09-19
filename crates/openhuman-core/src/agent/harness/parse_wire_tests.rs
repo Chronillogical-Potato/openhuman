@@ -30,7 +30,7 @@ use crate::inference::provider::ToolCall;
 #[cfg(test)]
 use tinytools::Tool;
 #[cfg(test)]
-use tinytools_agent::ParsedToolCall;
+use tinytools_agent::{CallSource, ParsedToolCall};
 
 #[cfg(test)]
 pub(crate) fn parse_structured_tool_calls(tool_calls: &[ToolCall]) -> Vec<ParsedToolCall> {
@@ -41,6 +41,7 @@ pub(crate) fn parse_structured_tool_calls(tool_calls: &[ToolCall]) -> Vec<Parsed
             arguments: serde_json::from_str::<serde_json::Value>(&call.arguments)
                 .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new())),
             id: Some(call.id.clone()),
+            source: CallSource::Native,
         })
         .collect()
 }
