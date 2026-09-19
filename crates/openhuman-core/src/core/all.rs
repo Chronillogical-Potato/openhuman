@@ -402,7 +402,12 @@ pub fn register_controller_extension(ext: ControllerExtension) -> Result<(), Str
         .collect();
     let already: std::collections::BTreeSet<String> = existing
         .iter()
-        .map(|g| format!("{}.{}", g.controller.schema.namespace, g.controller.schema.function))
+        .map(|g| {
+            format!(
+                "{}.{}",
+                g.controller.schema.namespace, g.controller.schema.function
+            )
+        })
         .collect();
     if !incoming_keys.is_empty() && incoming_keys.iter().all(|k| already.contains(k)) {
         log::debug!(
@@ -1140,7 +1145,8 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.clone())
         .collect();
@@ -1157,7 +1163,8 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.schema.clone())
         .collect();
@@ -1301,7 +1308,8 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
     // method — the DomainSet gate is enforced at dispatch
     // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
@@ -1330,7 +1338,8 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
 /// would name a cause that is not the reason the command is unavailable.
 pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Capability>> {
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
@@ -1347,7 +1356,8 @@ pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Ca
 /// dispatches a capability-gated method.
 pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .find(|g| g.controller.rpc_method_name() == method)
         .map(|g| g.capability);
     found
@@ -1371,7 +1381,8 @@ pub fn sole_capability_for_namespace(namespace: &str) -> Option<Capability> {
     let mut found: Option<Capability> = None;
     let mut any = false;
     let view = registry_view();
-    for grouped in view.iter()
+    for grouped in view
+        .iter()
         .filter(|g| g.controller.schema.namespace == namespace)
     {
         any = true;
@@ -1409,7 +1420,8 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // a `memory_tree.*` method hidden because the bound driver never advertised
     // `tree` must not leak back out through a param-validation error.
     let view = registry_view();
-    let found = view.iter()
+    let found = view
+        .iter()
         .chain(internal_registry().iter())
         .find(|g| {
             g.controller.rpc_method_name() == method
@@ -1615,7 +1627,8 @@ pub async fn try_invoke_registered_rpc(
     params: Map<String, Value>,
 ) -> Option<Result<Value, String>> {
     let view = registry_view();
-    let grouped = view.iter()
+    let grouped = view
+        .iter()
         .chain(internal_registry().iter())
         .find(|g| g.controller.rpc_method_name() == method)?;
 

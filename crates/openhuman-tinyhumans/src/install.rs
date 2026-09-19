@@ -10,8 +10,8 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use openhuman_core::api::transport::{install_backend_transport, installed_backend_transport};
-use openhuman_core::core::all::register_controller_extension;
 use openhuman_core::api::{set_product_identity, ProductIdentity};
+use openhuman_core::core::all::register_controller_extension;
 
 use crate::transport::SdkBackendTransport;
 

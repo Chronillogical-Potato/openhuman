@@ -2565,7 +2565,10 @@ async fn registry_extension_is_visible_to_every_lookup_and_dispatches() {
         Some("openhuman.ext_probe_ping")
     );
     assert_eq!(capability_for_parts("ext_probe", "ping"), Some(None));
-    assert_eq!(capability_for_rpc_method("openhuman.ext_probe_ping"), Some(None));
+    assert_eq!(
+        capability_for_rpc_method("openhuman.ext_probe_ping"),
+        Some(None)
+    );
     assert!(schema_for_rpc_method("openhuman.ext_probe_ping").is_some());
     assert!(all_controller_schemas()
         .iter()
@@ -2640,5 +2643,9 @@ async fn registry_extension_is_gated_by_its_domain_group() {
         )
     })
     .await;
-    assert_eq!(hidden, (true, true), "hosted: false must hide the extension");
+    assert_eq!(
+        hidden,
+        (true, true),
+        "hosted: false must hide the extension"
+    );
 }
