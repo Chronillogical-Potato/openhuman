@@ -1,4 +1,9 @@
-//! OpenHuman billing-state classification used by UI and telemetry policy.
+//! Backend / provider error-body classification shared across domains.
+//!
+//! Budget exhaustion is reported by the hosted backend and by managed inference
+//! providers as a deterministic user state, not a defect; every domain that
+//! sees such a body (inference HTTP errors, agent loop guards, the scheduler,
+//! web chat, telemetry) classifies it through this one predicate.
 
 /// Return whether a provider message represents deterministic exhausted-budget
 /// user state rather than a product defect.

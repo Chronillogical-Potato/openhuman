@@ -648,7 +648,7 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if is_local_ai_capability_unavailable_message(&lower) {
         return Some(ExpectedErrorKind::LocalAiCapabilityUnavailable);
     }
-    if crate::hosted::billing::classify::is_budget_exhausted_message(message) {
+    if crate::api::classify::is_budget_exhausted_message(message) {
         return Some(ExpectedErrorKind::BudgetExhausted);
     }
     if is_prompt_injection_blocked_message(&lower) {
@@ -3426,7 +3426,7 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
     if event
         .message
         .as_deref()
-        .is_some_and(crate::hosted::billing::classify::is_budget_exhausted_message)
+        .is_some_and(crate::api::classify::is_budget_exhausted_message)
     {
         return true;
     }
@@ -3435,7 +3435,7 @@ fn event_contains_budget_exhausted_message(event: &sentry::protocol::Event<'_>) 
         exception
             .value
             .as_deref()
-            .is_some_and(crate::hosted::billing::classify::is_budget_exhausted_message)
+            .is_some_and(crate::api::classify::is_budget_exhausted_message)
     })
 }
 
