@@ -8,6 +8,8 @@ use crate::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tinytools::Tool;
+#[cfg(test)]
+use tinytools::{ToolResult, ToolSpec};
 
 pub(crate) use super::capability::tool_capability;
 
