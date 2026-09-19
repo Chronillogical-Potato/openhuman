@@ -2,9 +2,11 @@
 # domain modules live directly under `src/`, alongside backend API and runtime
 # composition. Shared RPC contracts and clients belong to `openhuman-rpc`; the
 # typed embedding facade belongs to `openhuman-embed`.
-# Auto-discovery is disabled because
-# Cargo only scans beside this manifest; the repository layout gate requires
-# every root `tests/*.rs` and `examples/*.rs` file to have an explicit target.
+# This package is the LIBRARY only. The `openhuman-core` binary, the other
+# developer bins, and every root `tests/*.rs` / `examples/*.rs` target belong
+# to `crates/openhuman-cli`, which depends on `openhuman-tinyhumans` for the
+# backend transport the core itself no longer carries. Auto-discovery stays
+# off so a stray file beside this manifest can never become a target here.
 [package]
 name = "openhuman"
 version.workspace = true
@@ -339,10 +341,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde_yaml = "0.9"
-# dhat — heap profiler for the offline `library-profile` benchmark binary only.
-# Default-OFF, dev-only: pulled in solely by the `rss-bench-dhat` feature so it
-# never enters the shipped desktop/library build (same posture as `rss-bench`).
-dhat = { version = "0.3", optional = true }
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -371,7 +369,6 @@ parking_lot = "0.12"
 log = "0.4"
 libc = "0.2"
 nu-ansi-term = "0.50"
-env_logger = { version = "0.11", optional = true }
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
@@ -442,7 +439,6 @@ hostname = "0.4.2"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
-clap = { version = "4.5", features = ["derive"], optional = true }
 lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"], optional = true }
 # HTTP + Socket.IO server transport — the `/rpc` JSON-RPC endpoint, `/v1`
 # OpenAI-compat router, agentbox/http_host sub-servers, and the Socket.IO
@@ -1161,23 +1157,13 @@ whatsapp-web = ["channels", "tinychannels/whatsapp-web"]
 # build (app/scripts/e2e-build.sh) flips it on. Shipped binaries never have
 # this feature so the wipe RPC isn't even registered, let alone reachable.
 e2e-test-support = []
-# Compiles the embedded-RSS benchmark bin (#5046). Default-OFF and absent from
-# `scripts/ci/product-features.txt`, so nothing shipped enables it. It is in
-# NEITHER the contributor nor the product set, which is why the
-# `Rust RSS Benchmark` lane names it explicitly.
-#
-# The list is EMPTY, and that is the whole point of this edit. It used to read
-# `["dep:tinycortex", "dep:tinymemory-core"]`, but not for the benchmark's sake:
-# a `[[bin]]` cannot use a dev-dependency, so this feature was what turned the
-# engine on for the two `library-profile` bins that shared the gate. Those
-# measured the in-process engine and went with it. The benchmark itself names no
-# engine symbol and never did.
+# Library-side gate for the embedded-RSS benchmark (#5046): the one prompt
+# renderer hook in `agent/prompts/render_helpers` that the benchmark bins in
+# `crates/openhuman-cli` need. Default-OFF and absent from
+# `scripts/ci/product-features.txt`, so nothing shipped enables it. The
+# `rss-bench` / `library-profile` binaries and the `rss-bench-dhat` profiling
+# variant live in `crates/openhuman-cli`.
 rss-bench = []
-# Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
-# binary. Default-OFF, dev-only: installs dhat's global allocator, which
-# perturbs RSS/timing numbers, so it is a separate opt-in feature rather than
-# folded into `rss-bench`. Never forwarded to the shipped build.
-rss-bench-dhat = ["rss-bench", "dep:dhat"]
 # Compiles `memory::host_impls`, the host side of the seam traits the memory
 # ENGINE declares, for builds that embed that engine in-process.
 #
@@ -1191,16 +1177,6 @@ rss-bench-dhat = ["rss-bench", "dep:dhat"]
 # Unit tests get it from `cfg(test)`. Integration tests under `tests/` are
 # separate crates and `cfg(test)` does NOT reach them, which is the whole reason
 # this feature exists rather than a bare `#[cfg(test)]`.
-# Builds the `rss-bench` benchmark binary (#5046). Default-OFF, so it is never
-# part of the shipped desktop/library build and the feature-forwarding gate
-# (which only inspects the `default` list) never requires forwarding it.
-# CLI argument parsing + logger init for the developer/ops binaries under
-# `src/bin/` — today only `openhuman-fleet`. Default-OFF and NOT in `default`:
-# nothing in the library reaches `clap` or `env_logger` (the one hit in
-# `core/logging.rs` is a doc comment), so the shipped desktop build has no
-# reason to carry a 14-crate CLI stack. Each owning `[[bin]]` declares
-# `required-features = ["bin-tools"]`, so those targets are simply skipped
-# rather than failing to link when it is off.
 # Battery/AC probe feeding the scheduler's throttle decision. Default-ON.
 # When off there is no hardware probe: `sample_power` reports "on AC, no charge
 # signal", which is the same answer the real probe gives on a server or
