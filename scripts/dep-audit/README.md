@@ -6,7 +6,7 @@ Cargo submodule under `vendor/`**, using
 
 ```bash
 pnpm dep:audit                     # full sweep -> target/dep-audit/REPORT.md
-pnpm dep:audit --snapshot       # ...and archive it as docs/dep-audit/<date>.md
+pnpm dep:audit --snapshot          # ...and archive it as docs/dep-audit/<date>.md
 pnpm dep:audit --targets '^(root|tinyagents)$' --top 25
 ```
 
