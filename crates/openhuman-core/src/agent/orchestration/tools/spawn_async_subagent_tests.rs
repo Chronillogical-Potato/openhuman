@@ -7,6 +7,15 @@ use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, Recal
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use tinytools::{ToolCallOptions, ToolRunContext};
+
+struct ThreadContext(&'static str);
+
+impl ToolRunContext for ThreadContext {
+    fn thread_id(&self) -> Option<&str> {
+        Some(self.0)
+    }
+}
 
 #[test]
 fn parameters_schema_advertises_fire_and_forget_fields() {
@@ -293,16 +302,18 @@ async fn guard_does_not_fire_when_parent_thread_is_bound() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
 
+    let thread = ThreadContext("t-parent");
     let result = with_parent_context(parent_context(workspace.path()), async {
-        crate::agent::tinyagents::thread_context::with_thread_id("t-parent", async {
-            SpawnAsyncSubagentTool::new()
-                .execute(json!({
+        SpawnAsyncSubagentTool::new()
+            .execute_with_context(
+                json!({
                     "agent_id": "researcher",
                     "prompt": "investigate x",
-                }))
-                .await
-        })
-        .await
+                }),
+                ToolCallOptions::default(),
+                Some(&thread),
+            )
+            .await
     })
     .await
     .unwrap();

@@ -18,10 +18,47 @@ use crate::agent::progress::AgentProgress;
 use crate::memory::conversations::{self as conversations, ConversationMessage};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct SpawnAsyncSubagentTool;
+
+/// Harness dispatch for the detached child path. It owns the typed parent run
+/// so the spawned child receives the caller's carrier before `tokio::spawn`.
+pub(crate) struct SpawnAsyncSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl SpawnAsyncSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SpawnAsyncSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        SpawnAsyncSubagentTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl SpawnAsyncSubagentTool {
     pub fn new() -> Self {
@@ -115,7 +152,24 @@ impl Tool for SpawnAsyncSubagentTool {
         options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_context_inner(args, options, tool_context)
+        self.execute_with_context_inner(
+            args,
+            options,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl SpawnAsyncSubagentTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_context_inner(args, ToolCallOptions::default(), tool_context, run_context)
             .await
     }
 }

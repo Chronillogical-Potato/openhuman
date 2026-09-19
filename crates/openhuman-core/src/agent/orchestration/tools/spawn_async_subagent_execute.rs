@@ -4,6 +4,7 @@ impl SpawnAsyncSubagentTool {
         args: serde_json::Value,
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
         let agent_id = args
             .get("agent_id")
@@ -430,7 +431,7 @@ impl SpawnAsyncSubagentTool {
                     model_override,
                     task_id: Some(background_task_id.clone()),
                     thread_id: Some(background_thread_id),
-                    run_context: Default::default(),
+                    run_context,
                     worker_thread_id: background_worker_thread_id.clone(),
                     initial_history: background_initial_history,
                     checkpoint_dir: None,

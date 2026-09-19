@@ -73,6 +73,7 @@ pub use continue_subagent::ContinueSubagentTool;
 pub use delegate_graph::DelegateGraphTool;
 pub use list_subagents::ListSubagentsTool;
 pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
+pub(crate) use spawn_async_subagent::SpawnAsyncSubagentDispatch;
 pub use spawn_async_subagent::SpawnAsyncSubagentTool;
 pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;
 pub use spawn_parallel_agents::SpawnParallelAgentsTool;
