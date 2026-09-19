@@ -4154,6 +4154,7 @@ dependencies = [
  "tinyagents-graph",
  "tinyagents-harness",
  "tinyagents-language",
+ "tinyagents-orchestration",
  "tinyagents-registry",
  "tinyagents-session",
  "tinybus",
@@ -6508,6 +6509,22 @@ dependencies = [
  "serde",
  "serde_json",
  "tinyagents-harness",
+]
+
+[[package]]
+name = "tinyagents-orchestration"
+version = "2.1.2"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tinyagents-graph",
+ "tinyagents-harness",
+ "tinyagents-session",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

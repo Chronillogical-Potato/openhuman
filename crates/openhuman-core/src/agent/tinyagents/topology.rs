@@ -45,7 +45,7 @@ fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport
 pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
     let mut out = Vec::new();
 
-    if let Ok(t) = crate::agent::orchestration::agent_teams::member_graph_topology() {
+    if let Ok(t) = tinyagents_orchestration::teams::member_graph_topology() {
         out.push(describe("agent_teams:member", &t));
     }
 

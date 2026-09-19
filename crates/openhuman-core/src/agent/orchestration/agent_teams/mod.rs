@@ -22,20 +22,10 @@
 //! Namespace note: `agent_team` is distinct from the existing `team` domain,
 //! which manages backend org/team membership.
 
-mod graph;
-pub(crate) use graph::member_graph_topology;
-pub mod ops;
 pub mod runtime;
 mod schemas;
-pub mod types;
-
-pub use ops::{
-    assign_task, claim_task, close_team, complete_task, create_team, get_team, list_messages,
-    list_teams, message_member, shutdown_member, NewMember,
-};
 pub use runtime::start_member_run;
 pub use schemas::{
     all_controller_schemas as all_agent_team_controller_schemas,
     all_registered_controllers as all_agent_team_registered_controllers,
 };
-pub use types::{MemberShutdown, StartMemberOutcome, TeamError, TeamView};

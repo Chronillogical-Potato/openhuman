@@ -20,6 +20,7 @@ use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionCo
 use crate::agent::prompts::ToolCallFormat;
 use crate::config::{AgentConfig, Config};
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
+use tinyagents_orchestration::teams::{SessionTeamLedger, TeamService};
 use tinyagents_session::run_ledger::{
     self, AgentTeamMemberStatus, AgentTeamMemberUpsert, AgentTeamStatus, AgentTeamTaskStatus,
     AgentTeamTaskUpsert, AgentTeamUpsert,
@@ -144,6 +145,10 @@ fn test_config() -> (tempfile::TempDir, Config) {
         ..Config::default()
     };
     (dir, config)
+}
+
+fn team_service(config: &Config) -> TeamService<SessionTeamLedger> {
+    TeamService::new(SessionTeamLedger::new(config.workspace_dir.clone()))
 }
 
 fn seed_team(config: &Config, team_id: &str) {
@@ -598,7 +603,8 @@ fn pick_claimable_respects_deps_ownership_and_claim() {
             updated_at: chrono::Utc::now(),
         },
     ];
-    let picked = pick_claimable(&tasks, "m1").expect("c is claimable");
+    let picked =
+        tinyagents_orchestration::teams::claimable_task(&tasks, "m1").expect("c is claimable");
     assert_eq!(picked.id, "c");
 }
 
@@ -608,11 +614,16 @@ fn deliver_pending_messages_injects_then_watermarks() {
     seed_team(&config, "team-1");
     seed_member(&config, "team-1", "m1", None);
     // Direct to m1, a broadcast, and one addressed elsewhere.
-    super::super::ops::message_member(&config, "team-1", None, Some("m1"), "hello m1", None)
+    team_service(&config)
+        .message_member("team-1", None, Some("m1"), "hello m1", None)
         .unwrap();
-    super::super::ops::message_member(&config, "team-1", None, None, "broadcast", None).unwrap();
+    team_service(&config)
+        .message_member("team-1", None, None, "broadcast", None)
+        .unwrap();
     seed_member(&config, "team-1", "m2", None);
-    super::super::ops::message_member(&config, "team-1", None, Some("m2"), "for m2", None).unwrap();
+    team_service(&config)
+        .message_member("team-1", None, Some("m2"), "for m2", None)
+        .unwrap();
 
     let first = deliver_pending_messages(&config, "team-1", "m1").unwrap();
     assert_eq!(first, vec!["hello m1".to_string(), "broadcast".to_string()]);
@@ -647,7 +658,8 @@ fn deliver_pending_messages_pages_past_first_event_page() {
     }
 
     // This message is appended at sequence > 150 — unreachable on the first page.
-    super::super::ops::message_member(&config, "team-1", None, Some("m1"), "late note", None)
+    team_service(&config)
+        .message_member("team-1", None, Some("m1"), "late note", None)
         .unwrap();
 
     let delivered = deliver_pending_messages(&config, "team-1", "m1").unwrap();

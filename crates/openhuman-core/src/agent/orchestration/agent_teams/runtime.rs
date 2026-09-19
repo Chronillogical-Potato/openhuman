@@ -36,11 +36,11 @@ use crate::agent::orchestration::{
 };
 use crate::config::Config;
 use tinyagents_session::run_ledger::{
-    self, AgentTeamMemberStatus, AgentTeamTask, AgentTeamTaskStatus, ClaimOutcome, RunEvent,
+    self, AgentTeamMemberStatus, AgentTeamTask, ClaimOutcome, RunEvent,
     RunEventAppend, RunEventListRequest,
 };
 
-use super::types::{StartMemberOutcome, TeamError};
+use tinyagents_orchestration::teams::{claimable_task, run_member_graph, MemberOutcome, TeamError};
 
 const LOG_TARGET: &str = "agent_team_runtime";
 /// Fallback worker archetype when a member carries no explicit `agent_id`.
@@ -58,6 +58,26 @@ const MEMBER_FAILED_EVENT: &str = "team_member_failed";
 const EVENT_PAGE_SIZE: u32 = 1000;
 /// Cap on how much worker output is captured as evidence (UTF-8 safe).
 const EVIDENCE_MAX_CHARS: usize = 280;
+
+/// Host-side result of accepting a request to run a durable team member.
+///
+/// Actual worker execution remains OpenHuman-specific because it creates a
+/// root parent context, selects a model and tools, and emits host progress.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum StartMemberOutcome {
+    Started {
+        run_id: String,
+        task: Box<AgentTeamTask>,
+    },
+    Blocked {
+        unmet: Vec<String>,
+    },
+    AlreadyClaimed,
+    AlreadyActive,
+    NoClaimableTask,
+    UnknownTask,
+}
 
 /// Start a live run for a team member. **Non-blocking.**
 ///
@@ -112,7 +132,7 @@ pub async fn start_member_run(
             Some(t) => t.clone(),
             None => return Ok(StartMemberOutcome::UnknownTask),
         },
-        None => match pick_claimable(&tasks, member_id) {
+        None => match claimable_task(&tasks, member_id) {
             Some(t) => t.clone(),
             None => return Ok(StartMemberOutcome::NoClaimableTask),
         },
@@ -299,21 +319,21 @@ async fn drive_member(
                     .ok_or_else(|| anyhow!("worker snapshot missing after wait"))?;
 
                 Ok(match snapshot.status {
-                    OrchestrationTaskStatus::Completed => super::graph::MemberOutcome::Completed {
+                    OrchestrationTaskStatus::Completed => MemberOutcome::Completed {
                         output: snapshot.result_summary.unwrap_or_default(),
                     },
                     OrchestrationTaskStatus::Failed
                     | OrchestrationTaskStatus::Cancelled
                     | OrchestrationTaskStatus::CancelRequested
                     | OrchestrationTaskStatus::TimedOut
-                    | OrchestrationTaskStatus::Abandoned => super::graph::MemberOutcome::Failed {
+                    | OrchestrationTaskStatus::Abandoned => MemberOutcome::Failed {
                         reason: snapshot
                             .error
                             .unwrap_or_else(|| "worker ended without completing".to_string()),
                     },
                     // `wait_agents` with no timeout only returns on terminal
                     // status, so this is purely defensive — treat as a failure.
-                    other => super::graph::MemberOutcome::Failed {
+                    other => MemberOutcome::Failed {
                         reason: format!("worker returned non-terminal status {other:?}"),
                     },
                 })
@@ -397,35 +417,7 @@ async fn drive_member(
         }
     };
 
-    super::graph::run_member_execution_graph(
-        &format!("team:{team_id}:{member_id}"),
-        run_worker,
-        on_complete,
-        on_failed,
-    )
-    .await
-}
-
-/// Pick the member's next claimable task: the first (by order) task that is
-/// `todo`/`ready`, unclaimed, owned by no-one or by this member, and whose
-/// dependencies are all `done`.
-fn pick_claimable<'a>(tasks: &'a [AgentTeamTask], member_id: &str) -> Option<&'a AgentTeamTask> {
-    let done: std::collections::HashSet<&str> = tasks
-        .iter()
-        .filter(|t| t.status == AgentTeamTaskStatus::Done)
-        .map(|t| t.id.as_str())
-        .collect();
-    tasks.iter().find(|t| {
-        matches!(
-            t.status,
-            AgentTeamTaskStatus::Todo | AgentTeamTaskStatus::Ready
-        ) && t.claimed_by_member_id.is_none()
-            && t.owner_member_id
-                .as_deref()
-                .map(|o| o == member_id)
-                .unwrap_or(true)
-            && t.depends_on.iter().all(|d| done.contains(d.as_str()))
-    })
+    run_member_graph(run_worker, on_complete, on_failed).await
 }
 
 /// Compose the worker prompt from the task + any pending messages addressed to

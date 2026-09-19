@@ -104,8 +104,8 @@ fn delegation_topology_names_the_revision_loop_nodes() {
 
 #[test]
 fn member_report_renders_mermaid_and_valid_json() {
-    let t = crate::agent::orchestration::agent_teams::member_graph_topology()
-        .expect("member topology builds");
+    let t =
+        tinyagents_orchestration::teams::member_graph_topology().expect("member topology builds");
     let report = describe("agent_teams:member", &t);
 
     // Mermaid is a flowchart with at least the entry node rendered.
