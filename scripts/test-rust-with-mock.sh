@@ -71,7 +71,7 @@ fi
 # contributor set. Without them the four `required-features` integration
 # targets (json_rpc_e2e, raw_coverage_all, observability_smoke,
 # x402_twit_sh_live) are silently SKIPPED and the run still exits 0 — the same
-# trap `--features bin-tools` already guards for the `crates/openhuman-core/src/bin/` targets.
+# trap `--features bin-tools` already guards for the `crates/openhuman-cli/src/bin/` targets.
 # Source of truth: scripts/ci/product-features.txt.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
 

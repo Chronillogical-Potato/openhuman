@@ -5,7 +5,7 @@ icon: desktop
 
 # Tauri shell (`crates/openhuman-app/`)
 
-The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the embedded `openhuman-core` Rust runtime (core JSON-RPC). It does **not** duplicate the full domain stack; that lives in `crates/openhuman-core` (library `openhuman_core`, CLI at `crates/openhuman-core/src/main.rs`).
+The desktop host for OpenHuman: Tauri v2 + WebView, IPC commands, window management, and bridging to the embedded `openhuman-core` Rust runtime (core JSON-RPC). It does **not** duplicate the full domain stack; that lives in `crates/openhuman-core` (library `openhuman_core`; the `openhuman-core` binary is `crates/openhuman-cli/src/main.rs`).
 
 ## Responsibilities
 
