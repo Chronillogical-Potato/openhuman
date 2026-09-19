@@ -338,7 +338,7 @@ filetime = "0.2"
 flate2 = "1"
 futures-util = "0.3"
 hex = "0.4"
-lettre = { version = "0.11", default-features = false, features = ["builder"] }
+lettre = { version = "0.11.22", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"] }
 parking_lot = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 sha2 = "0.10"
