@@ -167,14 +167,14 @@ async fn sdk_route_policy_refuses_unexposed_routes_before_sending() {
     let err = transport
         .send_json(request(
             &server.uri(),
-            reqwest::Method::GET,
-            "/webhooks/core",
+            reqwest::Method::POST,
+            "/admin/coupons",
             None,
             true,
         ))
         .await
         .unwrap_err();
-    assert!(matches!(err, BackendTransportError::RouteNotExposed(m, p) if m == "GET" && p.contains("webhooks")));
+    assert!(matches!(err, BackendTransportError::RouteNotExposed(m, p) if m == "POST" && p.contains("admin")));
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
