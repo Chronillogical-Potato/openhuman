@@ -21,9 +21,9 @@ use crate::agent::harness::turn_dispatch_guard::TurnDispatchState;
 use crate::agent::harness::turn_subagent_usage::SubagentUsageEntry;
 use crate::agent::progress::AgentProgress;
 use crate::agent::stop_hooks::StopHook;
-use crate::agent::tinyagents::resolved_route::RouteSlot;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 use crate::agent::turn_origin::AgentTurnOrigin;
+use tinyinference_llm::model::ResolvedModelRoute;
 
 /// Explicit OpenHuman data carried by a top-level or child agent run.
 ///
@@ -59,8 +59,10 @@ pub struct OpenHumanRunContext {
     pub spawn_depth: usize,
     /// This run's subagent usage roll-up; intentionally isolated for children.
     pub subagent_usage: Arc<Mutex<Vec<SubagentUsageEntry>>>,
-    /// Provider/model observation for this run; intentionally isolated for children.
-    pub resolved_route: RouteSlot,
+    /// Provider/model/host-route observation for this run, written from the
+    /// canonical response metadata by typed model middleware. Intentionally
+    /// isolated for children.
+    pub(crate) resolved_route: Arc<Mutex<Option<ResolvedModelRoute>>>,
     /// Cooperative cancellation shared by the complete recursive run tree.
     pub cancellation: tinyagents_harness::cancel::CancellationToken,
     /// Thread attached to provider requests and host persistence.
@@ -91,9 +93,6 @@ impl OpenHumanRunContext {
         context.stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
         context.dispatch = crate::agent::harness::turn_dispatch_guard::current();
         context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
-        if let Some(slot) = crate::agent::tinyagents::current_route_slot() {
-            context.resolved_route = slot;
-        }
         if let Some(cancellation) = crate::agent::tinyagents::current_run_cancellation() {
             context.cancellation = cancellation;
         }

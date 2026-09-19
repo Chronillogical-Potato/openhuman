@@ -280,6 +280,43 @@ impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     }
 }
 
+/// Captures the concrete provider/model/host-route selected for a successful
+/// call from TinyInference's canonical response metadata.
+///
+/// `tinyinference_llm::model::RouteRecordingModel` decorates both unary
+/// responses and stream terminal metadata. The harness folds a stream into its
+/// terminal `ModelResponse` before middleware regains control, so this one
+/// typed boundary records primary and fallback routes identically without an
+/// OpenHuman model wrapper or task-local propagation.
+pub(super) struct ResolvedRouteMiddleware;
+
+#[async_trait]
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ResolvedRouteMiddleware
+{
+    fn name(&self) -> &str {
+        "openhuman.resolved_route"
+    }
+
+    async fn wrap_model(
+        &self,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        state: &(),
+        request: ModelRequest,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
+        let outcome = next.run(ctx, state, request).await?;
+        let response = outcome.into_response();
+        if let Some(route) = response.resolved_route.clone() {
+            *ctx.data
+                .resolved_route
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(route);
+        }
+        Ok(MiddlewareModelOutcome::from(response))
+    }
+}
+
 #[cfg(test)]
 #[path = "routes_tests.rs"]
 mod tests;

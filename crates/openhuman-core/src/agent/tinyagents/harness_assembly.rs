@@ -210,6 +210,12 @@ pub(super) fn assemble_turn_harness(
         provider_usage_carry.clone(),
     )));
 
+    // Route audit capture is a typed run-context concern. The canonical
+    // TinyInference decorator attached in `turn_models` stamps the successful
+    // unary response and the streamed terminal response, and this middleware
+    // moves that metadata into the explicit OpenHuman carrier.
+    harness.push_model_middleware(Arc::new(routes::ResolvedRouteMiddleware));
+
     // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
     // derivable capability needs (today: vision for a `vision-v1` turn), stamp
     // them onto every `ModelRequest` via `with_required_capabilities` so an unfit

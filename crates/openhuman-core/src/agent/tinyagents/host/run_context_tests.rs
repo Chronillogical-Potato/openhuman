@@ -23,9 +23,10 @@ fn child_inherits_tree_handles_but_isolates_observations_and_usage() {
     parent.thread_id = Some("thread-a".to_string());
     parent.file_state_agent_id = Some("parent-file-state".to_string());
     *parent.resolved_route.lock().expect("route lock") =
-        Some(crate::agent::tinyagents::ResolvedProviderRoute {
+        Some(tinyinference_llm::model::ResolvedModelRoute {
             provider: "provider-a".to_string(),
             model: "model-a".to_string(),
+            route: "chat-v1".to_string(),
         });
 
     let child = parent.child();
@@ -68,7 +69,6 @@ async fn snapshots_live_root_scopes_before_child_dispatch() {
     let root = tempfile::tempdir().expect("workspace");
     let (progress, _rx) = tokio::sync::mpsc::channel(1);
     let cancellation = tinyagents_harness::cancel::CancellationToken::new();
-    let route = std::sync::Arc::new(std::sync::Mutex::new(None));
 
     crate::agent::turn_origin::with_origin(
         crate::agent::turn_origin::AgentTurnOrigin::Cli,
@@ -78,39 +78,37 @@ async fn snapshots_live_root_scopes_before_child_dispatch() {
                 progress.clone(),
                 crate::agent::tinyagents::thread_context::with_thread_id(
                     "thread-a",
-                    crate::agent::tinyagents::with_route_slot(
-                        route.clone(),
-                        crate::agent::tinyagents::run_cancellation_context::with_run_cancellation(
-                            cancellation.clone(),
-                            crate::agent::harness::turn_dispatch_guard::with_dispatch_guard(
-                                None,
-                                async {
-                                    let expected_dispatch =
-                                        crate::agent::harness::turn_dispatch_guard::current()
-                                            .expect("dispatch scope");
-                                    let captured = OpenHumanRunContext::from_current_scopes();
-                                    assert!(matches!(
-                                        captured.origin,
-                                        Some(crate::agent::turn_origin::AgentTurnOrigin::Cli)
-                                    ));
-                                    assert!(captured.progress.is_some());
-                                    assert_eq!(captured.thread_id.as_deref(), Some("thread-a"));
-                                    assert_eq!(
-                                        captured.workspace.expect("workspace").root,
-                                        root.path()
-                                    );
-                                    assert!(std::sync::Arc::ptr_eq(
-                                        captured.dispatch.as_ref().expect("dispatch"),
-                                        &expected_dispatch,
-                                    ));
-                                    assert!(std::sync::Arc::ptr_eq(
-                                        &captured.resolved_route,
-                                        &route
-                                    ));
-                                    cancellation.cancel();
-                                    assert!(captured.cancellation.is_cancelled());
-                                },
-                            ),
+                    crate::agent::tinyagents::run_cancellation_context::with_run_cancellation(
+                        cancellation.clone(),
+                        crate::agent::harness::turn_dispatch_guard::with_dispatch_guard(
+                            None,
+                            async {
+                                let expected_dispatch =
+                                    crate::agent::harness::turn_dispatch_guard::current()
+                                        .expect("dispatch scope");
+                                let captured = OpenHumanRunContext::from_current_scopes();
+                                assert!(matches!(
+                                    captured.origin,
+                                    Some(crate::agent::turn_origin::AgentTurnOrigin::Cli)
+                                ));
+                                assert!(captured.progress.is_some());
+                                assert_eq!(captured.thread_id.as_deref(), Some("thread-a"));
+                                assert_eq!(
+                                    captured.workspace.expect("workspace").root,
+                                    root.path()
+                                );
+                                assert!(std::sync::Arc::ptr_eq(
+                                    captured.dispatch.as_ref().expect("dispatch"),
+                                    &expected_dispatch,
+                                ));
+                                assert!(captured
+                                    .resolved_route
+                                    .lock()
+                                    .expect("route lock")
+                                    .is_none());
+                                cancellation.cancel();
+                                assert!(captured.cancellation.is_cancelled());
+                            },
                         ),
                     ),
                 ),

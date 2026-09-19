@@ -410,67 +410,6 @@ pub(super) struct ProfileOverrideModel {
     request_temperature: Option<f64>,
 }
 
-/// Records the concrete provider/model selected by a crate-native turn model.
-///
-/// TinyAgents' registry records the selected registry key (for example
-/// `chat-v1`) on `ModelResponse`, but channel audit events also need the
-/// provider and concrete wire model. Each registered route is wrapped with
-/// this metadata at construction time. Recording immediately before dispatch
-/// means retries are harmless and a successful fallback leaves the last
-/// attempted (therefore handling) route in the ambient turn slot.
-pub(super) struct RouteRecordingModel {
-    inner: Arc<dyn ChatModel<()>>,
-    provider: String,
-    model: String,
-}
-
-impl RouteRecordingModel {
-    pub(super) fn new(
-        inner: Arc<dyn ChatModel<()>>,
-        provider: impl Into<String>,
-        model: impl Into<String>,
-    ) -> Self {
-        Self {
-            inner,
-            provider: provider.into(),
-            model: model.into(),
-        }
-    }
-
-    fn record_route(&self) {
-        super::record_resolved_provider_route(&self.provider, &self.model);
-    }
-}
-
-#[async_trait]
-impl ChatModel<()> for RouteRecordingModel {
-    fn profile(&self) -> Option<&ModelProfile> {
-        self.inner.profile()
-    }
-
-    fn cache_identity(&self) -> Option<String> {
-        self.inner.cache_identity()
-    }
-
-    async fn invoke(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelResponse> {
-        self.record_route();
-        self.inner.invoke(state, request).await
-    }
-
-    async fn stream(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelStream> {
-        self.record_route();
-        self.inner.stream(state, request).await
-    }
-}
-
 impl ProfileOverrideModel {
     pub(super) fn new(inner: Arc<dyn ChatModel<()>>, profile: ModelProfile) -> Self {
         Self {
@@ -583,10 +522,6 @@ impl ChatModel<()> for MaxTokensModel {
         self.inner.stream(state, self.cap(request)).await
     }
 }
-
-#[cfg(test)]
-#[path = "model_route_recording_tests_tests.rs"]
-mod route_recording_tests;
 
 #[cfg(test)]
 #[path = "model_g1_usage_tests_tests.rs"]

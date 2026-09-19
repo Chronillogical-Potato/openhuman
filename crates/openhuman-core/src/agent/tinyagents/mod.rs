@@ -47,7 +47,6 @@ pub mod payload_summarizer;
 mod policy_denial;
 pub(crate) mod reaper;
 pub(crate) mod replay;
-pub mod resolved_route;
 pub(crate) mod retriever;
 mod routes;
 pub(crate) mod run_cancellation_context;
@@ -76,10 +75,6 @@ pub(crate) use middleware::{
     TurnContextMiddleware,
 };
 pub(crate) use observability::SubagentScope;
-pub use resolved_route::{
-    current_resolved_provider_route, current_route_slot, record_resolved_provider_route,
-    with_resolved_provider_route_scope, with_route_slot, ResolvedProviderRoute, RouteSlot,
-};
 pub(crate) use run_cancellation_context::current_run_cancellation;
 pub(crate) use topology::all_graph_topologies;
 pub use turn_models::TurnModelSource;

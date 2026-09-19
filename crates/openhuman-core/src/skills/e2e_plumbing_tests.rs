@@ -209,7 +209,7 @@ async fn mock_llm_orchestrator_lists_and_runs_workflows_through_the_loop() {
     .await
     .expect("tool loop should run to completion");
 
-    assert_eq!(result, "done");
+    assert_eq!(result.text, "done");
 
     let tool_msgs: String = history
         .iter()

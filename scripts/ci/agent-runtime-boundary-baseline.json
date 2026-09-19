@@ -9,7 +9,7 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/harness/graph.rs",
-    "line": 122,
+    "line": 123,
     "text": "let outcome = run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
@@ -72,7 +72,7 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 91,
+    "line": 86,
     "text": "pub(crate) use turn_runner::run_turn_via_tinyagents_shared;",
     "occurrence": 1
   },
@@ -86,14 +86,14 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 199,
+    "line": 200,
     "text": "pub(crate) async fn run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 257,
+    "line": 258,
     "text": "} = assemble_turn_harness(",
     "occurrence": 1
   },
@@ -114,36 +114,22 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 37,
+    "line": 34,
     "text": "use super::harness::{run_channel_turn_via_graph, with_current_sandbox_mode};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 294,
-    "text": "let (text, resolved_route) = with_resolved_provider_route_scope(async {",
+    "line": 291,
+    "text": "let outcome = turn_origin::with_origin(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/bus.rs",
     "line": 295,
-    "text": "let text = turn_origin::with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 299,
     "text": "with_current_sandbox_mode(sandbox_mode, async {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 327,
-    "text": "let resolved_route = current_resolved_provider_route();",
     "occurrence": 1
   },
   {
@@ -1283,155 +1269,64 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 89,
+    "line": 91,
     "text": "context.origin = crate::agent::turn_origin::current();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 90,
+    "line": 92,
     "text": "context.progress = crate::agent::progress_sink::current_progress_sink();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 92,
+    "line": 94,
     "text": "context.dispatch = crate::agent::harness::turn_dispatch_guard::current();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 93,
+    "line": 95,
     "text": "context.thread_id = crate::agent::tinyagents::thread_context::current_thread_id();",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 94,
-    "text": "if let Some(slot) = crate::agent::tinyagents::current_route_slot() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 97,
+    "line": 96,
     "text": "if let Some(cancellation) = crate::agent::tinyagents::current_run_cancellation() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/host/run_context.rs",
-    "line": 100,
+    "line": 99,
     "text": "context.workspace = crate::agent::turn_workspace::current()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 50,
-    "text": "pub mod resolved_route;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 53,
+    "line": 52,
     "text": "pub(crate) mod run_cancellation_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 57,
+    "line": 56,
     "text": "pub mod thread_context;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 83,
-    "text": "pub(crate) use run_cancellation_context::current_run_cancellation;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/model.rs",
-    "line": 441,
-    "text": "super::record_resolved_provider_route(&self.provider, &self.model);",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 23,
-    "text": "tokio::task_local! {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 24,
-    "text": "static RESOLVED_PROVIDER_ROUTE: RouteSlot;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 32,
-    "text": "let out = RESOLVED_PROVIDER_ROUTE",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 39,
-    "text": "pub fn record_resolved_provider_route(provider: impl Into<String>, model: impl Into<String>) {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 46,
-    "text": "let wrote = RESOLVED_PROVIDER_ROUTE",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 65,
-    "text": "pub fn current_route_slot() -> Option<RouteSlot> {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 66,
-    "text": "RESOLVED_PROVIDER_ROUTE.try_with(|slot| slot.clone()).ok()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
     "line": 78,
-    "text": "RESOLVED_PROVIDER_ROUTE.scope(slot, Box::pin(future)).await",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 81,
-    "text": "pub fn current_resolved_provider_route() -> Option<ResolvedProviderRoute> {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/resolved_route.rs",
-    "line": 82,
-    "text": "let route = RESOLVED_PROVIDER_ROUTE",
+    "text": "pub(crate) use run_cancellation_context::current_run_cancellation;",
     "occurrence": 1
   },
   {
@@ -1514,21 +1409,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 587,
-    "text": "let run_result = crate::agent::tinyagents::with_route_slot(run_route_slot, async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 588,
+    "line": 589,
     "text": "crate::agent::tinyagents::thread_context::with_thread_id(run_thread_id, async move {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 589,
+    "line": 590,
     "text": "with_run_cancellation(cancellation.clone(), async {",
     "occurrence": 1
   },
@@ -2501,7 +2389,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 963,
+    "line": 998,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
     "occurrence": 1
   },

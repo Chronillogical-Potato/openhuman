@@ -39,9 +39,10 @@ use crate::agent::tinyagents::TurnModelSource;
 use crate::config::{MultimodalConfig, MultimodalFileConfig};
 use tinytools::Tool;
 
-/// Drive a channel/CLI turn on the graph engine. Returns the final assistant
-/// text. When `on_progress` is `Some`, the run streams and mirrors progress
-/// onto `AgentProgress`; pass `None` for a fire-and-forget final-text turn.
+/// Drive a channel/CLI turn on the graph engine. Returns the explicit turn
+/// outcome, including the concrete route selected by the model runtime. When
+/// `on_progress` is `Some`, the run streams and mirrors progress onto
+/// `AgentProgress`; pass `None` for a fire-and-forget final-text turn.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_channel_turn_via_graph(
     source: TurnModelSource,
@@ -55,7 +56,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     multimodal: MultimodalConfig,
     multimodal_files: MultimodalFileConfig,
     on_progress: Option<Sender<AgentProgress>>,
-) -> Result<String> {
+) -> Result<crate::agent::tinyagents::TinyagentsTurnOutcome> {
     let extra_arc = Arc::new(extra_tools);
 
     // The callable set is the visibility whitelist. The runner advertises each via
@@ -188,7 +189,7 @@ pub(crate) async fn run_channel_turn_via_graph(
         // that the agent had asked anything.
         history.push(ChatMessage::assistant(outcome.text.clone()));
     }
-    Ok(outcome.text)
+    Ok(outcome)
 }
 
 #[cfg(test)]

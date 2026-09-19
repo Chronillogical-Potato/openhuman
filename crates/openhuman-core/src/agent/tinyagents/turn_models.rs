@@ -4,9 +4,10 @@
 use std::sync::Arc;
 
 use crate::agent::tinyagents::model::{
-    BuiltTurnModels, ProfileOverrideModel, RouteRecordingModel, TierRoutes, TurnChatModel,
+    BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel,
 };
 use crate::agent::tinyagents::routes;
+use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
 pub(crate) fn tinyagents_depth_error(
     err: &tinyagents_harness::TinyAgentsError,
@@ -133,8 +134,7 @@ fn build_turn_models_crate(
         }?;
         Ok(Arc::new(RouteRecordingModel::new(
             model,
-            provider,
-            resolved_model,
+            ResolvedModelRoute::new(provider, resolved_model, m),
         )))
     };
 
@@ -168,8 +168,7 @@ fn build_turn_models_crate(
                         tier.to_string(),
                         Arc::new(RouteRecordingModel::new(
                             route_model,
-                            provider,
-                            resolved_model,
+                            ResolvedModelRoute::new(provider, resolved_model, tier),
                         )),
                     )),
                     Err(e) => {

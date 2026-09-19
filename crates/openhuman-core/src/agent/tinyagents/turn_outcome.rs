@@ -2,12 +2,17 @@
 //! sinks middleware write into to build it.
 
 use crate::agent::messages::{ChatMessage, ConversationMessage};
+use tinyinference_llm::model::ResolvedModelRoute;
 
 /// The outcome of a turn driven on the `tinyagents` harness.
 #[derive(Debug, Clone)]
 pub(crate) struct TinyagentsTurnOutcome {
     /// Final assistant text.
     pub text: String,
+    /// Concrete provider/model/host route selected for the final successful
+    /// model call. This travels explicitly to channel and bus callers; it is
+    /// never recovered from a task-local after the run.
+    pub resolved_route: Option<ResolvedModelRoute>,
     /// The full transcript, converted back to openhuman messages (flat — tool
     /// calls rendered as text).
     pub history: Vec<ChatMessage>,

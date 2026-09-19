@@ -184,9 +184,12 @@ The inference crate owns information that is true at a model call boundary:
 - OpenHuman maps its provider DTO at the provider boundary and keeps pricing
   policy and tier selection host-side.
 
-This removes `MaxTokensModel`, `ProfileOverrideModel`, `RouteRecordingModel`,
-the raw `openhuman_usage_meta` envelope, `UsageCarryMiddleware`, and
-`AbortOnDrop` from `agent/tinyagents/`.
+The canonical `RouteRecordingModel` stamps this metadata on unary responses
+and stream terminal metadata. OpenHuman's typed model middleware copies only
+the successful response route into its explicit run context, and the turn
+outcome carries it to channel callers. This removes the OpenHuman
+`RouteRecordingModel` and resolved-route task-local bridge; the remaining
+host wrappers stay only while their product policy is not yet upstream.
 
 ### Explicit recursive context
 
@@ -314,7 +317,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `host/*` | Keep as the ten OpenHuman adapter implementations; wire all into one bundle factory. |
 | `harness_assembly.rs`, `harness_context_ladder.rs`, `harness_tool_registration.rs`, `turn_runner.rs` | Delete after host-driven invocation owns assembly and live routes switch. |
 | `convert.rs`, `tools.rs` | Delete after canonical `tinytools::Tool` adoption. |
-| `model.rs`, `abort_guard.rs`, `resolved_route.rs`, route/usage helpers in `routes.rs` | Move generic pieces to `tinyinference-llm`; keep tier/fallback choice in host model resolver; delete task-local route slot. |
+| `model.rs`, `abort_guard.rs`, route/usage helpers in `routes.rs` | Move generic pieces to `tinyinference-llm`; keep tier/fallback choice in host model resolver. Route observation already uses TinyInference response metadata and an explicit OpenHuman run-context field; no task-local slot remains. |
 | `middleware/{arg_recovery,message_trim,prompt_cache,repeat_progress,repeated_failure,final_call_wrap_up,artifact_index_toc,credential_scrub}.rs` | Move generic mechanism to harness, parameterized by policy/callbacks. |
 | `middleware/{approval,cli_rpc_only,cost_budget,embedder_hooks,memory_protocol,packed_tool_route,tool_exposure,tool_outcome_capture,tool_output,tool_policy,turn_context}.rs` | Split: upstream lifecycle/mechanics; OpenHuman policy and domain adapters remain behind host traits/context. No forwarding middleware module. |
 | `middleware/loop_guards.rs` | Move generic terminal/no-progress behavior to harness. |

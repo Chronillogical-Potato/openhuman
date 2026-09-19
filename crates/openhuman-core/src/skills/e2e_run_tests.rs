@@ -247,7 +247,7 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     .await
     .expect("orchestrator loop should complete");
 
-    assert_eq!(result, "ORCHESTRATOR_DONE");
+    assert_eq!(result.text, "ORCHESTRATOR_DONE");
     // The run_workflow tool result (carrying the inner run's DONE outcome) must
     // have flowed back into the conversation.
     let tool_msgs: String = history

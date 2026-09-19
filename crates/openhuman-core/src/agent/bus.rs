@@ -22,9 +22,6 @@ use tokio::sync::mpsc;
 
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::{
-    current_resolved_provider_route, with_resolved_provider_route_scope,
-};
 use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::config::MultimodalConfig;
 use crate::core::bus::BUS;
@@ -291,43 +288,41 @@ async fn handle_agent_run_turn(req: AgentTurnRequest) -> Result<AgentTurnRespons
         channel_name,
         target_agent_id.as_deref().unwrap_or("root")
     );
-    let (text, resolved_route) = with_resolved_provider_route_scope(async {
-        let text = turn_origin::with_origin(
-            origin,
-            with_file_state_agent_id(
-                file_state_id,
-                with_current_sandbox_mode(sandbox_mode, async {
-                    // Channel/CLI turns run through the tinyagents harness
-                    // (issue #4249); the legacy `run_tool_call_loop` is removed.
-                    // `on_progress` mirrors the harness event stream (tool
-                    // timeline, text deltas, cost footer) — production channel
-                    // dispatch always supplies it and now expects it live.
-                    // `on_delta` (raw Sender<String>) is superseded by
-                    // `on_progress` text deltas, so it's intentionally unused.
-                    let _ = (&provider_name, silent, &channel_name, on_delta);
-                    run_channel_turn_via_graph(
-                        turn_model_source.clone(),
-                        &mut history,
-                        tools_registry.clone(),
-                        extra_tools,
-                        visible_tool_names.as_ref(),
-                        &model,
-                        temperature,
-                        max_tool_iterations,
-                        multimodal.clone(),
-                        multimodal_files.clone(),
-                        on_progress,
-                    )
-                    .await
-                }),
-            ),
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-        let resolved_route = current_resolved_provider_route();
-        Ok::<_, String>((text, resolved_route))
-    })
-    .await?;
+    let outcome = turn_origin::with_origin(
+        origin,
+        with_file_state_agent_id(
+            file_state_id,
+            with_current_sandbox_mode(sandbox_mode, async {
+                // Channel/CLI turns run through the tinyagents harness
+                // (issue #4249); the legacy `run_tool_call_loop` is removed.
+                // `on_progress` mirrors the harness event stream (tool
+                // timeline, text deltas, cost footer) — production channel
+                // dispatch always supplies it and now expects it live.
+                // `on_delta` (raw Sender<String>) is superseded by
+                // `on_progress` text deltas, so it's intentionally unused.
+                let _ = (&provider_name, silent, &channel_name, on_delta);
+                run_channel_turn_via_graph(
+                    turn_model_source.clone(),
+                    &mut history,
+                    tools_registry.clone(),
+                    extra_tools,
+                    visible_tool_names.as_ref(),
+                    &model,
+                    temperature,
+                    max_tool_iterations,
+                    multimodal.clone(),
+                    multimodal_files.clone(),
+                    on_progress,
+                )
+                .await
+            }),
+        ),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let text = outcome.text;
+    let resolved_route = outcome.resolved_route;
 
     tracing::debug!(
         channel = %channel_name,

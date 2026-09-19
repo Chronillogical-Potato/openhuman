@@ -137,6 +137,7 @@ pub(crate) async fn run_turn_via_tinyagents(
 
     Ok(TinyagentsTurnOutcome {
         text,
+        resolved_route: None,
         history: out_history,
         conversation,
         model_calls: run.model_calls,
@@ -579,12 +580,12 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    // The route/thread/cancellation scopes remain for legacy tool/model APIs
-    // outside the typed TinyAgents surface. Their values come from the explicit
-    // carrier, so detached and nested drives retain the intended identity.
+    // Thread and cancellation scopes remain for legacy tool/model APIs outside
+    // the typed TinyAgents surface. Route metadata is carried exclusively by
+    // the typed run context and canonical model response.
     let run_thread_id = run_context.thread_id.clone().unwrap_or_default();
-    let run_route_slot = run_context.resolved_route.clone();
-    let run_result = crate::agent::tinyagents::with_route_slot(run_route_slot, async move {
+    let resolved_route_slot = run_context.resolved_route.clone();
+    let run_result =
         crate::agent::tinyagents::thread_context::with_thread_id(run_thread_id, async move {
             with_run_cancellation(cancellation.clone(), async {
                 if streaming {
@@ -615,9 +616,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             })
             .await
         })
-        .await
-    })
-    .await;
+        .await;
     // Drive future returned: run cleanup now (abort poll task + deregister +
     // requeue residual steers) rather than deferring to end-of-scope so the poll
     // loop cannot deliver into the no-longer-drained handle during post-run
@@ -638,6 +637,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         }
     };
 
+    let resolved_route = resolved_route_slot
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
     Ok(finalize_turn_outcome(
         run,
         model,
@@ -653,6 +656,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         &halt_summary,
         &wrap_up_fired,
         &tool_outcome_sink,
+        resolved_route,
         request_base_len,
     )
     .await)
