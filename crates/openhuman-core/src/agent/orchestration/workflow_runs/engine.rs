@@ -51,21 +51,6 @@
 
 mod cancel;
 mod lifecycle;
-mod phase_exec;
-mod scheduler;
-mod state;
-
-#[cfg(test)]
-#[path = "engine_tests.rs"]
-mod engine_tests;
-
 pub(super) const LOG_TARGET: &str = "workflow_run_engine";
 
 pub use lifecycle::{resume_workflow_run, start_workflow_run, stop_workflow_run};
-pub(crate) use phase_exec::{execute_phase, PhaseExecOutcome};
-pub(crate) use scheduler::{select_next_phase, PhaseSelection};
-
-#[cfg(test)]
-pub(crate) use lifecycle::run_engine_loop;
-#[cfg(test)]
-pub(crate) use state::init_phase_states;

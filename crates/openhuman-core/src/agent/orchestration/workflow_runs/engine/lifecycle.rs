@@ -3,6 +3,8 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
+use std::sync::Arc;
+use tinyagents_orchestration::workflow::{SessionWorkflowStore, WorkflowEngine};
 
 use crate::agent::orchestration::parent_context::with_root_parent;
 use crate::config::Config;
@@ -11,8 +13,9 @@ use tinyagents_session::run_ledger::{
 };
 
 use super::super::ops::definition_by_id;
-use super::cancel::{clear_cancel_flag, lookup_cancel_flag, register_cancel_flag};
-use super::state::{init_phase_states, persist};
+use super::cancel::{
+    clear_cancel_flag, lookup_cancel_signal, register_cancel_flag, register_cancel_signal,
+};
 use super::LOG_TARGET;
 use tinyagents_orchestration::workflow::WorkflowDefinition;
 
@@ -37,24 +40,15 @@ pub async fn start_workflow_run(
         .ok_or_else(|| anyhow!("unknown workflow definition: {definition_id}"))?;
 
     let run_id = format!("wfrun-{}", uuid::Uuid::new_v4());
-    let phase_states = init_phase_states(&definition);
-
-    let run = upsert_workflow_run(
-        &config.workspace_dir,
-        WorkflowRunUpsert {
-            id: run_id.clone(),
-            definition_id: definition.id.clone(),
-            parent_thread_id,
-            input: input.clone(),
-            phase_states,
-            child_run_ids: Vec::new(),
-            status: WorkflowRunStatus::Running,
-            summary: None,
-            started_at: None,
-            completed_at: None,
-        },
-    )
-    .context("persist initial workflow run")?;
+    let initial_engine = WorkflowEngine::new(
+        Arc::new(SessionWorkflowStore::new(config.workspace_dir.clone())),
+        Arc::new(super::super::host::OpenHumanWorkflowExecutor::new(
+            &run_id, None,
+        )),
+    );
+    let run = initial_engine
+        .initialise(run_id.clone(), &definition, input.clone(), parent_thread_id)
+        .context("persist initial workflow run")?;
 
     register_cancel_flag(&run_id);
 
@@ -223,10 +217,36 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
 /// an owned [`Config`]. Errors are recorded on the run row (status `Failed`)
 /// rather than propagated — there is no caller to receive them.
 pub(crate) async fn run_engine_loop(config: &Config, run_id: &str, definition: WorkflowDefinition) {
-    let cancel = lookup_cancel_flag(run_id).unwrap_or_else(|| register_cancel_flag(run_id));
+    let cancel = lookup_cancel_signal(run_id).unwrap_or_else(|| register_cancel_signal(run_id));
+
+    let model_override = get_workflow_run(&config.workspace_dir, run_id)
+        .ok()
+        .flatten()
+        .and_then(|run| {
+            run.input
+                .get("modelOverride")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .filter(|model| !model.trim().is_empty());
+    let engine = WorkflowEngine::new(
+        Arc::new(SessionWorkflowStore::new(config.workspace_dir.clone())),
+        Arc::new(super::super::host::OpenHumanWorkflowExecutor::new(
+            run_id,
+            model_override,
+        )),
+    )
+    .with_event_sink(Arc::new(
+        crate::agent::tinyagents::observability::GraphTracingSink::new(format!(
+            "workflow:{run_id}"
+        )),
+    ));
 
     let outcome = with_root_parent(config, "workflow_engine", "workflow", "workflow", async {
-        super::super::graph::drive_phases(config, run_id, &definition, &cancel).await
+        engine
+            .drive(run_id, &definition, cancel.token.clone())
+            .await
+            .map_err(anyhow::Error::msg)
     })
     .await
     // Flatten: outer Err = root-parent build failure, inner = drive_phases result.
@@ -246,14 +266,20 @@ pub(crate) async fn run_engine_loop(config: &Config, run_id: &str, definition: W
                     | WorkflowRunStatus::Cancelled
                     | WorkflowRunStatus::Interrupted
             ) {
-                let _ = persist(
-                    config,
-                    &run,
-                    run.phase_states.clone(),
-                    run.child_run_ids.clone(),
-                    WorkflowRunStatus::Failed,
-                    Some(format!("engine error: {err}")),
-                    true,
+                let _ = upsert_workflow_run(
+                    &config.workspace_dir,
+                    WorkflowRunUpsert {
+                        id: run.id.clone(),
+                        definition_id: run.definition_id.clone(),
+                        parent_thread_id: run.parent_thread_id.clone(),
+                        input: run.input.clone(),
+                        phase_states: run.phase_states.clone(),
+                        child_run_ids: run.child_run_ids.clone(),
+                        status: WorkflowRunStatus::Failed,
+                        summary: Some(format!("engine error: {err}")),
+                        started_at: Some(run.started_at),
+                        completed_at: Some(chrono::Utc::now()),
+                    },
                 );
             }
         }

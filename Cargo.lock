@@ -6518,6 +6518,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "parking_lot",
  "serde",
  "serde_json",
  "tinyagents-graph",
