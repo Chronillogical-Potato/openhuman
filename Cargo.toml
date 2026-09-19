@@ -10,6 +10,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/openhuman-cli",
     "crates/openhuman-core",
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
