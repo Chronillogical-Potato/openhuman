@@ -1,0 +1,27 @@
+# Shared tinyanalyzer configuration for scripts/dep-audit/run.sh.
+#
+# It is passed with `--config` to every target so the sweep behaves the same in
+# the root workspace and in each vendored submodule regardless of whether that
+# repository ships its own tinyanalyzer.toml. Only dependency-related settings
+# matter here; file/complexity findings are ignored by the report.
+
+[scan]
+# Submodule checkouts inside a target are separate targets of their own.
+exclude = ["vendor/**", "worktrees/**", "target/**", "node_modules/**"]
+
+[dependencies]
+# Also charge test/benchmark-only dependencies so the heavy-dependency table
+# reflects what CI actually compiles.
+include_dev = true
+
+# Crates that are reached exclusively through `#[derive(...)]` / attribute
+# macros and so never appear in a `use` or path. tinyanalyzer's unused check is
+# textual ("no source file names the crate"), so these are near-certain false
+# positives. Keep the list short and justified: every entry hides a real
+# finding for that crate everywhere.
+ignore_unused = [
+  # `#[derive(Error)]` + `#[error("...")]` when imported via `use thiserror::Error`
+  # is *named*; only fully qualified `#[derive(thiserror::Error)]` is not, and
+  # the codebase mixes both, so hide the noise.
+  "thiserror",
+]
