@@ -55,7 +55,16 @@ const summary = {
     direct: data.dependencies.packages.filter((p) => p.is_direct).length,
     unused: unusedFor(target, data),
     duplicates: data.dependencies.duplicates
-      .map((d) => ({ name: d.name, versions: d.versions }))
+      .map((d) => ({
+        name: d.name,
+        versions: d.versions,
+        via: Object.fromEntries(
+          d.versions.map((v) => {
+            const pkg = data.dependencies.packages.find((p) => p.name === d.name && p.version === v);
+            return [v, pkg ? pulledInVia(data, pkg.id) : "?"];
+          }),
+        ),
+      }))
       .sort((a, b) => b.versions.length - a.versions.length || a.name.localeCompare(b.name)),
     heavy: heavyFor(data, top),
   })),
@@ -181,6 +190,82 @@ function grepAny(dirs, pattern) {
   }
 }
 
+/**
+ * Reverse adjacency (`to` id -> set of `from` ids) plus an id -> package index,
+ * built once per target so the duplicate and unused sections can answer "who
+ * pulls this in" without shelling out to `cargo tree`.
+ */
+function graphIndex(data) {
+  if (data.__graph) return data.__graph;
+  const byId = new Map(data.dependencies.packages.map((p) => [p.id, p]));
+  const parents = new Map();
+  for (const e of data.dependencies.edges) {
+    if (!parents.has(e.to)) parents.set(e.to, new Set());
+    parents.get(e.to).add(e.from);
+  }
+  data.__graph = { byId, parents };
+  return data.__graph;
+}
+
+function shortName(id) {
+  const m = /#(.+)@[^@]+$/.exec(id) ?? /\/([^/#]+)#[^#]*$/.exec(id);
+  return m ? m[1] : id;
+}
+
+/**
+ * The direct dependencies (external, `is_direct`) whose subtree contains the
+ * package `id`, found by walking the reverse graph. Workspace members are
+ * reported when the package is reached by them without any external direct
+ * dependency in between (i.e. it *is* a direct dependency).
+ */
+function pulledInVia(data, id, limit = 6) {
+  const { byId, parents } = graphIndex(data);
+  const seen = new Set([id]);
+  const queue = [id];
+  const direct = new Set();
+  const members = new Set();
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const from of parents.get(cur) ?? []) {
+      if (seen.has(from)) continue;
+      seen.add(from);
+      const p = byId.get(from);
+      if (!p) continue;
+      if (p.is_workspace_member || p.is_root_package) {
+        if (cur === id) members.add(p.name);
+        continue;
+      }
+      if (p.is_direct) {
+        direct.add(p.name);
+        continue; // stop at the first direct dependency on each path
+      }
+      queue.push(from);
+    }
+  }
+  const names = [...direct].sort();
+  const label = names.length
+    ? names.slice(0, limit).join(", ") + (names.length > limit ? `, +${names.length - limit}` : "")
+    : "";
+  const viaMembers = [...members].sort();
+  if (viaMembers.length && !names.length) return `direct dep of ${viaMembers.join(", ")}`;
+  if (viaMembers.length) return `direct dep of ${viaMembers.join(", ")}; also via ${label}`;
+  return label || "(unreachable)";
+}
+
+/** Names of workspace packages other than `except` with a direct edge to any version of `depName`. */
+function otherDependents(data, depName, except) {
+  const { byId, parents } = graphIndex(data);
+  const out = new Set();
+  for (const p of data.dependencies.packages) {
+    if (p.name !== depName) continue;
+    for (const from of parents.get(p.id) ?? []) {
+      const q = byId.get(from);
+      if (q && q.name !== except && (q.is_workspace_member || q.is_root_package)) out.add(q.name);
+    }
+  }
+  return [...out].sort();
+}
+
 function unusedFor(target, data) {
   const rows = [];
   const seen = new Set();
@@ -195,12 +280,16 @@ function unusedFor(target, data) {
     const dir = packageDir(data, u.package);
     const evidence = textualUse(dir, u.dependency);
     const pkg = data.dependencies.packages.find((p) => p.name === u.dependency);
+    const others = otherDependents(data, u.dependency, u.package);
     rows.push({
       package: u.package,
       dependency: u.dependency,
       kinds: [...new Set(kinds)],
       version: pkg?.version ?? null,
       exclusive_count: pkg?.exclusive_count ?? null,
+      other_dependents: others,
+      // Crates that actually leave the target's graph if this one edge is cut.
+      graph_win: others.length ? 0 : (pkg?.exclusive_count ?? 0),
       evidence,
       verdict: evidence === "path" ? "keep" : "remove",
     });
@@ -209,6 +298,7 @@ function unusedFor(target, data) {
     (a, b) =>
       (a.verdict === "remove" ? 0 : 1) - (b.verdict === "remove" ? 0 : 1) ||
       (a.evidence === "none" ? 0 : 1) - (b.evidence === "none" ? 0 : 1) ||
+      b.graph_win - a.graph_win ||
       (b.exclusive_count ?? 0) - (a.exclusive_count ?? 0) ||
       a.package.localeCompare(b.package) ||
       a.dependency.localeCompare(b.dependency),
@@ -308,6 +398,7 @@ function renderMarkdown(summary, n) {
   push(
     `Verdict ${code("remove")}: nothing in the package's ${code("*.rs")} files (including ${code("[[test]]")}/${code("[[example]]")} targets declared by path) references the crate as ${code("crate::…")}, ${code("use crate")}, ${code("#[crate…")} or ${code("crate!")}. Delete the line from ${code("Cargo.toml")} and build; if it was an optional dependency, drop the ${code("dep:")} feature too. "name only" means the word occurs in a comment or string, which is not a use.`,
     `Verdict ${code("keep")}: tinyanalyzer saw no ${code("use")}/path, but one exists inside an attribute or macro body (${code("#[tokio::test]")}, ${code("#[derive(thiserror::Error)]")}) — a false positive of the tool, listed so the count is honest.`,
+    `${code("Graph win")}: crates that leave this target's build if the line is deleted. It is 0 when another package in the same workspace still depends on the crate — the manifest still gets cleaner, the build does not get smaller.`,
     `Crates listed in ${code("[dependencies].ignore_unused")} of ${code("scripts/dep-audit/tinyanalyzer.toml")} are not reported at all.`,
     ``,
   );
@@ -316,12 +407,12 @@ function renderMarkdown(summary, n) {
     push(`_None._`);
   } else {
     push(
-      `| Target | Package | Dependency | Kind | Resolved | Exclusive crates | Verdict |`,
+      `| Target | Package | Dependency | Kind | Resolved | Graph win | Verdict |`,
       `| --- | --- | --- | --- | --- | ---: | --- |`,
     );
     for (const u of unusedRows) {
       push(
-        `| ${u.target} | ${u.package} | ${code(u.dependency)} | ${u.kinds.join(", ")} | ${u.version ?? "—"} | ${u.exclusive_count ?? "—"} | ${u.verdict === "remove" ? (u.evidence === "word" ? "**remove** (name only)" : "**remove**") : "keep (attribute/macro path)"} |`,
+        `| ${u.target} | ${u.package} | ${code(u.dependency)} | ${u.kinds.join(", ")} | ${u.version ?? "—"} | ${u.version == null ? "—" : u.other_dependents.length ? `0 (kept by ${u.other_dependents.join(", ")})` : `${u.graph_win} crate${u.graph_win === 1 ? "" : "s"}`} | ${u.verdict === "remove" ? (u.evidence === "word" ? "**remove** (name only)" : "**remove**") : "keep (attribute/macro path)"} |`,
       );
     }
   }
@@ -330,15 +421,17 @@ function renderMarkdown(summary, n) {
   push(``, `## 2. Crates resolved at more than one version`, ``);
   push(
     `Each version is compiled and linked separately. The ${code("root")} row is the one that costs the shipped build; submodule rows show where a pin should move so the root can unify.`,
-    `Use ${code("cargo tree -i <crate>@<version>")} in that target to find who pins the older one.`,
+    `${code("Pulled in via")} names the direct dependencies whose subtree carries that version (walked from tinyanalyzer's edge list; ${code("cargo tree -i <crate>@<version>")} gives the full chain). Unifying means raising whichever of those pins the older one, or dropping it.`,
     ``,
   );
   for (const t of summary.targets) {
     if (t.duplicates.length === 0) continue;
     push(`### ${t.name} — ${t.duplicates.length} crate(s)`, ``);
-    push(`| Crate | Versions |`, `| --- | --- |`);
+    push(`| Crate | Version | Pulled in via |`, `| --- | --- | --- |`);
     for (const d of t.duplicates) {
-      push(`| ${code(d.name)} | ${d.versions.map(code).join(", ")} |`);
+      d.versions.forEach((v, i) => {
+        push(`| ${i === 0 ? code(d.name) : ""} | ${code(v)} | ${d.via[v]} |`);
+      });
     }
     push(``);
   }
