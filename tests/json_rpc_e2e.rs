@@ -1164,6 +1164,10 @@ enabled = false
 
 fn ensure_test_rpc_auth() {
     JSON_RPC_AUTH_INIT.get_or_init(|| {
+        // The core carries no backend client; billing / team / composio RPCs
+        // reach the mock backend through the `openhuman-tinyhumans` transport.
+        openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
+            .expect("install the TinyHumans backend transport for json_rpc_e2e");
         // SAFETY: set_var is inside get_or_init so it runs exactly once across
         // all test threads. Rust 1.81+ requires unsafe for set_var in
         // multi-threaded contexts; the OnceLock guard limits the mutation to a
