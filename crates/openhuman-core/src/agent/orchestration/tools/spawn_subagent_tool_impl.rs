@@ -374,8 +374,10 @@ impl Tool for SpawnSubagentTool {
         // that both executes it and returns its output. Mirrors the
         // `has_delivery_thread` fallback the `delegate_*` tools already do in
         // `dispatch.rs::dispatch_subagent`.
-        let has_delivery_thread =
-            crate::agent::tinyagents::thread_context::current_thread_id().is_some();
+        let parent_thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(str::to_owned);
+        let has_delivery_thread = parent_thread_id.is_some();
         if !blocking && !has_delivery_thread {
             log::info!(
                 "[spawn_subagent] async delegation requested for '{}' but no delivery thread \
@@ -420,8 +422,7 @@ impl Tool for SpawnSubagentTool {
         // uses. Best-effort: with no parent context or thread store the run
         // still proceeds live-only (`worker_thread_id: None`).
         let worker_thread_id = current_parent().and_then(|p| {
-            let parent_thread_id =
-                crate::agent::tinyagents::thread_context::current_thread_id()?;
+            let parent_thread_id = parent_thread_id.as_ref()?;
             let title: String = prompt.chars().take(60).collect();
             super::worker_thread::create_worker_thread(
                 p.workspace_dir.clone(),
@@ -481,6 +482,8 @@ impl Tool for SpawnSubagentTool {
             context,
             model_override,
             task_id: Some(task_id.clone()),
+            thread_id: parent_thread_id,
+            run_context: Default::default(),
             worker_thread_id: worker_thread_id.clone(),
             initial_history: None,
             checkpoint_dir: None,

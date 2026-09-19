@@ -50,6 +50,8 @@ pub(crate) async fn run_agent_turn_request_via_default_graph(
         agent_id,
         task_id,
         extended_policy,
+        thread_id,
+        run_context,
         worker_thread_id,
         workspace_dir,
         workspace_descriptor,
@@ -78,6 +80,8 @@ pub(crate) async fn run_agent_turn_request_via_default_graph(
             &agent_id,
             &task_id,
             extended_policy,
+            thread_id,
+            run_context,
             worker_thread_id,
             workspace_dir,
             workspace_descriptor,
@@ -127,6 +131,8 @@ pub(in super::super) async fn run_subagent_via_graph(
     agent_id: &str,
     task_id: &str,
     extended_policy: bool,
+    thread_id: Option<String>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     worker_thread_id: Option<String>,
     workspace_dir: std::path::PathBuf,
     workspace_descriptor: Option<WorkspaceDescriptor>,
@@ -263,8 +269,8 @@ pub(in super::super) async fn run_subagent_via_graph(
     // that owned carrier and fork it so cancellation, origin, thread, progress,
     // workspace grants, and dispatch state follow the child while its route and
     // subagent-usage slots remain isolated.
-    let mut child_context =
-        crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes().child();
+    let mut child_context = run_context.child();
+    child_context.thread_id = thread_id.clone();
     child_context.progress = on_progress.clone().or(child_context.progress);
     child_context.workspace = workspace_descriptor.clone().or(child_context.workspace);
     let run_result = Box::pin(run_turn_via_tinyagents_shared(
@@ -381,6 +387,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                 model,
                 &recovered,
                 &recovered_usage,
+                thread_id.as_deref(),
                 unanswered_steps.as_deref(),
                 completed_rounds,
                 context_window.unwrap_or(0),
@@ -524,6 +531,7 @@ pub(in super::super) async fn run_subagent_via_graph(
         model,
         history_for_transcript,
         &usage,
+        thread_id.as_deref(),
         context_window.unwrap_or(0),
         // Match the dispatcher the history was actually serialized with (text-mode
         // integrations turns write XML), and the real iteration count.

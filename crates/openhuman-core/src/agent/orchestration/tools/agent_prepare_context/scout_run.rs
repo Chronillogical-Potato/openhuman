@@ -8,7 +8,6 @@ use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentRunError, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::thread_context::current_thread_id;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use tinytools::ToolResult;
@@ -128,7 +127,7 @@ pub async fn run_context_scout_with_catalog(
     focus: Option<&str>,
     tool_catalog: &str,
 ) -> anyhow::Result<ToolResult> {
-    run_context_scout_with_catalog_and_workspace(question, focus, tool_catalog, None).await
+    run_context_scout_with_catalog_and_workspace(question, focus, tool_catalog, None, None).await
 }
 
 /// The text [`log_scout_failure`] classifies: a failed run flattened into one
@@ -209,6 +208,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     focus: Option<&str>,
     tool_catalog: &str,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    thread_id: Option<String>,
 ) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
@@ -300,6 +300,8 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     }
     let options = SubagentRunOptions {
         task_id: Some(task_id.clone()),
+        thread_id: thread_id.clone(),
+        run_context: Default::default(),
         worktree_action_dir,
         workspace_descriptor: parent_workspace_descriptor,
         ..Default::default()
@@ -393,7 +395,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                 // context-gathering path just seeds a goal on the first scout of
                 // a fresh chat so the harness has something to steer toward.
                 // Best-effort — never fails the call.
-                if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id()) {
+                if let (Some(parent), Some(thread_id)) = (current_parent(), thread_id) {
                     if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
                         match crate::agent::goals::store::set_if_absent(
                             &parent.workspace_dir,

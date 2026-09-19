@@ -56,6 +56,8 @@ pub struct AgentTurnRequest {
     pub agent_id: String,
     pub task_id: String,
     pub extended_policy: bool,
+    /// Explicit caller/worker thread propagated from the originating tool.
+    pub thread_id: Option<String>,
     pub worker_thread_id: Option<String>,
     pub workspace_dir: PathBuf,
     pub workspace_descriptor: Option<WorkspaceDescriptor>,

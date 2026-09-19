@@ -29,6 +29,7 @@ pub(crate) async fn run_spawn_parallel_graph_with_workspace(
         args,
         CancellationToken::new(),
         parent_workspace_descriptor,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
     )
     .await
 }
@@ -37,13 +38,20 @@ pub(crate) async fn run_spawn_parallel_graph_with_cancellation(
     args: serde_json::Value,
     cancel: CancellationToken,
 ) -> Result<SpawnParallelGraphOutcome, String> {
-    run_spawn_parallel_graph_with_cancellation_and_workspace(args, cancel, None).await
+    run_spawn_parallel_graph_with_cancellation_and_workspace(
+        args,
+        cancel,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
+    .await
 }
 
 pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
     args: serde_json::Value,
     cancel: CancellationToken,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let tasks = match validate_spawn_parallel_tool_request(&args, None) {
         Ok(tasks) => tasks,
@@ -92,6 +100,7 @@ pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
         action_root,
         cancel,
         parent_workspace_descriptor,
+        run_context,
     )
     .await?;
     match &outcome {

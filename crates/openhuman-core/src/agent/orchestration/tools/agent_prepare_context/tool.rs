@@ -214,6 +214,9 @@ impl Tool for AgentPrepareContextTool {
             focus,
             &tool_catalog,
             tool_context.and_then(|ctx| ctx.workspace().cloned()),
+            tool_context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_owned),
         )
         .await
     }

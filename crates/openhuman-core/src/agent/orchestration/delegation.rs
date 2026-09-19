@@ -205,6 +205,8 @@ fn delegation_subagent_options(
         context: None,
         model_override: None,
         task_id: None,
+        thread_id: None,
+        run_context: Default::default(),
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,

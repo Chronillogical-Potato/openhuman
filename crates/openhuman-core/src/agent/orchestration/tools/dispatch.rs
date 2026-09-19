@@ -118,8 +118,7 @@ pub(crate) async fn dispatch_subagent(
     // stateless builder (the "day 0 context" bug).
     if mode == DispatchMode::PreferAsync {
         let has_parent_turn = parent_ctx.is_some();
-        let has_delivery_thread =
-            crate::agent::tinyagents::thread_context::current_thread_id().is_some();
+        let has_delivery_thread = tool_context.and_then(ToolRunContext::thread_id).is_some();
         if has_parent_turn && has_delivery_thread {
             let mut async_args = serde_json::json!({
                 "agent_id": definition.id.clone(),
@@ -239,6 +238,10 @@ pub(crate) async fn dispatch_subagent(
         context: None,
         model_override: model_override.map(str::to_string),
         task_id: Some(task_id.clone()),
+        thread_id: tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(str::to_owned),
+        run_context: Default::default(),
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,

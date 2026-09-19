@@ -160,6 +160,12 @@ canonical call. OpenHuman tools implement `tinytools::Tool` directly; the
 `SharedToolAdapter`, `ToolAdapter`, `spec_to_schema`, and
 `execute_openhuman_tool` bridge disappear.
 
+Thread ownership follows the same boundary: a tool reads its caller thread
+only from `ToolRunContext::thread_id()`. Recursive and detached sub-agent
+launches copy that explicit value into their owned run options before spawning;
+they do not re-scope a thread task-local. Memory recall receives its session
+and exclusion identity from TinyAgents' `RecallRequest`.
+
 All users import parsing APIs from `tinytools_agent::{...}` or
 `tinytools_agent::dialect::{...}`. Delete
 `tinyagents_harness::tool_calling`, the former OpenHuman `agent::dispatcher`

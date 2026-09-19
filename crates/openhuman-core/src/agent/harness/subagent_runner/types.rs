@@ -14,7 +14,7 @@ use crate::agent::messages::ChatMessage;
 /// Per-spawn options that override or augment what the
 /// [`AgentDefinition`] specifies. Built by `SpawnSubagentTool::execute`
 /// from the parent model's call arguments.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct SubagentRunOptions {
     /// Optional skill-id override (e.g. `"notion"`). When set, the
     /// resolved tool list is further restricted to tools whose name
@@ -41,6 +41,15 @@ pub struct SubagentRunOptions {
 
     /// Stable id for tracing / DomainEvents (defaults to a UUID).
     pub task_id: Option<String>,
+
+    /// Explicit thread identity for the child run. Tool callers copy this from
+    /// their `ToolRunContext`; detached workers set the durable worker affinity
+    /// before crossing `tokio::spawn`. This is never recovered from a task-local.
+    pub thread_id: Option<String>,
+
+    /// Explicit host carrier for the child run. Recursive execution must use
+    /// this value rather than snapshotting task-local scopes after a spawn.
+    pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 
     /// Optional thread ID for persistent worker threads. When set,
     /// every assistant message and tool result in the inner loop is

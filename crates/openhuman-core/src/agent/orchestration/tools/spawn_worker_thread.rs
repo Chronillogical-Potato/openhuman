@@ -153,8 +153,10 @@ impl Tool for SpawnWorkerThreadTool {
 
         // ── Depth Guard ────────────────────────────────────────────────
         // Check if the current thread is already a worker thread.
-        let current_thread_id = crate::agent::tinyagents::thread_context::current_thread_id()
-            .unwrap_or_else(|| "unknown".to_string());
+        let current_thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .unwrap_or("unknown")
+            .to_string();
 
         tracing::info!(
             agent_id = %agent_id,
@@ -247,6 +249,10 @@ impl Tool for SpawnWorkerThreadTool {
             context,
             model_override,
             task_id: None,
+            thread_id: tool_context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_owned),
+            run_context: Default::default(),
             worker_thread_id: Some(worker_thread_id.clone()),
             initial_history: None,
             checkpoint_dir: None,

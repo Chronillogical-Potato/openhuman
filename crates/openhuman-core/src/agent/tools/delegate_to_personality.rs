@@ -238,6 +238,10 @@ impl Tool for DelegateToPersonalityTool {
             toolkit_override: None,
             skill_filter_override: None,
             task_id: None,
+            thread_id: tool_context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_owned),
+            run_context: Default::default(),
             worker_thread_id: None,
             initial_history: None,
             checkpoint_dir: None,

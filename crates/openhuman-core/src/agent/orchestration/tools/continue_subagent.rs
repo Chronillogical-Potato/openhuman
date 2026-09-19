@@ -368,6 +368,10 @@ impl Tool for ContinueSubagentTool {
             context: None,
             model_override: checkpoint.model_override,
             task_id: Some(task_id.clone()),
+            thread_id: tool_context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_owned),
+            run_context: Default::default(),
             worker_thread_id: checkpoint.worker_thread_id.clone(),
             initial_history: Some(history),
             checkpoint_dir: Some(checkpoint_dir.clone()),

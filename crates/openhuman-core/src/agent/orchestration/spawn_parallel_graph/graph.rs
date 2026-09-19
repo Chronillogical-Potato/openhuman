@@ -148,6 +148,7 @@ pub(crate) async fn run_spawn_parallel_execution_graph(
     action_root: Option<PathBuf>,
     cancel: CancellationToken,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
@@ -164,6 +165,7 @@ pub(crate) async fn run_spawn_parallel_execution_graph(
     let cancel_for_worker = cancel.clone();
     let cancel_for_collect = cancel.clone();
     let cancel_for_finalize = cancel.clone();
+    let run_context_for_worker = run_context.clone();
     let graph = GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()
         .set_reducer(ClosureStateReducer::new(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
@@ -262,6 +264,7 @@ pub(crate) async fn run_spawn_parallel_execution_graph(
             phases[2],
             move |state: SpawnParallelState, _ctx: NodeContext| {
                 let cancel = cancel_for_worker.clone();
+                let run_context = run_context_for_worker.clone();
                 async move {
                     if state.cancelled_phase.is_some() || state.rejection.is_some() {
                         return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
@@ -275,22 +278,26 @@ pub(crate) async fn run_spawn_parallel_execution_graph(
                         );
                         return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled("worker")));
                     }
-                    let fanned =
-                        match run_spawn_parallel_workers(state.prepared, state.action_root, cancel)
-                            .await
-                        {
-                            Ok(fanned) => fanned,
-                            Err(TinyAgentsError::Cancelled) => {
-                                tracing::debug!(
-                                    phase = "worker",
-                                    "[spawn_parallel_agents] fanout_cancelled"
-                                );
-                                return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
-                                    "worker",
-                                )));
-                            }
-                            Err(err) => return Err(err),
-                        };
+                    let fanned = match run_spawn_parallel_workers(
+                        state.prepared,
+                        state.action_root,
+                        cancel,
+                        run_context,
+                    )
+                    .await
+                    {
+                        Ok(fanned) => fanned,
+                        Err(TinyAgentsError::Cancelled) => {
+                            tracing::debug!(
+                                phase = "worker",
+                                "[spawn_parallel_agents] fanout_cancelled"
+                            );
+                            return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
+                                "worker",
+                            )));
+                        }
+                        Err(err) => return Err(err),
+                    };
                     Ok(NodeResult::Update(SpawnParallelUpdate::Fanned(fanned)))
                 }
             },

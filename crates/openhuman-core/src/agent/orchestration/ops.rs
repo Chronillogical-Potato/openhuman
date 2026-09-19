@@ -375,6 +375,8 @@ impl AgentOrchestrationSession {
             context: request.context,
             model_override: request.model,
             task_id: Some(orchestration_id.clone()),
+            thread_id: None,
+            run_context: Default::default(),
             worker_thread_id: None,
             initial_history: None,
             checkpoint_dir: None,

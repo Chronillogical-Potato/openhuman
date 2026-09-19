@@ -5,7 +5,7 @@ use crate::agent::orchestration::subagent_sessions::SubagentSessionStore;
 use crate::agent::orchestration::{running_subagents, subagent_sessions};
 use async_trait::async_trait;
 use serde_json::json;
-use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct CloseSubagentTool;
 
@@ -50,6 +50,16 @@ impl Tool for CloseSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let subagent_session_id = args
             .get("subagent_session_id")
             .and_then(|v| v.as_str())
@@ -70,11 +80,11 @@ impl Tool for CloseSubagentTool {
             }
         };
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let parent_thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
+        let parent_thread_id = tool_context.and_then(ToolRunContext::thread_id);
         let owned = match subagent_sessions::list_for_parent(
             &store,
             &parent.session_id,
-            parent_thread_id.as_deref(),
+            parent_thread_id,
         ) {
             Ok(sessions) => sessions
                 .iter()
@@ -89,7 +99,7 @@ impl Tool for CloseSubagentTool {
             log::warn!(
                 "[subagent_reuse] close rejected parent_session={} parent_thread_id={} subagent_session_id={}",
                 parent.session_id,
-                parent_thread_id.as_deref().unwrap_or("none"),
+                parent_thread_id.unwrap_or("none"),
                 subagent_session_id
             );
             return Ok(ToolResult::error(

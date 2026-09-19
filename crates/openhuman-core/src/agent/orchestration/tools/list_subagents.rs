@@ -10,7 +10,7 @@ use crate::agent::orchestration::{
 use async_trait::async_trait;
 use serde_json::json;
 use tinyagents_graph::orchestration::{OrchestrationTaskRecord, OrchestrationTaskStatus};
-use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct ListSubagentsTool;
 
@@ -49,6 +49,16 @@ impl Tool for ListSubagentsTool {
     }
 
     async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(_args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        _args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let parent = match current_parent() {
             Some(parent) => parent,
             None => {
@@ -57,13 +67,9 @@ impl Tool for ListSubagentsTool {
                 ));
             }
         };
-        let parent_thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
+        let parent_thread_id = tool_context.and_then(ToolRunContext::thread_id);
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        match subagent_sessions::list_for_parent(
-            &store,
-            &parent.session_id,
-            parent_thread_id.as_deref(),
-        ) {
+        match subagent_sessions::list_for_parent(&store, &parent.session_id, parent_thread_id) {
             Ok(sessions) => {
                 let summaries: Vec<DurableSubagentSessionSummary> = sessions
                     .iter()
@@ -79,7 +85,7 @@ impl Tool for ListSubagentsTool {
                     .collect();
                 log::debug!(
                     "[subagent_reuse] list parent_thread_id={} parent_session={} count={}",
-                    parent_thread_id.as_deref().unwrap_or("none"),
+                    parent_thread_id.unwrap_or("none"),
                     parent.session_id,
                     summaries.len()
                 );
