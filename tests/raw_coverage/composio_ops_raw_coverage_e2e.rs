@@ -84,6 +84,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 
 #[tokio::test]
 async fn composio_ops_use_loopback_backend_for_happy_and_error_paths() {
+    crate::tinyhumans_boot::boot();
     let _lock = env_lock();
     let state = MockState::default();
     let app = Router::new()
@@ -345,6 +346,7 @@ async fn composio_ops_use_loopback_backend_for_happy_and_error_paths() {
 
 #[tokio::test]
 async fn composio_direct_key_ops_and_agent_tools_take_local_validation_paths() {
+    crate::tinyhumans_boot::boot();
     let _lock = env_lock();
     let direct_base = start_loopback_backend(Router::new().route(
         "/connected_accounts",
@@ -428,6 +430,7 @@ async fn composio_direct_key_ops_and_agent_tools_take_local_validation_paths() {
 
 #[tokio::test]
 async fn composio_controller_registry_validates_params_without_backend_network() {
+    crate::tinyhumans_boot::boot();
     let schemas = all_composio_controller_schemas();
     let controllers = all_composio_registered_controllers();
     assert_eq!(schemas.len(), controllers.len());

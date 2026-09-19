@@ -232,16 +232,16 @@ run_integration_target() {
     while IFS= read -r module; do
       [ -n "${module}" ] || continue
       log "running raw coverage module: ${module}"
-      llvm_cov --no-report --no-fail-fast -p openhuman --test "${target}" -- "${module}::" --test-threads=1 || return
+      llvm_cov --no-report --no-fail-fast -p openhuman-cli --test "${target}" -- "${module}::" --test-threads=1 || return
     done < <(raw_coverage_modules)
   elif [ "${target}" = "json_rpc_e2e" ]; then
     # This target exercises process-global runtime/config state. Its tests take
     # an environment lock, but background agent tasks can outlive an individual
     # case briefly; keeping libtest serial prevents a successor from observing
     # that teardown window.
-    llvm_cov --no-report --no-fail-fast -p openhuman --test "${target}" -- --test-threads=1
+    llvm_cov --no-report --no-fail-fast -p openhuman-cli --test "${target}" -- --test-threads=1
   else
-    llvm_cov --no-report --no-fail-fast -p openhuman --test "${target}"
+    llvm_cov --no-report --no-fail-fast -p openhuman-cli --test "${target}"
   fi
 }
 
@@ -249,7 +249,7 @@ compile_raw_coverage_target() {
   log "compiling raw coverage integration target for src/** change"
   bash scripts/ci-cancel-aware.sh cargo test \
     --features "${PRODUCT_FEATURES}" \
-    --test raw_coverage_all --no-run
+    -p openhuman-cli --test raw_coverage_all --no-run
 }
 
 run_full() {
@@ -261,7 +261,7 @@ run_full() {
   # make unrelated tests observe each other's temporary overrides. The five
   # build-only reaper test installs process globals and therefore runs in a
   # fresh process below, exactly as it does in the canonical runner.
-  llvm_cov --no-report --no-fail-fast -p openhuman --lib --bins -- \
+  llvm_cov --no-report --no-fail-fast -p openhuman --lib -- \
     --test-threads=1 \
     --skip a_build_only_runtime_is_swept_before_it_can_be_invoked
   # This test deliberately boots a real harness-only CoreBuilder. Doing so
@@ -272,6 +272,9 @@ run_full() {
     -- "openhuman::agent::tinyagents::reaper::tests::a_build_only_runtime_is_swept_before_it_can_be_invoked" \
     --exact --test-threads=1
   llvm_cov_embed --no-report --no-fail-fast -p openhuman-embed --all-targets
+  # The core binary and the developer bins live in the CLI crate.
+  llvm_cov --no-report --no-fail-fast -p openhuman-cli --bins
+  llvm_cov_package --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
   llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
   while IFS= read -r target; do
     [ -n "${target}" ] || continue

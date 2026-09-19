@@ -450,6 +450,7 @@ struct Harness {
 /// `plant_session` decides whether `resolve::client` will find a token, which
 /// is the difference between the configured and signed-out cases below.
 async fn setup(extra: Vec<EnvVarGuard>, plant_session: bool) -> Harness {
+    crate::tinyhumans_boot::boot();
     let _ = rpc_token();
 
     let tmp = tempdir().expect("tempdir");

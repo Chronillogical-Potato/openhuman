@@ -32,6 +32,7 @@ struct MockState {
 
 #[tokio::test]
 async fn round26_composio_direct_tool_covers_connect_execute_and_error_fallbacks() {
+    crate::tinyhumans_boot::boot();
     let state = MockState::default();
     let base = start_loopback(
         Router::new()

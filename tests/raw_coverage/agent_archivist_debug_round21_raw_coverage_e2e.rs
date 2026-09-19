@@ -290,6 +290,7 @@ fn parent_context(workspace: &Path, model: Arc<ScriptedModel>) -> ParentExecutio
 
 #[tokio::test]
 async fn subagent_no_parent_and_checkpoint_fallback_are_deterministic() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let no_parent = run_subagent(
         &definition(1),
         "outside a parent context",
@@ -333,6 +334,7 @@ async fn subagent_no_parent_and_checkpoint_fallback_are_deterministic() -> Resul
 
 #[tokio::test]
 async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let tmp = TempDir::new()?;
     let err = dump_agent_prompt(DumpPromptOptions {
         agent_id: "integrations_agent".to_string(),
@@ -353,6 +355,7 @@ async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<
 
 #[test]
 fn debug_dump_writer_sanitizes_names_and_writes_summary_sidecars() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let tmp = TempDir::new()?;
     let dumps = vec![DumpedPrompt {
         agent_id: "agent/with spaces".to_string(),

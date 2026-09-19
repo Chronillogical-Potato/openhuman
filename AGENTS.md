@@ -17,7 +17,7 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/` | Package `openhuman`: business domains under `src/<domain>/`, transport/dispatch/auth under `src/core/` |
 | `crates/openhuman-core/src/<domain>/` | Flat business-domain modules (agent, memory, tools, security, channels, ...) |
 | `crates/openhuman-core/src/core/` | CLI, JSON-RPC and HTTP dispatch, controller registry, event bus, runtime composition; no business logic |
-| `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
+| `crates/openhuman-cli/` | The `openhuman-core` binary (`src/main.rs`), the developer/benchmark bins (`src/bin/`), and every root `tests/*.rs` / `examples/*.rs` target; depends on `openhuman-tinyhumans` for the backend transport the core does not carry |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
 | `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
 | `crates/openhuman-tinyhumans/` | The TinyHumans layer above embed: SDK-backed backend transport, a `RuntimeBuilder` that boots connected, and the host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
@@ -61,7 +61,7 @@ pnpm test:coverage
 pnpm test:rust
 
 cargo check --manifest-path Cargo.toml
-cargo build --manifest-path Cargo.toml --bin openhuman-core
+cargo build --manifest-path Cargo.toml -p openhuman-cli --bin openhuman-core
 cargo check --manifest-path crates/openhuman-app/Cargo.toml
 
 # Standard root-crate validation
@@ -107,15 +107,22 @@ coverage must be at least 80 percent.
   element types.
 - Tests must not call real backend or third-party services.
 - Avoid time-based flakes and real network access in unit tests.
-- Root `tests/*.rs` and `examples/*.rs` are NOT auto-discovered (`autotests =
-  false`, `autoexamples = false` in `crates/openhuman-core/Cargo.toml`). Every
-  new file needs an explicit `[[test]]` / `[[example]]` entry with `path =
-  "../../tests/<name>.rs"`; `pnpm rust:layout`
-  (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on missing or stale
-  entries, on inline `#[cfg(test)] mod` blocks, and on files named
-  `tests.rs`/`test.rs`. Files under `tests/raw_coverage/` are aggregated by
-  the root `build.rs` (`build = "../../build.rs"`) into the single
-  `raw_coverage_all` target and need no entry.
+- Root `tests/*.rs` and `examples/*.rs` are targets of **`crates/openhuman-cli`**
+  (the core is a library and declares no bin/test/example targets). They are
+  NOT auto-discovered (`autotests = false`, `autoexamples = false`); every new
+  file needs an explicit `[[test]]` / `[[example]]` entry in
+  `crates/openhuman-cli/Cargo.toml` with `path = "../../tests/<name>.rs"`;
+  `pnpm rust:layout` (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on
+  missing or stale entries, on any target table in the core manifest, on
+  inline `#[cfg(test)] mod` blocks, and on files named `tests.rs`/`test.rs`.
+  Files under `tests/raw_coverage/` are aggregated by the root `build.rs`
+  (`build = "../../build.rs"`) into the single `raw_coverage_all` target and
+  need no entry. Run them as `cargo test -p openhuman-cli --test <name>`.
+- A suite that boots the core **in-process** and reaches the backend (mock)
+  must call `tinyhumans_boot::boot()` from `tests/support/tinyhumans_boot.rs`
+  first; the core has no backend transport of its own, and without it every
+  backend call answers `BACKEND_UNAVAILABLE:`. Suites that spawn the
+  `openhuman-core` binary get it from `main.rs`.
 
 Shared mock backend:
 

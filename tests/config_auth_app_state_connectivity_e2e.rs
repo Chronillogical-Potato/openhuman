@@ -124,6 +124,12 @@ pub fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 
 fn ensure_rpc_auth() {
     AUTH_INIT.get_or_init(|| {
+        // The core carries no backend client; the `auth_*` remote paths below
+        // reach the mock backend through the `openhuman-tinyhumans` transport.
+        // Inline (not via `tests/support/`) because this file is also
+        // `#[path]`-included into `raw_coverage_all`.
+        openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
+            .expect("install the TinyHumans backend transport");
         std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
         let token_dir = std::env::temp_dir().join("openhuman-worker-a-e2e-auth");
         init_rpc_token(&token_dir).expect("init rpc auth token");
