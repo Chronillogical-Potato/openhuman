@@ -1158,10 +1158,11 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.clone())
-        .collect()
+        .collect();
+    found
 }
 
 /// Returns a vector of all controller schemas, derived from the registered
@@ -1174,10 +1175,11 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.schema.clone())
-        .collect()
+        .collect();
+    found
 }
 
 /// Generates a standardized RPC method name from a controller schema.
@@ -1323,11 +1325,12 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
     // method — the DomainSet gate is enforced at dispatch
     // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
-        .map(|g| g.controller.rpc_method_name())
+        .map(|g| g.controller.rpc_method_name());
+    found
 }
 
 /// The memory-driver capability family a controller's surface requires, looked
@@ -1351,11 +1354,12 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
 /// would name a cause that is not the reason the command is unavailable.
 pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Capability>> {
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
-        .map(|g| g.capability)
+        .map(|g| g.capability);
+    found
 }
 
 /// The memory-driver capability family required by an RPC method, looked up in
@@ -1367,9 +1371,10 @@ pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Ca
 /// dispatches a capability-gated method.
 pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .find(|g| g.controller.rpc_method_name() == method)
-        .map(|g| g.capability)
+        .map(|g| g.capability);
+    found
 }
 
 /// The capability a whole namespace's surface requires, when every controller
@@ -1428,14 +1433,15 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // a `memory_tree.*` method hidden because the bound driver never advertised
     // `tree` must not leak back out through a param-validation error.
     let view = registry_view();
-    view.iter()
+    let found = view.iter()
         .chain(internal_registry().iter())
         .find(|g| {
             g.controller.rpc_method_name() == method
                 && group_allowed(g.group)
                 && capability_allowed(g.capability)
         })
-        .map(|g| g.controller.schema.clone())
+        .map(|g| g.controller.schema.clone());
+    found
 }
 
 /// Validates that the provided parameters match the requirements of the controller schema.
