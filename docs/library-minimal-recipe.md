@@ -85,7 +85,7 @@ is actually for.
 | `tui` | OFF | — | **DROP** | `openhuman tui`/`chat` terminal UI — no terminal in a library host | `ratatui`, `crossterm`, `unicode-width` |
 
 **Non-default optional features** (`sandbox-landlock`, `sandbox-bubblewrap`,
-`peripheral-rpi`, `browser-native`/`fantoccini`, `landlock`, `whatsapp-web`,
+`browser-native`/`fantoccini`, `landlock`, `whatsapp-web`,
 `e2e-test-support`, `rss-bench`, `rss-bench-dhat`) are all default-OFF, so a
 `--no-default-features` build never links them unless explicitly added. None are
 needed for opencompany; `rss-bench`/`rss-bench-dhat` are dev/benchmark-only.

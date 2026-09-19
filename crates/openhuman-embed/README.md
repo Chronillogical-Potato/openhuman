@@ -248,7 +248,7 @@ Every feature on this crate is a pass-through to the same-named feature on
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
 `crash-reporting`, `medulla`, `channels`, `sandbox-landlock`,
-`sandbox-bubblewrap`, `peripheral-rpi`, `browser-native`, `whatsapp-web`,
+`sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
 `file-logging`, `scheduler-gate`.
 
 Three of them also gate items on this crate's own public surface:
