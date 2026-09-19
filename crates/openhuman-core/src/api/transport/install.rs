@@ -85,8 +85,10 @@ pub fn resolve_backend_transport() -> Result<Arc<dyn BackendTransport>, BackendT
         // P1 shim: the SDK-backed transport compiled into the core until every
         // host installs one from `openhuman-tinyhumans`. Removed with the SDK
         // dependency.
+        if std::env::var_os("OPENHUMAN_PROBE_NO_SHIM").is_none() {
         if let Some(transport) = super::sdk_compat::SdkCompatTransport::shared() {
             return Ok(transport);
+        }
         }
         log::debug!("[backend-transport] no transport installed; backend unavailable");
         Err(BackendTransportError::Unavailable)
