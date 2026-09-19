@@ -15,7 +15,6 @@ import {
 
 import { E2E_RESTART_APP_AS_RELOAD, IS_DEV } from '../utils/config';
 import accountsReducer from './accountsSlice';
-import agentProfileReducer from './agentProfileSlice';
 import announcementReducer from './announcementSlice';
 import {
   type ArtifactsByThread,
@@ -249,7 +248,6 @@ export const store = configureStore({
     thread: persistedThreadReducer,
     layout: persistedLayoutReducer,
     chatRuntime: persistedChatRuntimeReducer,
-    agentProfiles: agentProfileReducer,
     channelConnections: persistedChannelConnectionsReducer,
     accounts: persistedAccountsReducer,
     notifications: persistedNotificationReducer,

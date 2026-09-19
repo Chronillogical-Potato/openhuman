@@ -316,10 +316,6 @@ const messages: TranslationMap = {
   'nav.alerts': 'Peringatan',
   'nav.rewards': 'Hadiah',
   'nav.settings': 'Pengaturan',
-  'nav.agentProfiles': 'Profil agen',
-  'nav.switchAgentProfile': 'Ganti profil agen',
-  'nav.defaultAgentProfile': 'Agen default',
-  'nav.noAgentProfiles': 'Profil agen tidak ditemukan',
   'nav.activity': 'Aktivitas',
   'nav.brain': 'Otak',
   'nav.flows': 'Alur Kerja',
@@ -4707,11 +4703,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Terisolasi (disarankan)',
   'settings.cron.jobs.formSessionMain': 'Sesi utama',
   'settings.cron.jobs.formSessionTarget': 'Target sesi',
-  'settings.cron.jobs.formProfile': 'Profil agen',
-  'settings.cron.jobs.formProfileNone': 'Tanpa profil',
-  'settings.cron.jobs.formProfileHint':
     'Jalankan tugas ini sebagai profil yang dipilih, menggunakan jiwa, memori, dan ruang kerjanya.',
-  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Status terakhir',
   'settings.cron.jobs.loading': 'Memuat cron job...',
   'settings.cron.jobs.loadingRuns': 'Memuat run',
@@ -6426,7 +6418,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'agen',
   'orchestration.detail.childRefs': 'Agen anak',
   'orchestration.detail.synthesis': 'Sintesis akhir',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'Profil Agen',
   'settings.profiles.subtitle':
     'Agen dengan kepribadian: masing-masing dengan jiwa, memori, konektor, dan keterampilannya sendiri.',

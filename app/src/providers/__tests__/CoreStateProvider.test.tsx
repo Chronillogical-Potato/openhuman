@@ -2,7 +2,6 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as agentProfilesModule from '../../services/api/agentProfilesApi';
 import * as coreStateApi from '../../services/coreStateApi';
 import * as tauriCommands from '../../utils/tauriCommands';
 import { __resetForTests as resetConfigRecoveryNotice } from '../../lib/configRecoveryNotice';
@@ -18,9 +17,6 @@ import CoreStateProvider, {
 
 vi.mock('../../services/coreStateApi');
 vi.mock('../../services/analytics', () => ({ syncAnalyticsConsent: vi.fn() }));
-vi.mock('../../services/api/agentProfilesApi', () => ({
-  agentProfilesApi: { list: vi.fn(), select: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
-}));
 
 type Snapshot = Awaited<ReturnType<typeof coreStateApi.fetchCoreAppSnapshot>>;
 
@@ -124,15 +120,11 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
   const getTeamMembers = vi.mocked(coreStateApi.getTeamMembers);
   const getTeamInvites = vi.mocked(coreStateApi.getTeamInvites);
 
-  const listProfiles = vi.mocked(agentProfilesModule.agentProfilesApi.list);
-
   beforeEach(() => {
     fetchSnapshot.mockReset();
     listTeams.mockReset();
     getTeamMembers.mockReset();
     getTeamInvites.mockReset();
-    listProfiles.mockReset();
-    listProfiles.mockResolvedValue({ profiles: [], activeProfileId: 'default' } as never);
     resetCoreStateStore();
     setActiveUserId(null);
   });
@@ -951,70 +943,6 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
     expect(vi.mocked(tauriCommands.storeSession)).toHaveBeenCalled();
   });
 
-  // Regression for #5872: the active agent profile must be fetched from the
-  // backend immediately when identity is established so the first chat request
-  // carries the correct profileId rather than the 'default' initialState value.
-  it('dispatches loadAgentProfiles when identity is established (#5872)', async () => {
-    // Returning user: seed matches snapshot userId so isFlip = false.
-    // First snapshot transitions previousIdentity (null) → nextIdentity ('u1'),
-    // which sets shouldClearScopedCaches = true and fires the !isFlip block.
-    setActiveUserId('u1');
-    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
-    listTeams.mockResolvedValue([]);
-
-    render(
-      <CoreStateProvider>
-        <Consumer />
-      </CoreStateProvider>
-    );
-
-    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
-    // Flush micro-tasks so the void-dispatched promise chain completes.
-    await act(async () => {});
-
-    expect(listProfiles).toHaveBeenCalled();
-  });
-
-  // The isFlip = TRUE half, which is the whole reason the guard above omits
-  // `!isFlip` (the neighbouring loadThreads block does gate on it). Without
-  // this, a future refactor "tidying" `!isFlip` back in to match its neighbour
-  // would pass every test in this file and silently break the web path, where
-  // restartApp() is a no-op and the next poll has shouldClearScopedCaches
-  // false — so this dispatch would never fire again.
-  it('still dispatches loadAgentProfiles when the identity FLIPS (#5872)', async () => {
-    // u1 established first; `tok*` is not a local session token
-    // (isLocalSessionToken requires a 3-part `….local` shape), so the
-    // subsequent change to u2 gives seedUserId !== nextIdentity && !isLocalSession
-    // => isFlip === true.
-    setActiveUserId('u1');
-    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u1', sessionToken: 'tok1' }));
-    listTeams.mockResolvedValue([]);
-
-    let ctx: CoreStateContextValue | undefined;
-    render(
-      <CoreStateProvider>
-        <Consumer
-          captureCtx={next => {
-            ctx = next;
-          }}
-        />
-      </CoreStateProvider>
-    );
-    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('ready'));
-    await act(async () => {});
-
-    // Ignore the establish-time load; we are asserting on the flip itself.
-    listProfiles.mockClear();
-
-    fetchSnapshot.mockResolvedValue(makeSnapshot({ userId: 'u2', sessionToken: 'tok2' }));
-    await act(async () => {
-      await ctx!.refresh();
-    });
-    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('u2'));
-    await act(async () => {});
-
-    expect(listProfiles).toHaveBeenCalled();
-  });
 });
 
 describe('coreStatePollFailureWarningMessage', () => {

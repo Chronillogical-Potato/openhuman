@@ -320,10 +320,6 @@ const messages: TranslationMap = {
   'nav.alerts': 'Alerty',
   'nav.rewards': 'Nagrody',
   'nav.settings': 'Ustawienia',
-  'nav.agentProfiles': 'Profile agentów',
-  'nav.switchAgentProfile': 'Przełącz profil agenta',
-  'nav.defaultAgentProfile': 'Domyślny agent',
-  'nav.noAgentProfiles': 'Nie znaleziono profili agentów',
   'nav.activity': 'Aktywność',
   'nav.brain': 'Mózg',
   'nav.flows': 'Przepływy pracy',
@@ -4756,11 +4752,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Izolowana (zalecane)',
   'settings.cron.jobs.formSessionMain': 'Sesja główna',
   'settings.cron.jobs.formSessionTarget': 'Docelowa sesja',
-  'settings.cron.jobs.formProfile': 'Profil agenta',
-  'settings.cron.jobs.formProfileNone': 'Brak profilu',
-  'settings.cron.jobs.formProfileHint':
     'Uruchom to zadanie jako wybrany profil, korzystając z jego duszy, pamięci i przestrzeni roboczej.',
-  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Ostatni status',
   'settings.cron.jobs.loading': 'Wczytywanie zadań cron...',
   'settings.cron.jobs.loadingRuns': 'Wczytywanie uruchomień',
@@ -6487,7 +6479,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'agenci',
   'orchestration.detail.childRefs': 'Agenci podrzędni',
   'orchestration.detail.synthesis': 'Synteza końcowa',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'Profile agenta',
   'settings.profiles.subtitle':
     'Agenci z charakterem: każdy z własną duszą, pamięcią, łącznikami i umiejętnościami.',

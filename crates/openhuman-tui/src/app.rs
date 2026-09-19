@@ -330,7 +330,6 @@ fn send_message(
     let tid = ui.thread_id.clone();
     let mode = queue_mode.to_string();
     let model_override = ui.model_override.clone();
-    let profile_id = ui.profile_id.clone();
     tokio::spawn(async move {
         let params = json!({
             "client_id": cid,
@@ -339,7 +338,6 @@ fn send_message(
             "source": "type",
             "queue_mode": mode,
             "model_override": model_override,
-            "profile_id": profile_id,
         });
         if let Err(e) = rt.invoke("openhuman.channel_web_chat", params).await {
             log::error!("[tui] openhuman.channel_web_chat failed: {e}");
@@ -535,11 +533,6 @@ async fn execute_command(
                     ui.model_override.as_deref().unwrap_or("configured default"),
                 ),
                 text_row(
-                    "profile",
-                    "Profile",
-                    ui.profile_id.as_deref().unwrap_or("active default"),
-                ),
-                text_row(
                     "cwd",
                     "Action directory",
                     if ui.action_dir.is_empty() {
@@ -580,10 +573,10 @@ async fn execute_command(
                 ui,
                 OverlayKind::Agents,
                 "Agents",
-                "openhuman.profiles_list",
+                "openhuman.agent_list_definitions",
                 json!({}),
-                &["profiles", "items"],
-                &["id", "profile_id"],
+                &["definitions", "items"],
+                &["id"],
                 &["name", "display_name", "id"],
             )
             .await
@@ -915,19 +908,6 @@ async fn handle_overlay_key(
                     ui.overlay = None;
                 }
                 OverlayKind::Agents => {
-                    if let Some(row) = selected {
-                        match runtime
-                            .invoke("openhuman.profiles_select", json!({"profile_id": row.id}))
-                            .await
-                        {
-                            Ok(_) => {
-                                ui.profile_id = Some(row.id);
-                                state.push_system(format!("Agent profile set to {}.", row.label));
-                            }
-                            Err(error) => state
-                                .push_system(format!("Could not select agent profile: {error}")),
-                        }
-                    }
                     ui.overlay = None;
                 }
                 OverlayKind::Files => {

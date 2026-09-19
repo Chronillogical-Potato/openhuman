@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { ATTACHMENT_MAX_IMAGES } from '../../lib/attachments';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import socketReducer from '../../store/socketSlice';
 import threadReducer from '../../store/threadSlice';
@@ -191,7 +190,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       thread: threadReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
     }),
     preloadedState: preload as never,
   });

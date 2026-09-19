@@ -316,10 +316,6 @@ const messages: TranslationMap = {
   'nav.alerts': 'Оповещения',
   'nav.rewards': 'Награды',
   'nav.settings': 'Настройки',
-  'nav.agentProfiles': 'Профили агентов',
-  'nav.switchAgentProfile': 'Сменить профиль агента',
-  'nav.defaultAgentProfile': 'Агент по умолчанию',
-  'nav.noAgentProfiles': 'Профили агентов не найдены',
   'nav.activity': 'Активность',
   'nav.brain': 'Мозг',
   'nav.flows': 'Рабочие процессы',
@@ -4729,11 +4725,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Изолированная (рекомендуется)',
   'settings.cron.jobs.formSessionMain': 'Основная сессия',
   'settings.cron.jobs.formSessionTarget': 'Целевая сессия',
-  'settings.cron.jobs.formProfile': 'Профиль агента',
-  'settings.cron.jobs.formProfileNone': 'Без профиля',
-  'settings.cron.jobs.formProfileHint':
     'Запускать эту задачу от выбранного профиля, используя его душу, память и рабочее пространство.',
-  'settings.cron.jobs.profile': 'Профиль',
   'settings.cron.jobs.lastStatus': 'Последний статус',
   'settings.cron.jobs.loading': 'Загрузка заданий...',
   'settings.cron.jobs.loadingRuns': 'Загрузка запусков',
@@ -6462,7 +6454,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'агенты',
   'orchestration.detail.childRefs': 'Дочерние агенты',
   'orchestration.detail.synthesis': 'Итоговый синтез',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'Профили агента',
   'settings.profiles.subtitle':
     'Агенты с характером: у каждого своя душа, память, коннекторы и навыки.',

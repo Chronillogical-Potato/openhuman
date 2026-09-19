@@ -318,10 +318,6 @@ const messages: TranslationMap = {
   'nav.alerts': 'Alertas',
   'nav.rewards': 'Recompensas',
   'nav.settings': 'Configuración',
-  'nav.agentProfiles': 'Perfiles de agente',
-  'nav.switchAgentProfile': 'Cambiar perfil de agente',
-  'nav.defaultAgentProfile': 'Agente predeterminado',
-  'nav.noAgentProfiles': 'No se encontraron perfiles de agente',
   'nav.activity': 'Actividad',
   'nav.brain': 'Cerebro',
   'nav.flows': 'Flujos de trabajo',
@@ -4765,11 +4761,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Aislada (recomendado)',
   'settings.cron.jobs.formSessionMain': 'Sesión principal',
   'settings.cron.jobs.formSessionTarget': 'Sesión de destino',
-  'settings.cron.jobs.formProfile': 'Perfil del agente',
-  'settings.cron.jobs.formProfileNone': 'Sin perfil',
-  'settings.cron.jobs.formProfileHint':
     'Ejecuta esta tarea como el perfil seleccionado, usando su alma, memoria y espacio de trabajo.',
-  'settings.cron.jobs.profile': 'Perfil',
   'settings.cron.jobs.lastStatus': 'Último estado',
   'settings.cron.jobs.loading': 'Cargando tareas cron...',
   'settings.cron.jobs.loadingRuns': 'Cargando ejecuciones',
@@ -6526,7 +6518,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'agentes',
   'orchestration.detail.childRefs': 'Agentes secundarios',
   'orchestration.detail.synthesis': 'Síntesis final',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'Perfiles de agente',
   'settings.profiles.subtitle':
     'Agentes con personalidad: cada uno con su propia alma, memoria, conectores y habilidades.',

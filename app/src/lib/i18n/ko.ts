@@ -306,10 +306,6 @@ const messages: TranslationMap = {
   'nav.alerts': '알림',
   'nav.rewards': '보상',
   'nav.settings': '설정',
-  'nav.agentProfiles': '에이전트 프로필',
-  'nav.switchAgentProfile': '에이전트 프로필 전환',
-  'nav.defaultAgentProfile': '기본 에이전트',
-  'nav.noAgentProfiles': '에이전트 프로필을 찾을 수 없습니다',
   'nav.activity': '활동',
   'nav.brain': '브레인',
   'nav.flows': '워크플로',
@@ -4628,11 +4624,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': '격리됨 (권장)',
   'settings.cron.jobs.formSessionMain': '메인 세션',
   'settings.cron.jobs.formSessionTarget': '세션 대상',
-  'settings.cron.jobs.formProfile': '에이전트 프로필',
-  'settings.cron.jobs.formProfileNone': '프로필 없음',
-  'settings.cron.jobs.formProfileHint':
     '선택한 프로필로 이 작업을 실행하며, 해당 프로필의 정체성, 메모리, 작업 공간을 사용합니다.',
-  'settings.cron.jobs.profile': '프로필',
   'settings.cron.jobs.lastStatus': '마지막 상태',
   'settings.cron.jobs.loading': 'cron 작업 불러오는 중...',
   'settings.cron.jobs.loadingRuns': '실행 기록 불러오는 중',
@@ -6317,7 +6309,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': '에이전트',
   'orchestration.detail.childRefs': '하위 에이전트',
   'orchestration.detail.synthesis': '최종 종합',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': '에이전트 프로필',
   'settings.profiles.subtitle':
     '개성 있는 에이전트: 각자 고유한 영혼, 기억, 커넥터, 기술을 갖습니다.',

@@ -99,9 +99,9 @@ println!("{}", again.reply);
 
 What each agent owns: its provider route and model, its access tier and
 turn origin, its `action_dir`, its MCP servers, its skills root
-(`<workspace>/personalities/<id>/skills/`), its system prompt, tool scope and
-sandbox mode (`AgentDefinitionSpec`), its allowlists (`allowed_tools`,
-`allowed_skills`), and a narrowed `DomainSet` / `ToolGroups`. Every turn is
+(`<workspace>/agents/<id>/skills/`), its system prompt, tool scope and
+sandbox mode (`AgentDefinitionSpec`), and a narrowed `DomainSet` /
+`ToolGroups`. Every turn is
 dispatched under the agent's own `CoreContext`, so the core's config loader,
 domain gate, tool-group filter and skill discovery all read that agent's
 settings and never another's. Transcripts are keyed by agent id and a turn
@@ -116,7 +116,7 @@ Layout under a runtime-owned root:
 
 ```text
 <root>/config.toml, auth-profiles.json, core.token
-<root>/workspace/session_db/, session_raw/<ts>_<agent>.jsonl, personalities/<agent>/skills/
+<root>/workspace/session_db/, session_raw/<ts>_<agent>.jsonl, agents/<agent>/skills/
 <root>/agents/<agent>/action/                  default action_dir
 ```
 
@@ -219,10 +219,6 @@ are documented rather than hidden; each is a candidate follow-up in the core.
 - `install_skill` / `create_skill` still write to `~/.openhuman`. With
   `include_user_skills(false)` (the default) an agent does not *discover* the
   operator's skills, but an install by the agent lands there.
-- `AgentSpec::dedicated_memory` opens a separate memory store through the
-  memory module, which a library runtime only has when its host preloads
-  modules (`ServiceSet::memory_queue`). Without it the open times out; leave
-  the default (shared memory, per-agent transcripts) unless the module runs.
 - One API key (or session) is shared by all agents.
 - `IntegrationClient` (backend-proxied Composio/search/media tools) only
   ever reads the app-session JWT (`api::jwt::get_session_token`), never the

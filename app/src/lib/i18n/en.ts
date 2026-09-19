@@ -19,10 +19,6 @@ const en: TranslationMap = {
   'nav.alerts': 'Alerts',
   'nav.rewards': 'Rewards',
   'nav.settings': 'Settings',
-  'nav.agentProfiles': 'Agent profiles',
-  'nav.switchAgentProfile': 'Switch agent profile',
-  'nav.defaultAgentProfile': 'Default agent',
-  'nav.noAgentProfiles': 'No agent profiles found',
   'nav.activity': 'Activity',
   'nav.brain': 'Brain',
   'nav.flows': 'Workflows',
@@ -5397,14 +5393,10 @@ const en: TranslationMap = {
   'settings.cron.jobs.formScheduleRequired': 'Schedule is required',
   'settings.cron.jobs.formScheduleType': 'Schedule type',
   'settings.cron.jobs.formSessionIsolated': 'Isolated (recommended)',
-  'settings.cron.jobs.formProfile': 'Agent profile',
-  'settings.cron.jobs.formProfileNone': 'No profile',
-  'settings.cron.jobs.formProfileHint':
     'Run this job as the selected profile, using its soul, memory, and workspace.',
   'settings.cron.jobs.formSessionMain': 'Main session',
   'settings.cron.jobs.formSessionTarget': 'Session target',
   'settings.cron.jobs.lastStatus': 'Last status',
-  'settings.cron.jobs.profile': 'Profile',
   'settings.cron.jobs.loading': 'Loading cron jobs...',
   'settings.cron.jobs.loadingRuns': 'Loading runs…',
   'settings.cron.jobs.nextRun': 'Next run',
@@ -6678,8 +6670,6 @@ const en: TranslationMap = {
   'settings.agents.editor.create': 'Create agent',
   'settings.agents.editor.saving': 'Saving…',
 
-  // ── Agent Profiles ───────────────────────────────────────────────────────
-  'settings.profiles.title': 'Agent Profiles',
   'settings.profiles.subtitle':
     'Flavoured agents: each with its own soul, memory, connectors, and skills.',
   'settings.profiles.menuDesc': 'Create and manage agent profiles',

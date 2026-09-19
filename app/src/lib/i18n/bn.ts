@@ -310,10 +310,6 @@ const messages: TranslationMap = {
   'nav.alerts': 'সতর্কতা',
   'nav.rewards': 'পুরস্কার',
   'nav.settings': 'সেটিংস',
-  'nav.agentProfiles': 'এজেন্ট প্রোফাইল',
-  'nav.switchAgentProfile': 'এজেন্ট প্রোফাইল বদলান',
-  'nav.defaultAgentProfile': 'ডিফল্ট এজেন্ট',
-  'nav.noAgentProfiles': 'কোনো এজেন্ট প্রোফাইল পাওয়া যায়নি',
   'nav.activity': 'কার্যকলাপ',
   'nav.brain': 'ব্রেইন',
   'nav.flows': 'ওয়ার্কফ্লো',
@@ -4682,11 +4678,7 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'বিচ্ছিন্ন (প্রস্তাবিত)',
   'settings.cron.jobs.formSessionMain': 'প্রধান সেশন',
   'settings.cron.jobs.formSessionTarget': 'সেশন টার্গেট',
-  'settings.cron.jobs.formProfile': 'এজেন্ট প্রোফাইল',
-  'settings.cron.jobs.formProfileNone': 'কোনো প্রোফাইল নয়',
-  'settings.cron.jobs.formProfileHint':
     'নির্বাচিত প্রোফাইল হিসেবে এই কাজটি চালান, তার পরিচয়, মেমরি ও ওয়ার্কস্পেস ব্যবহার করে।',
-  'settings.cron.jobs.profile': 'প্রোফাইল',
   'settings.cron.jobs.lastStatus': 'শেষ স্ট্যাটাস',
   'settings.cron.jobs.loading': 'ক্রন জব লোড হচ্ছে...',
   'settings.cron.jobs.loadingRuns': 'রান লোড হচ্ছে',
@@ -6393,7 +6385,6 @@ const messages: TranslationMap = {
   'orchestration.detail.agents': 'এজেন্ট',
   'orchestration.detail.childRefs': 'চাইল্ড এজেন্ট',
   'orchestration.detail.synthesis': 'চূড়ান্ত সংশ্লেষণ',
-  // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'এজেন্ট প্রোফাইল',
   'settings.profiles.subtitle':
     'স্বতন্ত্র এজেন্ট: প্রতিটির নিজস্ব আত্মা, স্মৃতি, কানেক্টর ও দক্ষতা।',

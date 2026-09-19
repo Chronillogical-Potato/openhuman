@@ -28,7 +28,6 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 // Type-only: erased at runtime, so it does not defeat `vi.hoisted`.
 import type { FlowApprovalRequest } from '../../hooks/useFlowApprovalRequests';
 import { chatSend } from '../../services/chatService';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
   type ArtifactSnapshot,
   setToolTimelineForThread,
@@ -194,7 +193,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,

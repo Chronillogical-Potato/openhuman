@@ -17,7 +17,6 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 import { threadApi } from '../../services/api/threadApi';
 import { chatCancel, chatClearQueue, chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
   beginInferenceTurn,
   bumpInferenceHeartbeatForThread,
@@ -193,7 +192,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,

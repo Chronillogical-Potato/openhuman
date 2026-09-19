@@ -66,12 +66,6 @@ import {
 } from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
-  loadAgentProfiles,
-  selectActiveAgentProfileId,
-  selectAgentProfile,
-  selectAgentProfiles,
-} from '../../store/agentProfileSlice';
-import {
   beginInferenceTurn,
   clearFollowupsForThread,
   clearRuntimeForThread,
@@ -398,8 +392,6 @@ const Conversations = ({
     [dispatch]
   );
   const socketStatus = useAppSelector(selectSocketStatus);
-  const agentProfiles = useAppSelector(selectAgentProfiles);
-  const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
   // Optional chain because narrow test stores (e.g. Conversations.test
   // bootstraps without the locale slice) shouldn't crash here. `'en'`
   // matches the no-locale-directive branch in the core, so legacy
@@ -461,7 +453,7 @@ const Conversations = ({
     // Only `isAtLimit` is read here now: the near-limit and spent-budget
     // banners this file rendered are notices in `NoticeCenter`, which reads
     // the same hook once for the whole app.
-  } = useUsageState(selectedAgentProfileId === 'reasoning' ? 'reasoning' : 'chat');
+  } = useUsageState('chat');
   const [deleteModal, setDeleteModal] = useState<ConfirmationModalType>({
     isOpen: false,
     title: '',
@@ -496,12 +488,11 @@ const Conversations = ({
     let cancelled = false;
     (async () => {
       try {
-        const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
-        // Resolve the actually-selected profile's model so `modelSupportsVision`
-        // reflects the real tier, AND the vision workload so we know whether a
+        // Resolve the standard chat model so `modelSupportsVision` reflects the
+        // normal agent path, AND the vision workload so we know whether a
         // vision sub-agent can take the image. Documents are text-extracted so
         // any model handles them.
-        const hint = profile?.modelOverride ?? CHAT_MODEL_HINT;
+        const hint = composerModelOverride ?? CHAT_MODEL_HINT;
         const [res, visionRes] = await Promise.all([
           callCoreRpc<{ model: string; vision?: boolean }>({
             method: 'openhuman.inference_resolve_model',
@@ -528,12 +519,9 @@ const Conversations = ({
     return () => {
       cancelled = true;
     };
-  }, [agentProfiles, selectedAgentProfileId]);
+  }, [composerModelOverride]);
 
-  // Display name for share cards (#5006): the active agent profile, or the
-  // product name when no named profile is selected.
-  const shareAgentName =
-    agentProfiles.find(p => p.id === selectedAgentProfileId)?.name ?? 'OpenHuman';
+  const shareAgentName = 'OpenHuman';
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const composerFooterRef = useRef<HTMLDivElement>(null);
@@ -642,14 +630,6 @@ const Conversations = ({
           err instanceof Error ? err.message : String(err)
         )
       );
-  };
-
-  const handleSelectAgentProfile = async (profileId: string) => {
-    try {
-      await dispatch(selectAgentProfile(profileId)).unwrap();
-    } catch (error) {
-      debug('agent profile select failed: %o', error);
-    }
   };
 
   // Seed the composer footer with the selected thread's persisted token/cost
@@ -764,14 +744,6 @@ const Conversations = ({
       void dispatch(fetchAndHydrateTurnState(selectedThreadId));
     }
   }, [selectedThreadId, dispatch]);
-
-  useEffect(() => {
-    void dispatch(loadAgentProfiles())
-      .unwrap()
-      .catch(error => {
-        debug('agent profiles load failed: %o', error);
-      });
-  }, [dispatch]);
 
   useEffect(() => {
     const onDictationInsert = (event: Event) => {
@@ -1110,10 +1082,7 @@ const Conversations = ({
     pendingSendsRef.current.add(sendingThreadId);
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1187,7 +1156,6 @@ const Conversations = ({
         threadId: sendingThreadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
       });
       trackAnalyticsEvent('chat_message_sent', {
@@ -1239,10 +1207,7 @@ const Conversations = ({
     if (!normalized && attachments.length === 0) return;
 
     const pendingAttachments = attachments.slice();
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1288,7 +1253,6 @@ const Conversations = ({
         threadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
         queueMode: 'parallel',
       });
@@ -1321,10 +1285,7 @@ const Conversations = ({
     const pendingAttachments = attachments.slice();
     if (!normalized && pendingAttachments.length === 0) return;
 
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     // Build the full user message exactly like a normal send (content +
     // attachment metadata) so the follow-up persists identically when it is
@@ -1371,7 +1332,6 @@ const Conversations = ({
         threadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
         queueMode: 'followup',
       });
@@ -2499,45 +2459,13 @@ const Conversations = ({
 
         {/* Thread title + inline rename moved to the sidebar thread list rows. */}
 
-        {/* Model + token stats (left) and the quick/reasoning toggle + files
-            chip (right) share one line. */}
+        {/* Model/token stats and the supporting controls share one line. */}
         <div
           className="mt-2 flex items-center justify-between gap-2"
           data-walkthrough="chat-agent-panel">
           <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
           {!isSidebar && (
             <div className="flex shrink-0 items-center gap-2">
-              <div
-                className="flex h-7 items-center rounded-full border border-line bg-surface-subtle p-0.5"
-                role="radiogroup"
-                aria-label={t('chat.agentProfile.label')}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'default'}
-                  data-analytics-id="chat-header-mode-quick"
-                  onClick={() => void handleSelectAgentProfile('default')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'default'
-                      ? 'bg-surface text-content shadow-xs'
-                      : 'text-content-muted hover:text-content-secondary'
-                  }`}>
-                  {t('chat.agentProfile.quick')}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'reasoning'}
-                  data-analytics-id="chat-header-mode-reasoning"
-                  onClick={() => void handleSelectAgentProfile('reasoning')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'reasoning'
-                      ? 'bg-surface text-content shadow-xs'
-                      : 'text-content-muted hover:text-content-secondary'
-                  }`}>
-                  {t('chat.agentProfile.reasoning')}
-                </button>
-              </div>
               {renderBackgroundProcessesButton(() =>
                 threadViewRef.current?.openBackgroundProcesses()
               )}
