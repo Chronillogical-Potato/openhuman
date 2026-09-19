@@ -25,9 +25,10 @@ mod host;
 mod ops;
 mod schemas;
 
-pub(crate) fn scheduler_graph_topology() -> anyhow::Result<tinyagents_graph::export::GraphTopology>
+/// A diagnostic topology preview, not the effectful workflow scheduler.
+pub(crate) fn scheduler_topology_preview() -> anyhow::Result<tinyagents_graph::export::GraphTopology>
 {
-    tinyagents_orchestration::workflow::scheduler_graph()
+    tinyagents_orchestration::workflow::scheduler_topology_preview()
 }
 
 pub use engine::{resume_workflow_run, start_workflow_run, stop_workflow_run};

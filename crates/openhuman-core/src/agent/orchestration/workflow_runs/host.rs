@@ -2,17 +2,45 @@
 
 use std::sync::Arc;
 
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use serde_json::json;
 use tinyagents_harness::CancellationToken;
 use tinyagents_orchestration::workflow::{
     OrchestrationError, WorkflowChildRegistration, WorkflowChildRequest, WorkflowChildResult,
-    WorkflowExecutor,
+    WorkflowDefinition, WorkflowExecutor,
 };
 
+use crate::agent::harness::definition::{AgentDefinitionRegistry, SandboxMode, ToolScope};
 use crate::agent::orchestration::{
     AgentOrchestrationSession, OrchestrationTaskStatus, SpawnAgentRequest, WaitAgentOptions,
 };
+
+/// Product policy deliberately remains in OpenHuman. The portable engine sees
+/// no safety labels; this adapter admits a catalog definition and keeps its
+/// children inside the advertised capability envelope.
+#[derive(Clone, Copy)]
+pub(super) enum WorkflowSafetyTier {
+    ReadOnly,
+}
+
+pub(super) fn admit_workflow(definition: &WorkflowDefinition) -> Result<WorkflowSafetyTier> {
+    match definition
+        .extensions
+        .get("safetyTier")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("read_only") => Ok(WorkflowSafetyTier::ReadOnly),
+        Some(other) => Err(anyhow!(
+            "workflow '{}' has unsupported safetyTier '{other}'",
+            definition.id
+        )),
+        None => Err(anyhow!(
+            "workflow '{}' is missing required safetyTier",
+            definition.id
+        )),
+    }
+}
 
 /// Host policy has already admitted the parent context before this executor is
 /// created.  This adapter only translates one neutral child request into the
@@ -21,13 +49,47 @@ use crate::agent::orchestration::{
 pub(super) struct OpenHumanWorkflowExecutor {
     session: AgentOrchestrationSession,
     model_override: Option<String>,
+    safety_tier: WorkflowSafetyTier,
 }
 
 impl OpenHumanWorkflowExecutor {
-    pub(super) fn new(run_id: &str, model_override: Option<String>) -> Self {
+    pub(super) fn new(
+        run_id: &str,
+        model_override: Option<String>,
+        safety_tier: WorkflowSafetyTier,
+    ) -> Self {
         Self {
             session: AgentOrchestrationSession::new(format!("workflow-engine-{run_id}")),
             model_override,
+            safety_tier,
+        }
+    }
+
+    fn admit_child(&self, agent_id: &str) -> Result<(), OrchestrationError> {
+        match self.safety_tier {
+            WorkflowSafetyTier::ReadOnly => {
+                let registry = AgentDefinitionRegistry::global().ok_or_else(|| {
+                    OrchestrationError(
+                        "workflow safety admission requires the agent registry".to_owned(),
+                    )
+                })?;
+                let definition = registry.get(agent_id).ok_or_else(|| {
+                    OrchestrationError(format!(
+                        "workflow safety admission rejected unknown agent '{agent_id}'"
+                    ))
+                })?;
+                let allowed_named_tool =
+                    |tool: &str| matches!(tool, "web_search_tool" | "web_fetch");
+                let read_only = matches!(definition.sandbox_mode, SandboxMode::ReadOnly)
+                    || matches!(&definition.tools, ToolScope::Named(tools) if tools.iter().all(|tool| allowed_named_tool(tool)));
+                if read_only {
+                    Ok(())
+                } else {
+                    Err(OrchestrationError(format!(
+                        "workflow safetyTier read_only rejected agent '{agent_id}' with acting-capable tools"
+                    )))
+                }
+            }
         }
     }
 }
@@ -40,6 +102,7 @@ impl WorkflowExecutor for OpenHumanWorkflowExecutor {
         cancel: CancellationToken,
         registration: Arc<dyn WorkflowChildRegistration>,
     ) -> Result<WorkflowChildResult, OrchestrationError> {
+        self.admit_child(&request.agent_id)?;
         if cancel.is_cancelled() {
             return Err(OrchestrationError(
                 "workflow cancelled before child spawn".to_owned(),
@@ -102,3 +165,7 @@ impl WorkflowExecutor for OpenHumanWorkflowExecutor {
         self.session.abort_all().await;
     }
 }
+
+#[cfg(test)]
+#[path = "host_tests.rs"]
+mod tests;

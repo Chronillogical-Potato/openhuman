@@ -53,8 +53,8 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("delegation", &t));
     }
 
-    if let Ok(t) = crate::agent::orchestration::workflow_runs::scheduler_graph_topology() {
-        out.push(describe("workflow_runs:scheduler", &t));
+    if let Ok(t) = crate::agent::orchestration::workflow_runs::scheduler_topology_preview() {
+        out.push(describe("workflow_runs:scheduler_preview", &t));
     }
 
     if let Ok(t) = crate::agent::registry::agents::researcher::graph::topology() {
