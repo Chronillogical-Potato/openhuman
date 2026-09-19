@@ -168,7 +168,7 @@ fn error_status_accessor_only_reports_status_variant() {
 
 #[tokio::test]
 async fn plain_transport_sends_attribution_and_credential_headers() {
-    let _identity = crate::api::product::product_identity_test_lock().lock().unwrap();
+    let _identity = crate::api::product::product_identity_test_lock();
     crate::api::product::reset_product_identity_for_test();
     let server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -239,12 +239,8 @@ async fn plain_transport_maps_non_2xx_to_status_and_keeps_raw_when_not_unwrappin
         BackendTransportError::Status { status: 402, ref body } if body == "Insufficient balance"
     ));
 
-    let mut req = BackendRequest::new(
-        TransportProfile::Api,
-        &server.uri(),
-        reqwest::Method::GET,
-        "/raw",
-    );
+    let base = server.uri();
+    let mut req = BackendRequest::new(TransportProfile::Api, &base, reqwest::Method::GET, "/raw");
     req.unwrap_envelope = false;
     assert_eq!(
         transport.send_json(req).await.unwrap(),
