@@ -10,8 +10,8 @@ pub(super) async fn filter_cached_toolkit_actions_with_current_scope(
     agent_id: &str,
     toolkit: &str,
     config: &crate::config::Config,
-    actions: &[crate::agent::context::prompt::ConnectedIntegrationTool],
-) -> Vec<crate::agent::context::prompt::ConnectedIntegrationTool> {
+    actions: &[crate::agent::prompts::ConnectedIntegrationTool],
+) -> Vec<crate::agent::prompts::ConnectedIntegrationTool> {
     let pref = crate::integrations::composio::ops::load_user_scope_pref(config, toolkit).await;
     let before = actions.len();
     let filtered: Vec<_> = actions

@@ -489,7 +489,7 @@ fn composio_write_tools_declare_an_external_effect_so_the_approval_gate_parks_th
 
     use openhuman_core::config::Config;
     use openhuman_core::integrations::composio::tools::ComposioExecuteTool;
-    use openhuman_core::tools::traits::Tool;
+    use tinytools::Tool;
 
     let tool = ComposioExecuteTool::new(Arc::new(Config::default()));
 

@@ -32,7 +32,6 @@ pub(super) fn map_cron_job_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Cron
         session_target: SessionTarget::parse(&row.get::<_, String>(7)?),
         model: row.get(8)?,
         agent_id: row.get(17)?,
-        profile_id: row.get(18)?,
         enabled: row.get::<_, i64>(9)? != 0,
         delivery,
         delete_after_run: row.get::<_, i64>(11)? != 0,
@@ -181,7 +180,6 @@ pub(super) fn with_connection<T>(
     add_column_if_missing(&conn, "delivery", "TEXT")?;
     add_column_if_missing(&conn, "delete_after_run", "INTEGER NOT NULL DEFAULT 0")?;
     add_column_if_missing(&conn, "agent_id", "TEXT")?;
-    add_column_if_missing(&conn, "profile_id", "TEXT")?;
 
     f(&conn)
 }

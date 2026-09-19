@@ -229,7 +229,7 @@ impl HarnessBuilder {
 
         // Refused before any runtime is built, so a bad input never claims
         // the process slot. The new API allows skills on an inherited
-        // workspace because it copies into the agent's own profile home; the
+        // workspace because it copies into the agent's own home; the
         // harness keeps installing into `<workspace>/skills`, which under
         // `Inherit` is the operator's, so it keeps refusing.
         #[cfg(feature = "skills")]

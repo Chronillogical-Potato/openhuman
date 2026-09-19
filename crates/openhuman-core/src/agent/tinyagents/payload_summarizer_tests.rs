@@ -2,6 +2,11 @@ use super::*;
 use crate::agent::harness::definition::{
     AgentDefinition, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
+use async_trait::async_trait;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
 
 fn dummy_definition() -> AgentDefinition {
     AgentDefinition {
@@ -43,8 +48,75 @@ fn dummy_definition() -> AgentDefinition {
 const TEST_THRESHOLD_TOKENS: usize = 500_000;
 const TEST_MAX_TOKENS: usize = 2_000_000;
 
-fn dummy_parent_ctx() -> RunContext<()> {
-    RunContext::new(tinyagents_harness::context::RunConfig::new("test"), ())
+fn dummy_parent_ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+    RunContext::new(
+        tinyagents_harness::context::RunConfig::new("test"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
+}
+
+#[test]
+fn unary_summarizer_child_inherits_cancellation_workspace_and_lineage() {
+    let cancellation = tinyagents_harness::cancel::CancellationToken::new();
+    let workspace = tinytools::WorkspaceDescriptor::new("/work/action");
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .with_cancellation(cancellation.clone())
+        .with_workspace(workspace.clone())
+        .into_tinyagents(
+            tinyagents_harness::context::RunConfig::new("parent").with_thread("thread-a"),
+        );
+
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+
+    assert_eq!(child.workspace, Some(workspace));
+    assert_eq!(child.thread_id().map(|id| id.as_str()), Some("thread-a"));
+    assert_eq!(child.depth(), 1);
+    assert_eq!(child.data.spawn_depth, 1);
+    cancellation.cancel();
+    assert!(child.cancellation.is_cancelled());
+}
+
+struct UnaryOnlyModel(AtomicBool);
+
+#[async_trait]
+impl ChatModel<()> for UnaryOnlyModel {
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
+        self.0.store(true, Ordering::SeqCst);
+        Ok(ModelResponse::assistant("condensed summary"))
+    }
+
+    async fn stream(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelStream> {
+        panic!("a payload summary must not stream into the user-visible parent turn")
+    }
+}
+
+#[tokio::test]
+async fn unary_summarizer_child_keeps_summary_output_off_the_streaming_path() {
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+    let model = Arc::new(UnaryOnlyModel(AtomicBool::new(false)));
+    let mut harness: AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext> =
+        AgentHarness::new();
+    harness
+        .register_model("summary", model.clone())
+        .set_default_model("summary");
+
+    let run = harness
+        .invoke_in_context(&(), child, vec![Message::user("summarize this")])
+        .await
+        .expect("unary summary run");
+
+    assert!(model.0.load(Ordering::SeqCst));
+    assert_eq!(run.text().as_deref(), Some("condensed summary"));
 }
 
 #[tokio::test]
@@ -221,7 +293,7 @@ async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching(
     let raw = "identical payload for the reuse test ".repeat(64);
     let hint = Some("reuse-test goal");
     remember_summary(
-        summary_cache_key("reuse_tool", hint, &raw),
+        summary_cache_key(None, "reuse_tool", hint, &raw),
         "CACHED SUMMARY".to_string(),
     );
 
@@ -248,7 +320,7 @@ async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching(
 async fn a_summary_written_for_another_goal_is_not_reused() {
     let raw = "payload shared across two goals ".repeat(64);
     remember_summary(
-        summary_cache_key("goal_tool", Some("goal A"), &raw),
+        summary_cache_key(None, "goal_tool", Some("goal A"), &raw),
         "SUMMARY FOR GOAL A".to_string(),
     );
 
@@ -267,7 +339,7 @@ async fn a_summary_written_for_another_goal_is_not_reused() {
 fn a_successful_summary_is_remembered_for_reuse() {
     let summarizer = low_threshold_summarizer();
     let raw = "x".repeat(50_000);
-    let key = summary_cache_key("size_tool", Some("size goal"), &raw);
+    let key = summary_cache_key(None, "size_tool", Some("size goal"), &raw);
 
     let outcome = summarizer
         .handle_summarizer_result(

@@ -105,6 +105,30 @@ pub(super) fn resolve_managed_backend(
     resolve_managed_backend_with_model_override(role, config, None)
 }
 
+/// Construct a managed turn model with the explicit OpenHuman thread attached.
+/// This intentionally exposes no generic backend resolver outside the factory.
+pub(crate) fn make_openhuman_backend_model_for_thread(
+    role: &str,
+    config: &Config,
+    model: &str,
+    native_tool_calling: bool,
+    thread_id: Option<&str>,
+) -> anyhow::Result<(
+    std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,
+    String,
+)> {
+    let (backend, resolved_model) = resolve_managed_backend(role, config)?;
+    Ok((
+        std::sync::Arc::new(
+            backend
+                .with_default_model(model)
+                .with_native_tool_calling(native_tool_calling)
+                .with_thread_id(thread_id),
+        ),
+        resolved_model,
+    ))
+}
+
 pub(super) fn resolve_managed_backend_with_model_override(
     role: &str,
     config: &Config,

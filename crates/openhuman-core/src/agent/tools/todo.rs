@@ -3,18 +3,48 @@
 //! Dispatches on the `op` field so a single tool exposes
 //! `add` / `edit` / `update_status` / `remove` / `replace` / `clear` /
 //! `list`. The board is persisted to the active thread (when there is
-//! one) via [`crate::agent::todos::ops`]; without a thread context the
+//! one) via [`crate::agent::todos::ops`]; without a caller thread the
 //! tool falls back to a process-global scratch list. Returns a markdown
 //! rendering so transcripts read cleanly.
 
-use crate::agent::tinyagents::thread_context;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct TodoTool;
+
+pub(crate) struct TodoToolDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl TodoToolDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for TodoToolDispatch {
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        TodoTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl TodoTool {
     pub fn new() -> Self {
@@ -99,6 +129,28 @@ impl Tool for TodoTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, tool_context)
+            .await
+    }
+}
+
+impl TodoTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let op = args
             .get("op")
             .and_then(|v| v.as_str())
@@ -106,7 +158,7 @@ impl Tool for TodoTool {
             .trim()
             .to_string();
 
-        let location = current_location();
+        let location = current_location(parent.as_ref(), tool_context);
         tracing::debug!(op = %op, thread_id = ?location.thread_id(), "[tool][todo] dispatch");
 
         let result = match op.as_str() {
@@ -197,8 +249,11 @@ async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
     }
 }
 
-fn current_location() -> BoardLocation {
-    let Some(parent) = crate::agent::harness::fork_context::current_parent() else {
+fn current_location(
+    parent: Option<&ParentExecutionContext>,
+    tool_context: Option<&dyn ToolRunContext>,
+) -> BoardLocation {
+    let Some(parent) = parent else {
         return BoardLocation::Scratch;
     };
     // The orchestrator owns ONE global task board rather than a per-thread one:
@@ -210,12 +265,12 @@ fn current_location() -> BoardLocation {
             thread_id: ops::ORCHESTRATOR_TASKS_THREAD_ID.to_string(),
         };
     }
-    let Some(thread_id) = thread_context::current_thread_id() else {
+    let Some(thread_id) = tool_context.and_then(ToolRunContext::thread_id) else {
         return BoardLocation::Scratch;
     };
     BoardLocation::Thread {
         workspace_dir: parent.workspace_dir.clone(),
-        thread_id,
+        thread_id: thread_id.to_owned(),
     }
 }
 

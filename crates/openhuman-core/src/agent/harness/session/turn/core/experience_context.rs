@@ -29,10 +29,7 @@ impl Agent {
             .iter()
             .map(|spec| spec.name.clone())
             .collect();
-        let mut stores = vec![AgentExperienceStore::new(self.memory.clone())];
-        if let Some(shared_memory) = &self.shared_experience_memory {
-            stores.push(AgentExperienceStore::new(shared_memory.clone()));
-        }
+        let stores = vec![AgentExperienceStore::new(self.memory.clone())];
         let query = ExperienceQuery {
             query: user_message.to_string(),
             tools,
@@ -40,10 +37,6 @@ impl Agent {
             agent_id: Some(self.agent_definition_id.clone()).filter(|id| !id.trim().is_empty()),
             entrypoint: Some(self.event_channel.clone())
                 .filter(|entrypoint| !entrypoint.trim().is_empty()),
-            // 1c — partition recall by the active profile: this turn sees records
-            // stamped with its profile plus unstamped legacy records, and never a
-            // sibling profile's. `None` (profile-less) recalls the whole pool.
-            profile_id: self.active_profile_id.clone(),
             max_hits: MAX_EXPERIENCE_HITS,
         };
 
@@ -127,6 +120,8 @@ impl Agent {
         let options = harness::SubagentRunOptions {
             task_id: Some(task_id.clone()),
             model_override: Some(parent_context.model_name.clone()),
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext::new()
+                .with_parent(parent_context.clone()),
             ..Default::default()
         };
 
@@ -138,10 +133,7 @@ impl Agent {
         );
 
         let started = std::time::Instant::now();
-        let result = harness::with_parent_context(parent_context.clone(), async move {
-            harness::run_subagent(&definition, &prompt, options).await
-        })
-        .await;
+        let result = harness::run_subagent(&definition, &prompt, options).await;
 
         match result {
             Ok(outcome) => {

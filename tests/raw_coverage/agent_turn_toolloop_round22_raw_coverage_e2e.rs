@@ -7,7 +7,8 @@ use openhuman_core::agent::progress::AgentProgress;
 use openhuman_core::config::{MultimodalConfig, MultimodalFileConfig};
 use openhuman_core::agent::messages::ChatMessage;
 use openhuman_core::security::POLICY_BLOCKED_MARKER;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+
 use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, OnceLock};

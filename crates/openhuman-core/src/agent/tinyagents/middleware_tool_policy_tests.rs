@@ -14,12 +14,12 @@ use crate::tools::agent_policy::{
     ToolPolicySession,
 };
 use crate::tools::toolpacks::{append_pack_tools, bind_pack_registry, USE_SKILL};
-use crate::tools::traits::{PermissionLevel, ToolResult};
+use tinytools::{PermissionLevel, ToolResult};
 
 struct RoutingFakeTool(&'static str);
 
 #[async_trait]
-impl crate::tools::traits::Tool for RoutingFakeTool {
+impl tinytools::Tool for RoutingFakeTool {
     fn name(&self) -> &str {
         self.0
     }
@@ -61,7 +61,7 @@ fn non_owner_middleware() -> ToolPolicyMiddleware {
 /// pack's permission ceiling — where `use_skill` reports the pack-wide maximum
 /// for an inner name it cannot resolve (#6302).
 fn non_owner_middleware_at(allowed: PermissionLevel) -> ToolPolicyMiddleware {
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = vec![
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![
         Box::new(RoutingFakeTool("build_workflow")),
         Box::new(RoutingFakeTool("propose_workflow")),
         Box::new(ArchetypeDelegationTool {
@@ -129,9 +129,9 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
         .expect("a use_skill call naming a skill and no tool renders here");
 
     assert!(
-        !result.content.contains("propose_workflow"),
+        !result_text(&result).contains("propose_workflow"),
         "a non-owner must not be offered a tool the gate will refuse:\n{}",
-        result.content
+        result_text(&result)
     );
     // Assert the LISTING entry in its exact rendered form, not the bare name.
     //
@@ -143,16 +143,16 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
     // test exists to catch. A check that cannot fail reads as coverage and is
     // worse than none.
     assert!(
-        result.content.contains("## `build_workflow`"),
+        result_text(&result).contains("## `build_workflow`"),
         "the tool it CAN call must still be LISTED, not merely mentioned in a \
          route sentence:\n{}",
-        result.content
+        result_text(&result)
     );
     // And this really is a listing, not the "nothing callable" error.
     assert!(
-        result.content.starts_with("# Skill `workflows`"),
+        result_text(&result).starts_with("# Skill `workflows`"),
         "expected a rendered pack listing:\n{}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -210,7 +210,7 @@ async fn a_use_skill_denial_names_a_delegate_this_session_can_call() {
 /// naming the owning agents rather than inventing a call it cannot make.
 #[tokio::test]
 async fn a_session_without_the_delegate_is_not_told_to_call_it() {
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> =
+    let mut tools: Vec<Box<dyn tinytools::Tool>> =
         vec![Box::new(RoutingFakeTool("propose_workflow"))];
     append_pack_tools(&mut tools);
     let tools = Arc::new(tools);
@@ -272,8 +272,7 @@ async fn use_skill_reaches_a_withheld_packed_tool() {
     use crate::tools::agent_policy::ToolPolicyEngine;
     use crate::tools::toolpacks::strip_packed_from_visible;
 
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> =
-        vec![Box::new(RoutingFakeTool("goal_set"))];
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![Box::new(RoutingFakeTool("goal_set"))];
     append_pack_tools(&mut tools);
     let tools = Arc::new(tools);
     bind_pack_registry(&tools);
@@ -323,7 +322,7 @@ async fn a_prompt_hidden_delegate_is_not_offered_as_a_direct_route() {
     use crate::tools::agent_policy::ToolPolicyEngine;
     use crate::tools::toolpacks::strip_packed_from_visible;
 
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = vec![
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![
         Box::new(RoutingFakeTool("propose_workflow")),
         Box::new(ArchetypeDelegationTool {
             tool_name: "build_workflow".to_string(),

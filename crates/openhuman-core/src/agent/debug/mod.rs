@@ -30,14 +30,12 @@ pub mod wire;
 pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
 pub use wire::render as render_wire_dump;
 
-use crate::agent::context::prompt::{
-    LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
-};
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, PromptSource};
 use crate::agent::harness::session::Agent;
+use crate::agent::prompts::{LearnedContextData, PromptContext, PromptTool, ToolCallFormat};
 use crate::config::Config;
 use crate::integrations::composio::ComposioActionTool;
-use crate::tools::{Tool, ToolCategory};
+use tinytools::{Tool, ToolCategory};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -500,8 +498,6 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -577,10 +573,10 @@ impl Tool for PromptProxyTool {
     fn category(&self) -> ToolCategory {
         self.category
     }
-    fn permission_level(&self) -> crate::tools::PermissionLevel {
-        crate::tools::PermissionLevel::None
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::None
     }
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
         Err(anyhow!(
             "PromptProxyTool (`{}`) is a render-only stub — execute is not callable",
             self.name

@@ -414,7 +414,7 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     // are external-effect tools. This pins that invariant independently of
     // belt name-resolution so the hide-list can't silently stop covering a
     // live-run/resume tool.
-    use crate::tools::Tool as _;
+    use tinytools::Tool as _;
     let live_runner = crate::flows::tools::RunFlowTool::new(std::sync::Arc::new(config.clone()));
     assert!(
         live_runner.external_effect(),

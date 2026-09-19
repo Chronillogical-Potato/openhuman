@@ -8,12 +8,12 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyagents_harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::message::Message as TaMessage;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use super::loop_guards::{
     is_recoverable_tool_failure, is_repeat_call_exempt, recoverable_identical_halt_summary,
@@ -221,14 +221,16 @@ pub(crate) fn is_body_level_failure(name: &str, content: &str) -> bool {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatedToolFailureMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatedToolFailureMiddleware
+{
     fn name(&self) -> &str {
         "repeated_tool_failure"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -242,15 +244,18 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let content = crate::agent::tinyagents::middleware::tool_result_text(result);
         let arg_fp = self
             .arg_sigs
             .lock()
             .ok()
-            .and_then(|mut sigs| sigs.remove(&result.call_id))
+            .and_then(|mut sigs| sigs.remove(&invocation.call_id().to_string()))
             .unwrap_or_default();
         let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
@@ -259,16 +264,15 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         // `"ok": false` — see `is_body_level_failure`. Only meaningful when
         // `result.error` is `None`; when both are set, `result.error` already
         // drives every check below, so this never double-counts one failure.
-        let body_level_failure =
-            result.error.is_none() && is_body_level_failure(&result.name, &result.content);
+        let body_level_failure = !result.is_error && is_body_level_failure(tool_name, &content);
 
         // Combined failure text for classification: the model-facing content plus
         // the (redundant but authoritative) error field. Both are scanned for the
         // policy / terminal-inference / recoverable markers below.
-        let failure_text = match result.error.as_deref() {
-            Some(err) => format!("{}\n{}", result.content, err),
-            None if body_level_failure => result.content.clone(),
-            None => String::new(),
+        let failure_text = match result.is_error {
+            true => content.clone(),
+            false if body_level_failure => content.clone(),
+            false => String::new(),
         };
 
         // ── Part 5 (#3104): terminal delegated-inference fast-halt ──────────────
@@ -279,17 +283,17 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         // *before* the count-based thresholds, because the orchestrator otherwise
         // re-emits the doomed step under varied delegation-tool names so the
         // identical-retry threshold never trips in time.
-        if result.error.is_some() {
+        if result.is_error {
             if let Some(kind) = terminal_inference_failure_kind(&failure_text) {
                 tracing::warn!(
-                    tool = %result.name,
+                    tool = tool_name,
                     kind = ?kind,
                     "[tinyagents::mw] terminal delegated-inference failure — halting on first occurrence with root cause"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
                     *slot = Some(terminal_inference_halt_summary(
                         kind,
-                        &result.name,
+                        tool_name,
                         &failure_text,
                     ));
                 }
@@ -311,15 +315,14 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
             s.contains(crate::security::POLICY_BLOCKED_MARKER)
                 || s.contains(crate::security::POLICY_DENIED_MARKER)
         };
-        let hard_reject =
-            policy_marked(&result.content) || result.error.as_deref().is_some_and(policy_marked);
+        let hard_reject = policy_marked(&content);
 
         // ── Part 4: recoverable-failure headroom ────────────────────────────────
         // Transient failures (timeouts, connection resets, rate limits, 5xx) get
         // the legacy extended headroom instead of the crate's deterministic 3/6.
         // Route them to the recoverable ladder; a success or a non-recoverable
         // failure resets that streak and feeds the crate tracker as before.
-        let recoverable = result.error.is_some()
+        let recoverable = result.is_error
             && !hard_reject
             && (is_recoverable_tool_failure(&failure_text)
                 || matches!(
@@ -338,12 +341,12 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
             // done. `RepeatProgressMiddleware` already honours this exemption on
             // the success side; the failure ladder must agree, or the exemption
             // only holds while the wait happens to return early.
-            if is_repeat_call_exempt(&result.name) {
+            if is_repeat_call_exempt(tool_name) {
                 return Ok(());
             }
-            if let Some(summary) = self.record_recoverable(&result.name, &arg_fp, &failure_text) {
+            if let Some(summary) = self.record_recoverable(tool_name, &arg_fp, &failure_text) {
                 tracing::warn!(
-                    tool = %result.name,
+                    tool = tool_name,
                     "[tinyagents::mw] recoverable-failure headroom exhausted — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
@@ -366,13 +369,13 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         // success/failure signal — `None` means "progress was made, reset every
         // counter") sees the repeat as a failure and feeds it into the same
         // nudge/halt ladder as a real tool error.
-        let attempt_error: Option<&str> = match result.error.as_deref() {
-            Some(err) => Some(err),
-            None if body_level_failure => Some(failure_text.as_str()),
-            None => None,
+        let attempt_error: Option<&str> = match result.is_error {
+            true => Some(failure_text.as_str()),
+            false if body_level_failure => Some(failure_text.as_str()),
+            false => None,
         };
         let attempt = ToolAttempt {
-            tool: &result.name,
+            tool: tool_name,
             arg_fingerprint: &arg_fp,
             error: attempt_error,
             hard_reject,
@@ -385,7 +388,7 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
             NoProgress::Continue => {}
             NoProgress::Nudge(instruction) => {
                 tracing::warn!(
-                    tool = %result.name,
+                    tool = tool_name,
                     step,
                     hard_reject,
                     "[tinyagents::mw] no-progress nudge — steering the model to change strategy before the retry cap"
@@ -408,14 +411,11 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                 // #4092: if the blocker is user-actionable (a missing connection),
                 // escalate with a concrete ask instead of the crate's generic
                 // "unreachable environment, report back" summary.
-                let escalation = user_actionable_escalation(
-                    &result.name,
-                    result.error.as_deref().unwrap_or(result.content.as_str()),
-                );
+                let escalation = user_actionable_escalation(tool_name, &content);
                 let user_actionable = escalation.is_some();
                 let summary = escalation.unwrap_or(summary);
                 tracing::warn!(
-                    tool = %result.name,
+                    tool = tool_name,
                     step,
                     hard_reject,
                     user_actionable,

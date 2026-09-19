@@ -52,23 +52,23 @@ async fn a_wrapped_read_of_a_persisted_artifact_is_paged_not_resummarized_or_rep
     mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
     let mut result = tool_result("use_skill", &"y".repeat(5_000));
 
-    mw.after_tool(&mut ctx, &(), &mut result).await.unwrap();
+    mw.after_tool(&mut ctx, &(), &invocation("c1", "use_skill"), &mut result)
+        .await
+        .unwrap();
 
     assert!(
-        result.content.starts_with("yyyy"),
+        result_text(&result).starts_with("yyyy"),
         "an artifact read must return the stored body, not a summary of it: {:?}",
-        &result.content[..result.content.len().min(120)]
+        &result_text(&result)[..result_text(&result).len().min(120)]
     );
-    let page_end = result
-        .content
+    let rendered = result_text(&result);
+    let page_end = rendered
         .find("\n\n[artifact page")
         .expect("an over-budget read must be paged with a continuation marker");
     assert!(
-        result
-            .content
-            .contains(&format!("\"offset\":{}", 2_000 + page_end)),
+        rendered.contains(&format!("\"offset\":{}", 2_000 + page_end)),
         "the page must name the exact offset the next read starts at: {}",
-        &result.content[page_end..]
+        &rendered[page_end..]
     );
     assert!(
         !tmp.path().join("artifacts").exists(),
@@ -85,12 +85,14 @@ async fn an_oversized_result_is_stored_as_the_tool_returned_it_not_as_rewritten(
     let raw = "r".repeat(8_000);
     let mut result = tool_result("echo", &raw);
 
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result)
+        .await
+        .unwrap();
 
     assert!(
-        result.content.contains("[tool_result_preview]"),
+        result_text(&result).contains("[tool_result_preview]"),
         "an over-budget result is persisted: {}",
-        result.content
+        result_text(&result)
     );
     let stored = std::fs::read_to_string(
         tmp.path()
@@ -102,9 +104,9 @@ async fn an_oversized_result_is_stored_as_the_tool_returned_it_not_as_rewritten(
         "the artifact must hold the tool's own output, not the rewritten copy"
     );
     assert!(
-        result.content.contains("original_bytes: 8000"),
+        result_text(&result).contains("original_bytes: 8000"),
         "the envelope must report the size of what was stored: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -116,7 +118,9 @@ async fn a_raw_result_file_read_cannot_open_is_stored_as_the_processed_copy() {
     let mw = artifact_mw(Some(summarized(&summary, raw_len)), tmp.path());
     let mut result = tool_result("echo", &"r".repeat(raw_len));
 
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result)
+        .await
+        .unwrap();
 
     let stored = std::fs::read_to_string(
         tmp.path()
@@ -143,9 +147,16 @@ async fn handoff_leaves_an_artifact_read_for_the_pager_but_still_hands_off_other
     let oversized = "y".repeat(400_000);
 
     let mut ordinary = tool_result("echo", &oversized);
-    mw.after_tool(&mut ctx(), &(), &mut ordinary).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("ordinary", "echo"),
+        &mut ordinary,
+    )
+    .await
+    .unwrap();
     assert_ne!(
-        ordinary.content.len(),
+        result_text(&ordinary).len(),
         oversized.len(),
         "control: an oversized ordinary result is still handed off"
     );
@@ -158,9 +169,11 @@ async fn handoff_leaves_an_artifact_read_for_the_pager_but_still_hands_off_other
     let mut ctx = ctx();
     mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
     let mut read = tool_result("file_read", &oversized);
-    mw.after_tool(&mut ctx, &(), &mut read).await.unwrap();
+    mw.after_tool(&mut ctx, &(), &invocation("c1", "file_read"), &mut read)
+        .await
+        .unwrap();
     assert_eq!(
-        read.content.len(),
+        result_text(&read).len(),
         oversized.len(),
         "an artifact read must reach the artifact pager with its bytes, not a handoff pointer"
     );

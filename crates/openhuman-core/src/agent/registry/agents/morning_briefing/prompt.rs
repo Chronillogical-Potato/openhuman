@@ -1,11 +1,11 @@
 //! System prompt builder for the `morning_briefing` built-in agent.
 //!
 //! Returns the fully-assembled system prompt. Each agent's `build()`
-//! composes section helpers from [`crate::agent::context::prompt`]
+//! composes section helpers from [`crate::agent::prompts`]
 //! in the order it wants — so the output IS what the LLM sees, no
 //! post-processing in the runner.
 
-use crate::agent::context::prompt::{
+use crate::agent::prompts::{
     render_ambient_environment, render_tools, render_user_files, render_workspace, PromptContext,
 };
 use anyhow::Result;

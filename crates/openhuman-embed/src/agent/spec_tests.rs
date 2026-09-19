@@ -45,12 +45,3 @@ fn tool_groups_may_only_narrow_the_runtime() {
     let err = check_tool_groups_narrow(&widened, &runtime).expect_err("widens");
     assert!(matches!(err, AgentError::WidensRuntime(_)), "{err:?}");
 }
-
-#[test]
-fn blank_profile_carries_only_the_id() {
-    let p = blank_profile("alpha");
-    assert_eq!(p.id, "alpha");
-    assert_eq!(p.agent_id, "alpha");
-    assert!(!p.dedicated_memory);
-    assert!(p.allowed_tools.is_none());
-}

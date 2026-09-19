@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::IntegrationConnection;
+use crate::agent::prompts::IntegrationConnection;
 
 use crate::integrations::composio::module_client::module_guard;
 

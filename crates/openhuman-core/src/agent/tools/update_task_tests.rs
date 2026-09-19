@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::agent::todos::types::TaskCardStatus;
-use crate::tools::traits::Tool;
 use serde_json::json;
+use tinytools::Tool;
 
 // ── build_patch ──────────────────────────────────────────────────────────────
 

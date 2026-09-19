@@ -1,8 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
 use openhuman_core::agent::Agent;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
@@ -110,7 +111,7 @@ async fn test_orchestrator_has_current_date_context() -> Result<()> {
     let mut agent = Agent::builder()
         .chat_model(model)
         .tools(vec![Box::new(MockCalendarTool)])
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .memory(Arc::new(StubMemory))
         .workspace_dir(std::env::temp_dir())
         .build()?;
@@ -180,7 +181,7 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
         session_id: "test-session".into(),
         channel: "test".into(),
         connected_integrations: vec![],
-        tool_call_format: openhuman_core::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: openhuman_core::agent::prompts::ToolCallFormat::PFormat,
         session_key: "0_test".into(),
         session_parent_prefix: None,
         on_progress: None,

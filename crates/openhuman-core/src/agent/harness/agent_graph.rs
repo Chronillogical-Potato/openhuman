@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::run_queue::RunQueue;
@@ -30,7 +30,7 @@ use crate::agent::harness::subagent_runner::SubagentRunError;
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::tools::{Tool, ToolSpec};
+use tinytools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom
 /// [`AgentGraph::Custom`] runner.
@@ -56,6 +56,10 @@ pub struct AgentTurnRequest {
     pub agent_id: String,
     pub task_id: String,
     pub extended_policy: bool,
+    /// Explicit caller/worker thread propagated from the originating tool.
+    pub thread_id: Option<String>,
+    /// Explicit host carrier inherited by the recursive child run.
+    pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     pub worker_thread_id: Option<String>,
     pub workspace_dir: PathBuf,
     pub workspace_descriptor: Option<WorkspaceDescriptor>,

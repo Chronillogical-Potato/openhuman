@@ -52,10 +52,6 @@ pub use registry::all_composio_agent_tools;
 // submodule.
 pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope};
 
-#[cfg(test)]
-use crate::tools::traits::Tool;
-#[cfg(test)]
-use crate::tools::traits::{PermissionLevel, ToolCategory};
 pub use authorize::ComposioAuthorizeTool;
 #[cfg(test)]
 use connect::{
@@ -65,6 +61,10 @@ use connect::{
 pub use list_connections::ComposioListConnectionsTool;
 pub use list_toolkits::ComposioListToolkitsTool;
 pub use list_tools::ComposioListToolsTool;
+#[cfg(test)]
+use tinytools::Tool;
+#[cfg(test)]
+use tinytools::{PermissionLevel, ToolCategory};
 #[cfg(test)]
 use visibility::{
     empty_uncurated_toolkits_message, normalized_scope_toolkits, render_tools_markdown,

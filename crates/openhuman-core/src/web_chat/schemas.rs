@@ -55,7 +55,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("message", "User message."),
                 optional_string("model_override", "Optional model override."),
                 optional_f64("temperature", "Optional temperature override."),
-                optional_string("profile_id", "Optional agent profile id."),
                 optional_string(
                     "locale",
                     "Optional BCP-47 UI locale (e.g. 'ar', 'zh-CN'). Drives the \"reply in this language\" system-prompt directive.",
@@ -123,7 +122,6 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 &p.message,
                 p.model_override,
                 p.temperature,
-                p.profile_id,
                 p.locale,
                 p.queue_mode,
                 ChatRequestMetadata {

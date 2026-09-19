@@ -22,7 +22,7 @@ use crate::memory::api::types::{
 use crate::memory::Memory;
 use crate::rpc::RpcOutcome;
 use async_trait::async_trait;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// The [`Memory`] view of a bound memory driver.
@@ -59,7 +59,6 @@ use std::sync::Arc;
 /// `agent::experience` — it is contract-to-trait plumbing, not an
 /// agent-experience concept. It sits here because both of its callers do
 /// (`open_store_in_subdir` below, and the session builder's
-/// `shared_experience_memory`).
 pub struct DriverMemory {
     provider: Arc<dyn MemoryProvider>,
 }
@@ -88,7 +87,6 @@ impl DriverMemory {
 
     /// The driver bound for one memory subtree of `config`'s workspace.
     ///
-    /// `"memory"` is the shared tree; `"memory-<id>"` is a profile that opted
     /// into dedicated memory. Each subtree is its own binding and therefore its
     /// own store, which is what makes `dedicatedMemory` isolation hold.
     ///
@@ -268,26 +266,16 @@ pub struct RetrieveParams {
     pub agent_id: Option<String>,
     #[serde(default)]
     pub entrypoint: Option<String>,
-    /// Profile partition filter (1c). `None` (omitted) recalls the whole pool;
-    /// `Some(P)` recalls records stamped `P` plus unstamped legacy records.
-    #[serde(default)]
-    pub profile_id: Option<String>,
     #[serde(default)]
     pub max_hits: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub struct ListParams {
-    /// Profile partition filter (1c), same semantics as `RetrieveParams`.
-    #[serde(default)]
-    pub profile_id: Option<String>,
-}
+pub struct ListParams {}
 
 #[derive(Debug, Deserialize)]
 pub struct DismissParams {
     pub id: String,
-    #[serde(default)]
-    pub profile_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -296,58 +284,13 @@ pub struct DismissResult {
     pub dismissed: bool,
 }
 
-fn profile_memory_subdir(
-    workspace_dir: &std::path::Path,
-    profile_id: Option<&str>,
-) -> Result<String, String> {
-    let Some(profile_id) = profile_id.map(str::trim).filter(|id| !id.is_empty()) else {
-        return Ok("memory".to_string());
-    };
-    let state = crate::agent::profiles::load_profiles(workspace_dir)?;
-    let profile = state
-        .profiles
-        .iter()
-        .find(|profile| profile.id == profile_id)
-        .ok_or_else(|| format!("agent profile '{profile_id}' not found"))?;
-    let suffix = crate::agent::profiles::effective_memory_suffix(profile);
-    Ok(crate::agent::profiles::memory_subdir_for_suffix(&suffix))
-}
-
-/// The experience store for `profile_id`'s memory subtree.
-///
-/// Both arms used to resolve the in-process engine — `global::client_if_ready()`
-/// with a `global::init` fallback for the shared tree, a freshly constructed
-/// `UnifiedMemory` for a dedicated one. Neither exists any more (#5560): both
-/// arms now go through [`DriverMemory::for_subtree`], with `"memory"` naming the
-/// shared tree. That is the same workspace-and-subtree binding key the session
-/// builder already resolves for the archivist, so the two cannot end up on
-/// different stores for one profile.
-async fn open_store(profile_id: Option<&str>) -> Result<AgentExperienceStore, String> {
-    let profile_id = profile_id.map(str::trim).filter(|id| !id.is_empty());
+async fn open_store() -> Result<AgentExperienceStore, String> {
     let config = Config::load_or_init()
         .await
         .map_err(|e| format!("load config: {e}"))?;
-    if profile_id.is_none() {
-        return open_store_in_subdir(&config, "memory").await;
-    }
-
-    let memory_subdir = profile_memory_subdir(&config.workspace_dir, profile_id)?;
-
-    open_store_in_subdir(&config, &memory_subdir).await
+    open_store_in_subdir(&config, "memory").await
 }
 
-/// The experience store over one named memory subtree of `config`'s workspace.
-///
-/// # The embedder moved with the store, and that is the intended delta
-///
-/// The dedicated-subtree arm used to build its own `UnifiedMemory` with a
-/// config-scoped embedding provider, so that the experience store's managed
-/// embedder read the signed-in user's session rather than the keyless
-/// `default_state_dir()` scope (#5501). The bound driver embeds with the
-/// embedder the module policy publishes — which is that same user-scoped one,
-/// resolved once at boot instead of per store — so #5501's fix survives the
-/// move. What is gone is this call site's ability to choose a *different*
-/// embedder from the rest of the subsystem, which was never the point.
 async fn open_store_in_subdir(
     config: &Config,
     memory_subdir: &str,
@@ -357,52 +300,18 @@ async fn open_store_in_subdir(
     Ok(AgentExperienceStore::new(memory))
 }
 
-fn query_memory_subdirs(
-    workspace_dir: &std::path::Path,
-    profile_id: Option<&str>,
-) -> Result<Vec<String>, String> {
-    let state = crate::agent::profiles::load_profiles(workspace_dir)?;
-    let mut subdirs = BTreeSet::from(["memory".to_string()]);
-    let profile_id = profile_id.map(str::trim).filter(|id| !id.is_empty());
-
-    for profile in &state.profiles {
-        if profile_id.is_none_or(|id| profile.id == id) {
-            let suffix = crate::agent::profiles::effective_memory_suffix(profile);
-            subdirs.insert(crate::agent::profiles::memory_subdir_for_suffix(&suffix));
-        }
-    }
-    if let Some(profile_id) = profile_id {
-        if !state
-            .profiles
-            .iter()
-            .any(|profile| profile.id == profile_id)
-        {
-            return Err(format!("agent profile '{profile_id}' not found"));
-        }
-    }
-    Ok(subdirs.into_iter().collect())
-}
-
-async fn open_query_stores(profile_id: Option<&str>) -> Result<Vec<AgentExperienceStore>, String> {
-    let config = Config::load_or_init()
-        .await
-        .map_err(|e| format!("load config: {e}"))?;
-    let subdirs = query_memory_subdirs(&config.workspace_dir, profile_id)?;
-    let mut stores = Vec::with_capacity(subdirs.len());
-    for subdir in subdirs {
-        stores.push(open_store_in_subdir(&config, &subdir).await?);
-    }
-    Ok(stores)
+async fn open_query_stores() -> Result<Vec<AgentExperienceStore>, String> {
+    Ok(vec![open_store().await?])
 }
 
 pub async fn capture(params: CaptureParams) -> Result<RpcOutcome<AgentExperience>, String> {
-    let store = open_store(params.experience.profile_id.as_deref()).await?;
+    let store = open_store().await?;
     let stored = store.put(params.experience).await?;
     Ok(RpcOutcome::single_log(stored, "agent experience captured"))
 }
 
 pub async fn retrieve(params: RetrieveParams) -> Result<RpcOutcome<Vec<ExperienceHit>>, String> {
-    let stores = open_query_stores(params.profile_id.as_deref()).await?;
+    let stores = open_query_stores().await?;
     let max_hits = params.max_hits.unwrap_or(5);
     let query = ExperienceQuery {
         query: params.query,
@@ -410,18 +319,17 @@ pub async fn retrieve(params: RetrieveParams) -> Result<RpcOutcome<Vec<Experienc
         tags: params.tags,
         agent_id: params.agent_id,
         entrypoint: params.entrypoint,
-        profile_id: params.profile_id,
         max_hits,
     };
     let hits = retrieve_across_stores(&stores, query).await?;
     Ok(RpcOutcome::single_log(hits, "agent experiences retrieved"))
 }
 
-pub async fn list(params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
-    let stores = open_query_stores(params.profile_id.as_deref()).await?;
+pub async fn list(_params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
+    let stores = open_query_stores().await?;
     let mut by_id: BTreeMap<String, AgentExperience> = BTreeMap::new();
     for store in stores {
-        for experience in store.list_for_profile(params.profile_id.as_deref()).await? {
+        for experience in store.list().await? {
             let id = experience.id.clone();
             match by_id.get(&id) {
                 Some(existing) if existing.updated_at_ms >= experience.updated_at_ms => {}
@@ -444,12 +352,10 @@ pub async fn list(params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>
 }
 
 pub async fn dismiss(params: DismissParams) -> Result<RpcOutcome<DismissResult>, String> {
-    let stores = open_query_stores(params.profile_id.as_deref()).await?;
+    let stores = open_query_stores().await?;
     let mut dismissed = false;
     for store in stores {
-        dismissed |= store
-            .dismiss_for_profile(&params.id, params.profile_id.as_deref())
-            .await?;
+        dismissed |= store.dismiss(&params.id).await?;
     }
     Ok(RpcOutcome::single_log(
         DismissResult {

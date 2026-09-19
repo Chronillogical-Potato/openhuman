@@ -24,7 +24,7 @@ the runtime's base `Config`, applies the spec, and derives a child
 `CoreContext` (`CoreContext::derive_with`) carrying that config, the agent's
 domain set, tool groups and skill-root policy. Every turn is dispatched under
 that context (`CoreRuntime::run_in` → `agent_chat_for` with an explicit
-`AgentDefinition` and `AgentProfile`), so the config loader, the domain gate,
+`AgentDefinition`), so the config loader, the domain gate,
 the tool-group filter and skill discovery all read the agent's own settings.
 Transcripts are keyed by agent id and a turn resumes only its own thread.
 
@@ -229,7 +229,7 @@ Every iteration emits a real-time `AgentProgress` event so the UI can render tok
 
 Live turns speak **native tool calling**: the tinyagents harness sends structured tool specs through the `ChatModel` adapter and gets structured tool calls back, for every provider (Claude, GPT, Gemini, local Ollama alike).
 
-The older `ToolDispatcher` trait (`crates/openhuman-core/src/agent/dispatcher.rs`) with its three dialects still exists, but as a **transcript-compatibility layer**, not a live routing choice:
+Canonical `tinytools_agent::dialect::ToolDialect` implementations provide transcript-compatible parsing and rendering directly; OpenHuman converts durable/provider records only at those I/O boundaries:
 
 - **Native** - structured tool-call fields, the shape live turns produce today.
 - **XML** - `<tool_call>{...}</tool_call>` tags in assistant text, produced by older sessions.
@@ -351,7 +351,7 @@ When the orchestrator calls `spawn_subagent`, the default contract is durable an
 
 The child run itself still uses the same runner:
 
-1. Reads the parent's execution context from a task-local - the parent's provider, sandbox mode, cancellation fence, transcript root.
+1. Receives parent cancellation and workspace from its typed run context; remaining legacy provider, sandbox, and transcript inputs stay scoped until their explicit migration lands.
 2. Resolves the sub-agent's model - inline `model` override first, then config-level pins (`[orchestrator].model`, `[teams.*].lead_model`, `[teams.*].agent_model`), then the archetype hint or inherited parent model.
 3. Filters the parent's tool registry per the definition's `tools`, `disallowed_tools`, and `skill_filter`. In `fork` mode, the parent's full registry is inherited verbatim.
 4. Builds a narrow system prompt, omitting the sections the definition asks to strip.
@@ -486,9 +486,28 @@ Every provider response carries a `UsageInfo` block - input tokens, output token
 
 When the backend doesn't surface a charged amount (older builds, providers that don't bill through it), a small per-tier rate table provides a token-rate floor estimate. Direct cost from the backend always wins when available.
 
-## Fork context - KV-cache reuse across the harness
+## Explicit run context and host capabilities
 
-The harness uses a task-local `ParentExecutionContext` to thread parent state into sub-agents without exploding every function signature. The same pattern carries the current sandbox mode, the interrupt fence, and the stop-hook list. Sub-agents that inherit the parent's provider, model, and prompt prefix get to **share the parent's KV-cache prefix** on the inference backend - measurably cheaper than re-prefilling from scratch.
+`OpenHumanRunContext` is now the live carrier at the shared chat, channel, and
+sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
+stop hooks, dispatch state, thread, route slot, and workspace grant, then own
+or explicitly receive one cancellation token before passing the context to the
+runner; a recursive sub-agent forks it with
+`child()`, preserving shared cancellation/policy handles while isolating route
+observation and usage accounting. The shared runner creates
+`RunContext<OpenHumanRunContext>` through `into_tinyagents`, and the OpenHuman
+assembly and middleware registry consume that typed context directly. Route,
+and thread scopes still surround the drive only for legacy tool/model APIs
+outside the typed harness boundary. Recursive fan-out receives cancellation and
+workspace from its typed parent `RunContext` through `ToolDispatch`; it never
+reads ambient cancellation state.
+
+`OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
+the context, definition, security, model, memory, budget, progress, learning,
+tool-outcome and experience adapters from the same session/runtime inputs.
+OpenHuman retains all policy decisions; TinyAgents receives only the resulting
+canonical run context today. Wiring the complete host-capability bundle into
+every invocation remains a later cutover step.
 
 ## Self-healing recap
 
@@ -513,10 +532,10 @@ The harness shell lives under `crates/openhuman-core/src/agent/`, with the tinya
 | `harness/subagent_runner/`               | `run_subagent`, history replay, fork-mode, oversized-result handoff; `ops/graph.rs` is its tinyagents route.  |
 | `orchestration/subagent_sessions/`       | Durable reusable sub-agent identity, compatibility matching, persisted status/history.                        |
 | `harness/definition.rs`                  | `AgentDefinition` - what an archetype declares.                                                               |
-| `harness/tool_filter.rs`                 | Toolkit-action ranking for integrations sub-agents.                                                           |
+| `harness/subagent_runner/ops/runner.rs`  | Integration-tool ranking uses canonical `tinyagents_harness::tool` APIs.                                      |
 | `../tinyagents/payload_summarizer.rs`    | Oversized-tool-result detour.                                                                                 |
 | `harness/session/tool_progress.rs`       | Surviving OpenHuman seam: `TurnProgress`.                                                                     |
-| `dispatcher.rs`                          | Tool-call dialect abstraction (persisted-transcript compatibility).                                           |
+| `message_convert.rs`                     | Concrete durable/provider conversion around canonical tool-call dialect APIs.                                  |
 | `triage/`                                | External-trigger classification + escalation.                                                                 |
 | `registry/agents/`                       | Built-in archetypes - one subdirectory per agent.                                                             |
 | `hooks.rs` / `stop_hooks.rs`             | Post-turn and mid-turn hook surfaces.                                                                         |

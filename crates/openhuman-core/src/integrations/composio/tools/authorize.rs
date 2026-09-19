@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 use super::super::client::{create_composio_client, ComposioClientKind};
 

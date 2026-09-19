@@ -9,11 +9,11 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: enforce the agent's builder-configured [`ToolPolicy`] at the tool
 /// boundary (issue #4249). The in-house engine ran this check in
@@ -75,7 +75,8 @@ impl ToolPolicyMiddleware {
     fn callable_delegates_for(&self, owners: &[&str]) -> Vec<String> {
         let mut found: Vec<String> = Vec::new();
         for tool in self.tool_sets.iter().flat_map(|set| set.iter()) {
-            let Some(target) = crate::tools::traits::delegation_target(tool.as_ref()) else {
+            let Some(target) = crate::tools::host_extensions::delegation_target(tool.as_ref())
+            else {
                 continue;
             };
             if !owners.contains(&target) {
@@ -164,7 +165,7 @@ impl ToolPolicyMiddleware {
             .get("skill")
             .and_then(serde_json::Value::as_str)?;
         let tool = self.resolve_tool(&call.name)?;
-        let handle = crate::tools::traits::pack_registry_handle(tool.as_ref())?;
+        let handle = crate::tools::host_extensions::pack_registry_handle(tool.as_ref())?;
         let is_callable = |name: &str| !self.session.decision_for(name).blocks_execution();
         let route = crate::tools::toolpacks::pack(skill)
             .map(|pack| self.route_for_pack(pack))
@@ -177,17 +178,9 @@ impl ToolPolicyMiddleware {
             &is_callable,
             &route,
         );
-        let (content, error) = match rendered {
-            Ok(text) => (text, None),
-            Err(message) => (message.clone(), Some(message)),
-        };
-        Some(TaToolResult {
-            call_id: call.id.clone(),
-            name: call.name.clone(),
-            content,
-            raw: None,
-            error,
-            elapsed_ms: 0,
+        Some(match rendered {
+            Ok(text) => TaToolResult::success(text),
+            Err(message) => TaToolResult::error(message),
         })
     }
 
@@ -298,22 +291,26 @@ impl ToolPolicyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .and_then(|t| crate::tools::traits::generated_runtime_context(t.as_ref(), args))
+            .and_then(|t| {
+                crate::tools::host_extensions::generated_runtime_context(t.as_ref(), args)
+            })
     }
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for ToolPolicyMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolPolicyMiddleware
+{
     fn name(&self) -> &str {
         "tool_policy"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         use crate::agent::tool_policy::{ToolCallContext, ToolPolicyDecision, ToolPolicyRequest};
 
@@ -325,14 +322,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 channel = self.channel.as_str(),
                 "[tinyagents::mw] tool blocked by channel permission ceiling"
             );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: message.clone(),
-                raw: None,
-                error: Some(message),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(message)));
         }
 
         let context = ToolCallContext::session(
@@ -381,14 +371,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 },
             }
             .render();
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: content.clone(),
-                raw: None,
-                error: Some(content),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(content)));
         }
 
         // `use_skill`'s disclosure half (a `skill` with no `tool`) renders its

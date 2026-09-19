@@ -12,7 +12,7 @@
 //! are removed); `run_typed_mode` calls it unconditionally.
 //!
 //! **Available tools.** The sub-agent reuses the parent's harness tools plus the
-//! per-spawn dynamic tools, advertised via [`SharedToolAdapter`] over the shared
+//! per-spawn dynamic tools, advertised via the canonical shared-tool adapter over the shared
 //! `Arc<Vec<Box<dyn Tool>>>` tool sets (`[dynamic_tools, parent_tools]` — dynamic
 //! first so a shadowing dynamic tool executes, matching advertisement), filtered
 //! by `allowed_names`. `ask_user_clarification` is the early-exit tool.
@@ -43,6 +43,8 @@ mod worker_mirror;
 // Re-exported under the original flat `graph::` path so external callers
 // (`ops/mod.rs`, `ops/runner.rs`, `graph_tests.rs`'s `use super::*`) are
 // unaffected by the responsibility split.
+#[cfg(test)]
+pub(super) use dispatch::inherited_thread_id;
 pub(crate) use dispatch::run_agent_turn_request_via_default_graph;
 pub(super) use dispatch::{run_subagent_via_graph, AggregatedUsage};
 
@@ -56,11 +58,11 @@ use crate::agent::progress::AgentProgress;
 #[cfg(test)]
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 #[cfg(test)]
-use crate::tools::Tool;
-#[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use tinytools::Tool;
 #[cfg(test)]
 use worker_mirror::{mirror_worker_thread, mirror_worker_thread_from_history};
 

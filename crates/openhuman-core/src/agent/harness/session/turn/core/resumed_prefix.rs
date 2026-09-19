@@ -80,7 +80,7 @@ impl Agent {
         self.history = cached
             .into_iter()
             .map(|mut message| {
-                crate::agent::harness::session::transcript::mark_replayed_if_unmarked(&mut message);
+                crate::agent::messages::mark_chat_replayed_if_unmarked(&mut message);
                 ConversationMessage::Chat(message)
             })
             .chain(tail)

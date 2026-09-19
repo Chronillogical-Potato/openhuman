@@ -10,9 +10,6 @@
 //!   user-authored fallback
 //!   ([`crate::agent::registry::find_custom_in_config`] →
 //!   [`crate::agent::registry::definition_from_registry_entry`]).
-//! * [`crate::agent::profiles::AgentProfile`] — the active personality,
-//!   whose `allowed_tools` list is a **restriction** on the resolved
-//!   definition's tool surface.
 //!
 //! This is `docs/specs/plan-agents.md` Phase 4. The crate-side
 //! [`AgentDefinition`] is inert (`serde` + `std`); OpenHuman's harness
@@ -57,7 +54,7 @@
 //!
 //! [`ResolvedScope`] therefore models wildcard-ness explicitly and never infers
 //! it from emptiness. A genuinely empty scope emits
-//! [`PROFILE_NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
+//! [`NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
 //! and a wildcard-with-denylist is materialized against
 //! [`Self::with_registered_tools`], failing closed when that is absent.
 //!
@@ -66,37 +63,21 @@
 //! `delegate_to_integrations_agent` tool. Emitting a synthetic id here would
 //! invent a delegate the host never authorized.
 //!
-//! **5. Profile model overrides are deliberately not applied.**
-//! `AgentProfile::model_override` has no verified host consumer on the
-//! definition path (the web-chat `model_override` request parameter is a
-//! different value, applied to `Config::default_model`), and the model seam is
-//! `ModelResolver`'s, not the catalogue's. See the `TODO(phase4)` below.
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyagents_harness::error::Result;
-use tinyagents_harness::host::{AgentDefinition, DefinitionRegistry};
+use tinyagents_definition::Result;
+use tinyagents_definition::{AgentDefinition, DefinitionRegistry};
 
+use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::agent::harness::definition::{
     AgentDefinition as HostAgentDefinition, AgentDefinitionRegistry, AgentTier, ModelSpec,
     SubagentEntry, ToolScope,
 };
-use crate::agent::profiles::AgentProfile;
 use crate::agent::registry::{definition_from_registry_entry, find_custom_in_config};
 use crate::config::Config;
-
-/// Sentinel inserted when a profile allowlist and a definition's named scope
-/// are disjoint.
-///
-/// Was a verbatim copy of the session builder's own literal, with a comment
-/// saying so. Two spellings of one sentinel is a silent bug waiting for
-/// someone to change one of them: the sets would stop agreeing about what
-/// "no tools" is spelled as, and the disagreement surfaces as an agent quietly
-/// advertising the whole registry. It is one constant now — see
-/// [`NO_TOOLS_SENTINEL`] for why the value exists at all.
-use crate::agent::harness::definition::NO_TOOLS_SENTINEL as PROFILE_NO_TOOLS_SENTINEL;
 
 // ── Registry handle ───────────────────────────────────────────────────────────
 
@@ -138,9 +119,8 @@ impl std::fmt::Debug for RegistryHandle {
 /// [`DefinitionRegistry`] seam.
 ///
 /// Read-only by construction: it borrows the harness registry, an optional
-/// [`Config`] (for the user-authored custom-agent fallback), and an optional
-/// active [`AgentProfile`] (for the tool restriction), and never mutates any of
-/// them. That matches the trait's rationale — a catalogue the runtime could
+/// [`Config`] (for the user-authored custom-agent fallback), and never mutates
+/// either. That matches the trait's rationale — a catalogue the runtime could
 /// mutate would let a turn grant itself a delegate or a tool.
 #[derive(Debug)]
 pub struct OpenHumanDefinitionRegistry {
@@ -150,9 +130,6 @@ pub struct OpenHumanDefinitionRegistry {
     /// absent, custom config agents are simply not in the catalogue — an
     /// honest miss, never an error.
     config: Option<Arc<Config>>,
-    /// Active personality. Its `allowed_tools` narrows every projected tool
-    /// list, exactly as the session builder narrows the visible tool set.
-    profile: Option<Arc<AgentProfile>>,
     /// Every tool name registered for this session, used to materialize a
     /// [`ToolScope::Wildcard`] definition that also carries a denylist.
     ///
@@ -164,7 +141,7 @@ pub struct OpenHumanDefinitionRegistry {
     registered_tools: Option<Arc<Vec<String>>>,
 }
 
-/// Outcome of resolving a definition's own scope, before the profile allowlist.
+/// Outcome of resolving a definition's own scope.
 ///
 /// Modelled explicitly because the crate's `Vec<String>` overloads *empty* to
 /// mean "unrestricted". Inferring wildcard from emptiness is what let a
@@ -183,7 +160,6 @@ impl OpenHumanDefinitionRegistry {
         Self {
             registry: RegistryHandle::Shared(registry),
             config: None,
-            profile: None,
             registered_tools: None,
         }
     }
@@ -198,7 +174,6 @@ impl OpenHumanDefinitionRegistry {
         AgentDefinitionRegistry::global().map(|registry| Self {
             registry: RegistryHandle::Global(registry),
             config: None,
-            profile: None,
             registered_tools: None,
         })
     }
@@ -212,13 +187,6 @@ impl OpenHumanDefinitionRegistry {
     /// fallback in [`Self::resolve`] and [`Self::list`].
     pub fn with_config(mut self, config: Arc<Config>) -> Self {
         self.config = Some(config);
-        self
-    }
-
-    /// Attaches the active personality whose `allowed_tools` restricts every
-    /// projected tool list.
-    pub fn with_profile(mut self, profile: Arc<AgentProfile>) -> Self {
-        self.profile = Some(profile);
         self
     }
 
@@ -289,53 +257,22 @@ impl OpenHumanDefinitionRegistry {
             // a delegating parent" — the same string the harness feeds into a
             // synthesised `delegate_*` tool description.
             description: def.when_to_use.clone(),
+            // The definition's validated tier is the host assertion the model
+            // resolver consumes for workload routing.
+            role: Some(def.agent_tier.to_string()),
             model: model_for(&def.model),
             subagents: declared_subagent_ids(def),
             tools: self.tools_for(def),
         }
     }
 
-    /// Tool names for `def`, after the definition's own denylist and the active
-    /// profile's allowlist.
-    ///
-    /// Both filters mirror the session builder rather than reinventing policy:
-    /// a profile's tool selection is *a restriction on the resolved definition,
-    /// never a replacement for it*.
+    /// Tool names for `def`, after the definition's own denylist.
     fn tools_for(&self, def: &HostAgentDefinition) -> Vec<String> {
-        let scope = self.resolved_scope(def);
-
-        let Some(allowed) = self
-            .profile
-            .as_deref()
-            .and_then(|profile| profile.allowed_tools.as_ref())
-            .filter(|tools| !tools.is_empty())
-        else {
-            return Self::emit(scope);
-        };
-
-        let profile_visible: Vec<String> = allowed
-            .iter()
-            .map(|tool| tool.trim().to_string())
-            .filter(|tool| !tool.is_empty())
-            .collect();
-        if profile_visible.is_empty() {
-            return Self::emit(scope);
-        }
-
-        let mut names = match scope {
-            // A true wildcard has no denylist left to honour (see
-            // `resolved_scope`), so the profile allowlist *is* the visible set.
-            ResolvedScope::Wildcard => return profile_visible,
-            ResolvedScope::Named(names) => names,
-        };
-
-        let allowed_set: HashSet<&str> = profile_visible.iter().map(String::as_str).collect();
-        names.retain(|name| allowed_set.contains(name.as_str()));
-        Self::emit(ResolvedScope::Named(names))
+        Self::emit(self.resolved_scope(def))
     }
 
     /// Resolves the definition's own scope, applying `extra_tools` and the
-    /// denylist, without consulting the profile.
+    /// denylist.
     fn resolved_scope(&self, def: &HostAgentDefinition) -> ResolvedScope {
         match &def.tools {
             ToolScope::Named(named) => {
@@ -394,7 +331,7 @@ impl OpenHumanDefinitionRegistry {
         match scope {
             ResolvedScope::Wildcard => Vec::new(),
             ResolvedScope::Named(mut names) if names.is_empty() => {
-                names.push(PROFILE_NO_TOOLS_SENTINEL.to_string());
+                names.push(NO_TOOLS_SENTINEL.to_string());
                 names
             }
             ResolvedScope::Named(names) => names,
@@ -538,14 +475,6 @@ impl DefinitionRegistry for OpenHumanDefinitionRegistry {
             .unwrap_or_default())
     }
 }
-
-// TODO(phase4): `AgentProfile::model_override` is not applied to the projected
-// `model` field. It has no verified consumer on the host definition path today
-// (`web_chat::session::build_session_agent` applies a *request* `model_override`
-// to `Config::default_model`, which is a different value), and per-session model
-// choice belongs to the `ModelResolver` seam rather than the catalogue. If the
-// host does want a personality to re-pin an agent's model, it likely belongs in
-// the `ModelResolver` adapter reading `profiles::AgentProfile::model_override`.
 
 #[cfg(test)]
 #[path = "definition_registry_tests.rs"]

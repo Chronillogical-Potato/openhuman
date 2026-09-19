@@ -1,4 +1,5 @@
 use super::*;
+use tinyagents_session::transcript;
 
 /// Issue #4117 — when the corrective re-prompt call itself fails, enforcement
 /// still guarantees a well-formed block: the deterministic synthesized fallback
@@ -39,7 +40,7 @@ async fn turn_synthesizes_required_output_when_reprompt_call_fails() {
     let response = agent.turn("hello").await.expect("turn should succeed");
 
     // Deterministic fallback: a synthesized block leads, original prose kept.
-    let first_block = crate::agent::harness::parse::extract_json_values(&response)
+    let first_block = tinytools_agent::extract_json_values(&response)
         .into_iter()
         .next();
     assert!(
@@ -217,7 +218,11 @@ async fn turn_checkpoint_rejects_pformat_wrapup_without_streaming_it() {
         tool_counts: AsyncMutex::new(Vec::new()),
     });
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(EchoTool)];
-    let registry = crate::agent::pformat::build_registry(&tools);
+    let registry = tinytools_agent::build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     let mut agent = make_agent_with_builder_and_dispatcher(
         provider,
         tools,
@@ -227,7 +232,7 @@ async fn turn_checkpoint_rejects_pformat_wrapup_without_streaming_it() {
             ..crate::config::AgentConfig::default()
         },
         crate::config::ContextConfig::default(),
-        Box::new(PFormatToolDispatcher::new(registry)),
+        Box::new(PFormatDialect::new(registry)),
     );
     let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(16);
     agent.set_on_progress(Some(progress_tx));
@@ -517,62 +522,6 @@ async fn turn_checkpoint_usage_is_folded_into_transcript_accounting() {
     );
     assert_eq!(transcript.meta.output_tokens, 4);
     assert_eq!(transcript.meta.cached_input_tokens, 2);
-}
-
-#[tokio::test]
-async fn dedicated_profile_experience_recall_merges_shared_legacy_store() {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let dedicated = make_real_memory(&tmp.path().join("dedicated"));
-    let shared = make_real_memory(&tmp.path().join("shared"));
-    AgentExperienceStore::new(shared.clone())
-        .put(AgentExperience {
-            id: "legacy-shared-deploy".into(),
-            created_at_ms: 0,
-            updated_at_ms: 0,
-            source: ExperienceSource::ToolLoop,
-            agent_id: None,
-            entrypoint: None,
-            profile_id: None,
-            task_fingerprint: "deploy-rust-service".into(),
-            task_summary: "Deploy the Rust service safely".into(),
-            tools_used: vec![],
-            tool_sequence: vec![],
-            outcome: ExperienceOutcome::Success,
-            error_class: None,
-            lesson: "Legacy shared deployment guidance".into(),
-            reuse_hint: "Check the release health endpoint".into(),
-            avoid_hint: None,
-            confidence: 0.9,
-            tags: vec![],
-            payload_hash: None,
-            dismissed: false,
-        })
-        .await
-        .unwrap();
-
-    let agent = Agent::builder()
-        .chat_model(Arc::new(DummyProvider))
-        .tools(vec![])
-        .memory(dedicated)
-        .shared_experience_memory(Some(shared))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
-        .workspace_dir(tmp.path().to_path_buf())
-        .event_context("profile-experience-test", "web_chat")
-        .active_profile_id(Some("alice".into()))
-        .profile_memory_storage("memory-alice".into(), "session_raw-alice".into())
-        .learning_enabled(true)
-        .build()
-        .unwrap();
-
-    let enriched = agent
-        .inject_agent_experience_context(
-            "How should I deploy the Rust service?",
-            "original prompt".into(),
-        )
-        .await;
-
-    assert!(enriched.contains("Legacy shared deployment guidance"));
-    assert!(enriched.contains("original prompt"));
 }
 
 #[tokio::test]

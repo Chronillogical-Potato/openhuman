@@ -1,14 +1,14 @@
 //! Tests for the OpenHuman-specific half of tool-call parsing.
 //!
 //! The parser tests moved with the parsers, to
-//! `tinyagents_harness::tool_calling`. What is exercised here is the wire
+//! `tinytools_agent`. What is exercised here is the wire
 //! vocabulary that stayed: OpenHuman's `ToolCall`, its native-history JSON
 //! (including the Gemini `thought_signature` round-trip), and its OpenAI
 //! function-calling payload.
 
 use super::*;
-use crate::tools::ToolResult;
 use async_trait::async_trait;
+use tinytools::ToolResult;
 
 struct StubTool(&'static str);
 

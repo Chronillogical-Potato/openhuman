@@ -9,7 +9,7 @@ use serde_json::json;
 
 use super::*;
 use crate::config::Config;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 fn config_with(workspace: &std::path::Path, enabled: bool, api_key: &str) -> Config {
     let mut config = Config::default();

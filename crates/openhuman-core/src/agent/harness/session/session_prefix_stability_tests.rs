@@ -9,7 +9,7 @@ fn superseded_synthesized_instances_are_released_when_readers_drop() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
 
-    let conn = |slug: &str, desc: &str| crate::agent::context::prompt::ConnectedIntegration {
+    let conn = |slug: &str, desc: &str| crate::agent::prompts::ConnectedIntegration {
         toolkit: slug.into(),
         description: desc.into(),
         tools: vec![],
@@ -76,7 +76,7 @@ fn an_unchanged_integration_set_leaves_the_tool_block_byte_stable() {
 
     let integrations = || {
         vec![
-            crate::agent::context::prompt::ConnectedIntegration {
+            crate::agent::prompts::ConnectedIntegration {
                 toolkit: "gmail".into(),
                 description: "Email".into(),
                 tools: vec![],
@@ -85,7 +85,7 @@ fn an_unchanged_integration_set_leaves_the_tool_block_byte_stable() {
                 connections: Vec::new(),
                 non_active_status: None,
             },
-            crate::agent::context::prompt::ConnectedIntegration {
+            crate::agent::prompts::ConnectedIntegration {
                 toolkit: "notion".into(),
                 description: "Docs".into(),
                 tools: vec![],
@@ -169,12 +169,12 @@ async fn a_resumed_prefix_without_a_system_message_keeps_the_current_one() {
     use crate::agent::messages::{ChatMessage, ConversationMessage};
 
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let canned = crate::agent::harness::session::transcript::SessionTranscript {
+    let canned = tinyagents_session::transcript::SessionTranscript {
         meta: fake_transcript_meta("thr_resume_no_system"),
-        messages: vec![
+        messages: durable_messages(vec![
             ChatMessage::user("first question"),
             ChatMessage::assistant("first answer"),
-        ],
+        ]),
     };
     let (mut agent, _handle) = agent_with_fake_locator(workspace.path(), Some(canned));
     agent.try_load_session_transcript();

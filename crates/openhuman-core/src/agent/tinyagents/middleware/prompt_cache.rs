@@ -46,14 +46,16 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 pub(crate) struct PromptCacheSegmentMiddleware;
 
 #[async_trait]
-impl Middleware<()> for PromptCacheSegmentMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for PromptCacheSegmentMiddleware
+{
     fn name(&self) -> &str {
         "prompt_cache_segments"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

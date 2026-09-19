@@ -2,13 +2,12 @@ use super::{
     ArchetypeDelegationTool, DelegationTarget, SkillDelegationTool, SpawnSubagentTool,
     SpawnWorkerThreadTool,
 };
-use crate::agent::context::prompt::{ConnectedIntegration, ToolCallFormat};
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::agent::messages::ChatMessage;
+use crate::agent::prompts::{ConnectedIntegration, ToolCallFormat};
 use crate::memory::conversations;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
@@ -16,6 +15,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::Tool;
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
@@ -120,13 +120,10 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-async-session".into();
     let result = with_parent_context(ctx, async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-async-parent", async {
-            tool.execute(json!({
-                "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
-                "model": "test-model"
-            }))
-            .await
-        })
+        tool.execute(json!({
+            "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
+            "model": "test-model"
+        }))
         .await
     })
     .await
@@ -252,16 +249,13 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     ctx.session_id = "tools-e2e-continue-session".into();
     let session_id = session.subagent_session_id.clone();
     let result = with_parent_context(ctx, async {
-        crate::agent::tinyagents::thread_context::with_thread_id("thread-continue-parent", async {
-            ContinueSubagentTool::new()
-                .execute(json!({
-                    "task_id": session_id,
-                    "agent_id": "researcher",
-                    "message": "looks good — proceed with continue-durable-canary"
-                }))
-                .await
-        })
-        .await
+        ContinueSubagentTool::new()
+            .execute(json!({
+                "task_id": session_id,
+                "agent_id": "researcher",
+                "message": "looks good — proceed with continue-durable-canary"
+            }))
+            .await
     })
     .await
     .expect("tool execution");

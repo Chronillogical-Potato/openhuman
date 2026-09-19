@@ -4,6 +4,7 @@ use crate::agent::tinyagents::middleware::tool_output::ToolOutputMiddleware;
 // fully-qualified), so the module itself no longer references the type.
 use super::*;
 use tinyagents_harness::middleware::MicrocompactMiddleware;
+use tinytools::{ToolRuntime, ToolTimeout};
 
 // #4462: image-aware token estimation. A base64 image marker must be priced
 // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise
@@ -53,22 +54,25 @@ async fn unavailable_summarization_is_disclosed_in_the_payload() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("after_tool should not fail");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-1", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("after_tool should not fail");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "the notice must be a PREFIX — the downstream per-tool cap keeps the \
          head, so an appended notice is the first thing truncated away; got: {}",
-        result.content
+        result_text(&result)
     );
     assert!(
-        result.content.contains("RAW-TOOL-OUTPUT"),
+        result_text(&result).contains("RAW-TOOL-OUTPUT"),
         "disclosure must not cost the payload: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -80,12 +84,18 @@ async fn a_payload_that_needed_nothing_is_left_completely_alone() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("after_tool should not fail");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-2", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("after_tool should not fail");
 
     assert_eq!(
-        result.content, "RAW-TOOL-OUTPUT",
+        result_text(&result),
+        "RAW-TOOL-OUTPUT",
         "a below-threshold payload must be byte-identical"
     );
 }
@@ -100,7 +110,7 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     impl PayloadSummarizer for ErroringSummarizer {
         async fn maybe_summarize_in_parent(
             &self,
-            _parent_ctx: &RunContext<()>,
+            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
             _tool_name: &str,
             _parent_task_hint: Option<&str>,
             _raw: &str,
@@ -113,16 +123,19 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("a summarizer error must never break the tool call");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-3", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("a summarizer error must never break the tool call");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "an errored summarizer must be disclosed too; got: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -185,16 +198,25 @@ async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
         "run_command",
         "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
     );
-    result.error = Some(result.content.clone());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    result = TaToolResult::error(result_text(&result));
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("policy-1", "shell"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     // The bare denial now carries a workaround + relay directive, and keeps the
     // marker so classification / the loop-breaker still recognise it.
-    assert!(result.content.contains("Workaround:"), "{}", result.content);
-    assert!(result.content.contains("Relay this to the user"));
-    assert!(result
-        .content
-        .contains(crate::security::POLICY_BLOCKED_MARKER));
-    assert!(result.content.contains("read-only mode"));
+    assert!(
+        result_text(&result).contains("Workaround:"),
+        "{}",
+        result_text(&result)
+    );
+    assert!(result_text(&result).contains("Relay this to the user"));
+    assert!(result_text(&result).contains(crate::security::POLICY_BLOCKED_MARKER));
+    assert!(result_text(&result).contains("read-only mode"));
 }
 
 #[tokio::test]
@@ -205,13 +227,15 @@ async fn already_structured_denial_is_not_double_wrapped() {
     let structured =
         "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
     let mut result = tool_result("x", structured);
-    result.error = Some(result.content.clone());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    result = TaToolResult::error(result_text(&result));
+    mw.after_tool(&mut ctx(), &(), &invocation("policy-2", "x"), &mut result)
+        .await
+        .unwrap();
     assert_eq!(
-        result.content.matches("Workaround:").count(),
+        result_text(&result).matches("Workaround:").count(),
         1,
         "must not double-wrap: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -320,12 +344,22 @@ async fn tool_output_truncates_over_the_flat_budget() {
         artifact_reads: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert!(result.content.len() < 5_000, "content should be capped");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("echo-capped", "echo"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).len() < 5_000,
+        "content should be capped"
+    );
+    assert!(
+        result_text(&result).contains("truncated by tool_result_budget"),
         "a truncation marker should be appended: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -343,8 +377,15 @@ async fn tool_output_leaves_small_results_untouched() {
         artifact_reads: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(result.content, "tiny");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("echo-small", "echo"),
+        &mut result,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result_text(&result), "tiny");
 }
 
 #[test]
@@ -352,13 +393,13 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "big".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(10),
             streaming: false,
         }),
@@ -391,13 +432,13 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             // Far shorter than the ~165-char notice.
             max_result_bytes: Some(12),
             streaming: false,
@@ -420,24 +461,29 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
     };
 
     let mut result = tool_result("terse", &"payload ".repeat(200));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("terse-notice", "terse"),
+        &mut result,
+    )
+    .await
+    .unwrap();
 
     let notice = UnavailableReason::Failed.notice();
     assert!(
-        result.content.starts_with(notice),
+        result_text(&result).starts_with(notice),
         "the complete notice must lead the content, got {:?}",
-        result.content.chars().take(200).collect::<String>()
+        result_text(&result).chars().take(200).collect::<String>()
     );
     assert!(
-        result
-            .content
-            .contains("Do not re-run the tool for a summary"),
+        result_text(&result).contains("Do not re-run the tool for a summary"),
         "the do-not-re-run instruction is the whole point of the notice and must survive"
     );
     // The payload itself is still capped — deferring the notice must not
     // smuggle the tool past its own declared limit.
-    let payload = result
-        .content
+    let rendered = result_text(&result);
+    let payload = rendered
         .strip_prefix(notice)
         .expect("notice prefix")
         .trim_start();
@@ -452,13 +498,13 @@ async fn tool_output_honors_a_tools_own_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "capped".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(20),
             streaming: false,
         }),
@@ -475,13 +521,18 @@ async fn tool_output_honors_a_tools_own_cap() {
         artifact_reads: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("capped", "capped"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert!(
-        result
-            .content
-            .contains("truncated by tool cap: 480 more chars not shown"),
+        result_text(&result).contains("truncated by tool cap: 480 more chars not shown"),
         "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -524,12 +575,20 @@ async fn tool_output_tabulates_a_large_graph_for_a_non_exempt_tool() {
         "baseline payload must clear OpenHuman's configured compaction floor"
     );
     let mut result = tool_result("some_other_tool", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("other-compact", "some_other_tool"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_ne!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "a non-exempt tool's large uniform-array payload should be rewritten by tokenjuice"
     );
-    let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result.content);
+    let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result_text(&result));
     let marker_survived = reparsed
         .ok()
         .and_then(|v| v.get("type").and_then(|t| t.as_str().map(str::to_string)))
@@ -545,12 +604,20 @@ async fn tool_output_leaves_propose_workflow_byte_for_byte_intact() {
     let mw = compaction_enabled_mw();
     let payload = large_workflow_proposal_json();
     let mut result = tool_result("propose_workflow", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("proposal-compact", "propose_workflow"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "propose_workflow results must pass through compaction untouched"
     );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
+    let reparsed: serde_json::Value = serde_json::from_str(&result_text(&result)).unwrap();
     assert_eq!(reparsed["type"], "workflow_proposal");
     assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 20);
 }
@@ -561,9 +628,17 @@ async fn tool_output_leaves_every_exempt_tool_name_intact() {
     let payload = large_workflow_proposal_json();
     for tool in COMPACTION_EXEMPT_TOOLS {
         let mut result = tool_result(tool, &payload);
-        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        mw.after_tool(
+            &mut ctx(),
+            &(),
+            &invocation(format!("exempt-{tool}"), *tool),
+            &mut result,
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            result.content, payload,
+            result_text(&result),
+            payload,
             "{tool}'s result must pass through compaction untouched"
         );
     }
@@ -585,12 +660,20 @@ async fn tool_output_leaves_an_oversized_propose_workflow_byte_for_byte_intact()
         payload.len()
     );
     let mut result = tool_result("propose_workflow", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("proposal-truncate", "propose_workflow"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "an oversized propose_workflow result must not be truncated by the shared byte-budget backstop"
     );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content)
+    let reparsed: serde_json::Value = serde_json::from_str(&result_text(&result))
         .expect("must still be valid JSON after passing through after_tool");
     assert_eq!(reparsed["type"], "workflow_proposal");
     assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 30);
@@ -605,18 +688,26 @@ async fn tool_output_truncates_the_same_oversized_payload_for_a_non_exempt_tool(
     let mw = truncation_probe_mw();
     let payload = oversized_workflow_proposal_json(30);
     let mut result = tool_result("some_other_tool", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("other-truncate", "some_other_tool"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_ne!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "a non-exempt tool's oversized payload should be truncated by the shared byte-budget backstop"
     );
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).contains("truncated by tool_result_budget"),
         "expected the byte-budget truncation marker: {}",
-        result.content
+        result_text(&result)
     );
     assert!(
-        serde_json::from_str::<serde_json::Value>(&result.content).is_err(),
+        serde_json::from_str::<serde_json::Value>(&result_text(&result)).is_err(),
         "truncated JSON should no longer parse as a whole document"
     );
 }
@@ -630,9 +721,17 @@ async fn get_tool_output_sample_is_compaction_exempt() {
     let mw = compaction_enabled_mw();
     let payload = large_sample_response_json(10);
     let mut result = tool_result("get_tool_output_sample", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("sample", "get_tool_output_sample"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "get_tool_output_sample's response must not be tokenjuice-tabulated"
     );
 }
@@ -642,9 +741,17 @@ async fn get_tool_contract_is_compaction_exempt() {
     let mw = compaction_enabled_mw();
     let payload = large_sample_response_json(10);
     let mut result = tool_result("get_tool_contract", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("contract", "get_tool_contract"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "get_tool_contract's response must not be tokenjuice-tabulated"
     );
 }
@@ -658,7 +765,7 @@ async fn the_turns_task_hint_reaches_the_payload_summarizer() {
     impl PayloadSummarizer for HintRecorder {
         async fn maybe_summarize_in_parent(
             &self,
-            _parent_ctx: &RunContext<()>,
+            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
             _tool_name: &str,
             parent_task_hint: Option<&str>,
             _raw: &str,
@@ -673,9 +780,14 @@ async fn the_turns_task_hint_reaches_the_payload_summarizer() {
     mw.task_hint = Some("find the release notes for v2".to_string());
     let mut result = tool_result("use_skill", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx(), &(), &mut result)
-        .await
-        .expect("after_tool should not fail");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("use-skill", "use_skill"),
+        &mut result,
+    )
+    .await
+    .expect("after_tool should not fail");
 
     assert_eq!(
         recorder.0.lock().expect("recorder lock").clone(),
@@ -691,13 +803,13 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(12),
             streaming: false,
         }),
@@ -713,17 +825,23 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
     mw.tool_policies = tool_policies;
     let mut result = tool_result("terse", &"payload ".repeat(200));
 
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("terse-cap", "terse"),
+        &mut result,
+    )
+    .await
+    .unwrap();
 
     assert!(
-        result
-            .content
+        result_text(&result)
             .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
         "the real size must lead the content whatever the caps did, got {:?}",
-        result.content.chars().take(160).collect::<String>()
+        result_text(&result).chars().take(160).collect::<String>()
     );
     assert!(
-        result.content.contains("[truncated by tool cap:"),
+        result_text(&result).contains("[truncated by tool cap:"),
         "the summary itself is still bound by the tool's cap"
     );
 }

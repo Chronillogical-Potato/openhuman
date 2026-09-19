@@ -279,10 +279,6 @@ name = "orchestrator_presentation_wiring"
 path = "../../tests/orchestrator_presentation_wiring.rs"
 
 [[test]]
-name = "personality_e2e"
-path = "../../tests/personality_e2e.rs"
-
-[[test]]
 name = "skill_registry_e2e"
 path = "../../tests/skill_registry_e2e.rs"
 
@@ -413,12 +409,14 @@ tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness
     "sqlite",
     "multimodal",
 ] }
+tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
 tinyagents-language = { path = "../../vendor/tinyagents/crates/tinyagents-language" }
 tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-registry" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-embeddings = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
@@ -441,6 +439,7 @@ tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/cra
 # whole address — the same arrangement as `tinyhumans-sdk` and the `-bus`
 # crates. After cloning: `git submodule update --init --recursive vendor/`.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
 # The memory *contract* — value types, the thirteen capability families, the
 # `MemoryProvider` driver trait, and the null reference driver. A direct path
 # dependency rather than a re-export, because `tinycortex::memory` aliases back

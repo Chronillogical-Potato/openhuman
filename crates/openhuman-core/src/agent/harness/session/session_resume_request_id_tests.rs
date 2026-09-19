@@ -7,11 +7,10 @@ use super::*;
 /// keeps the request it was first written under.
 #[test]
 fn resumed_rows_keep_their_own_extra_metadata() {
-    use crate::agent::harness::session::transcript::{
-        append_transcript_turn, attach_tool_failure_metadata, read_transcript,
-        read_transcript_display, DisplayRecord,
+    use crate::agent::messages::{attach_chat_tool_failure_metadata, ChatMessage};
+    use tinyagents_session::transcript::{
+        append_transcript_turn, read_transcript, read_transcript_display, DisplayRecord,
     };
-    use crate::agent::messages::ChatMessage;
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let meta = fake_transcript_meta("thr_metadata");
@@ -22,13 +21,13 @@ fn resumed_rows_keep_their_own_extra_metadata() {
     collides.extra_metadata = Some(serde_json::json!({ "openhuman_wrapped_value": "pinned" }));
     let mut failed_tool = ChatMessage::tool(r#"{"tool_call_id":"call-1","content":"boom"}"#);
     failed_tool.extra_metadata = Some(serde_json::json!("tool-note"));
-    attach_tool_failure_metadata(&mut failed_tool, Some("boom"));
+    attach_chat_tool_failure_metadata(&mut failed_tool, Some("boom"));
 
     let first = dir.path().join("first.jsonl");
     append_transcript_turn(
         &first,
         &[],
-        &[ChatMessage::system("sys"), noted, collides, failed_tool],
+        &durable_messages([ChatMessage::system("sys"), noted, collides, failed_tool]),
         &meta,
         None,
         Some("req-1"),
@@ -110,25 +109,27 @@ fn resumed_rows_keep_their_own_extra_metadata() {
 /// append.
 #[test]
 fn replayed_rows_keep_their_request_id_inside_a_compaction_record() {
-    use crate::agent::harness::session::transcript::{
+    use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{
         append_transcript_turn, read_transcript, read_transcript_display, DisplayRecord,
     };
-    use crate::agent::messages::ChatMessage;
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let meta = fake_transcript_meta("thr_compaction");
 
     let first = dir.path().join("first.jsonl");
-    let turn1 = vec![
+    let turn1 = durable_messages(vec![
         ChatMessage::system("sys"),
         ChatMessage::user("old question"),
         ChatMessage::assistant("old answer"),
-    ];
+    ]);
     append_transcript_turn(&first, &[], &turn1, &meta, None, Some("req-1")).expect("turn 1");
 
     // Resume into a fresh file, then append the resuming turn.
     let mut resumed = read_transcript(&first).expect("read").messages;
-    resumed.push(ChatMessage::user("new question"));
+    resumed.push(crate::agent::messages::transcript_message_from_chat(
+        &ChatMessage::user("new question"),
+    ));
     let second = dir.path().join("second.jsonl");
     append_transcript_turn(&second, &[], &resumed, &meta, None, Some("req-2")).expect("turn 2");
 
@@ -165,10 +166,10 @@ fn replayed_rows_keep_their_request_id_inside_a_compaction_record() {
 /// not stamp them with that turn's request.
 #[test]
 fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
-    use crate::agent::harness::session::transcript::{
+    use crate::agent::messages::{ChatMessage, ConversationMessage};
+    use tinyagents_session::transcript::{
         append_transcript_turn, read_transcript_display, DisplayRecord,
     };
-    use crate::agent::messages::{ChatMessage, ConversationMessage};
 
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent
@@ -186,14 +187,22 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
         "what happened?",
     ))];
     agent.absorb_resumed_transcript_prefix();
-    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let messages: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.clone()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let path = dir.path().join("seeded.jsonl");
     append_transcript_turn(
         &path,
         &[],
-        &messages,
+        &durable_messages(messages),
         &fake_transcript_meta("thr_seeded"),
         None,
         Some("req-now"),
@@ -224,8 +233,8 @@ fn prose_seeded_rows_are_not_restamped_with_the_resuming_request() {
 /// message into the current turn.
 #[test]
 fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request() {
-    use super::super::transcript::{self, read_transcript_display, DisplayRecord};
     use crate::agent::messages::{ChatMessage, ConversationMessage};
+    use tinyagents_session::transcript::{self, read_transcript_display, DisplayRecord};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -234,11 +243,11 @@ fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request(
         .expect("resolve transcript path");
     transcript::write_transcript(
         &path,
-        &[
+        &durable_messages([
             ChatMessage::system("stored prompt"),
             ChatMessage::user("first question"),
             ChatMessage::assistant("first answer"),
-        ],
+        ]),
         &fake_transcript_meta(thread_id),
         None,
     )
@@ -251,7 +260,7 @@ fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request(
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");
@@ -263,13 +272,21 @@ fn a_resumed_request_less_transcript_is_not_restamped_with_the_resuming_request(
         "second question",
     ))];
     agent.absorb_resumed_transcript_prefix();
-    let messages = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let messages: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.clone()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
 
     let out = wsp.join("resumed.jsonl");
     transcript::append_transcript_turn(
         &out,
         &[],
-        &messages,
+        &durable_messages(messages),
         &fake_transcript_meta(thread_id),
         None,
         Some("req-2"),

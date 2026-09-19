@@ -7,7 +7,7 @@ use std::path::Path;
 
 use tinyagents_harness::ids::TaskId;
 
-use crate::agent::tinyagents::orchestration::OrchestrationTaskRecord;
+use tinyagents_graph::orchestration::OrchestrationTaskRecord;
 
 use super::registry::{registry, SubagentResumeRef};
 use super::task_ledger::{

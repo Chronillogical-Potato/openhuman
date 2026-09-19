@@ -38,6 +38,17 @@ fn registry_of(defs: Vec<HostAgentDefinition>) -> OpenHumanDefinitionRegistry {
     OpenHumanDefinitionRegistry::new(Arc::new(registry))
 }
 
+#[test]
+fn projection_supplies_the_validated_tier_as_the_model_routing_role() {
+    for tier in [AgentTier::Chat, AgentTier::Reasoning, AgentTier::Worker] {
+        let def = synthetic("tiered", tier, &[]);
+        assert_eq!(
+            registry_of(vec![def.clone()]).project(&def).role.as_deref(),
+            Some(tier.as_str())
+        );
+    }
+}
+
 // ── the absence contract ──────────────────────────────────────────────
 
 #[tokio::test]
@@ -274,7 +285,7 @@ fn a_wildcard_denylist_without_registered_tools_fails_closed() {
 
     assert_eq!(
         projected.tools,
-        vec![PROFILE_NO_TOOLS_SENTINEL.to_string()],
+        vec![NO_TOOLS_SENTINEL.to_string()],
         "an unexpressible denylist must not read back as 'all tools'"
     );
 }
@@ -289,7 +300,7 @@ fn an_explicitly_tool_less_named_scope_projects_the_no_tools_sentinel() {
 
     assert_eq!(
         registry_of(vec![def.clone()]).project(&def).tools,
-        vec![PROFILE_NO_TOOLS_SENTINEL.to_string()]
+        vec![NO_TOOLS_SENTINEL.to_string()]
     );
 }
 
@@ -303,7 +314,7 @@ fn a_named_scope_emptied_by_its_denylist_projects_the_no_tools_sentinel() {
 
     assert_eq!(
         registry_of(vec![def.clone()]).project(&def).tools,
-        vec![PROFILE_NO_TOOLS_SENTINEL.to_string()]
+        vec![NO_TOOLS_SENTINEL.to_string()]
     );
 }
 
@@ -319,51 +330,6 @@ fn named_scope_drops_denied_tools_and_keeps_extras() {
         registry.project(&def).tools,
         vec!["file_read".to_string(), "grep".to_string()]
     );
-}
-
-// ── profile restriction ───────────────────────────────────────────────
-
-fn profile_allowing(tools: &[&str]) -> Arc<AgentProfile> {
-    let mut profile = crate::agent::profiles::built_in_profiles()
-        .into_iter()
-        .next()
-        .expect("at least one built-in profile ships");
-    profile.allowed_tools = Some(tools.iter().map(|t| t.to_string()).collect());
-    Arc::new(profile)
-}
-
-#[test]
-fn profile_allowlist_narrows_a_named_scope() {
-    let mut def = synthetic("worker", AgentTier::Worker, &[]);
-    def.tools = ToolScope::Named(vec!["file_read".into(), "grep".into()]);
-
-    let registry = registry_of(vec![def.clone()]).with_profile(profile_allowing(&["grep"]));
-    assert_eq!(registry.project(&def).tools, vec!["grep".to_string()]);
-}
-
-#[test]
-fn a_disjoint_profile_allowlist_yields_zero_tools_not_all_tools() {
-    // The failure mode the host's sentinel exists to prevent: an empty list
-    // reads as "unrestricted", so a disjoint intersection must stay
-    // non-empty with an unregistered name.
-    let mut def = synthetic("worker", AgentTier::Worker, &[]);
-    def.tools = ToolScope::Named(vec!["file_read".into()]);
-
-    let registry =
-        registry_of(vec![def.clone()]).with_profile(profile_allowing(&["something_else"]));
-    assert_eq!(
-        registry.project(&def).tools,
-        vec![PROFILE_NO_TOOLS_SENTINEL.to_string()]
-    );
-}
-
-#[test]
-fn profile_allowlist_becomes_the_visible_set_for_a_wildcard_agent() {
-    let mut def = synthetic("worker", AgentTier::Worker, &[]);
-    def.tools = ToolScope::Wildcard;
-
-    let registry = registry_of(vec![def.clone()]).with_profile(profile_allowing(&[" grep ", ""]));
-    assert_eq!(registry.project(&def).tools, vec!["grep".to_string()]);
 }
 
 // ── config-backed custom agents ───────────────────────────────────────

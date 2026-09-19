@@ -9,13 +9,9 @@
 //! record's serde) comes from the contract that both ends read.
 //!
 //! **Do not "modernise" this onto `active_memory_guard().as_tool_memory()`.**
-//! `memory` here is the session's own subtree — `DriverMemory::for_subtree`,
-//! resolved in `factory` from the profile's `memory_subdir` — so a profile with
-//! `dedicatedMemory` prefetches its own rules. The ambient guard is the
-//! *shared* tree, and routing this through it would quietly merge every
-//! profile's tool rules into one prompt. The correct family call is the one
-//! reached through this session's own `binding::for_subtree(..)`, which needs
-//! the subtree passed in rather than the memory object.
+//! `memory` is the session's canonical workspace store. The binding below is
+//! shared with the session's `DriverMemory`, so recall and tool-memory rules
+//! always address the same durable data.
 
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::auto_recall::AutoRecall;
@@ -23,9 +19,9 @@ use crate::memory::tool_memory::{tool_memory_store, ToolMemoryRule};
 use crate::memory::Memory;
 use std::sync::Arc;
 
-use crate::agent::context::prompt::SystemPromptBuilder;
-use crate::tools::traits::Tool;
+use crate::agent::prompts::SystemPromptBuilder;
 use std::collections::HashSet;
+use tinytools::Tool;
 
 /// Binds this session's memory subtree once and hands back the two handles
 /// the factory takes from it: the raw provider the archivist writes through,
@@ -34,14 +30,9 @@ use std::collections::HashSet;
 /// its own facts, never the shared tree's.
 pub(super) fn bind_session_memory(
     config: &crate::config::Config,
-    memory_subdir: &str,
 ) -> anyhow::Result<(Arc<dyn MemoryProvider>, Arc<AutoRecall>)> {
-    let binding = crate::memory::binding::for_subtree(
-        &config.workspace_dir,
-        memory_subdir,
-        &config.subsystems.memory,
-    )
-    .map_err(|e| anyhow::anyhow!("archivist memory binding: {e}"))?;
+    let binding = crate::memory::binding::for_config(config)
+        .map_err(|e| anyhow::anyhow!("archivist memory binding: {e}"))?;
     let auto_recall = Arc::new(AutoRecall::from_guard(binding.guard()));
     Ok((binding.provider().clone(), auto_recall))
 }

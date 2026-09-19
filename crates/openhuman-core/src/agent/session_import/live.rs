@@ -24,7 +24,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use tinyagents_harness::store::{AppendStore, Store};
 
-use crate::agent::harness::session::transcript::SessionTranscript;
+use tinyagents_session::transcript::SessionTranscript;
 
 use super::convert::{
     build_descriptor, effective_thread_id, journal_messages, sanitize_store_name, stream_name,

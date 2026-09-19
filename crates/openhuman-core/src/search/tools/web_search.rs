@@ -12,11 +12,11 @@
 use super::{SearchResponse, SearchResultItem, SeltzSearchTool};
 use crate::config::Config;
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 /// Provider the OpenHuman Managed search path resolves to today. Exa powers
 /// the overwhelming majority of managed search traffic, so it is the labelled

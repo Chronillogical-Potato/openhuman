@@ -4,6 +4,7 @@ impl SpawnAsyncSubagentTool {
         args: serde_json::Value,
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
         let agent_id = args
             .get("agent_id")
@@ -53,7 +54,7 @@ impl SpawnAsyncSubagentTool {
             ));
         }
 
-        let parent = match current_parent() {
+        let parent = match run_context.parent.clone() {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
@@ -102,13 +103,15 @@ impl SpawnAsyncSubagentTool {
 
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
-        let parent_thread_id =
-            crate::agent::tinyagents::thread_context::current_thread_id();
+        let parent_thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
+            .map(str::to_owned);
 
         // Async delivery is thread-addressed: the finished result is inserted
         // back into the parent chat thread as a follow-up turn
         // (`background_delivery`). Outside a chat turn (flow `agent` nodes,
-        // CLI, cron) there is no `current_thread_id()` to deliver into, so
+        // CLI and cron runs intentionally have no parent thread to deliver into, so
         // `background_delivery::deliver_batch` logs "dropping headless batch"
         // and the (possibly real, completed) work is silently discarded — the
         // caller sees "Accepted" and never learns the result never arrived.
@@ -138,7 +141,9 @@ impl SpawnAsyncSubagentTool {
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let workspace_descriptor = tool_context
+            .and_then(|ctx| ctx.workspace().cloned())
+            .or_else(|| run_context.workspace.clone());
         let effective_action_root = workspace_descriptor
             .as_ref()
             .map(|workspace| {
@@ -378,7 +383,6 @@ impl SpawnAsyncSubagentTool {
         let task_queue = steer_queue.clone();
         let (status_tx, status_rx) = running_subagents::status_channel();
 
-        let background_parent = parent.clone();
         let background_workspace_dir = parent.workspace_dir.clone();
         let background_definition = definition.clone();
         let background_agent_id = definition.id.clone();
@@ -392,7 +396,7 @@ impl SpawnAsyncSubagentTool {
         let background_worktree_action_dir = background_workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
-        let background_thread_affinity_id = background_worker_thread_id
+        let background_thread_id = background_worker_thread_id
             .clone()
             .unwrap_or_else(|| background_subagent_session_id.clone());
         let background_initial_history = initial_history;
@@ -412,16 +416,13 @@ impl SpawnAsyncSubagentTool {
             register_parent_thread_id.as_deref().unwrap_or("none")
         );
         let background_prompt = add_background_contract(&prompt);
-        // The detached child starts on a fresh task, and a `tokio::task_local`
-        // does not cross `tokio::spawn`. The parent's execution context and
-        // chat thread are already re-installed inside the task for exactly that
-        // reason; the turn's origin label and its workspace root are the other
-        // two that have to travel, and they are captured **here**, on the
-        // spawning task, rather than inside the closure where they would
-        // already be gone. Without the origin every external-effect tool the
-        // child calls reaches the approval gate unlabelled and is refused,
-        // which is the whole of why a delegated coding task could not run a
-        // shell.
+        // The detached child starts on a fresh task. Its explicit carrier keeps
+        // authority, origin, thread, and workspace while deliberately dropping
+        // the originating turn's accounting, dispatch refusal, and cancellation.
+        // Approval/origin and workspace policy remain task-local until B2h
+        // moves the security boundary onto this carrier, so propagation below
+        // is a staging bridge for those two scopes only.
+        let detached_run_context = run_context.detached_child();
         let join = tokio::spawn(crate::agent::turn_origin::propagate(
             crate::agent::turn_workspace::propagate(async move {
                 let options = SubagentRunOptions {
@@ -430,6 +431,8 @@ impl SpawnAsyncSubagentTool {
                     context,
                     model_override,
                     task_id: Some(background_task_id.clone()),
+                    thread_id: Some(background_thread_id),
+                    run_context: detached_run_context,
                     worker_thread_id: background_worker_thread_id.clone(),
                     initial_history: background_initial_history,
                     checkpoint_dir: None,
@@ -438,16 +441,7 @@ impl SpawnAsyncSubagentTool {
                     run_queue: Some(task_queue),
                 };
 
-                let result = with_parent_context(background_parent, async move {
-                    crate::agent::tinyagents::thread_context::with_thread_id(
-                        background_thread_affinity_id,
-                        async move {
-                            run_subagent(&background_definition, &background_prompt, options).await
-                        },
-                    )
-                    .await
-                })
-                .await;
+                let result = run_subagent(&background_definition, &background_prompt, options).await;
 
                 match result {
                     Ok(outcome) => match outcome.status {

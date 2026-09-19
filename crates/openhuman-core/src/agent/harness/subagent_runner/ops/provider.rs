@@ -133,13 +133,13 @@ pub(crate) fn user_is_signed_in_to_composio(config: &crate::config::Config) -> b
 /// safety net that handles the re-delegation pattern even without caching.
 pub(crate) struct LazyToolkitResolver {
     pub(super) config: std::sync::Arc<crate::config::Config>,
-    pub(super) actions: Vec<crate::agent::context::prompt::ConnectedIntegrationTool>,
+    pub(super) actions: Vec<crate::agent::prompts::ConnectedIntegrationTool>,
     /// Cache of resolved tools keyed by action slug. Once a tool is built
     /// for a slug, subsequent `resolve()` calls for the same slug reuse the
     /// cached instance — sharing its [`ContractGate`] state (#5119).
     #[allow(dead_code)] // used via pub(super) from tests
     pub(super) resolved:
-        std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<dyn crate::tools::Tool>>>,
+        std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<dyn tinytools::Tool>>>,
 }
 
 /// Minimum normalized-slug length before the prefix/superstring tier in
@@ -166,7 +166,7 @@ impl LazyToolkitResolver {
     /// safety net that fires when too many fresh gate instances have all
     /// surfaced the same contract without executing (#5119). This handles
     /// the cross-spawn re-delegation pattern even when caching is bypassed.
-    pub(super) fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn crate::tools::Tool>> {
+    pub(super) fn resolve(&self, name: &str) -> Option<std::sync::Arc<dyn tinytools::Tool>> {
         // Check cache first — returns the same Arc (and therefore the same
         // ContractGate) for repeated resolve calls on the same slug.
         {
@@ -185,7 +185,7 @@ impl LazyToolkitResolver {
         }
 
         let action = self.find_action(name)?;
-        let tool: std::sync::Arc<dyn crate::tools::Tool> =
+        let tool: std::sync::Arc<dyn tinytools::Tool> =
             std::sync::Arc::new(crate::integrations::composio::ComposioActionTool::new(
                 self.config.clone(),
                 action.name.clone(),
@@ -213,10 +213,7 @@ impl LazyToolkitResolver {
     /// resolve to the wrong action — those still fall through to the
     /// "tool not available" error, which lists `known_slugs` for the model
     /// to self-correct).
-    fn find_action(
-        &self,
-        name: &str,
-    ) -> Option<&crate::agent::context::prompt::ConnectedIntegrationTool> {
+    fn find_action(&self, name: &str) -> Option<&crate::agent::prompts::ConnectedIntegrationTool> {
         if let Some(action) = self.actions.iter().find(|a| a.name == name) {
             return Some(action);
         }

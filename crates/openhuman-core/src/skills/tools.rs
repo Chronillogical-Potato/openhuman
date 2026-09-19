@@ -27,7 +27,7 @@ use serde_json::json;
 #[cfg(test)]
 use crate::config::Config;
 #[cfg(test)]
-use crate::tools::traits::{PermissionLevel, Tool};
+use tinytools::{PermissionLevel, Tool};
 
 mod helpers;
 mod read;
@@ -35,7 +35,6 @@ mod read;
 mod uninstall;
 mod write;
 
-pub(super) use helpers::{skill_allowed, SkillAllowlist};
 pub use read::{
     WorkflowDescribeTool, WorkflowListTool, WorkflowReadResourceTool, WorkflowReadRunLogTool,
     WorkflowRecentRunsTool,

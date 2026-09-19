@@ -23,13 +23,10 @@ use collision::precedence;
 use std::path::Path;
 
 pub use api::{
-    discover_automations, discover_workflows, discover_workflows_with_profile, discovery_home_dir,
-    init_workflows_dir, is_workspace_trusted, load_workflow_metadata,
-    load_workflow_metadata_for_profile,
+    discover_automations, discover_workflows, discovery_home_dir, init_workflows_dir,
+    is_workspace_trusted, load_workflow_metadata,
 };
-pub use resource::{
-    profile_local_skill_ids, read_workflow_resource, read_workflow_resource_with_profile,
-};
+pub use resource::read_workflow_resource;
 
 pub(crate) use api::discover_workflows_inner;
 
@@ -39,6 +36,3 @@ pub(crate) use api::DISCOVERY_CALLS;
 #[cfg(test)]
 #[path = "ops_discover_include_skills_tests_tests.rs"]
 mod include_skills_tests;
-#[cfg(test)]
-#[path = "ops_discover_profile_scope_tests_tests.rs"]
-mod profile_scope_tests;

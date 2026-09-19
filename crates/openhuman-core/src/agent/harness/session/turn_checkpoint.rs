@@ -10,7 +10,7 @@ pub(crate) fn assistant_message_has_tool_calls(msg: &ChatMessage) -> bool {
     // CodeRabbit follow-up: only treat this as the native tool_calls envelope
     // when the full expected shape is present:
     //   - top-level JSON object
-    //   - `content` key present (the envelope `dispatcher.rs` emits — see
+    //   - `content` key present (the canonical native dialect emits — see
     //     `to_provider_messages`)
     //   - non-empty `tool_calls` array whose every element carries an `id`
     //     string, a `name` string, and an `arguments` field

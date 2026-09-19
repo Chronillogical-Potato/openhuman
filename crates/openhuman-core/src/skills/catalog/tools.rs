@@ -11,7 +11,7 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::tools::status::{NOT_FOUND_MARKER, UNSUPPORTED_MARKER};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
 

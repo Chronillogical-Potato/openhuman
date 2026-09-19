@@ -18,7 +18,7 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::integrations::task_sources::{FilterSpec, ProviderSlug, TaskSourcePatch};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
 

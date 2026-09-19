@@ -12,7 +12,6 @@ use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::definition::PromptSource;
 use crate::agent::harness::session::Agent;
 use crate::agent::harness::subagent_runner::with_autonomous_iter_cap;
-use crate::agent::profiles::PersonalityContext;
 use crate::agent::task_session;
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::agent::todos::runs::{self, RunOutcome};
@@ -32,12 +31,10 @@ pub(super) const TASK_RUN_MAX_ITERATIONS: usize = 200;
 /// Max chars of the agent's final output retained as board `evidence`.
 pub(super) const EVIDENCE_MAX_CHARS: usize = 2_000;
 
-/// Map a card's `assigned_agent` handle to one of three executor presets:
-/// **personality** (scoped SOUL/MEMORY folded into the prompt suffix, run as
-/// that profile's agent), **skill** (orchestrator seeded with the skill's
-/// `SKILL.md` guidelines), or **built-in agent**. An unset or unresolved handle
-/// degrades to the default `orchestrator` — "use the personality if valid,
-/// otherwise the default agent."
+/// Map a card's `assigned_agent` handle to an executor preset: a skill
+/// (orchestrator seeded with its `SKILL.md` guidelines) or a canonical agent
+/// definition. An unset or unresolved handle degrades to the default
+/// `orchestrator`.
 pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> ResolvedExecutor {
     let Some(handle) = assigned.map(str::trim).filter(|s| !s.is_empty()) else {
         return ResolvedExecutor::default_agent();
@@ -46,32 +43,7 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
         return ResolvedExecutor::default_agent();
     }
 
-    // 1) Personality (#2895): a user-defined profile with scoped identity.
-    if let Ok(state) = crate::agent::profiles::load_profiles(workspace_dir) {
-        if let Some(profile) = state.profiles.iter().find(|p| p.id == handle) {
-            let ctx = PersonalityContext::from_profile(workspace_dir, profile.clone());
-            let mut preamble = format!(
-                "You are acting as the personality `{}` (\"{}\"). {}",
-                profile.id, profile.name, profile.description
-            );
-            if let Some(soul) = &ctx.soul_md_override {
-                preamble.push_str("\n\n[Personality SOUL.md]\n");
-                preamble.push_str(&truncate_chars(soul, EXECUTOR_PREAMBLE_MAX_CHARS));
-            }
-            if let Some(mem) = &ctx.memory_md_override {
-                preamble.push_str("\n\n[Personality MEMORY.md]\n");
-                preamble.push_str(&truncate_chars(mem, EXECUTOR_PREAMBLE_MAX_CHARS));
-            }
-            return ResolvedExecutor {
-                agent_id: profile.agent_id.clone(),
-                prompt_suffix: Some(preamble),
-                profile: Some(profile.clone()),
-                label: format!("personality:{handle}"),
-            };
-        }
-    }
-
-    // 2) Workflow (#2824): the same autonomous run, seeded with SKILL.md.
+    // 1) Workflow (#2824): the same autonomous run, seeded with SKILL.md.
     //
     // `#[cfg]` rather than a stubbed `get_workflow`: the real one returns
     // `Option<WorkflowDefinition>`, which flattens in `AgentDefinition` and is
@@ -93,12 +65,11 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
         return ResolvedExecutor {
             agent_id: "orchestrator".to_string(),
             prompt_suffix: Some(suffix),
-            profile: None,
             label: format!("skill:{handle}"),
         };
     }
 
-    // 3) Built-in agent definition.
+    // 2) Canonical agent definition.
     if AgentDefinitionRegistry::global()
         .and_then(|r| r.get(handle))
         .is_some()
@@ -106,15 +77,14 @@ pub(super) fn resolve_executor(workspace_dir: &Path, assigned: Option<&str>) -> 
         return ResolvedExecutor {
             agent_id: handle.to_string(),
             prompt_suffix: None,
-            profile: None,
             label: format!("agent:{handle}"),
         };
     }
 
-    // 4) Unresolved → degrade to the default agent (don't fail the card).
+    // 3) Unresolved → degrade to the default agent (don't fail the card).
     tracing::warn!(
         handle = %handle,
-        "[task_dispatcher] assigned executor did not resolve to a personality/skill/agent; \
+        "[task_dispatcher] assigned executor did not resolve to a skill/agent; \
          using default orchestrator"
     );
     ResolvedExecutor {
@@ -154,13 +124,8 @@ pub(super) async fn run_autonomous(
         config.http_request.allowed_domains = vec!["*".to_string()];
     }
 
-    let mut agent = Agent::from_config_for_agent_with_profile(
-        &config,
-        &executor.agent_id,
-        executor.prompt_suffix.clone(),
-        executor.profile.as_ref(),
-    )
-    .map_err(|e| format!("build agent: {e:#}"))?;
+    let mut agent = Agent::from_config_for_agent(&config, &executor.agent_id)
+        .map_err(|e| format!("build agent: {e:#}"))?;
     // Issue #4868 — apply the autonomous task-run iteration budget AFTER
     // construction. The session builder now stamps the resolved agent
     // definition's own cap onto the agent; an autonomous task run
@@ -216,27 +181,12 @@ pub(super) async fn run_autonomous(
     // already authorized the parent turn that dispatched this task. Label
     // as CLI so the approval gate doesn't fail closed on internal
     // sub-agent invocations.
-    // Gate memory-source recall for this background run to the profile's
-    // allowlist (None = unrestricted), mirroring the web chat turn.
-    let memory_scope = executor
-        .profile
-        .as_ref()
-        .and_then(|p| p.memory_sources.clone());
-    let run = crate::memory::source_scope::with_source_scope(
-        memory_scope,
-        crate::agent::turn_origin::with_origin(
-            crate::agent::turn_origin::AgentTurnOrigin::Cli,
-            with_autonomous_iter_cap(TASK_RUN_MAX_ITERATIONS, agent.run_single(prompt)),
-        ),
+    agent.set_thread_id(session_thread_id.as_deref());
+    let run = crate::agent::turn_origin::with_origin(
+        crate::agent::turn_origin::AgentTurnOrigin::Cli,
+        with_autonomous_iter_cap(TASK_RUN_MAX_ITERATIONS, agent.run_single(prompt)),
     );
-    let result = match session_thread_id.as_deref() {
-        Some(thread_id) => {
-            crate::agent::tinyagents::thread_context::with_thread_id(thread_id.to_string(), run)
-                .await
-        }
-        None => run.await,
-    }
-    .map_err(|e| format!("{e:#}"));
+    let result = run.await.map_err(|e| format!("{e:#}"));
 
     // Close the run in its thread. Order matters (#5933): persist the closing
     // message FIRST, announce the terminal event SECOND. A client viewing the

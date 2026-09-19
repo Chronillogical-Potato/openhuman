@@ -54,7 +54,7 @@ pub const PACKS: &[ToolPack] = &[
             "get_tool_output_sample",
             "list_node_kinds",
             "get_node_kind_contract",
-            "list_agent_profiles",
+            "list_agent_definitions",
             "list_connectable_toolkits",
         ],
         owners: &["workflow_builder", "flow_discovery"],

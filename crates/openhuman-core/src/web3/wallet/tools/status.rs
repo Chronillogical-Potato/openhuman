@@ -1,7 +1,7 @@
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use crate::web3::wallet;
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 pub struct WalletStatusTool;
 

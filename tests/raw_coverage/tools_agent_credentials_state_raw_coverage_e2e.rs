@@ -16,7 +16,7 @@ use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use chrono::{Duration as ChronoDuration, Utc};
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, ParentExecutionContext, PromptSource,
@@ -29,7 +29,7 @@ use openhuman_core::config::rpc as config_rpc;
 use openhuman_core::config::{
     BrowserConfig, Config, HttpRequestConfig, McpAuthConfig, McpServerConfig,
 };
-use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::security::credentials::profiles::{
     AuthProfile, AuthProfileKind, AuthProfilesStore, TokenSet,
 };
@@ -39,9 +39,9 @@ use openhuman_core::security::credentials::{
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
 use openhuman_core::security::{AuditLogger, SecurityPolicy};
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
+use tinytools::{Tool, ToolResult};
 use openhuman_core::tools::{
-    all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool, Tool, ToolResult,
-};
+    all_tools, BrowserTool, ComputerUseConfig, SpawnSubagentTool};
 use parking_lot::Mutex as ParkingMutex;
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
@@ -742,7 +742,7 @@ async fn round16_agent_builder_turn_uses_public_harness_paths() {
         .chat_model(provider)
         .tools(vec![Box::new(EchoTool)])
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .config(openhuman_core::config::AgentConfig {
             max_tool_iterations: 3,
             ..Default::default()

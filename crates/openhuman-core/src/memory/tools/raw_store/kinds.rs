@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryStoreKindsTool;
 

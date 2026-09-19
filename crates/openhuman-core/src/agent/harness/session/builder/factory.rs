@@ -3,20 +3,21 @@
 
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
-use crate::agent::context::prompt::SystemPromptBuilder;
-use crate::agent::dispatcher::{NativeToolDispatcher, PFormatToolDispatcher, XmlToolDispatcher};
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
 use crate::agent::harness::session::types::Agent;
 use crate::agent::host_runtime;
+use crate::agent::prompts::SystemPromptBuilder;
 use crate::config::Config;
 use crate::inference::provider;
 use crate::memory::tool_memory::capture::ToolMemoryCaptureHook;
 use crate::memory::Memory;
 use crate::security::SecurityPolicy;
-use crate::tools::{self, Tool};
+use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool};
+use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
 
 impl Agent {
     /// Constructs an `Agent` instance from a global system configuration.
@@ -101,26 +102,7 @@ impl Agent {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), None, false, None)
-    }
-
-    /// Construct a session agent with an additional profile prompt section. Used by the web channel when the user
-    /// selects a persistent agent profile for the thread.
-    pub fn from_config_for_agent_with_profile(
-        config: &Config,
-        agent_id: &str,
-        profile_prompt_suffix: Option<String>,
-        profile: Option<&crate::agent::profiles::AgentProfile>,
-    ) -> Result<Self> {
-        let target_def = resolve_target_definition(config, agent_id)?;
-        Self::build_session_agent_inner(
-            config,
-            agent_id,
-            target_def.as_ref(),
-            profile_prompt_suffix,
-            false,
-            profile,
-        )
+        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false)
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -136,23 +118,13 @@ impl Agent {
     pub fn from_config_with_definition(
         config: &Config,
         definition: &crate::agent::harness::definition::AgentDefinition,
-        profile: Option<&crate::agent::profiles::AgentProfile>,
-        profile_prompt_suffix: Option<String>,
     ) -> Result<Self> {
         log::debug!(
-            "[agent] from_config_with_definition id={} sandbox={:?} profile={:?}",
+            "[agent] from_config_with_definition id={} sandbox={:?}",
             definition.id,
             definition.sandbox_mode,
-            profile.map(|p| p.id.as_str())
         );
-        Self::build_session_agent_inner(
-            config,
-            &definition.id,
-            Some(definition),
-            profile_prompt_suffix,
-            false,
-            profile,
-        )
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false)
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -169,92 +141,24 @@ impl Agent {
         config: &Config,
         agent_id: &str,
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
-        profile_prompt_suffix: Option<String>,
         read_only_tools_only: bool,
-        profile: Option<&crate::agent::profiles::AgentProfile>,
     ) -> Result<Self> {
-        if let Some(p) = profile {
-            tracing::debug!(
-                profile_id = %p.id,
-                include_agent_conversations = p.include_agent_conversations,
-                allowed_tools = p.allowed_tools.as_ref().map_or(0, |t| t.len()),
-                allowed_skills = p.allowed_skills.as_ref().map_or(0, |s| s.len()),
-                allowed_mcp_servers = p.allowed_mcp_servers.as_ref().map_or(0, |m| m.len()),
-                memory_sources = p.memory_sources.as_ref().map_or(0, |s| s.len()),
-                "[profiles] applying per-profile session gate"
-            );
-        }
-
-        // Section D — per-profile dedicated workspace. When the active profile
-        // opts into `dedicated_workspace` (and its id passes validation), derive
-        // a `WorkspaceDescriptor` rooted at `<action_dir>/profiles/<id>` and
-        // thread it into the top-level chat turn so acting tools (shell/file/git)
-        // resolve their default cwd there. Because the dir is under `action_dir`,
-        // `SecurityPolicy` already permits it — no hardening change, and the
-        // agent's broad write root is left intact (cross-profile write guarding
-        // is a deliberate follow-up). `None` (the common case) preserves the
-        // shared-`action_dir` cwd behaviour byte-for-byte.
-        //
-        // NOTE (deliberate): this `ctx.workspace` descriptor propagates to
-        // subagents spawned from this session, so they too root under
-        // `<action_dir>/profiles/<id>` rather than the bare `action_dir`. That
-        // propagation is *intended* profile isolation, not a leak — a profile's
-        // subagents should share its dedicated workspace. Do not "fix" it by
-        // clearing the descriptor for child sessions.
-        //
-        // The expression is extracted into [`derive_profile_workspace_descriptor`]
-        // so the unit tests exercise the *same* code path rather than a
-        // hand-copied mirror.
-        //
-        // When no profile binds one, an embedder may still have scoped a
-        // per-turn root (`agent::turn_workspace`) — a workflow node running
-        // this turn against the checkout it names. The profile's dedicated
-        // workspace wins where both exist: it is the stronger, persisted
-        // isolation boundary, and a profile that asked for its own home must
-        // not be relocated by an ambient host hint.
-        let profile_workspace_descriptor =
-            derive_profile_workspace_descriptor(&config.action_dir, profile)
-                .or_else(derive_turn_workspace_descriptor);
+        let workspace_descriptor = derive_turn_workspace_descriptor();
 
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> = Arc::from(
             host_runtime::create_runtime(&config.runtime, config.shell.hide_window)?,
         );
-        // 1b — arm the cross-profile write guard for every active profile,
-        // independently of whether that profile uses (or successfully created)
-        // a dedicated workspace. A shared/default profile still must not reach
-        // another profile's `<action_dir>/profiles/<Q>` subtree from the broad
-        // action root. Profile-less sessions remain byte-identical.
-        let security = Arc::new(build_profile_security(config, profile));
+        let security = Arc::new(SecurityPolicy::from_config(
+            &config.autonomy,
+            &config.workspace_dir,
+            &config.action_dir,
+        ));
         // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
         let audit = crate::security::get_or_create_workspace_audit_logger(
             crate::config::AuditConfig::default(),
             config.workspace_dir.clone(),
         )?;
 
-        // Route this session's captures + recall into the active profile's memory
-        // subtree so `dedicatedMemory` isolation takes effect on the ordinary
-        // session path (web chat, cron), not just delegation preambles. The
-        // profile-less / default / shared cases resolve to `"memory"`
-        // (byte-identical): `effective_memory_suffix` returns `""` for them and
-        // `memory_subdir_for_suffix("")` == `"memory"`. A dedicated-memory profile
-        // yields `"memory-<id>"`; a legacy numeric-suffix profile `"memory-<n>"`.
-        let memory_subdir = profile
-            .map(|p| {
-                crate::agent::profiles::memory_subdir_for_suffix(
-                    &crate::agent::profiles::effective_memory_suffix(p),
-                )
-            })
-            .unwrap_or_else(|| "memory".to_string());
-        let memory_suffix = profile
-            .map(crate::agent::profiles::effective_memory_suffix)
-            .unwrap_or_default();
-        let session_raw_subdir =
-            crate::agent::profiles::session_raw_subdir_for_suffix(&memory_suffix);
-        tracing::debug!(
-            memory_subdir = %memory_subdir,
-            has_profile = profile.is_some(),
-            "[profiles] session memory subtree selected"
-        );
         // The session's store, through the same binding the archivist resolves
         // two statements down — so one subtree yields one store rather than an
         // engine handle beside a driver over the same files.
@@ -275,7 +179,7 @@ impl Agent {
         // and degrades to the null driver otherwise, which is the same footing
         // the archivist has had here all along.
         let memory: Arc<dyn Memory> =
-            crate::agent::experience::ops::DriverMemory::for_subtree(config, &memory_subdir)
+            crate::agent::experience::ops::DriverMemory::for_config(config)
                 .map_err(|e| anyhow::anyhow!("session memory binding: {e}"))?;
         // The archivist takes the bound driver for this session's memory
         // subtree — the same subtree `session_memory` opened — rather than the
@@ -283,50 +187,7 @@ impl Agent {
         // That handle was the #5378 `:290` blocker: a concrete connection no
         // module or remote driver can supply. The engine's connection is now
         // exclusively the engine's. Lane C (#6040) rides the same binding.
-        let (archivist_provider, auto_recall) =
-            super::helpers::bind_session_memory(config, &memory_subdir)?;
-        // Dedicated profiles still recall unstamped experiences written by
-        // pre-profile versions from the shared memory DB. Resolve that shared
-        // store once, here, and hand it to the session rather than making the
-        // hot turn path reload config.
-        //
-        // This was `global::init(workspace).memory_handle()` — booting the
-        // second, in-process engine purely to borrow its `Arc<dyn Memory>`
-        // (#5560). `DriverMemory` serves the same trait off the driver already
-        // bound for this workspace's shared `memory` subtree, so the recall
-        // reads the same rows without a second engine over the same file. Only
-        // recall goes here; writes stay on the session's own store, which is
-        // what keeps new records inside the profile subtree.
-        let shared_experience_memory = if memory_subdir == "memory" {
-            None
-        } else {
-            Some(
-                crate::agent::experience::ops::DriverMemory::for_config(config)
-                    .map_err(anyhow::Error::msg)?,
-            )
-        };
-
-        // Per-profile skill (workflow) + MCP-server allowlists. `None` = all.
-        let profile_skill_allowlist: Option<std::collections::HashSet<String>> = profile
-            .and_then(|p| p.allowed_skills.clone())
-            .map(|v| v.into_iter().collect());
-        let profile_mcp_allowlist: Option<Vec<String>> =
-            profile.and_then(|p| p.allowed_mcp_servers.clone());
-
-        // 2a — profile-local skills root (`<workspace>/personalities/<id>/skills/`).
-        // Threaded into the harness workflow catalog AND the discovery/list tools
-        // so a turn running under this profile sees its private skills (implicitly
-        // allowed for their owner, winning same-name collisions). `None` for the
-        // profile-less session / legacy ids keeps discovery byte-identical.
-        let profile_skills_root: Option<std::path::PathBuf> = profile.and_then(|p| {
-            crate::agent::profiles::profile_skills_root(&config.workspace_dir, &p.id)
-        });
-        if let Some(root) = profile_skills_root.as_deref() {
-            tracing::debug!(
-                skills_root = %root.display(),
-                "[profiles] profile-local skills root active for this session"
-            );
-        }
+        let (archivist_provider, auto_recall) = super::helpers::bind_session_memory(config)?;
 
         // Load the user's persisted tool preferences once. They drive two
         // things below: granting the App UI Control / App Automation mutation
@@ -355,7 +216,7 @@ impl Agent {
         let base_config: Arc<Config> = Arc::new(config.clone());
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
-        let mut tools = tools::all_tools_with_runtime(
+        let mut tools = tools::ops::all_tools_with_runtime(
             Arc::clone(&tool_config),
             &security,
             runtime,
@@ -365,11 +226,7 @@ impl Agent {
             &tool_config.action_dir,
             &tool_config.agents,
             &tool_config,
-            profile,
-            profile_skill_allowlist.as_ref(),
-            profile_mcp_allowlist.as_deref(),
-            profile_skills_root.as_deref(),
-            profile_workspace_descriptor
+            workspace_descriptor
                 .as_ref()
                 .map(|descriptor| descriptor.root.as_path()),
         );
@@ -382,8 +239,8 @@ impl Agent {
         if read_only_tools_only {
             let before = tools.len();
             tools.retain(|tool| {
-                tool.permission_level() <= tools::PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), tools::ToolScope::CliRpcOnly)
+                tool.permission_level() <= PermissionLevel::ReadOnly
+                    && !matches!(tool.scope(), tinytools::ToolScope::CliRpcOnly)
             });
             log::info!(
                 "[agent::builder] read-only tool filter applied: before={} after={}",
@@ -586,7 +443,7 @@ impl Agent {
             prompt_builder = prompt_builder
                 .insert_section_before(
                     "user_memory",
-                    Box::new(crate::agent::context::prompt::UserReflectionsSection),
+                    Box::new(crate::agent::prompts::UserReflectionsSection),
                 )
                 .add_section(Box::new(
                     crate::agent::learning::LearnedContextSection::new(memory.clone()),
@@ -616,35 +473,6 @@ impl Agent {
                 "[learning] explicit-preference UserProfileSection registered \
                  (learning.enabled=false, explicit_preferences_enabled=true)"
             );
-        }
-
-        // Compose the profile prompt section: the persona suffix, plus (1b) the
-        // cross-profile workspace notice when a dedicated workspace is active.
-        // The notice discloses the boundary the guard enforces, so it is added
-        // even when the profile carries no persona suffix.
-        let profile_suffix = profile_prompt_suffix
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        let workspace_notice = profile_workspace_descriptor
-            .as_ref()
-            .and_then(|descriptor| {
-                profile.map(|p| {
-                    crate::agent::profiles::cross_profile_workspace_notice(&p.id, &descriptor.root)
-                })
-            });
-        if profile_suffix.is_some() || workspace_notice.is_some() {
-            log::debug!(
-                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={}",
-                profile_suffix.as_deref().map(|s| s.chars().count()).unwrap_or(0),
-                workspace_notice.is_some(),
-            );
-            let mut section = crate::agent::profiles::AgentProfilePromptSection::new(
-                profile_suffix.unwrap_or_default(),
-            );
-            if let Some(notice) = workspace_notice {
-                section = section.with_workspace_notice(notice);
-            }
-            prompt_builder = prompt_builder.add_section(Box::new(section));
         }
 
         // Build post-turn hooks when learning is enabled
@@ -702,15 +530,8 @@ impl Agent {
             }
 
             if config.learning.tool_memory_capture_enabled {
-                // 1c — stamp captured experiences with the active profile id so
-                // retrieval can partition them. `None` for the profile-less
-                // session leaves records unstamped (shared/legacy).
                 post_turn_hooks.push(Arc::new(
-                    crate::agent::experience::AgentExperienceCaptureHook::with_profile(
-                        memory.clone(),
-                        true,
-                        profile.map(|p| p.id.clone()),
-                    ),
+                    crate::agent::experience::AgentExperienceCaptureHook::new(memory.clone(), true),
                 ));
                 log::info!("[learning] agent_experience_capture hook registered");
             }
@@ -751,26 +572,6 @@ impl Agent {
         // delegation surface.
         let prewarmed_integrations =
             crate::integrations::composio::cached_active_integrations(config);
-        // Per-profile connector gate: scope the connected-integration view to the
-        // active profile's `composio_integrations` allowlist (None = all). This
-        // governs both the system-prompt "connected integrations" surface and the
-        // agent's `connected_integrations` field below, so a profile only ever
-        // sees the toolkits it was granted.
-        let prewarmed_integrations = match (
-            prewarmed_integrations,
-            profile.and_then(|p| p.composio_integrations.as_deref()),
-        ) {
-            (Some(list), Some(allow)) => {
-                let filtered = crate::agent::profiles::filter_integrations(&list, Some(allow));
-                tracing::debug!(
-                    before = list.len(),
-                    after = filtered.len(),
-                    "[profiles] composio connectors scoped to profile allowlist"
-                );
-                Some(filtered)
-            }
-            (other, _) => other,
-        };
         let prewarmed_integrations_slice = prewarmed_integrations.as_deref().unwrap_or(&[]);
 
         // Resolve the per-agent delegation tool set and visible-tool
@@ -838,7 +639,7 @@ impl Agent {
                         // and dispatchable for a replayed transcript or a saved
                         // skill that names it — exactly like a packed tool.
                         for t in &synthed {
-                            if t.exposure() == crate::tools::traits::ToolExposure::Hidden {
+                            if t.exposure() == tinytools::ToolExposure::Hidden {
                                 continue;
                             }
                             set.insert(t.name().to_string());
@@ -938,7 +739,7 @@ impl Agent {
             Some(set) => set,
             None => delegation_tools
                 .iter()
-                .filter(|t| t.exposure() != crate::tools::traits::ToolExposure::Hidden)
+                .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                 .map(|t| t.name().to_string())
                 .collect(),
         };
@@ -962,9 +763,7 @@ impl Agent {
                             .chain(
                                 delegation_tools
                                     .iter()
-                                    .filter(|t| {
-                                        t.exposure() != crate::tools::traits::ToolExposure::Hidden
-                                    })
+                                    .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                                     .map(|t| t.name().to_string()),
                             )
                             .filter(|name| !definition_disallows_tool(&def.disallowed_tools, name))
@@ -977,35 +776,6 @@ impl Agent {
                 }
                 // Disallowing every tool must remain a zero-tool scope. An
                 // empty visible set means "no filter" to the harness.
-                if visible.is_empty() {
-                    visible.insert(NO_TOOLS_SENTINEL.to_string());
-                }
-            }
-        }
-
-        // Profile tool selection is a restriction on the resolved agent
-        // definition, never a replacement for it. Apply it here at the shared
-        // session-builder seam so web chat, cron, tasks, and delegated profile
-        // runs all enforce the same callable surface. The web wrapper used to
-        // replace this set after construction, which both missed background
-        // runs and could broaden a named agent definition.
-        if let Some(allowed_tools) = profile
-            .and_then(|profile| profile.allowed_tools.as_ref())
-            .filter(|tools| !tools.is_empty())
-        {
-            let profile_visible: std::collections::HashSet<&str> = allowed_tools
-                .iter()
-                .map(|tool| tool.trim())
-                .filter(|tool| !tool.is_empty())
-                .collect();
-            if visible.is_empty() {
-                visible = profile_visible.into_iter().map(str::to_string).collect();
-            } else {
-                visible.retain(|tool| profile_visible.contains(tool.as_str()));
-                // Empty is the Agent's historical "all tools" sentinel. A
-                // disjoint profile/definition intersection must instead stay
-                // non-empty with an unregistered name so it advertises and
-                // permits zero tools rather than accidentally broadening.
                 if visible.is_empty() {
                     visible.insert(NO_TOOLS_SENTINEL.to_string());
                 }
@@ -1055,22 +825,19 @@ impl Agent {
         // (including orchestrator tools) so every tool gets a signature
         // entry. The registry is self-contained — it doesn't hold a
         // reference back into the tools Vec.
-        let pformat_registry = crate::agent::pformat::build_registry_from_refs(
+        let pformat_registry = tinytools_agent::build_registry(
             tools
                 .iter()
                 .chain(delegation_tools.iter())
-                .map(|t| t.as_ref()),
+                .map(|tool| (tool.name(), tool.parameters_schema())),
         );
         let dispatcher_kind =
             resolve_dispatcher_kind(&dispatcher_choice, supports_native, agent_id);
-        let tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher> =
-            match dispatcher_kind {
-                DispatcherKind::Native => Box::new(NativeToolDispatcher),
-                DispatcherKind::Xml => Box::new(XmlToolDispatcher),
-                DispatcherKind::PFormat => {
-                    Box::new(PFormatToolDispatcher::new(pformat_registry.clone()))
-                }
-            };
+        let tool_dispatcher: Box<dyn ToolDialect> = match dispatcher_kind {
+            DispatcherKind::Native => Box::new(NativeDialect),
+            DispatcherKind::Xml => Box::new(XmlDialect),
+            DispatcherKind::PFormat => Box::new(PFormatDialect::new(pformat_registry.clone())),
+        };
 
         log::debug!(
             "[agent] tool dispatcher selected: choice={dispatcher_choice} agent_id={agent_id} \
@@ -1079,13 +846,10 @@ impl Agent {
             pformat_registry.len()
         );
 
-        // Temperature override: an active profile is the user-selected runtime
-        // default; otherwise use the target definition's TOML value (welcome is
-        // 0.7, orchestrator is 0.4, etc). Fall back to config for the legacy
-        // no-definition path.
-        let effective_temperature = profile
-            .and_then(|profile| profile.temperature)
-            .or_else(|| target_def.map(|def| def.temperature))
+        // The resolved definition's TOML value takes precedence over the
+        // configured default for canonical agent runs.
+        let effective_temperature = target_def
+            .map(|def| def.temperature)
             .unwrap_or(config.default_temperature);
 
         // Thread PROFILE.md + MEMORY.md inclusion from the resolved
@@ -1209,24 +973,12 @@ impl Agent {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
-        let profile_subagent_tool_ceiling = profile
-            .and_then(|profile| profile.allowed_tools.as_ref())
-            .filter(|tools| !tools.is_empty())
-            .map(|tools| {
-                tools
-                    .iter()
-                    .map(|tool| tool.trim())
-                    .filter(|tool| !tool.is_empty())
-                    .map(str::to_string)
-                    .collect()
-            });
         let mut builder = Agent::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
             .synthesized_tools(delegation_tools)
             .visible_tool_names(visible)
             .memory(memory)
-            .shared_experience_memory(shared_experience_memory)
             .auto_recall(Some(auto_recall))
             .tool_dispatcher(tool_dispatcher)
             .prompt_builder(prompt_builder)
@@ -1237,27 +989,9 @@ impl Agent {
             .temperature(effective_temperature)
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
-            .workspace_descriptor(profile_workspace_descriptor)
-            // 1a — carry the active profile id (any active profile, not just
-            // dedicated-workspace ones) so profile-scoped post-turn hooks can
-            // see which profile the turn ran under. `None` for the profile-less
-            // session keeps every consumer byte-identical.
-            .active_profile_id(profile.map(|p| p.id.clone()))
-            .personality_soul_md(profile.and_then(|profile| {
-                crate::agent::profiles::resolve_personality_soul(&config.workspace_dir, profile)
-            }))
-            .personality_memory_md(profile.and_then(|profile| {
-                crate::agent::profiles::resolve_personality_memory_md(
-                    &config.workspace_dir,
-                    profile,
-                )
-            }))
-            .profile_memory_storage(memory_subdir, session_raw_subdir)
+            .workspace_descriptor(workspace_descriptor)
             .workflows({
-                let mut catalogue = crate::skills::load_workflow_metadata_for_profile(
-                    &config.workspace_dir,
-                    profile_skills_root.as_deref(),
-                );
+                let mut catalogue = crate::skills::load_workflow_metadata(&config.workspace_dir);
                 #[cfg(feature = "flows")]
                 catalogue.extend(crate::flows::catalogue::flow_entries(config));
                 catalogue
@@ -1271,9 +1005,6 @@ impl Agent {
             .omit_memory_md(effective_omit_memory_md)
             .trigger_memory_agent(effective_trigger_memory_agent)
             .tokenjuice_compression(effective_tokenjuice_compression);
-        if let Some(ceiling) = profile_subagent_tool_ceiling {
-            builder = builder.subagent_tool_ceiling_names(ceiling);
-        }
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
@@ -1287,6 +1018,20 @@ impl Agent {
         // second resident copy of a 95-field struct with nested `Vec`s
         // (openhuman#6218).
         agent.runtime_config = Some(Arc::clone(&base_config));
+        agent.hosted_base = AgentDefinitionRegistry::global_arc().map(|definitions| {
+            Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
+                config: Arc::clone(&base_config),
+                definitions,
+                security_policy: security,
+                memory: agent.memory_arc(),
+                post_turn_hooks: agent.post_turn_hooks.clone(),
+            })
+        });
+        if agent.hosted_base.is_none() {
+            tracing::warn!(
+                "[tinyagents] hosted invocation base unavailable: agent definition registry was not initialized"
+            );
+        }
         agent.definition = target_def.cloned().map(Arc::new);
         agent.last_seen_integrations_hash =
             crate::integrations::composio::connected_set_hash(&agent.connected_integrations);
@@ -1482,39 +1227,7 @@ pub(crate) fn provider_role_for_definition(
     provider_role_for(agent_id, master_hint.as_deref().or(default_model))
 }
 
-pub(crate) fn derive_profile_workspace_descriptor(
-    action_dir: &std::path::Path,
-    profile: Option<&crate::agent::profiles::AgentProfile>,
-) -> Option<tinyagents_harness::workspace::WorkspaceDescriptor> {
-    let (profile_id, dir) = profile.and_then(|p| {
-        crate::agent::profiles::dedicated_workspace_dir(action_dir, p)
-            .map(|dir| (p.id.clone(), dir))
-    })?;
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        tracing::warn!(
-            profile_id = %profile_id,
-            dir = %dir.display(),
-            error = %e,
-            "[profiles] failed to create dedicated workspace dir — \
-             falling back to the shared action_dir cwd for this session"
-        );
-        // Return None so callers fall back to the shared action_dir rather than
-        // binding every acting tool (shell/file/git) to a cwd that doesn't exist.
-        return None;
-    }
-    tracing::debug!(
-        profile_id = %profile_id,
-        dir = %dir.display(),
-        "[profiles] session bound to dedicated workspace as default cwd"
-    );
-    Some(
-        tinyagents_harness::workspace::WorkspaceDescriptor::new(dir)
-            .with_policy_id(crate::agent::profiles::workspace_policy_id(&profile_id)),
-    )
-}
-
-fn derive_turn_workspace_descriptor() -> Option<tinyagents_harness::workspace::WorkspaceDescriptor>
-{
+fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
     let root = crate::agent::turn_workspace::current()?;
     if !root.is_dir() {
         tracing::warn!(
@@ -1528,24 +1241,5 @@ fn derive_turn_workspace_descriptor() -> Option<tinyagents_harness::workspace::W
         root = %root.display(),
         "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
     );
-    Some(
-        tinyagents_harness::workspace::WorkspaceDescriptor::new(root)
-            .with_policy_id("turn-workspace"),
-    )
+    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }
-
-fn build_profile_security(
-    config: &crate::config::Config,
-    profile: Option<&crate::agent::profiles::AgentProfile>,
-) -> SecurityPolicy {
-    let base =
-        SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir);
-    match profile {
-        Some(profile) => base.with_active_profile(profile.id.clone(), config.action_dir.clone()),
-        None => base,
-    }
-}
-
-#[cfg(test)]
-#[path = "factory_profile_workspace_descriptor_tests_tests.rs"]
-mod profile_workspace_descriptor_tests;

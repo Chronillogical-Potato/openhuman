@@ -52,7 +52,7 @@ use crate::agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource};
 use crate::config::Config;
 use crate::flows::memory_tools::FlowMemoryRecallTool;
 use crate::security::AutonomyLevel;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 use super::build_capabilities;
 

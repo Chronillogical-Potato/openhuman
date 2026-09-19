@@ -6,8 +6,8 @@
 use crate::agent::harness::artifact_offload::{
     render_artifact_offload_contract, should_render_offload_contract, ARTIFACT_OFFLOAD_HEADING,
 };
-use crate::tools::ToolSpec;
 use std::collections::HashSet;
+use tinytools::ToolSpec;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-agent role contract

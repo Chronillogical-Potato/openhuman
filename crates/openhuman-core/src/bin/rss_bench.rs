@@ -26,14 +26,15 @@
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use openhuman_core::platform::proc_metrics::{
     self, BenchReport, ProcSample, RosterResult, REPORT_SCHEMA_VERSION, RSS_BUDGET_KIB,
     RSS_HARD_CAP_KIB,
 };
-use openhuman_core::tools::{Tool, ToolResult};
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
+use tinytools::{Tool, ToolResult};
+
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -171,7 +172,7 @@ fn build_roster(n: usize) -> Result<Roster> {
             .chat_model(Arc::new(MockModel))
             .tools(vec![Box::new(EchoTool)])
             .memory(memory)
-            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .tool_dispatcher(Box::new(NativeDialect))
             .model_name("bench-mock".into())
             .agent_definition_name(format!("bench-{i}"))
             .workspace_dir(path.clone())

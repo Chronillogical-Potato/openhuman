@@ -1,6 +1,6 @@
 use super::{TaskProfile, TaskRiskLevel, ToolCapability, ToolPolicyAction, ToolPolicyDecision};
-use crate::tools::{PermissionLevel, Tool};
 use std::collections::{BTreeSet, HashMap, HashSet};
+use tinytools::{PermissionLevel, Tool};
 
 /// Builds deterministic per-session policy snapshots from the active agent,
 /// channel, configured channel permissions, and available tool registry.

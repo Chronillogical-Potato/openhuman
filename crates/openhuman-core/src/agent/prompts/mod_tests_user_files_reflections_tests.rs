@@ -153,8 +153,6 @@ fn for_subagent_builder_injects_user_files_even_when_identity_omitted() {
         include_memory_md: true,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -200,8 +198,6 @@ fn for_subagent_builder_injects_user_files_even_when_identity_omitted() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -345,8 +341,6 @@ fn prompt_tool_constructors_and_user_memory_skip_empty_bodies() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -490,8 +484,6 @@ fn tools_section_empty_for_native() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -525,8 +517,6 @@ fn tools_section_nonempty_for_pformat() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -541,7 +531,7 @@ fn tools_section_nonempty_for_pformat() {
 #[test]
 fn tools_section_native_with_dispatcher_instructions_returns_instructions() {
     // Native mode must still include non-empty dispatcher_instructions
-    // (e.g. the "## Tool Use Protocol" block from NativeToolDispatcher) so
+    // (e.g. the "## Tool Use Protocol" block from NativeDialect) so
     // the model receives behavioural guidance even though the tool catalogue
     // itself is omitted.
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
@@ -562,8 +552,6 @@ fn tools_section_native_with_dispatcher_instructions_returns_instructions() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

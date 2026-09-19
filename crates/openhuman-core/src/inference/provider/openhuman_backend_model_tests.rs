@@ -10,25 +10,27 @@ fn backend() -> OpenHumanBackendModel {
     )
 }
 
-#[tokio::test]
-async fn with_thread_id_injects_when_ambient_thread_present() {
-    thread_context::with_thread_id("thread-42", async {
-        let request = ModelRequest::new(vec![Message::user("hi")]);
-        let updated = with_thread_id(request);
-        assert_eq!(
-            updated.provider_options["thread_id"],
-            serde_json::json!("thread-42")
-        );
-    })
-    .await;
+#[test]
+fn with_thread_id_injects_explicit_thread() {
+    let request = ModelRequest::new(vec![Message::user("hi")]);
+    let updated = with_thread_id(request, Some("thread-42"));
+    assert_eq!(
+        updated.provider_options["thread_id"],
+        serde_json::json!("thread-42")
+    );
 }
 
 #[test]
-fn with_thread_id_is_noop_without_ambient_thread() {
-    // No thread scope active → provider_options stays whatever it was (null).
+fn with_thread_id_is_noop_without_explicit_thread() {
     let request = ModelRequest::new(vec![Message::user("hi")]);
-    let updated = with_thread_id(request);
+    let updated = with_thread_id(request, None);
     assert!(updated.provider_options.get("thread_id").is_none());
+}
+
+#[test]
+fn managed_model_keeps_its_explicit_thread_without_an_ambient_scope() {
+    let model = backend().with_thread_id(Some("  delegate-thread  "));
+    assert_eq!(model.thread_id.as_deref(), Some("delegate-thread"));
 }
 
 #[test]

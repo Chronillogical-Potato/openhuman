@@ -90,7 +90,7 @@ async fn turn_override_suppress_memory_agent_skips_memory_trigger() {
         .chat_model(provider)
         .tools(vec![Box::new(EchoTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(crate::config::AgentConfig {
             max_tool_iterations: 3,
             max_history_messages: 10,
@@ -332,7 +332,7 @@ async fn turn_synthesizes_required_output_when_reprompt_also_omits() {
     // The synthesized block is prepended to the ORIGINAL turn reply
     // ("Working on it."), not the failed corrective re-prompt — so the leading
     // JSON object carries the block and the original prose is preserved.
-    let first_block = crate::agent::harness::parse::extract_json_values(&response)
+    let first_block = tinytools_agent::extract_json_values(&response)
         .into_iter()
         .next();
     assert!(

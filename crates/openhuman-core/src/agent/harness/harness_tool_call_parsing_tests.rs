@@ -332,7 +332,7 @@ fn build_tool_instructions_includes_all_tools() {
         std::path::Path::new("/tmp"),
         std::path::Path::new("/tmp"),
     ));
-    let tools = tools::default_tools(security);
+    let tools = tools::ops::default_tools(security);
     let instructions = build_tool_instructions(&tools);
 
     assert!(instructions.contains("## Tool Use Protocol"));
@@ -350,7 +350,7 @@ fn tools_to_openai_format_produces_valid_schema() {
         std::path::Path::new("/tmp"),
         std::path::Path::new("/tmp"),
     ));
-    let tools = tools::default_tools(security);
+    let tools = tools::ops::default_tools(security);
     let formatted = tools_to_openai_format(&tools);
 
     assert!(!formatted.is_empty());

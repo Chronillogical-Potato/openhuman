@@ -19,12 +19,12 @@
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::python::PythonBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 /// Absolute ceiling a caller may request via `timeout_secs`. No default timeout —
 /// Python scripts legitimately take minutes; a deadline applies only when
@@ -519,7 +519,7 @@ fn pool_outcome_to_result(
 fn python_timeout_policy(args: &serde_json::Value) -> ToolTimeout {
     match args.get("timeout_secs").and_then(|v| v.as_u64()) {
         None | Some(0) => ToolTimeout::Unbounded,
-        Some(secs) => ToolTimeout::Secs(secs.min(PYTHON_TIMEOUT_MAX_SECS)),
+        Some(secs) => ToolTimeout::Millis(secs.min(PYTHON_TIMEOUT_MAX_SECS).saturating_mul(1000)),
     }
 }
 

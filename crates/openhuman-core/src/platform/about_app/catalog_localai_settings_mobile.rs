@@ -146,16 +146,6 @@ Capability {
         }),
     },
 Capability {
-        id: "settings.persona_pack",
-        name: "Persona Pack",
-        domain: "settings",
-        category: CapabilityCategory::Settings,
-        description: "Personalize the assistant across one or more agent profiles: set a display name and description, edit or reset each profile's SOUL.md identity (kept in its own home under personalities/<id>/ and re-read every message), give a profile its own dedicated memory subtree or its own working directory, drop private skills under personalities/<id>/skills/ that only that profile can discover, attribute a scheduled cron job to a profile so it runs with that profile's identity, memory, and permissions, and reach mascot avatar and voice settings. Multiple profiles can run with isolated identity, memory, skills, and workspace state.",
-        how_to: "Settings > Persona",
-        status: CapabilityStatus::Beta,
-        privacy: GITHUB_MASCOT_MANIFEST,
-    },
-Capability {
         id: "settings.manage_privacy_analytics",
         name: "Manage Privacy and Analytics",
         domain: "settings",

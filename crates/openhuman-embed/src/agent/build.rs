@@ -2,12 +2,11 @@
 //!
 //! Order matters and is fixed here: validate the id, lay out directories,
 //! assemble the per-agent `Config` (base → access → provider → MCP → escape
-//! hatch), build the profile and definition, copy skills, check the
+//! hatch), build the definition, copy skills, check the
 //! narrowing rules, derive the context.
 
 use std::path::Path;
 
-use openhuman_core::agent::profiles::{ensure_profile_home, validate_profile_id};
 use openhuman_core::core::all::DomainGroup;
 use openhuman_core::core::runtime::{ContextOverlay, DomainSet};
 use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
@@ -18,7 +17,7 @@ use crate::runtime::Runtime;
 pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInner, AgentError> {
     let parts = spec.into_parts();
     let id = parts.id;
-    validate_profile_id(&id).map_err(|reason| AgentError::InvalidId {
+    validate_agent_id(&id).map_err(|reason| AgentError::InvalidId {
         id: id.clone(),
         reason,
     })?;
@@ -79,31 +78,6 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         config.config_path = base.config_path.clone();
     }
 
-    // ── profile ──────────────────────────────────────────────────────────
-    let mut profile = super::spec::blank_profile(&id);
-    profile.dedicated_memory = parts.dedicated_memory;
-    profile.allowed_tools = parts.allowed_tools;
-    profile.allowed_skills = parts.allowed_skills;
-    profile.system_prompt_suffix = parts.system_prompt_suffix;
-    #[cfg(feature = "mcp")]
-    {
-        // Deliberately `None` ("all configured servers" — see
-        // `AgentProfile`'s doc comment), NOT narrowed to `parts.mcp_servers`.
-        // `config.mcp_client.servers` is already per-agent: `config` starts
-        // as `base.clone()` and each agent's own `.mcp(...)` declarations are
-        // appended to its own clone only, never a sibling's (proven by
-        // `tests/runtime_agents.rs`'s `beta.config().mcp_client.servers.is_empty()`
-        // while alpha's carries one). So "all configured servers" for THIS
-        // agent already means only what the runtime's base config seeded
-        // (host-wide servers meant for every agent, e.g. the docs server —
-        // see the crate README's "host-seeded documentation server is
-        // visible to every agent") plus whatever this agent itself declared.
-        // Narrowing this to `Some(parts.mcp_servers-only)` would additionally
-        // hide that host-seeded server from any agent that declared no MCP
-        // servers of its own, which `tests/runtime_agents.rs` pins as
-        // intended ("both see the host-seeded docs server").
-        profile.allowed_mcp_servers = None;
-    }
     // Read back now, after `config_fn` (the escape hatch, applied above) has
     // had its chance to edit `config.action_dir` — the directory created and
     // the layout resolved below must match whatever it ends up being, not
@@ -113,19 +87,21 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         what: "create the agent's action directory",
         source,
     })?;
-    ensure_profile_home(&config.workspace_dir, &config.action_dir, &profile).map_err(|source| {
-        AgentError::Workspace {
-            what: "create the agent's profile home",
-            source,
-        }
+    let layout = AgentLayout::resolve(&config.workspace_dir, &id, action_dir);
+    std::fs::create_dir_all(&layout.home).map_err(|source| AgentError::Workspace {
+        what: "create the agent's home",
+        source,
     })?;
-    let layout = AgentLayout::resolve(&config.workspace_dir, &profile, action_dir);
+    std::fs::create_dir_all(&layout.skills).map_err(|source| AgentError::Workspace {
+        what: "create the agent's skills directory",
+        source,
+    })?;
 
     // ── skills ───────────────────────────────────────────────────────────
     #[cfg(feature = "skills")]
     if let Some(dir) = parts.skills_dir.as_deref() {
         let dest = match parts.skills_dest {
-            super::spec::SkillsDest::ProfileLocal => layout.skills.clone(),
+            super::spec::SkillsDest::AgentLocal => layout.skills.clone(),
             super::spec::SkillsDest::WorkspaceLegacy => config.workspace_dir.join("skills"),
         };
         crate::harness::skills::install(dir, &dest).map_err(map_harness_err)?;
@@ -161,11 +137,10 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     log::debug!(
         "[embed][agent] instantiated id={id} action_dir={} routed={} access_origin={} \
-         dedicated_memory={} user_skills={}",
+         user_skills={}",
         config.action_dir.display(),
         provider.is_routed(),
         access.turn_origin().is_some(),
-        profile.dedicated_memory,
         parts.include_user_skills
     );
 
@@ -176,11 +151,26 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         ctx,
         config,
         definition,
-        profile,
         provider,
         access,
         layout,
     })
+}
+
+fn validate_agent_id(id: &str) -> Result<(), String> {
+    let bytes = id.as_bytes();
+    if bytes.is_empty() || bytes.len() > 64 {
+        return Err("must be 1 to 64 characters".to_string());
+    }
+    if !bytes[0].is_ascii_lowercase() && !bytes[0].is_ascii_digit() {
+        return Err("must start with a lowercase letter or digit".to_string());
+    }
+    if bytes.iter().any(|byte| {
+        !byte.is_ascii_lowercase() && !byte.is_ascii_digit() && *byte != b'_' && *byte != b'-'
+    }) {
+        return Err("may contain only lowercase letters, digits, '_' and '-'".to_string());
+    }
+    Ok(())
 }
 
 /// Every family the agent asks for must be one the runtime registered.

@@ -1,10 +1,11 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::context::prompt::SystemPromptBuilder;
-use openhuman_core::agent::dispatcher::XmlToolDispatcher;
+use openhuman_core::agent::prompts::SystemPromptBuilder;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry};
-use openhuman_core::tools::{Tool, ToolResult};
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
+use tinytools::{Tool, ToolResult};
+
 use std::collections::HashSet;
 use std::sync::Arc;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
@@ -114,7 +115,7 @@ fn base_builder() -> openhuman_core::agent::AgentBuilder {
             Box::new(StubTool("beta")),
         ])
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
 }
 
 #[test]

@@ -439,7 +439,7 @@ impl ProgressSink for OpenHumanProgressSink {
                     // registry, which this sink has no handle to; `None` tells
                     // the client to use its own formatter.
                     // TODO(phase4): resolve labels from the tool registry
-                    // (`crate::tools::traits::Tool::display_label`)
+                    // (`tinytools::Tool::display_label`)
                     // once the sink is constructed with a registry handle.
                     display_label: None,
                     display_detail: None,

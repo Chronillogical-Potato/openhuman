@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::config::Config;
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
 
 use super::rpc;
 

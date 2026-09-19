@@ -2,15 +2,15 @@ use async_trait::async_trait;
 use serde_json::json;
 use serde_json::Value;
 
-use crate::tools::traits::{
+use tinytools::ToolRunContext;
+use tinytools::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolExposure, ToolResult, ToolTimeout,
 };
-use tinytools::ToolRunContext;
 
 pub struct ArchetypeDelegationTool {
     pub tool_name: String,
     /// The agent this tool routes to, in the shape
-    /// [`crate::tools::traits::delegation_target`] reads back off the
+    /// [`crate::tools::host_extensions::delegation_target`] reads back off the
     /// erased host-extension slot.
     ///
     /// A newtype rather than a bare `String` because that slot is one `Any` per
@@ -155,53 +155,76 @@ impl Tool for ArchetypeDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let raw_prompt = args
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-
-        if raw_prompt.is_empty() {
-            return Ok(ToolResult::error(format!(
-                "{}: `prompt` is required",
-                self.tool_name
-            )));
-        }
-        let prompt = render_structured_handoff(&raw_prompt, &args);
-
-        let model_override = args
-            .get("model")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        // Async by default: the delegated specialist runs as a durable,
-        // resumable worker and its result comes back as a new chat turn.
-        // `blocking: true` is the opt-in for results that must gate this
-        // reply. (`dispatch_subagent` itself falls back to blocking when
-        // there is no chat thread to deliver an async result into.)
-        let blocking = args
-            .get("blocking")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let mode = if blocking {
-            super::dispatch::DispatchMode::Blocking
-        } else {
-            super::dispatch::DispatchMode::PreferAsync
-        };
-
-        super::dispatch_subagent(
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
+        execute_archetype_delegation(
             &self.agent_id.0,
             &self.tool_name,
-            &prompt,
-            None,
-            model_override,
+            args,
             tool_context,
-            mode,
+            run_context,
         )
         .await
     }
+}
+
+/// Execute an archetype hand-off with an explicit child run carrier.
+pub(crate) async fn execute_archetype_delegation(
+    agent_id: &str,
+    tool_name: &str,
+    args: serde_json::Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> anyhow::Result<ToolResult> {
+    let raw_prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    if raw_prompt.is_empty() {
+        return Ok(ToolResult::error(format!(
+            "{}: `prompt` is required",
+            tool_name
+        )));
+    }
+    let prompt = render_structured_handoff(&raw_prompt, &args);
+
+    let model_override = args
+        .get("model")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    // Async by default: the delegated specialist runs as a durable,
+    // resumable worker and its result comes back as a new chat turn.
+    // `blocking: true` is the opt-in for results that must gate this
+    // reply. (`dispatch_subagent` itself falls back to blocking when
+    // there is no chat thread to deliver an async result into.)
+    let blocking = args
+        .get("blocking")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let mode = if blocking {
+        super::dispatch::DispatchMode::Blocking
+    } else {
+        super::dispatch::DispatchMode::PreferAsync
+    };
+
+    super::dispatch_subagent(
+        agent_id,
+        tool_name,
+        &prompt,
+        None,
+        model_override,
+        tool_context,
+        mode,
+        run_context,
+    )
+    .await
 }
 
 pub(super) fn render_structured_handoff(prompt: &str, args: &Value) -> String {

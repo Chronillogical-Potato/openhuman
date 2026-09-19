@@ -77,9 +77,8 @@ in `crates/openhuman-core/src/core/all.rs`.
 ## Used by
 
 - `crates/openhuman-core/src/core/all.rs` — registers the controller.
-- `crates/openhuman-core/src/agent/harness/session/transcript.rs` — the
-  legacy transcript readers (`read_transcript`, `read_transcript_legacy_md`)
-  the importer converts from.
+- `tinyagents_session::transcript` — the legacy transcript readers
+  (`read_transcript`, `read_transcript_legacy_md`) the importer converts from.
 - `crates/openhuman-core/src/agent/harness/session/turn/session_io/transcript_persist.rs`
   — calls `live::write_live_turn` after each transcript write and
   `live::shadow_read_compare` after each transcript load, both on background tasks.

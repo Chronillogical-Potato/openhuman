@@ -1,6 +1,6 @@
 /**
  * Single source of truth for bottom-tab-bar navigation entries and the
- * avatar-menu items that appear in the agent-profile popover.
+ * avatar-menu items.
  *
  * This module is pure data — no JSX, no React imports.  Icons are owned by
  * BottomTabBar.tsx and mapped from tab.id.
@@ -96,7 +96,7 @@ interface AvatarMenuItem {
 }
 
 /**
- * Avatar dropdown menu items shown beneath the agent-profile list.
+ * Avatar dropdown menu items.
  * Order: Account → Billing → Invites → Wallet.
  *
  * Rewards is not here: it is a primary `NAV_TABS` destination now, and one

@@ -4,8 +4,8 @@
 //! reconstruct exactly via [`usage_info_from_response`].
 use super::*;
 
-fn empty_registry() -> crate::agent::pformat::PFormatRegistry {
-    crate::agent::pformat::PFormatRegistry::default()
+fn empty_registry() -> tinytools_agent::PFormatRegistry {
+    tinytools_agent::PFormatRegistry::default()
 }
 
 #[test]

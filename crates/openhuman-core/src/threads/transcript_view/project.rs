@@ -9,9 +9,7 @@ use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::agent::harness::session::transcript::{
-    self, CompactionMarker, DisplayMessage, DisplayRecord,
-};
+use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
 
 use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
 

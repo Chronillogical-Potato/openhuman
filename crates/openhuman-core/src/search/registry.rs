@@ -1,6 +1,6 @@
 use crate::config::{Config, SearchEngine};
-use crate::tools::Tool;
 use std::sync::Arc;
+use tinytools::Tool;
 
 use super::engines;
 

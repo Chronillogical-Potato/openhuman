@@ -6,14 +6,14 @@
 //! sub-agent plumbing.
 
 use super::render_helpers::{
-    inject_inline_content, inject_snapshot_content, inject_workspace_file,
-    inject_workspace_file_capped, sync_workspace_file,
+    inject_snapshot_content, inject_workspace_file, inject_workspace_file_capped,
+    sync_workspace_file,
 };
 use super::types::*;
 use anyhow::Result;
 use std::fmt::Write;
-use tinyagents_harness::tool_calling::dialect::render_pformat_catalogue;
 use tinytools::ToolSpec;
+use tinytools_agent::dialect::render_pformat_catalogue;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Special sections (archetype, dynamic, reflection)
@@ -247,16 +247,6 @@ impl PromptSection for IdentitySection {
             if skip_in_prompt.contains(file) {
                 continue;
             }
-            if *file == "SOUL.md" {
-                if let Some(ref soul) = ctx.personality_soul_md {
-                    tracing::debug!(
-                        "[identity] personality SOUL.md override active ({} chars)",
-                        soul.len()
-                    );
-                    inject_inline_content(&mut prompt, "SOUL.md", soul, BOOTSTRAP_MAX_CHARS);
-                    continue;
-                }
-            }
             inject_workspace_file(&mut prompt, ctx.workspace_dir, file);
         }
 
@@ -302,8 +292,7 @@ impl PromptSection for UserFilesSection {
             );
         }
         if ctx.include_memory_md {
-            // Personality-specific MEMORY.md takes highest priority, then
-            // the session-frozen curated-memory snapshot, then the
+            // Prefer the session-frozen curated-memory snapshot, then the
             // workspace file (pure prompt-unit tests and older call sites).
             //
             // Render into a scratch buffer first so the `MEMORY_MD_FRAMING`
@@ -311,13 +300,7 @@ impl PromptSection for UserFilesSection {
             // the inject helpers silently skip empty/missing files, and a
             // dangling frame pointing at nothing would be worse than none.
             let mut mem = String::new();
-            if let Some(ref memory_md) = ctx.personality_memory_md {
-                tracing::debug!(
-                    "[user_files] personality MEMORY.md override active ({} chars)",
-                    memory_md.len()
-                );
-                inject_inline_content(&mut mem, "MEMORY.md", memory_md, USER_FILE_MAX_CHARS);
-            } else if let Some(snap) = &ctx.curated_snapshot {
+            if let Some(snap) = &ctx.curated_snapshot {
                 inject_snapshot_content(&mut mem, "MEMORY.md", &snap.memory, USER_FILE_MAX_CHARS);
                 inject_snapshot_content(&mut mem, "USER.md", &snap.user, USER_FILE_MAX_CHARS);
             } else {
@@ -368,7 +351,7 @@ impl PromptSection for ToolsSection {
         // schemas in the API request — no need to repeat the tool catalogue
         // in the system prompt (pure token bloat). However, any non-empty
         // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
-        // from NativeToolDispatcher) must still be included so the model
+        // from NativeDialect) must still be included so the model
         // receives its behavioural guidance.
         if ctx.tool_call_format == ToolCallFormat::Native {
             if ctx.dispatcher_instructions.trim().is_empty() {

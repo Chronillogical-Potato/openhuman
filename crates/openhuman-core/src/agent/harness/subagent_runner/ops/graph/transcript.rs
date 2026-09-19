@@ -49,11 +49,12 @@ pub(super) fn persist_subagent_transcript(
     model: &str,
     history: &[ChatMessage],
     usage: &AggregatedUsage,
+    thread_id: Option<&str>,
     context_window: u64,
     dispatcher: &str,
     iteration: u32,
 ) {
-    use crate::agent::harness::session::transcript;
+    use tinyagents_session::transcript;
 
     let path = match transcript::resolve_keyed_transcript_path(workspace_dir, transcript_stem) {
         Ok(p) => p,
@@ -96,10 +97,16 @@ pub(super) fn persist_subagent_transcript(
         output_tokens: usage.output_tokens,
         cached_input_tokens: usage.cached_input_tokens,
         charged_amount_usd: usage.charged_amount_usd,
-        thread_id: crate::agent::tinyagents::thread_context::current_thread_id(),
+        thread_id: thread_id.map(str::to_owned),
         task_id: Some(task_id.to_string()),
     };
-    if let Err(err) = transcript::write_transcript(&path, history, &meta, Some(&turn_usage)) {
+    let durable_history: Vec<_> = history
+        .iter()
+        .map(crate::agent::messages::transcript_message_from_chat)
+        .collect();
+    if let Err(err) =
+        transcript::write_transcript(&path, &durable_history, &meta, Some(&turn_usage))
+    {
         tracing::debug!(
             agent_id,
             error = %err,
@@ -127,6 +134,7 @@ pub(super) fn persist_failed_run(
     model: &str,
     recovered: &[ChatMessage],
     usage: &AggregatedUsage,
+    thread_id: Option<&str>,
     unanswered_steps: Option<&str>,
     completed_rounds: u32,
     context_window: u64,
@@ -150,6 +158,7 @@ pub(super) fn persist_failed_run(
         model,
         &history,
         usage,
+        thread_id,
         context_window,
         dispatcher,
         completed_rounds,

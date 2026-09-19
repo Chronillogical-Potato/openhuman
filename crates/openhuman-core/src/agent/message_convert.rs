@@ -18,8 +18,103 @@ use tinyinference_llm::message::{
     AssistantMessage, ContentBlock, ImageRef, Message, SystemMessage, ToolMessage, UserMessage,
 };
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools_agent::dialect::{
+    DialectMessage, DialectResponse, DialectRole, NativeToolCall, ToolDialect, ToolResultEntry,
+    TranscriptEntry,
+};
 
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
+use crate::inference::provider::ChatResponse;
+
+/// Convert the host provider response at its boundary into the canonical
+/// dialect input. The dialect crate owns all parsing after this field-wise map.
+pub(crate) fn dialect_response_from_provider(response: &ChatResponse) -> DialectResponse {
+    DialectResponse {
+        text: response.text.clone(),
+        tool_calls: response
+            .tool_calls
+            .iter()
+            .map(|call| NativeToolCall {
+                id: call.id.clone(),
+                name: call.name.clone(),
+                arguments: call.arguments.clone(),
+                extra_content: call.extra_content.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// Replay durable OpenHuman conversation records through a canonical dialect
+/// and return the provider's host message shape.
+pub(crate) fn provider_messages_from_conversation(
+    dialect: &dyn ToolDialect,
+    history: &[ConversationMessage],
+) -> Vec<ChatMessage> {
+    dialect
+        .to_provider_messages(
+            &history
+                .iter()
+                .map(conversation_to_transcript_entry)
+                .collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .map(dialect_message_to_chat_message)
+        .collect()
+}
+
+fn conversation_to_transcript_entry(message: &ConversationMessage) -> TranscriptEntry {
+    match message {
+        ConversationMessage::Chat(chat) => TranscriptEntry::Chat(DialectMessage {
+            role: match chat.role.as_str() {
+                "system" => DialectRole::System,
+                "assistant" => DialectRole::Assistant,
+                "tool" => DialectRole::Tool,
+                _ => DialectRole::User,
+            },
+            content: chat.content.clone(),
+            extra_metadata: chat.extra_metadata.clone(),
+        }),
+        ConversationMessage::AssistantToolCalls {
+            text,
+            tool_calls,
+            reasoning_content,
+            extra_metadata,
+        } => TranscriptEntry::AssistantToolCalls {
+            text: text.clone(),
+            tool_calls: tool_calls
+                .iter()
+                .map(|call| NativeToolCall {
+                    id: call.id.clone(),
+                    name: call.name.clone(),
+                    arguments: call.arguments.clone(),
+                    extra_content: call.extra_content.clone(),
+                })
+                .collect(),
+            reasoning_content: reasoning_content.clone(),
+            extra_metadata: extra_metadata.clone(),
+        },
+        ConversationMessage::ToolResults(results) => TranscriptEntry::ToolResults(
+            results
+                .iter()
+                .map(|result| ToolResultEntry {
+                    tool_call_id: result.tool_call_id.clone(),
+                    content: result.content.clone(),
+                    trusted_verbatim: false,
+                })
+                .collect(),
+        ),
+    }
+}
+
+fn dialect_message_to_chat_message(message: DialectMessage) -> ChatMessage {
+    ChatMessage {
+        id: None,
+        role: message.role.as_str().to_string(),
+        content: message.content,
+        extra_metadata: message.extra_metadata,
+        cache_breakpoints: Vec::new(),
+    }
+}
 
 /// Key under which a thinking model's `reasoning_content` is echoed through
 /// openhuman [`ChatMessage::extra_metadata`]. New harness transcripts carry
@@ -62,7 +157,7 @@ fn reasoning_extra_metadata(content: &[ContentBlock]) -> Option<serde_json::Valu
 /// Convert one openhuman [`ChatMessage`] into a harness [`Message`].
 ///
 /// Role strings map onto the typed arms. A seeded **native** tool round is
-/// serialized by [`NativeToolDispatcher::to_provider_messages`] as a
+/// serialized by [`NativeDialect::to_provider_messages`] as a
 /// `{ "content", "tool_calls" }` assistant envelope followed by
 /// `{ "tool_call_id", "content" }` tool envelopes; we unwrap those back into the
 /// structured [`AssistantMessage::tool_calls`] / [`ToolMessage::tool_call_id`]
@@ -226,7 +321,7 @@ fn data_uri_mime(reference: &str) -> Option<String> {
 }
 
 /// Parse a native assistant tool-call envelope (`{ "content", "tool_calls" }`, as
-/// [`NativeToolDispatcher::to_provider_messages`] emits) back into its inner
+/// [`NativeDialect::to_provider_messages`] emits) back into its inner
 /// visible text and structured [`TaToolCall`]s. Returns `None` when `text` is not
 /// such an envelope (plain assistant prose), so the caller can fall back to text.
 fn parse_native_assistant_envelope(text: &str) -> Option<(String, Vec<TaToolCall>)> {

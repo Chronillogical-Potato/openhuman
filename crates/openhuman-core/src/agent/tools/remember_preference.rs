@@ -37,12 +37,12 @@
 use crate::memory::ops::guard::active_memory_guard;
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinymemory_api::provider::MemoryCore;
 use tinymemory_api::types::{MemoryCategory, MemoryTaint};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Valid facet classes that a pinned preference may belong to.
 ///

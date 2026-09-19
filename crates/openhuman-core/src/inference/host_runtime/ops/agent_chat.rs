@@ -84,8 +84,6 @@ pub enum AgentChatTarget<'a> {
     /// [`Agent::from_config_with_definition`].
     Definition {
         definition: &'a crate::agent::harness::definition::AgentDefinition,
-        profile: Option<&'a crate::agent::profiles::AgentProfile>,
-        profile_prompt_suffix: Option<&'a str>,
     },
 }
 
@@ -96,16 +94,9 @@ fn build_turn_agent(config: &Config, target: &AgentChatTarget<'_>) -> Result<Age
             log::debug!("[inference] agent_chat building agent_id={id}");
             Agent::from_config_for_agent(config, id)
         }
-        AgentChatTarget::Definition {
-            definition,
-            profile,
-            profile_prompt_suffix,
-        } => Agent::from_config_with_definition(
-            config,
-            definition,
-            *profile,
-            profile_prompt_suffix.map(str::to_string),
-        ),
+        AgentChatTarget::Definition { definition } => {
+            Agent::from_config_with_definition(config, definition)
+        }
     }
     .map_err(|e| e.to_string())
 }
@@ -172,9 +163,7 @@ pub async fn agent_chat_for(
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
             // default cwd here, and so spawned sub-agents inherit the same root.
-            agent.set_workspace_descriptor(Some(
-                tinyagents_harness::workspace::WorkspaceDescriptor::new(root.clone()),
-            ));
+            agent.set_workspace_descriptor(Some(tinytools::WorkspaceDescriptor::new(root.clone())));
             agent
         }
         None => build_turn_agent(config, &target)?,
@@ -189,6 +178,7 @@ pub async fn agent_chat_for(
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
+        agent.set_thread_id(Some(id));
         // Scoped to this call's agent identity, when it has one: a library
         // host can hand the same caller-supplied thread_id to several
         // independently configured runtime agents, and unscoped matching
@@ -231,17 +221,7 @@ pub async fn agent_chat_for(
         effective_agent_chat_origin(),
         agent.run_single(message),
     );
-    let response = match thread_id.as_deref() {
-        Some(id) if !id.trim().is_empty() => {
-            log::debug!("[inference] agent_chat routing with thread_id={id}");
-            crate::agent::tinyagents::thread_context::with_thread_id(id, run).await
-        }
-        _ => {
-            log::debug!("[inference] agent_chat routing without thread_id");
-            run.await
-        }
-    }
-    .map_err(|e| e.to_string())?;
+    let response = run.await.map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(response, "agent chat completed"))
 }
 
@@ -269,12 +249,28 @@ pub async fn agent_chat_simple(
         .clone()
         .unwrap_or_else(|| crate::config::DEFAULT_MODEL.to_string());
 
-    let (model, resolved_model) = providers::create_chat_model_with_model_id(
-        "chat",
-        &effective,
-        effective.default_temperature,
-    )
-    .map_err(|e| e.to_string())?;
+    let (model, resolved_model): (
+        std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,
+        String,
+    ) = if providers::factory::resolves_to_managed_backend("chat", &effective) {
+        let (backend, resolved_model) =
+            providers::factory::make_openhuman_backend_model_for_thread(
+                "chat",
+                &effective,
+                &default_model,
+                true,
+                thread_id.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+        (backend, resolved_model)
+    } else {
+        providers::create_chat_model_with_model_id(
+            "chat",
+            &effective,
+            effective.default_temperature,
+        )
+        .map_err(|e| e.to_string())?
+    };
     tracing::debug!(
         requested_model = %default_model,
         resolved_model = %resolved_model,
@@ -289,18 +285,7 @@ pub async fn agent_chat_simple(
         .with_model(default_model.clone())
         .with_temperature(effective.default_temperature),
     );
-    let response = match thread_id.as_deref() {
-        Some(id) if !id.trim().is_empty() => {
-            log::debug!("[inference] agent_chat_simple routing with thread_id={id}");
-            crate::agent::tinyagents::thread_context::with_thread_id(id, run).await
-        }
-        _ => {
-            log::debug!("[inference] agent_chat_simple routing without thread_id");
-            run.await
-        }
-    }
-    .map_err(|e| e.to_string())?
-    .text();
+    let response = run.await.map_err(|e| e.to_string())?.text();
 
     Ok(RpcOutcome::single_log(
         response,

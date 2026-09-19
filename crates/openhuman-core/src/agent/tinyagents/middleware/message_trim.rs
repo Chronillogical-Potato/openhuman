@@ -148,14 +148,16 @@ impl ImageAwareMessageTrimMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ImageAwareMessageTrimMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ImageAwareMessageTrimMiddleware
+{
     fn name(&self) -> &str {
         "image_aware_message_trim"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

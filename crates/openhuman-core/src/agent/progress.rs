@@ -39,7 +39,7 @@ pub enum AgentProgress {
         iteration: u32,
         /// Server-computed human label for the chat processing timeline
         /// (e.g. "Reading messages"), or `None` to defer to the client
-        /// formatter. Set from [`crate::tools::traits::Tool::display_label`].
+        /// formatter. Set from [`tinytools::Tool::display_label`].
         display_label: Option<String>,
         /// Server-computed contextual detail shown after the label
         /// (e.g. "steven@gmail.com"), from `Tool::display_detail`.

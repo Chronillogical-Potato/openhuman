@@ -28,9 +28,9 @@ use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::security::{AuditLogger, SecurityPolicy};
+use tinytools::{Tool};
 use openhuman_core::tools::{
-    all_tools, all_tools_registered_controllers, ComposioExecuteTool, Tool,
-};
+    all_tools, all_tools_registered_controllers, ComposioExecuteTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 

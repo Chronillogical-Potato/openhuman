@@ -275,17 +275,14 @@ impl Agent {
             let user_msg = user_message.to_string();
             let autosave_key = format!("user_msg:{}", uuid::Uuid::new_v4());
             let chars = user_msg.chars().count();
-            // Captured *before* `tokio::spawn` — the ambient thread id is a
-            // `tokio::task_local` (see `tinyagents::thread_context`)
-            // and does not propagate into a spawned task, so it must be read
-            // on this (still-scoped) task and moved in explicitly. Tagging
+            // Captured before `tokio::spawn` from this owned session carrier.
+            // Tagging
             // this document with the live chat thread id is what lets the
             // same-session exclusion filter (`UnifiedMemory::recall` /
             // `memory_hybrid_search`) recognize and drop it later this same
             // turn, so the agent's own on-demand memory search doesn't echo
             // its own triggering request back as a "relevant" result.
-            let session_id_for_autosave =
-                crate::agent::tinyagents::thread_context::current_thread_id();
+            let session_id_for_autosave = self.thread_id.clone();
             log::debug!(
                 "[agent_autosave] enqueue user-message store key={autosave_key} chars={chars} \
                  session_id={}",
@@ -395,8 +392,8 @@ impl Agent {
             );
             None
         } else {
-            let loaded = crate::agent::goals::runtime::load_for_current_thread(
-                &self.workspace_dir,
+            let loaded = crate::agent::goals::runtime::load_for_thread(
+                &self.workspace_dir, self.thread_id(),
             )
             .await;
             // Thread-resume semantics: the user re-engaging a thread reactivates a
@@ -409,8 +406,8 @@ impl Agent {
                         crate::agent::goals::ThreadGoalStatus::Paused
                     ) =>
                 {
-                    crate::agent::goals::runtime::resume_for_current_thread(
-                        &self.workspace_dir,
+                    crate::agent::goals::runtime::resume_for_thread(
+                        &self.workspace_dir, self.thread_id(),
                     )
                     .await
                     .unwrap_or(Some(goal))
@@ -608,6 +605,31 @@ impl Agent {
         // background archivist fork at end-of-turn.
         self.context.tick_turn();
 
+        // The root host carrier is constructed before the turn starts and is
+        // passed through TinyAgents' `RunContext` to every synchronous child.
+        // These values used to be recovered through nested Tokio scopes.
+        let mut turn_run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        turn_run_context.parent = Some(parent_context.clone());
+        turn_run_context.prepared_context_sources = std::sync::Arc::new(agent_context_prepared_sources.clone());
+        turn_run_context.attachment_placeholders = std::sync::Arc::new(
+            crate::agent::multimodal::extract_image_placeholders_in_text(user_message),
+        );
+        turn_run_context.dispatch = Some(std::sync::Arc::new(
+            crate::agent::tinyagents::host::TurnDispatchState::new(
+                crate::agent::tinyagents::agent_turn_wall_clock_ms()
+                    .map(std::time::Duration::from_millis),
+            ),
+        ));
+        let mut turn_stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
+        if let Some(ref goal) = active_goal {
+            if let Some(hook) =
+                crate::agent::goals::runtime::GoalBudgetStopHook::for_goal(&goal_workspace_dir, goal)
+            {
+                turn_stop_hooks.push(std::sync::Arc::new(hook));
+            }
+        }
+        turn_run_context.stop_hooks = turn_stop_hooks;
+
         let turn_body = async {
             // Keep the scalar turn settings outside the pinned future arguments;
             // the TinyAgents session path reads provider/tool/multimodal state
@@ -632,68 +654,12 @@ impl Agent {
                 max_iterations,
                 artifact_store,
                 turn_overrides.suppress_tools,
+                turn_run_context.clone(),
             ))
             .await
         }; // end of `turn_body` async block
 
-        // Run the turn body inside the parent-execution-context scope so
-        // that any `spawn_subagent` tool call fired during the loop can
-        // read the parent's provider, tools, model, and workspace via
-        // the PARENT_CONTEXT task-local.
-        // Arm the thread-goal budget stop hook for this turn when an active,
-        // budgeted goal exists — it votes to stop the loop as soon as running
-        // usage would exceed the cap. #4469 item 1: the stop is a graceful pause
-        // drained at the next iteration boundary, not an instantaneous abort, so
-        // the current tool round + one wrap-up summary call can still run past the
-        // cap (a small, bounded overshoot) before the partial transcript returns.
-        // Merge with any ambient stop hooks rather than clobbering them. No
-        // budgeted active goal → no extra hook, no wrap.
-        let mut turn_stop_hooks = crate::agent::stop_hooks::current_stop_hooks();
-        if let Some(ref goal) = active_goal {
-            if let Some(hook) =
-                crate::agent::goals::runtime::GoalBudgetStopHook::for_goal(
-                    &goal_workspace_dir,
-                    goal,
-                )
-            {
-                turn_stop_hooks.push(std::sync::Arc::new(hook));
-            }
-        }
-        // Surface this turn's image-attachment placeholders so a delegation to a
-        // vision sub-agent (which reads `current_turn_image_placeholders()` in
-        // `agent_orchestration::tools::dispatch`) can forward the user's attached
-        // image — the orchestrator itself keeps it as a text placeholder. Scoped
-        // around the harness turn (the delegating tool fires inside it).
-        let image_placeholders =
-            crate::agent::multimodal::extract_image_placeholders_in_text(user_message);
-        let result = if turn_stop_hooks.is_empty() {
-            harness::with_parent_context(
-                parent_context,
-                harness::with_agent_context_prepared_sources(
-                    agent_context_prepared_sources.clone(),
-                    harness::turn_attachments_context::with_current_turn_image_placeholders(
-                        image_placeholders,
-                        turn_body,
-                    ),
-                ),
-            )
-            .await
-        } else {
-            harness::with_parent_context(
-                parent_context,
-                harness::with_agent_context_prepared_sources(
-                    agent_context_prepared_sources.clone(),
-                    harness::turn_attachments_context::with_current_turn_image_placeholders(
-                        image_placeholders,
-                        crate::agent::stop_hooks::with_stop_hooks(
-                            turn_stop_hooks,
-                            turn_body,
-                        ),
-                    ),
-                ),
-            )
-            .await
-        };
+        let result = turn_body.await;
 
         // Session transcript persistence lives INSIDE the turn body —
         // one write per provider response, fired right after the

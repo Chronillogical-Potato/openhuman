@@ -15,7 +15,7 @@ pub mod types;
 
 pub use client::{build_client, pricing_for_config, IntegrationClient};
 pub use types::{
-    BackendResponse, IntegrationPricing, IntegrationPricingEntry, PricingIntegrations, ToolScope,
+    BackendResponse, IntegrationPricing, IntegrationPricingEntry, PricingIntegrations,
 };
 
 #[cfg(test)]

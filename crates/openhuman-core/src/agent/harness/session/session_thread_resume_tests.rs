@@ -10,9 +10,10 @@ use super::*;
 fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // The embedding seam fails loudly when unwired; before the memory
     // extraction this was a direct call and needed no setup.
-    use super::super::transcript::{self, MessageUsage, TranscriptMeta, TurnUsage};
-    use crate::agent::messages::ChatMessage;
-    use crate::inference::provider::ToolCall;
+    use crate::agent::messages::{attach_chat_turn_usage_metadata, ChatMessage};
+    use tinyagents_session::transcript::{
+        self, MessageUsage, TranscriptMeta, TranscriptToolCall, TurnUsage,
+    };
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -22,7 +23,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // call + reasoning on the tool-calling assistant turn and a tool-role
     // result — exactly the fidelity the prose fallback drops. ──
     let mut assistant_toolcall = ChatMessage::assistant("Let me look that up.");
-    transcript::attach_turn_usage_metadata(
+    attach_chat_turn_usage_metadata(
         &mut assistant_toolcall,
         &TurnUsage {
             provider: "openai".to_string(),
@@ -36,7 +37,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
             },
             ts: "2026-01-01T00:00:00Z".to_string(),
             reasoning_content: Some("I should search the web for the price.".to_string()),
-            tool_calls: vec![ToolCall {
+            tool_calls: vec![TranscriptToolCall {
                 id: "call_1".to_string(),
                 name: "web_search".to_string(),
                 arguments: r#"{"query":"btc price"}"#.to_string(),
@@ -73,7 +74,8 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     // Root stem: no `__`, so `find_root_transcript_for_thread` accepts it.
     let path = transcript::resolve_keyed_transcript_path(&wsp, "1700000000_orchestrator")
         .expect("resolve transcript path");
-    transcript::write_transcript(&path, &messages, &meta, None).expect("write transcript");
+    transcript::write_transcript(&path, &durable_messages(messages), &meta, None)
+        .expect("write transcript");
 
     // ── Cold boot: a brand-new agent for the same thread whose agent
     // definition name deliberately does NOT match the transcript stem — the
@@ -89,7 +91,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .agent_definition_name("some_other_agent_name")
         .workspace_dir(wsp.clone())
         .build()
@@ -147,8 +149,8 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
 /// not the full pre-compaction history.
 #[test]
 fn seed_resume_replays_compaction_to_reduced_context() {
-    use super::super::transcript::{self, TranscriptMeta};
     use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{self, TranscriptMeta};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -176,21 +178,21 @@ fn seed_resume_replays_compaction_to_reduced_context() {
 
     // Turn 1: a full exchange. Turn 2: a context reduction (not a prefix) that
     // must land as a compaction record.
-    let full = vec![
+    let full = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("q1"),
         ChatMessage::assistant("a1"),
         ChatMessage::user("q2"),
         ChatMessage::assistant("a2"),
-    ];
+    ]);
     transcript::append_transcript_turn(&path, &[], &full, &meta, None, None)
         .expect("append turn 1");
-    let reduced = vec![
+    let reduced = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::assistant("[summary] q1/q2"),
         ChatMessage::user("q3"),
         ChatMessage::assistant("a3"),
-    ];
+    ]);
     transcript::append_transcript_turn(&path, &full, &reduced, &meta, None, None)
         .expect("append turn 2 (compaction)");
 
@@ -216,83 +218,11 @@ fn seed_resume_replays_compaction_to_reduced_context() {
     );
 }
 
-/// #5351: a profile-scoped session (running in its own `session_raw-<id>/`
-/// subtree) must still resume a thread whose earlier turns were written under a
-/// DIFFERENT profile's subtree — here the shared `session_raw/`. Without the
-/// cross-dir fallback the Reasoning profile could not see the plan the Quick
-/// profile wrote, dropping all prior context on a mid-thread Quick↔Reasoning
-/// switch.
+/// Resume must pick the newest matching canonical transcript for a thread.
 #[test]
-fn seed_resume_from_thread_transcript_crosses_profile_scoped_dirs() {
-    use super::super::transcript::{self, TranscriptMeta};
+fn seed_resume_from_thread_transcript_picks_newest_canonical_transcript() {
     use crate::agent::messages::ChatMessage;
-
-    let ws = tempfile::TempDir::new().expect("temp workspace");
-    let wsp = ws.path().to_path_buf();
-    let thread_id = "thr_cross_profile";
-
-    // Prior turns written by the QUICK (default) profile into the SHARED
-    // `session_raw/` subtree.
-    let messages = vec![
-        ChatMessage::system("system prompt"),
-        ChatMessage::user("set up Minimax for image generation"),
-        ChatMessage::assistant("Minimax is configured as the image generator."),
-    ];
-    let meta = TranscriptMeta {
-        agent_name: "orchestrator_thr_cross_pr".to_string(),
-        agent_id: Some("orchestrator".to_string()),
-        agent_type: Some("root".to_string()),
-        dispatcher: "native".to_string(),
-        provider: None,
-        model: None,
-        created: "2026-01-01T00:00:00Z".to_string(),
-        updated: "2026-01-01T00:00:00Z".to_string(),
-        turn_count: 1,
-        input_tokens: 0,
-        output_tokens: 0,
-        cached_input_tokens: 0,
-        charged_amount_usd: 0.0,
-        thread_id: Some(thread_id.to_string()),
-        task_id: None,
-    };
-    // The shared `session_raw/` (default resolve path) — the Quick profile's dir.
-    let path = transcript::resolve_keyed_transcript_path(&wsp, "1700000000_orchestrator")
-        .expect("resolve transcript path");
-    transcript::write_transcript(&path, &messages, &meta, None).expect("write transcript");
-
-    // The REASONING profile runs in a scoped `session_raw-1/` subtree — its own
-    // dir holds no transcript for this thread, so the in-dir lookup misses and
-    // only the cross-dir fallback can recover the conversation.
-    let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
-    agent.workspace_dir = wsp.clone();
-    agent.session_raw_subdir = "session_raw-1".to_string();
-
-    let loaded = agent.seed_resume_from_thread_transcript(thread_id);
-    assert!(
-        loaded,
-        "a profile-scoped session must resume the thread's transcript from the shared \
-         session_raw dir via the cross-dir fallback (#5351)"
-    );
-    let cached = agent
-        .cached_transcript_messages
-        .as_ref()
-        .expect("cached transcript populated");
-    assert!(
-        cached.iter().any(|m| m.content.contains("image generator")),
-        "the prior plan context must be recovered across the profile-scoped dir boundary"
-    );
-}
-
-/// #5351 regression guard: resume must pick the NEWEST transcript across profile
-/// dirs, never the one in the agent's own dir. After the Reasoning profile is
-/// healed back to the shared `session_raw/`, an OLDER transcript there must not
-/// shadow the NEWER turns the profile wrote into its (pre-heal) scoped
-/// `session_raw-1/` — otherwise the switch drops the most recent context and the
-/// seeded history diverges from what the transcript view shows.
-#[test]
-fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
-    use super::super::transcript::{self, TranscriptMeta};
-    use crate::agent::messages::ChatMessage;
+    use tinyagents_session::transcript::{self, TranscriptMeta};
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -317,11 +247,11 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
     };
 
     // OLDER transcript in the agent's OWN (shared) dir.
-    let older = vec![
+    let older = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("draft plan"),
         ChatMessage::assistant("early draft, details TBD"),
-    ];
+    ]);
     let old_path = wsp
         .join("session_raw")
         .join("1700000000_orchestrator.jsonl");
@@ -329,24 +259,22 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
     transcript::write_transcript(&old_path, &older, &meta("2026-01-01T00:00:00Z"), None)
         .expect("write older");
 
-    // NEWER transcript in a sibling scoped dir (written pre-heal, higher stem).
-    let newer = vec![
+    // NEWER transcript in the same canonical store.
+    let newer = durable_messages(vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("finalize plan"),
         ChatMessage::assistant("FINAL: Minimax is the image generator"),
-    ];
+    ]);
     let new_path = wsp
-        .join("session_raw-1")
+        .join("session_raw")
         .join("1700009999_orchestrator.jsonl");
     std::fs::create_dir_all(new_path.parent().unwrap()).unwrap();
     transcript::write_transcript(&new_path, &newer, &meta("2026-02-02T00:00:00Z"), None)
         .expect("write newer");
 
-    // Agent runs in the shared dir (healed). Own-dir-first would wrongly pick the
-    // older draft; newest-across-dirs must pick the finalized plan.
+    // The newest transcript must win over an older matching root transcript.
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.workspace_dir = wsp.clone();
-    agent.session_raw_subdir = "session_raw".to_string();
 
     assert!(agent.seed_resume_from_thread_transcript(thread_id));
     let cached = agent
@@ -355,11 +283,11 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
         .expect("cached transcript populated");
     assert!(
         cached.iter().any(|m| m.content.contains("FINAL")),
-        "resume must load the NEWEST transcript across profile dirs, not the older own-dir copy"
+        "resume must load the newest canonical transcript, not the older copy"
     );
     assert!(
         !cached.iter().any(|m| m.content.contains("early draft")),
-        "the older own-dir transcript must not shadow the newer sibling"
+        "the older transcript must not shadow the newer canonical transcript"
     );
 }
 
@@ -430,8 +358,8 @@ fn hide_tools_seeds_allowlist_when_no_filter_present() {
             serde_json::json!({"type": "object"})
         }
 
-        async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("kept"))
+        async fn execute(&self, _args: serde_json::Value) -> Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("kept"))
         }
     }
 
@@ -543,13 +471,13 @@ fn set_max_tool_iterations_survives_after_definition_backed_construction() {
 #[tokio::test]
 async fn fake_locator_substitutes_the_whole_turn_path() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let canned = crate::agent::harness::session::transcript::SessionTranscript {
+    let canned = tinyagents_session::transcript::SessionTranscript {
         meta: fake_transcript_meta("thr_fake"),
-        messages: vec![
+        messages: durable_messages(vec![
             crate::agent::messages::ChatMessage::system("canned system"),
             crate::agent::messages::ChatMessage::user("canned question"),
             crate::agent::messages::ChatMessage::assistant("canned answer"),
-        ],
+        ]),
     };
     let (mut agent, handle) = agent_with_fake_locator(workspace.path(), Some(canned));
 
@@ -647,13 +575,13 @@ async fn a_resumed_transcript_prefix_is_absorbed_into_history() {
     use crate::agent::messages::{ChatMessage, ConversationMessage};
 
     let workspace = tempfile::TempDir::new().expect("temp workspace");
-    let canned = crate::agent::harness::session::transcript::SessionTranscript {
+    let canned = tinyagents_session::transcript::SessionTranscript {
         meta: fake_transcript_meta("thr_resume"),
-        messages: vec![
+        messages: durable_messages(vec![
             ChatMessage::system("stored system prompt"),
             ChatMessage::user("first question"),
             ChatMessage::assistant("first answer"),
-        ],
+        ]),
     };
     let (mut agent, _handle) = agent_with_fake_locator(workspace.path(), Some(canned));
     agent.try_load_session_transcript();
@@ -711,12 +639,17 @@ async fn a_resumed_transcript_prefix_is_absorbed_into_history() {
     // Defect (2): what persistence serializes is that same full sequence, so
     // the transcript written after a resume is complete and the *next* resume
     // reads a whole thread rather than a truncated one.
-    let persisted = agent.tool_dispatcher.to_provider_messages(&agent.history);
+    let persisted: Vec<_> = agent
+        .history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(message) => Some(message.content.as_str()),
+            ConversationMessage::AssistantToolCalls { .. }
+            | ConversationMessage::ToolResults(_) => None,
+        })
+        .collect();
     assert_eq!(
-        persisted
-            .iter()
-            .map(|m| m.content.as_str())
-            .collect::<Vec<_>>(),
+        persisted,
         vec![
             "stored system prompt",
             "first question",

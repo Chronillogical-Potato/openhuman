@@ -10,8 +10,8 @@
 //! From 0.53.5 onwards the source of truth is the *flat*
 //! `session_raw/{stem}.jsonl` and the human-readable companion is
 //! `sessions/{YYYY_MM_DD}/{stem}.md` — see
-//! [`super::transcript`] for the rationale (idle-thread resume
-//! becomes date-independent).
+//! [`tinyagents_session::transcript`] for the shared transcript format and
+//! date-independent resume discovery.
 //!
 //! `find_latest_transcript` ships a fallback that reads the legacy
 //! layout when the flat dir is empty, so users upgrading don't lose

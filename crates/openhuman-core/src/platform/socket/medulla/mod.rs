@@ -448,9 +448,7 @@ fn next_seq(seq: &AtomicI64) -> i64 {
 
 /// Project the crate-private [`LastTurnUsage`] into a compact JSON usage block
 /// for `medulla:task_result` (the type itself isn't `Serialize`).
-fn usage_to_json(
-    usage: crate::agent::harness::turn_subagent_usage::LastTurnUsage,
-) -> serde_json::Value {
+fn usage_to_json(usage: crate::agent::tinyagents::host::LastTurnUsage) -> serde_json::Value {
     serde_json::json!({
         "inputTokens": usage.input_tokens,
         "outputTokens": usage.output_tokens,

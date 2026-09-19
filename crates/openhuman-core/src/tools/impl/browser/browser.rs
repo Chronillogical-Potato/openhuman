@@ -47,13 +47,13 @@ pub(super) use types::{
 pub use types::{BrowserAction, ComputerUseConfig};
 
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{Tool, ToolResult};
 use anyhow::Context;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use tinytools::{Tool, ToolResult};
 use tokio::process::Command;
 use tracing::debug;
 

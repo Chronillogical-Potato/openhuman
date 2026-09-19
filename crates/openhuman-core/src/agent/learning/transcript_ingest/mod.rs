@@ -43,10 +43,10 @@ pub use types::{
     CONVERSATION_REFLECTIONS_NAMESPACE,
 };
 
-use crate::agent::harness::session::transcript::{self, SessionTranscript};
 use crate::memory::Memory;
 use futures::stream::StreamExt;
 use std::path::Path;
+use tinyagents_session::transcript::{self, SessionTranscript};
 
 /// Max number of persist round-trips (markdown write + SQLite tx + embedding)
 /// kept in flight at once during ingestion. Bounds provider load so a
@@ -89,8 +89,14 @@ pub async fn ingest_session_transcript(
     let thread_id = transcript.meta.thread_id.clone();
     let now = chrono::Utc::now().to_rfc3339();
 
+    let messages: Vec<_> = transcript
+        .messages
+        .iter()
+        .cloned()
+        .map(crate::agent::messages::chat_message_from_transcript)
+        .collect();
     let extracted = extract::extract_candidates(
-        &transcript.messages,
+        &messages,
         &extract::Provenance {
             thread_id: thread_id.clone(),
             transcript_path: path_display.clone(),
@@ -100,7 +106,7 @@ pub async fn ingest_session_transcript(
     );
 
     let reflections = extract::extract_reflections(
-        &transcript.messages,
+        &messages,
         &extract::Provenance {
             thread_id: thread_id.clone(),
             transcript_path: path_display.clone(),

@@ -12,12 +12,10 @@
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
-use crate::tools::traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolScope,
-};
 use async_trait::async_trait;
 use serde_json::json;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolScope};
 
 const AGENT_ID: &str = "agent_memory";
 

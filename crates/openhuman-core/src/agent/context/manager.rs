@@ -26,9 +26,9 @@
 //! [`ContextManager::should_extract_session_memory`] so `turn.rs` can
 //! gate its existing `spawn_subagent` call.
 
-use super::prompt::{PromptContext, SystemPromptBuilder};
 use super::session_memory::SessionMemoryConfig;
 use super::stats::{ContextStatsState, SessionMemoryHandle};
+use crate::agent::prompts::{PromptContext, SystemPromptBuilder};
 use crate::config::ContextConfig;
 use crate::inference::provider::UsageInfo;
 use anyhow::Result;

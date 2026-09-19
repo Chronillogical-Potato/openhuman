@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tinyagents_harness::middleware::ContextCompressionMiddleware;
 use tinyagents_harness::runtime::AgentHarness;
 
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware;
 use crate::agent::tinyagents::model::TurnChatModel;
 use crate::agent::tinyagents::summarize;
@@ -28,7 +29,7 @@ use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 /// erroring runs are excluded.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn install_context_ladder(
-    harness: &mut AgentHarness<()>,
+    harness: &mut AgentHarness<(), OpenHumanRunContext>,
     model: &str,
     context_window: Option<u64>,
     autocompact_enabled: bool,

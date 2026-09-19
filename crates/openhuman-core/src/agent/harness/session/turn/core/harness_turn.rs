@@ -45,6 +45,7 @@ impl Agent {
             crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore,
         >,
         suppress_tools: bool,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
         transcript_snapshot: crate::agent::tinyagents::TranscriptSnapshotSink,
     ) -> Result<String> {
         let turn_started = std::time::Instant::now();
@@ -54,7 +55,10 @@ impl Agent {
         // again. A resumed session's replayed prefix is folded into that same
         // history first (see below), so there is exactly one sequence to read.
         self.absorb_resumed_transcript_prefix();
-        let mut messages = self.tool_dispatcher.to_provider_messages(&self.history);
+        let mut messages = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
 
         // Multimodal prep (parity with the legacy engine): rehydrate image
         // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
@@ -78,9 +82,12 @@ impl Agent {
             .turn_model_source
             .effective_context_window(effective_model)
             .await;
-        let turn_models =
-            self.turn_model_source
-                .build(effective_model, temperature, context_window)?;
+        let turn_models = self.turn_model_source.build(
+            effective_model,
+            temperature,
+            context_window,
+            self.thread_id(),
+        )?;
 
         // Honor custom/BYOK vision models too: they can set `model_vision` even
         // when the provider capability bit is false, and must still rehydrate
@@ -154,66 +161,45 @@ impl Agent {
             transcript_snapshot: Some(transcript_snapshot.clone()),
         };
 
-        // Gather any sub-agent spend delegated during this turn (synchronous
-        // `spawn_subagent` runs inline on this task and records into the collector)
-        // so the turn's usage meters + the `chat_done` per-child breakdown include
-        // it — the collector scope the legacy engine installed.
-        // Install the turn's sub-agent dispatch guard around the same future
-        // (#5804). It records two facts the turn already produces but never
-        // wrote down — that a graceful pause has been requested at the
-        // model-call cap, and how long this turn's sub-agents actually take —
-        // so `run_subagent` can refuse a dispatch that cannot finish inside the
-        // remaining wall-clock budget instead of taking the whole turn down
-        // with it. Boxed at the call site: `with_dispatch_guard` takes its
-        // future by value, and the collector future wraps the entire turn
-        // generator, so passing it unboxed would move hundreds of KiB through
-        // this frame — the same hazard `with_turn_collector`'s own comment
-        // documents, with the gdb measurements behind it.
-        let turn_future = Box::pin(
-            crate::agent::harness::turn_subagent_usage::with_turn_collector(
-                graph::run_chat_turn_graph(graph::ChatTurnGraph {
-                    turn_models,
-                    model: effective_model.to_string(),
-                    messages,
-                    tools: turn_tools,
-                    synthesized_tools: turn_synthesized_tools,
-                    visible_tool_names: turn_visible_tool_names,
-                    max_iterations,
-                    on_progress: self.on_progress.clone(),
-                    context_window,
-                    run_queue: self.run_queue.clone(),
-                    context_mw,
-                    // Enforce the builder-configured tool policy at the tool
-                    // boundary (the tinyagents path otherwise bypasses it).
-                    tool_policy: Some(crate::agent::tinyagents::ToolPolicyEnforcement {
-                        policy: self.tool_policy.clone(),
-                        session: self.tool_policy_session.clone(),
-                        session_id: self.event_session_id.clone(),
-                        channel: self.event_channel().to_string(),
-                        agent_definition_id: self.agent_definition_id.clone(),
-                    }),
-                    // Section D: forward the session's per-profile workspace
-                    // descriptor (if any) so the top-level chat turn's acting
-                    // tools default their cwd to the profile's dedicated dir.
-                    workspace_descriptor: self.workspace_descriptor.clone(),
-                    // Scope direct Master-Agent calls under its declared
-                    // sandbox. `agent_definition_name` can carry a thread
-                    // suffix, so resolve with the stable definition id.
-                    sandbox_mode: self
-                        .resolved_definition()
-                        .map(|definition| definition.sandbox_mode)
-                        .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
-                }),
-            ),
-        );
-        let (outcome, subagent_usage_entries) =
-            crate::agent::harness::turn_dispatch_guard::with_dispatch_guard(
-                crate::agent::tinyagents::agent_turn_wall_clock_ms()
-                    .map(std::time::Duration::from_millis),
-                turn_future,
-            )
-            .await;
-        let outcome = outcome?;
+        let outcome = graph::run_chat_turn_graph(graph::ChatTurnGraph {
+            turn_models,
+            model: effective_model.to_string(),
+            messages,
+            tools: turn_tools,
+            synthesized_tools: turn_synthesized_tools,
+            visible_tool_names: turn_visible_tool_names,
+            max_iterations,
+            on_progress: self.on_progress.clone(),
+            context_window,
+            run_queue: self.run_queue.clone(),
+            context_mw,
+            // Enforce the builder-configured tool policy at the tool
+            // boundary (the tinyagents path otherwise bypasses it).
+            tool_policy: Some(crate::agent::tinyagents::ToolPolicyEnforcement {
+                policy: self.tool_policy.clone(),
+                session: self.tool_policy_session.clone(),
+                session_id: self.event_session_id.clone(),
+                channel: self.event_channel().to_string(),
+                agent_definition_id: self.agent_definition_id.clone(),
+            }),
+            // Section D: forward the session's turn workspace descriptor (if
+            // any) so the top-level chat turn's acting tools use its root as
+            // their default cwd.
+            workspace_descriptor: self.workspace_descriptor.clone(),
+            // Scope direct Master-Agent calls under its declared
+            // sandbox. `agent_definition_name` can carry a thread
+            // suffix, so resolve with the stable definition id.
+            sandbox_mode: self
+                .resolved_definition()
+                .map(|definition| definition.sandbox_mode)
+                .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
+            thread_id: self.thread_id.clone(),
+            run_context: run_context.clone(),
+            hosted_base: self.hosted_base.clone(),
+            agent_id: self.agent_definition_id.clone(),
+        })
+        .await?;
+        let subagent_usage_entries = run_context.subagent_usage_entries();
         // The run handed back its own transcript, folded into history below, so
         // an error after this point must not replay the snapshot's rounds again.
         transcript_snapshot
@@ -286,7 +272,10 @@ impl Agent {
             if self.history.last().is_some_and(is_empty_assistant_chat) {
                 self.history.pop();
             }
-            let base = self.tool_dispatcher.to_provider_messages(&self.history);
+            let base = crate::agent::message_convert::provider_messages_from_conversation(
+                self.tool_dispatcher.as_ref(),
+                &self.history,
+            );
             let (summary, summary_usage) = self
                 .summarize_turn_wrapup(
                     &base,
@@ -464,17 +453,19 @@ impl Agent {
                 cached_input_tokens.saturating_add(entry.usage.cached_input_tokens);
             charged_amount_usd += entry.usage.charged_amount_usd;
         }
-        self.last_turn_usage_totals =
-            Some(crate::agent::harness::turn_subagent_usage::LastTurnUsage {
-                input_tokens,
-                output_tokens,
-                cached_input_tokens,
-                cost_usd: charged_amount_usd,
-                context_window: context_window.unwrap_or(0),
-                subagents: subagent_usage_entries,
-            });
+        self.last_turn_usage_totals = Some(crate::agent::tinyagents::host::LastTurnUsage {
+            input_tokens,
+            output_tokens,
+            cached_input_tokens,
+            cost_usd: charged_amount_usd,
+            context_window: context_window.unwrap_or(0),
+            subagents: subagent_usage_entries,
+        });
 
-        let mut persisted = self.tool_dispatcher.to_provider_messages(&self.history);
+        let mut persisted = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         // Re-attach per-call failure outcomes (dropped when the engine folded
         // each tool result into a `role:"tool"` message) so the derived
         // transcript view renders failed tools as errors, not successes.
@@ -484,12 +475,12 @@ impl Agent {
         // `provider`/`model` from every transcript (they are `TranscriptMeta`
         // fields sourced from the turn usage) — parity with the legacy engine,
         // which handed `self.last_turn_usage.as_ref()` to this call.
-        let turn_usage = crate::agent::harness::session::transcript::TurnUsage {
+        let turn_usage = tinyagents_session::transcript::TurnUsage {
             provider: self.event_channel().to_string(),
             // The model that actually ran this turn (a per-turn override can
             // diverge from `self.model_name`); attribute usage to it.
             model: effective_model.to_string(),
-            usage: crate::agent::harness::session::transcript::MessageUsage {
+            usage: tinyagents_session::transcript::MessageUsage {
                 input: input_tokens,
                 output: output_tokens,
                 cached_input: cached_input_tokens,
@@ -513,9 +504,10 @@ impl Agent {
         // Charge this turn's usage against the thread's active goal (parity with
         // the legacy engine) so budgeted goals progress to `budget_limited` and
         // continuation scheduling reads a live budget. Self-guarding + best-effort
-        // — a no-op when there is no active goal for the ambient thread.
+        // — a no-op when this run has no active explicit thread goal.
         crate::agent::goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
+            self.thread_id(),
             input_tokens,
             output_tokens,
             turn_started.elapsed().as_secs(),

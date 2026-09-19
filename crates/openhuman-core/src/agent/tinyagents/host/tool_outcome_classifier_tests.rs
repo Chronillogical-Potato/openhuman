@@ -2,13 +2,9 @@ use super::*;
 use crate::security::{POLICY_BLOCKED_MARKER, POLICY_DENIED_MARKER};
 
 fn result(error: Option<&str>, content: &str) -> ToolResult {
-    ToolResult {
-        call_id: "call-1".to_string(),
-        name: "shell".to_string(),
-        content: content.to_string(),
-        raw: None,
-        error: error.map(str::to_string),
-        elapsed_ms: 5,
+    match error {
+        Some(message) => ToolResult::error(if content.is_empty() { message } else { content }),
+        None => ToolResult::success(content),
     }
 }
 

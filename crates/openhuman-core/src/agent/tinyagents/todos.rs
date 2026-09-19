@@ -38,7 +38,7 @@ async fn read_legacy_boards(workspace_dir: &Path) -> Result<Vec<TaskBoard>, Stri
             return Err(format!(
                 "read legacy task boards dir {}: {error}",
                 dir.display()
-            ))
+            ));
         }
     };
     let mut boards = Vec::new();

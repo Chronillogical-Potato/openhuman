@@ -2,8 +2,8 @@ use super::*;
 
 use crate::agent::harness::AgentContextPreparedSource;
 use crate::agent::harness::SubagentRunError;
-use crate::tools::Tool;
 use serde_json::json;
+use tinytools::Tool;
 #[test]
 fn schema_requires_question_and_makes_focus_optional() {
     let tool = AgentPrepareContextTool::new();
@@ -329,8 +329,8 @@ fn credits_exhausted_scout_failure_does_not_reach_sentry() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A spec with the given name and description; the schema is irrelevant here.
-fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<crate::tools::ToolSpec> {
-    std::sync::Arc::new(crate::tools::ToolSpec {
+fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<tinytools::ToolSpec> {
+    std::sync::Arc::new(tinytools::ToolSpec {
         name: name.to_string(),
         description: description.to_string(),
         parameters: serde_json::json!({"type": "object"}),
@@ -342,8 +342,8 @@ fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<crate::tools::T
 /// `visible_tool_names` is derived from the visible specs, as the turn
 /// builder derives it.
 fn parent_context_with_specs(
-    all_tool_specs: Vec<std::sync::Arc<crate::tools::ToolSpec>>,
-    visible_tool_specs: Vec<std::sync::Arc<crate::tools::ToolSpec>>,
+    all_tool_specs: Vec<std::sync::Arc<tinytools::ToolSpec>>,
+    visible_tool_specs: Vec<std::sync::Arc<tinytools::ToolSpec>>,
 ) -> crate::agent::harness::fork_context::ParentExecutionContext {
     use std::sync::Arc;
     let workspace = tempfile::TempDir::new().expect("temp workspace");
@@ -377,7 +377,7 @@ fn parent_context_with_specs(
         session_id: "parent-session".into(),
         channel: "test".into(),
         connected_integrations: Vec::new(),
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::Native,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
         session_key: "parent-key".into(),
         session_parent_prefix: None,
         on_progress: None,

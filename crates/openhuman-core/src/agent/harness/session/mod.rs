@@ -13,7 +13,7 @@
 //! [`crate::agent::tinyagents::run_turn_via_tinyagents_shared`], the
 //! shared TinyAgents harness assembly. What this module keeps is the
 //! OpenHuman product shell around that loop — transcript persistence and
-//! legacy-format compatibility ([`transcript`], [`migration`]), prompt
+//! legacy-format compatibility ([`migration`]), prompt
 //! section assembly and KV-cache prefix stability, memory/context injection
 //! policy, post-turn hooks, and the persisted history shape. The migration
 //! plan for moving the durable parts onto TinyAgents store/cache primitives
@@ -40,8 +40,6 @@ mod migration;
 mod runtime;
 #[cfg(test)]
 mod tool_progress;
-pub(crate) mod transcript;
-pub(crate) mod transcript_history;
 mod turn;
 // `pub(crate)` since issue #6014: the tool-call-cap instruction is now appended
 // inside the loop by `tinyagents::middleware::FinalCallWrapUpMiddleware`, so the

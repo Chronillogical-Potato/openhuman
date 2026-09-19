@@ -7,7 +7,7 @@ use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
 use crate::rpc::RpcOutcome;
 use crate::search::tools::SEARXNG_MAX_RESULTS;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 pub(super) fn handle_web_search(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {

@@ -117,14 +117,16 @@ impl ArtifactIndexTocMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ArtifactIndexTocMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ArtifactIndexTocMiddleware
+{
     fn name(&self) -> &str {
         "artifact_index_toc"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use tinyagents_harness::events::{AgentEvent, EventListener, EventRecord};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 
-use crate::agent::harness::turn_dispatch_guard::TurnDispatchState;
+use crate::agent::tinyagents::host::TurnDispatchState;
 
 /// Attribution for child (sub-agent) progress. When present, the bridge routes
 /// events to the `Subagent*` [`AgentProgress`](crate::agent::progress::AgentProgress)
@@ -107,14 +107,14 @@ pub(crate) struct CapPauser {
     /// The current turn's dispatch guard, when this run is a turn (rather than
     /// a CLI/direct invocation). Recording the pause here is what makes it
     /// *binding* on new sub-agent dispatch instead of merely advisory — see
-    /// [`crate::agent::harness::turn_dispatch_guard`] and #5804.
+    /// [`crate::agent::tinyagents::host::TurnDispatchState`] and #5804.
     dispatch_guard: Option<Arc<TurnDispatchState>>,
 }
 
 impl CapPauser {
     /// Pause `handle` once `cap` of run `run_id`'s own model calls complete,
     /// recording the pause on `dispatch_guard` when the run is executing inside
-    /// a turn scope.
+    /// a root turn context.
     pub(crate) fn new(
         handle: SteeringHandle,
         cap: usize,

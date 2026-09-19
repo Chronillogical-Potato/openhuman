@@ -108,11 +108,11 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::context::prompt::ToolCallFormat;
 use openhuman_core::agent::harness::definition::{AgentDefinitionRegistry, ModelSpec};
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, ParentExecutionContext, SubagentRunOptions,
 };
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::config::AgentConfig;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use parking_lot::Mutex;

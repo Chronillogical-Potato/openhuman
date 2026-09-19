@@ -35,10 +35,10 @@ use crate::agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource};
 use crate::memory::ops::guard::active_memory_guard;
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use tinymemory_api::provider::{MemoryCore, MemoryRecall};
 use tinymemory_api::recall::OwnedRecallOpts;
 use tinymemory_api::types::{MemoryCategory, MemoryEntry, MemoryTaint};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Returns the flow id the *run itself* is scoped under, when the current
 /// agent turn is executing inside a saved-flow run

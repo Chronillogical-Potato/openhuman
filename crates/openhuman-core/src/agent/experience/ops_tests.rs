@@ -1,47 +1,5 @@
 use super::*;
 
-#[test]
-fn profile_memory_subdir_matches_live_session_derivation() {
-    let workspace = tempfile::TempDir::new().unwrap();
-    let mut profile = crate::agent::profiles::store::built_in_default_profile();
-    profile.id = "alice".into();
-    profile.name = "Alice".into();
-    profile.built_in = false;
-    profile.is_master = false;
-    profile.dedicated_memory = true;
-    crate::agent::profiles::store::AgentProfileStore::new(workspace.path().to_path_buf())
-        .upsert(profile)
-        .expect("seed profile");
-
-    assert_eq!(
-        profile_memory_subdir(workspace.path(), Some("alice")).unwrap(),
-        "memory-alice"
-    );
-    assert_eq!(
-        profile_memory_subdir(workspace.path(), None).unwrap(),
-        "memory"
-    );
-    assert!(profile_memory_subdir(workspace.path(), Some("missing")).is_err());
-
-    assert_eq!(
-        query_memory_subdirs(workspace.path(), Some("alice")).unwrap(),
-        vec!["memory".to_string(), "memory-alice".to_string()]
-    );
-    assert_eq!(
-        query_memory_subdirs(workspace.path(), None).unwrap(),
-        vec!["memory".to_string(), "memory-alice".to_string()]
-    );
-}
-
-/// A config on a disposable workspace with the in-process TinyCortex driver
-/// bound to it.
-///
-/// A test workspace with nothing installed resolves to the **null** driver,
-/// which serves nothing and discards writes — so a round-trip through
-/// [`DriverMemory`] would fail in a way that looks like a bug in the
-/// adapter. TinyCortex is the engine the loadable module wraps, so binding
-/// it exercises the same store production reaches over the bus, and unlike
-/// the module it is not a process singleton.
 fn bound_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let mut config = Config::default();
@@ -100,7 +58,6 @@ async fn driver_memory_round_trips_through_the_bound_driver() {
     assert!(memory.health_check().await, "a bound driver is reachable");
 }
 
-/// The experience store opened for a profile-less caller and the one opened
 /// for the `"memory"` subtree are the same store — the shared-tree arm has
 /// no special case any more.
 #[tokio::test]
@@ -117,7 +74,6 @@ async fn experience_store_round_trips_over_the_bound_driver() {
         source: crate::agent::experience::types::ExperienceSource::ToolLoop,
         agent_id: None,
         entrypoint: None,
-        profile_id: None,
         task_fingerprint: "fp-adapter".into(),
         task_summary: "route the experience store onto the contract".into(),
         tools_used: Vec::new(),

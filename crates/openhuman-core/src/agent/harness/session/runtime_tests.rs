@@ -1,5 +1,4 @@
 use super::super::types::Agent;
-use crate::agent::dispatcher::XmlToolDispatcher;
 use crate::agent::error::AgentError;
 use crate::agent::messages::ChatMessage;
 use crate::agent::messages::ConversationMessage;
@@ -13,6 +12,7 @@ use std::sync::Arc;
 use tinyinference_llm::model::{
     ChatModel, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools_agent::dialect::XmlDialect;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::{sleep, Duration};
 
@@ -51,10 +51,10 @@ impl ChatModel<()> for StaticModel {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 
@@ -120,7 +120,7 @@ fn make_agent(model: Arc<dyn ChatModel<()>>) -> Agent {
         .chat_model(model)
         .tools(vec![])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("runtime-test-session", "runtime-test-channel")
         .build()
@@ -168,20 +168,20 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
     assert!(!sanitized.contains('\t'));
 
     let calls = vec![
-        crate::agent::dispatcher::ParsedToolCall {
+        tinytools_agent::ParsedToolCall {
             name: "a".into(),
             arguments: serde_json::json!({}),
-            tool_call_id: None,
+            id: None,
         },
-        crate::agent::dispatcher::ParsedToolCall {
+        tinytools_agent::ParsedToolCall {
             name: "b".into(),
             arguments: serde_json::json!({"x":1}),
-            tool_call_id: Some("keep".into()),
+            id: Some("keep".into()),
         },
     ];
     let calls = Agent::with_fallback_tool_call_ids(calls, 2);
-    assert_eq!(calls[0].tool_call_id.as_deref(), Some("parsed-3-1"));
-    assert_eq!(calls[1].tool_call_id.as_deref(), Some("keep"));
+    assert_eq!(calls[0].id.as_deref(), Some("parsed-3-1"));
+    assert_eq!(calls[1].id.as_deref(), Some("keep"));
 
     let response = crate::inference::provider::ChatResponse {
         text: Some(String::new()),

@@ -1,5 +1,4 @@
 use super::*;
-use crate::tools::ToolResult;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::message::{AssistantMessage, MessageDelta};
@@ -7,6 +6,8 @@ use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolResult;
+use tinytools::{Tool, ToolSpec};
 
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {
@@ -80,6 +81,72 @@ impl ChatModel<()> for TwoStepProvider {
 #[path = "graph_failed_run_tests.rs"]
 mod graph_failed_run_tests;
 
+#[test]
+fn parallel_worker_without_thread_keeps_parent_transcript_affinity() {
+    assert_eq!(
+        inherited_thread_id(Some("parent-thread".to_string()), None),
+        Some("parent-thread".to_string())
+    );
+    assert_eq!(
+        inherited_thread_id(
+            Some("parent-thread".to_string()),
+            Some("task-thread".to_string())
+        ),
+        Some("task-thread".to_string())
+    );
+}
+
+#[tokio::test]
+async fn explicit_worker_thread_replaces_parent_for_model_run_and_transcript() {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let mut parent = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    parent.thread_id = Some("parent-thread".to_owned());
+    let mut history = vec![ChatMessage::user("finish this")];
+
+    run_subagent_via_graph(
+        crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(TwoStepProvider {
+            calls: AtomicUsize::new(1),
+        })),
+        "mock-model",
+        0.0,
+        &mut history,
+        Arc::new(vec![]),
+        vec![],
+        vec![],
+        HashSet::new(),
+        2,
+        None,
+        None,
+        "researcher",
+        "worker-task",
+        false,
+        Some("worker-thread".to_owned()),
+        parent,
+        None,
+        workspace.path().to_path_buf(),
+        None,
+        1024,
+        false,
+        "root__worker-thread",
+        "test",
+        None,
+        AgentTokenjuiceCompression::Off,
+        None,
+    )
+    .await
+    .expect("worker run");
+
+    let path = tinyagents_session::transcript::resolve_keyed_transcript_path(
+        workspace.path(),
+        "root__worker-thread",
+    )
+    .expect("transcript path");
+    let persisted =
+        tinyagents_session::transcript::read_transcript(&path).expect("worker transcript");
+    assert_eq!(persisted.meta.thread_id.as_deref(), Some("worker-thread"));
+    assert_ne!(persisted.meta.thread_id.as_deref(), Some("parent-thread"));
+}
+
 #[tokio::test]
 async fn subagent_runs_through_the_graph_engine_with_real_tools() {
     let provider = Arc::new(TwoStepProvider {
@@ -105,6 +172,8 @@ async fn subagent_runs_through_the_graph_engine_with_real_tools() {
         "researcher",
         "task-1",
         false,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
         std::env::temp_dir(),
         None,
@@ -190,6 +259,8 @@ async fn child_text_and_thinking_deltas_are_scoped_to_the_subagent() {
         "researcher",
         "task-7",
         false,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
         std::env::temp_dir(),
         None,
@@ -326,6 +397,8 @@ async fn ask_user_clarification_pauses_and_surfaces_the_question() {
         "task-9",
         false,
         None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        None,
         std::env::temp_dir(),
         None,
         1024,
@@ -416,6 +489,8 @@ async fn cap_hit_summarizes_a_resumable_checkpoint() {
         "researcher",
         "task-cap",
         false,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
         std::env::temp_dir(),
         None,
@@ -581,6 +656,8 @@ async fn run_with_spawn_tool_in_parent_surface(allowed: HashSet<String>) -> (boo
         "researcher",
         "task-6157",
         false,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
         std::env::temp_dir(),
         None,

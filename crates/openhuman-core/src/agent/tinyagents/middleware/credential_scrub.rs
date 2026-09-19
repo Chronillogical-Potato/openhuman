@@ -8,25 +8,6 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 
-/// Recursively scrub credential-shaped string leaves inside a JSON value.
-fn scrub_json_credentials(value: serde_json::Value) -> serde_json::Value {
-    use serde_json::Value;
-    match value {
-        Value::String(s) => {
-            Value::String(crate::agent::harness::credentials::scrub_credentials(&s))
-        }
-        Value::Array(items) => {
-            Value::Array(items.into_iter().map(scrub_json_credentials).collect())
-        }
-        Value::Object(map) => Value::Object(
-            map.into_iter()
-                .map(|(k, v)| (k, scrub_json_credentials(v)))
-                .collect(),
-        ),
-        other => other,
-    }
-}
-
 /// `wrap_tool`: scrub credential-shaped secrets out of every tool result before
 /// it leaves the tool boundary (issue #4453). The legacy engine ran
 /// `scrub_credentials` over **every** tool output before it entered model
@@ -40,7 +21,7 @@ fn scrub_json_credentials(value: serde_json::Value) -> serde_json::Value {
 /// RAW tool result first and scrubs it before any outer wrap, the `after_tool`
 /// chain (summarization/caps in [`ToolOutputMiddleware`]), the transcript push,
 /// or the [`ToolOutcomeCaptureMiddleware`] sink can see the unredacted content.
-/// Scrubbing here — rather than inside `execute_openhuman_tool` — covers the
+/// Scrubbing here — rather than inside tool dispatch — covers the
 /// parent chat path, sub-agent paths, the persisted transcript, and
 /// `ToolCallOutcome` records by construction, since every path runs the same
 /// `assemble_turn_harness` seam.
@@ -53,17 +34,19 @@ impl CredentialScrubMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for CredentialScrubMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CredentialScrubMiddleware
+{
     fn name(&self) -> &str {
         "credential_scrub"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         let tool_name = call.name.clone();
         let outcome = next.run(ctx, state, call).await?;
@@ -75,32 +58,17 @@ impl ToolMiddleware<()> for CredentialScrubMiddleware {
             other => return Ok(other),
         };
 
-        let scrubbed_content =
-            crate::agent::harness::credentials::scrub_credentials(&result.content);
-        if scrubbed_content != result.content {
+        let content = crate::agent::tinyagents::middleware::tool_result_text(&result);
+        let scrubbed_content = crate::agent::harness::credentials::scrub_credentials(&content);
+        if scrubbed_content != content {
             tracing::warn!(
                 tool = %tool_name,
                 "[tinyagents::mw] credential_scrub redacted secret(s) from tool result content"
             );
-            result.content = scrubbed_content;
-        }
-
-        if let Some(err) = result.error.as_ref() {
-            let scrubbed_err = crate::agent::harness::credentials::scrub_credentials(err);
-            if &scrubbed_err != err {
-                tracing::warn!(
-                    tool = %tool_name,
-                    "[tinyagents::mw] credential_scrub redacted secret(s) from tool result error"
-                );
-                result.error = Some(scrubbed_err);
-            }
-        }
-
-        // Raw JSON payloads (rarely populated on this path) can carry the same
-        // secrets — walk their string leaves so a scrubbed `content` isn't
-        // undermined by an unredacted `raw` mirror.
-        if let Some(raw) = result.raw.take() {
-            result.raw = Some(scrub_json_credentials(raw));
+            crate::agent::tinyagents::middleware::replace_tool_result_text(
+                &mut result,
+                scrubbed_content,
+            );
         }
 
         Ok(MiddlewareToolOutcome::Result(result))

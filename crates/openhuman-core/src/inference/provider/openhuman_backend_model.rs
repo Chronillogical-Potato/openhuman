@@ -36,7 +36,6 @@ use tinyinference_llm::providers::openai::OpenAiModel;
 use tinyinference_llm::Error as TiError;
 
 use super::ProviderRuntimeOptions;
-use crate::agent::tinyagents::thread_context;
 use crate::api::config::effective_api_url;
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
@@ -80,6 +79,10 @@ pub struct OpenHumanBackendModel {
     default_model: String,
     native_tool_calling: bool,
     profile: ModelProfile,
+    /// Normalized OpenHuman conversation thread. This is deliberately owned by
+    /// the managed backend model: BYOK and third-party models must never see
+    /// this backend-only extension.
+    thread_id: Option<String>,
 }
 
 impl OpenHumanBackendModel {
@@ -108,7 +111,19 @@ impl OpenHumanBackendModel {
                 streaming_tool_chunks: true,
                 ..ModelProfile::default()
             },
+            thread_id: None,
         }
+    }
+
+    /// Attach the explicit run thread used by OpenHuman's managed inference
+    /// endpoint. Blank values mean no backend thread rather than an empty wire
+    /// field.
+    pub fn with_thread_id(mut self, thread_id: Option<impl AsRef<str>>) -> Self {
+        self.thread_id = thread_id.and_then(|thread_id| {
+            let thread_id = thread_id.as_ref().trim();
+            (!thread_id.is_empty()).then(|| thread_id.to_owned())
+        });
+        self
     }
 
     pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
@@ -441,11 +456,10 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
     response
 }
 
-/// Inject the ambient `thread_id` (when set) into the request's
-/// `provider_options` so the crate emits it as a top-level `thread_id` body field
-/// — parity with the host `with_openhuman_thread_id` extension.
-fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
-    let Some(thread_id) = thread_context::current_thread_id() else {
+/// Inject this managed model's explicitly owned thread into provider options.
+/// This backend-only wire extension is never inferred from ambient state.
+fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {
+    let Some(thread_id) = thread_id else {
         return request;
     };
     let mut options = request.provider_options.clone();
@@ -453,10 +467,12 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
         options = Value::Object(serde_json::Map::new());
     }
     if let Some(map) = options.as_object_mut() {
-        map.insert("thread_id".to_string(), Value::String(thread_id));
+        map.insert(
+            "thread_id".to_string(),
+            Value::String(thread_id.to_string()),
+        );
     }
-    request = request.with_provider_options(options);
-    request
+    request.with_provider_options(options)
 }
 
 /// Publish a `SessionExpired` event when the local `exp` precheck in
@@ -555,7 +571,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelResponse> {
         let model = self.build_wire_model()?;
-        let response = match model.invoke(state, with_thread_id(request)).await {
+        let response = match model
+            .invoke(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(response) => response,
             Err(e) => {
                 log_managed_dispatch_error(&e, "invoke");
@@ -579,7 +598,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         // survive via `UsageDelta`). The authoritative charged amount is recovered
         // on the non-streaming `invoke` path above. Restoring it for streaming
         // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
-        match model.stream(state, with_thread_id(request)).await {
+        match model
+            .stream(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(stream) => Ok(stream),
             Err(e) => {
                 log_managed_dispatch_error(&e, "stream");

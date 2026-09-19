@@ -15,17 +15,18 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::{AgentConfig, Config};
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
+use tinyagents_orchestration::teams::{SessionTeamLedger, TeamService};
 use tinyagents_session::run_ledger::{
     self, AgentTeamMemberStatus, AgentTeamMemberUpsert, AgentTeamStatus, AgentTeamTaskStatus,
     AgentTeamTaskUpsert, AgentTeamUpsert,
 };
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+use tinytools::Tool;
 
 // ── Mocks (mirror workflow_runs::engine_tests) ──────────────────────────────
 
@@ -144,6 +145,10 @@ fn test_config() -> (tempfile::TempDir, Config) {
         ..Config::default()
     };
     (dir, config)
+}
+
+fn team_service(config: &Config) -> TeamService<SessionTeamLedger> {
+    TeamService::new(SessionTeamLedger::new(config.workspace_dir.clone()))
 }
 
 fn seed_team(config: &Config, team_id: &str) {
@@ -598,96 +603,7 @@ fn pick_claimable_respects_deps_ownership_and_claim() {
             updated_at: chrono::Utc::now(),
         },
     ];
-    let picked = pick_claimable(&tasks, "m1").expect("c is claimable");
+    let picked =
+        tinyagents_orchestration::teams::claimable_task(&tasks, "m1").expect("c is claimable");
     assert_eq!(picked.id, "c");
-}
-
-#[test]
-fn deliver_pending_messages_injects_then_watermarks() {
-    let (_dir, config) = test_config();
-    seed_team(&config, "team-1");
-    seed_member(&config, "team-1", "m1", None);
-    // Direct to m1, a broadcast, and one addressed elsewhere.
-    super::super::ops::message_member(&config, "team-1", None, Some("m1"), "hello m1", None)
-        .unwrap();
-    super::super::ops::message_member(&config, "team-1", None, None, "broadcast", None).unwrap();
-    seed_member(&config, "team-1", "m2", None);
-    super::super::ops::message_member(&config, "team-1", None, Some("m2"), "for m2", None).unwrap();
-
-    let first = deliver_pending_messages(&config, "team-1", "m1").unwrap();
-    assert_eq!(first, vec!["hello m1".to_string(), "broadcast".to_string()]);
-
-    // Second call: watermark advanced → nothing new.
-    let second = deliver_pending_messages(&config, "team-1", "m1").unwrap();
-    assert!(second.is_empty(), "watermark should suppress redelivery");
-}
-
-#[test]
-fn deliver_pending_messages_pages_past_first_event_page() {
-    // Regression: a single `list_recent_run_events` call returns at most one
-    // page (1000) from `sequence ASC`, but the pre-fix delivery read one
-    // unbounded page (capped at 100). A team with more events than the cap
-    // would drop every message AND watermark beyond it. Seed well past one page
-    // of filler events, then deliver a message landing at a sequence > the cap.
-    let (_dir, config) = test_config();
-    seed_team(&config, "team-1");
-    seed_member(&config, "team-1", "m1", None);
-
-    // Push the sequence far past the old 100-row cap with unrelated events.
-    for i in 0..150 {
-        run_ledger::append_run_event(
-            &config.workspace_dir,
-            run_ledger::RunEventAppend {
-                run_id: "team-1".into(),
-                event_type: "noise".into(),
-                payload: json!({ "i": i }),
-            },
-        )
-        .unwrap();
-    }
-
-    // This message is appended at sequence > 150 — unreachable on the first page.
-    super::super::ops::message_member(&config, "team-1", None, Some("m1"), "late note", None)
-        .unwrap();
-
-    let delivered = deliver_pending_messages(&config, "team-1", "m1").unwrap();
-    assert_eq!(
-        delivered,
-        vec!["late note".to_string()],
-        "message beyond the first event page must still be delivered"
-    );
-
-    // Watermark (itself recorded beyond the cap) must also be read back so the
-    // redelivery guard holds for long-lived teams.
-    let again = deliver_pending_messages(&config, "team-1", "m1").unwrap();
-    assert!(
-        again.is_empty(),
-        "watermark past the first page must suppress redelivery"
-    );
-}
-
-#[test]
-fn build_member_prompt_includes_objective_and_messages() {
-    let task = AgentTeamTask {
-        id: "t1".into(),
-        team_id: "team".into(),
-        title: "Ship the widget".into(),
-        objective: Some("wire it up".into()),
-        status: AgentTeamTaskStatus::InProgress,
-        owner_member_id: None,
-        claimed_by_member_id: Some("m1".into()),
-        claim_token: Some("tok".into()),
-        depends_on: vec![],
-        gate_status: "pending".into(),
-        gate_reason: None,
-        evidence: vec![],
-        source_run_id: None,
-        order_index: 0,
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-    let prompt = build_member_prompt(&task, &["go now".to_string()]);
-    assert!(prompt.contains("Ship the widget"));
-    assert!(prompt.contains("wire it up"));
-    assert!(prompt.contains("go now"));
 }

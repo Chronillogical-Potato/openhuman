@@ -22,9 +22,9 @@ use openhuman_core::config::{Config, DelegateAgentConfig};
 use openhuman_core::cron::DeliveryConfig;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary};
 use openhuman_core::security::{AuditLogger, SecurityPolicy};
+use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
-    all_tools, ComposioTool, CronAddTool, TodoTool, Tool, ToolCallOptions,
-};
+    all_tools, ComposioTool, CronAddTool, TodoTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 

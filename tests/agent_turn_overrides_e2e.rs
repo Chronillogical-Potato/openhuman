@@ -34,19 +34,16 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
 
-use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
 use openhuman_core::agent::goals::{runtime as goal_runtime, store as goal_store};
 use openhuman_core::agent::harness::session::TurnOverrides;
-use openhuman_core::agent::tinyagents::thread_context::with_thread_id;
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
-use openhuman_core::tools::{
-    PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
-};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 
 // ─── Harness ────────────────────────────────────────────────────────────────
 
@@ -234,7 +231,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::agent::dispatcher::ToolDispatcher>,
+    dispatcher: Box<dyn openhuman_core::tinytools_agent::dialect::ToolDialect>,
 ) -> Agent {
     Agent::builder()
         .chat_model(model)
@@ -294,7 +291,7 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
     const THREAD: &str = "thread-suppress-active-goal";
     const OBJECTIVE: &str = "turn-overrides objective that must not leak into small talk";
 
-    with_thread_id(THREAD, async {
+    {
         // CONTROL — without the override the goal reaches the prompt.
         let control_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &control_workspace);
         goal_store::set(&control_workspace, THREAD, OBJECTIVE, None)
@@ -305,8 +302,9 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
             control_model.clone(),
             Vec::new(),
             control_workspace.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        control.set_thread_id(Some(THREAD));
         control
             .turn("where are we on the task?")
             .await
@@ -329,8 +327,9 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        agent.set_thread_id(Some(THREAD));
         agent.set_next_turn_overrides(TurnOverrides {
             suppress_active_goal: true,
             ..Default::default()
@@ -347,8 +346,7 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
             !prompt.contains("[thread goal]"),
             "suppress_active_goal must not inject the [thread goal] block; prompt was: {prompt}"
         );
-    })
-    .await;
+    }
 }
 
 // ─── suppress_transcript_autoload ───────────────────────────────────────────
@@ -379,7 +377,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
     //
     // These scopes do not steer the lookup, and are not meant to. Autoload is
     // `session_io_impl_01_part_01.rs:45` — `latest_for_agent(&self.agent_definition_name)`
-    // — which never reads `thread_context::current_thread_id()`; that
+    // — which never read a conversation-thread carrier; that
     // agent-name-only resolution IS the defect the override exists to work
     // around. They are here so the control states the stronger fact (the prior
     // transcript is replayed *even under a different thread id*), and so that a
@@ -389,23 +387,23 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
     const LATER_THREAD: &str = "turn-overrides-autoload-thread-b";
 
     // A first conversation persists a transcript under this agent name.
-    with_thread_id(PRIOR_THREAD, async {
+    {
         let first_model = ScriptedModel::new(vec![text("first thread reply")]);
         let mut first = agent_with(
             first_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        first.set_thread_id(Some(PRIOR_THREAD));
         first
             .turn(PRIOR_MARKER)
             .await
             .expect("first thread turn should succeed");
-    })
-    .await;
+    }
 
     // Everything below is the *later* chat the host has re-bound to.
-    with_thread_id(LATER_THREAD, async {
+    {
         // CONTROL — a fresh agent with an empty history DOES pick that transcript
         // up, across the thread change.
         let control_model = ScriptedModel::new(vec![text("control reply")]);
@@ -413,8 +411,9 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             control_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        control.set_thread_id(Some(LATER_THREAD));
         control
             .turn("an unrelated question")
             .await
@@ -432,8 +431,9 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        agent.set_thread_id(Some(LATER_THREAD));
         agent.set_next_turn_overrides(TurnOverrides {
             suppress_transcript_autoload: true,
             ..Default::default()
@@ -449,8 +449,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
             "suppress_transcript_autoload must not replay another conversation's transcript \
              into the prompt; found the prior thread's marker in: {prompt}"
         );
-    })
-    .await;
+    }
 }
 
 // ─── one-shot semantics ─────────────────────────────────────────────────────
@@ -479,7 +478,7 @@ async fn turn_overrides_apply_to_exactly_one_turn_and_then_reset_inner() {
         model.clone(),
         vec![Box::new(EchoTool)],
         workspace_path.clone(),
-        Box::new(NativeToolDispatcher),
+        Box::new(NativeDialect),
     );
 
     agent.set_next_turn_overrides(TurnOverrides {
@@ -541,7 +540,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
     const THREAD: &str = "thread-goal-terminal";
     const OBJECTIVE: &str = "turn-overrides objective a finished task must stop replaying";
 
-    with_thread_id(THREAD, async {
+    {
         // CONTROL — an Active goal reaches a turn.
         let control_guard = EnvGuard::set_path("OPENHUMAN_WORKSPACE", &control_workspace);
         goal_store::set(&control_workspace, THREAD, OBJECTIVE, None)
@@ -552,8 +551,9 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             control_model.clone(),
             Vec::new(),
             control_workspace.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        control.set_thread_id(Some(THREAD));
         control.turn("status?").await.expect("pre-completion turn");
         assert!(
             control_model.all_prompt_text().contains(OBJECTIVE),
@@ -568,7 +568,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
         goal_store::set(&workspace_path, THREAD, OBJECTIVE, None)
             .await
             .expect("seed an active thread goal for the measured agent");
-        let seeded = goal_runtime::load_for_current_thread(&workspace_path)
+        let seeded = goal_runtime::load_for_thread(&workspace_path, Some(THREAD))
             .await
             .expect("the seeded goal must load before completion");
         assert_eq!(
@@ -576,7 +576,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             "control: the goal must be loadable before completing it"
         );
 
-        goal_runtime::complete_for_current_thread(&workspace_path).await;
+        goal_runtime::complete_for_thread(&workspace_path, Some(THREAD)).await;
 
         // A completed goal renders no context block, so a later turn is clean
         // with no per-turn override set at all.
@@ -585,8 +585,9 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        agent.set_thread_id(Some(THREAD));
         agent
             .turn("something unrelated")
             .await
@@ -598,9 +599,9 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
              later turns; found it in: {prompt}"
         );
 
-        goal_runtime::clear_for_current_thread(&workspace_path).await;
+        goal_runtime::clear_for_thread(&workspace_path, Some(THREAD)).await;
         assert!(
-            goal_runtime::load_for_current_thread(&workspace_path)
+            goal_runtime::load_for_thread(&workspace_path, Some(THREAD))
                 .await
                 .is_none(),
             "clear_for_current_thread must remove the goal row outright"
@@ -615,7 +616,7 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
         goal_store::set(&workspace_path, THREAD, ACTIVE_OBJECTIVE, None)
             .await
             .expect("seed a second, still-active thread goal");
-        let active = goal_runtime::load_for_current_thread(&workspace_path)
+        let active = goal_runtime::load_for_thread(&workspace_path, Some(THREAD))
             .await
             .expect("the second goal must load while it is still active");
         assert_eq!(
@@ -624,9 +625,9 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
              proves nothing"
         );
 
-        goal_runtime::clear_for_current_thread(&workspace_path).await;
+        goal_runtime::clear_for_thread(&workspace_path, Some(THREAD)).await;
         assert!(
-            goal_runtime::load_for_current_thread(&workspace_path)
+            goal_runtime::load_for_thread(&workspace_path, Some(THREAD))
                 .await
                 .is_none(),
             "clear_for_current_thread must remove an ACTIVE goal, not only a completed one"
@@ -639,8 +640,9 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             post_clear_model.clone(),
             Vec::new(),
             workspace_path.clone(),
-            Box::new(XmlToolDispatcher),
+            Box::new(XmlDialect),
         );
+        post_clear.set_thread_id(Some(THREAD));
         post_clear
             .turn("something else entirely")
             .await
@@ -651,6 +653,5 @@ async fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns_inner
             "an active goal cleared via clear_for_current_thread must stop being injected \
              into later turns; found it in: {post_clear_prompt}"
         );
-    })
-    .await;
+    }
 }

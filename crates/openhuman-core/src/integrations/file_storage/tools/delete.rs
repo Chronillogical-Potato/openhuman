@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use super::helpers::{file_path, readonly_autonomy_block, validate_file_id};
 use crate::integrations::IntegrationClient;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 use crate::integrations::file_storage::types::DeleteResponse;
 

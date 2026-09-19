@@ -7,6 +7,7 @@ use crate::runtime::python::PythonBootstrap;
 use crate::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tinytools::Tool;
 
 pub(crate) use super::capability::tool_capability;
 
@@ -76,18 +77,11 @@ pub fn all_tools(
         agents,
         root_config,
         None,
-        None,
-        None,
-        None,
-        None,
     )
 }
 
 /// Create full tool registry including memory tools.
 ///
-/// `skill_allowlist` / `mcp_allowlist` scope the skill (workflow) and MCP-server
-/// surfaces to an active agent profile's selection. `None` for either means
-/// "all" (the default for every non-profile caller).
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
 pub fn all_tools_with_runtime(
     config: Arc<Config>,
@@ -99,18 +93,8 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::config::Config,
-    active_profile: Option<&crate::agent::profiles::AgentProfile>,
-    skill_allowlist: Option<&std::collections::HashSet<String>>,
-    mcp_allowlist: Option<&[String]>,
-    profile_skills_root: Option<&std::path::Path>,
     approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
-    // tool registrations below, so they are genuinely unread when that feature
-    // is compiled out.
-    #[cfg(not(feature = "skills"))]
-    let _ = (active_profile, skill_allowlist, profile_skills_root);
-
     // One shared snapshot of this session's configuration for both language
     // clients. They each hand it to the `tinyruntime` module on every call —
     // the module holds no configuration of its own — so the two must not be
@@ -219,7 +203,6 @@ pub fn all_tools_with_runtime(
         Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
         Box::new(SpawnParallelAgentsTool::new()),
-        Box::new(DelegateToPersonalityTool::new()),
         // Multi-stage durable delegation (issue #4249, Phase 3): runs the chosen
         // sub-agent through the tinyagents plan→execute→review→finalize graph,
         // checkpointed to the session DB. Heavier than spawn_subagent; for
@@ -247,19 +230,9 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(
-            RunWorkflowTool::new()
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(RunWorkflowTool::new()),
         #[cfg(feature = "skills")]
-        Box::new(
-            AwaitWorkflowTool::new()
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
         // Reversibility for native tool-output compaction (Stage 1a): when a
         // large result is compacted with a `retrieve_tool_output("<hash>")`
@@ -359,7 +332,7 @@ pub fn all_tools_with_runtime(
         // (researcher / code_executor / …) — the agent analogue of
         // search_tool_catalog. Read-only.
         #[cfg(feature = "flows")]
-        Box::new(ListAgentProfilesTool::new()),
+        Box::new(ListAgentDefinitionsTool::new()),
         // Steer toolkit choice toward what's already connected + surface which
         // toolkits a flow still needs (Phase 5, item 19). Read-only.
         #[cfg(feature = "flows")]
@@ -508,23 +481,11 @@ pub fn all_tools_with_runtime(
         // create/install/uninstall mutators ship default-OFF via
         // `tools::user_filter` (install also fetches remote content).
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowListTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowListTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowDescribeTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowDescribeTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            SkillSearchTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(SkillSearchTool::new(config.clone())),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
         // operation (fetches remote content and writes to disk).
@@ -543,25 +504,11 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(SkillRuntimeResolveRuntimesTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowReadResourceTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowReadResourceTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowRecentRunsTool::new(config.clone())
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowRecentRunsTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowReadRunLogTool::new(config.clone())
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowReadRunLogTool::new(config.clone())),
         #[cfg(feature = "skills")]
         Box::new(WorkflowCreateTool::new(config.clone())),
         #[cfg(feature = "skills")]
@@ -812,15 +759,7 @@ pub fn all_tools_with_runtime(
 
     // gitbooks — answers questions about OpenHuman by calling the
     // GitBook MCP server. Two tools mirroring the upstream MCP tools.
-    // Gitbooks is modelled as a legacy MCP server (`McpServerRegistry`), so it
-    // honours the same per-profile `mcp_allowlist`: a profile that scopes its
-    // MCP servers and omits "gitbooks" must not see this surface either.
-    let gitbooks_allowed = mcp_allowlist.is_none_or(|allowed| {
-        allowed
-            .iter()
-            .any(|name| name.eq_ignore_ascii_case("gitbooks"))
-    });
-    if root_config.gitbooks.enabled && gitbooks_allowed {
+    if root_config.gitbooks.enabled {
         // Building the client can fail on a malformed proxy or an unusable TLS
         // setting. Both are logged and the tools are simply not registered:
         // taking the whole surface down over a documentation server would cost
@@ -844,8 +783,6 @@ pub fn all_tools_with_runtime(
                 tracing::warn!("[gitbooks] tools not registered: {error}");
             }
         }
-    } else if root_config.gitbooks.enabled {
-        tracing::debug!("[profiles] gitbooks tools suppressed by profile mcp allowlist");
     }
 
     // MCP setup-agent tool surface (search/get/request_secret/test/install).
@@ -880,12 +817,7 @@ pub fn all_tools_with_runtime(
             // logged and treated as empty: a malformed proxy or TLS setting
             // must not take the whole tool surface down with it.
             let base = crate::mcp::host::static_registry(root_config);
-            // Scope the MCP surface to the active profile's allowlist. `None` keeps
-            // every configured server; `Some(&[])` yields an empty registry.
-            match mcp_allowlist {
-                Some(allowed) => Arc::new(base.retaining_servers(allowed)),
-                None => Arc::new(base),
-            }
+            Arc::new(base)
         };
         log::debug!(
             "[tools::ops][mcp_client] static servers={}",
@@ -1245,7 +1177,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "search_tool_catalog",
         "get_tool_contract",
         "get_tool_output_sample",
-        "list_agent_profiles",
+        "list_agent_definitions",
         "list_connectable_toolkits",
         "list_node_kinds",
         "get_node_kind_contract",

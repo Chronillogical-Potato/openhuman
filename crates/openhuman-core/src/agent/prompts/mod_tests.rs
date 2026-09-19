@@ -1,9 +1,9 @@
 use super::*;
-use crate::tools::traits::Tool;
 use async_trait::async_trait;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::LazyLock;
+use tinytools::Tool;
 
 static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
 
@@ -41,8 +41,8 @@ impl Tool for TestTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("ok"))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
     }
 }
 
@@ -68,8 +68,6 @@ fn ctx_with_identity(identity: Option<UserIdentity>) -> PromptContext<'static> {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: identity,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -102,8 +100,6 @@ fn memory_framing_ctx<'a>(
         include_memory_md: true,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -128,8 +124,6 @@ fn ctx_with_learned(learned: LearnedContextData) -> PromptContext<'static> {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -159,8 +153,6 @@ fn agents_md_ctx(global: Option<String>, local: Option<String>) -> PromptContext
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: global,
         agents_md_local: local,

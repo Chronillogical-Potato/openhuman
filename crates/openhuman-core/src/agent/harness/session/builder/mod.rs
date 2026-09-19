@@ -18,8 +18,8 @@ mod builder_tests;
 
 use crate::agent::harness::definition::{AgentDefinition, ToolScope};
 use crate::tools::agent_policy::ToolPolicySession;
-use crate::tools::{Tool, ToolSpec};
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 /// Drop entries with duplicate `name` fields, first occurrence wins.
 ///

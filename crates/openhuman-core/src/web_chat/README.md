@@ -126,10 +126,8 @@ Namespace `channel`, registered via
 
 ## Calls into
 
-- `crate::agent::harness` — `Agent::from_config_for_agent_with_profile`,
+- `crate::agent::harness` — `Agent::from_config_for_agent`,
   `run_queue::{RunQueue, QueueMode}`, and the tool-calling loop itself.
-- `crate::agent::profiles::AgentProfileStore` — resolves the active profile
-  for `build_session_agent`.
 - `crate::threads::turn_state::{TurnStateStore, TurnStateMirror}` — the
   progress bridge mirrors turn state here for cross-surface visibility.
 - `crate::inference::provider::provider_for_role` — resolves the provider

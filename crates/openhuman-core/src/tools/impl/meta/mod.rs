@@ -1,7 +1,7 @@
 //! Tools *about* the tool surface itself.
 //!
 //! Two members: [`tool_search`], the lookup half of
-//! [`ToolExposure::Deferred`](crate::tools::ToolExposure). It sits
+//! [`ToolExposure::Deferred`](tinytools::ToolExposure). It sits
 //! in its own family rather than under `system/` because it is not a capability
 //! the host offers the user — it is the model asking what it is able to do.
 

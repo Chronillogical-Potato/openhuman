@@ -9,8 +9,8 @@
 
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
-use crate::agent::context::prompt::PromptContext;
-use crate::tools::Tool;
+use crate::agent::prompts::PromptContext;
+use tinytools::Tool;
 
 // ── Heavy-schema toolkit accounting ─────────────────────────────────────
 
@@ -113,7 +113,7 @@ pub(super) fn essential_actions_for_toolkit(toolkit: &str) -> &'static [&'static
 /// call site did before the essentials existed.
 pub(super) fn select_actions_with_essentials(
     toolkit: &str,
-    actions: &[crate::agent::context::prompt::ConnectedIntegrationTool],
+    actions: &[crate::agent::prompts::ConnectedIntegrationTool],
     filter_hits: &[usize],
     top_k: usize,
 ) -> Vec<usize> {
@@ -167,7 +167,7 @@ pub(super) fn select_actions_with_essentials(
 
 /// Format the tool-use protocol block appended to the system prompt in text
 /// mode. Teaches **P-Format** first (the same protocol
-/// [`crate::agent::dispatcher::PFormatToolDispatcher`] renders and
+/// [`tinytools_agent::dialect::PFormatDialect`] renders and
 /// the tinyagents adapter parses via `parse_tool_calls_with_pformat`), with
 /// the legacy JSON-in-tag form as the documented fallback for nested
 /// arguments. The `## Tools` catalogue already renders `Call as:` p-format
@@ -229,24 +229,22 @@ pub(crate) fn build_text_mode_tool_instructions() -> String {
 /// Its protocol block is empty because the runner appends
 /// [`build_text_mode_tool_instructions`] itself.
 pub(crate) fn subagent_prompt_protocol(
-    parent_format: crate::agent::context::prompt::ToolCallFormat,
+    parent_format: crate::agent::prompts::ToolCallFormat,
     text_mode: bool,
-) -> (crate::agent::context::prompt::ToolCallFormat, String) {
-    use crate::agent::context::prompt::ToolCallFormat;
-    use crate::agent::dispatcher::{
-        NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
-    };
-    use crate::agent::pformat::PFormatRegistry;
+) -> (crate::agent::prompts::ToolCallFormat, String) {
+    use crate::agent::prompts::ToolCallFormat;
+    use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+    use tinytools_agent::PFormatRegistry;
     if text_mode {
         return (ToolCallFormat::PFormat, String::new());
     }
-    let empty_tools: Vec<Box<dyn Tool>> = Vec::new();
+    let empty_tools = Vec::new();
     let instructions = match parent_format {
         ToolCallFormat::PFormat => {
-            PFormatToolDispatcher::new(PFormatRegistry::new()).prompt_instructions(&empty_tools)
+            PFormatDialect::new(PFormatRegistry::new()).prompt_instructions(&empty_tools)
         }
-        ToolCallFormat::Native => NativeToolDispatcher.prompt_instructions(&empty_tools),
-        ToolCallFormat::Json => XmlToolDispatcher.prompt_instructions(&empty_tools),
+        ToolCallFormat::Native => NativeDialect.prompt_instructions(&empty_tools),
+        ToolCallFormat::Json => XmlDialect.prompt_instructions(&empty_tools),
     };
     (parent_format, instructions)
 }

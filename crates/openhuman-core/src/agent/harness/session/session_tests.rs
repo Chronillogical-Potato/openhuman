@@ -6,20 +6,33 @@
 //! (`MockProvider`, `RecordingProvider`, `MockTool`) are defined here.
 
 use super::types::{Agent, AgentBuilder};
-use crate::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use crate::agent::messages::ConversationMessage;
+use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::core::events::DomainEvent;
 use crate::inference::provider::ChatResponse;
 use crate::memory::Memory;
-use crate::tools::Tool;
 use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::Arc;
+use tinyagents_session::transcript::{
+    SessionTranscript, TranscriptHistory, TranscriptLocator, TranscriptMeta, TranscriptRead,
+    TranscriptTurn,
+};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
+use tinytools::Tool;
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
+
+fn durable_messages(
+    messages: impl IntoIterator<Item = ChatMessage>,
+) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
+    messages
+        .into_iter()
+        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
+        .collect()
+}
 
 struct MockProvider {
     responses: Mutex<Vec<ChatResponse>>,
@@ -58,10 +71,10 @@ impl ChatModel<()> for MockProvider {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 
@@ -123,10 +136,10 @@ impl ChatModel<()> for RecordingProvider {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let response = self.invoke(state, request).await?;
-        Ok(Box::pin(futures::stream::iter(vec![
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(vec![
             ModelStreamItem::Started,
             ModelStreamItem::Completed(response),
-        ])))
+        ]))))
     }
 }
 
@@ -146,8 +159,8 @@ impl Tool for MockTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("tool-out"))
+    async fn execute(&self, _args: serde_json::Value) -> Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("tool-out"))
     }
 }
 
@@ -195,7 +208,7 @@ fn build_minimal_agent_with_tool_sets(
         .tools(tools)
         .synthesized_tools(synthesized_tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path);
 
     if let Some(name) = definition_name {
@@ -372,7 +385,7 @@ async fn turn_dispatches_spawn_subagent_through_full_path_inner() {
         .chat_model(provider)
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -420,50 +433,42 @@ async fn turn_dispatches_spawn_subagent_through_full_path_inner() {
 /// the regression signal for that.
 struct FakeSessionHistory {
     path: std::path::PathBuf,
-    canned: Option<crate::agent::harness::session::transcript::SessionTranscript>,
-    appended: Mutex<Vec<Vec<crate::agent::messages::ChatMessage>>>,
+    canned: Option<SessionTranscript>,
+    appended: Mutex<Vec<Vec<tinyagents_session::transcript::TranscriptMessage>>>,
 }
 
-impl crate::agent::harness::session::transcript_history::SessionTranscriptRead
-    for FakeSessionHistory
-{
+impl TranscriptRead for FakeSessionHistory {
     fn path(&self) -> &std::path::Path {
         &self.path
     }
 
-    fn read_session(
-        &self,
-    ) -> Result<Option<crate::agent::harness::session::transcript::SessionTranscript>> {
+    fn read_session(&self) -> Result<Option<SessionTranscript>> {
         Ok(self.canned.clone())
     }
 }
 
-impl crate::agent::harness::session::transcript_history::SessionHistory for FakeSessionHistory {
-    fn append_turn(
-        &self,
-        turn: crate::agent::harness::session::transcript_history::TranscriptTurn<'_>,
-    ) -> Result<()> {
+impl TranscriptHistory for FakeSessionHistory {
+    fn append_turn(&self, turn: TranscriptTurn<'_>) -> Result<()> {
         self.appended.lock().push(turn.next.to_vec());
         Ok(())
     }
-}
-
-#[async_trait]
-impl tinyagents_harness::memory::ChatHistory for FakeSessionHistory {
-    async fn messages(&self, _thread_id: &str) -> tinyagents_harness::Result<Vec<Message>> {
-        Ok(vec![])
+    fn messages(&self) -> Result<Vec<tinyagents_session::transcript::TranscriptMessage>> {
+        Ok(self
+            .canned
+            .as_ref()
+            .map(|transcript| transcript.messages.clone())
+            .unwrap_or_default())
     }
-    async fn append(&self, _thread_id: &str, _message: Message) -> tinyagents_harness::Result<()> {
+    fn append(&self, _message: tinyagents_session::transcript::TranscriptMessage) -> Result<()> {
         Ok(())
     }
-    async fn replace(
+    fn replace(
         &self,
-        _thread_id: &str,
-        _messages: Vec<Message>,
-    ) -> tinyagents_harness::Result<()> {
+        _messages: &[tinyagents_session::transcript::TranscriptMessage],
+    ) -> Result<()> {
         Ok(())
     }
-    async fn clear(&self, _thread_id: &str) -> tinyagents_harness::Result<()> {
+    fn clear(&self) -> Result<()> {
         Ok(())
     }
 }
@@ -474,36 +479,22 @@ struct FakeLocator {
     handle: Arc<FakeSessionHistory>,
 }
 
-impl crate::agent::harness::session::transcript_history::SessionHistoryLocator for FakeLocator {
-    fn latest_for_agent(
-        &self,
-        _agent_name: &str,
-    ) -> Option<Arc<dyn crate::agent::harness::session::transcript_history::SessionTranscriptRead>>
-    {
+impl TranscriptLocator for FakeLocator {
+    fn latest_for_agent(&self, _agent_name: &str) -> Option<Arc<dyn TranscriptRead>> {
         Some(self.handle.clone())
     }
 
-    fn root_for_thread(
-        &self,
-        _thread_id: &str,
-    ) -> Option<Arc<dyn crate::agent::harness::session::transcript_history::SessionTranscriptRead>>
-    {
+    fn root_for_thread(&self, _thread_id: &str) -> Option<Arc<dyn TranscriptRead>> {
         Some(self.handle.clone())
     }
 
-    fn open_stem(
-        &self,
-        _stem: &str,
-        _seed: crate::agent::harness::session::transcript::TranscriptMeta,
-    ) -> Result<Arc<dyn crate::agent::harness::session::transcript_history::SessionHistory>> {
+    fn open_stem(&self, _stem: &str, _seed: TranscriptMeta) -> Result<Arc<dyn TranscriptHistory>> {
         Ok(self.handle.clone())
     }
 }
 
-fn fake_transcript_meta(
-    thread_id: &str,
-) -> crate::agent::harness::session::transcript::TranscriptMeta {
-    crate::agent::harness::session::transcript::TranscriptMeta {
+fn fake_transcript_meta(thread_id: &str) -> TranscriptMeta {
+    TranscriptMeta {
         agent_name: "faker".into(),
         agent_id: None,
         agent_type: Some("root".into()),
@@ -524,7 +515,7 @@ fn fake_transcript_meta(
 
 fn agent_with_fake_locator(
     workspace: &std::path::Path,
-    canned: Option<crate::agent::harness::session::transcript::SessionTranscript>,
+    canned: Option<SessionTranscript>,
 ) -> (Agent, Arc<FakeSessionHistory>) {
     let handle = Arc::new(FakeSessionHistory {
         path: workspace.join("session_raw").join("fake.jsonl"),
@@ -542,7 +533,7 @@ fn agent_with_fake_locator(
         }))
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .agent_definition_name("faker")
         .workspace_dir(workspace.to_path_buf())
         .with_session_history_locator(Arc::new(FakeLocator {

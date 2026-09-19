@@ -1,8 +1,8 @@
 use crate::memory::query::backend;
 use crate::memory::tree::retrieval::rpc::DrillDownRequest;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolResult};
 
 pub struct MemoryTreeDrillDownTool;
 

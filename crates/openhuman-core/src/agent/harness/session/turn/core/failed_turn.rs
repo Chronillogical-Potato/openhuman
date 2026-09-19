@@ -1,6 +1,5 @@
 //! Keeping what a failed chat turn did (#6281).
 
-use crate::agent::harness::session::transcript::{MessageUsage, TurnUsage};
 use crate::agent::harness::session::turn_checkpoint::{truncate_chars, CHECKPOINT_RESULT_CHARS};
 use crate::agent::harness::session::types::Agent;
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
@@ -9,6 +8,7 @@ use crate::agent::tinyagents::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink,
 };
 use anyhow::Result;
+use tinyagents_session::transcript::{MessageUsage, TurnUsage};
 use tinyinference_llm::message::Message;
 
 /// Leads the note a failed turn leaves in history, so the model (and a reader
@@ -36,6 +36,7 @@ impl Agent {
         max_iterations: usize,
         artifact_store: Option<ToolResultArtifactStore>,
         suppress_tools: bool,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> Result<String> {
         let snapshot = TranscriptSnapshotSink::default();
         let result = Box::pin(self.run_turn_via_tinyagents_session_inner(
@@ -45,6 +46,7 @@ impl Agent {
             max_iterations,
             artifact_store,
             suppress_tools,
+            run_context,
             snapshot.clone(),
         ))
         .await;
@@ -111,7 +113,10 @@ impl Agent {
             output,
             cached,
         );
-        let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
+        let persisted = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         let turn_usage = TurnUsage {
             provider: self.event_channel().to_string(),
             model: effective_model.to_string(),

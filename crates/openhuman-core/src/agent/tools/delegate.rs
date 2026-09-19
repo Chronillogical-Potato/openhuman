@@ -5,14 +5,16 @@ use crate::inference::provider::{
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
 use crate::tools::timeout::tool_execution_timeout_secs;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelRequest};
+use tinytools::{Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 /// Tool that delegates a subtask to a named agent with a different
 /// provider/model configuration. Enables multi-agent workflows where
@@ -25,6 +27,48 @@ pub struct DelegateTool {
     provider_runtime_options: ProviderRuntimeOptions,
     /// Depth at which this tool instance lives in the delegation chain.
     depth: u32,
+}
+
+/// Typed harness dispatch for the config-defined `delegate` tool.
+///
+/// The configured tool remains the canonical executor (and therefore retains
+/// its configured agents, model routing, and security policy); this wrapper
+/// supplies the live thread/workspace context and makes cancellation explicit
+/// instead of relying on a task-local carrier.
+pub(crate) struct DelegateToolDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl DelegateToolDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for DelegateToolDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        let child = parent.data.child();
+        tokio::select! {
+            _ = child.cancellation.cancelled() => Ok(ToolResult::error(
+                "delegate: cancelled before the configured agent completed"
+            )),
+            result = self.tool.execute_with_context(arguments, options, Some(&context)) => result,
+        }
+    }
 }
 
 impl DelegateTool {
@@ -119,6 +163,25 @@ impl Tool for DelegateTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_inner(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_inner(args, tool_context).await
+    }
+}
+
+impl DelegateTool {
+    async fn execute_inner(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let agent_name = args
             .get("agent")
             .and_then(|v| v.as_str())
@@ -183,7 +246,11 @@ impl Tool for DelegateTool {
             None,
             &self.provider_runtime_options,
             agent_config.model.clone(),
-        );
+        )
+        // `metadata` below is diagnostic only; the managed model owns the
+        // actual backend wire extension so configured delegates cannot lose
+        // their parent's thread between typed dispatch and provider invoke.
+        .with_thread_id(tool_context.and_then(ToolRunContext::thread_id));
 
         // Build the message
         let full_prompt = if context.is_empty() {
@@ -196,22 +263,29 @@ impl Tool for DelegateTool {
 
         let delegate_timeout_secs = tool_execution_timeout_secs();
         // Wrap the provider call in a timeout to prevent indefinite blocking
+        let mut request = ModelRequest::new(
+            agent_config
+                .system_prompt
+                .as_deref()
+                .map(Message::system)
+                .into_iter()
+                .chain(std::iter::once(Message::user(full_prompt)))
+                .collect(),
+        )
+        .with_model(agent_config.model.clone())
+        .with_temperature(temperature);
+        request.metadata = json!({
+            "openhuman": {
+                "thread_id": tool_context.and_then(ToolRunContext::thread_id),
+                "workspace_root": tool_context
+                    .and_then(ToolRunContext::workspace)
+                    .map(|workspace| workspace.root.display().to_string()),
+            }
+        });
+
         let result = tokio::time::timeout(
             Duration::from_secs(delegate_timeout_secs),
-            model.invoke(
-                &(),
-                ModelRequest::new(
-                    agent_config
-                        .system_prompt
-                        .as_deref()
-                        .map(Message::system)
-                        .into_iter()
-                        .chain(std::iter::once(Message::user(full_prompt)))
-                        .collect(),
-                )
-                .with_model(agent_config.model.clone())
-                .with_temperature(temperature),
-            ),
+            model.invoke(&(), request),
         )
         .await;
 

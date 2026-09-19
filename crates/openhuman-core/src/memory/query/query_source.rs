@@ -1,9 +1,9 @@
 use crate::memory::api::chunks::SourceKind;
 use crate::memory::query::backend;
 use crate::memory::tree::retrieval::rpc::QuerySourceRequest;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolResult};
 
 pub struct MemoryTreeQuerySourceTool;
 

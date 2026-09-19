@@ -30,15 +30,16 @@
 //! [`SubagentEntry::AgentId`]: crate::agent::harness::definition::SubagentEntry::AgentId
 //! [`SubagentEntry::Skills`]: crate::agent::harness::definition::SubagentEntry::Skills
 
-use crate::agent::context::prompt::ConnectedIntegration;
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, SubagentEntry};
+use crate::agent::prompts::ConnectedIntegration;
 
 // SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
 // temporarily disabled (see tinyhumansai/openhuman#1624).
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
-use super::{ArchetypeDelegationTool, SkillDelegationTool, Tool};
+use super::{ArchetypeDelegationTool, SkillDelegationTool};
 use crate::agent::orchestration::tools::DelegationTarget;
+use tinytools::Tool;
 
 /// Synthesise the delegation tool list for an agent based on its
 /// declarative `subagents` field.

@@ -1,9 +1,9 @@
 use crate::mcp::config_servers::{McpRegistrySource, McpServerRegistry};
 use crate::security::{SecurityPolicy, ToolOperation};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct McpListServersTool {
     registry: Arc<McpServerRegistry>,

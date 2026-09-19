@@ -1,11 +1,154 @@
 //! Subagent dispatch logic shared by all agent delegation tools.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::{Tool as _, ToolCallOptions, ToolResult};
+use async_trait::async_trait;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
+use tinytools::{ToolCallOptions, ToolResult};
+
+/// Typed dispatch for the delegation tools synthesised from the active agent.
+///
+/// These tools are dynamic, so their common registration resolves the admitted
+/// target from its name and passes the live parent carrier explicitly. This is
+/// the recursive boundary: it never reconstructs product state from a task
+/// local or a downcast.
+pub(crate) struct DelegationDispatch {
+    tool: Arc<dyn tinytools::Tool>,
+    kind: DelegationDispatchKind,
+}
+
+enum DelegationDispatchKind {
+    Collapsed {
+        targets: Result<Vec<super::collapsed_delegation::DelegateTarget>, String>,
+    },
+    Integrations {
+        connected_toolkits: Vec<String>,
+    },
+    Archetype,
+}
+
+impl DelegationDispatch {
+    pub(crate) fn for_tool(tool: Arc<dyn tinytools::Tool>) -> Option<Self> {
+        let kind = match tool.name() {
+            super::collapsed_delegation::DELEGATE_TO_TOOL_NAME => {
+                DelegationDispatchKind::Collapsed {
+                    targets: super::collapsed_delegation::dispatch_targets_from_schema(
+                        &tool.parameters_schema(),
+                    ),
+                }
+            }
+            super::skill_delegation::INTEGRATIONS_DELEGATE_TOOL_NAME => {
+                let connected_toolkits = tool
+                    .parameters_schema()
+                    .pointer("/properties/toolkit/enum")
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|value| value.as_str().map(str::to_owned))
+                    .collect();
+                DelegationDispatchKind::Integrations { connected_toolkits }
+            }
+            // Only synthesized archetype delegate names enter this path.
+            // `delegate_graph` is a concrete durable graph tool with its own
+            // typed dispatcher, and arbitrary `delegate_*` tools must not be
+            // mistaken for an agent target merely because of their spelling.
+            name if AgentDefinitionRegistry::global().is_some_and(|registry| {
+                registry.list().into_iter().any(|definition| {
+                    definition
+                        .delegate_name
+                        .clone()
+                        .unwrap_or_else(|| format!("delegate_{}", definition.id))
+                        == name
+                })
+            }) =>
+            {
+                DelegationDispatchKind::Archetype
+            }
+            _ => return None,
+        };
+        Some(Self { tool, kind })
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for DelegationDispatch {
+    fn tool(&self) -> Arc<dyn tinytools::Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let tool_context = ToolExecutionContext::from_run_context(parent);
+        let child = parent.data.child();
+        match &self.kind {
+            DelegationDispatchKind::Collapsed { targets } => {
+                let targets = match targets {
+                    Ok(targets) => targets,
+                    Err(reason) => {
+                        return Ok(ToolResult::error(format!(
+                            "delegate_to: invalid advertised target mapping: {reason}"
+                        )));
+                    }
+                };
+                super::collapsed_delegation::execute_collapsed_delegation(
+                    targets,
+                    arguments,
+                    Some(&tool_context),
+                    child,
+                )
+                .await
+            }
+            DelegationDispatchKind::Integrations { connected_toolkits } => {
+                let connected_toolkits: Vec<(String, String)> = connected_toolkits
+                    .iter()
+                    .cloned()
+                    .map(|slug| (slug, String::new()))
+                    .collect();
+                super::skill_delegation::execute_skill_delegation(
+                    self.tool.name(),
+                    &connected_toolkits,
+                    arguments,
+                    Some(&tool_context),
+                    child,
+                )
+                .await
+            }
+            DelegationDispatchKind::Archetype => {
+                let Some(agent_id) = AgentDefinitionRegistry::global().and_then(|registry| {
+                    registry.list().into_iter().find_map(|definition| {
+                        let name = definition
+                            .delegate_name
+                            .clone()
+                            .unwrap_or_else(|| format!("delegate_{}", definition.id));
+                        (name == self.tool.name()).then_some(definition.id.clone())
+                    })
+                }) else {
+                    return Ok(ToolResult::error(format!(
+                        "{}: delegation target is not registered",
+                        self.tool.name()
+                    )));
+                };
+                super::archetype_delegation::execute_archetype_delegation(
+                    &agent_id,
+                    self.tool.name(),
+                    arguments,
+                    Some(&tool_context),
+                    child,
+                )
+                .await
+            }
+        }
+    }
+}
 
 /// How a delegated sub-agent run should be scheduled relative to the parent
 /// turn.
@@ -32,8 +175,11 @@ pub(crate) async fn dispatch_subagent(
     model_override: Option<&str>,
     tool_context: Option<&dyn ToolRunContext>,
     mode: DispatchMode,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
-    let parent_workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+    let parent_workspace_descriptor = tool_context
+        .and_then(|ctx| ctx.workspace().cloned())
+        .or_else(|| run_context.workspace.clone());
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,
         None => {
@@ -54,7 +200,7 @@ pub(crate) async fn dispatch_subagent(
         }
     };
 
-    let parent_ctx = current_parent();
+    let parent_ctx = run_context.parent.clone();
     if let Some(ctx) = &parent_ctx {
         if !ctx.allowed_subagent_ids.contains(&definition.id) {
             log::warn!(
@@ -79,8 +225,7 @@ pub(crate) async fn dispatch_subagent(
     // prompt so its own turn rehydrates the image from the on-disk sidecar.
     let forwarded_prompt;
     let prompt: &str = {
-        let images =
-            crate::agent::harness::turn_attachments_context::current_turn_image_placeholders();
+        let images = &run_context.attachment_placeholders;
         let subagent_model = match model_override {
             Some(m) => m.to_string(),
             None => {
@@ -118,8 +263,10 @@ pub(crate) async fn dispatch_subagent(
     // stateless builder (the "day 0 context" bug).
     if mode == DispatchMode::PreferAsync {
         let has_parent_turn = parent_ctx.is_some();
-        let has_delivery_thread =
-            crate::agent::tinyagents::thread_context::current_thread_id().is_some();
+        let has_delivery_thread = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
+            .is_some();
         if has_parent_turn && has_delivery_thread {
             let mut async_args = serde_json::json!({
                 "agent_id": definition.id.clone(),
@@ -153,7 +300,7 @@ pub(crate) async fn dispatch_subagent(
             // parallel-delegation flows.
             return Box::pin(async move {
                 super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                    .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+                    .execute_with_parent_context(async_args, tool_context, run_context)
                     .await
             })
             .await;
@@ -188,7 +335,7 @@ pub(crate) async fn dispatch_subagent(
 
     // Also send to the per-request progress sink so the web channel bridge
     // emits `subagent_spawned` to the frontend (same pattern as spawn_subagent.rs).
-    if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+    if let Some(progress) = run_context.progress.clone() {
         let _ = progress
             .send(AgentProgress::SubagentSpawned {
                 agent_id: definition.id.clone(),
@@ -239,6 +386,11 @@ pub(crate) async fn dispatch_subagent(
         context: None,
         model_override: model_override.map(str::to_string),
         task_id: Some(task_id.clone()),
+        thread_id: tool_context
+            .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
+            .map(str::to_owned),
+        run_context: run_context.clone(),
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,
@@ -268,7 +420,7 @@ pub(crate) async fn dispatch_subagent(
                     outcome.agent_id.clone(),
                     question.clone(),
                 );
-                if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+                if let Some(progress) = run_context.progress.clone() {
                     let _ = progress
                         .send(AgentProgress::SubagentAwaitingUser {
                             agent_id: outcome.agent_id.clone(),
@@ -313,7 +465,7 @@ pub(crate) async fn dispatch_subagent(
                 // stays "running" forever — `publish_subagent_completed` only
                 // fires the internal DomainEvent bus, not the per-request
                 // progress channel the UI's timeline is driven from.
-                if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+                if let Some(progress) = run_context.progress.clone() {
                     let _ = progress
                         .send(AgentProgress::SubagentCompleted {
                             agent_id: outcome.agent_id.clone(),
@@ -377,7 +529,7 @@ pub(crate) async fn dispatch_subagent(
                 // Same progress-sink mirror as the `Completed` arm above —
                 // an incomplete stop is still lifecycle-completed, so the
                 // timeline row must be released from "running" here too.
-                if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+                if let Some(progress) = run_context.progress.clone() {
                     let _ = progress
                         .send(AgentProgress::SubagentCompleted {
                             agent_id: outcome.agent_id.clone(),

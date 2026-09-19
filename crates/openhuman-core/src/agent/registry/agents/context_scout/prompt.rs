@@ -10,7 +10,7 @@
 //! `AgentPrepareContextTool`, not here — this builder only describes the
 //! scout's own gathering surface.
 
-use crate::agent::context::prompt::{
+use crate::agent::prompts::{
     render_tools, render_user_files, render_workspace, ConnectedIntegration, PromptContext,
 };
 use anyhow::Result;

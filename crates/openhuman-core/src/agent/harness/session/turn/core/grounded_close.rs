@@ -61,7 +61,10 @@ impl Agent {
             turn_checkpoint::render_tool_results(&results, turn_checkpoint::GROUNDING_TOTAL_CHARS);
         let iteration = outcome.model_calls as u32 + 1;
 
-        let base = self.tool_dispatcher.to_provider_messages(&self.history);
+        let base = crate::agent::message_convert::provider_messages_from_conversation(
+            self.tool_dispatcher.as_ref(),
+            &self.history,
+        );
         let (candidate, candidate_usage) = self
             .summarize_turn_wrapup(
                 &base,

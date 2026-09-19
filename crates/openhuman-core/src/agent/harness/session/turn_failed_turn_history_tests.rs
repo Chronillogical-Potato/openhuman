@@ -1,4 +1,5 @@
 use super::*;
+use tinyagents_session::transcript;
 
 fn echo_tool_call() -> anyhow::Result<ChatResponse> {
     Ok(ChatResponse {

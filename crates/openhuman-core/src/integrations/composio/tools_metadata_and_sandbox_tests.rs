@@ -89,7 +89,7 @@ async fn authorize_tool_execute_rejects_missing_toolkit() {
         .content
         .iter()
         .filter_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -268,7 +268,7 @@ async fn execute_tool_execute_rejects_missing_tool() {
         .content
         .iter()
         .filter_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()

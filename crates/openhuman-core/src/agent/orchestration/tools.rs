@@ -61,22 +61,33 @@ mod wait_subagent;
 #[path = "tools/worker_thread.rs"]
 mod worker_thread;
 
-pub(crate) use dispatch::dispatch_subagent;
+pub(crate) use dispatch::{dispatch_subagent, DelegationDispatch};
 
+pub(crate) use agent_prepare_context::AgentPrepareContextDispatch;
 pub use agent_prepare_context::{
     run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
 };
 pub use archetype_delegation::{ArchetypeDelegationTool, DelegationTarget};
+pub(crate) use close_subagent::CloseSubagentDispatch;
 pub use close_subagent::CloseSubagentTool;
 pub use collapsed_delegation::{CollapsedDelegationTool, DelegateTarget, DELEGATE_TO_TOOL_NAME};
+pub(crate) use continue_subagent::ContinueSubagentDispatch;
 pub use continue_subagent::ContinueSubagentTool;
+pub(crate) use delegate_graph::DelegateGraphDispatch;
 pub use delegate_graph::DelegateGraphTool;
+pub(crate) use list_subagents::ListSubagentsDispatch;
 pub use list_subagents::ListSubagentsTool;
 pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
+pub(crate) use spawn_async_subagent::SpawnAsyncSubagentDispatch;
 pub use spawn_async_subagent::SpawnAsyncSubagentTool;
+pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;
 pub use spawn_parallel_agents::SpawnParallelAgentsTool;
+pub(crate) use spawn_subagent::SpawnSubagentDispatch;
 pub use spawn_subagent::SpawnSubagentTool;
+pub(crate) use spawn_worker_thread::SpawnWorkerThreadDispatch;
 pub use spawn_worker_thread::SpawnWorkerThreadTool;
+pub(crate) use steer_subagent::SteerSubagentDispatch;
 pub use steer_subagent::SteerSubagentTool;
 pub use wait::{WaitLoopTool, WaitTool};
+pub(crate) use wait_subagent::WaitSubagentDispatch;
 pub use wait_subagent::WaitSubagentTool;

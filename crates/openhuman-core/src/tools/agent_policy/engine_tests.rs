@@ -1,7 +1,7 @@
 use super::*;
-use crate::tools::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use std::collections::{HashMap, HashSet};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 struct PolicyTestTool {
     name: &'static str,

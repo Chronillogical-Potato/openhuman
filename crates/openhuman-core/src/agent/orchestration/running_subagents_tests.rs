@@ -9,17 +9,18 @@ use crate::agent::orchestration::running_subagents::steering::steer_directive;
 use crate::agent::orchestration::running_subagents::steering::SteerDirectiveError;
 use crate::agent::orchestration::running_subagents::steering::SteeringDirective;
 use crate::agent::orchestration::running_subagents::wait::wait;
-use crate::agent::tinyagents::orchestration::shared_steering_registry;
-use crate::agent::tinyagents::orchestration::{
-    openhuman_steering_handle, OrchestrationTaskStatus, SteeringHandle, SteeringPolicy,
-    SteeringRunClass,
+use crate::agent::tinyagents::host::steering::{
+    openhuman_steering_handle, shared_steering_registry, SteeringRunClass,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::time::Duration;
+use tinyagents_graph::orchestration::OrchestrationTaskStatus;
 use tinyagents_harness::ids::TaskId;
-use tinyagents_harness::steering::{SteeringCommand, SteeringCommandKind};
+use tinyagents_harness::steering::{
+    SteeringCommand, SteeringCommandKind, SteeringHandle, SteeringPolicy,
+};
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 

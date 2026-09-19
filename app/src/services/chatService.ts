@@ -1218,7 +1218,6 @@ interface ChatSendParams {
   threadId: string;
   message: string;
   model?: string;
-  profileId?: string | null;
   /**
    * BCP-47 UI locale (e.g. `'ar'`, `'zh-CN'`) — drives the core's
    * "reply in this language" system-prompt directive. Optional so
@@ -1275,7 +1274,6 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
       thread_id: params.threadId,
       message: params.message,
       model_override: params.model ?? undefined,
-      profile_id: params.profileId ?? undefined,
       locale: params.locale ?? undefined,
       speak_reply: params.speakReply ?? undefined,
       source: params.source ?? undefined,
