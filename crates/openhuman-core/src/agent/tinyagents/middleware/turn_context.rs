@@ -163,14 +163,16 @@ pub(crate) struct TranscriptSnapshotMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for TranscriptSnapshotMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for TranscriptSnapshotMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.transcript_snapshot"
     }
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -188,7 +190,7 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -200,7 +202,7 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
 
     async fn after_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         response: &mut ModelResponse,
     ) -> TaResult<()> {
@@ -275,7 +277,7 @@ impl TurnContextMiddleware {
     /// summarization/trim handle the rest.
     pub(crate) fn install(
         self,
-        harness: &mut AgentHarness<()>,
+        harness: &mut AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext>,
         tool_policies: HashMap<String, TaToolPolicy>,
     ) {
         // Transcript snapshot (#4466) runs first among before_model hooks so it
@@ -362,14 +364,14 @@ impl HandoffMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for HandoffMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for HandoffMiddleware {
     fn name(&self) -> &str {
         "result_handoff"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut tinyinference_llm::tool::ToolCall,
     ) -> TaResult<()> {
@@ -388,7 +390,7 @@ impl Middleware<()> for HandoffMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,

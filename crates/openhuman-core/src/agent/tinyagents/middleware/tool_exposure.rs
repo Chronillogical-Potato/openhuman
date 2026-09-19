@@ -127,14 +127,16 @@ impl OpenHumanToolExposureShadowMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for OpenHumanToolExposureShadowMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for OpenHumanToolExposureShadowMiddleware
+{
     fn name(&self) -> &str {
         "openhuman_tool_exposure_shadow"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

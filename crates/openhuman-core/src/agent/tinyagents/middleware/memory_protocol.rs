@@ -52,14 +52,16 @@ impl Default for MemoryProtocolMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for MemoryProtocolMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for MemoryProtocolMiddleware
+{
     fn name(&self) -> &str {
         "memory_protocol"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -78,7 +80,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -123,7 +125,7 @@ impl Middleware<()> for MemoryProtocolMiddleware {
 
     async fn after_agent(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         _run: &mut AgentRun,
     ) -> TaResult<()> {

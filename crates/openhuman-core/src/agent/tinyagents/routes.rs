@@ -122,17 +122,19 @@ impl RequiredCapabilitiesMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for RequiredCapabilitiesMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RequiredCapabilitiesMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.required_capabilities"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         mut request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         if request.required_capabilities.is_none() {
             request = request.with_required_capabilities(self.required.clone());
@@ -193,17 +195,19 @@ impl FallbackObserverMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for FallbackObserverMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for FallbackObserverMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.fallback_observer"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();
@@ -250,17 +254,19 @@ impl UsageCarryMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for UsageCarryMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for UsageCarryMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.usage_carry"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();

@@ -113,14 +113,16 @@ impl PackedToolRouteMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for PackedToolRouteMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for PackedToolRouteMiddleware
+{
     fn name(&self) -> &str {
         "packed_tool_route"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {

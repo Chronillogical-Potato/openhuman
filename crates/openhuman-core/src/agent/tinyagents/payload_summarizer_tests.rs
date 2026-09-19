@@ -43,8 +43,11 @@ fn dummy_definition() -> AgentDefinition {
 const TEST_THRESHOLD_TOKENS: usize = 500_000;
 const TEST_MAX_TOKENS: usize = 2_000_000;
 
-fn dummy_parent_ctx() -> RunContext<()> {
-    RunContext::new(tinyagents_harness::context::RunConfig::new("test"), ())
+fn dummy_parent_ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+    RunContext::new(
+        tinyagents_harness::context::RunConfig::new("test"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
 }
 
 #[tokio::test]
@@ -221,7 +224,7 @@ async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching(
     let raw = "identical payload for the reuse test ".repeat(64);
     let hint = Some("reuse-test goal");
     remember_summary(
-        summary_cache_key("reuse_tool", hint, &raw),
+        summary_cache_key(None, "reuse_tool", hint, &raw),
         "CACHED SUMMARY".to_string(),
     );
 
@@ -248,7 +251,7 @@ async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching(
 async fn a_summary_written_for_another_goal_is_not_reused() {
     let raw = "payload shared across two goals ".repeat(64);
     remember_summary(
-        summary_cache_key("goal_tool", Some("goal A"), &raw),
+        summary_cache_key(None, "goal_tool", Some("goal A"), &raw),
         "SUMMARY FOR GOAL A".to_string(),
     );
 
@@ -267,7 +270,7 @@ async fn a_summary_written_for_another_goal_is_not_reused() {
 fn a_successful_summary_is_remembered_for_reuse() {
     let summarizer = low_threshold_summarizer();
     let raw = "x".repeat(50_000);
-    let key = summary_cache_key("size_tool", Some("size goal"), &raw);
+    let key = summary_cache_key(None, "size_tool", Some("size goal"), &raw);
 
     let outcome = summarizer
         .handle_summarizer_result(

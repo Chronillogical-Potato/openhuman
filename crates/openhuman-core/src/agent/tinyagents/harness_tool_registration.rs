@@ -11,6 +11,7 @@ use tinyagents_registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
 
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 
@@ -29,8 +30,8 @@ use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 /// fail-open.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn register_turn_tools_and_agents(
-    harness: &mut AgentHarness<()>,
-    capability_registry: &mut CapabilityRegistry<()>,
+    harness: &mut AgentHarness<(), OpenHumanRunContext>,
+    capability_registry: &mut CapabilityRegistry<OpenHumanRunContext>,
     tool_sets: &[Arc<Vec<Box<dyn tinytools::Tool>>>],
     allowed: &Option<HashSet<String>>,
     early_exit_set: &HashSet<&str>,

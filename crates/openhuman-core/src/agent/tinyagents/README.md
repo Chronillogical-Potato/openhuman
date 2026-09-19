@@ -105,13 +105,12 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 `HostCapabilities<()>` bundle from a single session/runtime input set, while
 `OpenHumanRunContext` carries the explicit per-turn values (origin, progress,
 attachments, artifacts, dispatch, cancellation, thread, workspace and stop
-hooks) across the OpenHuman turn boundary. During the current transition the
-live `AgentHarness<(), ()>` bridge maps cancellation and workspace into the
-canonical `tinyagents_harness::context::RunContext`; the runner consumes
-origin and dispatch directly and re-establishes the context's thread and route
-scopes around model execution. Generic middleware-state and remaining entrypoint
-cutovers are required before those scopes and the manual assembly shell can be
-deleted.
+hooks) across the OpenHuman turn boundary. The shared runner builds
+`RunContext<OpenHumanRunContext>` with `into_tinyagents`, and the OpenHuman
+assembly plus middleware stack are specialized to that context. Route, thread,
+and cancellation task-local scopes remain only around the drive while legacy
+tool/model consumers still require them; they are seeded solely from the typed
+carrier.
 
 ## Notes
 

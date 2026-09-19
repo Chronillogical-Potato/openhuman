@@ -5,10 +5,9 @@
 //! task-locals: approval origin, host progress, attachment and artifact scope,
 //! parent dispatch state, and the handles a tool needs to continue a run.
 //! The shared turn seam receives this as its live OpenHuman carrier. The
-//! existing middleware registry still uses `RunContext<()>`, so that seam maps
-//! only canonical TinyAgents values (cancellation and workspace) while the
-//! remaining host-local consumers migrate. `into_tinyagents` is the target
-//! conversion once the middleware registry becomes generic over this carrier.
+//! The live middleware registry uses this type as the TinyAgents run context,
+//! so every host seam receives the same explicit carrier rather than recovering
+//! product state from a task-local.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

@@ -298,17 +298,19 @@ impl ToolPolicyMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for ToolPolicyMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolPolicyMiddleware
+{
     fn name(&self) -> &str {
         "tool_policy"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         use crate::agent::tool_policy::{ToolCallContext, ToolPolicyDecision, ToolPolicyRequest};
 

@@ -110,7 +110,7 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     impl PayloadSummarizer for ErroringSummarizer {
         async fn maybe_summarize_in_parent(
             &self,
-            _parent_ctx: &RunContext<()>,
+            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
             _tool_name: &str,
             _parent_task_hint: Option<&str>,
             _raw: &str,
@@ -763,7 +763,7 @@ async fn the_turns_task_hint_reaches_the_payload_summarizer() {
     impl PayloadSummarizer for HintRecorder {
         async fn maybe_summarize_in_parent(
             &self,
-            _parent_ctx: &RunContext<()>,
+            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
             _tool_name: &str,
             parent_task_hint: Option<&str>,
             _raw: &str,

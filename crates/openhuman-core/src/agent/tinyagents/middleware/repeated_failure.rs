@@ -221,14 +221,16 @@ pub(crate) fn is_body_level_failure(name: &str, content: &str) -> bool {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatedToolFailureMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatedToolFailureMiddleware
+{
     fn name(&self) -> &str {
         "repeated_tool_failure"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -242,7 +244,7 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,

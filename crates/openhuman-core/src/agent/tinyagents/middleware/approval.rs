@@ -78,17 +78,19 @@ impl ApprovalSecurityMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ApprovalSecurityMiddleware
+{
     fn name(&self) -> &str {
         "approval_security"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         // Resolve external-effect up front so no tool borrow is held across the
         // approval await.

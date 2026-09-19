@@ -493,11 +493,12 @@ sub-agent turn seam. Roots snapshot their currently scoped origin, progress,
 dispatch state, thread, route slot, cancellation token, and workspace grant,
 then pass an owned context to the runner; a recursive sub-agent forks it with
 `child()`, preserving shared cancellation/policy handles while isolating route
-observation and usage accounting. The TinyAgents middleware registry is still
-specialized to `RunContext<()>`, so the seam currently maps its canonical
-cancellation and workspace values into that runtime context. Deleting the
-legacy scopes and using `RunContext<OpenHumanRunContext>` throughout remains a
-follow-up once that registry is generic.
+observation and usage accounting. The shared runner creates
+`RunContext<OpenHumanRunContext>` through `into_tinyagents`, and the OpenHuman
+assembly and middleware registry consume that typed context directly. Route,
+thread, and cancellation scopes still surround the drive only for legacy
+tool/model APIs outside the typed harness boundary; their values are seeded
+from the carrier rather than rediscovered by the middleware.
 
 `OpenHumanHostBundleFactory` is the B1 host composition point. It constructs
 the context, definition, security, model, memory, budget, progress, learning,

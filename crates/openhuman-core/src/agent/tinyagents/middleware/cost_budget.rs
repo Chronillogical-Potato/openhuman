@@ -63,14 +63,14 @@ impl CostBudgetMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for CostBudgetMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for CostBudgetMiddleware {
     fn name(&self) -> &str {
         "cost_budget"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -136,7 +136,7 @@ impl Middleware<()> for CostBudgetMiddleware {
     /// Never fails the run.
     async fn after_agent(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         run: &mut AgentRun,
     ) -> TaResult<()> {

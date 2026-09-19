@@ -33,8 +33,11 @@ use tinyagents_harness::no_progress::{
 use tinyinference_llm::model::ModelRequest;
 use tinytools::Tool;
 
-fn ctx() -> RunContext<()> {
-    RunContext::new(RunConfig::new("mw-test"), ())
+fn ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+    RunContext::new(
+        RunConfig::new("mw-test"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
 }
 
 // ── payload_summarizer disclosure (#5722) ──────────────────────
@@ -57,7 +60,7 @@ impl StubSummarizer {
 impl PayloadSummarizer for StubSummarizer {
     async fn maybe_summarize_in_parent(
         &self,
-        _parent_ctx: &RunContext<()>,
+        _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _tool_name: &str,
         _parent_task_hint: Option<&str>,
         _raw: &str,

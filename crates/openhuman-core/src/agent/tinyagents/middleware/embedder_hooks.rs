@@ -32,14 +32,16 @@ impl EmbedderToolHooksMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for EmbedderToolHooksMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for EmbedderToolHooksMiddleware
+{
     fn name(&self) -> &str {
         "embedder_tool_hooks"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -109,7 +111,7 @@ impl Middleware<()> for EmbedderToolHooksMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,

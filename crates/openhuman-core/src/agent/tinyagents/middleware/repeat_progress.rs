@@ -159,14 +159,16 @@ impl RepeatProgressMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatProgressMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatProgressMiddleware
+{
     fn name(&self) -> &str {
         "repeat_progress"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -184,7 +186,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
 
     async fn after_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         response: &mut ModelResponse,
     ) -> TaResult<()> {
@@ -256,7 +258,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -347,14 +349,16 @@ pub(crate) struct RepeatEvictionObserver {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatEvictionObserver {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatEvictionObserver
+{
     fn name(&self) -> &str {
         "repeat_progress_eviction"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

@@ -16,7 +16,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use futures::StreamExt;
 use tinyagents_harness::agent_loop::AgentStreamItem;
-use tinyagents_harness::context::{RunConfig, RunContext};
+use tinyagents_harness::context::RunConfig;
+#[cfg(test)]
+use tinyagents_harness::context::RunContext;
 use tinyagents_harness::events::EventSink;
 use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
@@ -265,6 +267,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         context_window,
         early_exit_tools,
         context_mw,
+        run_context.stop_hooks.clone(),
         tool_policy,
         routes::turn_required_capabilities(model),
         deterministic_cacheable,
@@ -362,14 +365,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
     let cancellation = run_context.cancellation.clone();
-    // The OpenHuman carrier remains the entry boundary even while the current
-    // harness middleware inventory is specialized to `()`. Map only the
-    // canonical generic values here; the follow-up changes every middleware to
-    // `OpenHumanRunContext` and replaces this bridge with `into_tinyagents`.
-    let mut ctx = RunContext::new(config, ()).with_cancellation(cancellation.clone());
-    if let Some(workspace) = run_context.workspace.clone() {
-        ctx = ctx.with_workspace(workspace);
-    }
+    let mut run_context = run_context;
+    run_context.tool_result_artifact_index = tool_result_artifact_index.clone();
+    run_context.tool_outcomes = Some(tool_outcome_sink.clone());
+    let mut ctx = run_context.clone().into_tinyagents(config);
     // Assemble the run's store registry: the tool-result artifact index (when
     // present) and — behind the default-ON session dual-write flag — the
     // session KV store, so the harness carries a handle to the same
@@ -582,11 +581,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    // The generic model and middleware APIs still read thread/route scopes.
-    // Re-establish the values from the owned carrier here rather than relying
-    // on task-local inheritance from the root. This keeps detached/nested
-    // drives attached to the intended thread and route slot until the generic
-    // APIs accept `OpenHumanRunContext` directly.
+    // The route/thread/cancellation scopes remain for legacy tool/model APIs
+    // outside the typed TinyAgents surface. Their values come from the explicit
+    // carrier, so detached and nested drives retain the intended identity.
     let run_thread_id = run_context.thread_id.clone().unwrap_or_default();
     let run_route_slot = run_context.resolved_route.clone();
     let run_result = crate::agent::tinyagents::with_route_slot(run_route_slot, async move {

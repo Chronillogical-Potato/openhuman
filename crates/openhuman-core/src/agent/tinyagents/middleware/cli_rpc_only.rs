@@ -40,17 +40,19 @@ impl CliRpcOnlyMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CliRpcOnlyMiddleware
+{
     fn name(&self) -> &str {
         "cli_rpc_only"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         if self.is_cli_rpc_only(&call.name) {
             tracing::warn!(

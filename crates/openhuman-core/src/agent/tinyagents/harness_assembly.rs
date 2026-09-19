@@ -20,6 +20,7 @@ use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::harness_context_ladder::install_context_ladder;
 use crate::agent::tinyagents::harness_tool_registration::register_turn_tools_and_agents;
 use crate::agent::tinyagents::host::steering;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware::{self, TurnContextMiddleware};
 use crate::agent::tinyagents::observability::{
     IterationCursor, ProviderUsageCarry, SubagentScope, ToolFailureMap, ToolNameMap,
@@ -39,7 +40,7 @@ use super::ToolPolicyEnforcement;
 pub(super) struct AssembledTurnHarness {
     /// The fully assembled harness: model, tools, and middleware registered in
     /// the intended order.
-    pub(super) harness: AgentHarness<()>,
+    pub(super) harness: AgentHarness<(), OpenHumanRunContext>,
     /// Shared 1-based model-call cursor (event bridge advances, model adapter
     /// reads for out-of-band thinking attribution).
     pub(super) cursor: IterationCursor,
@@ -118,6 +119,7 @@ pub(super) fn assemble_turn_harness(
     context_window: Option<u64>,
     early_exit_tools: &[&str],
     context_mw: TurnContextMiddleware,
+    stop_hooks: Vec<Arc<dyn crate::agent::stop_hooks::StopHook>>,
     tool_policy: Option<ToolPolicyEnforcement>,
     required_capabilities: Option<CapabilitySet>,
     deterministic_cacheable: bool,
@@ -128,7 +130,7 @@ pub(super) fn assemble_turn_harness(
     // would silently convert a documented error into an answer.
     pause_at_cap: bool,
 ) -> AssembledTurnHarness {
-    let mut harness: AgentHarness<()> = AgentHarness::new();
+    let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
     // SDK `RunPolicy.fallback` with the ordered same-family route chain for this
     // turn's primary model so the harness fails over to a sibling workload tier
@@ -157,7 +159,8 @@ pub(super) fn assemble_turn_harness(
             "[cache] response cache attached (deterministic internal run)"
         );
     }
-    let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
+    let mut capability_registry: CapabilityRegistry<OpenHumanRunContext> =
+        CapabilityRegistry::new();
 
     let cursor: IterationCursor = Arc::default();
     // Shared `call_id → tool_name` map: the forwarder records the name on
@@ -241,11 +244,9 @@ pub(super) fn assemble_turn_harness(
         .as_ref()
         .map(|_| Arc::new(ToolResultArtifactIndexStore::new()));
 
-    // Snapshot the installed stop hooks while the `CURRENT_STOP_HOOKS`
-    // task-local is in scope (the harness drive future runs inline on this
-    // task, but capturing here keeps the wiring robust). When present they fire
-    // via `StopHookMiddleware` and pause through the shared steering handle.
-    let stop_hooks_installed = crate::agent::stop_hooks::current_stop_hooks();
+    // The explicit run carrier supplies the stop hooks; no middleware needs to
+    // recover policy from a task-local while the harness is driving.
+    let stop_hooks_installed = stop_hooks;
 
     // A single steering handle drives mid-flight steering (run queue), the
     // early-exit pause, the model-call-cap pause, and stop-hook pauses, so they

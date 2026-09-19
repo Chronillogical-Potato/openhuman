@@ -49,14 +49,14 @@ impl ArgRecoveryMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ArgRecoveryMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for ArgRecoveryMiddleware {
     fn name(&self) -> &str {
         "arg_recovery"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {

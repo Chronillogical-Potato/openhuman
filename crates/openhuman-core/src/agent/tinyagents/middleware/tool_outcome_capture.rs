@@ -38,14 +38,16 @@ impl ToolOutcomeCaptureMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ToolOutcomeCaptureMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolOutcomeCaptureMiddleware
+{
     fn name(&self) -> &str {
         "tool_outcome_capture"
     }
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -123,8 +125,11 @@ mod tests {
     use super::*;
     use tinyagents_harness::context::{RunConfig, RunContext};
 
-    fn context() -> RunContext<()> {
-        RunContext::new(RunConfig::new("outcome-capture-test"), ())
+    fn context() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+        RunContext::new(
+            RunConfig::new("outcome-capture-test"),
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
     }
 
     #[tokio::test]

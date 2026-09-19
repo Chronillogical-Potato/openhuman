@@ -63,8 +63,9 @@ use tinyagents_harness::subagent::SubAgent;
 use tracing::{debug, info, warn};
 
 use crate::agent::harness::definition::{AgentDefinition, PromptSource};
-use crate::agent::harness::fork_context::{current_parent, ParentExecutionContext};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::harness::subagent_runner;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 
 /// A successful compression, carried by [`SummarizeOutcome::Summarized`].
 ///
@@ -188,7 +189,7 @@ pub trait PayloadSummarizer: Send + Sync {
     /// pattern-matching it away.
     async fn maybe_summarize_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
@@ -287,7 +288,7 @@ impl SubagentPayloadSummarizer {
 impl PayloadSummarizer for SubagentPayloadSummarizer {
     async fn maybe_summarize_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
@@ -321,7 +322,12 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         }
         // Checked before the breaker: a summary we already have costs nothing,
         // so a broken summarizer is no reason to withhold it.
-        let cache_key = summary_cache_key(tool_name, parent_task_hint, raw);
+        let cache_key = summary_cache_key(
+            parent_ctx.thread_id().map(str::to_owned).as_deref(),
+            tool_name,
+            parent_task_hint,
+            raw,
+        );
         if let Some(summary) = cached_summary(&cache_key) {
             info!(
                 tool = tool_name,
@@ -365,10 +371,10 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
 impl SubagentPayloadSummarizer {
     async fn invoke_tinyagents_summarizer_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         prompt: String,
     ) -> Result<String> {
-        let parent = current_parent().ok_or_else(|| {
+        let parent = parent_ctx.data.parent.clone().ok_or_else(|| {
             anyhow!("payload summarizer cannot use invoke_in_parent without ParentExecutionContext")
         })?;
         let config_loaded = crate::config::Config::load_or_init().await;
@@ -395,7 +401,7 @@ impl SubagentPayloadSummarizer {
         policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
         policy.invalid_args = InvalidArgsPolicy::ReturnToolError;
 
-        let mut harness: AgentHarness<()> = AgentHarness::new();
+        let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
         harness.with_policy(policy);
         let provider_model = super::model::MaxTokensModel::new(
             source.build_summarizer(&model, self.definition.temperature)?,
@@ -437,7 +443,13 @@ impl SubagentPayloadSummarizer {
         // `max_turn_output_tokens` (already enforced independently by the
         // `MaxTokensModel` wrapper above).
         let run = child
-            .invoke_with_events(&(), (), parent_ctx.depth(), prompt, &parent_ctx.events)
+            .invoke_with_events(
+                &(),
+                parent_ctx.data.child(),
+                parent_ctx.depth(),
+                prompt,
+                &parent_ctx.events,
+            )
             .await?;
         Ok(run.text().unwrap_or_default())
     }
@@ -602,18 +614,14 @@ struct SummaryCache {
 /// can drop exactly the facts another goal needs. Fields are length-prefixed
 /// so no two different tuples hash the same byte stream.
 fn summary_cache_key(
+    thread_id: Option<&str>,
     tool_name: &str,
     parent_task_hint: Option<&str>,
     raw: &str,
 ) -> SummaryCacheKey {
-    let thread = super::thread_context::current_thread_id().unwrap_or_default();
+    let thread = thread_id.unwrap_or_default();
     let mut hasher = Sha256::new();
-    for part in [
-        thread.as_str(),
-        tool_name,
-        parent_task_hint.unwrap_or(""),
-        raw,
-    ] {
+    for part in [thread, tool_name, parent_task_hint.unwrap_or(""), raw] {
         hasher.update((part.len() as u64).to_le_bytes());
         hasher.update(part.as_bytes());
     }

@@ -34,17 +34,19 @@ impl CredentialScrubMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for CredentialScrubMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CredentialScrubMiddleware
+{
     fn name(&self) -> &str {
         "credential_scrub"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         let tool_name = call.name.clone();
         let outcome = next.run(ctx, state, call).await?;

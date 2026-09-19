@@ -151,7 +151,10 @@ fn sink_with(entries: &[(&str, &str)]) -> crate::agent::tinyagents::ToolOutcomeS
 #[tokio::test]
 async fn wrap_up_leaves_a_call_with_budget_remaining_alone() {
     let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[]), 0);
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(5), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(5),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     let mut request = ModelRequest {
         messages: vec![TaMessage::user("hi")],
@@ -174,7 +177,10 @@ async fn wrap_up_leaves_a_call_with_budget_remaining_alone() {
 #[tokio::test]
 async fn wrap_up_withdraws_tools_and_appends_the_instruction_on_the_last_call() {
     let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[]), 0);
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(2), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(2),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     ctx.limits.record_model_call().unwrap(); // now the final call
     let mut request = ModelRequest {
@@ -220,7 +226,10 @@ async fn wrap_up_restores_tool_results_microcompact_cleared() {
         // the budget that stops it (covered by its own test below).
         0,
     );
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(2), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(2),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     ctx.limits.record_model_call().unwrap();
     let mut request = ModelRequest {
@@ -252,7 +261,10 @@ async fn wrap_up_restores_tool_results_microcompact_cleared() {
 async fn wrap_up_does_not_rewrite_a_result_that_was_never_cleared() {
     let mw =
         FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[("call-1", "FROM SINK")]), 0);
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(2), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(2),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     ctx.limits.record_model_call().unwrap();
     let mut request = ModelRequest {
@@ -271,14 +283,16 @@ async fn wrap_up_does_not_rewrite_a_result_that_was_never_cleared() {
 
 // ── ArtifactIndexTocMiddleware (issue #6014) ─────────────────────────────────
 
-async fn ctx_with_artifacts(entries: &[(&str, &str, &str, u64)]) -> RunContext<()> {
+async fn ctx_with_artifacts(
+    entries: &[(&str, &str, &str, u64)],
+) -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
     ctx_with_artifacts_and_config(entries, RunConfig::new("mw-test")).await
 }
 
 async fn ctx_with_artifacts_and_config(
     entries: &[(&str, &str, &str, u64)],
     config: RunConfig,
-) -> RunContext<()> {
+) -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
     use tinyagents_harness::store::StoreRegistry;
     let index = std::sync::Arc::new(
         crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore::new(),
@@ -306,7 +320,11 @@ async fn ctx_with_artifacts_and_config(
         crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
         index,
     );
-    RunContext::new(config, ()).with_stores(registry)
+    RunContext::new(
+        config,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
+    .with_stores(registry)
 }
 
 /// Nothing offloaded → no message. The contents list must not spend context
@@ -411,7 +429,10 @@ async fn wrap_up_stops_restoring_at_the_input_budget() {
         // Room for roughly one of them, not three.
         1_200,
     );
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(2), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(2),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     ctx.limits.record_model_call().unwrap();
     let mut request = ModelRequest {
@@ -592,7 +613,10 @@ async fn wrap_up_restoration_stays_bounded_when_no_window_is_advertised() {
         .collect();
     let (_toc, restore) = split_input_allowance(0);
     let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&borrowed), restore);
-    let mut ctx = RunContext::new(RunConfig::new("mw-test").with_max_model_calls(2), ());
+    let mut ctx = RunContext::new(
+        RunConfig::new("mw-test").with_max_model_calls(2),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
     ctx.limits.record_model_call().unwrap();
     ctx.limits.record_model_call().unwrap();
     let mut request = ModelRequest {

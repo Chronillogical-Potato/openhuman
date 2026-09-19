@@ -125,14 +125,14 @@ impl ToolOutputMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ToolOutputMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for ToolOutputMiddleware {
     fn name(&self) -> &str {
         "tool_output_budget"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -153,7 +153,7 @@ impl Middleware<()> for ToolOutputMiddleware {
 
     async fn after_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -447,8 +447,11 @@ mod tests {
     use super::*;
     use tinyagents_harness::context::{RunConfig, RunContext};
 
-    fn context() -> RunContext<()> {
-        RunContext::new(RunConfig::new("tool-output-identity-test"), ())
+    fn context() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+        RunContext::new(
+            RunConfig::new("tool-output-identity-test"),
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
     }
 
     #[tokio::test]
