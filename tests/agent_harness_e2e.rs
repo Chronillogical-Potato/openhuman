@@ -2359,14 +2359,10 @@ async fn multi_hop_delegation_chain_inner() {
 
 mod streaming_support {
     use async_trait::async_trait;
-    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::{AgentConfig, ContextConfig};
     use openhuman_core::memory::Memory;
-    use openhuman_core::tools::traits::ToolCallOptions;
-    use openhuman_core::tools::{
-        PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
-    };
+    use openhuman_core::tinytools_agent::dialect::NativeDialect;
     use serde_json::json;
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
@@ -2379,6 +2375,10 @@ mod streaming_support {
     };
     use tinyinference_llm::tool::ToolCall;
     use tinyinference_llm::usage::Usage;
+    use tinytools::{
+        PermissionLevel, Tool, ToolCallOptions, ToolContent, ToolResult,
+        ToolScope as RuntimeToolScope,
+    };
 
     // ── ScriptedProvider ────────────────────────────────────────────────────
     // Copied (minimal) from tests/agent_session_turn_raw_coverage_e2e.rs:76-152.
@@ -2552,7 +2552,7 @@ mod streaming_support {
             .chat_model(provider)
             .tools(tools)
             .memory(memory_for_workspace_s(&workspace_path))
-            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .tool_dispatcher(Box::new(NativeDialect))
             .workspace_dir(workspace_path)
             .event_context("stream-accum-session", "stream-accum-channel")
             .agent_definition_name("round17/orchestrator")
@@ -4148,14 +4148,15 @@ async fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_
 mod tool_policy_boundary_placement {
     use anyhow::Result;
     use async_trait::async_trait;
-    use openhuman_core::agent::context::prompt::LearnedContextData;
-    use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+    use openhuman_core::agent::prompts::LearnedContextData;
     use openhuman_core::agent::Agent;
     use openhuman_core::config::AgentConfig;
     use openhuman_core::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
     };
-    use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+    use openhuman_core::tinytools_agent::dialect::NativeDialect;
+    use tinytools::{PermissionLevel, Tool, ToolResult};
+
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
 
@@ -4265,7 +4266,7 @@ mod tool_policy_boundary_placement {
                 }),
             ])
             .memory(Arc::new(StubMemory))
-            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .tool_dispatcher(Box::new(NativeDialect))
             .workspace_dir(workspace.path().to_path_buf())
             .event_context("boundary-session", "boundary-channel")
             .config(config)

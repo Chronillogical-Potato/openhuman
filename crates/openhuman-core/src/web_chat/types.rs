@@ -30,15 +30,6 @@ pub(crate) struct SessionCacheFingerprint {
     /// change) — without this the stale session would be reused. Mirrors
     /// [`Self::autonomy_signature`].
     pub(super) model_registry_signature: String,
-    /// Hashed signature of the active agent profile record and its resolved
-    /// SOUL/MEMORY file contents. The cached `Agent`
-    /// bakes in the profile's tool/skill/MCP/connector visibility and SOUL/MEMORY
-    /// overrides at build time; switching profiles on the same thread keeps the
-    /// same model/agent/provider, so without this the previous profile's
-    /// capability surface would leak into the new profile's turns. Any change to
-    /// the resolved profile or a direct edit to either profile file forces a
-    /// rebuild on the next turn.
-    pub(super) profile_signature: String,
 }
 
 pub(super) struct SessionEntry {
@@ -78,7 +69,7 @@ pub(super) struct WebChatTaskResult {
     /// Holistic token/cost/context totals for the turn (parent + sub-agents),
     /// forwarded to the frontend on `chat_done`. `None` for synthetic results
     /// (e.g. budget-exhausted placeholders) that never ran a real turn.
-    pub(super) usage: Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
     /// The workspace this turn actually ran in, carried to delivery so the
     /// reply is stored there before it is announced (#6034).
     ///
@@ -111,7 +102,6 @@ pub(crate) struct WebChatParams {
     pub(super) message: String,
     pub(super) model_override: Option<String>,
     pub(super) temperature: Option<f64>,
-    pub(super) profile_id: Option<String>,
     /// BCP-47 locale of the frontend UI (e.g. `ar`, `zh-CN`). When set
     /// and not English, the system prompt is augmented to ask the
     /// agent to reply in that language. `None` keeps the agent's

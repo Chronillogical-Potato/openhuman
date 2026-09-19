@@ -34,7 +34,6 @@ pub(super) const WORKFLOW_ROOT_KINDS: &[RootKind] = &[RootKind::Workflow];
 pub(super) fn discover_filtered(
     home_dir: Option<&Path>,
     workspace_dir: Option<&Path>,
-    profile_skills_root: Option<&Path>,
     trusted: bool,
     kinds: &[RootKind],
 ) -> Vec<Workflow> {
@@ -42,7 +41,6 @@ pub(super) fn discover_filtered(
         trusted,
         has_home = home_dir.is_some(),
         has_workspace = workspace_dir.is_some(),
-        has_profile_root = profile_skills_root.is_some(),
         include_skills = kinds.contains(&RootKind::Skill),
         include_workflows = kinds.contains(&RootKind::Workflow),
         "[workflows] discover:enter"
@@ -114,33 +112,6 @@ pub(super) fn discover_filtered(
             absorb(
                 &mut discovered,
                 scan_root(&legacy_root, WorkflowScope::Legacy),
-            );
-        }
-    }
-
-    // Profile-local skills (`<workspace>/personalities/<id>/skills/`) are a skill
-    // root scoped to the *active* profile: scanned last and at the highest
-    // precedence so a profile-local bundle wins any same-name collision against
-    // the global scopes for its owner (see [`super::collision::precedence`]).
-    // Excluded from the automations-only view for the same reason as the
-    // legacy skill root. No trust marker is consulted — the directory is
-    // core-managed under `workspace_dir`, seeded by `ensure_profile_home`.
-    if let Some(profile_root) = profile_skills_root {
-        if kinds.contains(&RootKind::Skill) {
-            tracing::debug!(
-                root = %profile_root.display(),
-                scope = ?WorkflowScope::Profile,
-                "[profiles] discover:branch:profile-local skills"
-            );
-            let before = discovered.len();
-            absorb(
-                &mut discovered,
-                scan_root(profile_root, WorkflowScope::Profile),
-            );
-            tracing::debug!(
-                names_before = before,
-                names_after = discovered.len(),
-                "[profiles] profile-local skills absorbed (profile scope wins same-name collisions)"
             );
         }
     }

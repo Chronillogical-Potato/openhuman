@@ -21,23 +21,16 @@
 //! handles SKILL.md / WORKFLOW.md bundle discovery.
 
 mod engine;
-mod graph;
+mod host;
 mod ops;
 mod schemas;
-pub mod types;
-
-pub(crate) use graph::scheduler_graph_topology;
 
 pub use engine::{resume_workflow_run, start_workflow_run, stop_workflow_run};
 pub use ops::{
     builtin_definitions, definition_by_id, get_run, list_definitions, list_runs,
-    validate_definition, validate_structure, PARALLEL_RESEARCH_ID,
+    validate_definition, PARALLEL_RESEARCH_ID,
 };
 pub use schemas::{
     all_controller_schemas as all_workflow_run_controller_schemas,
     all_registered_controllers as all_workflow_run_registered_controllers,
-};
-pub use types::{
-    DefinitionError, WorkflowDefinition, WorkflowDefinitionListResponse, WorkflowPhase,
-    WorkflowSafetyTier,
 };

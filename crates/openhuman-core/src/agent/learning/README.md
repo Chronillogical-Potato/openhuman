@@ -100,10 +100,10 @@ These are subscriber registrations rather than a single `bus.rs`; subscriptions 
 - `tinymemory_api` — `provider::{MemoryProfile, ProfileFacet, FacetState, FacetType, UserState}` behind `FacetCache`, and the candidate taxonomy re-exported by `candidate.rs` (`learning::{CueFamily, FacetClass, LearningCandidate}`, `host::EvidenceRef`).
 - `crate::memory` — the `Memory` trait + `MemoryCategory` for KV persistence (hooks, transcript ingest), `guard::MemoryGuard` and `ops::guard::active_memory_guard` for the facet store, and `memory::api::provider::MemoryProvider` / `api::types` for the enrichment document upsert.
 - `crate::agent::hooks` — `PostTurnHook` / `TurnContext` / `ToolCallRecord` implemented by the three hooks.
-- `crate::agent::harness::session::transcript` — `SessionTranscript` parsing for transcript ingestion.
+- `tinyagents_session::transcript` — `SessionTranscript` parsing for transcript ingestion.
 - `crate::inference::provider::create_chat_model_from_string_with_model_id` (profile summarisation) and `crate::inference::host_runtime::global` (local reflection route); `ReflectionHook` also accepts an optional `tinyinference_llm::model::ChatModel` for the cloud fallback.
 - `crate::config` — `Config` / `LearningConfig` / `ReflectionSource` feature flags and `config::rpc` loader.
-- `crate::agent::context::prompt` — `PromptContext` / `PromptSection` / `LearnedContextData` for prompt injection.
+- `crate::agent::prompts` — `PromptContext` / `PromptSection` / `LearnedContextData` for prompt injection.
 - `crate::integrations::composio` — `composio::client` (Gmail fetch for enrichment) and `composio::profile_md` (`replace_managed_block` for `PROFILE.md`).
 - `crate::integrations` — `build_client` / `IntegrationClient` for the Apify scrape call.
 - `crate::core::bus` / `crate::core::events` / `tinybus` — `BUS.publish` / `BUS.subscribe`, `DomainEvent::CacheRebuilt`, and `tinybus::{EventHandler, SubscriptionHandle}`.

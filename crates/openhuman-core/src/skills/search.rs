@@ -26,8 +26,7 @@
 //!
 //! Ranking is [`crate::util::bm25`], which names nothing from this
 //! crate. The host-owned half is everything else in this file: which roots are
-//! scanned, whether the workspace is trusted, which profile's private skills
-//! are in scope, and the per-profile allowlist. That is the split to preserve
+//! scanned and whether the workspace is trusted. That is the split to preserve
 //! if this ever becomes a loadable module — a module can rank, but it cannot be
 //! the thing that decides whose skills a caller may see.
 
@@ -37,12 +36,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use super::ops_discover::{discover_workflows_with_profile, is_workspace_trusted};
-use super::ops_types::{Workflow, WorkflowScope};
-use super::tools::{skill_allowed, SkillAllowlist};
+use super::ops_discover::{discover_workflows, is_workspace_trusted};
+use super::ops_types::Workflow;
 use crate::config::Config;
-use crate::tools::traits::{Tool, ToolResult};
 use crate::util::bm25::Bm25Index;
+use tinytools::{Tool, ToolResult};
 
 /// How many matches a search returns when the caller does not say.
 const DEFAULT_LIMIT: usize = 5;
@@ -120,8 +118,6 @@ fn project(workflow: &Workflow) -> Value {
 /// Search installed skills by capability.
 pub struct SkillSearchTool {
     workspace_dir: PathBuf,
-    skill_allowlist: SkillAllowlist,
-    profile_skills_root: Option<PathBuf>,
     /// Kept whole so saved Flows automations can be listed alongside SKILL.md
     /// bundles. Search has to see the same catalogue the prompt renders, or
     /// "find me the thing that does X" answers from half the library.
@@ -132,55 +128,22 @@ impl SkillSearchTool {
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
-            skill_allowlist: None,
-            profile_skills_root: None,
             config,
         }
     }
 
-    /// Scope results to a per-profile allowlist of `dir_name` slugs.
-    pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
-        self.skill_allowlist = allowlist;
-        self
-    }
-
-    /// Include the active profile's private skills.
-    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
-        self.profile_skills_root = root;
-        self
-    }
-
     /// The visible corpus for this caller.
     ///
-    /// Identical filtering to `list_workflows` — deliberately, and this is the
-    /// part that must not drift: a search that saw one skill more than the list
-    /// would be a way to discover a skill the profile was scoped away from.
+    /// Uses the same discovery roots as `list_workflows`.
     fn visible(&self) -> Vec<Workflow> {
         let trusted = is_workspace_trusted(&self.workspace_dir);
-        let mut workflows = discover_workflows_with_profile(
+        let mut workflows = discover_workflows(
             crate::skills::ops_discover::discovery_home_dir().as_deref(),
             Some(&self.workspace_dir),
-            self.profile_skills_root.as_deref(),
             trusted,
         );
-        if self.skill_allowlist.is_some() {
-            workflows.retain(|w| {
-                // Builtin and profile-local scopes bypass the allowlist — see
-                // `tools::is_builtin_skill`. Search must apply exactly the
-                // filter `list_workflows` applies; a search that saw one skill
-                // more than the list would be a way around the scoping.
-                w.scope == WorkflowScope::Builtin
-                    || w.scope == WorkflowScope::Profile
-                    || skill_allowed(&self.skill_allowlist, &w.dir_name)
-            });
-        }
         // Saved Flows automations, appended AFTER the allowlist filter.
         //
-        // A profile's skill allowlist is a list of `dir_name` slugs for
-        // SKILL.md bundles; it has no opinion about flow ids, so running flows
-        // through it would filter every one of them out on any profile that
-        // sets an allowlist — silently, and looking exactly like "you have no
-        // automations". Flow visibility is the flow store's business.
         #[cfg(feature = "flows")]
         workflows.extend(crate::flows::catalogue::flow_entries(&self.config));
         workflows

@@ -30,7 +30,6 @@ import { daemonHealthService } from '../services/daemonHealthService';
 import { installShellSessionEventBridge } from '../services/session/shellSessionEvents';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
-import { loadAgentProfiles } from '../store/agentProfileSlice';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
@@ -418,37 +417,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
             return;
           }
           log('post-identity thread reload failed: %O', sanitizeError(err));
-        });
-    }
-
-    // Seed the active agent profile at the earliest safe moment, so the window
-    // in which a chat request could carry the stale 'default' id is as short as
-    // the snapshot allows (#5872). It is a narrowing, NOT a guarantee: this
-    // dispatch is deliberately not awaited, so a send issued before it resolves
-    // still reads 'default' from the slice. Closing that window for good means
-    // omitting `profileId` while the slice is still loading — the core keeps
-    // its own authoritative `active_profile_id` and resolves an absent id
-    // against it — which belongs in the send path, not here. Intentionally not
-    // gated on !isFlip: on Tauri a flip triggers restartApp() so the provider
-    // remounts with undefined previousIdentity and profiles load on the boot
-    // poll; on web restartApp() is a no-op and by the next poll
-    // previousIdentity === nextIdentity, making shouldClearScopedCaches false
-    // — so we must dispatch here while it is still true.
-    if (
-      requestId === snapshotRequestIdRef.current &&
-      shouldClearScopedCaches &&
-      nextIdentity &&
-      !isLogout
-    ) {
-      const profileReloadRequestId = requestId;
-      void store
-        .dispatch(loadAgentProfiles())
-        .unwrap()
-        .catch(err => {
-          if (profileReloadRequestId !== snapshotRequestIdRef.current) {
-            return;
-          }
-          log('post-identity agent profiles load failed: %O', sanitizeError(err));
         });
     }
 

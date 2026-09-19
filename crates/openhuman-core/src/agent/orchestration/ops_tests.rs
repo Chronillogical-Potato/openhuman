@@ -1,10 +1,9 @@
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::{
@@ -12,6 +11,7 @@ use std::sync::{
     Arc,
 };
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::Tool;
 use tokio::time::Duration;
 
 #[derive(Default)]

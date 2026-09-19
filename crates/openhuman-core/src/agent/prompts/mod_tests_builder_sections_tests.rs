@@ -20,8 +20,6 @@ fn prompt_builder_assembles_sections() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -52,8 +50,6 @@ fn grounding_contract_appended_to_every_build_path() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -146,8 +142,6 @@ fn identity_section_creates_missing_workspace_files() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -229,8 +223,6 @@ fn datetime_section_is_static_grounding_rule_without_volatile_timestamp() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -302,8 +294,6 @@ fn datetime_section_appends_resolve_time_rule_only_when_tool_present() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -438,11 +428,8 @@ fn tools_section_pformat_renders_signature_not_schema() {
                 }
             })
         }
-        async fn execute(
-            &self,
-            _args: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("ok"))
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
 
@@ -464,8 +451,6 @@ fn tools_section_pformat_renders_signature_not_schema() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -501,11 +486,8 @@ fn tools_section_renders_invalid_schema_tool_without_arguments() {
             serde_json::Value::String("not JSON schema text".to_string())
         }
 
-        async fn execute(
-            &self,
-            _args: serde_json::Value,
-        ) -> anyhow::Result<crate::tools::ToolResult> {
-            Ok(crate::tools::ToolResult::success("ok"))
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
         }
     }
 
@@ -527,8 +509,6 @@ fn tools_section_renders_invalid_schema_tool_without_arguments() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -566,8 +546,6 @@ fn tools_section_uses_pformat_signature_for_text_dispatchers() {
             include_memory_md: false,
             curated_snapshot: None,
             user_identity: None,
-            personality_soul_md: None,
-            personality_memory_md: None,
             personality_roster: vec![],
             agents_md_global: None,
             agents_md_local: None,
@@ -618,8 +596,6 @@ fn user_memory_section_renders_namespaces_with_headings() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,

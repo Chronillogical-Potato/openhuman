@@ -3,11 +3,12 @@
 use super::super::turn_checkpoint::assistant_message_has_tool_calls;
 use super::super::types::Agent;
 use super::{collect_tree_root_summaries, sanitize_learned_entry};
-use crate::agent::context::prompt::{LearnedContextData, PromptContext, PromptTool};
 use crate::agent::messages::{ChatMessage, ConversationMessage};
+use crate::agent::prompts::{
+    tool_call_format_from_dialect, LearnedContextData, PromptContext, PromptTool,
+};
 use crate::memory::MemoryCategory;
 use crate::tools::agent_policy::render_tool_policy_boundary;
-use crate::tools::Tool;
 
 use anyhow::Result;
 
@@ -244,8 +245,6 @@ impl Agent {
         // UI takes effect on the very next session-start.
         let limits = self.config.resolved_memory_limits();
         let tree_root_summaries = collect_tree_root_summaries(
-            &self.workspace_dir,
-            &self.memory_subdir,
             limits.per_namespace_max_chars,
             limits.total_tree_max_chars,
         )
@@ -280,22 +279,16 @@ impl Agent {
     /// Builds the system prompt for the current turn, including tool
     /// instructions and learned context.
     pub fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
-        let tools_slice: &[Box<dyn Tool>] = self.tools.as_slice();
-        // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves (they are the
-        // same schema objects the durable and full views point at), while the
-        // `ToolDispatcher` trait — which embedders implement — takes an owned
-        // `&[ToolSpec]`. Materialise a borrow-slice for the call: this is one
-        // transient copy per system-prompt build, not a per-agent resident one,
-        // and keeping it here is what lets the trait stay source-compatible.
-        let visible_specs_owned: Vec<crate::tools::ToolSpec> = self
+        // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves. Materialise
+        // the canonical dialect input for this prompt build.
+        let visible_specs_owned: Vec<tinytools::ToolSpec> = self
             .visible_tool_specs
             .iter()
             .map(|spec| spec.as_ref().clone())
             .collect();
         let instructions = self
             .tool_dispatcher
-            .prompt_instructions_for_specs(&visible_specs_owned)
-            .unwrap_or_else(|| self.tool_dispatcher.prompt_instructions(tools_slice));
+            .prompt_instructions(&visible_specs_owned);
         // Adapt the agent's whole callable surface into the shared PromptTool
         // shape that every prompt-building call-site uses. Temporary vec
         // borrows from the two tool `Arc`s and lives for the duration of the
@@ -326,18 +319,15 @@ impl Agent {
             dispatcher_instructions: &instructions,
             learned,
             visible_tool_names: &prompt_visible_tool_names,
-            tool_call_format: self.tool_dispatcher.tool_call_format(),
+            tool_call_format: tool_call_format_from_dialect(
+                self.tool_dispatcher.tool_call_format(),
+            ),
             connected_integrations: &self.connected_integrations,
             connected_identities_md: crate::agent::prompts::render_connected_identities(),
             include_profile: !self.omit_profile,
             include_memory_md: !self.omit_memory_md,
             curated_snapshot: None,
             user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
-            // Profile SOUL.md and curated MEMORY.md are bound at session
-            // construction so the normal identity/user-files sections use
-            // them instead of their workspace-root fallbacks.
-            personality_soul_md: self.personality_soul_md.clone(),
-            personality_memory_md: self.personality_memory_md.clone(),
             personality_roster: vec![], // TODO: build_personality_roster(&workspace_dir)
             agents_md_global: agents_md.global,
             agents_md_local: agents_md.local,

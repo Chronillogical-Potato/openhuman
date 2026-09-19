@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use crate::config::Config;
 use crate::flows::store;
 use crate::flows::types::{FlowSuggestion, SuggestionStatus};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Hard cap on suggestions accepted in one `suggest_workflows` call. Keeps the
 /// UI section digestible and bounds the write; the agent is told to return the

@@ -12,12 +12,12 @@
 //! Agent runs execute browser workflows on remote websites.
 
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
 use crate::util::truncate_chars_flagged as truncate_chars;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 fn non_empty_string<'a>(args: &'a serde_json::Value, key: &str) -> anyhow::Result<&'a str> {
     args.get(key)

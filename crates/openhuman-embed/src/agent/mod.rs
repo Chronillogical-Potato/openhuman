@@ -7,8 +7,7 @@
 //! autonomy tier, `action_dir`), its
 //! [`AgentDefinition`](openhuman_core::agent::harness::definition::AgentDefinition)
 //! (system prompt, tool scope, sandbox mode), its
-//! [`AgentProfile`](openhuman_core::agent::profiles::AgentProfile) (allowlists,
-//! dedicated memory and transcripts, prompt suffix), and the derived
+//! derived
 //! [`CoreContext`](openhuman_core::core::runtime::CoreContext) every turn
 //! dispatches under. Two agents on one runtime never read each other's
 //! settings: each turn is scoped to its own context, and the core's config
@@ -28,7 +27,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use openhuman_core::agent::harness::definition::AgentDefinition;
-use openhuman_core::agent::profiles::AgentProfile;
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreContext, CoreRuntime};
 
@@ -89,7 +87,6 @@ pub(crate) struct AgentInner {
     pub(crate) ctx: Arc<CoreContext>,
     pub(crate) config: Config,
     pub(crate) definition: AgentDefinition,
-    pub(crate) profile: AgentProfile,
     pub(crate) provider: Provider,
     pub(crate) access: Access,
     pub(crate) layout: AgentLayout,
@@ -155,12 +152,12 @@ impl Agent {
         &self.inner.config.workspace_dir
     }
 
-    /// `<workspace>/personalities/<id>/` — the agent's home (SOUL.md, MEMORY.md).
+    /// `<workspace>/agents/<id>/` — the agent's home (SOUL.md, MEMORY.md).
     pub fn home_dir(&self) -> &Path {
         &self.inner.layout.home
     }
 
-    /// `<workspace>/personalities/<id>/skills/` — where its skill bundles were
+    /// `<workspace>/agents/<id>/skills/` — where its skill bundles were
     /// copied and the only skills root it sees besides the workspace's own.
     pub fn skills_dir(&self) -> &Path {
         &self.inner.layout.skills
@@ -168,7 +165,7 @@ impl Agent {
 
     /// Where this agent's transcripts are written: the workspace's shared
     /// `session_raw/` (files are keyed by agent name), or
-    /// `session_raw-<id>/` with [`AgentSpec::dedicated_memory`].
+    /// `session_raw/`, keyed by agent id.
     pub fn transcripts_dir(&self) -> &Path {
         &self.inner.layout.transcripts
     }

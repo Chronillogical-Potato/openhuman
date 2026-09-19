@@ -106,6 +106,22 @@ impl Tool for SpawnSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl SpawnSubagentTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -185,7 +201,7 @@ impl Tool for SpawnSubagentTool {
             }
         };
 
-        if let Some(parent_ctx) = current_parent() {
+        if let Some(parent_ctx) = run_context.parent.as_ref() {
             if !parent_ctx.allowed_subagent_ids.contains(&definition.id) {
                 log::warn!(
                     "[spawn_subagent] blocked subagent outside parent allowlist parent_agent={} requested_agent={} allowed={:?}",
@@ -222,9 +238,9 @@ impl Tool for SpawnSubagentTool {
             // truth. Falls back to the parent's frozen list when the
             // live fetch returns empty (no signed-in user, backend
             // unreachable, …) so offline behaviour is unchanged.
-            let parent_ctx = current_parent();
+            let parent_ctx = run_context.parent.clone();
             let live_integrations: Vec<
-                crate::agent::context::prompt::ConnectedIntegration,
+                crate::agent::prompts::ConnectedIntegration,
             > = {
                 match crate::config::Config::load_or_init().await {
                     Ok(config) => {
@@ -273,7 +289,7 @@ impl Tool for SpawnSubagentTool {
                     }
                 }
             };
-            let allowlist: Vec<&crate::agent::context::prompt::ConnectedIntegration> =
+            let allowlist: Vec<&crate::agent::prompts::ConnectedIntegration> =
                 live_integrations.iter().collect();
             let connected_slugs: Vec<String> = allowlist
                 .iter()
@@ -374,8 +390,11 @@ impl Tool for SpawnSubagentTool {
         // that both executes it and returns its output. Mirrors the
         // `has_delivery_thread` fallback the `delegate_*` tools already do in
         // `dispatch.rs::dispatch_subagent`.
-        let has_delivery_thread =
-            crate::agent::tinyagents::thread_context::current_thread_id().is_some();
+        let parent_thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
+            .map(str::to_owned);
+        let has_delivery_thread = parent_thread_id.is_some();
         if !blocking && !has_delivery_thread {
             log::info!(
                 "[spawn_subagent] async delegation requested for '{}' but no delivery thread \
@@ -404,12 +423,14 @@ impl Tool for SpawnSubagentTool {
                 "[spawn_subagent] routing to reusable async sub-agent by default"
             );
             return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+                .execute_with_parent_context(async_args, tool_context, run_context)
                 .await;
         }
 
         // ── Publish SubagentSpawned event ──────────────────────────────
-        let parent_session = current_parent()
+        let parent_session = run_context
+            .parent
+            .as_ref()
             .map(|p| p.session_id.clone())
             .unwrap_or_else(|| "standalone".into());
         let task_id = format!("sub-{}", uuid::Uuid::new_v4());
@@ -419,9 +440,8 @@ impl Tool for SpawnSubagentTool {
         // navigation and restarts — the same machinery `spawn_worker_thread`
         // uses. Best-effort: with no parent context or thread store the run
         // still proceeds live-only (`worker_thread_id: None`).
-        let worker_thread_id = current_parent().and_then(|p| {
-            let parent_thread_id =
-                crate::agent::tinyagents::thread_context::current_thread_id()?;
+        let worker_thread_id = run_context.parent.as_ref().and_then(|p| {
+            let parent_thread_id = parent_thread_id.as_ref()?;
             let title: String = prompt.chars().take(60).collect();
             super::worker_thread::create_worker_thread(
                 p.workspace_dir.clone(),
@@ -446,7 +466,7 @@ impl Tool for SpawnSubagentTool {
         // parent thread's UI. Best-effort: a closed/missing sink is
         // silently ignored — the global DomainEvent above is the
         // authoritative record.
-        if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {
+        if let Some(progress) = run_context.progress.clone() {
             let _ = progress
                 .send(AgentProgress::SubagentSpawned {
                     agent_id: definition.id.clone(),
@@ -475,12 +495,19 @@ impl Tool for SpawnSubagentTool {
                 "[spawn_subagent] using ToolExecutionContext workspace root"
             );
         }
+        let progress_sink = run_context.progress.clone();
+        let parent_workspace_dir = run_context
+            .parent
+            .as_ref()
+            .map(|parent| parent.workspace_dir.clone());
         let options = SubagentRunOptions {
             skill_filter_override: None,
             toolkit_override,
             context,
             model_override,
             task_id: Some(task_id.clone()),
+            thread_id: parent_thread_id,
+            run_context,
             worker_thread_id: worker_thread_id.clone(),
             initial_history: None,
             checkpoint_dir: None,
@@ -488,8 +515,6 @@ impl Tool for SpawnSubagentTool {
             workspace_descriptor,
             run_queue: None,
         };
-
-        let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
 
         match run_subagent(definition, &prompt, options).await {
             Ok(outcome) => {
@@ -569,8 +594,8 @@ impl Tool for SpawnSubagentTool {
                         }
 
                         if dedicated_thread {
-                            let workspace_dir = current_parent()
-                                .map(|p| p.workspace_dir.clone())
+                            let workspace_dir = parent_workspace_dir
+                                .clone()
                                 .unwrap_or_else(|| PathBuf::from("."));
                             let parent_visible = match persist_worker_thread(
                                 &workspace_dir,

@@ -9,18 +9,52 @@
 //! appended to the conversation history.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentCheckpointData, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct ContinueSubagentTool;
+
+pub(crate) struct ContinueSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl ContinueSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ContinueSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        ContinueSubagentTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl Default for ContinueSubagentTool {
     fn default() -> Self {
@@ -50,6 +84,7 @@ impl ContinueSubagentTool {
         agent_id: &str,
         message: &str,
         tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
         use crate::agent::orchestration::subagent_sessions::{self, SubagentSessionStore};
 
@@ -116,7 +151,7 @@ impl ContinueSubagentTool {
             );
         }
         super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-            .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+            .execute_with_parent_context(async_args, tool_context, run_context)
             .await
     }
 }
@@ -167,6 +202,22 @@ impl Tool for ContinueSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl ContinueSubagentTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
         let task_id = args
             .get("task_id")
             .and_then(|v| v.as_str())
@@ -214,7 +265,7 @@ impl Tool for ContinueSubagentTool {
             ));
         }
 
-        let parent = match current_parent() {
+        let parent = match run_context.parent.clone() {
             Some(p) => p,
             None => {
                 return Ok(ToolResult::error(
@@ -262,7 +313,14 @@ impl Tool for ContinueSubagentTool {
                 // workflow_builder ("looks good, save it") instead of
                 // re-delegating a fresh, stateless one.
                 return self
-                    .resume_from_durable_store(&parent, &task_id, &agent_id, &message, tool_context)
+                    .resume_from_durable_store(
+                        &parent,
+                        &task_id,
+                        &agent_id,
+                        &message,
+                        tool_context,
+                        run_context,
+                    )
                     .await;
             }
         };
@@ -349,7 +407,9 @@ impl Tool for ContinueSubagentTool {
         }
 
         // Build options with initial_history for replay
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let workspace_descriptor = tool_context
+            .and_then(|ctx| ctx.workspace().cloned())
+            .or_else(|| run_context.workspace.clone());
         let worktree_action_dir = workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
@@ -368,6 +428,11 @@ impl Tool for ContinueSubagentTool {
             context: None,
             model_override: checkpoint.model_override,
             task_id: Some(task_id.clone()),
+            thread_id: tool_context
+                .and_then(ToolRunContext::thread_id)
+                .or(run_context.thread_id.as_deref())
+                .map(str::to_owned),
+            run_context,
             worker_thread_id: checkpoint.worker_thread_id.clone(),
             initial_history: Some(history),
             checkpoint_dir: Some(checkpoint_dir.clone()),

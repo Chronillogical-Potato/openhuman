@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
+use tinyinference_llm::tool::ToolSchema;
 
 use crate::agent::harness::AgentDefinitionRegistry;
-use crate::agent::tinyagents::convert::spec_to_schema;
 use crate::agent::Agent;
 use crate::config::rpc as config_rpc;
 use crate::core::all;
@@ -239,7 +239,13 @@ async fn core_tool_instructions() -> Result<Value, ToolCallError> {
     let schemas: Vec<_> = agent
         .tool_specs()
         .iter()
-        .map(|spec| spec_to_schema(spec))
+        .map(|spec| {
+            ToolSchema::new(
+                spec.name.clone(),
+                spec.description.clone(),
+                spec.parameters.clone(),
+            )
+        })
         .collect();
     Ok(tool_text_success(
         tinyagents_harness::tool::prompt_tool_instructions(&schemas),

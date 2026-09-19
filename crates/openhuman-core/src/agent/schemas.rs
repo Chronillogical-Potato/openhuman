@@ -493,8 +493,8 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 /// * **Model** — the static cost catalog projection
 ///   (`cost::catalog::tinyagents_catalog_snapshot`); carries model id, aliases,
 ///   provider/mode tags.
-/// * **Tool** — the baseline tool registry (`tools::default_tools`); names +
-///   descriptions. NOTE: the *full* per-agent tool surface (`tools::all_tools`)
+/// * **Tool** — the baseline tool registry (`tools::ops::default_tools`); names +
+///   descriptions. NOTE: the *full* per-agent tool surface (`tools::ops::all_tools`)
 ///   needs config/memory/audit/action-dir wiring that only exists inside a turn,
 ///   so only the baseline set is projected here. Deferred — see `deferred` in
 ///   the response and the migration follow-up.
@@ -576,7 +576,7 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
 
         // ── Tools: baseline registry (full per-agent surface deferred) ──────
         let security = std::sync::Arc::new(crate::security::SecurityPolicy::default());
-        let baseline_tools = crate::tools::default_tools(security);
+        let baseline_tools = crate::tools::ops::default_tools(security);
         let tool_count = baseline_tools.len();
         for tool in &baseline_tools {
             components.push(

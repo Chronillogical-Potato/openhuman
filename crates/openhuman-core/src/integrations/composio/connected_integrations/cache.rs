@@ -5,7 +5,7 @@
 //! helpers ([`connected_set_hash`], [`sync_cache_with_connections`]) that
 //! keep it in sync with a fresh backend `list_connections` response.
 
-use crate::agent::context::prompt::ConnectedIntegration;
+use crate::agent::prompts::ConnectedIntegration;
 use crate::config::Config;
 
 use std::collections::{HashMap, HashSet};

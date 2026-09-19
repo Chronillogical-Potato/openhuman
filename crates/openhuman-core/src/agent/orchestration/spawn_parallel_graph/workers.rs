@@ -16,6 +16,7 @@ pub(crate) async fn run_spawn_parallel_workers(
     prepared: Vec<SpawnParallelWorker>,
     action_root: Option<PathBuf>,
     cancel: CancellationToken,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> tinyagents_harness::Result<Vec<ParallelAgentResult>> {
     let n = prepared.len();
     let serial_write_count = prepared
@@ -43,13 +44,16 @@ pub(crate) async fn run_spawn_parallel_workers(
                 );
                 return Err(TinyAgentsError::Cancelled);
             }
-            results.push(run_one_parallel_task(worker, action_root.clone()).await);
+            results.push(
+                run_one_parallel_task(worker, action_root.clone(), run_context.child()).await,
+            );
         }
         return Ok(results);
     }
 
     let max_concurrency = prepared.len().max(1);
     let action_root_for_workers = action_root.clone();
+    let run_context_for_workers = run_context.clone();
     tracing::debug!(
         target: "orchestration",
         workers = n,
@@ -62,7 +66,8 @@ pub(crate) async fn run_spawn_parallel_workers(
         .with_cancellation(cancel);
     let outcome = map_reduce(prepared, options, move |_i, worker| {
         let repo_root = action_root_for_workers.clone();
-        async move { Ok(run_one_parallel_task(worker, repo_root).await) }
+        let run_context = run_context_for_workers.child();
+        async move { Ok(run_one_parallel_task(worker, repo_root, run_context).await) }
     })
     .await?;
 
@@ -90,6 +95,7 @@ pub(crate) async fn run_spawn_parallel_workers(
 async fn run_one_parallel_task(
     worker: SpawnParallelWorker,
     repo_root: Option<PathBuf>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> ParallelAgentResult {
     let SpawnParallelWorker {
         definition,
@@ -122,6 +128,8 @@ async fn run_one_parallel_task(
         context: task.context.clone(),
         model_override: None,
         task_id: Some(task_id.clone()),
+        thread_id: None,
+        run_context,
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,
@@ -140,8 +148,7 @@ async fn run_one_parallel_task(
         .map(|p| p.to_string_lossy().to_string());
     let (changed_files, dirty_status) = match (&worktree_path, &repo_root) {
         (Some(wt), Some(root)) => {
-            use crate::agent::orchestration::worktree;
-            match worktree::status(root, wt) {
+            match tinyagents_harness::workspace::git_worktree_status(root, wt) {
                 Ok(st) => {
                     tracing::debug!(
                         task_id = %task_id,

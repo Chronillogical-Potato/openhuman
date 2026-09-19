@@ -122,17 +122,19 @@ impl RequiredCapabilitiesMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for RequiredCapabilitiesMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RequiredCapabilitiesMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.required_capabilities"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         mut request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         if request.required_capabilities.is_none() {
             request = request.with_required_capabilities(self.required.clone());
@@ -193,17 +195,19 @@ impl FallbackObserverMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for FallbackObserverMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for FallbackObserverMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.fallback_observer"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();
@@ -250,17 +254,19 @@ impl UsageCarryMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for UsageCarryMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for UsageCarryMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.usage_carry"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();
@@ -269,6 +275,43 @@ impl ModelMiddleware<()> for UsageCarryMiddleware {
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
                 .push_back(usage);
+        }
+        Ok(MiddlewareModelOutcome::from(response))
+    }
+}
+
+/// Captures the concrete provider/model/host-route selected for a successful
+/// call from TinyInference's canonical response metadata.
+///
+/// `tinyinference_llm::model::RouteRecordingModel` decorates both unary
+/// responses and stream terminal metadata. The harness folds a stream into its
+/// terminal `ModelResponse` before middleware regains control, so this one
+/// typed boundary records primary and fallback routes identically without an
+/// OpenHuman model wrapper or task-local propagation.
+pub(super) struct ResolvedRouteMiddleware;
+
+#[async_trait]
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ResolvedRouteMiddleware
+{
+    fn name(&self) -> &str {
+        "openhuman.resolved_route"
+    }
+
+    async fn wrap_model(
+        &self,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        state: &(),
+        request: ModelRequest,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
+        let outcome = next.run(ctx, state, request).await?;
+        let response = outcome.into_response();
+        if let Some(route) = response.resolved_route.clone() {
+            *ctx.data
+                .resolved_route
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(route);
         }
         Ok(MiddlewareModelOutcome::from(response))
     }

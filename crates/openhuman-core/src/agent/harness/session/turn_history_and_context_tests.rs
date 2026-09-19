@@ -1,4 +1,5 @@
 use super::*;
+use tinyagents_session::transcript;
 
 #[test]
 fn trim_history_preserves_system_and_keeps_latest_non_system_entries() {
@@ -103,11 +104,7 @@ async fn build_parent_context_and_sanitize_helpers_cover_snapshot_paths() {
     // A profile subtree that was never written. Named rather than `"memory"`
     // because the shared subtree is the driver's now (#5560), and what this
     // line is here to cover is the host-local scan's empty answer.
-    assert!(
-        collect_tree_root_summaries(agent.workspace_dir(), "memory-absent", 8_000, 32_000)
-            .await
-            .is_empty()
-    );
+    assert!(collect_tree_root_summaries(8_000, 32_000).await.is_empty());
 }
 
 #[test]
@@ -118,10 +115,9 @@ fn build_parent_context_propagates_own_descriptor_on_root_turn() {
     // reaches subagents spawned via spawn_subagent/spawn_async_subagent, and they
     // silently fall back to the shared action_dir instead of
     // `<action_dir>/profiles/<id>`.
-    let descriptor = tinyagents_harness::workspace::WorkspaceDescriptor::new(
-        std::path::PathBuf::from("/tmp/act/profiles/alice"),
-    )
-    .with_policy_id("openhuman.profile:alice");
+    let descriptor =
+        tinytools::WorkspaceDescriptor::new(std::path::PathBuf::from("/tmp/act/profiles/alice"))
+            .with_policy_id("openhuman.profile:alice");
 
     let mut agent = make_agent(None);
     // No ambient parent context is installed in this test, so current_parent()
@@ -267,96 +263,6 @@ async fn transcript_resume_is_bounded_by_max_history_messages() {
     assert_eq!(cached[2].content, "a6");
     assert_eq!(cached[3].content, "u7");
     assert_eq!(cached[4].content, "a7");
-}
-
-#[tokio::test]
-async fn transcript_resume_uses_profile_scoped_raw_directory() {
-    let mut shared = make_agent(None);
-    shared.persist_session_transcript(
-        &[
-            ChatMessage::system("shared-system"),
-            ChatMessage::user("shared-user"),
-        ],
-        0,
-        0,
-        0,
-        0.0,
-        None,
-    );
-
-    let mut profile = make_agent(None);
-    profile.workspace_dir = shared.workspace_dir.clone();
-    profile.agent_definition_name = shared.agent_definition_name.clone();
-    profile.session_raw_subdir = "session_raw-alice".to_string();
-    profile.persist_session_transcript(
-        &[
-            ChatMessage::system("profile-system"),
-            ChatMessage::user("profile-user"),
-        ],
-        0,
-        0,
-        0,
-        0.0,
-        None,
-    );
-
-    let mut resumed = make_agent(None);
-    resumed.workspace_dir = shared.workspace_dir.clone();
-    resumed.agent_definition_name = shared.agent_definition_name.clone();
-    resumed.session_raw_subdir = "session_raw-alice".to_string();
-    resumed.try_load_session_transcript();
-
-    let cached = resumed
-        .cached_transcript_messages
-        .expect("profile transcript");
-    assert!(cached
-        .iter()
-        .any(|message| message.content == "profile-user"));
-    assert!(cached
-        .iter()
-        .all(|message| message.content != "shared-user"));
-}
-
-// NOTE: The `execute_tool_call_*` tests that exercised the legacy per-call
-// direct tool executor (`Agent::execute_tool_call`) were removed during the
-// tinyagents migration. The direct executor and its test-only parity shim
-// (`session/agent_tool_exec.rs`) were deleted (commit 8aba23886); tool
-// execution now happens inside the tinyagents graph turn, so these tests target
-// an API that no longer exists. Removed: blocks_invisible_tool_and_emits_events,
-// reports_unknown_tool, rewrites_legacy_run_skill_for_builtin_cron_tools,
-// rewrites_run_workflow_for_builtin_cron_tools,
-// denies_tool_above_channel_permission (and, below,
-// denies_by_policy_before_tool_runs, threads_generated_tool_context_into_policy,
-// applies_inline_result_budget).
-
-#[test]
-fn system_prompt_includes_tool_policy_boundary() {
-    let provider: Arc<dyn ChatModel<()>> = Arc::new(DummyProvider);
-    let mut config = crate::config::AgentConfig::default();
-    config
-        .channel_permissions
-        .insert("turn-test-channel".into(), "read_only".into());
-    let agent = make_agent_with_builder(
-        provider,
-        vec![
-            Box::new(EchoTool),
-            Box::new(CountingWriteTool {
-                calls: Arc::new(AtomicUsize::new(0)),
-            }),
-        ],
-        vec![],
-        config,
-        crate::config::ContextConfig::default(),
-    );
-
-    let prompt = agent
-        .build_system_prompt(LearnedContextData::default())
-        .expect("prompt");
-
-    assert!(prompt.contains("## Tool Policy Boundary"));
-    assert!(prompt.contains("Allowed tools: echo"));
-    assert!(prompt.contains("Restricted tools: 1 omitted by policy"));
-    assert!(!prompt.contains("write_notes"));
 }
 
 #[test]
@@ -533,7 +439,7 @@ async fn turn_triggers_configured_memory_agent_before_parent_prompt() {
         .chat_model(provider)
         .tools(vec![Box::new(EchoTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(crate::config::AgentConfig {
             max_tool_iterations: 3,
             max_history_messages: 10,

@@ -14,9 +14,7 @@ impl Agent {
     /// hosting platform's cost-metering hook) can read per-turn token and USD
     /// totals after [`Agent::turn`](crate::agent::Agent) returns,
     /// while leaving the value in place for the web-channel drain path.
-    pub fn last_turn_usage(
-        &self,
-    ) -> Option<&crate::agent::harness::turn_subagent_usage::LastTurnUsage> {
+    pub fn last_turn_usage(&self) -> Option<&crate::agent::tinyagents::host::LastTurnUsage> {
         self.last_turn_usage_totals.as_ref()
     }
 
@@ -25,7 +23,7 @@ impl Agent {
     /// Consumed by web-channel delivery to populate the `chat_done` usage fields.
     pub(crate) fn take_last_turn_usage_totals(
         &mut self,
-    ) -> Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage> {
+    ) -> Option<crate::agent::tinyagents::host::LastTurnUsage> {
         self.last_turn_usage_totals.take()
     }
 

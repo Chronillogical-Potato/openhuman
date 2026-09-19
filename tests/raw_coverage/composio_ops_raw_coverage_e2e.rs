@@ -35,7 +35,8 @@ use openhuman_core::config::Config;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::tools::{ComposioExecuteTool, Tool};
+use tinytools::{Tool};
+use openhuman_core::tools::{ComposioExecuteTool};
 
 #[derive(Clone, Default)]
 struct MockState {

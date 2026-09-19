@@ -7,10 +7,10 @@
 //! renderer.
 
 use crate::skills::Workflow;
-use crate::tools::Tool;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::path::Path;
+use tinytools::Tool;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -295,6 +295,18 @@ pub enum ToolCallFormat {
     Native,
 }
 
+/// Map the canonical dialect's catalogue spelling onto the host prompt wire
+/// vocabulary at the prompt boundary.
+pub(crate) fn tool_call_format_from_dialect(
+    format: tinytools_agent::dialect::ToolCallFormat,
+) -> ToolCallFormat {
+    match format {
+        tinytools_agent::dialect::ToolCallFormat::PFormat => ToolCallFormat::PFormat,
+        tinytools_agent::dialect::ToolCallFormat::Json => ToolCallFormat::Json,
+        tinytools_agent::dialect::ToolCallFormat::Native => ToolCallFormat::Native,
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Authenticated user identity
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,14 +394,6 @@ pub struct PromptContext<'a> {
     /// session, tests). Pre-fetched by the caller from the
     /// stored credential user payload so prompt builders never reach the network.
     pub user_identity: Option<UserIdentity>,
-    /// Personality-specific SOUL.md content. When `Some`, the
-    /// `IdentitySection` uses this instead of reading the workspace
-    /// root `SOUL.md`. `None` falls back to existing behavior.
-    pub personality_soul_md: Option<String>,
-    /// Personality-specific MEMORY.md content. When `Some`, the
-    /// `UserFilesSection` uses this instead of reading the workspace
-    /// root `MEMORY.md`. `None` falls back to existing behavior.
-    pub personality_memory_md: Option<String>,
     /// Non-self personality roster entries for the master agent's prompt.
     /// Empty for non-master agents.
     pub personality_roster: Vec<PersonalityRosterEntry>,

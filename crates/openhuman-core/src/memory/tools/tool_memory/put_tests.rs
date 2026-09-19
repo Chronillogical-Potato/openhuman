@@ -8,9 +8,9 @@ use crate::config::TEST_ENV_LOCK;
 use crate::memory::guard::policy::GUARD_DENIED_PREFIX;
 use crate::security::live_policy;
 use crate::security::policy::{AutonomyLevel, SecurityPolicy};
-use crate::tools::traits::Tool;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::Tool;
 
 /// Install `autonomy` as the live policy for this test thread only. Same
 /// shape `memory/guard/policy_tests.rs` uses; `#[tokio::test]`'s

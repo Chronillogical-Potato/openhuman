@@ -11,9 +11,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::tools::traits::{
-    humanize_tool_name, PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope,
-};
+use tinytools::{humanize_tool_name, PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope};
 
 #[derive(Debug, Clone)]
 pub struct GeneratedToolDefinition {

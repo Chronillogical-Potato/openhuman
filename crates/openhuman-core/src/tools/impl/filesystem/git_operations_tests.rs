@@ -93,7 +93,7 @@ fn sanitize_git_allows_safe() {
 #[test]
 fn git_resolves_cwd_from_workspace_descriptor() {
     use tinyagents_harness::context::{RunConfig, RunContext};
-    use tinyagents_harness::workspace::WorkspaceDescriptor;
+    use tinytools::WorkspaceDescriptor;
 
     let action_tmp = TempDir::new().unwrap();
     let worktree_tmp = TempDir::new().unwrap();

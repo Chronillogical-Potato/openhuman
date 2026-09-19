@@ -5,7 +5,7 @@ import { isMac } from './shortcut';
 // Group headings shown (in this order) by the command palette and the
 // keyboard-shortcuts help directory. Kept in sync with the `group` values
 // assigned to each action below.
-export const GROUP_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General'] as const;
+export const GROUP_ORDER = ['Navigation', 'Chat', 'View', 'General'] as const;
 
 /**
  * i18n keys for the group headings surfaced in the command palette / shortcuts
@@ -14,7 +14,6 @@ export const GROUP_ORDER = ['Navigation', 'Profiles', 'Chat', 'View', 'General']
  */
 export const GROUP_LABEL_KEYS: Record<string, string> = {
   Navigation: 'shortcuts.group.navigation',
-  Profiles: 'shortcuts.group.profiles',
   Chat: 'shortcuts.group.chat',
   View: 'shortcuts.group.view',
   General: 'shortcuts.group.general',
@@ -25,19 +24,11 @@ export const GROUP_LABEL_KEYS: Record<string, string> = {
  * Navigation tabs are bound to the **Control** key.
  *
  * On macOS `ctrl+N` is the physical Control key (distinct from ⌘), which is
- * exactly what we want so ⌘+N can later mean "switch profile". On Windows/Linux
- * there is no ⌘ and our matcher treats a bare `ctrl+N` as unreachable (mod *is*
+ * exactly what we want. On Windows/Linux there is no ⌘ and our matcher treats a
+ * bare `ctrl+N` as unreachable (mod *is*
  * Ctrl there), so nav folds to `mod+N` — i.e. Ctrl+N physically on every OS.
  */
 const NAV_MOD = isMac() ? 'ctrl' : 'mod';
-
-/**
- * Profile-switch shortcuts (⌘1–⌘4 on macOS) are wired but inert: profiles don't
- * exist yet. While this is false the actions stay bound-but-disabled and hidden
- * from the palette/help directory; flip it true (and supply a real handler) when
- * the profiles feature lands.
- */
-const PROFILES_ENABLED = false;
 
 /**
  * Side-effecting handlers the global command layer drives. The owning
@@ -93,25 +84,6 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
   const nav = (path: string) => () => {
     h.navigate(path);
   };
-
-  // Placeholder until the profiles feature exists; the index is captured so the
-  // real switch can drop straight in here later.
-  const switchProfile = (index: number) => () => {
-    void index;
-  };
-
-  const profileActions: GlobalActionDef[] = [1, 2, 3, 4].map(n => ({
-    id: `profile.switch-${n}`,
-    label: `Switch to Profile ${n}`,
-    group: 'Profiles' as const,
-    // ⌘N on macOS (mod === ⌘); Ctrl+N on Windows/Linux. Distinct from the
-    // Control-based nav row on macOS; harmlessly inert elsewhere while disabled.
-    shortcut: `mod+${n}`,
-    enabled: () => PROFILES_ENABLED,
-    register: PROFILES_ENABLED,
-    handler: switchProfile(n),
-    keywords: ['profile', 'switch', 'persona', `profile ${n}`],
-  }));
 
   return [
     // ── Navigation (Control-based) ──────────────────────────────────────
@@ -170,9 +142,6 @@ function buildGlobalActions(h: GlobalActionHandlers): GlobalActionDef[] {
       handler: nav('/settings'),
       keywords: ['preferences', 'config'],
     },
-
-    // ── Profiles (wired, hidden until the feature exists) ───────────────
-    ...profileActions,
 
     // ── Chat ────────────────────────────────────────────────────────────
     {

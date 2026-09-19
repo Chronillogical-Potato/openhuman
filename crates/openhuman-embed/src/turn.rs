@@ -439,8 +439,6 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
                 );
                 let target = AgentChatTarget::Definition {
                     definition: &inner.definition,
-                    profile: Some(&inner.profile),
-                    profile_prompt_suffix: inner.profile.system_prompt_suffix.as_deref(),
                 };
                 agent_chat_for(
                     &mut config,

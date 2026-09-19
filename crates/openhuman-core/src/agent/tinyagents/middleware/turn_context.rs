@@ -9,11 +9,11 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyagents_harness::runtime::AgentHarness;
-use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore;
 use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
@@ -163,23 +163,26 @@ pub(crate) struct TranscriptSnapshotMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for TranscriptSnapshotMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for TranscriptSnapshotMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.transcript_snapshot"
     }
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         // A tool result reaches a provider only with the next request, so it
         // also sits past `accepted_len` until that request is answered.
         if let Ok(mut guard) = self.sink.lock() {
             guard.messages.push(Message::tool(
-                result.call_id.clone(),
-                result.content.clone(),
+                invocation.call_id().to_string(),
+                crate::agent::tinyagents::middleware::tool_result_text(result),
             ));
         }
         Ok(())
@@ -187,7 +190,7 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -199,7 +202,7 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
 
     async fn after_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         response: &mut ModelResponse,
     ) -> TaResult<()> {
@@ -274,7 +277,7 @@ impl TurnContextMiddleware {
     /// summarization/trim handle the rest.
     pub(crate) fn install(
         self,
-        harness: &mut AgentHarness<()>,
+        harness: &mut AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext>,
         tool_policies: HashMap<String, TaToolPolicy>,
     ) {
         // Transcript snapshot (#4466) runs first among before_model hooks so it
@@ -361,14 +364,14 @@ impl HandoffMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for HandoffMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for HandoffMiddleware {
     fn name(&self) -> &str {
         "result_handoff"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut tinyinference_llm::tool::ToolCall,
     ) -> TaResult<()> {
@@ -387,31 +390,35 @@ impl Middleware<()> for HandoffMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         let artifact_read = self
             .artifact_reads
             .lock()
-            .map(|mut reads| reads.remove(&result.call_id))
+            .map(|mut reads| reads.remove(&call_id))
             .unwrap_or(false);
         if artifact_read {
             tracing::debug!(
-                tool = %result.name,
-                call_id = %result.call_id,
+                tool = tool_name,
+                call_id = %call_id,
                 task_id = %self.task_id,
                 "[tinyagents::mw] artifact read: skipping result handoff so the artifact pager sees the bytes"
             );
             return Ok(());
         }
-        result.content = crate::agent::harness::subagent_runner::apply_handoff(
+        let handoff = crate::agent::harness::subagent_runner::apply_handoff(
             &self.cache,
-            &result.name,
+            tool_name,
             &self.task_id,
             &self.agent_id,
-            std::mem::take(&mut result.content),
+            crate::agent::tinyagents::middleware::tool_result_text(result),
         );
+        crate::agent::tinyagents::middleware::replace_tool_result_text(result, handoff);
         Ok(())
     }
 }

@@ -12,8 +12,8 @@ use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-use crate::tools::{Tool, ToolSpec};
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
+use tinytools::{Tool, ToolSpec};
 
 use super::transcript::persist_subagent_transcript;
 use super::worker_mirror::mirror_worker_thread;
@@ -50,6 +50,8 @@ pub(crate) async fn run_agent_turn_request_via_default_graph(
         agent_id,
         task_id,
         extended_policy,
+        thread_id,
+        run_context,
         worker_thread_id,
         workspace_dir,
         workspace_descriptor,
@@ -78,6 +80,8 @@ pub(crate) async fn run_agent_turn_request_via_default_graph(
             &agent_id,
             &task_id,
             extended_policy,
+            thread_id,
+            run_context,
             worker_thread_id,
             workspace_dir,
             workspace_descriptor,
@@ -127,6 +131,8 @@ pub(in super::super) async fn run_subagent_via_graph(
     agent_id: &str,
     task_id: &str,
     extended_policy: bool,
+    thread_id: Option<String>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     worker_thread_id: Option<String>,
     workspace_dir: std::path::PathBuf,
     workspace_descriptor: Option<WorkspaceDescriptor>,
@@ -169,6 +175,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     ),
     SubagentRunError,
 > {
+    // One resolved thread identity drives every child-facing boundary. An
+    // explicit worker/task thread deliberately replaces the inherited parent;
+    // otherwise a child remains in its parent's conversation. Do this before
+    // constructing *any* model so managed requests, transcript metadata, and
+    // the child carrier cannot disagree.
+    let thread_id = inherited_thread_id(run_context.thread_id.clone(), thread_id);
     tracing::info!(
         model,
         max_iterations,
@@ -199,7 +211,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // turn's own model set is consumed by the run). Built off the same source, so
     // the checkpoint invokes a crate `ChatModel` without naming `Provider`
     // (issue #4249, Phase 3 / Motion A).
-    let summary_model = source.build_summarizer(model, temperature)?;
+    let summary_model = source.build_summarizer(model, temperature, thread_id.as_deref())?;
 
     // Resolve the sub-agent model's effective context window so the harness runs
     // the context-window summarization step (issue #4249) on sub-agent turns too.
@@ -211,7 +223,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // Build the child turn's crate `ChatModel` set from the source; capability
     // reads (vision/native-tools) + telemetry id now come off the built bundle,
     // so the sub-agent path names crate model types only.
-    let turn_models = source.build(model, temperature, context_window)?;
+    let turn_models = source.build(model, temperature, context_window, thread_id.as_deref())?;
 
     // Vision forwarding (parity with the legacy `run_inner_loop`): rehydrate
     // `[IMAGE:…]` placeholders in the sub-agent's history when either the model
@@ -259,7 +271,19 @@ pub(in super::super) async fn run_subagent_via_graph(
     // (and the telemetry id) before `turn_models` is moved into the runner.
     let native_tools = turn_models.native_tools();
     let provider_id = turn_models.provider_id().to_string();
+    // `SubagentRunOptions` already carries the child context built at the tool
+    // dispatch boundary. Reusing that owned value preserves its immediate
+    // parent-ledger link; forking again here would hide nested child usage in a
+    // second, unreachable ledger.
+    let mut child_context = run_context;
+    // A parallel task may omit `thread_id`; that means inherit the parent
+    // conversation, not erase it. Only an explicit task thread may replace
+    // the typed carrier's inherited affinity.
+    child_context.thread_id = thread_id.clone();
+    child_context.progress = on_progress.clone().or(child_context.progress);
+    child_context.workspace = workspace_descriptor.clone().or(child_context.workspace);
     let run_result = Box::pin(run_turn_via_tinyagents_shared(
+        child_context,
         turn_models,
         provider_id,
         model,
@@ -279,8 +303,6 @@ pub(in super::super) async fn run_subagent_via_graph(
         // inheriting the parent's full surface (shell/file-write/spawn).
         Some(allowed_names),
         max_iterations,
-        // Parent's progress sink — child events ride it, scoped below.
-        on_progress,
         subagent_scope,
         // Resolved above — drives the sub-agent context-window summarization step.
         context_window,
@@ -312,8 +334,6 @@ pub(in super::super) async fn run_subagent_via_graph(
         // Sub-agents gate via their own SubagentToolSource policy path, not the
         // session `.tool_policy()`; no enforcement threaded here.
         None,
-        // Isolated worker descriptor, when worktree isolation prepared one.
-        workspace_descriptor,
         // Sub-agent turns run tools with external effects; not a deterministic
         // internal run, so response caching stays off (safe default).
         false,
@@ -376,6 +396,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                 model,
                 &recovered,
                 &recovered_usage,
+                thread_id.as_deref(),
                 unanswered_steps.as_deref(),
                 completed_rounds,
                 context_window.unwrap_or(0),
@@ -396,11 +417,16 @@ pub(in super::super) async fn run_subagent_via_graph(
     // the typed `outcome.conversation` (messages-since-last-user) also avoids
     // indexing a post-trim `outcome.history` with the pre-trim length, and the
     // durable `[IMAGE:…]` markers stay put since the prior user turns are untouched.
-    use crate::agent::dispatcher::ToolDispatcher;
     let suffix = if native_tools {
-        crate::agent::dispatcher::NativeToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::NativeDialect,
+            &outcome.conversation,
+        )
     } else {
-        crate::agent::dispatcher::XmlToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::XmlDialect,
+            &outcome.conversation,
+        )
     };
     history.extend(suffix);
 
@@ -514,6 +540,7 @@ pub(in super::super) async fn run_subagent_via_graph(
         model,
         history_for_transcript,
         &usage,
+        thread_id.as_deref(),
         context_window.unwrap_or(0),
         // Match the dispatcher the history was actually serialized with (text-mode
         // integrations turns write XML), and the real iteration count.
@@ -554,6 +581,15 @@ pub(in super::super) async fn run_subagent_via_graph(
         // #4466: propagate a circuit-breaker halt so the runner reports Incomplete.
         outcome.breaker_halt,
     ))
+}
+
+/// A task-specific thread explicitly routes a worker; an absent task thread
+/// leaves the parent run's transcript affinity intact.
+pub(crate) fn inherited_thread_id(
+    parent_thread_id: Option<String>,
+    task_thread_id: Option<String>,
+) -> Option<String> {
+    task_thread_id.or(parent_thread_id)
 }
 
 /// Build the sub-agent turn's [`TurnContextMiddleware`] from the live

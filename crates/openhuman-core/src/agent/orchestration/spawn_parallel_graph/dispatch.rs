@@ -5,7 +5,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use tinyagents_harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
+use tinyagents_harness::workspace::WorkspaceIsolation;
+use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::definition::{AgentDefinition, SandboxMode};
@@ -13,12 +14,13 @@ use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::worktree;
 use crate::agent::progress::AgentProgress;
 
-use super::request::ParallelAgentTask;
 use super::staging::{
     prepare_spawn_parallel_tasks_from_defs, worktree_request_for_task, ParallelTaskRejectionKind,
     ParallelWorktreeRequest, SpawnParallelTaskPreflight, WorkerDispatchMode,
 };
-use super::types::{ParallelAgentLineage, ParallelAgentResult, SpawnParallelWorker};
+use super::types::{
+    ParallelAgentLineage, ParallelAgentResult, ParallelAgentTask, SpawnParallelWorker,
+};
 
 pub(crate) fn spawn_parallel_lineage(
     parent_session: &str,
@@ -49,10 +51,8 @@ async fn create_spawn_parallel_worktree(
         ParallelWorktreeRequest::Isolated { base_ref } => match action_root {
             Some(repo_root) => {
                 let sandbox = match definition.sandbox_mode {
-                    SandboxMode::Sandboxed => tinyagents_harness::tool::SandboxMode::Required,
-                    SandboxMode::None | SandboxMode::ReadOnly => {
-                        tinyagents_harness::tool::SandboxMode::Inherit
-                    }
+                    SandboxMode::Sandboxed => tinytools::SandboxMode::Required,
+                    SandboxMode::None | SandboxMode::ReadOnly => tinytools::SandboxMode::Inherit,
                 };
                 let isolation = worktree::OpenHumanWorktreeIsolation::new(repo_root)
                     .with_base_ref(base_ref)

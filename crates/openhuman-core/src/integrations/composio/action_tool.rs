@@ -35,7 +35,7 @@ use crate::agent::harness::current_sandbox_mode;
 use crate::agent::harness::definition::SandboxMode;
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 /// A single Composio action exposed as a first-class tool.
 pub struct ComposioActionTool {

@@ -28,9 +28,9 @@ use openhuman_core::agent::bus::{
 use openhuman_core::agent::debug::{
     write_prompt_dumps, DumpPromptOptions, DumpedPrompt,
 };
-use openhuman_core::agent::dispatcher::{
-    NativeToolDispatcher, PFormatToolDispatcher, ToolDispatcher, ToolExecutionResult,
-    XmlToolDispatcher,
+use tinytools_agent::dialect::{
+    NativeDialect, PFormatDialect, ToolDialect, ToolOutcome,
+    XmlDialect,
 };
 use openhuman_core::agent::error::{
     is_context_limit_error, is_max_iterations_error, AgentError, MAX_ITERATIONS_ERROR_PREFIX,
@@ -59,8 +59,8 @@ use openhuman_core::agent::multimodal::{
 use openhuman_core::agent::messages::{
     ChatMessage, ConversationMessage, ToolResultMessage,
 };
-use openhuman_core::agent::pformat::{
-    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_tool,
+use tinytools_agent::{
+    build_registry, parse_call as parse_pformat_call, render_signature, render_signature_from_schema,
     PFormatParamType, PFormatRegistry, PFormatToolParams,
 };
 use openhuman_core::agent::prompts::{
@@ -156,22 +156,11 @@ use openhuman_core::inference::{
 };
 use tinyinference_local::device::DeviceProfile;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, RecallOpts};
-use openhuman_core::agent::profiles::{
-    all_profiles_controller_schemas, all_profiles_registered_controllers,
-};
-use openhuman_core::agent::profiles::{
-    filter_integrations, memory_subdir_for_suffix, memory_tree_subdir_for_suffix,
-    resolve_personality_memory_md, resolve_personality_soul, session_raw_subdir_for_suffix,
-    HasToolkit, PersonalityContext,
-};
-use openhuman_core::agent::profiles::{
-    AgentProfile, AgentProfileStore, AgentProfilesState, DEFAULT_PROFILE_ID,
-};
 use openhuman_core::security::SecurityPolicy;
-use openhuman_core::agent::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use openhuman_core::agent::todos::ops::BoardLocation;
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{Tool, ToolResult, ToolSpec};
+use tinytools::{Tool, ToolResult, ToolSpec};
+
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
@@ -800,7 +789,7 @@ fn base_agent_builder() -> openhuman_core::agent::AgentBuilder {
             Box::new(StubTool("beta")),
         ])
         .memory(Arc::new(RecordingMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
 }
 
 #[tokio::test]
@@ -1046,13 +1035,6 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
         .iter()
         .all(|controller| controller.rpc_method_name().starts_with("openhuman.agent_")));
 
-    // Profiles moved to their own top-level domain (`openhuman.profiles_*`).
-    let profile_schemas = all_profiles_controller_schemas();
-    let profiles = all_profiles_registered_controllers();
-    assert_eq!(profile_schemas.len(), profiles.len());
-    assert!(profiles.iter().all(|controller| controller
-        .rpc_method_name()
-        .starts_with("openhuman.profiles_")));
 
     let status = call(controller(&registered, "server_status"), json!({}))
         .await
@@ -1093,107 +1075,6 @@ async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
     assert_eq!(reload.pointer("/status"), Some(&json!("noop")));
     assert_eq!(reload.pointer("/registry_initialised"), Some(&json!(true)));
 
-    let list = call(controller(&profiles, "list"), json!({}))
-        .await
-        .expect("profiles list");
-    assert_eq!(
-        list.pointer("/activeProfileId"),
-        Some(&json!(DEFAULT_PROFILE_ID))
-    );
-    assert!(list
-        .pointer("/profiles")
-        .and_then(Value::as_array)
-        .expect("profiles")
-        .iter()
-        .any(|profile| profile.pointer("/id") == Some(&json!("research"))));
-
-    let unknown_agent = call(
-        controller(&profiles, "upsert"),
-        json!({
-            "profile": {
-                "id": "Bad Agent",
-                "name": "Bad Agent",
-                "description": "invalid agent id",
-                "agentId": "unknown-agent-id"
-            }
-        }),
-    )
-    .await
-    .expect_err("registry rejects unknown agent id");
-    assert!(unknown_agent.contains("agent definition 'unknown-agent-id' not found"));
-
-    let upserted = call(
-        controller(&profiles, "upsert"),
-        json!({
-            "profile": {
-                "id": " My Research Profile ",
-                "name": "  My Research Profile  ",
-                "description": "  focused work  ",
-                "agentId": "planner",
-                "modelOverride": " agentic-v1 ",
-                "temperature": 0.4,
-                "systemPromptSuffix": " be precise ",
-                "allowedTools": [" memory_search ", "", " composio_execute_action "],
-                "avatarUrl": " https://example.test/avatar.png ",
-                "voiceId": " voice-a ",
-                "soulMd": " custom soul ",
-                "composioIntegrations": [" gmail ", "", "slack"]
-            }
-        }),
-    )
-    .await
-    .expect("upsert profile");
-    let custom = upserted
-        .pointer("/profiles")
-        .and_then(Value::as_array)
-        .expect("profiles")
-        .iter()
-        .find(|profile| profile.pointer("/id") == Some(&json!("my-research-profile")))
-        .expect("custom profile");
-    assert_eq!(custom.pointer("/agentId"), Some(&json!("planner")));
-    assert_eq!(custom.pointer("/memoryDirSuffix"), Some(&json!("-1")));
-    assert_eq!(
-        custom.pointer("/allowedTools"),
-        Some(&json!(["memory_search", "composio_execute_action"]))
-    );
-
-    let selected = call(
-        controller(&profiles, "select"),
-        json!({ "profile_id": "my-research-profile" }),
-    )
-    .await
-    .expect("select profile");
-    assert_eq!(
-        selected.pointer("/activeProfileId"),
-        Some(&json!("my-research-profile"))
-    );
-
-    let missing_select = call(
-        controller(&profiles, "select"),
-        json!({ "profile_id": "missing-profile" }),
-    )
-    .await
-    .expect_err("missing profile");
-    assert!(missing_select.contains("agent profile 'missing-profile' not found"));
-
-    let delete_builtin = call(
-        controller(&profiles, "delete"),
-        json!({ "profile_id": DEFAULT_PROFILE_ID }),
-    )
-    .await
-    .expect_err("built-in profile cannot be deleted");
-    assert!(delete_builtin.contains("built-in agent profile"));
-
-    let deleted = call(
-        controller(&profiles, "delete"),
-        json!({ "profile_id": "my-research-profile" }),
-    )
-    .await
-    .expect("delete custom profile");
-    assert_eq!(
-        deleted.pointer("/activeProfileId"),
-        Some(&json!(DEFAULT_PROFILE_ID))
-    );
 }
 
 #[test]
@@ -1270,173 +1151,6 @@ fn agent_builder_public_paths_cover_required_fields_defaults_and_filters() {
         visible.workspace_dir(),
         std::path::Path::new("/tmp/agent-builder-visible")
     );
-}
-
-#[test]
-fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
-    let workspace = tempdir().expect("workspace");
-    let store = AgentProfileStore::new(workspace.path().to_path_buf());
-
-    let empty = store.load().expect("default profiles");
-    assert_eq!(empty.active_profile_id, DEFAULT_PROFILE_ID);
-    assert!(empty.profiles.iter().any(|profile| profile.id == "planner"));
-
-    let first = store
-        .upsert(AgentProfile {
-            id: " Writing Buddy ".to_string(),
-            name: " Writing Buddy ".to_string(),
-            description: " drafts ".to_string(),
-            agent_id: " planner ".to_string(),
-            model_override: Some(" coding-v1 ".to_string()),
-            temperature: Some(0.2),
-            system_prompt_suffix: Some(" polish tone ".to_string()),
-            allowed_tools: Some(vec![" memory_search ".to_string(), String::new()]),
-            built_in: false,
-            avatar_url: Some(" https://example.test/a.png ".to_string()),
-            voice_id: Some(" voice-1 ".to_string()),
-            soul_md: Some(" inline soul ".to_string()),
-            soul_md_path: None,
-            composio_integrations: Some(vec![" gmail ".to_string(), String::new()]),
-            memory_sources: None,
-            include_agent_conversations: true,
-            allowed_skills: None,
-            allowed_mcp_servers: None,
-            memory_dir_suffix: None,
-            is_master: true,
-            sort_order: Some(50),
-            dedicated_memory: false,
-            dedicated_workspace: false,
-        })
-        .expect("upsert first");
-    let writing = first
-        .profiles
-        .iter()
-        .find(|profile| profile.id == "writing-buddy")
-        .expect("writing profile");
-    assert_eq!(writing.memory_dir_suffix.as_deref(), Some("-1"));
-    assert!(!writing.is_master);
-
-    let selected = store.select("writing-buddy").expect("select");
-    assert_eq!(selected.active_profile_id, "writing-buddy");
-    let (_, resolved) = store.resolve(None).expect("resolve active");
-    assert_eq!(resolved.id, "writing-buddy");
-
-    let second = store
-        .upsert(AgentProfile {
-            id: "Second".to_string(),
-            name: "Second".to_string(),
-            description: String::new(),
-            agent_id: String::new(),
-            model_override: None,
-            temperature: None,
-            system_prompt_suffix: None,
-            allowed_tools: Some(vec![]),
-            built_in: false,
-            avatar_url: None,
-            voice_id: None,
-            soul_md: None,
-            soul_md_path: None,
-            composio_integrations: Some(vec![]),
-            memory_sources: None,
-            include_agent_conversations: true,
-            allowed_skills: None,
-            allowed_mcp_servers: None,
-            memory_dir_suffix: None,
-            is_master: false,
-            sort_order: None,
-            dedicated_memory: false,
-            dedicated_workspace: false,
-        })
-        .expect("upsert second");
-    let second_profile = second
-        .profiles
-        .iter()
-        .find(|profile| profile.id == "second")
-        .expect("second profile");
-    assert_eq!(second_profile.agent_id, "orchestrator");
-    assert_eq!(second_profile.allowed_tools, None);
-    assert_eq!(second_profile.composio_integrations, None);
-    assert_eq!(second_profile.memory_dir_suffix.as_deref(), Some("-2"));
-
-    let reused = store
-        .upsert(AgentProfile {
-            memory_sources: None,
-            include_agent_conversations: true,
-            allowed_skills: None,
-            allowed_mcp_servers: None,
-            memory_dir_suffix: None,
-            description: "updated".to_string(),
-            ..second_profile.clone()
-        })
-        .expect("reuse suffix");
-    let second_profile = reused
-        .profiles
-        .iter()
-        .find(|profile| profile.id == "second")
-        .expect("second profile");
-    assert_eq!(second_profile.memory_dir_suffix.as_deref(), Some("-2"));
-
-    let deleted = store.delete("writing-buddy").expect("delete active custom");
-    assert_eq!(deleted.active_profile_id, DEFAULT_PROFILE_ID);
-    assert!(store.delete("missing").unwrap_err().contains("not found"));
-    assert!(store.delete("review").unwrap_err().contains("built-in"));
-
-    let bad_workspace = tempdir().expect("bad workspace");
-    std::fs::write(
-        bad_workspace.path().join("agent_profiles.json"),
-        "{not json",
-    )
-    .expect("write bad profiles");
-    let err = AgentProfileStore::new(bad_workspace.path().to_path_buf())
-        .load()
-        .expect_err("bad JSON");
-    assert!(err.contains("parse agent profiles"));
-
-    let mut suffixes = HashSet::new();
-    for profile in store.load().expect("load final").profiles {
-        if let Some(suffix) = profile.memory_dir_suffix {
-            suffixes.insert(suffix);
-        }
-    }
-    assert!(suffixes.contains(""));
-}
-
-#[test]
-fn agent_profile_state_deserializes_legacy_shape_and_normalises_defaults() {
-    let state: AgentProfilesState = serde_json::from_value(json!({
-        "activeProfileId": "missing",
-        "profiles": [
-            {
-                "id": "",
-                "name": "   ",
-                "description": "",
-                "agentId": ""
-            },
-            {
-                "id": "default",
-                "name": "Custom Default",
-                "description": "override default copy",
-                "agentId": "planner",
-                "memoryDirSuffix": "-should-be-ignored",
-                "builtIn": false,
-                "isMaster": false
-            }
-        ]
-    }))
-    .expect("legacy state");
-    let workspace = tempdir().expect("workspace");
-    let store = AgentProfileStore::new(workspace.path().to_path_buf());
-    let saved = store.save(state).expect("save normalised");
-    assert_eq!(saved.active_profile_id, DEFAULT_PROFILE_ID);
-    let default_profile = saved
-        .profiles
-        .iter()
-        .find(|profile| profile.id == DEFAULT_PROFILE_ID)
-        .expect("default profile");
-    assert_eq!(default_profile.agent_id, "planner");
-    assert!(default_profile.is_master);
-    assert_eq!(default_profile.memory_dir_suffix.as_deref(), Some(""));
-    assert_eq!(default_profile.name, "Custom Default");
 }
 
 #[test]
@@ -1560,101 +1274,6 @@ named = ["todo", "plan_exit"]
     assert_eq!(registry.list().len(), 1);
 }
 
-
-#[test]
-fn agent_personality_paths_cover_safe_fallbacks_and_integration_filters() {
-    let workspace = tempdir().expect("workspace");
-    std::fs::create_dir_all(workspace.path().join("personalities/researcher"))
-        .expect("create personality dir");
-    std::fs::write(
-        workspace.path().join("personalities/researcher/MEMORY.md"),
-        "research memory",
-    )
-    .expect("write memory");
-    std::fs::write(workspace.path().join("SOUL.md"), "root soul").expect("write root soul");
-    std::fs::write(workspace.path().join("personality-soul.md"), "file soul")
-        .expect("write personality soul");
-
-    assert_eq!(memory_subdir_for_suffix(""), "memory");
-    assert_eq!(memory_subdir_for_suffix("-2"), "memory-2");
-    assert_eq!(memory_tree_subdir_for_suffix(""), "memory_tree");
-    assert_eq!(memory_tree_subdir_for_suffix("-3"), "memory_tree-3");
-    assert_eq!(session_raw_subdir_for_suffix(""), "session_raw");
-    assert_eq!(session_raw_subdir_for_suffix("-4"), "session_raw-4");
-
-    let mut profile = AgentProfile {
-        id: "researcher".into(),
-        name: "Researcher".into(),
-        description: "Research".into(),
-        agent_id: "planner".into(),
-        model_override: None,
-        temperature: None,
-        system_prompt_suffix: None,
-        allowed_tools: None,
-        built_in: false,
-        avatar_url: None,
-        voice_id: Some("voice-research".into()),
-        soul_md: Some("inline soul".into()),
-        soul_md_path: Some("personality-soul.md".into()),
-        composio_integrations: Some(vec!["gmail".into(), "slack".into()]),
-        memory_sources: None,
-        include_agent_conversations: true,
-        allowed_skills: None,
-        allowed_mcp_servers: None,
-        memory_dir_suffix: Some("-7".into()),
-        is_master: false,
-        sort_order: Some(10),
-        dedicated_memory: false,
-        dedicated_workspace: false,
-    };
-
-    assert_eq!(
-        resolve_personality_soul(workspace.path(), &profile).as_deref(),
-        Some("file soul")
-    );
-    profile.soul_md_path = Some("../escape.md".into());
-    assert_eq!(
-        resolve_personality_soul(workspace.path(), &profile).as_deref(),
-        Some("inline soul")
-    );
-    profile.soul_md_path = Some("missing.md".into());
-    assert_eq!(
-        resolve_personality_soul(workspace.path(), &profile).as_deref(),
-        Some("inline soul")
-    );
-    assert_eq!(
-        resolve_personality_memory_md(workspace.path(), &profile).as_deref(),
-        Some("research memory")
-    );
-
-    let context = PersonalityContext::from_profile(workspace.path(), profile);
-    assert_eq!(context.memory_suffix, "-7");
-    assert_eq!(context.voice_id.as_deref(), Some("voice-research"));
-    assert_eq!(
-        context.composio_allowlist.as_deref(),
-        Some(&["gmail".to_string(), "slack".to_string()][..])
-    );
-
-    let integrations = vec![
-        FakeIntegration {
-            toolkit: "gmail".into(),
-        },
-        FakeIntegration {
-            toolkit: "notion".into(),
-        },
-        FakeIntegration {
-            toolkit: "SLACK".into(),
-        },
-    ];
-    assert_eq!(filter_integrations(&integrations, None).len(), 3);
-    assert_eq!(filter_integrations(&integrations, Some(&[])).len(), 0);
-    let allowed = vec!["slack".to_string(), "gmail".to_string()];
-    let filtered = filter_integrations(&integrations, Some(&allowed));
-    assert_eq!(filtered.len(), 2);
-    assert!(filtered.iter().any(|item| item.toolkit == "gmail"));
-    assert!(filtered.iter().any(|item| item.toolkit == "SLACK"));
-}
-
 #[tokio::test]
 async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks() {
     assert_eq!(context_window_for_model("gpt-4.1-mini"), Some(1_047_576));
@@ -1670,15 +1289,6 @@ async fn inference_public_helpers_cover_context_windows_and_sentiment_fallbacks(
     assert_eq!(empty.emotion, "neutral");
     assert_eq!(empty.valence, "neutral");
     assert_eq!(empty.confidence, 1.0);
-
-    assert!(current_thread_id().is_none());
-    let scoped = with_thread_id("  thread-coverage  ", async {
-        assert_eq!(current_thread_id().as_deref(), Some("thread-coverage"));
-        with_thread_id("   ", async { current_thread_id() }).await
-    })
-    .await;
-    assert!(scoped.is_none());
-    assert!(current_thread_id().is_none());
 
     let mut cleanup_config = Config::default();
     assert_eq!(cleanup_transcription(&cleanup_config, "", None).await, "");
@@ -2726,9 +2336,13 @@ async fn inference_local_controllers_and_presets_cover_public_paths() {
 fn agent_pformat_and_prompt_renderers_cover_public_paths() {
     let plan_tool: Box<dyn Tool> = Box::new(PlanExitTool::new());
     let tools: Vec<Box<dyn Tool>> = vec![plan_tool];
-    let registry = build_registry(&tools);
+    let registry = build_registry(
+        tools
+            .iter()
+            .map(|tool| (tool.name(), tool.parameters_schema())),
+    );
     assert_eq!(
-        render_signature_from_tool(tools[0].as_ref()),
+        render_signature_from_schema(tools[0].name(), &tools[0].parameters_schema()),
         "plan_exit[0|<plan>]"
     );
     assert_eq!(
@@ -2846,8 +2460,6 @@ fn agent_pformat_and_prompt_renderers_cover_public_paths() {
             name: Some(" Coverage\nUser ".into()),
             email: Some("coverage@example.test".into()),
         }),
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -2954,8 +2566,6 @@ fn agent_builtin_prompt_builders_cover_all_registered_archetypes() {
                 name: Some("Coverage User".into()),
                 email: None,
             }),
-            personality_soul_md: None,
-            personality_memory_md: None,
             personality_roster: vec![PersonalityRosterEntry {
                 id: "default".into(),
                 name: "Default".into(),
@@ -3224,13 +2834,13 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
         }),
     };
 
-    let xml = XmlToolDispatcher;
+    let xml = XmlDialect;
     let xml_instructions = xml
         .prompt_instructions_for_specs(&[spec.clone()])
         .expect("xml specs");
     assert!(xml_instructions.contains("search_docs"));
     assert!(!xml.should_send_tool_specs());
-    let xml_result = xml.format_results(&[ToolExecutionResult {
+    let xml_result = xml.format_results(&[ToolOutcome {
         name: "search_docs".into(),
         output: "found docs".into(),
         success: true,
@@ -3246,7 +2856,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
             types: vec![PFormatParamType::String],
         },
     );
-    let pformat = PFormatToolDispatcher::new(registry);
+    let pformat = PFormatDialect::new(registry);
     let mixed = ChatResponse {
         text: Some(
             "first\n<tool_call>search_docs[0|coverage gaps]</tool_call>\n\
@@ -3278,7 +2888,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
     assert_eq!(pformat.tool_call_format(), ToolCallFormat::PFormat);
     assert!(pformat.prompt_instructions(&[]).contains("P-Format"));
 
-    let native = NativeToolDispatcher;
+    let native = NativeDialect;
     let structured = ChatResponse {
         text: Some("using a tool".into()),
         tool_calls: vec![

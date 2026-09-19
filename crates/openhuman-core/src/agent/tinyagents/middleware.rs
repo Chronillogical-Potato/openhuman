@@ -67,6 +67,27 @@ pub(crate) use turn_context::{
     TurnContextMiddleware,
 };
 
+/// Render the canonical TinyTools content blocks at the OpenHuman boundary.
+/// Middleware that used the retired string-shaped harness result must not
+/// invent a second result type merely to edit text.
+pub(crate) fn tool_result_text(result: &tinytools::ToolResult) -> String {
+    result.output()
+}
+
+/// Replaces the model-visible canonical content while retaining its reported
+/// success/failure flag. Markdown is cleared because it no longer describes
+/// the transformed blocks.
+pub(crate) fn replace_tool_result_text(result: &mut tinytools::ToolResult, text: String) {
+    result.content = vec![tinytools::ToolContent::Text { text }];
+    result.markdown_formatted = None;
+}
+
+/// Appends a host note as a distinct canonical text block.
+pub(crate) fn append_tool_result_text(result: &mut tinytools::ToolResult, text: String) {
+    result.content.push(tinytools::ToolContent::Text { text });
+    result.markdown_formatted = None;
+}
+
 #[cfg(test)]
 #[path = "middleware_tests.rs"]
 mod tests;

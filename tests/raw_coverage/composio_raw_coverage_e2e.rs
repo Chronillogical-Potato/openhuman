@@ -56,15 +56,15 @@ use openhuman_core::integrations::composio::{
     ComposioClient, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::config::Config;
-use openhuman_core::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::agent::prompts::ConnectedIntegration;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::integrations::IntegrationClient;
 use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolCallOptions};
 use openhuman_core::tools::{
-    ComposioTool, PermissionLevel, Tool, ToolCallOptions, ToolCategory,
-};
+    ComposioTool};
 
 #[test]
 fn composio_prepare_execute_arguments_normalizes_calendar_and_notion_payloads() {

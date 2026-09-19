@@ -43,7 +43,7 @@ use crate::tools::timeout::parse_tool_timeout_secs;
 
 #[test]
 fn parse_tool_calls_invoke_tag_with_json_body() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // The <invoke> tag is listed in TOOL_CALL_OPEN_TAGS and must parse the
     // JSON body identically to <tool_call>.
@@ -74,7 +74,7 @@ fn parse_tool_calls_invoke_tag_with_json_body() {
 
 #[test]
 fn parse_tool_calls_invoke_attribute_form_single_param() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     let input =
         "Sure.\n<invoke name=\"echo\">\n<parameter name=\"value\">hi</parameter>\n</invoke>\ndone";
@@ -102,7 +102,7 @@ fn parse_tool_calls_invoke_attribute_form_single_param() {
 
 #[test]
 fn parse_tool_calls_invoke_attribute_form_multiple_params_scalar_policy() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // Multiple <parameter> children. Scalar policy: a value that parses as JSON
     // (number, bool) becomes that JSON type; anything else stays a string. A
@@ -127,7 +127,7 @@ fn parse_tool_calls_invoke_attribute_form_multiple_params_scalar_policy() {
 
 #[test]
 fn parse_tool_calls_invoke_attribute_form_missing_close_tag_is_text() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // No closing </invoke>: nothing to dispatch. The block is left as text
     // rather than silently dropped.
@@ -144,7 +144,7 @@ fn parse_tool_calls_invoke_attribute_form_missing_close_tag_is_text() {
 
 #[test]
 fn parse_tool_calls_invoke_attribute_form_missing_name_is_text() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // Attribute form without a `name` attribute cannot name a tool → no call.
     let input = "<invoke foo=\"bar\">\n<parameter name=\"v\">hi</parameter>\n</invoke>";
@@ -155,7 +155,7 @@ fn parse_tool_calls_invoke_attribute_form_missing_name_is_text() {
 
 #[test]
 fn parse_tool_calls_mixed_tool_call_json_and_invoke_attribute() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // A canonical <tool_call>{json} block and a Claude-native attribute-form
     // <invoke> block in the same response are both recovered, earliest first.
@@ -174,7 +174,7 @@ fn parse_tool_calls_mixed_tool_call_json_and_invoke_attribute() {
 
 #[test]
 fn parse_tool_calls_markdown_fence_yaml_like_json_body() {
-    use crate::agent::harness::parse::parse_tool_calls;
+    use tinytools_agent::parse_tool_calls;
 
     // The markdown fence regex accepts ```tool_call\n…\n```.
     // The body must be valid JSON (the parser calls extract_json_values

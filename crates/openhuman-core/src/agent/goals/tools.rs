@@ -6,9 +6,7 @@
 //! mark it complete (`goal_complete`). Pause / resume / budget-limit are
 //! system-driven and have no model tool.
 //!
-//! The target thread is resolved from the ambient
-//! [`current_thread_id`](crate::agent::tinyagents::thread_context::current_thread_id)
-//! task-local set by the chat channel — tools never take a `thread_id` arg, so
+//! The target thread is resolved from the TinyAgents run context — tools never take a `thread_id` arg, so
 //! the model can't address another thread's goal. Each tool is sandboxed to a
 //! single `workspace_dir` captured at construction.
 
@@ -19,8 +17,7 @@ use serde_json::json;
 
 use super::store;
 use super::ThreadGoal;
-use crate::agent::tinyagents::thread_context::current_thread_id;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 /// Render a goal as a compact, model-readable block.
 fn render_goal(goal: &ThreadGoal) -> String {
@@ -35,13 +32,12 @@ fn render_goal(goal: &ThreadGoal) -> String {
     )
 }
 
-/// Resolve the ambient thread id or return a uniform tool error.
-fn require_thread_id() -> Result<String, ToolResult> {
-    current_thread_id().ok_or_else(|| {
-        ToolResult::error(
-            "thread goal tools require an active chat thread (no ambient thread_id in this context)",
-        )
-    })
+/// Resolve the caller thread id or return a uniform tool error.
+fn require_thread_id(context: Option<&dyn ToolRunContext>) -> Result<String, ToolResult> {
+    context
+        .and_then(ToolRunContext::thread_id)
+        .map(str::to_owned)
+        .ok_or_else(|| ToolResult::error("thread goal tools require an active chat thread"))
 }
 
 /// `goal_get` — read the current thread goal.
@@ -75,8 +71,18 @@ impl Tool for GoalGetTool {
         PermissionLevel::ReadOnly
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let thread_id = match require_thread_id() {
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        _args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let thread_id = match require_thread_id(context) {
             Ok(id) => id,
             Err(e) => return Ok(e),
         };
@@ -137,7 +143,17 @@ impl Tool for GoalSetTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let thread_id = match require_thread_id() {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let thread_id = match require_thread_id(context) {
             Ok(id) => id,
             Err(e) => return Ok(e),
         };
@@ -197,8 +213,18 @@ impl Tool for GoalCompleteTool {
         PermissionLevel::Write
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let thread_id = match require_thread_id() {
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        _args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let thread_id = match require_thread_id(context) {
             Ok(id) => id,
             Err(e) => return Ok(e),
         };

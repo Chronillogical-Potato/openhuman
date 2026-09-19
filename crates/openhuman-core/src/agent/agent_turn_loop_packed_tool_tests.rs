@@ -48,7 +48,7 @@ async fn turn_routes_a_bare_packed_tool_call_through_use_skill() {
     let mut tools: Vec<Box<dyn Tool>> = vec![Box::new(RecordingPackedTool(ran.clone()))];
     crate::tools::toolpacks::append_pack_tools(&mut tools);
 
-    let (mut agent, _tmp) = build_agent_with(provider, tools, Box::new(NativeToolDispatcher));
+    let (mut agent, _tmp) = build_agent_with(provider, tools, Box::new(NativeDialect));
     assert!(
         !agent
             .visible_tool_names_for_test()
@@ -106,8 +106,8 @@ impl Tool for WritePackedTool {
         Ok(ToolResult::success("installed"))
     }
 
-    fn permission_level(&self) -> crate::tools::PermissionLevel {
-        crate::tools::PermissionLevel::Write
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::Write
     }
 }
 

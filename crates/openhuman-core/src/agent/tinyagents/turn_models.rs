@@ -3,10 +3,14 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use crate::agent::tinyagents::model::{
-    BuiltTurnModels, ProfileOverrideModel, RouteRecordingModel, TierRoutes, TurnChatModel,
+    BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel,
 };
 use crate::agent::tinyagents::routes;
+use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
+use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
 pub(crate) fn tinyagents_depth_error(
     err: &tinyagents_harness::TinyAgentsError,
@@ -81,6 +85,37 @@ impl TurnModels {
     }
 }
 
+/// Host resolver for one live invocation. It exposes the exact pre-built
+/// primary and fallback route models already selected by OpenHuman, rather
+/// than constructing a fresh config-routed model during hosted preparation.
+pub(crate) struct TurnModelResolver {
+    primary: TurnChatModel,
+    routes: std::collections::HashMap<String, TurnChatModel>,
+}
+
+impl TurnModelResolver {
+    pub(crate) fn from_turn_models(models: &TurnModels) -> Self {
+        Self {
+            primary: models.primary.clone(),
+            routes: models.routes.iter().cloned().collect(),
+        }
+    }
+}
+
+#[async_trait]
+impl ModelResolver<()> for TurnModelResolver {
+    async fn resolve(
+        &self,
+        request: &ModelResolveRequest,
+    ) -> tinyagents_harness::Result<TurnChatModel> {
+        Ok(request
+            .model_pin()
+            .and_then(|name| self.routes.get(name))
+            .cloned()
+            .unwrap_or_else(|| self.primary.clone()))
+    }
+}
+
 /// Build the per-turn [`TurnModels`] **crate-natively** from `(role, config)` —
 /// the Phase 3 P3-B cutover of [`build_turn_models`]: instead of wrapping one host
 /// `Provider` per tier in a [`native model adapter`], each tier is built as a crate-native
@@ -108,12 +143,32 @@ fn build_turn_models_crate(
     native_tools: bool,
     supports_vision: bool,
     force_text_mode: bool,
+    thread_id: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     use crate::inference::provider::factory;
 
     // The primary honours an explicit provider-string override when the producer's
     // effective provider differs from `provider_for_role(role)` (triage #1257).
     let build_primary = |m: &str| -> anyhow::Result<TurnChatModel> {
+        let managed = primary_override
+            .map(|provider| {
+                let provider = provider.trim();
+                provider.is_empty() || provider == "cloud" || provider == "openhuman"
+            })
+            .unwrap_or_else(|| factory::resolves_to_managed_backend(role, config));
+        if managed {
+            let (backend, _) = factory::make_openhuman_backend_model_for_thread(
+                role,
+                config,
+                m,
+                !force_text_mode,
+                thread_id,
+            )?;
+            return Ok(Arc::new(RouteRecordingModel::new(
+                backend,
+                ResolvedModelRoute::new("openhuman", m, m),
+            )));
+        }
         let (model, provider, resolved_model) = match primary_override {
             Some(ps) => factory::create_turn_chat_model_from_string_with_native_tools_and_route(
                 role,
@@ -133,8 +188,7 @@ fn build_turn_models_crate(
         }?;
         Ok(Arc::new(RouteRecordingModel::new(
             model,
-            provider,
-            resolved_model,
+            ResolvedModelRoute::new(provider, resolved_model, m),
         )))
     };
 
@@ -157,19 +211,30 @@ fn build_turn_models_crate(
                     continue;
                 }
                 let tier_role = factory::role_for_model_tier(tier);
-                match factory::create_turn_chat_model_with_native_tools_and_route(
-                    tier_role,
-                    config,
-                    tier,
-                    temperature,
-                    !force_text_mode,
-                ) {
+                let route = if factory::resolves_to_managed_backend(tier_role, config) {
+                    factory::make_openhuman_backend_model_for_thread(
+                        tier_role,
+                        config,
+                        tier,
+                        !force_text_mode,
+                        thread_id,
+                    )
+                    .map(|(backend, _)| (backend, "openhuman".to_string(), tier.to_string()))
+                } else {
+                    factory::create_turn_chat_model_with_native_tools_and_route(
+                        tier_role,
+                        config,
+                        tier,
+                        temperature,
+                        !force_text_mode,
+                    )
+                };
+                match route {
                     Ok((route_model, provider, resolved_model)) => routes.push((
                         tier.to_string(),
                         Arc::new(RouteRecordingModel::new(
                             route_model,
-                            provider,
-                            resolved_model,
+                            ResolvedModelRoute::new(provider, resolved_model, tier),
                         )),
                     )),
                     Err(e) => {
@@ -364,6 +429,7 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
         context_window: Option<u64>,
+        thread_id: Option<&str>,
     ) -> anyhow::Result<TurnModels> {
         if let Some(direct) = &self.direct_model {
             let mut profile = direct.profile().cloned().unwrap_or_default();
@@ -425,6 +491,7 @@ impl TurnModelSource {
                 !is_local,
                 !is_local,
                 cn.force_text_mode,
+                thread_id,
             );
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
@@ -439,6 +506,7 @@ impl TurnModelSource {
         &self,
         model: &str,
         temperature: f64,
+        thread_id: Option<&str>,
     ) -> anyhow::Result<Arc<dyn tinyinference_llm::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
             let profile = direct.profile().cloned().unwrap_or_default();
@@ -449,6 +517,28 @@ impl TurnModelSource {
             ));
         }
         if let Some(cn) = &self.crate_native {
+            let managed = cn
+                .primary_override
+                .as_deref()
+                .map(|provider| {
+                    let provider = provider.trim();
+                    provider.is_empty() || provider == "cloud" || provider == "openhuman"
+                })
+                .unwrap_or_else(|| {
+                    crate::inference::provider::factory::resolves_to_managed_backend(
+                        &cn.role, &cn.config,
+                    )
+                });
+            if managed {
+                return crate::inference::provider::factory::make_openhuman_backend_model_for_thread(
+                    &cn.role,
+                    &cn.config,
+                    model,
+                    !cn.force_text_mode,
+                    thread_id,
+                )
+                .map(|(model, _)| model);
+            }
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => {
                     crate::inference::provider::factory::create_turn_chat_model_from_string(

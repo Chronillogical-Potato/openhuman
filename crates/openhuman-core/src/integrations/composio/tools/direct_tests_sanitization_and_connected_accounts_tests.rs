@@ -121,7 +121,7 @@ fn map_v3_tools_prefers_toolkit_slug_over_app_name() {
 
 #[test]
 fn composio_tool_category_is_skill() {
-    use crate::tools::traits::ToolCategory;
+    use tinytools::ToolCategory;
     let tool = ComposioTool::new("key", None, test_security());
     assert_eq!(tool.category(), ToolCategory::Workflow);
 }

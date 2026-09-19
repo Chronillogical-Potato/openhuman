@@ -1,6 +1,5 @@
 //! Tool: update_memory_md — append or update sections in MEMORY.md or SKILL.md.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
@@ -8,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Allowed workspace markdown files this tool may modify.
 const ALLOWED_FILES: &[&str] = &["MEMORY.md", "SKILL.md"];

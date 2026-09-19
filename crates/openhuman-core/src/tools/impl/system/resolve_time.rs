@@ -30,11 +30,11 @@
 //!   - `value`      — the representation named by the optional `format` arg
 //!                    (defaults to `unix_s`), as a string, for copy-paste.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Local, NaiveDate, NaiveDateTime, SecondsFormat, Utc};
 use chrono_tz::Tz;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct ResolveTimeTool;
 

@@ -11,12 +11,12 @@
 //! `integrations_agent/prompt.rs` and nobody has to branch on `agent_id`
 //! in a shared section impl.
 
-use crate::agent::context::prompt::{
+use crate::agent::harness::definition::SubagentEntry;
+use crate::agent::harness::AgentDefinitionRegistry;
+use crate::agent::prompts::{
     render_datetime, render_identity, render_tools, render_user_files, render_workspace,
     ConnectedIntegration, PromptContext, ToolCallFormat,
 };
-use crate::agent::harness::definition::SubagentEntry;
-use crate::agent::harness::AgentDefinitionRegistry;
 use crate::skills::ops_types::Workflow;
 use crate::tools::orchestrator_tools::sanitise_slug;
 use crate::tools::toolpacks;

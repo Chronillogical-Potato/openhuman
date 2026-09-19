@@ -471,8 +471,6 @@ struct ChatStartPayload {
     #[serde(default)]
     temperature: Option<f64>,
     #[serde(default)]
-    profile_id: Option<String>,
-    #[serde(default)]
     locale: Option<String>,
     #[serde(default)]
     queue_mode: Option<String>,
@@ -679,7 +677,6 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         &payload.message,
                         model_override,
                         payload.temperature,
-                        payload.profile_id,
                         payload.locale,
                         payload.queue_mode,
                         crate::web_chat::ChatRequestMetadata::default(),

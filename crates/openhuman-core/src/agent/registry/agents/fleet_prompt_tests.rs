@@ -6,8 +6,8 @@
 //! anyone writing a test for it.
 
 use super::load_builtins;
-use crate::agent::context::prompt::{LearnedContextData, PromptContext, ToolCallFormat};
 use crate::agent::harness::definition::{AgentDefinition, PromptSource, SubagentEntry, ToolScope};
+use crate::agent::prompts::{LearnedContextData, PromptContext, ToolCallFormat};
 use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
@@ -68,8 +68,6 @@ fn render(def: &AgentDefinition, definitions: &[AgentDefinition]) -> String {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -97,7 +95,7 @@ fn tool_universe() -> BTreeSet<String> {
         config_path: tmp.path().join("config.toml"),
         ..crate::config::Config::default()
     };
-    let tools = crate::tools::all_tools(
+    let tools = crate::tools::ops::all_tools(
         Arc::new(config.clone()),
         &Arc::new(crate::security::SecurityPolicy::default()),
         crate::security::AuditLogger::disabled(),

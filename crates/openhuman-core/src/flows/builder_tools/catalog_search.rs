@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::flows::ops;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // search_tool_catalog — read-only: real Composio tool slugs from the FULL

@@ -40,10 +40,10 @@ use crate::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::inference::provider::factory::test_provider_override;
 use crate::skills::runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::skills::schemas::resolve_workspace_dir;
-use crate::tools::traits::Tool;
 use tinyinference_llm::message::AssistantMessage;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::Tool;
 
 /// Serialize this module's tests (each touches process-global state).
 fn serial() -> &'static tokio::sync::Mutex<()> {
@@ -247,7 +247,7 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     .await
     .expect("orchestrator loop should complete");
 
-    assert_eq!(result, "ORCHESTRATOR_DONE");
+    assert_eq!(result.text, "ORCHESTRATOR_DONE");
     // The run_workflow tool result (carrying the inner run's DONE outcome) must
     // have flowed back into the conversation.
     let tool_msgs: String = history

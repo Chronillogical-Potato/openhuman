@@ -48,6 +48,5 @@ pub struct QueuedMessage {
     pub queued_at_ms: u64,
     pub model_override: Option<String>,
     pub temperature: Option<f64>,
-    pub profile_id: Option<String>,
     pub locale: Option<String>,
 }

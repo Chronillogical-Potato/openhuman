@@ -4,9 +4,9 @@ use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
 use crate::agent::context::ContextManager;
 use crate::agent::harness::session::types::{Agent, AgentBuilder};
 use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{Tool, ToolSpec};
 use anyhow::Result;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 impl AgentBuilder {
     /// Validates the configuration and constructs a new `Agent` instance.
@@ -207,7 +207,7 @@ impl AgentBuilder {
 
         let prompt_builder = self
             .prompt_builder
-            .unwrap_or_else(crate::agent::context::prompt::SystemPromptBuilder::with_defaults);
+            .unwrap_or_else(crate::agent::prompts::SystemPromptBuilder::with_defaults);
 
         let model_name = self
             .model_name
@@ -230,10 +230,6 @@ impl AgentBuilder {
             .workspace_dir
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
-        let memory_subdir = self.memory_subdir.unwrap_or_else(|| "memory".to_string());
-        let session_raw_subdir = self
-            .session_raw_subdir
-            .unwrap_or_else(|| "session_raw".to_string());
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);
@@ -258,7 +254,6 @@ impl AgentBuilder {
             memory: self
                 .memory
                 .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
-            shared_experience_memory: self.shared_experience_memory,
             auto_recall: self.auto_recall,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher
@@ -284,6 +279,7 @@ impl AgentBuilder {
             explicit_preferences_enabled: self.explicit_preferences_enabled,
             event_session_id,
             event_channel,
+            thread_id: None,
             agent_definition_name: agent_definition_name.clone(),
             // Canonical registry id — captured here at build time
             // before any caller can call `set_agent_definition_name`
@@ -291,11 +287,6 @@ impl AgentBuilder {
             // `refresh_delegation_tools` to re-resolve the agent's
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
-            active_profile_id: self.active_profile_id,
-            personality_soul_md: self.personality_soul_md,
-            personality_memory_md: self.personality_memory_md,
-            memory_subdir,
-            session_raw_subdir,
             session_transcript_path: None,
             session_history: None,
             session_history_locator: self.session_history_locator,
@@ -325,6 +316,7 @@ impl AgentBuilder {
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
             runtime_config: None,
+            hosted_base: None,
             definition: None,
             // Default to `true` (omit) so legacy / custom agents built
             // without a definition stay lean. Opt-in agents thread their

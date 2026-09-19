@@ -232,15 +232,6 @@ pub struct CronJob {
     /// definition's prompt, tool allowlist, iteration cap, and model hint
     /// instead of the generic `Agent::from_config` path.
     pub agent_id: Option<String>,
-    /// Optional agent-profile id (`profiles::AgentProfile::id`) this job runs
-    /// under. When set and the profile still exists, the triggered run is built
-    /// via the profile-aware session path so it inherits the profile's SOUL,
-    /// memory scope, workspace descriptor, and allowlists. When the profile was
-    /// deleted, the scheduler warns and runs without a profile (never fails the
-    /// job). `#[serde(default)]` keeps legacy rows / payloads without the field
-    /// deserializing unchanged.
-    #[serde(default)]
-    pub profile_id: Option<String>,
     pub enabled: bool,
     pub delivery: DeliveryConfig,
     pub delete_after_run: bool,
@@ -272,7 +263,7 @@ pub struct CronRun {
 ///
 /// A plain `#[derive(Deserialize)]` on `Option<Option<T>>` collapses the absent
 /// and the `null` cases *both* to the outer `None`, so "clear over the wire"
-/// (`{"profile_id": null}`) silently deserializes as "no change" — a no-op. Used
+/// (for example, `{"agent_id": null}`) silently deserializes as "no change" — a no-op. Used
 /// with `#[serde(default, deserialize_with = "deserialize_double_option")]`,
 /// this helper restores the distinction: serde only invokes it when the key is
 /// *present*, so a present `null` becomes `Some(None)` and a present value
@@ -303,10 +294,6 @@ pub struct CronJobPatch {
     /// to honor a wire `null` as a clear rather than a silent no-op.
     #[serde(default, deserialize_with = "deserialize_double_option")]
     pub agent_id: Option<Option<String>>,
-    /// `Option<Option<String>>` distinguishes "no change" (`None`) from
-    /// "clear the profile" (`Some(None)`) — same shape as `agent_id`.
-    #[serde(default, deserialize_with = "deserialize_double_option")]
-    pub profile_id: Option<Option<String>>,
 }
 
 #[cfg(test)]

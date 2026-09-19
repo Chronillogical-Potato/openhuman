@@ -2,7 +2,7 @@
 //!
 //! [`ApprovalGate`] (in [`gate`]) is the single approval path — async
 //! middleware between the agent and any tool whose
-//! [`crate::tools::Tool::external_effect`] returns `true`. It
+//! [`tinytools::Tool::external_effect`] returns `true`. It
 //! persists pending rows in SQLite, parks the tool-call future on a oneshot,
 //! and resumes when the UI dispatches `approval_decide`. Introduced for issue
 //! #1339 so external-channel writes (Slack post, email send, calendar create,

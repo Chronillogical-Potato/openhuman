@@ -124,7 +124,7 @@ pub struct GeneratePresentationInput {
     pub slides: Vec<SlideSpec>,
 }
 
-/// Tool output returned via [`crate::tools::traits::ToolResult`]
+/// Tool output returned via [`tinytools::ToolResult`]
 /// as the JSON `data` field.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneratePresentationOutput {

@@ -51,74 +51,6 @@ async fn records_and_recalls_a_prior_attempt() {
 }
 
 #[tokio::test]
-async fn recall_spans_the_shared_store_while_writes_stay_profile_local() {
-    // Stand in for a dedicated-profile session: `local` is the profile
-    // subtree, `shared` the workspace store a pre-profile build wrote into.
-    let local: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let shared: Arc<dyn Memory> = Arc::new(MockMemory::default());
-
-    // Seed the shared store the way a pre-profile build did — unstamped.
-    OpenHumanExperienceStore::new(shared.clone())
-        .record(&exp(
-            "planner",
-            "migrate the customer schema",
-            "the legacy attempt hit a lock timeout",
-            false,
-        ))
-        .await
-        .expect("seed the shared store");
-
-    let store = OpenHumanExperienceStore::with_profile(local.clone(), None)
-        .with_shared_recall_memory(Some(shared.clone()));
-
-    // Recall reaches the shared store even though nothing was written to
-    // the profile-local one.
-    let found = store
-        .recall_for("planner", "migrate the customer schema")
-        .await
-        .expect("recall");
-    assert_eq!(
-        found.len(),
-        1,
-        "a profile session must still see pre-profile experience"
-    );
-    assert!(found[0].outcome.contains("lock timeout"));
-
-    // A new record lands in the profile-local store, not the shared one.
-    store
-        .record(&exp("planner", "rotate the signing key", "clean run", true))
-        .await
-        .expect("record");
-
-    // The domain scores rather than filters, so an unrelated query still
-    // returns the seeded row — assert on which task each store *holds*,
-    // not on the result count.
-    let holds_new_task = |found: &[Experience]| {
-        found
-            .iter()
-            .any(|e| e.task.contains("rotate the signing key"))
-    };
-
-    let shared_only = OpenHumanExperienceStore::new(shared)
-        .recall_for("planner", "rotate the signing key")
-        .await
-        .expect("recall from the shared store");
-    assert!(
-        !holds_new_task(&shared_only),
-        "writes must not fan out into the shared store, got: {shared_only:?}"
-    );
-
-    let local_only = OpenHumanExperienceStore::new(local)
-        .recall_for("planner", "rotate the signing key")
-        .await
-        .expect("recall from the profile-local store");
-    assert!(
-        holds_new_task(&local_only),
-        "the profile-local store is the write target, got: {local_only:?}"
-    );
-}
-
-#[tokio::test]
 async fn recall_excludes_another_agents_attempt() {
     // The domain only score-boosts an agent match, so without the adapter's
     // post-filter this would return the writer's record too.
@@ -301,7 +233,6 @@ fn partial_outcomes_read_as_unsuccessful() {
             source: ExperienceSource::ToolLoop,
             agent_id: Some("planner".into()),
             entrypoint: None,
-            profile_id: None,
             task_fingerprint: "fp".into(),
             task_summary: "migrate the schema".into(),
             tools_used: vec![],
@@ -325,31 +256,6 @@ fn partial_outcomes_read_as_unsuccessful() {
     assert!(mapped.outcome.contains("partially succeeded"));
     assert!(mapped.outcome.contains("recovered after the first tool"));
     assert!(mapped.outcome.contains("do not repeat the failed call"));
-}
-
-#[test]
-fn profile_ids_partition_the_storage_key() {
-    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let none = OpenHumanExperienceStore::with_profile(memory.clone(), None);
-    let alice = OpenHumanExperienceStore::with_profile(memory.clone(), Some("alice".to_string()));
-    let blank = OpenHumanExperienceStore::with_profile(memory, Some("   ".to_string()));
-
-    let e = exp("planner", "migrate the schema", "ok", true);
-    let none_id = none.to_domain(&e).id;
-    let alice_id = alice.to_domain(&e).id;
-    // A blank profile id must normalize to the profile-less partition, not
-    // create a third unreachable one.
-    assert_eq!(none_id, blank.to_domain(&e).id);
-    assert_ne!(none_id, alice_id);
-    assert_eq!(alice.to_domain(&e).profile_id.as_deref(), Some("alice"));
-    assert!(none.to_domain(&e).profile_id.is_none());
-}
-
-#[test]
-fn long_prose_is_truncated_by_characters_not_bytes() {
-    let long = "é".repeat(MAX_SUMMARY_CHARS + 50);
-    let record = adapter().to_domain(&exp("planner", &long, "ok", true));
-    assert_eq!(record.task_summary.chars().count(), MAX_SUMMARY_CHARS);
 }
 
 #[test]

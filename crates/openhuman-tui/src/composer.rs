@@ -14,7 +14,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("permissions", "inspect or change agent access"),
     ("status", "show session, core, and Git status"),
     ("usage", "show token and cost usage"),
-    ("agents", "browse and switch agent profiles"),
+    ("agents", "browse available agent definitions"),
     ("skills", "browse installed skills and recent runs"),
     ("mcp", "show installed MCP servers"),
     ("artifacts", "browse generated artifacts"),

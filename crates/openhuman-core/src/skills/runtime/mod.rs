@@ -27,10 +27,7 @@ pub mod schemas;
 pub mod tools;
 
 #[cfg(feature = "skills")]
-pub use run_machinery::{
-    await_run_outcome, spawn_workflow_run_background, spawn_workflow_run_background_with_profile,
-    WorkflowRunStarted,
-};
+pub use run_machinery::{await_run_outcome, spawn_workflow_run_background, WorkflowRunStarted};
 #[cfg(feature = "skills")]
 pub use schemas::{
     all_skill_runtime_controller_schemas, all_skill_runtime_registered_controllers,

@@ -6,10 +6,10 @@ use super::*;
 // ── the index must agree with the gate too ──────────────────────────────────
 
 /// A spec shaped like the one `UseSkillTool` publishes.
-fn use_skill_spec() -> crate::tools::traits::ToolSpec {
+fn use_skill_spec() -> tinytools::ToolSpec {
     let tools = registry_with_all(&["build_workflow"]);
     let tool = find(&tools, USE_SKILL);
-    crate::tools::traits::ToolSpec {
+    tinytools::ToolSpec {
         name: tool.name().to_string(),
         description: tool.description().to_string(),
         parameters: tool.parameters_schema(),
@@ -210,7 +210,7 @@ fn rebinding_a_pack_handle_repoints_it_at_the_new_registry() {
     let rebuilt = Arc::new(rebuilt);
 
     // Re-point the ORIGINAL handle at it, which is what a rebuild does.
-    crate::tools::traits::pack_registry_handle(use_skill)
+    crate::tools::host_extensions::pack_registry_handle(use_skill)
         .expect("use_skill exposes a pack registry handle")
         .bind(Arc::downgrade(&rebuilt));
 
@@ -233,7 +233,7 @@ fn rebinding_a_pack_handle_repoints_it_at_the_new_registry() {
 #[test]
 fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
     let tools = registry_with_all(&["build_workflow", "propose_workflow"]);
-    let handle = crate::tools::traits::pack_registry_handle(find(&tools, USE_SKILL))
+    let handle = crate::tools::host_extensions::pack_registry_handle(find(&tools, USE_SKILL))
         .expect("use_skill carries the pack handle");
 
     let rendered = render_pack_filtered(
@@ -259,7 +259,7 @@ fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
 #[test]
 fn a_listing_with_nothing_callable_names_the_route_out() {
     let tools = registry_with_all(&["build_workflow", "propose_workflow"]);
-    let handle = crate::tools::traits::pack_registry_handle(find(&tools, USE_SKILL))
+    let handle = crate::tools::host_extensions::pack_registry_handle(find(&tools, USE_SKILL))
         .expect("use_skill carries the pack handle");
 
     let route = route_sentence(&["build_workflow".to_string()], &["workflow_builder"]);
@@ -331,7 +331,7 @@ fn the_mcp_and_skill_hand_offs_are_never_packed() {
 fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
     use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
 
-    let delegate = |name: &str, target: &str| -> Box<dyn crate::tools::traits::Tool> {
+    let delegate = |name: &str, target: &str| -> Box<dyn tinytools::Tool> {
         Box::new(ArchetypeDelegationTool {
             tool_name: name.to_string(),
             agent_id: DelegationTarget(target.to_string()),
@@ -348,7 +348,7 @@ fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
         "wallet_status",
         "mcp_registry_tool_call",
     ]);
-    let tools: Vec<&dyn crate::tools::traits::Tool> = raw
+    let tools: Vec<&dyn tinytools::Tool> = raw
         .iter()
         .map(|t| t.as_ref())
         .chain(delegates.iter().map(|t| t.as_ref()))
@@ -383,7 +383,7 @@ fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
     // Keyed on the visible set, this closed nothing on a real session while
     // every test passed. Pack membership is knowable as soon as the tools are,
     // so the raw tools close with no visible set in the picture at all.
-    let named_only: Vec<&dyn crate::tools::traits::Tool> = raw.iter().map(|t| t.as_ref()).collect();
+    let named_only: Vec<&dyn tinytools::Tool> = raw.iter().map(|t| t.as_ref()).collect();
     assert!(
         closed_by_direct_handoff("orchestrator", &named_only).is_empty(),
         "with no hand-off among the tools there is nothing to close: the rule \
@@ -411,13 +411,13 @@ fn a_named_scope_session_closes_the_pack_its_visible_list_never_mentions() {
     use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
     use crate::tools::agent_policy::ToolPolicyEngine;
 
-    let delegate: Box<dyn crate::tools::traits::Tool> = Box::new(ArchetypeDelegationTool {
+    let delegate: Box<dyn tinytools::Tool> = Box::new(ArchetypeDelegationTool {
         tool_name: "setup_skills".to_string(),
         agent_id: DelegationTarget("skill_setup".to_string()),
         tool_description: String::new(),
     });
     let raw = registry_with_all(&["skill_registry_install"]);
-    let tools: Vec<&dyn crate::tools::traits::Tool> = raw
+    let tools: Vec<&dyn tinytools::Tool> = raw
         .iter()
         .map(|t| t.as_ref())
         .chain(std::iter::once(delegate.as_ref()))

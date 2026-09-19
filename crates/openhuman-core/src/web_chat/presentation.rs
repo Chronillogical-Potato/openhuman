@@ -9,7 +9,7 @@
 //! 2. **Emoji reactions** — decide whether the assistant should react to the
 //!    user's message with an emoji.
 
-use crate::agent::harness::turn_subagent_usage::LastTurnUsage;
+use crate::agent::tinyagents::host::LastTurnUsage;
 use crate::config::rpc as config_rpc;
 use crate::core::socketio::{SubagentUsagePayload, TurnUsagePayload, WebChannelEvent};
 

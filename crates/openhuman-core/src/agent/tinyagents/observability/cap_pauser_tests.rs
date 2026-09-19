@@ -6,15 +6,15 @@ use async_trait::async_trait;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::EventSink;
-use tinyagents_harness::middleware::{AgentRun, Middleware};
+use tinyagents_harness::middleware::{AgentRun, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents_harness::steering::SteeringPolicy;
 use tinyagents_harness::subagent::SubAgent;
 use tinyagents_harness::testkit::{FakeTool, ScriptedModel, SlowModel};
-use tinyagents_harness::tool::ToolResult;
 use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolResult;
 
 const CAP: usize = 3;
 
@@ -32,6 +32,8 @@ fn tool_call_response(id: &str) -> ModelResponse {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 
@@ -90,6 +92,7 @@ impl Middleware<()> for NestedRunAfterEveryTool {
         &self,
         ctx: &mut RunContext<()>,
         _state: &(),
+        _invocation: &ToolInvocationIdentity,
         _result: &mut ToolResult,
     ) -> TaResult<()> {
         let model: Arc<dyn ChatModel<()>> = Arc::new(ScriptedModel::replies(vec!["summary"]));
@@ -115,6 +118,7 @@ impl Middleware<()> for OverlappingNestedRunsAfterEveryTool {
         &self,
         ctx: &mut RunContext<()>,
         _state: &(),
+        _invocation: &ToolInvocationIdentity,
         _result: &mut ToolResult,
     ) -> TaResult<()> {
         let depth = ctx.depth();

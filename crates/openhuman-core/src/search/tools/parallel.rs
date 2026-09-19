@@ -41,8 +41,6 @@ pub use search::{ParallelSearchTool, SearchResponse, SearchResultItem};
 #[cfg(test)]
 use crate::integrations::IntegrationClient;
 #[cfg(test)]
-use crate::tools::traits::Tool;
-#[cfg(test)]
 use enrich::{enrich_payload, format_enrich_response, EnrichResponse};
 #[cfg(test)]
 use extract::ExtractResponse;
@@ -52,3 +50,5 @@ use research::{format_research_response, research_payload, ResearchResponse};
 use serde_json::json;
 #[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use tinytools::Tool;

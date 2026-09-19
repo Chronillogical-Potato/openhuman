@@ -14,27 +14,30 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
+use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
 use tinyinference_llm::model::{ModelResponse, SegmentRole};
 use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
 use crate::agent::tinyagents::payload_summarizer::{
     PayloadSummarizer, SummarizeOutcome, UnavailableReason,
 };
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-use crate::tools::Tool;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::no_progress::{
     DEFAULT_REPEAT_CALL_THRESHOLD, DEFAULT_REPEAT_OUTPUT_THRESHOLD,
 };
 use tinyinference_llm::model::ModelRequest;
+use tinytools::Tool;
 
-fn ctx() -> RunContext<()> {
-    RunContext::new(RunConfig::new("mw-test"), ())
+fn ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+    RunContext::new(
+        RunConfig::new("mw-test"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
 }
 
 // ── payload_summarizer disclosure (#5722) ──────────────────────
@@ -57,7 +60,7 @@ impl StubSummarizer {
 impl PayloadSummarizer for StubSummarizer {
     async fn maybe_summarize_in_parent(
         &self,
-        _parent_ctx: &RunContext<()>,
+        _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _tool_name: &str,
         _parent_task_hint: Option<&str>,
         _raw: &str,
@@ -106,8 +109,8 @@ impl Tool for FakeTool {
     fn parameters_schema(&self) -> serde_json::Value {
         json!({ "type": "object" })
     }
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
-        Ok(crate::tools::ToolResult::success("ok"))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
     }
     fn max_result_size_chars(&self) -> Option<usize> {
         self.cap
@@ -117,15 +120,19 @@ impl Tool for FakeTool {
     }
 }
 
-fn tool_result(name: &str, content: &str) -> TaToolResult {
-    TaToolResult {
-        call_id: "c1".into(),
-        name: name.into(),
-        content: content.into(),
-        raw: None,
-        error: None,
-        elapsed_ms: 0,
-    }
+fn tool_result(_name: &str, content: &str) -> TaToolResult {
+    TaToolResult::success(content)
+}
+
+fn invocation(call_id: impl AsRef<str>, tool_name: impl Into<String>) -> ToolInvocationIdentity {
+    ToolInvocationIdentity::new(
+        tinyagents_harness::ids::CallId::new(call_id.as_ref()),
+        tool_name,
+    )
+}
+
+fn result_text(result: &TaToolResult) -> String {
+    result.output()
 }
 
 // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
@@ -253,9 +260,8 @@ fn large_sample_response_json(row_count: usize) -> String {
 // ── RepeatedToolFailureMiddleware ───────────────────────────────────────
 
 fn failing_result(name: &str, err: &str) -> TaToolResult {
-    let mut r = tool_result(name, err);
-    r.error = Some(err.to_string());
-    r
+    let _ = name;
+    TaToolResult::error(err)
 }
 
 /// Count how many of the steering commands drained from `handle` are
@@ -313,6 +319,8 @@ fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelRespon
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 
@@ -327,11 +335,14 @@ async fn run_successful_repeat_cycle(
     mw.after_model(&mut ctx(), &(), &mut response)
         .await
         .unwrap();
-    let mut result = tool_result(tool, output);
-    // Answer the call `repeated_success_response` issued.
-    result.call_id = "repeat-1".into();
-    result.error = error.map(str::to_string);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = match error {
+        Some(error) => TaToolResult::error(error),
+        None => tool_result(tool, output),
+    };
+    let invocation = ToolInvocationIdentity::new("repeat-1", tool);
+    mw.after_tool(&mut ctx(), &(), &invocation, &mut result)
+        .await
+        .unwrap();
 }
 
 // ── MemoryProtocolMiddleware (issue #4116) ──────────────────────────────
@@ -355,9 +366,14 @@ async fn run_cycle(
         invalid: None,
     };
     mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-    let mut result = tool_result(name, content); // call_id "c1" matches
-    result.error = error.map(|e| e.to_string());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    let mut result = match error {
+        Some(error) => TaToolResult::error(error),
+        None => tool_result(name, content),
+    };
+    let invocation = ToolInvocationIdentity::new("c1", name);
+    mw.after_tool(&mut ctx(), &(), &invocation, &mut result)
+        .await
+        .unwrap();
     result
 }
 

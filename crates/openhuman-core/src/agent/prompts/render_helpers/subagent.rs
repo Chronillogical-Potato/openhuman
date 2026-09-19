@@ -57,8 +57,8 @@ pub fn render_subagent_system_prompt(
     workspace_dir: &Path,
     model_name: &str,
     allowed_indices: &[usize],
-    parent_tools: &[Box<dyn crate::tools::Tool>],
-    extra_tools: &[Box<dyn crate::tools::Tool>],
+    parent_tools: &[Box<dyn tinytools::Tool>],
+    extra_tools: &[Box<dyn tinytools::Tool>],
     archetype_body: &str,
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
@@ -95,8 +95,8 @@ pub fn render_subagent_system_prompt_with_format(
     workspace_dir: &Path,
     model_name: &str,
     allowed_indices: &[usize],
-    parent_tools: &[Box<dyn crate::tools::Tool>],
-    extra_tools: &[Box<dyn crate::tools::Tool>],
+    parent_tools: &[Box<dyn tinytools::Tool>],
+    extra_tools: &[Box<dyn tinytools::Tool>],
     archetype_body: &str,
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
@@ -197,7 +197,7 @@ pub fn render_subagent_system_prompt_with_format(
     //   `extra_tools` — or the model has no way to know they exist.
     if !matches!(tool_call_format, ToolCallFormat::Native) {
         out.push_str("## Tools\n\n");
-        let render_one = |out: &mut String, tool: &dyn crate::tools::Tool| match tool_call_format {
+        let render_one = |out: &mut String, tool: &dyn tinytools::Tool| match tool_call_format {
             ToolCallFormat::PFormat => {
                 let sig = render_pformat_signature_for_box_tool(tool);
                 let _ = writeln!(
@@ -325,7 +325,7 @@ pub fn render_subagent_system_prompt_with_format(
 /// Used by `render_subagent_system_prompt` which operates on `Box<dyn Tool>`
 /// directly (no intermediate `PromptTool`). Mirrors the `PromptTool` variant
 /// below — both BTreeMap-iterate the schema's `properties` in the same order.
-fn render_pformat_signature_for_box_tool(tool: &dyn crate::tools::Tool) -> String {
+fn render_pformat_signature_for_box_tool(tool: &dyn tinytools::Tool) -> String {
     let schema = tool.parameters_schema();
     let names: Vec<String> = schema
         .get("properties")

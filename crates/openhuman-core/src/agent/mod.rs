@@ -13,8 +13,8 @@
 //!   specialized agents (Orchestrator, Code Executor, Researcher, etc.).
 //! - **[`triage`]**: A high-performance pipeline for classifying and responding
 //!   to external triggers (webhooks, cron jobs) using small local models.
-//! - **[`dispatcher`]**: Pluggable strategies for how tool calls are formatted
-//!   in prompts and parsed from responses (XML, JSON, P-Format).
+//! - **`tinytools_agent::dialect`**: Canonical strategies for formatting and
+//!   parsing tool calls (XML, JSON, P-Format).
 //! - **[`harness::subagent_runner`]**: Logic for spawning "sub-agents" from
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 pub mod artifacts;
@@ -22,11 +22,9 @@ pub mod bus;
 pub mod context;
 pub(crate) mod cost;
 pub mod debug;
-pub mod dispatcher;
 pub mod error;
 pub mod experience;
 pub mod file_state;
-pub(crate) mod git_attribution;
 pub mod goals;
 pub mod harness;
 pub mod harness_init;
@@ -38,14 +36,12 @@ pub(crate) mod message_convert;
 pub mod messages;
 pub mod multimodal;
 pub mod orchestration;
-pub mod pformat;
 pub mod plan_review;
 /// Cross-platform shell selection shared by [`host_runtime::NativeRuntime`]
 /// and [`crate::sandbox::ops`] so all three shell-spawning sites
 /// agree on `cmd.exe` (Windows) vs `bash`/`sh` (Unix). Fixes #4705 where
 /// the sandbox paths hardcoded `sh` and failed at spawn on Windows.
 pub mod platform_shell;
-pub mod profiles;
 pub mod progress;
 /// Task-local [`progress::AgentProgress`] sink — how an in-process embedder
 /// observes a turn driven through an RPC that returns only a final string.
@@ -58,10 +54,7 @@ pub mod progress_sink;
 /// session id with user attribution (issue #3886).
 pub(crate) mod progress_tracing;
 /// Prompt plumbing — types, section builders, and
-/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder). Moved from
-/// `crate::agent::context::prompt` so prompt rendering lives next to the
-/// agents that consume it. `crate::agent::context::prompt` is retained as
-/// a thin re-export shim for now.
+/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder).
 pub mod prompts;
 pub mod registry;
 mod schemas;

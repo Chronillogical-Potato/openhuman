@@ -4,9 +4,7 @@
 //! (from the sibling `prompt.md`) plus the same section helpers the
 //! runtime uses for every other agent.
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = include_str!("prompt.md");

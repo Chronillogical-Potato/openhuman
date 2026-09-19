@@ -5,12 +5,11 @@
 use std::path::Path;
 use std::time::Duration;
 
-use crate::agent::tinyagents::orchestration::DetachedTaskRegistryError;
+use tinyagents_graph::orchestration::{DetachedTaskRegistryError, DetachedTaskWaitOutcome};
 use tinyagents_harness::ids::TaskId;
 
 use super::registry::{registry, SubagentStatus};
 use super::task_ledger::{record_to_status, task_record_for_task_in_workspace, task_status_label};
-use crate::agent::tinyagents::orchestration::DetachedTaskWaitOutcome;
 
 /// Why a wait could not be set up.
 #[derive(Debug, PartialEq, Eq)]

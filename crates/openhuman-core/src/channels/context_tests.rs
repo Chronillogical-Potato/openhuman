@@ -1,8 +1,8 @@
 use super::*;
 use crate::channels::traits;
-use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use tinymemory_api::types::{MemoryCategory, MemoryEntry};
+use tinytools::{Tool, ToolResult};
 
 struct DummyTool;
 

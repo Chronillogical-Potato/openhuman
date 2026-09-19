@@ -173,6 +173,7 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
             // a copilot pane the user may have already navigated away from
             // shouldn't idle that long. Main-chat turns never scope this, so
             // they are unaffected.
+            agent.set_thread_id(Some(target.thread_id.as_str()));
             let run = with_origin(
                 origin,
                 APPROVAL_CHAT_CONTEXT.scope(
@@ -182,10 +183,6 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
-            let run = crate::agent::tinyagents::thread_context::with_thread_id(
-                target.thread_id.clone(),
-                run,
-            );
 
             // Register this turn's cancellation token BEFORE racing the run,
             // so a `flows_build_cancel` call landing the instant this turn

@@ -38,8 +38,8 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::tools::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolSpec};
 use crate::util::bm25::Bm25Index;
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolSpec};
 
 /// How many matches a search returns when the caller does not say.
 const DEFAULT_LIMIT: usize = 5;
@@ -265,7 +265,7 @@ pub fn strip_deferred_from_visible(
     visible: &mut std::collections::HashSet<String>,
     tools: &[Box<dyn Tool>],
 ) -> Vec<ToolSpec> {
-    use crate::tools::ToolExposure;
+    use tinytools::ToolExposure;
 
     let mut deferred = Vec::new();
     for tool in tools {

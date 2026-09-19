@@ -1181,19 +1181,5 @@ async fn agent_experience_controllers_reject_malformed_params() {
         "dismiss names its required id: {no_id}"
     );
 
-    // An unknown profile partition is an error, not an empty result — a typo
-    // must not read as "this profile has no experiences".
-    let unknown_profile = h
-        .err(
-            3805,
-            "openhuman.agent_experience_list",
-            json!({ "profile_id": "profile-does-not-exist" }),
-        )
-        .await;
-    assert!(
-        unknown_profile.contains("profile-does-not-exist"),
-        "an unknown profile is named rather than silently empty: {unknown_profile}"
-    );
-
     h.join.abort();
 }

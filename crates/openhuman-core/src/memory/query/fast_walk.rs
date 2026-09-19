@@ -7,7 +7,7 @@
 
 use crate::memory::api::provider::{FastRetrieveQuery, MemoryProvider};
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::ToolResult;
+use tinytools::ToolResult;
 
 /// Parse the shared `memory_tree` args and run deterministic retrieval.
 /// Accepts `query` (required), `limit`, `time_window_days`, and `max_hops`.

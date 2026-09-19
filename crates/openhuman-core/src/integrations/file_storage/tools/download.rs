@@ -12,8 +12,8 @@ use super::helpers::{
 };
 use crate::integrations::IntegrationClient;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 
 pub struct StorageDownloadFileTool {
     client: Arc<IntegrationClient>,

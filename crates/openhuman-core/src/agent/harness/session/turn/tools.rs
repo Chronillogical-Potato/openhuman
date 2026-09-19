@@ -10,8 +10,8 @@ use std::sync::Arc;
 /// One turn's tool inputs: the durable registry, the synthesised delegation
 /// set, and the callable-name allowlist. See [`Agent::turn_tool_sets`].
 type TurnToolSets = (
-    Arc<Vec<Box<dyn crate::tools::Tool>>>,
-    Arc<Vec<Box<dyn crate::tools::Tool>>>,
+    Arc<Vec<Box<dyn tinytools::Tool>>>,
+    Arc<Vec<Box<dyn tinytools::Tool>>>,
     std::collections::HashSet<String>,
 );
 
@@ -23,15 +23,9 @@ impl Agent {
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
     pub(super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
-        // Prefer an ambient `current_parent()` descriptor (a nested subagent
-        // inherits its enclosing worktree/profile workspace threaded down the
-        // spawn chain). Fall back to THIS session agent's own descriptor: on a
-        // ROOT chat turn `current_parent()` is `None`, so without the fallback a
-        // dedicated-workspace profile's descriptor (`<action_dir>/profiles/<id>`,
-        // set on the Agent at build time) would never reach delegated subagents
-        // spawned via `spawn_subagent` / `spawn_async_subagent`, and they'd drop
-        // to the shared `action_dir` — the profile isolation would silently not
-        // apply to common delegated writes.
+        // Prefer an ambient `current_parent()` descriptor so nested subagents
+        // inherit their enclosing workspace. On a root turn the ambient value
+        // is absent, so fall back to this session's own descriptor.
         let workspace_descriptor = harness::current_parent()
             .and_then(|parent| parent.workspace_descriptor)
             .or_else(|| self.workspace_descriptor.clone());
@@ -90,7 +84,9 @@ impl Agent {
             session_id: self.event_session_id().to_string(),
             channel: self.event_channel().to_string(),
             connected_integrations: self.connected_integrations.clone(),
-            tool_call_format: self.tool_dispatcher.tool_call_format(),
+            tool_call_format: crate::agent::prompts::tool_call_format_from_dialect(
+                self.tool_dispatcher.tool_call_format(),
+            ),
             session_key: self.session_key.clone(),
             session_parent_prefix: self.session_parent_prefix.clone(),
             on_progress: self.on_progress.clone(),
@@ -367,31 +363,14 @@ impl Agent {
                 w.dir_name.clone()
             }
         };
-        // Keep the mid-session refresh consistent with the initial catalog
-        // (built in the session factory): include the active profile's private
-        // skills root so profile-local installs are tracked/announced too. `None`
-        // for the profile-less session reproduces the prior behaviour.
-        let profile_skills_root = self
-            .active_profile_id
-            .as_deref()
-            .and_then(|id| crate::agent::profiles::profile_skills_root(&self.workspace_dir, id));
-        // An invalid/absent active profile id silently falls back to shared
-        // discovery. Log the branch id-free (boolean only, never the profile id or
-        // resolved path) per the observability convention for new/changed flows.
-        let profile_local_skills_active = profile_skills_root.is_some();
-        log::debug!(
-            "[agent_loop] refreshing installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active})"
-        );
-        let mut latest = crate::skills::load_workflow_metadata_for_profile(
-            &self.workspace_dir,
-            profile_skills_root.as_deref(),
-        );
+        log::debug!("[agent_loop] refreshing installed-skills metadata (trigger={trigger})");
+        let mut latest = crate::skills::load_workflow_metadata(&self.workspace_dir);
         #[cfg(feature = "flows")]
         if let Some(config) = self.runtime_config.as_deref() {
             latest.extend(crate::flows::catalogue::flow_entries(config));
         }
         log::debug!(
-            "[agent_loop] refreshed installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active}, workflow_count={})",
+            "[agent_loop] refreshed installed-skills metadata (trigger={trigger}, workflow_count={})",
             latest.len()
         );
         let current_ids: std::collections::HashSet<String> =
@@ -595,7 +574,7 @@ impl Agent {
         );
         let synthed_names: std::collections::HashSet<String> =
             synthed.iter().map(|t| t.name().to_string()).collect();
-        let synthed_specs: Vec<Arc<crate::tools::ToolSpec>> =
+        let synthed_specs: Vec<Arc<tinytools::ToolSpec>> =
             synthed.iter().map(|t| Arc::new(t.spec())).collect();
 
         // Skip mutation when neither the previous nor the next synthesis

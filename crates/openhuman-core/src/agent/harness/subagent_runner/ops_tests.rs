@@ -1,5 +1,6 @@
 use super::*;
 use crate::agent::harness::definition::{ModelSpec, ToolScope};
+use tinytools::{Tool, ToolSpec};
 
 fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
     AgentDefinition {
@@ -40,8 +41,8 @@ struct StubTool {
     name: &'static str,
 }
 
-use crate::tools::{PermissionLevel, ToolResult};
 use async_trait::async_trait;
+use tinytools::{PermissionLevel, ToolResult};
 
 #[async_trait]
 impl Tool for StubTool {
@@ -239,7 +240,7 @@ fn make_parent(
     provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
 ) -> ParentExecutionContext {
-    let tool_specs: Vec<Arc<crate::tools::ToolSpec>> =
+    let tool_specs: Vec<Arc<tinytools::ToolSpec>> =
         tools.iter().map(|t| Arc::new(t.spec())).collect();
     ParentExecutionContext {
         workspace_descriptor: None,
@@ -263,7 +264,7 @@ fn make_parent(
         session_id: "test-session".into(),
         channel: "test".into(),
         connected_integrations: vec![],
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::PFormat,
         session_key: "0_test".into(),
         session_parent_prefix: None,
         on_progress: None,

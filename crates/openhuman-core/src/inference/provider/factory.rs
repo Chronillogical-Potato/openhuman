@@ -84,6 +84,7 @@ use local_runtime::{
     try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
     OptionalChatModelResult,
 };
+pub(crate) use managed_backend::make_openhuman_backend_model_for_thread;
 use managed_backend::{resolve_managed_backend, resolve_managed_backend_with_model_override};
 use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 use routing::split_model_and_temperature;

@@ -122,7 +122,7 @@ fn make_agent_with_auto_recall(
         .tools(vec![])
         .memory(mem)
         .auto_recall(auto_recall)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(crate::config::AgentConfig::default())
         .context_config(crate::config::ContextConfig::default())
         .workspace_dir(workspace_path)

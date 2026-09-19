@@ -2,13 +2,13 @@ use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::runtime::python::PythonBootstrap;
 use crate::security::{AuditLogger, CommandExecutionLog, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
@@ -231,7 +231,7 @@ impl Tool for ShellTool {
         match args.get("timeout_secs").and_then(|v| v.as_u64()) {
             // `0` (or absent) means "no deadline".
             None | Some(0) => ToolTimeout::Unbounded,
-            Some(secs) => ToolTimeout::Secs(secs),
+            Some(secs) => ToolTimeout::Millis(secs.saturating_mul(1000)),
         }
     }
 
@@ -341,19 +341,7 @@ impl ShellTool {
             return (false, ToolResult::error(reason));
         }
 
-        // Cross-profile write guard (1b), shell call site. File tools enforce
-        // the same boundary per-path in `SecurityPolicy::validate_path`; shell
-        // commands never funnel through that, so scan the command's path-shaped
-        // tokens against the profile's own workspace (its cwd). No-op unless the
-        // session runs under a dedicated-workspace profile. See
-        // `profiles::guard::scan_command_for_cross_profile` for the containment
-        // rationale (the cwd is already rooted at the profile's own dir).
-        let cwd = self.effective_action_dir_for_context(context);
-        if let Err(reason) =
-            super::check_cross_profile_command(self.security.as_ref(), command, &cwd, "shell")
-        {
-            return (false, ToolResult::error(reason));
-        }
+        let _cwd = self.effective_action_dir_for_context(context);
 
         if self.security.is_rate_limited() {
             return (
@@ -403,9 +391,9 @@ impl ShellTool {
             }
         }
 
-        // Attribute commits made by this agent-owned shell, without persisting
-        // anything in the user's repository or global Git configuration.
-        for (key, value) in crate::agent::git_attribution::hook_env() {
+        // Keep command-valued repository Git settings from executing host
+        // programs when a shell command happens to invoke git.
+        for (key, value) in crate::tools::implementations::filesystem::shell_git_env() {
             cmd.env(key, value);
         }
 
@@ -533,11 +521,8 @@ impl ShellTool {
             }
         }
 
-        // The local/no-op sandbox inherits this process's temporary hook
-        // directory, so commits made through a sandboxed shell are attributed
-        // just like native-shell commits. Docker backends safely ignore an
-        // unavailable host path rather than changing repository configuration.
-        extra_env.extend(crate::agent::git_attribution::hook_env());
+        // Apply the same Git config hardening to local and sandboxed shells.
+        extra_env.extend(crate::tools::implementations::filesystem::shell_git_env());
 
         // Sandbox backends require a finite deadline. Without an explicit
         // `timeout_secs`, substitute the generous effective-unbounded cap so a

@@ -1,9 +1,9 @@
 use super::*;
 use crate::security::{AutonomyLevel, SecurityPolicy};
-use crate::tools::traits::Tool;
 use crate::tools::FileReadTool;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::Tool;
 
 #[tokio::test]
 async fn threshold_persists_preview_and_readable_file() {
@@ -83,19 +83,19 @@ async fn aggregate_spills_largest_until_under_budget() {
     let tmp = tempfile::tempdir().unwrap();
     let store = ToolResultArtifactStore::new(tmp.path().to_path_buf(), "session");
     let mut results = vec![
-        ToolExecutionResult {
+        ToolOutcome {
             name: "small".into(),
             output: "a".repeat(100),
             success: true,
             tool_call_id: Some("small".into()),
         },
-        ToolExecutionResult {
+        ToolOutcome {
             name: "largest".into(),
             output: "b".repeat(2000),
             success: true,
             tool_call_id: Some("largest".into()),
         },
-        ToolExecutionResult {
+        ToolOutcome {
             name: "medium".into(),
             output: "c".repeat(900),
             success: true,
@@ -120,19 +120,19 @@ async fn aggregate_forces_budget_when_envelope_has_no_savings() {
     let tmp = tempfile::tempdir().unwrap();
     let store = ToolResultArtifactStore::new(tmp.path().to_path_buf(), "session");
     let mut results = vec![
-        ToolExecutionResult {
+        ToolOutcome {
             name: "one".into(),
             output: "a".repeat(350),
             success: true,
             tool_call_id: Some("one".into()),
         },
-        ToolExecutionResult {
+        ToolOutcome {
             name: "two".into(),
             output: "b".repeat(350),
             success: true,
             tool_call_id: Some("two".into()),
         },
-        ToolExecutionResult {
+        ToolOutcome {
             name: "three".into(),
             output: "c".repeat(350),
             success: true,

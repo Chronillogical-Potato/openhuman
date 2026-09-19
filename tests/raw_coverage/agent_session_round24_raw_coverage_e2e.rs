@@ -1,10 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::XmlToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
 use openhuman_core::agent::Agent;
 use openhuman_core::config::{AgentConfig, ContextConfig};
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     ConnectedIntegration, LearnedContextData, PersonalityRosterEntry, PersonalityRosterSection,
     PromptContext, PromptSection, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
     ToolCallFormat, UserIdentity, UserIdentitySection,
@@ -12,9 +12,8 @@ use openhuman_core::agent::context::prompt::{
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{
-    PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
-};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+use tinytools::ToolScope as RuntimeToolScope;
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
@@ -397,8 +396,6 @@ fn prompt_ctx<'a>(
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -430,7 +427,7 @@ async fn max_iteration_checkpoint_uses_deterministic_fallback_and_hooks() {
             calls: calls.clone(),
         })])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path.clone())
         .event_context("round24-session", "round24-channel")
         .agent_definition_name("round24/orchestrator")
@@ -515,7 +512,7 @@ async fn builder_validation_and_system_prompt_cover_defaults_and_learning() {
         .chat_model(provider.clone())
         .tools(vec![Box::new(Round24Tool { calls })])
         .memory(memory)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round24-prompt-session", "round24-prompt-channel")
         .agent_definition_name("round24 prompt/name")
@@ -611,7 +608,7 @@ fn prompt_sections_cover_dynamic_roster_identity_and_subagent_edges() {
     let parent_tools: Vec<Box<dyn Tool>> = vec![Box::new(Round24Tool {
         calls: Arc::new(AtomicUsize::new(0)),
     })];
-    let subagent_json = openhuman_core::agent::context::prompt::render_subagent_system_prompt(
+    let subagent_json = openhuman_core::agent::prompts::render_subagent_system_prompt(
         &workspace_path,
         "round24-model",
         &[999, 0],

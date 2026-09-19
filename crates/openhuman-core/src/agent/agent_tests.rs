@@ -24,19 +24,17 @@
 //!  19. Builder validation (missing required fields)
 //!  20. Idempotent system prompt insertion
 
-use crate::agent::dispatcher::{
-    NativeToolDispatcher, ToolDispatcher, ToolExecutionResult, XmlToolDispatcher,
-};
 use crate::agent::harness::session::Agent;
 use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::config::AgentConfig;
 use crate::inference::provider::{ChatResponse, ToolCall};
 use crate::memory::Memory;
-use crate::tools::{Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::{Tool, ToolResult};
+use tinytools_agent::dialect::{NativeDialect, ToolDialect, ToolOutcome, XmlDialect};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Test Helpers — Mock Provider, Mock Tool, Mock Memory
@@ -250,7 +248,7 @@ fn make_retaining_memory() -> (Arc<dyn Memory>, tempfile::TempDir) {
 fn build_agent_with(
     provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
-    dispatcher: Box<dyn ToolDispatcher>,
+    dispatcher: Box<dyn ToolDialect>,
 ) -> (Agent, tempfile::TempDir) {
     let (mem, tmp) = make_memory();
     let agent = Agent::builder()
@@ -275,7 +273,7 @@ fn build_agent_with_memory(
         .chat_model(provider)
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(tmp.path().to_path_buf())
         .auto_save(auto_save)
         .build()
@@ -293,7 +291,7 @@ fn build_agent_with_config(
         .chat_model(provider)
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(tmp.path().to_path_buf())
         .config(config)
         .build()
@@ -333,11 +331,13 @@ fn xml_tool_response(name: &str, args: &str) -> ChatResponse {
     }
 }
 
-#[path = "agent_dispatch_format_tests.rs"]
-mod agent_dispatch_format_tests;
 #[path = "agent_memory_attribution_tests.rs"]
 mod agent_memory_attribution_tests;
 #[path = "agent_turn_loop_packed_tool_tests.rs"]
 mod agent_turn_loop_packed_tool_tests;
 #[path = "agent_turn_loop_tests.rs"]
 mod agent_turn_loop_tests;
+#[path = "messages_tests.rs"]
+mod messages_tests;
+#[path = "pformat_tests.rs"]
+mod pformat_tests;

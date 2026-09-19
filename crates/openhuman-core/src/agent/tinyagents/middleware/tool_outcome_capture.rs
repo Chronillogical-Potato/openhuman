@@ -6,8 +6,8 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
-use tinyagents_harness::tool::ToolResult as TaToolResult;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
+use tinytools::ToolResult as TaToolResult;
 
 /// `after_tool`: capture each tool call's execution outcome (success + content)
 /// into a shared sink before the harness folds the result into a `Message::tool`
@@ -38,17 +38,22 @@ impl ToolOutcomeCaptureMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ToolOutcomeCaptureMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolOutcomeCaptureMiddleware
+{
     fn name(&self) -> &str {
         "tool_outcome_capture"
     }
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
         // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
         // return a bare marker line with no workaround and no relay directive, so
@@ -59,17 +64,17 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         // carry a `Workaround:` suffix) are left untouched. This runs before
         // classification below, which still recognises the preserved marker.
         if let Some(enriched) = crate::agent::tinyagents::policy_denial::maybe_enrich_policy_block(
-            &result.name,
-            &result.content,
+            tool_name,
+            &crate::agent::tinyagents::middleware::tool_result_text(result),
         ) {
             tracing::debug!(
-                tool = result.name.as_str(),
+                tool = tool_name,
                 "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
             );
-            result.content = enriched;
+            crate::agent::tinyagents::middleware::replace_tool_result_text(result, enriched);
         }
 
-        let success = result.error.is_none();
+        let success = !result.is_error;
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. The classifier
         // owns all marker precedence now (policy-blocked / policy-denied / TTL
@@ -83,14 +88,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         let failure = if success {
             None
         } else {
-            let error = result.error.as_deref().unwrap_or("");
-            let combined: std::borrow::Cow<'_, str> = if error.is_empty() {
-                std::borrow::Cow::Borrowed(result.content.as_str())
-            } else if result.content.is_empty() || result.content == error {
-                std::borrow::Cow::Borrowed(error)
-            } else {
-                std::borrow::Cow::Owned(format!("{error}\n{}", result.content))
-            };
+            let combined = crate::agent::tinyagents::middleware::tool_result_text(result);
             let timed_out = combined.contains("timed out");
             Some(crate::tools::status::classify(&combined, timed_out))
         };
@@ -99,23 +97,74 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             // for old/deserialized completion events; TinyAgents 1.6 supplies
             // these fields directly on live `ToolCompleted` events.
             map.insert(
-                result.call_id.clone(),
+                call_id.clone(),
                 (
                     success,
                     failure,
-                    result.elapsed_ms,
-                    result.content.chars().count(),
+                    0,
+                    crate::agent::tinyagents::middleware::tool_result_text(result)
+                        .chars()
+                        .count(),
                 ),
             );
         }
         if let Ok(mut sink) = self.sink.lock() {
             sink.push(crate::agent::tinyagents::ToolCallOutcome {
-                call_id: result.call_id.clone(),
-                name: result.name.clone(),
+                call_id,
+                name: tool_name.to_string(),
                 success,
-                content: result.content.clone(),
+                content: crate::agent::tinyagents::middleware::tool_result_text(result),
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tinyagents_harness::context::{RunConfig, RunContext};
+
+    fn context() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+        RunContext::new(
+            RunConfig::new("outcome-capture-test"),
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+    }
+
+    #[tokio::test]
+    async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
+        let sink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let failure_map = std::sync::Arc::new(std::sync::Mutex::new(Default::default()));
+        let middleware = ToolOutcomeCaptureMiddleware::new(sink.clone(), failure_map.clone());
+        let mut ctx = context();
+
+        let success = ToolInvocationIdentity::new("echo-success", "echo");
+        let mut success_result = TaToolResult::success("done");
+        middleware
+            .after_tool(&mut ctx, &(), &success, &mut success_result)
+            .await
+            .expect("successful result is captured");
+
+        let failure = ToolInvocationIdentity::new("echo-failure", "echo");
+        let mut failure_result = TaToolResult::error("request timed out");
+        middleware
+            .after_tool(&mut ctx, &(), &failure, &mut failure_result)
+            .await
+            .expect("failed result is captured");
+
+        let outcomes = sink.lock().expect("outcome sink");
+        assert_eq!(outcomes.len(), 2);
+        assert_eq!(outcomes[0].call_id, "echo-success");
+        assert!(outcomes[0].success);
+        assert_eq!(outcomes[1].call_id, "echo-failure");
+        assert!(!outcomes[1].success);
+        drop(outcomes);
+
+        let recorded = failure_map.lock().expect("failure lookup");
+        assert_eq!(recorded.len(), 2, "same tool names cannot overwrite calls");
+        assert_eq!(recorded["echo-success"].0, true);
+        assert_eq!(recorded["echo-failure"].0, false);
+        assert!(recorded["echo-failure"].1.is_some());
     }
 }

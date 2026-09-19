@@ -1,10 +1,9 @@
 //! Persisting the turn's provider messages as the session transcript, plus the
 //! session-store dual-write / shadow-read mirrors.
 
-use crate::agent::harness::session::transcript;
-use crate::agent::harness::session::transcript_history::TranscriptTurn;
 use crate::agent::harness::session::types::Agent;
-use crate::agent::messages::ChatMessage;
+use crate::agent::messages::{transcript_message_from_chat, ChatMessage};
+use tinyagents_session::transcript::{self, TranscriptTurn};
 
 impl Agent {
     /// Persist the exact provider messages as a session transcript.
@@ -53,7 +52,7 @@ impl Agent {
             output_tokens,
             cached_input_tokens,
             charged_amount_usd,
-            thread_id: crate::agent::tinyagents::thread_context::current_thread_id(),
+            thread_id: self.thread_id.clone(),
             task_id: None,
         };
 
@@ -108,25 +107,26 @@ impl Agent {
         // so pre-compaction history survives on disk for the display projection.
         // `request_id` (web-chat only) stamps a turn boundary on each line.
         //
-        // This goes through `SessionHistory::append_turn` rather than
+        // This goes through `TranscriptHistory::append_turn` rather than
         // `transcript::append_transcript_turn` directly (S4). The handle is a
         // pure forwarder of exactly these six values — it must be, because the
         // crate's `ChatHistory` methods carry no channel for `request_id`,
         // `turn_usage` or a caller-computed `TranscriptMeta`, and dropping any
         // of them silently guts the transcript-view projection. See the header
-        // of `transcript_history.rs` for the full argument.
+        // of `tinyagents_session::transcript::TranscriptHistory` for the full argument.
         let prev = std::mem::take(&mut self.persisted_transcript_messages);
+        let next: Vec<_> = messages.iter().map(transcript_message_from_chat).collect();
         let request_id = crate::agent::turn_origin::current_request_id();
         match history.append_turn(TranscriptTurn {
             prev: &prev,
-            next: messages,
+            next: &next,
             meta: &meta,
             turn_usage,
             request_id: request_id.as_deref(),
         }) {
             Ok(()) => {
                 // Track the new persisted logical set for the next turn's diff.
-                self.persisted_transcript_messages = messages.to_vec();
+                self.persisted_transcript_messages = next;
                 // Best-effort, non-fatal dual-write into the TinyAgents store.
                 // Gated by the default-ON session dual-write flag
                 // (`OPENHUMAN_SESSION_DUAL_WRITE` is a kill switch). Only runs

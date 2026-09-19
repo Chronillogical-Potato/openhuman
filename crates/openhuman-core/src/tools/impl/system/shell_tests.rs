@@ -43,7 +43,7 @@ fn tool_context_with_workspace(
 ) -> tinyagents_harness::tool::ToolExecutionContext {
     use tinyagents_harness::context::{RunConfig, RunContext};
     use tinyagents_harness::tool::ToolExecutionContext;
-    use tinyagents_harness::workspace::WorkspaceDescriptor;
+    use tinytools::WorkspaceDescriptor;
     let ws = WorkspaceDescriptor::new(root.to_path_buf()).with_policy_id("test-worktree");
     let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
     ToolExecutionContext::from_run_context(&ctx)

@@ -58,22 +58,28 @@
 //! [`DelegateTool`]: crate::agent::tools::DelegateTool
 //! [`ArchetypeDelegationTool`]: super::ArchetypeDelegationTool
 //! [`SkillDelegationTool`]: super::SkillDelegationTool
-//! [`ToolExposure::Hidden`]: crate::tools::traits::ToolExposure::Hidden
+//! [`ToolExposure::Hidden`]: tinytools::ToolExposure::Hidden
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::archetype_delegation::{delegation_envelope_properties, render_structured_handoff};
-use crate::tools::traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout,
-};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolTimeout};
 
 /// The advertised name. A constant so the synthesis site, the prompt's
 /// delegation section and the tests cannot disagree about it.
 pub const DELEGATE_TO_TOOL_NAME: &str = "delegate_to";
 
+/// JSON-Schema extension that carries the exact selector-to-agent mapping the
+/// collapsed tool was built with. The harness registers tools behind `dyn
+/// Tool`, so this keeps the concrete tool's routing table alongside its
+/// advertised enum without a downcast or a later lookup against every global
+/// definition.
+pub(crate) const DISPATCH_TARGETS_SCHEMA_KEY: &str = "x-openhuman-delegation-targets";
+
 /// One routable sub-agent.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DelegateTarget {
     /// The name this target had when it was its own tool, and the value the
     /// `agent` enum takes. Keeping the old name as the enum value is what lets
@@ -118,6 +124,20 @@ impl CollapsedDelegationTool {
 
     fn agent_enum(&self) -> Vec<&str> {
         self.targets.iter().map(|t| t.tool_name.as_str()).collect()
+    }
+
+    fn dispatch_targets_schema(&self) -> Value {
+        Value::Array(
+            self.targets
+                .iter()
+                .map(|target| {
+                    json!({
+                        "tool_name": target.tool_name,
+                        "agent_id": target.agent_id,
+                    })
+                })
+                .collect(),
+        )
     }
 
     /// The routable names, for the prompt renderer and the tests.
@@ -185,6 +205,7 @@ impl Tool for CollapsedDelegationTool {
                 }
             }
         });
+        schema[DISPATCH_TARGETS_SCHEMA_KEY] = self.dispatch_targets_schema();
         let properties = schema["properties"]
             .as_object_mut()
             .expect("properties is an object literal above");
@@ -231,67 +252,154 @@ impl Tool for CollapsedDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let requested = args.get("agent").and_then(Value::as_str).map(str::trim);
-        let Some(target) = requested.and_then(|agent| self.resolve(agent)) else {
-            return Ok(ToolResult::error(format!(
-                "`agent` must be one of: {}. Got: {}",
-                self.agent_enum().join(", "),
-                requested.filter(|s| !s.is_empty()).unwrap_or("(missing)")
-            )));
-        };
-
-        let raw_prompt = args
-            .get("prompt")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if raw_prompt.is_empty() {
-            return Ok(ToolResult::error(format!(
-                "{DELEGATE_TO_TOOL_NAME}: `prompt` is required"
-            )));
-        }
-        let prompt = render_structured_handoff(&raw_prompt, &args);
-
-        let model_override = args
-            .get("model")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        // Async by default, exactly as the member tools were: the specialist
-        // runs as a durable, resumable worker and its result arrives as a new
-        // chat turn. `blocking: true` is the opt-in for a result that must gate
-        // this reply.
-        let blocking = args
-            .get("blocking")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let mode = if blocking {
-            super::dispatch::DispatchMode::Blocking
-        } else {
-            super::dispatch::DispatchMode::PreferAsync
-        };
-
-        tracing::debug!(
-            agent = %target.agent_id,
-            via = %target.tool_name,
-            "[delegate] dispatch"
-        );
-        // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
-        // into run records and the UI, and reporting every hand-off as
-        // `delegate` would erase which specialist was chosen from every trace.
-        super::dispatch_subagent(
-            &target.agent_id,
-            &target.tool_name,
-            &prompt,
-            None,
-            model_override,
-            tool_context,
-            mode,
-        )
-        .await
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
+        execute_collapsed_delegation(&self.targets, args, tool_context, run_context).await
     }
+}
+
+/// Recover the concrete collapsed target table retained in the advertised
+/// schema for typed harness registration. Reject malformed metadata instead
+/// of widening the route to every entry in the process-wide definition
+/// registry.
+pub(crate) fn dispatch_targets_from_schema(schema: &Value) -> Result<Vec<DelegateTarget>, String> {
+    let enum_names = schema
+        .pointer("/properties/agent/enum")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "delegate_to schema is missing `properties.agent.enum`".to_string())?;
+    let enum_names: Vec<&str> = enum_names
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|name| !name.trim().is_empty())
+                .ok_or_else(|| "delegate_to agent enum contains a non-string value".to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    let encoded_targets = schema
+        .get(DISPATCH_TARGETS_SCHEMA_KEY)
+        .and_then(Value::as_array)
+        .ok_or_else(|| "delegate_to schema is missing its target mapping".to_string())?;
+    let targets: Vec<DelegateTarget> = encoded_targets
+        .iter()
+        .map(|value| {
+            let object = value
+                .as_object()
+                .ok_or_else(|| "delegate_to target mapping entry is not an object".to_string())?;
+            let required = |key: &str| {
+                object
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .map(str::to_owned)
+                    .ok_or_else(|| format!("delegate_to target mapping is missing `{key}`"))
+            };
+            Ok(DelegateTarget {
+                tool_name: required("tool_name")?,
+                agent_id: required("agent_id")?,
+                // Descriptions are prompt-only routing guidance. The typed
+                // dispatch needs the exact selector-to-agent mapping, not a
+                // second copy of model-visible prose.
+                description: String::new(),
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    if targets.len() != enum_names.len()
+        || targets
+            .iter()
+            .map(|target| target.tool_name.as_str())
+            .ne(enum_names.iter().copied())
+        || targets.iter().any(|target| {
+            targets
+                .iter()
+                .filter(|candidate| candidate.tool_name == target.tool_name)
+                .count()
+                != 1
+        })
+    {
+        return Err(
+            "delegate_to target mapping does not exactly match its advertised agent enum".into(),
+        );
+    }
+    Ok(targets)
+}
+
+/// Execute a collapsed hand-off with an explicit child run carrier.
+pub(crate) async fn execute_collapsed_delegation(
+    targets: &[DelegateTarget],
+    args: Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> anyhow::Result<ToolResult> {
+    let requested = args.get("agent").and_then(Value::as_str).map(str::trim);
+    let Some(target) =
+        requested.and_then(|agent| targets.iter().find(|target| target.tool_name == agent))
+    else {
+        return Ok(ToolResult::error(format!(
+            "`agent` must be one of: {}. Got: {}",
+            targets
+                .iter()
+                .map(|target| target.tool_name.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            requested.filter(|s| !s.is_empty()).unwrap_or("(missing)")
+        )));
+    };
+
+    let raw_prompt = args
+        .get("prompt")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if raw_prompt.is_empty() {
+        return Ok(ToolResult::error(format!(
+            "{DELEGATE_TO_TOOL_NAME}: `prompt` is required"
+        )));
+    }
+    let prompt = render_structured_handoff(&raw_prompt, &args);
+
+    let model_override = args
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    // Async by default, exactly as the member tools were: the specialist
+    // runs as a durable, resumable worker and its result arrives as a new
+    // chat turn. `blocking: true` is the opt-in for a result that must gate
+    // this reply.
+    let blocking = args
+        .get("blocking")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mode = if blocking {
+        super::dispatch::DispatchMode::Blocking
+    } else {
+        super::dispatch::DispatchMode::PreferAsync
+    };
+
+    tracing::debug!(
+        agent = %target.agent_id,
+        via = %target.tool_name,
+        "[delegate] dispatch"
+    );
+    // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
+    // into run records and the UI, and reporting every hand-off as
+    // `delegate` would erase which specialist was chosen from every trace.
+    super::dispatch_subagent(
+        &target.agent_id,
+        &target.tool_name,
+        &prompt,
+        None,
+        model_override,
+        tool_context,
+        mode,
+        run_context,
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -62,7 +62,7 @@ fn set_connected_integrations_marks_session_initialized_and_updates_hash() {
         "fresh builder-built agents should start with placeholder integration state"
     );
 
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],
@@ -87,7 +87,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
 
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],
@@ -106,7 +106,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
     // Simulate an in-flight turn holding a shared Arc clone.
     let _shared_tools = agent.tools_arc();
     agent.set_connected_integrations(vec![
-        crate::agent::context::prompt::ConnectedIntegration {
+        crate::agent::prompts::ConnectedIntegration {
             toolkit: "gmail".into(),
             description: "Email".into(),
             tools: vec![],
@@ -115,7 +115,7 @@ fn refresh_delegation_tools_updates_schema_even_when_tool_arc_is_shared() {
             connections: Vec::new(),
             non_active_status: None,
         },
-        crate::agent::context::prompt::ConnectedIntegration {
+        crate::agent::prompts::ConnectedIntegration {
             toolkit: "notion".into(),
             description: "Docs".into(),
             tools: vec![],
@@ -152,7 +152,7 @@ fn refresh_delegation_tools_no_duplicate_specs_across_shared_arc_connects() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
 
-    let conn = |slug: &str, desc: &str| crate::agent::context::prompt::ConnectedIntegration {
+    let conn = |slug: &str, desc: &str| crate::agent::prompts::ConnectedIntegration {
         toolkit: slug.into(),
         description: desc.into(),
         tools: vec![],
@@ -338,7 +338,7 @@ fn refresh_workflows_picks_up_skill_installed_on_disk() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");
@@ -409,7 +409,7 @@ fn refresh_workflows_retracts_skill_removed_from_disk() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(wsp.clone())
         .build()
         .expect("agent build should succeed");
@@ -507,7 +507,7 @@ async fn turn_without_tools_returns_text() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -553,7 +553,7 @@ async fn last_turn_usage_is_public_and_non_draining() {
         .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -566,11 +566,11 @@ async fn last_turn_usage_is_public_and_non_draining() {
 
     // The accessor now yields totals, and the return type's fields are all
     // publicly readable (this closure would not compile if they were not).
-    let peeked: crate::agent::harness::LastTurnUsage = {
+    let peeked: crate::agent::tinyagents::host::LastTurnUsage = {
         let usage = agent
             .last_turn_usage()
             .expect("usage should be populated after a turn");
-        crate::agent::harness::LastTurnUsage {
+        crate::agent::tinyagents::host::LastTurnUsage {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
             cached_input_tokens: usage.cached_input_tokens,
@@ -631,7 +631,7 @@ fn newly_synthesized_delegate_is_executable_while_tool_arc_is_shared() {
     // what used to break the instance reconcile.
     let _shared_tools = agent.tools_arc();
 
-    agent.set_connected_integrations(vec![crate::agent::context::prompt::ConnectedIntegration {
+    agent.set_connected_integrations(vec![crate::agent::prompts::ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Email".into(),
         tools: vec![],

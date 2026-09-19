@@ -1,10 +1,10 @@
 use crate::agent::tinyagents::host::agent_memory::DEFAULT_AGENT_MEMORY_NAMESPACE;
 use crate::memory::api::provider::MemoryRecall;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::Write;
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 /// Let the agent search its own memory.
 ///

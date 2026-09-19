@@ -1,18 +1,50 @@
 //! Tool: `list_subagents` - inspect reusable sub-agent sessions for this parent.
 
-use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::{
     running_subagents,
     subagent_sessions::{
         self, DurableSubagentSessionSummary, DurableSubagentStatus, SubagentSessionStore,
     },
 };
-use crate::agent::tinyagents::orchestration::{OrchestrationTaskRecord, OrchestrationTaskStatus};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_graph::orchestration::{OrchestrationTaskRecord, OrchestrationTaskStatus};
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct ListSubagentsTool;
+
+pub(crate) struct ListSubagentsDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl ListSubagentsDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ListSubagentsDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        ListSubagentsTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl ListSubagentsTool {
     pub fn new() -> Self {
@@ -49,7 +81,29 @@ impl Tool for ListSubagentsTool {
     }
 
     async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let parent = match current_parent() {
+        self.execute_with_context(_args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        _args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(_args, None, tool_context)
+            .await
+    }
+}
+
+impl ListSubagentsTool {
+    async fn execute_with_parent_context(
+        &self,
+        _args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
@@ -57,13 +111,9 @@ impl Tool for ListSubagentsTool {
                 ));
             }
         };
-        let parent_thread_id = crate::agent::tinyagents::thread_context::current_thread_id();
+        let parent_thread_id = tool_context.and_then(ToolRunContext::thread_id);
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        match subagent_sessions::list_for_parent(
-            &store,
-            &parent.session_id,
-            parent_thread_id.as_deref(),
-        ) {
+        match subagent_sessions::list_for_parent(&store, &parent.session_id, parent_thread_id) {
             Ok(sessions) => {
                 let summaries: Vec<DurableSubagentSessionSummary> = sessions
                     .iter()
@@ -79,7 +129,7 @@ impl Tool for ListSubagentsTool {
                     .collect();
                 log::debug!(
                     "[subagent_reuse] list parent_thread_id={} parent_session={} count={}",
-                    parent_thread_id.as_deref().unwrap_or("none"),
+                    parent_thread_id.unwrap_or("none"),
                     parent.session_id,
                     summaries.len()
                 );

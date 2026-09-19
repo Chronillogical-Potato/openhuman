@@ -34,10 +34,10 @@ use openhuman_core::security::credentials::profiles::{AuthProfile, AuthProfilesS
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
+use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
     ComposioAuthorizeTool, ComposioExecuteTool, ComposioListConnectionsTool,
-    ComposioListToolkitsTool, ComposioListToolsTool, Tool, ToolCallOptions,
-};
+    ComposioListToolkitsTool, ComposioListToolsTool};
 
 static ROUND18_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 

@@ -390,7 +390,6 @@ describe('chatService.subscribeChatEvents', () => {
         thread_id: 'thread-1',
         message: 'hello',
         model_override: undefined,
-        profile_id: undefined,
       },
     });
   });

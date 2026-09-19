@@ -99,14 +99,16 @@ impl FinalCallWrapUpMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for FinalCallWrapUpMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for FinalCallWrapUpMiddleware
+{
     fn name(&self) -> &str {
         "final_call_wrap_up"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

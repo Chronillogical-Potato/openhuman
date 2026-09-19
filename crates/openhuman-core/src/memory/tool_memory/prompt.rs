@@ -27,7 +27,7 @@
 
 use anyhow::Result;
 
-use crate::agent::context::prompt::{PromptContext, PromptSection};
+use crate::agent::prompts::{PromptContext, PromptSection};
 
 use crate::memory::api::tool_memory::{ToolMemoryPriority, ToolMemoryRule};
 

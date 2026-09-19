@@ -1,6 +1,5 @@
 use crate::channels::{traits, Channel, SendMessage};
 use crate::memory::{Memory, MemoryCategory, MemoryEntry};
-use crate::tools::{Tool, ToolResult};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -8,6 +7,7 @@ use tempfile::TempDir;
 use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+use tinytools::{Tool, ToolResult};
 
 fn message_role(message: &Message) -> &'static str {
     match message {

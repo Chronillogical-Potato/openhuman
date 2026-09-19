@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::cron::{self, DeliveryConfig, JobType, Schedule, SessionTarget};
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
 
 /// Look up the configured `allowed_users` list for a channel by name.
 /// Returns `None` if the channel is unknown or unconfigured. An empty

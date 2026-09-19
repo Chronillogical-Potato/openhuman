@@ -5,8 +5,8 @@ use crate::agent::harness::session::types::AgentBuilder;
 use crate::agent::harness::TriggerMemoryAgent;
 use crate::config::ContextConfig;
 use crate::memory::Memory;
-use crate::tools::Tool;
 use std::sync::Arc;
+use tinytools::Tool;
 
 impl AgentBuilder {
     /// Creates a new `AgentBuilder` with default values.
@@ -18,7 +18,6 @@ impl AgentBuilder {
             visible_tool_names: None,
             subagent_tool_ceiling_names: None,
             memory: None,
-            shared_experience_memory: None,
             auto_recall: None,
             prompt_builder: None,
             tool_dispatcher: None,
@@ -38,11 +37,6 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
-            active_profile_id: None,
-            personality_soul_md: None,
-            personality_memory_md: None,
-            memory_subdir: None,
-            session_raw_subdir: None,
             session_parent_prefix: None,
             session_history_locator: None,
             omit_profile: None,
@@ -117,13 +111,6 @@ impl AgentBuilder {
         self
     }
 
-    /// Retains the shared store for experience recall when `memory` is a
-    /// dedicated profile subtree.
-    pub fn shared_experience_memory(mut self, memory: Option<Arc<dyn Memory>>) -> Self {
-        self.shared_experience_memory = memory;
-        self
-    }
-
     /// Binds Lane C, the gated pre-turn auto-recall of facts about the user
     /// (#6040). `None` leaves the lane out of the turn entirely.
     pub fn auto_recall(
@@ -137,16 +124,16 @@ impl AgentBuilder {
     /// Sets the system prompt builder for the agent.
     pub fn prompt_builder(
         mut self,
-        prompt_builder: crate::agent::context::prompt::SystemPromptBuilder,
+        prompt_builder: crate::agent::prompts::SystemPromptBuilder,
     ) -> Self {
         self.prompt_builder = Some(prompt_builder);
         self
     }
 
-    /// Sets the tool dispatcher for the agent.
+    /// Sets the canonical tool dialect for the agent.
     pub fn tool_dispatcher(
         mut self,
-        tool_dispatcher: Box<dyn crate::agent::dispatcher::ToolDispatcher>,
+        tool_dispatcher: Box<dyn tinytools_agent::dialect::ToolDialect>,
     ) -> Self {
         self.tool_dispatcher = Some(tool_dispatcher);
         self
@@ -198,49 +185,12 @@ impl AgentBuilder {
         self
     }
 
-    /// Sets the per-profile workspace descriptor (section D of agent-profile
-    /// homes). When set, the top-level chat turn threads it through so acting
-    /// tools resolve their default cwd to the profile's dedicated workspace.
+    /// Sets the optional workspace descriptor for acting tools' default cwd.
     pub fn workspace_descriptor(
         mut self,
-        descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
+        descriptor: Option<tinytools::WorkspaceDescriptor>,
     ) -> Self {
         self.workspace_descriptor = descriptor;
-        self
-    }
-
-    /// Sets the active agent-profile id for this session (1a plumbing).
-    ///
-    /// `None` (default) is the profile-less session. When set, the id is
-    /// carried on the built [`Agent`] and threaded into the post-turn
-    /// [`TurnContext`](crate::agent::hooks::TurnContext) so
-    /// profile-scoped hooks (agent-experience capture) can stamp records with
-    /// it. A `None` here keeps every downstream consumer on its legacy path.
-    pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
-        self.active_profile_id = profile_id;
-        self
-    }
-
-    /// Binds the active profile's SOUL.md as the session identity override.
-    pub fn personality_soul_md(mut self, soul_md: Option<String>) -> Self {
-        self.personality_soul_md = soul_md;
-        self
-    }
-
-    /// Binds the active profile's curated MEMORY.md to the frozen session
-    /// prompt. `None` keeps the legacy workspace-root fallback.
-    pub fn personality_memory_md(mut self, memory_md: Option<String>) -> Self {
-        self.personality_memory_md = memory_md;
-        self
-    }
-
-    pub fn profile_memory_storage(
-        mut self,
-        memory_subdir: String,
-        session_raw_subdir: String,
-    ) -> Self {
-        self.memory_subdir = Some(memory_subdir);
-        self.session_raw_subdir = Some(session_raw_subdir);
         self
     }
 
@@ -323,7 +273,7 @@ impl AgentBuilder {
     ///   inspecting transcripts after the fact.
     /// * **[`PromptContext::agent_id`]** at prompt-build time (see
     ///   `turn.rs`). Today only one prompt section reads this field —
-    ///   the `Connected Integrations` branch in `context/prompt.rs`
+    ///   the `Connected Integrations` branch in `agent/prompts`
     ///   that special-cases `integrations_agent` vs every other agent — so
     ///   the current user-visible impact of a wrong id is limited to
     ///   the two bullets above. The stamped `prompt_builder` injected
@@ -363,12 +313,12 @@ impl AgentBuilder {
     /// session's write handle (`open_stem`), so a fake supplied here takes the
     /// whole turn path off the filesystem. Leave unset in production — `None`
     /// resolves lazily to a
-    /// [`FileTranscriptLocator`][super::super::transcript_history::FileTranscriptLocator]
+    /// [`FileTranscriptLocator`][tinyagents_session::transcript::FileTranscriptLocator]
     /// over the agent's current workspace, which is behaviourally identical to
     /// the pre-S4 free-function calls.
     pub(crate) fn with_session_history_locator(
         mut self,
-        locator: std::sync::Arc<dyn super::super::transcript_history::SessionHistoryLocator>,
+        locator: std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>,
     ) -> Self {
         self.session_history_locator = Some(locator);
         self

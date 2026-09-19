@@ -57,7 +57,8 @@ fn unprefixed_delegate_name_overrides_are_treated_as_spawn_tools() {
 
 // ── Essential-action reservation (#6033) ────────────────────────────────
 
-use crate::agent::context::prompt::ConnectedIntegrationTool;
+use crate::agent::prompts::ConnectedIntegrationTool;
+use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool};
 
 fn action(name: &str) -> ConnectedIntegrationTool {
     ConnectedIntegrationTool {
@@ -262,9 +263,11 @@ fn gmail_read_prompt_keeps_a_content_returning_action() {
         "find job opportunities from the last 5 days",
         "Search the user's Gmail inbox for job opportunity emails from the last 5 days and summarize sender, subject and date",
     ] {
-        let hits = crate::agent::harness::tool_filter::filter_actions_by_prompt(
-            prompt, &actions, 12,
-        );
+        let candidates: Vec<_> = actions
+            .iter()
+            .map(|tool| SelectableTool::new(&tool.name, &tool.description))
+            .collect();
+        let hits = rank_tools_by_prompt(prompt, &candidates, 12);
         let selected = select_actions_with_essentials("gmail", &actions, &hits, 12);
         let names: Vec<&str> = selected.iter().map(|&i| actions[i].name.as_str()).collect();
 
@@ -311,8 +314,8 @@ fn every_essential_action_is_read_only() {
 
 // ── Dynamic-tool spawn strip (#6157) ────────────────────────────────────
 
-use crate::tools::Tool;
 use async_trait::async_trait;
+use tinytools::Tool;
 
 /// A tool that is nothing but its name — the strip reads no other field.
 struct NamedTool(&'static str);
@@ -335,11 +338,8 @@ impl Tool for NamedTool {
     }
 
     /// Never called: the strip only inspects names.
-    async fn execute(
-        &self,
-        _args: serde_json::Value,
-    ) -> anyhow::Result<crate::tools::traits::ToolResult> {
-        Ok(crate::tools::traits::ToolResult::success(String::new()))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success(String::new()))
     }
 }
 
@@ -414,11 +414,8 @@ fn a_dynamic_tool_list_without_spawn_tools_is_untouched() {
 }
 
 /// Render the `## Tools` section the way a sub-agent prompt does, at `format`.
-fn render_tools_at(
-    format: crate::agent::context::prompt::ToolCallFormat,
-    instructions: &str,
-) -> String {
-    use crate::agent::context::prompt::{LearnedContextData, PromptTool};
+fn render_tools_at(format: crate::agent::prompts::ToolCallFormat, instructions: &str) -> String {
+    use crate::agent::prompts::{LearnedContextData, PromptTool};
     let tools = [PromptTool {
         name: "composio_execute",
         description: "Run one Composio action.",
@@ -443,8 +440,6 @@ fn render_tools_at(
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -457,7 +452,7 @@ fn render_tools_at(
 /// happen: no catalogue at all, plus the native JSON protocol.
 #[test]
 fn text_mode_child_of_a_native_parent_renders_its_tool_catalogue() {
-    use crate::agent::context::prompt::ToolCallFormat;
+    use crate::agent::prompts::ToolCallFormat;
 
     let (format, instructions) = subagent_prompt_protocol(ToolCallFormat::Native, true);
     assert_eq!(format, ToolCallFormat::PFormat);
@@ -480,7 +475,7 @@ fn text_mode_child_of_a_native_parent_renders_its_tool_catalogue() {
 
 #[test]
 fn native_child_keeps_the_parents_protocol() {
-    use crate::agent::context::prompt::ToolCallFormat;
+    use crate::agent::prompts::ToolCallFormat;
 
     for parent in [
         ToolCallFormat::Native,

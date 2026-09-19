@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::*;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 struct FakeTool {
     name: &'static str,
@@ -450,7 +450,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "get_tool_output_sample",
                 "list_node_kinds",
                 "get_node_kind_contract",
-                "list_agent_profiles",
+                "list_agent_definitions",
                 "list_connectable_toolkits",
             ],
         ),

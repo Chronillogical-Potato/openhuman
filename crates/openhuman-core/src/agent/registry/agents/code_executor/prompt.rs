@@ -5,7 +5,7 @@
 //! in its TOML — it executes code or external actions and needs the
 //! guard rails inlined).
 
-use crate::agent::context::prompt::{
+use crate::agent::prompts::{
     render_safety, render_tools, render_user_files, render_workspace, PromptContext,
 };
 use anyhow::Result;

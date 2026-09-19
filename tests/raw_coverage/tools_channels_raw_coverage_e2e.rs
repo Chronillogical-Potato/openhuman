@@ -49,11 +49,10 @@ use openhuman_core::tools::generated::{
     admit_generated_tool_definitions, generated_tools_from_definitions, GeneratedToolAdapter,
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
+use tinytools::{PermissionLevel, ToolResult, ToolScope, ToolCategory};
 use openhuman_core::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
-    default_tools, DefaultToolPolicy, PermissionLevel, PolicyDecision, ToolCategory, ToolPolicy,
-    ToolResult, ToolScope,
-};
+    default_tools, DefaultToolPolicy, PolicyDecision, ToolPolicy};
 
 #[path = "tools_approval_channels_raw_coverage_e2e.rs"]
 mod prior_tools_approval_channels_raw_coverage_e2e;

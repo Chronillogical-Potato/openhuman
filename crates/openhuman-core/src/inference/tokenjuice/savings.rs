@@ -8,8 +8,8 @@
 //!
 //! Aggregates are kept process-global and snapshotted to
 //! `workspace_dir/state/tokenjuice_savings.json` so the dashboard survives
-//! restarts. Attribution model + snapshot path are installed once at startup
-//! via [`configure`].
+//! restarts. The configured default model and snapshot path are installed via
+//! [`configure`].
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -93,41 +93,8 @@ fn state() -> &'static Mutex<State> {
     STATE.get_or_init(|| Mutex::new(State::default()))
 }
 
-tokio::task_local! {
-    /// The model actually running the current turn/sub-agent, scoped around
-    /// the tinyagents turn (`run_turn_via_tinyagents_shared`) — the same
-    /// task-local pattern as
-    /// [`crate::agent::harness::turn_attachments_context`]. When set,
-    /// compaction savings are priced against *this* model instead of the
-    /// process-global configured default (issue #4122). Unset ⇒ fall back to
-    /// the configured default, so non-harness callers and tests are unaffected
-    /// — strictly additive.
-    pub static TURN_MODEL: String;
-}
-
-/// Run `future` with `model` installed as the per-turn attribution model used
-/// to price compaction savings. Intended call site is around each turn's
-/// `run_turn_via_tinyagents_shared` invocation, alongside the other per-turn
-/// `*_context` scopes (issue #4122).
-pub async fn with_turn_model<F, R>(model: String, future: F) -> R
-where
-    F: std::future::Future<Output = R>,
-{
-    TURN_MODEL.scope(model, future).await
-}
-
-/// The model to attribute savings to: the per-turn [`TURN_MODEL`] when scoped
-/// and non-empty, otherwise the process-global configured `default`.
-fn resolve_attribution_model(default: &str) -> String {
-    TURN_MODEL
-        .try_with(|m| m.clone())
-        .ok()
-        .filter(|m| !m.trim().is_empty())
-        .unwrap_or_else(|| default.to_string())
-}
-
-/// Install the attribution model and snapshot location, loading a prior
-/// snapshot once per workspace.
+/// Install the configured-default attribution model and snapshot location,
+/// loading a prior snapshot once per workspace.
 pub fn configure(attribution_model: String, workspace_dir: &std::path::Path) {
     let path = workspace_dir.join("state").join("tokenjuice_savings.json");
     let mut st = state().lock().unwrap_or_else(|p| p.into_inner());
@@ -163,12 +130,9 @@ pub fn record(
         return;
     }
     let mut st = state().lock().unwrap_or_else(|p| p.into_inner());
-    // Attribute the saving to the per-turn model the agent loop scoped via
-    // `with_turn_model` (issue #4122); fall back to the configured default when
-    // unscoped (non-harness callers, tests).
-    let model = resolve_attribution_model(&st.attribution_model);
+    let attribution_model = st.attribution_model.clone();
     st.aggregate.record_saving(
-        &model,
+        &attribution_model,
         compressor.as_str(),
         original_tokens,
         compacted_tokens,

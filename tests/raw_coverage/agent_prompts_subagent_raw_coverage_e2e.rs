@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use openhuman_core::agent::harness::session::Agent;
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, DefinitionSource, ModelSpec,
@@ -8,7 +8,7 @@ use openhuman_core::agent::harness::{
     ToolScope,
 };
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, render_user_files,
     ConnectedIntegration, CuratedMemoryPromptSnapshot, LearnedContextData, NamespaceSummary,
     PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
@@ -18,7 +18,8 @@ use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
 };
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
@@ -351,8 +352,6 @@ fn prompt_context<'a>(
             name: Some("Ada\nLovelace".to_string()),
             email: Some("ada@example.test".to_string()),
         }),
-        personality_soul_md: Some("personality soul override".to_string()),
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -385,7 +384,7 @@ fn prompt_sections_render_files_identity_memory_tools_and_ambient_blocks() -> Re
     let rendered = SystemPromptBuilder::with_defaults()
         .insert_section_before(
             "user_memory",
-            Box::new(openhuman_core::agent::context::prompt::UserReflectionsSection),
+            Box::new(openhuman_core::agent::prompts::UserReflectionsSection),
         )
         .build(&ctx)?;
 
@@ -515,7 +514,7 @@ fn agent_builder_validation_reports_each_required_component() {
         .tools(vec![tool("echo"), tool("echo")])
         .chat_model(ScriptedModel::new(vec![]))
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .visible_tool_names(HashSet::from(["echo".to_string()]))
         .agent_definition_name("round18/custom name")
         .build()
@@ -579,7 +578,7 @@ async fn native_parent_integrations_subagent_receives_text_tool_catalogue() -> R
     parent_context.connected_integrations = vec![ConnectedIntegration {
         toolkit: "gmail".into(),
         description: "Gmail actions".into(),
-        tools: vec![openhuman_core::agent::context::prompt::ConnectedIntegrationTool {
+        tools: vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
             name: "GMAIL_LIST_MESSAGES".into(),
             description: "List messages in a mailbox".into(),
             parameters: Some(json!({"type": "object"})),

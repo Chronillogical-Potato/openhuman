@@ -10,9 +10,9 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::AgentEvent;
-use tinyagents_harness::middleware::Middleware;
-use tinyagents_harness::tool::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, artifact_read_target, page_artifact_read, ArtifactRead,
@@ -125,14 +125,14 @@ impl ToolOutputMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ToolOutputMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for ToolOutputMiddleware {
     fn name(&self) -> &str {
         "tool_output_budget"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -153,10 +153,14 @@ impl Middleware<()> for ToolOutputMiddleware {
 
     async fn after_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
+        let mut content = crate::agent::tinyagents::middleware::tool_result_text(result);
         // A read of a persisted artifact is the model following the envelope's
         // `read_with` instruction. Every stage below would defeat it: the
         // summarizer re-summarizes the body the model asked to see, TokenJuice
@@ -167,21 +171,17 @@ impl Middleware<()> for ToolOutputMiddleware {
             .artifact_reads
             .lock()
             .ok()
-            .and_then(|mut reads| reads.remove(&result.call_id));
+            .and_then(|mut reads| reads.remove(&call_id));
         if let Some(read) = artifact_read {
             tracing::info!(
-                tool = %result.name,
-                call_id = %result.call_id,
+                tool = tool_name,
                 path = %read.path,
                 offset = read.offset,
-                bytes = result.content.len(),
+                bytes = content.len(),
                 "[tinyagents::mw] artifact read: skipping summarizer, compaction and re-persistence"
             );
-            result.content = page_artifact_read(
-                std::mem::take(&mut result.content),
-                &read,
-                self.budget_bytes,
-            );
+            content = page_artifact_read(content, &read, self.budget_bytes);
+            crate::agent::tinyagents::middleware::replace_tool_result_text(result, content);
             return Ok(());
         }
 
@@ -199,19 +199,19 @@ impl Middleware<()> for ToolOutputMiddleware {
         // breaks the whole-string JSON parse both proposal consumers do. See
         // [`is_compaction_exempt`]/[`is_truncation_exempt`] for which stages
         // each tool family skips and why.
-        let compaction_exempt = is_compaction_exempt(&result.name);
-        let truncation_exempt = is_truncation_exempt(&result.name);
+        let compaction_exempt = is_compaction_exempt(tool_name);
+        let truncation_exempt = is_truncation_exempt(tool_name);
         if compaction_exempt {
             tracing::debug!(
-                tool = %result.name,
-                bytes = result.content.len(),
+                tool = tool_name,
+                bytes = content.len(),
                 "[tinyagents::mw] compaction-exempt: skipping payload summarizer + tokenjuice"
             );
         }
         if truncation_exempt {
             tracing::debug!(
-                tool = %result.name,
-                bytes = result.content.len(),
+                tool = tool_name,
+                bytes = content.len(),
                 "[tinyagents::mw] truncation-exempt: skipping per-tool char cap + shared byte-budget backstop"
             );
         }
@@ -247,27 +247,22 @@ impl Middleware<()> for ToolOutputMiddleware {
         // when the raw body is larger than `file_read` will open: an artifact
         // nobody can read back is worse than the processed copy.
         let full_output = (!truncation_exempt
-            && self.tool_char_cap(&result.name).is_none()
+            && self.tool_char_cap(tool_name).is_none()
             && self.budget_bytes > 0
             && self.artifact_store.is_some()
-            && result.content.len() > self.budget_bytes
-            && result.content.len() as u64 <= crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES)
-            .then(|| result.content.clone());
+            && content.len() > self.budget_bytes
+            && content.len() as u64 <= crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES)
+            .then(|| content.clone());
 
         if !compaction_exempt {
             if let Some(ps) = &self.payload_summarizer {
                 match ps
-                    .maybe_summarize_in_parent(
-                        ctx,
-                        &result.name,
-                        self.task_hint.as_deref(),
-                        &result.content,
-                    )
+                    .maybe_summarize_in_parent(ctx, tool_name, self.task_hint.as_deref(), &content)
                     .await
                 {
                     Ok(SummarizeOutcome::Summarized(payload)) => {
                         tracing::info!(
-                            tool = %result.name,
+                            tool = tool_name,
                             from_bytes = payload.original_bytes,
                             to_bytes = payload.summary_bytes,
                             "[tinyagents::mw] payload_summarizer compressed tool output"
@@ -277,15 +272,15 @@ impl Middleware<()> for ToolOutputMiddleware {
                             to_tokens: estimate_output_tokens(payload.summary_bytes),
                         });
                         summarized_from_bytes = Some(payload.original_bytes);
-                        result.content = payload.summary;
+                        content = payload.summary;
                     }
                     // The payload was fine as it was. Say nothing: a notice on
                     // every small tool result would be pure noise.
                     Ok(SummarizeOutcome::NotNeeded) => {}
                     Ok(SummarizeOutcome::Unavailable(reason)) => {
                         tracing::warn!(
-                            tool = %result.name,
-                            bytes = result.content.len(),
+                            tool = tool_name,
+                            bytes = content.len(),
                             ?reason,
                             "[tinyagents::mw] payload_summarizer unavailable; disclosing raw output"
                         );
@@ -296,8 +291,8 @@ impl Middleware<()> for ToolOutputMiddleware {
                     // told the output is raw for the same reason as above.
                     Err(error) => {
                         tracing::warn!(
-                            tool = %result.name,
-                            bytes = result.content.len(),
+                            tool = tool_name,
+                            bytes = content.len(),
                             error = %error,
                             "[tinyagents::mw] payload_summarizer errored; disclosing raw output"
                         );
@@ -309,17 +304,17 @@ impl Middleware<()> for ToolOutputMiddleware {
             // 2. TokenJuice content-aware compaction. This mirrors the legacy
             //    `agent_tool_exec` stage that ran after semantic summarization and
             //    before the hard output caps.
-            let before_tokenjuice_bytes = result.content.len();
+            let before_tokenjuice_bytes = content.len();
             let compacted = crate::inference::tokenjuice::compact_output_with_config(
-                std::mem::take(&mut result.content),
-                &result.name,
+                std::mem::take(&mut content),
+                tool_name,
                 self.tokenjuice_compaction_enabled,
                 self.tokenjuice_compression,
                 self.runtime_config.as_ref(),
             )
             .await;
-            result.content = compacted;
-            let after_tokenjuice_bytes = result.content.len();
+            content = compacted;
+            let after_tokenjuice_bytes = content.len();
             if after_tokenjuice_bytes < before_tokenjuice_bytes {
                 ctx.emit(AgentEvent::Compressed {
                     from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
@@ -335,21 +330,21 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    for truncation-exempt tools (see [`is_truncation_exempt`]) — the tool
         //    cap is still *computed* below (step 4's "no cap of its own" check
         //    reads it), just not applied to `result.content`.
-        let tool_cap = self.tool_char_cap(&result.name);
+        let tool_cap = self.tool_char_cap(tool_name);
         if !truncation_exempt {
             if let Some(cap) = tool_cap {
-                let char_count = result.content.chars().count();
+                let char_count = content.chars().count();
                 if char_count > cap {
-                    let truncated: String = result.content.chars().take(cap).collect();
+                    let truncated: String = content.chars().take(cap).collect();
                     let dropped = char_count - cap;
                     tracing::debug!(
-                        tool = %result.name,
+                        tool = tool_name,
                         cap,
                         char_count,
                         dropped,
                         "[tinyagents::mw] per-tool char cap applied"
                     );
-                    result.content = format!(
+                    content = format!(
                         "{truncated}\n\n[truncated by tool cap: {dropped} more chars not shown]"
                     );
                 }
@@ -368,27 +363,27 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    tool's budget accounting.
         if !truncation_exempt && tool_cap.is_none() && self.budget_bytes > 0 {
             let (capped, outcome) = apply_per_result_persistence(
-                std::mem::take(&mut result.content),
+                std::mem::take(&mut content),
                 full_output,
                 self.artifact_store.as_ref(),
-                &result.name,
-                Some(&result.call_id),
+                tool_name,
+                Some(&call_id),
                 self.budget_bytes,
             )
             .await;
             if outcome.persisted {
                 tracing::info!(
-                    tool = %result.name,
+                    tool = tool_name,
                     from_bytes = outcome.original_bytes,
                     to_bytes = outcome.final_bytes,
                     "[tinyagents::mw] tool_result_artifact persisted oversized output"
                 );
                 if let Some(path) = outcome.artifact_path.as_deref() {
                     if let Some(store) = ctx.stores.get(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE) {
-                        let key = result.call_id.clone();
+                        let key = call_id.clone();
                         let mut fields = serde_json::Map::new();
-                        fields.insert("tool".to_string(), result.name.clone().into());
-                        fields.insert("call_id".to_string(), result.call_id.clone().into());
+                        fields.insert("tool".to_string(), tool_name.into());
+                        fields.insert("call_id".to_string(), call_id.clone().into());
                         fields.insert("artifact_path".to_string(), path.to_string().into());
                         fields.insert(
                             "original_bytes".to_string(),
@@ -402,15 +397,15 @@ impl Middleware<()> for ToolOutputMiddleware {
                             store.put("tool_results", &key, fields.into()).await;
                         if let Err(err) = index_result {
                             tracing::warn!(
-                                tool = %result.name,
-                                call_id = %result.call_id,
+                                tool = tool_name,
+                                call_id = %call_id,
                                 error = %err,
                                 "[tinyagents::mw] failed to index tool_result_artifact"
                             );
                         } else {
                             tracing::debug!(
-                                tool = %result.name,
-                                call_id = %result.call_id,
+                                tool = tool_name,
+                                call_id = %call_id,
                                 artifact_path = %path,
                                 "[tinyagents::mw] indexed tool_result_artifact in run store"
                             );
@@ -419,13 +414,13 @@ impl Middleware<()> for ToolOutputMiddleware {
                 }
             } else if outcome.original_bytes != outcome.final_bytes {
                 tracing::debug!(
-                    tool = %result.name,
+                    tool = tool_name,
                     from_bytes = outcome.original_bytes,
                     to_bytes = outcome.final_bytes,
                     "[tinyagents::mw] tool_result_budget truncated tool output"
                 );
             }
-            result.content = capped;
+            content = capped;
         }
 
         // 5. The disclosure, last, so no cap above can eat it. The model has to
@@ -433,15 +428,75 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    not summarize it — a half-truncated notice is worse than none,
         //    because it still looks like tool output.
         if let Some(notice) = pending_notice {
-            result.content = format!("{notice}\n\n{}", result.content);
+            content = format!("{notice}\n\n{content}");
         }
         if let Some(bytes) = summarized_from_bytes {
-            result.content = format!(
-                "[openhuman: summary of {bytes} bytes of tool output, complete]\n\n{}",
-                result.content
+            content = format!(
+                "[openhuman: summary of {bytes} bytes of tool output, complete]\n\n{content}"
             );
         }
 
+        crate::agent::tinyagents::middleware::replace_tool_result_text(result, content);
+
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tinyagents_harness::context::{RunConfig, RunContext};
+
+    fn context() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+        RunContext::new(
+            RunConfig::new("tool-output-identity-test"),
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+    }
+
+    #[tokio::test]
+    async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
+        let temp = tempfile::tempdir().expect("temporary artifact root");
+        let middleware = ToolOutputMiddleware {
+            budget_bytes: 8,
+            payload_summarizer: None,
+            task_hint: None,
+            artifact_store: Some(ToolResultArtifactStore::new(
+                temp.path().to_path_buf(),
+                "identity-session",
+            )),
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
+            runtime_config: None,
+            tool_policies: HashMap::new(),
+            artifact_reads: Default::default(),
+        };
+        let mut ctx = context();
+
+        let first = ToolInvocationIdentity::new("echo-1", "echo");
+        let mut first_result = TaToolResult::success("first result is deliberately oversized");
+        middleware
+            .after_tool(&mut ctx, &(), &first, &mut first_result)
+            .await
+            .expect("first artifact is persisted");
+
+        let second = ToolInvocationIdentity::new("echo-2", "echo");
+        let mut second_result = TaToolResult::success("second result is deliberately oversized");
+        middleware
+            .after_tool(&mut ctx, &(), &second, &mut second_result)
+            .await
+            .expect("second artifact is persisted");
+
+        let root = temp
+            .path()
+            .join("artifacts/tool-results/identity-session/echo");
+        assert_eq!(
+            std::fs::read_to_string(root.join("echo-1.txt")).expect("first artifact"),
+            "first result is deliberately oversized"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("echo-2.txt")).expect("second artifact"),
+            "second result is deliberately oversized"
+        );
     }
 }

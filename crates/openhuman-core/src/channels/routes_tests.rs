@@ -5,12 +5,12 @@ use crate::channels::telegram::{TelegramRemoteCommand, TelegramRemoteSubscriber}
 use crate::channels::traits::ChannelMessage;
 use crate::core::events::DomainEvent;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry};
-use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tinybus::EventHandler;
+use tinytools::{Tool, ToolResult};
 
 struct DummyMemory;
 

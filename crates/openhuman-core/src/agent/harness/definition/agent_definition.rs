@@ -111,7 +111,7 @@ pub struct AgentDefinition {
     /// mid-session do not retroactively update the in-flight prompt —
     /// they are picked up on the next session. This matches the
     /// byte-stability invariant documented on
-    /// [`crate::agent::context::prompt::render_subagent_system_prompt`].
+    /// [`crate::agent::prompts::render_subagent_system_prompt`].
     #[serde(default = "defaults::true_")]
     pub omit_memory_md: bool,
 

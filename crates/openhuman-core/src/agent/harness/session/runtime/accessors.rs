@@ -6,9 +6,9 @@ use super::super::types::{Agent, AgentBuilder};
 use crate::agent::messages::ConversationMessage;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicyEngine;
-use crate::tools::{Tool, ToolSpec};
 use std::collections::HashSet;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
 
 impl Agent {
     // ─────────────────────────────────────────────────────────────────
@@ -191,25 +191,11 @@ impl Agent {
     }
 
     /// OpenHuman's [`ExperienceStore`](tinyagents_harness::host::ExperienceStore)
-    /// capability, scoped to this session's agent profile.
-    ///
-    /// Writes go to this session's own `memory`; recall additionally consults
-    /// `shared_experience_memory` when the session was given one.
-    ///
-    /// That asymmetry mirrors the live turn path in `session/turn/core.rs`. For
-    /// a dedicated-profile session `memory` is the profile-local store and
-    /// `shared_experience_memory` is the global one holding unstamped records
-    /// from pre-profile builds — so reading both is what keeps old experience
-    /// reachable, while writing only to the profile-local store is what keeps
-    /// new records inside the profile subtree.
+    /// capability over this session's memory backend.
     pub fn host_experience_store(
         &self,
     ) -> crate::agent::tinyagents::host::OpenHumanExperienceStore {
-        crate::agent::tinyagents::host::OpenHumanExperienceStore::with_profile(
-            self.memory_arc(),
-            self.active_profile_id.clone(),
-        )
-        .with_shared_recall_memory(self.shared_experience_memory.clone())
+        crate::agent::tinyagents::host::OpenHumanExperienceStore::new(self.memory_arc())
     }
 
     /// The agent's working directory.
@@ -244,7 +230,7 @@ impl Agent {
     }
 
     /// Active Composio integrations fetched at session start.
-    pub fn connected_integrations(&self) -> &[crate::agent::context::prompt::ConnectedIntegration] {
+    pub fn connected_integrations(&self) -> &[crate::agent::prompts::ConnectedIntegration] {
         &self.connected_integrations
     }
 
@@ -267,7 +253,7 @@ impl Agent {
     /// fetch result when the agent was built outside the normal turn loop).
     pub fn set_connected_integrations(
         &mut self,
-        integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+        integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     ) {
         self.connected_integrations = integrations;
         self.connected_integrations_initialized = true;
@@ -304,6 +290,19 @@ impl Agent {
         self.event_session_id = session_id.into();
         self.event_channel = channel.into();
         self.rebuild_tool_policy_session();
+    }
+
+    /// Bind the OpenHuman conversation thread for the next and subsequent
+    /// turns. Empty input intentionally clears the binding.
+    pub fn set_thread_id(&mut self, thread_id: Option<impl AsRef<str>>) {
+        self.thread_id = thread_id.and_then(|thread_id| {
+            let thread_id = thread_id.as_ref().trim();
+            (!thread_id.is_empty()).then(|| thread_id.to_owned())
+        });
+    }
+
+    pub(crate) fn thread_id(&self) -> Option<&str> {
+        self.thread_id.as_deref()
     }
 
     /// Override the agent definition name used for session transcript
@@ -368,18 +367,14 @@ impl Agent {
     /// [`agent_chat`](crate::inference::host_runtime::ops::agent_chat).
     ///
     /// The descriptor is threaded onto the turn's run context, so it also
-    /// propagates to sub-agents spawned from this session (the same deliberate
-    /// isolation the per-profile descriptor has). `None` restores the shared
-    /// `action_dir` cwd.
+    /// propagates to sub-agents spawned from this session. `None` restores the
+    /// shared `action_dir` cwd.
     ///
     /// This only moves the *default* cwd: what the session may read and write is
     /// still decided by its [`SecurityPolicy`](crate::security::SecurityPolicy),
     /// so a caller that wants tools rooted somewhere new must build the agent
     /// from a config whose `action_dir` already permits it.
-    pub fn set_workspace_descriptor(
-        &mut self,
-        descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
-    ) {
+    pub fn set_workspace_descriptor(&mut self, descriptor: Option<tinytools::WorkspaceDescriptor>) {
         self.workspace_descriptor = descriptor;
     }
 

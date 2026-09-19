@@ -130,7 +130,7 @@ fn spec_views_stay_consistent_for_a_tool_less_agent() {
         .chat_model(model)
         .tools(Vec::new())
         .memory(crate::memory::test_support::noop_memory())
-        .tool_dispatcher(Box::new(crate::agent::dispatcher::XmlToolDispatcher))
+        .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
         .build()
         .expect("a tool-less agent is a legal build");
 

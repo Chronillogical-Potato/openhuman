@@ -2,14 +2,14 @@ use super::*;
 use crate::inference::tokenjuice::LEGACY_RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
 use crate::tools::{CurrentTimeTool, RetrieveToolOutputTool};
 
-fn tools() -> Vec<Box<dyn crate::tools::Tool>> {
+fn tools() -> Vec<Box<dyn tinytools::Tool>> {
     vec![
         Box::new(CurrentTimeTool::new()),
         Box::new(RetrieveToolOutputTool::new()),
     ]
 }
 
-fn names(idx: &[usize], tools: &[Box<dyn crate::tools::Tool>]) -> Vec<String> {
+fn names(idx: &[usize], tools: &[Box<dyn tinytools::Tool>]) -> Vec<String> {
     idx.iter().map(|&i| tools[i].name().to_string()).collect()
 }
 

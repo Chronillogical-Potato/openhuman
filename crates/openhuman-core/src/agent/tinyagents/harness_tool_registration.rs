@@ -11,8 +11,16 @@ use tinyagents_registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
 
-use crate::agent::tinyagents::tools::{EarlyExitHook, SharedToolAdapter};
+use crate::agent::orchestration::tools::{
+    AgentPrepareContextDispatch, CloseSubagentDispatch, ContinueSubagentDispatch,
+    DelegateGraphDispatch, DelegationDispatch, ListSubagentsDispatch, SpawnAsyncSubagentDispatch,
+    SpawnParallelAgentsDispatch, SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
+    SteerSubagentDispatch, WaitSubagentDispatch,
+};
+use crate::agent::tinyagents::host::OpenHumanRunContext;
+use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
+use crate::agent::tools::{DelegateToolDispatch, TodoToolDispatch, UpdateTaskDispatch};
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
 /// `capability_registry` projection), project the visible agent set as
@@ -29,9 +37,9 @@ use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 /// fail-open.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn register_turn_tools_and_agents(
-    harness: &mut AgentHarness<()>,
+    harness: &mut AgentHarness<(), OpenHumanRunContext>,
     capability_registry: &mut CapabilityRegistry<()>,
-    tool_sets: &[Arc<Vec<Box<dyn crate::tools::Tool>>>],
+    tool_sets: &[Arc<Vec<Box<dyn tinytools::Tool>>>],
     allowed: &Option<HashSet<String>>,
     early_exit_set: &HashSet<&str>,
     early_exit_hook: Option<&EarlyExitHook>,
@@ -79,7 +87,9 @@ pub(super) fn register_turn_tools_and_agents(
             );
         }
         if !registered.contains(name) && admitted && !spawn_stripped {
-            if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.to_vec(), name) {
+            if let Some(mut adapter) =
+                CanonicalSharedToolAdapter::for_name(tool_sets.to_vec(), name)
+            {
                 if early_exit_set.contains(name) {
                     if let Some(hook) = early_exit_hook {
                         adapter = adapter.with_early_exit(hook.clone());
@@ -88,7 +98,46 @@ pub(super) fn register_turn_tools_and_agents(
                 registered.insert(name.to_string());
                 let adapter = Arc::new(adapter);
                 capability_registry.replace_tool(adapter.clone());
-                harness.register_tool(adapter);
+                if name == "spawn_parallel_agents" {
+                    harness.register_tool_dispatch(Arc::new(SpawnParallelAgentsDispatch::new(
+                        adapter,
+                    )));
+                } else if name == "spawn_async_subagent" {
+                    harness
+                        .register_tool_dispatch(Arc::new(SpawnAsyncSubagentDispatch::new(adapter)));
+                } else if name == "spawn_worker_thread" {
+                    harness
+                        .register_tool_dispatch(Arc::new(SpawnWorkerThreadDispatch::new(adapter)));
+                } else if name == "spawn_subagent" {
+                    harness.register_tool_dispatch(Arc::new(SpawnSubagentDispatch::new(adapter)));
+                } else if name == "continue_subagent" {
+                    harness
+                        .register_tool_dispatch(Arc::new(ContinueSubagentDispatch::new(adapter)));
+                } else if name == "wait_subagent" {
+                    harness.register_tool_dispatch(Arc::new(WaitSubagentDispatch::new(adapter)));
+                } else if name == "steer_subagent" {
+                    harness.register_tool_dispatch(Arc::new(SteerSubagentDispatch::new(adapter)));
+                } else if name == "close_subagent" {
+                    harness.register_tool_dispatch(Arc::new(CloseSubagentDispatch::new(adapter)));
+                } else if name == "list_subagents" {
+                    harness.register_tool_dispatch(Arc::new(ListSubagentsDispatch::new(adapter)));
+                } else if name == "agent_prepare_context" {
+                    harness.register_tool_dispatch(Arc::new(AgentPrepareContextDispatch::new(
+                        adapter,
+                    )));
+                } else if name == "delegate_graph" {
+                    harness.register_tool_dispatch(Arc::new(DelegateGraphDispatch::new(adapter)));
+                } else if name == "delegate" {
+                    harness.register_tool_dispatch(Arc::new(DelegateToolDispatch::new(adapter)));
+                } else if name == "todo" {
+                    harness.register_tool_dispatch(Arc::new(TodoToolDispatch::new(adapter)));
+                } else if name == "update_task" {
+                    harness.register_tool_dispatch(Arc::new(UpdateTaskDispatch::new(adapter)));
+                } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
+                    harness.register_tool_dispatch(Arc::new(dispatch));
+                } else {
+                    harness.register_tool(adapter);
+                }
             }
         }
     }
@@ -169,7 +218,7 @@ pub(super) fn register_turn_tools_and_agents(
     // into that stream. The harness is deliberately NOT switched over to these
     // projections yet — that glue swap is explicitly deferred.
     let projected_models = capability_registry.to_model_registry();
-    let projected_tools = capability_registry.to_tool_registry();
+    let projected_tools = capability_registry.to_tool_registry::<OpenHumanRunContext>();
     tracing::debug!(
         models = projected_models.names().len(),
         tools = projected_tools.names().len(),

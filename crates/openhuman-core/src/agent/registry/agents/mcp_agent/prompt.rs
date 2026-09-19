@@ -6,9 +6,7 @@
 //! This agent *uses* already-connected MCP servers; `mcp_setup` *installs*
 //! them.
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = include_str!("prompt.md");

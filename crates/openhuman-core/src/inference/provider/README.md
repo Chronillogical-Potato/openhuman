@@ -45,8 +45,8 @@ domain.
   `Config::claude_agent_sdk`, abstract tier model constants.
 - `crate::security::credentials` — auth-profile store for BYOK keys and OAuth
   tokens.
-- `crate::agent::tinyagents::{routes, thread_context}` — workload routing and
-  ambient thread-context plumbing consumed while building a model.
+- `crate::agent::tinyagents::{routes, host}` — workload routing and explicit run
+  explicit run-thread plumbing consumed while building a managed model.
 - `crate::security::live_policy` + `crate::security::egress` — Privacy-Mode
   `LocalOnly` refusal and `EgressDescriptor` emission at the factory chokepoint
   (`factory/access_gates.rs`).

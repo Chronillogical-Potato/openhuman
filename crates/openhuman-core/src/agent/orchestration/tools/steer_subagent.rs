@@ -7,14 +7,46 @@
 //! redirect or feed data to a running sub-agent
 //! without waiting for it to finish or restarting it. Mirrors Codex `send_input`.
 
-use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::harness::run_queue::QueueMode;
 use crate::agent::orchestration::running_subagents::{self, SteerError};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct SteerSubagentTool;
+
+pub(crate) struct SteerSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl SteerSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SteerSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        SteerSubagentTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl SteerSubagentTool {
     pub fn new() -> Self {
@@ -70,6 +102,17 @@ impl Tool for SteerSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, None).await
+    }
+}
+
+impl SteerSubagentTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        _tool_context: Option<&dyn tinytools::ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let task_id = args
             .get("task_id")
             .and_then(|v| v.as_str())
@@ -102,7 +145,7 @@ impl Tool for SteerSubagentTool {
             return Ok(ToolResult::error("steer_subagent: `message` is required"));
         }
 
-        let parent = match current_parent() {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(

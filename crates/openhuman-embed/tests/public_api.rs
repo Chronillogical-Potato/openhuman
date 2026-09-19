@@ -54,7 +54,6 @@ fn exposes_the_host_facing_embedding_contract() {
         .access(Access::readonly())
         .action_dir("/tmp/embed-public-api")
         .include_user_skills(false)
-        .dedicated_memory(false)
         .config(|_config| {});
     let _ = DomainSet::embedded;
     let _ = ServiceSet::none;

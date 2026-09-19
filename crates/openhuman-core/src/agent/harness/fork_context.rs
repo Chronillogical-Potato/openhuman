@@ -1,6 +1,6 @@
 //! Task-local plumbing that lets `SpawnSubagentTool` reach the parent
 //! agent's runtime context (provider, tools, model, …) without widening
-//! the [`crate::tools::Tool`] trait.
+//! the [`tinytools::Tool`] trait.
 //!
 //! [`PARENT_CONTEXT`] is set by the parent
 //! [`crate::agent::Agent`] around its `turn` so that any tool
@@ -15,11 +15,11 @@ use crate::agent::tinyagents::TurnModelSource;
 use crate::config::AgentConfig;
 use crate::memory::Memory;
 use crate::skills::Workflow;
-use crate::tools::{Tool, ToolSpec};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
+use tinytools::{Tool, ToolSpec};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent execution context
@@ -119,7 +119,7 @@ pub struct ParentExecutionContext {
     pub channel: String,
 
     /// Active Composio integrations the parent has fetched.
-    pub connected_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+    pub connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
 
     /// The parent's active tool-call format (Native / PFormat / Json).
     /// Sub-agents render their system prompts with this format so the
@@ -128,7 +128,7 @@ pub struct ParentExecutionContext {
     /// this, sub-agents inherit a hardcoded PFormat default while the
     /// runtime uses native function-calling, and the model emits
     /// uncallable P-Format tool_call blocks.
-    pub tool_call_format: crate::agent::context::prompt::ToolCallFormat,
+    pub tool_call_format: crate::agent::prompts::ToolCallFormat,
 
     /// Parent's own session-transcript key, formatted as
     /// `"{unix_ts}_{agent_id}"`. Sub-agents chain this (plus any
@@ -195,7 +195,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     PARENT_CONTEXT.scope(ctx, Box::pin(future)).await
 }
 
@@ -218,7 +218,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     AGENT_CONTEXT_PREPARED_SOURCES
         .scope(Arc::new(sources), Box::pin(future))
         .await

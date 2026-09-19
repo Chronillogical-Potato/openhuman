@@ -1,12 +1,21 @@
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use tinytools::{ToolCallOptions, ToolRunContext};
+
+struct ThreadContext(&'static str);
+
+impl ToolRunContext for ThreadContext {
+    fn thread_id(&self) -> Option<&str> {
+        Some(self.0)
+    }
+}
 
 #[test]
 fn parameters_schema_advertises_fire_and_forget_fields() {
@@ -252,7 +261,7 @@ async fn missing_prompt_returns_error() {
 /// `background_delivery`'s "headless batch" path. Sets up a real parent
 /// turn context (so the call gets past the `current_parent()` /
 /// allowlist / registry checks) but deliberately does NOT wrap the call
-/// in `with_thread_id`, so `current_thread_id()` is None — the exact
+/// without an explicit parent thread, so the child has no thread — the exact
 /// condition that used to sail through to `tokio::spawn` and lose the
 /// result.
 #[tokio::test]
@@ -293,16 +302,18 @@ async fn guard_does_not_fire_when_parent_thread_is_bound() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
 
+    let thread = ThreadContext("t-parent");
     let result = with_parent_context(parent_context(workspace.path()), async {
-        crate::agent::tinyagents::thread_context::with_thread_id("t-parent", async {
-            SpawnAsyncSubagentTool::new()
-                .execute(json!({
+        SpawnAsyncSubagentTool::new()
+            .execute_with_context(
+                json!({
                     "agent_id": "researcher",
                     "prompt": "investigate x",
-                }))
-                .await
-        })
-        .await
+                }),
+                ToolCallOptions::default(),
+                Some(&thread),
+            )
+            .await
     })
     .await
     .unwrap();

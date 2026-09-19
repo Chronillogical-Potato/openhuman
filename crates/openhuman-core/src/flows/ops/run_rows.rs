@@ -243,13 +243,14 @@ pub(super) fn current_persisted_steps(config: &Config, run_id: &str) -> Vec<Flow
 pub(super) fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec<FlowRunStep> {
     let persisted = current_persisted_steps(config, run_id);
     if persisted.is_empty() {
+        let reconstructed = reconstruct_steps(output);
         tracing::debug!(
             target: "flows",
             run_id,
             reconstructed = reconstructed.len(),
             "[flows] settle_steps: no live-observed steps — using post-hoc reconstruction"
         );
-        return reconstruct_steps(output);
+        return reconstructed;
     }
     let merged = tinyflows_catalog::run_summary::settle_steps(persisted, output);
     tracing::debug!(

@@ -29,7 +29,6 @@ use tokio::sync::Semaphore;
 
 use super::store;
 use super::{ThreadGoal, ThreadGoalStatus};
-use crate::agent::tinyagents::thread_context::with_thread_id;
 use crate::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::agent::Agent;
 use crate::config::Config;
@@ -193,14 +192,10 @@ async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) -> bool {
         source: TrustedAutomationSource::GoalContinuation,
     };
 
-    // Scope the ambient thread id (so the goal tools + per-turn injection target
-    // this thread) and the trusted-automation origin (so the approval gate parks
-    // unattended external actions). `run_single` resumes the thread transcript.
-    let result = with_thread_id(
-        thread_id.clone(),
-        with_origin(origin, agent.run_single(&prompt)),
-    )
-    .await;
+    // The continuation owns its thread directly; child runs inherit it through
+    // `OpenHumanRunContext::child`.
+    agent.set_thread_id(Some(thread_id.as_str()));
+    let result = with_origin(origin, agent.run_single(&prompt)).await;
 
     match result {
         Ok(text) => tracing::info!(

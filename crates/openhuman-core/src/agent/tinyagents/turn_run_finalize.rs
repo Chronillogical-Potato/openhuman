@@ -41,6 +41,7 @@ pub(super) async fn finalize_turn_outcome(
     halt_summary: &HaltSummarySlot,
     wrap_up_fired: &Option<Arc<std::sync::atomic::AtomicBool>>,
     tool_outcome_sink: &ToolOutcomeSink,
+    resolved_route: Option<tinyinference_llm::model::ResolvedModelRoute>,
     request_base_len: usize,
 ) -> TinyagentsTurnOutcome {
     // Durable journal: the harness returned a transcript, so stamp the terminal
@@ -249,6 +250,7 @@ pub(super) async fn finalize_turn_outcome(
 
     TinyagentsTurnOutcome {
         text,
+        resolved_route,
         history: crate::agent::message_convert::messages_to_history(&run.messages),
         conversation,
         model_calls: run.model_calls,

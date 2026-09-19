@@ -65,15 +65,6 @@ const VOICE_MODEL: &str = "chat-v1";
 /// `voiceAgent.ts`, spoken ~700ms in) precisely because it does not depend on the
 /// model choosing to speak first. So the directive tells the model the opposite:
 /// call the tool and answer from the result.
-pub(super) const VOICE_DIRECTIVE: &str = "You are speaking aloud in a live voice conversation. \
-Reply in natural, concise spoken sentences. Do not use markdown, code blocks, \
-bullet lists, headings, or emoji. When answering needs a tool or a delegate (email, \
-calendar, files, the web), call it straight away and answer from what it returns. \
-Do NOT announce what you are about to do: a reply that only says what you are \
-going to do ends your turn, so the caller is left with a promise and never gets \
-the answer. The caller already hears a short acknowledgement while you work, so \
-say nothing until you have something to tell them.";
-
 /// Build the fresh voice orchestrator, attach the streaming sink, run one turn
 /// under the hard per-turn ceiling, then detach the sink so the forwarder's
 /// channel closes. Runs entirely on the background task, so the ack deadline in
@@ -107,13 +98,8 @@ async fn build_voice_agent(
     prompt: &str,
 ) -> Result<Agent, String> {
     let config = crate::config::ops::load_config_with_timeout().await?;
-    let mut agent = Agent::from_config_for_agent_with_profile(
-        &config,
-        "orchestrator",
-        Some(VOICE_DIRECTIVE.to_string()),
-        None,
-    )
-    .map_err(|e| format!("orchestrator build failed: {e}"))?;
+    let mut agent = Agent::from_config_for_agent(&config, "orchestrator")
+        .map_err(|e| format!("orchestrator build failed: {e}"))?;
     agent.set_event_context(format!("voice_{correlation_id}"), "voice_agent");
     // Isolate the voice transcript namespace from the chat orchestrator so a
     // fresh-per-turn agent can't resume an unrelated conversation by name.
@@ -146,7 +132,7 @@ async fn run_single_with_timeout(
     prompt: &str,
 ) -> Result<String, String> {
     // Scope the turn with the SAME chat context the web-chat path installs
-    // (`APPROVAL_CHAT_CONTEXT` + `with_thread_id`), so approval-surfaced tools
+    // (`APPROVAL_CHAT_CONTEXT` plus an explicit agent thread), so approval-surfaced tools
     // behave identically on voice. Without it `composio_connect` fails closed
     // for lack of a routable surface, which the model paraphrases to the user as
     // a confabulated "reconnect your Gmail" mid email-summary (#5399). See
@@ -156,10 +142,8 @@ async fn run_single_with_timeout(
         thread_id: VOICE_CHAT_THREAD_ID.to_string(),
         client_id: VOICE_CHAT_CLIENT_ID.to_string(),
     };
-    let scoped_run = crate::agent::tinyagents::thread_context::with_thread_id(
-        VOICE_CHAT_THREAD_ID,
-        agent.run_single(prompt),
-    );
+    agent.set_thread_id(Some(VOICE_CHAT_THREAD_ID));
+    let scoped_run = agent.run_single(prompt);
     let fut = with_origin(
         AgentTurnOrigin::ExternalChannel {
             channel: "voice".to_string(),

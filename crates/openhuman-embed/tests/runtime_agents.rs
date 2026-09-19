@@ -218,7 +218,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             {
                 assert!(
                     alpha.skills_dir().join("alpha-skill/SKILL.md").is_file(),
-                    "alpha's bundle lands in its profile-local skills root"
+                    "alpha's bundle lands in its agent-local skills root"
                 );
                 assert!(
                     !beta.skills_dir().join("alpha-skill").exists(),

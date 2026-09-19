@@ -33,15 +33,17 @@ use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunOutcome,
 };
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::orchestration::{
-    shared_steering_registry, DetachedTaskRegistry, DetachedTaskRegistryError,
-    DetachedTaskWaitOutcome, OrchestrationTaskStatus, TaskId,
-};
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use tinyagents_graph::orchestration::{
+    DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome,
+    OrchestrationTaskStatus,
+};
+use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::CancellationToken;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{Duration, Instant};
@@ -357,6 +359,19 @@ impl AgentOrchestrationSession {
         let parent_worktree_action_dir = parent_workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
+        // This control-plane API crosses a `tokio::spawn` boundary, so retain
+        // the live parent carrier before that boundary. The detached child must
+        // share cancellation, origin, dispatch and progress with its caller;
+        // only its route/usage observations are isolated by `child()` in the
+        // subagent runner.
+        let cancellation = CancellationToken::new();
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.parent = Some(parent.clone());
+        run_context.progress = parent.on_progress.clone().or(run_context.progress);
+        run_context.workspace = parent_workspace_descriptor
+            .clone()
+            .or(run_context.workspace);
+        run_context.cancellation = cancellation.clone();
         if let Some(descriptor) = parent_workspace_descriptor.as_ref() {
             tracing::debug!(
                 orchestration_id = %orchestration_id,
@@ -373,6 +388,8 @@ impl AgentOrchestrationSession {
             context: request.context,
             model_override: request.model,
             task_id: Some(orchestration_id.clone()),
+            thread_id: None,
+            run_context,
             worker_thread_id: None,
             initial_history: None,
             checkpoint_dir: None,
@@ -421,7 +438,7 @@ impl AgentOrchestrationSession {
                 self.session_id.clone(),
                 metadata,
                 status_rx,
-                CancellationToken::new(),
+                cancellation,
                 handle.abort_handle(),
             )
             .map_err(|err| {

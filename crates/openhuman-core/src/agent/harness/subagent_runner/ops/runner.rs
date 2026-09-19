@@ -10,9 +10,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::agent::context::prompt::{
-    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
-};
 use crate::agent::file_state::with_file_state_agent_id;
 use crate::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnUsage};
 use crate::agent::harness::artifact_offload::{
@@ -24,9 +21,7 @@ use crate::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
     PromptSource, SandboxMode as AgentSandboxMode,
 };
-use crate::agent::harness::fork_context::{
-    current_parent, with_parent_context, ParentExecutionContext,
-};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
 use crate::agent::harness::subagent_runner::handoff::ResultHandoffCache;
 use crate::agent::harness::subagent_runner::subagent_iter_cap_with_autonomous_lift;
@@ -39,17 +34,17 @@ use crate::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
     SubagentUsage,
 };
-use crate::agent::harness::turn_dispatch_guard;
-use crate::agent::harness::{
-    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
+use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};
+use crate::agent::prompts::{
+    render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
 };
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::memory::api::provider::retrieval::{FastRetrieveQuery, RetrievalResponse};
 use crate::memory::source_scope::as_bus_scope;
-use crate::tools::{Tool, ToolCategory, ToolSpec};
-use tinyagents_harness::tool::SandboxMode as TinyagentsSandboxMode;
-
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool, MIN_CONFIDENT_HITS};
+use tinytools::{
+    SandboxMode as TinyagentsSandboxMode, Tool, ToolCategory, ToolSpec, WorkspaceDescriptor,
+};
 
 use super::prompt::{
     append_artifact_offload_contract, append_subagent_role_contract, dedup_tool_specs_by_name,
@@ -362,10 +357,11 @@ async fn try_deterministic_memory_retrieval(
 /// This is the primary entry point for agent delegation. It performs the following:
 /// 1. Generates a unique `task_id` if one wasn't provided.
 /// 2. Asks the turn's
-///    [dispatch guard](crate::agent::harness::turn_dispatch_guard)
+///    explicit root-turn dispatch guard
 ///    whether a delegation can still succeed, and refuses before spending
 ///    anything if it cannot (#5804).
-/// 3. Resolves the [`ParentExecutionContext`] task-local.
+/// 3. Reads the parent's explicit [`ParentExecutionContext`] from its run
+///    carrier.
 /// 4. Dispatches to `run_typed_mode`.
 ///
 /// On success returns a [`SubagentRunOutcome`] whose `output` is the
@@ -392,6 +388,32 @@ pub async fn run_subagent(
     // child's tinyagents drive future further chunk the child's state so
     // a single sub-agent run can't blow the stack either.
     Box::pin(async move {
+        // A nested delegate writes its terminal total to this run's isolated
+        // ledger. If the outer future errors or is cancelled after that child
+        // has completed, Drop promotes those finished totals before the error
+        // can escape. Success marks the finalizer complete after folding the
+        // same entries into this run's single terminal total.
+        struct UsageFinalizer {
+            context: crate::agent::tinyagents::host::OpenHumanRunContext,
+            complete: bool,
+        }
+        impl UsageFinalizer {
+            fn finish(&mut self, entry: crate::agent::tinyagents::host::SubagentUsageEntry) {
+                self.context.record_completed_subagent_usage(entry);
+                self.complete = true;
+            }
+        }
+        impl Drop for UsageFinalizer {
+            fn drop(&mut self) {
+                if !self.complete {
+                    self.context.promote_completed_descendant_usage();
+                }
+            }
+        }
+        let mut usage_finalizer = UsageFinalizer {
+            context: options.run_context.clone(),
+            complete: false,
+        };
         let task_id = options
             .task_id
             .clone()
@@ -408,9 +430,12 @@ pub async fn run_subagent(
         // cap, or less wall-clock remains than this turn's slowest completed
         // sub-agent took. Outside a turn scope the guard is absent and this is
         // a no-op, so CLI and direct invocations are unaffected.
-        match turn_dispatch_guard::check() {
-            turn_dispatch_guard::DispatchDecision::Allow => {}
-            turn_dispatch_guard::DispatchDecision::RefusePaused {
+        match options.run_context.dispatch.as_deref().map_or(
+            crate::agent::tinyagents::host::DispatchDecision::Allow,
+            crate::agent::tinyagents::host::TurnDispatchState::check,
+        ) {
+            crate::agent::tinyagents::host::DispatchDecision::Allow => {}
+            crate::agent::tinyagents::host::DispatchDecision::RefusePaused {
                 completed_model_calls,
                 cap,
             } => {
@@ -426,7 +451,7 @@ pub async fn run_subagent(
                     cap,
                 });
             }
-            turn_dispatch_guard::DispatchDecision::RefuseBudget {
+            crate::agent::tinyagents::host::DispatchDecision::RefuseBudget {
                 remaining_ms,
                 observed_max_ms,
                 observed_samples,
@@ -448,10 +473,13 @@ pub async fn run_subagent(
             }
         }
 
-        let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;
+        let parent = options
+            .run_context
+            .parent
+            .clone()
+            .ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
-        let current_depth = current_spawn_depth();
-        let attempted_depth = current_depth.saturating_add(1);
+        let attempted_depth = options.run_context.spawn_depth;
 
         // Synchronous pre-dispatch projection of the single depth authority
         // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
@@ -462,7 +490,6 @@ pub async fn run_subagent(
             tracing::warn!(
                 agent_id = %definition.id,
                 task_id = %task_id,
-                current_depth,
                 attempted_depth,
                 max_depth = MAX_SPAWN_DEPTH,
                 "[subagent_runner] spawn depth exceeded"
@@ -554,7 +581,14 @@ pub async fn run_subagent(
                 // the opposite and was wrong about its own statistic. What it
                 // does buy is a correct `observed_samples` count and a gate
                 // that arms on a turn shaped entirely from fast-path work.
-                turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
+                if let Some(dispatch) = options.run_context.dispatch.as_deref() {
+                    dispatch.record_subagent_elapsed(started.elapsed());
+                }
+                usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
+                    task_id: task_id.clone(),
+                    agent_id: definition.id.clone(),
+                    usage: outcome.usage,
+                });
                 return Ok(outcome);
             }
         }
@@ -598,17 +632,14 @@ pub async fn run_subagent(
         let run_result = with_spawn_depth(attempted_depth, async {
             with_file_state_agent_id(task_id.clone(), async {
                 with_current_sandbox_mode(definition.sandbox_mode, async {
-                    with_parent_context(parent_for_subagent.clone(), async {
-                        Box::pin(run_typed_mode(
-                            definition,
-                            task_prompt,
-                            &options,
-                            &parent_for_subagent,
-                            &task_id,
-                            &loaded_config,
-                        ))
-                        .await
-                    })
+                    Box::pin(run_typed_mode(
+                        definition,
+                        task_prompt,
+                        &options,
+                        &parent_for_subagent,
+                        &task_id,
+                        &loaded_config,
+                    ))
                     .await
                 })
                 .await
@@ -633,9 +664,20 @@ pub async fn run_subagent(
         // the config load and the tier/hook gates are inside the figure — the
         // question the gate asks is how long a *dispatch* takes end to end,
         // not how long the child's own loop ran.
-        turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
+        if let Some(dispatch) = options.run_context.dispatch.as_deref() {
+            dispatch.record_subagent_elapsed(started.elapsed());
+        }
 
         let mut outcome = run_result?;
+
+        // Commit the completed subtree before the soft, awaited artifact
+        // offload. A cancellation while that filesystem work is pending must
+        // not erase direct model usage or descendants that already finished.
+        usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
+            task_id: task_id.clone(),
+            agent_id: definition.id.clone(),
+            usage: outcome.usage,
+        });
 
         // #3883: offload an oversized worker result to `action_dir/outputs/`
         // BEFORE the cap below truncates it, so the parent receives a path plus
@@ -864,7 +906,7 @@ async fn run_typed_mode(
     // once the OAuth handshake reaches ACTIVE/CONNECTED, so this call
     // returns the fresh list almost for free on the warm path. Fall back
     // to the parent's frozen list when the live fetch returns empty.
-    let live_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration> = {
+    let live_integrations: Vec<crate::agent::prompts::ConnectedIntegration> = {
         let signed_in = config
             .as_ref()
             .ok()
@@ -1074,7 +1116,7 @@ async fn run_typed_mode(
                         }
                     }
                 };
-                let integration = crate::agent::context::prompt::ConnectedIntegration {
+                let integration = crate::agent::prompts::ConnectedIntegration {
                     toolkit: cached_integration.toolkit.clone(),
                     description: cached_integration.description.clone(),
                     tools: fresh_actions,
@@ -1085,48 +1127,46 @@ async fn run_typed_mode(
                 };
                 let integration = &integration;
                 let top_k = top_k_for_toolkit(tk);
-                let filter_hits = super::super::super::tool_filter::filter_actions_by_prompt(
-                    task_prompt,
-                    &integration.tools,
-                    top_k,
-                );
-                let selected: Vec<&crate::agent::context::prompt::ConnectedIntegrationTool> =
-                    if filter_hits.len() >= super::super::super::tool_filter::MIN_CONFIDENT_HITS {
-                        // The ranker's verb gate can drop every content-returning
-                        // action for a find/search prompt, so the toolkit's
-                        // essentials are reserved inside the same budget (#6033).
-                        let kept_idx = select_actions_with_essentials(
-                            tk,
-                            &integration.tools,
-                            &filter_hits,
-                            top_k,
-                        );
-                        let kept: Vec<_> =
-                            kept_idx.iter().map(|&i| &integration.tools[i]).collect();
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            kept = kept.len(),
-                            top_k = top_k,
-                            kept_actions = %kept
-                                .iter()
-                                .map(|a| a.name.as_str())
-                                .collect::<Vec<_>>()
-                                .join(","),
-                            "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
-                        );
-                        kept
-                    } else {
-                        tracing::info!(
-                            agent_id = %definition.id,
-                            toolkit = %tk,
-                            total = integration.tools.len(),
-                            filter_hits = filter_hits.len(),
-                            "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
-                        );
-                        integration.tools.iter().collect()
-                    };
+                let candidates: Vec<_> = integration
+                    .tools
+                    .iter()
+                    .map(|tool| SelectableTool::new(&tool.name, &tool.description))
+                    .collect();
+                let filter_hits = rank_tools_by_prompt(task_prompt, &candidates, top_k);
+                let selected: Vec<&crate::agent::prompts::ConnectedIntegrationTool> = if filter_hits
+                    .len()
+                    >= MIN_CONFIDENT_HITS
+                {
+                    // The ranker's verb gate can drop every content-returning
+                    // action for a find/search prompt, so the toolkit's
+                    // essentials are reserved inside the same budget (#6033).
+                    let kept_idx =
+                        select_actions_with_essentials(tk, &integration.tools, &filter_hits, top_k);
+                    let kept: Vec<_> = kept_idx.iter().map(|&i| &integration.tools[i]).collect();
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        kept = kept.len(),
+                        top_k = top_k,
+                        kept_actions = %kept
+                            .iter()
+                            .map(|a| a.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(","),
+                        "[subagent_runner:typed] fuzzy tool filter narrowed toolkit"
+                    );
+                    kept
+                } else {
+                    tracing::info!(
+                        agent_id = %definition.id,
+                        toolkit = %tk,
+                        total = integration.tools.len(),
+                        filter_hits = filter_hits.len(),
+                        "[subagent_runner:typed] fuzzy filter thin; falling back to full toolkit"
+                    );
+                    integration.tools.iter().collect()
+                };
 
                 for action in selected {
                     dynamic_tools.push(Box::new(
@@ -1301,7 +1341,7 @@ async fn run_typed_mode(
         definition.omit_memory_md,
     );
 
-    let narrowed_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration> =
+    let narrowed_integrations: Vec<crate::agent::prompts::ConnectedIntegration> =
         match toolkit_filter {
             Some(tk) => live_integrations
                 .iter()
@@ -1371,7 +1411,7 @@ async fn run_typed_mode(
         tools: &prompt_tools,
         workflows: &parent.workflows,
         dispatcher_instructions: &dispatcher_instructions,
-        learned: crate::agent::context::prompt::LearnedContextData::default(),
+        learned: crate::agent::prompts::LearnedContextData::default(),
         visible_tool_names: &visible_tool_names,
         tool_call_format: prompt_tool_call_format,
         connected_integrations: &narrowed_integrations,
@@ -1380,8 +1420,6 @@ async fn run_typed_mode(
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
         user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: agents_md.global.clone(),
         agents_md_local: agents_md.local.clone(),
@@ -1581,6 +1619,8 @@ async fn run_typed_mode(
                     &definition.id,
                     task_id,
                     definition.iteration_policy == IterationPolicy::Extended,
+                    options.thread_id.clone(),
+                    options.run_context.clone(),
                     options.worker_thread_id.clone(),
                     parent.workspace_dir.clone(),
                     workspace_descriptor.clone(),
@@ -1622,6 +1662,8 @@ async fn run_typed_mode(
                     agent_id: definition.id.clone(),
                     task_id: task_id.to_string(),
                     extended_policy: definition.iteration_policy == IterationPolicy::Extended,
+                    thread_id: options.thread_id.clone(),
+                    run_context: options.run_context.clone(),
                     worker_thread_id: options.worker_thread_id.clone(),
                     workspace_dir: parent.workspace_dir.clone(),
                     workspace_descriptor: workspace_descriptor.clone(),
@@ -1719,21 +1761,28 @@ async fn run_typed_mode(
     };
 
     // Surface this run's token/cost totals so the parent turn can roll them
-    // into the session-level meters and the global cost tracker. Also push the
-    // breakdown into any active turn-scoped collector (see
-    // `turn_subagent_usage`) so a delegating parent attributes per-child spend.
-    let usage = crate::agent::harness::subagent_runner::types::SubagentUsage {
+    // into the session-level meters and the global cost tracker. The caller's
+    // explicit host carrier owns the ledger; no Tokio task scope is involved.
+    let mut usage = crate::agent::harness::subagent_runner::types::SubagentUsage {
         input_tokens: agg_usage.input_tokens,
         output_tokens: agg_usage.output_tokens,
         cached_input_tokens: agg_usage.cached_input_tokens,
         charged_amount_usd: agg_usage.charged_amount_usd,
     };
-    crate::agent::harness::turn_subagent_usage::record_subagent_usage(
-        task_id,
-        &definition.id,
-        usage,
-    );
-
+    // A nested child records on this run's isolated ledger. Fold those totals
+    // into the completed child before writing the immediate parent's ledger so
+    // the root always receives complete subtree spend without siblings sharing
+    // mutable in-flight state.
+    for entry in options.run_context.subagent_usage_entries() {
+        usage.input_tokens = usage.input_tokens.saturating_add(entry.usage.input_tokens);
+        usage.output_tokens = usage
+            .output_tokens
+            .saturating_add(entry.usage.output_tokens);
+        usage.cached_input_tokens = usage
+            .cached_input_tokens
+            .saturating_add(entry.usage.cached_input_tokens);
+        usage.charged_amount_usd += entry.usage.charged_amount_usd;
+    }
     Ok(SubagentRunOutcome {
         task_id: task_id.to_string(),
         agent_id: definition.id.clone(),

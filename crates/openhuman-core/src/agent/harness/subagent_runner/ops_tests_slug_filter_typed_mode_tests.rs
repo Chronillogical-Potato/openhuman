@@ -1,8 +1,9 @@
 use super::*;
+use crate::agent::harness::spawn_depth_context::current_spawn_depth;
 
 #[test]
 fn lazy_resolver_tolerates_near_miss_slugs() {
-    use crate::agent::context::prompt::ConnectedIntegrationTool;
+    use crate::agent::prompts::ConnectedIntegrationTool;
     let mk = |name: &str| ConnectedIntegrationTool {
         name: name.into(),
         description: "d".into(),
@@ -208,6 +209,8 @@ async fn typed_mode_returns_text_through_runner() {
                 context: None,
                 model_override: None,
                 task_id: Some("t1".into()),
+                thread_id: None,
+                run_context: Default::default(),
                 worker_thread_id: None,
                 initial_history: None,
                 checkpoint_dir: None,
@@ -290,7 +293,6 @@ async fn run_queue_steer_lands_in_subagent_history() {
             queued_at_ms: 0,
             model_override: None,
             temperature: None,
-            profile_id: None,
             locale: None,
         })
         .await;
@@ -424,6 +426,8 @@ async fn typed_mode_filters_tools_by_skill_filter() {
                 context: None,
                 model_override: None,
                 task_id: None,
+                thread_id: None,
+                run_context: Default::default(),
                 worker_thread_id: None,
                 initial_history: None,
                 checkpoint_dir: None,

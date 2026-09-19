@@ -1,11 +1,18 @@
 use super::*;
-use crate::agent::harness::session::transcript::{
-    read_transcript, write_transcript, TranscriptMeta,
-};
 use crate::agent::messages::ChatMessage;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+use tinyagents_session::transcript::{read_transcript, write_transcript, TranscriptMeta};
+
+fn durable_messages(
+    messages: impl IntoIterator<Item = ChatMessage>,
+) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
+    messages
+        .into_iter()
+        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
+        .collect()
+}
 
 /// Simulate a v3 user config: narrow allowed_commands, narrow auto_approve,
 /// and the old hard-coded `max_actions_per_hour = 20`.
@@ -80,7 +87,7 @@ fn seed_tainted_transcript(workspace_dir: &Path) -> std::path::PathBuf {
         ChatMessage::system(tainted_prompt()),
         ChatMessage::user("hello"),
     ];
-    write_transcript(&path, &messages, &meta(), None).unwrap();
+    write_transcript(&path, &durable_messages(messages), &meta(), None).unwrap();
     path
 }
 

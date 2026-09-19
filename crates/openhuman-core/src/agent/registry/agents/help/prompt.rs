@@ -4,9 +4,7 @@
 //! — render the archetype, then the standard tools + workspace blocks
 //! so the model sees the `gitbooks_*` schemas the runtime injected.
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = include_str!("prompt.md");

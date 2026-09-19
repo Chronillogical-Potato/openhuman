@@ -1,4 +1,5 @@
 use super::*;
+use tinytools::{Tool, ToolSpec};
 
 /// Answers two tool rounds, then rejects the third request with a 400 (which the
 /// harness does not retry).
@@ -62,6 +63,8 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
         "task-failed",
         false,
         None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        None,
         workspace.path().to_path_buf(),
         None,
         1024,
@@ -75,7 +78,7 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
     .await;
     assert!(result.is_err(), "the rejected third call fails the run");
 
-    use crate::agent::harness::session::transcript;
+    use tinyagents_session::transcript;
     let path =
         transcript::resolve_keyed_transcript_path(workspace.path(), stem).expect("transcript path");
     let persisted = transcript::read_transcript(&path).expect("failed run transcript");

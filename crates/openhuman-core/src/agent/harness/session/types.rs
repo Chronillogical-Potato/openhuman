@@ -6,21 +6,21 @@
 //! `impl Agent`/`impl AgentBuilder` can see them without the whole
 //! crate gaining field access.
 
-use crate::agent::context::prompt::SystemPromptBuilder;
 use crate::agent::context::ContextManager;
-use crate::agent::dispatcher::ToolDispatcher;
 use crate::agent::harness::archivist::ArchivistHook;
 use crate::agent::harness::definition::TriggerMemoryAgent;
 use crate::agent::hooks::PostTurnHook;
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
+use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::tinyagents::TurnModelSource;
 use crate::agent::tool_policy::ToolPolicy;
 use crate::memory::Memory;
 use crate::tools::agent_policy::ToolPolicySession;
-use crate::tools::{Tool, ToolSpec};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tinytools::{Tool, ToolSpec};
+use tinytools_agent::dialect::ToolDialect;
 
 /// Per-turn behaviour overrides applied to a **single** [`Agent::turn`] call.
 ///
@@ -151,17 +151,13 @@ pub struct Agent {
     pub(super) subagent_tool_ceiling_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,
     pub(super) memory: Arc<dyn Memory>,
-    /// Shared memory store retained alongside a dedicated profile store so live
-    /// experience recall can merge unstamped legacy guidance. `None` for the
-    /// shared/default memory path.
-    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     /// Lane C — the gated pre-turn recall of facts about the user (#6040).
     /// `None` when the session was built without a memory binding (tests,
     /// embedders that bring their own `Memory`); the lane then stays silent.
     pub(super) auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     // `Arc` (not `Box`) so the tinyagents turn path can hold a cheap clone of
     // the dispatcher without borrowing the `Agent` while session state mutates.
-    pub(super) tool_dispatcher: Arc<dyn ToolDispatcher>,
+    pub(super) tool_dispatcher: Arc<dyn ToolDialect>,
     pub(super) config: crate::config::AgentConfig,
     pub(super) model_name: String,
     /// User-configured vision capability for [`Self::model_name`], evaluated at
@@ -172,12 +168,11 @@ pub struct Agent {
     pub(super) temperature: f64,
     pub(super) workspace_dir: std::path::PathBuf,
     pub(super) action_dir: std::path::PathBuf,
-    /// Optional per-profile workspace descriptor. When set (a profile with
-    /// `dedicated_workspace` opted in), it is threaded into the top-level chat
-    /// turn so acting tools (shell/file/git) resolve their default cwd to
-    /// `<action_dir>/profiles/<id>` instead of the shared `action_dir`. `None`
-    /// (the common case) preserves the shared-cwd behaviour unchanged.
-    pub(super) workspace_descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
+    /// Optional turn workspace descriptor. When set by an embedder, it is
+    /// threaded into the top-level chat turn so acting tools (shell/file/git)
+    /// resolve their default cwd to its root. `None` preserves the shared
+    /// `action_dir` cwd behaviour.
+    pub(super) workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     pub(super) workflows: Vec<crate::skills::Workflow>,
     /// Agent workflows discovered at session start.
     pub(super) auto_save: bool,
@@ -205,8 +200,7 @@ pub struct Agent {
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until
     /// the first turn completes.
-    pub(super) last_turn_usage_totals:
-        Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) last_turn_usage_totals: Option<crate::agent::tinyagents::host::LastTurnUsage>,
     /// Whether the most recent turn's tinyagents loop paused because it hit
     /// `max_tool_iterations` (`TinyagentsTurnOutcome::hit_cap`), rather than
     /// finishing naturally. `false` until the first turn completes, and reset
@@ -226,6 +220,10 @@ pub struct Agent {
     pub(super) explicit_preferences_enabled: bool,
     pub(super) event_session_id: String,
     pub(super) event_channel: String,
+    /// Backend/session thread explicitly owned by this agent run. It is kept
+    /// separate from event identity: CLI and worker event sessions are not
+    /// necessarily user conversation threads.
+    pub(super) thread_id: Option<String>,
     /// Human-readable agent definition name (e.g. `"main"`,
     /// `"code_executor"`). Used as the `{agent}` component in session
     /// transcript paths: `sessions/DDMMYYYY/{agent}_{index}.md`.
@@ -248,32 +246,6 @@ pub struct Agent {
     ///
     /// [`AgentDefinitionRegistry`]: crate::agent::harness::definition::AgentDefinitionRegistry
     pub(super) agent_definition_id: String,
-    /// Id of the agent profile this session runs under, when the turn was
-    /// launched with an active profile (`profiles` domain). `None` for the
-    /// default (profile-less) session — the byte-identical legacy path.
-    ///
-    /// Set once at build time from the resolved [`AgentProfile`] and never
-    /// rewritten. Consumed by the profile-scoped agent-experience capture +
-    /// retrieval (1c): records are stamped with this id and only records
-    /// matching it (plus unstamped legacy records) are recalled. The same
-    /// active id also arms the tool-layer sibling-workspace guard, regardless
-    /// of whether this profile uses a dedicated cwd.
-    pub(super) active_profile_id: Option<String>,
-    /// Profile-local SOUL.md resolved when the session is built. When set,
-    /// IdentitySection uses it instead of the workspace-root identity.
-    pub(super) personality_soul_md: Option<String>,
-    /// Profile-local curated MEMORY.md resolved when the session is built.
-    /// `None` preserves the workspace-root MEMORY.md fallback.
-    pub(super) personality_memory_md: Option<String>,
-    /// Profile-selected memory subtree name (`memory`, `memory-<id>`, or a
-    /// legacy numeric suffix). Used for memory-tree reads and paired with the
-    /// profile-specific transcript directory below.
-    pub(super) memory_subdir: String,
-    /// Profile-selected JSONL transcript subdirectory (`session_raw` or
-    /// `session_raw-<id>`). It is resolved against the current `workspace_dir`
-    /// at I/O time so relocating an agent does not leave transcripts pinned to
-    /// its original workspace while dedicated-memory profiles remain isolated.
-    pub(super) session_raw_subdir: String,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent **appends** within the
     /// same session.
@@ -282,13 +254,13 @@ pub struct Agent {
     /// `session_transcript_path` on first write.
     ///
     /// This is the S4 indirection: the turn path appends through
-    /// [`SessionHistory::append_turn`][super::transcript_history::SessionHistory::append_turn]
+    /// [`TranscriptHistory::append_turn`][tinyagents_session::transcript::TranscriptHistory::append_turn]
     /// rather than calling the format's free function directly.
     ///
     /// It is `Arc<dyn …>` rather than the concrete handle so the turn loop is
     /// written against the seam instead of the implementation. It is now
     /// genuinely substitutable: the handle is produced by
-    /// [`SessionHistoryLocator::open_stem`][super::transcript_history::SessionHistoryLocator::open_stem]
+    /// [`TranscriptLocator::open_stem`][tinyagents_session::transcript::TranscriptLocator::open_stem]
     /// on the locator in `session_history_locator`, so injecting a locator
     /// replaces this session's writes as well as both of its resume reads.
     ///
@@ -296,7 +268,7 @@ pub struct Agent {
     /// into the handle: the dual-write mirror needs the concrete `&Path` for
     /// `file_stem()`, and several tests assert on it directly.
     pub(super) session_history:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistory>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptHistory>>,
     /// Injected transcript locator, or `None` to use real files.
     ///
     /// The single injection point for the whole transcript seam: it resolves
@@ -304,20 +276,21 @@ pub struct Agent {
     /// session's write handle (`open_stem`). `None` is the production default
     /// and is resolved *lazily* by
     /// [`Agent::session_locator`][Self::session_locator] into a
-    /// [`FileTranscriptLocator`][super::transcript_history::FileTranscriptLocator]
-    /// over the **current** `workspace_dir` / `session_raw_subdir` — never
+    /// [`FileTranscriptLocator`][tinyagents_session::transcript::FileTranscriptLocator]
+    /// over the **current** `workspace_dir` — never
     /// captured at build time, because callers (tests especially) reassign
     /// `workspace_dir` after `build()` and a frozen locator would silently keep
     /// reading the old directory.
     pub(super) session_history_locator:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistoryLocator>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
     /// The logical message set most recently persisted to
     /// `session_transcript_path`, tracked in memory so the append-only writer
     /// can diff each turn's messages against it (pure extension → append tail;
     /// reduction → compaction record) without re-reading the growing file.
     /// Empty until the first persist. Each process writes its own transcript
     /// file, so this in-memory state is always aligned with the file it owns.
-    pub(super) persisted_transcript_messages: Vec<ChatMessage>,
+    pub(super) persisted_transcript_messages:
+        Vec<tinyagents_session::transcript::TranscriptMessage>,
     /// Unique transcript key for this session, formatted as
     /// `"{unix_ts}_{agent_id}"`. Generated once at agent-build time so
     /// every transcript write in this session uses the same filename
@@ -357,7 +330,7 @@ pub struct Agent {
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own
     /// integration blocks.
-    pub(super) connected_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+    pub(super) connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     /// Whether `connected_integrations` is an authoritative session-start
     /// snapshot (prewarmed from the shared Composio cache or fetched
     /// explicitly) versus the default empty placeholder installed by
@@ -370,6 +343,9 @@ pub struct Agent {
     /// re-run `Config::load_or_init()` on the hot path just to key into
     /// the Composio cache.
     pub(super) runtime_config: Option<Arc<crate::config::Config>>,
+    /// Durable inputs for hosted TinyAgents invocations. Built once by the
+    /// production factory; per-turn tools and progress remain outside it.
+    pub(super) hosted_base: Option<Arc<crate::agent::tinyagents::host::OpenHumanHostBase>>,
     /// The definition this session was built from, when the factory had one.
     ///
     /// Read back through [`Agent::resolved_definition`] by the in-turn sites
@@ -530,11 +506,10 @@ pub struct AgentBuilder {
     /// Channel-policy restrictions are intersected during [`Self::build`].
     pub(super) subagent_tool_ceiling_names: Option<std::collections::HashSet<String>>,
     pub(super) memory: Option<Arc<dyn Memory>>,
-    pub(super) shared_experience_memory: Option<Arc<dyn Memory>>,
     /// Forwarded to [`Agent::auto_recall`] at build time. Defaults to `None`.
     pub(super) auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     pub(super) prompt_builder: Option<SystemPromptBuilder>,
-    pub(super) tool_dispatcher: Option<Box<dyn ToolDispatcher>>,
+    pub(super) tool_dispatcher: Option<Box<dyn ToolDialect>>,
     pub(super) config: Option<crate::config::AgentConfig>,
     /// Optional [`ContextConfig`] override threaded through from
     /// `Agent::from_config`. When unset the builder falls back to
@@ -546,9 +521,9 @@ pub struct AgentBuilder {
     pub(super) temperature: Option<f64>,
     pub(super) workspace_dir: Option<std::path::PathBuf>,
     pub(super) action_dir: Option<std::path::PathBuf>,
-    /// Optional per-profile workspace descriptor forwarded to [`Agent`] at build
-    /// time. Defaults to `None` (shared `action_dir` cwd).
-    pub(super) workspace_descriptor: Option<tinyagents_harness::workspace::WorkspaceDescriptor>,
+    /// Optional turn workspace descriptor forwarded to [`Agent`] at build time.
+    /// Defaults to `None` (shared `action_dir` cwd).
+    pub(super) workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     pub(super) workflows: Option<Vec<crate::skills::Workflow>>,
     /// Agent workflows to surface in the prompt. Populated from `load_workflows`
     /// at session start; defaults to empty when not explicitly set.
@@ -559,16 +534,6 @@ pub struct AgentBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
-    /// Forwarded to [`Agent::active_profile_id`] at `build()` time. `None`
-    /// (default) means the profile-less session; the profile-launching callers
-    /// (web chat, task dispatcher, cron) set the active profile id here.
-    pub(super) active_profile_id: Option<String>,
-    /// Forwarded to [`Agent::personality_soul_md`] at build time.
-    pub(super) personality_soul_md: Option<String>,
-    /// Forwarded to [`Agent::personality_memory_md`] at build time.
-    pub(super) personality_memory_md: Option<String>,
-    pub(super) memory_subdir: Option<String>,
-    pub(super) session_raw_subdir: Option<String>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated
@@ -579,7 +544,7 @@ pub struct AgentBuilder {
     /// [`with_session_history_locator`][super::builder::AgentBuilder::with_session_history_locator]
     /// to substitute the transcript backing store for the whole turn path.
     pub(super) session_history_locator:
-        Option<std::sync::Arc<dyn super::transcript_history::SessionHistoryLocator>>,
+        Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
     /// Forwarded to [`Agent::omit_profile`] at `build()` time. Mirrors the
     /// target definition's `omit_profile` flag; `None` means "fall back
     /// to the safe default" (omit).

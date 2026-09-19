@@ -456,12 +456,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::tinyagents::replay::all_agent_replay_registered_controllers(),
     );
-    // Persistent agent profiles (flavours): name, soul, memory sources, skills, MCP, connectors.
-    push(
-        &mut controllers,
-        DomainGroup::Agent,
-        crate::agent::profiles::all_profiles_registered_controllers(),
-    );
     // User-facing agent registry: defaults, enablement, custom agents, tool policy.
     push(
         &mut controllers,

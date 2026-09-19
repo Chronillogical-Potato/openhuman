@@ -21,8 +21,6 @@
 
 pub(crate) mod abort_guard;
 pub mod config;
-pub(crate) mod convert;
-pub(crate) mod delegation;
 mod embeddings;
 mod harness_assembly;
 mod harness_context_ladder;
@@ -32,7 +30,6 @@ pub(crate) mod journal;
 pub(crate) mod middleware;
 pub(crate) mod model;
 pub(crate) mod observability;
-pub(crate) mod orchestration;
 // `pub` since issue #6014, and the inconsistency it removes is the point:
 // `AgentBuilder::payload_summarizer` is a **public** setter taking
 // `Arc<dyn PayloadSummarizer>`, so the seam was already advertised to embedders
@@ -48,14 +45,11 @@ pub mod payload_summarizer;
 mod policy_denial;
 pub(crate) mod reaper;
 pub(crate) mod replay;
-pub mod resolved_route;
 pub(crate) mod retriever;
 mod routes;
-pub(crate) mod run_cancellation_context;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
 mod summarize;
-pub mod thread_context;
 pub mod todos;
 pub(crate) mod tools;
 mod topology;
@@ -77,11 +71,6 @@ pub(crate) use middleware::{
     TurnContextMiddleware,
 };
 pub(crate) use observability::SubagentScope;
-pub use resolved_route::{
-    current_resolved_provider_route, current_route_slot, record_resolved_provider_route,
-    with_resolved_provider_route_scope, with_route_slot, ResolvedProviderRoute, RouteSlot,
-};
-pub(crate) use run_cancellation_context::current_run_cancellation;
 pub(crate) use topology::all_graph_topologies;
 pub use turn_models::TurnModelSource;
 pub(crate) use turn_models::TurnModels;
@@ -91,7 +80,7 @@ pub(crate) use turn_outcome::{
 #[cfg(test)]
 pub(crate) use turn_policy::is_subagent_spawn_or_delegate_tool;
 pub(crate) use turn_policy::{agent_turn_wall_clock_ms, ToolPolicyEnforcement};
-pub(crate) use turn_runner::run_turn_via_tinyagents_shared;
+pub(crate) use turn_runner::{run_root_turn_via_hosted_agent, run_turn_via_tinyagents_shared};
 
 // Test-only glue so `tinyagents_tests.rs`'s `use super::*;` sees the
 // lower-level policy helpers it exercises directly (they otherwise stay

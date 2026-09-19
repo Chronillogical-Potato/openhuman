@@ -24,7 +24,8 @@ use openhuman_core::integrations::composio::{
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::config::Config;
-use openhuman_core::tools::{ComposioListToolsTool, Tool, ToolCallOptions};
+use tinytools::{Tool, ToolCallOptions};
+use openhuman_core::tools::{ComposioListToolsTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
