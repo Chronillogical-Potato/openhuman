@@ -315,10 +315,8 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         definition,
         prompt,
         SubagentRunOptions {
-            run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
-                parent: Some(parent_ctx),
-                ..Default::default()
-            },
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext::new()
+                .with_parent(parent_ctx),
             ..Default::default()
         },
     )

@@ -127,10 +127,8 @@ impl Agent {
         let options = harness::SubagentRunOptions {
             task_id: Some(task_id.clone()),
             model_override: Some(parent_context.model_name.clone()),
-            run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
-                parent: Some(parent_context.clone()),
-                ..Default::default()
-            },
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext::new()
+                .with_parent(parent_context.clone()),
             ..Default::default()
         };
 

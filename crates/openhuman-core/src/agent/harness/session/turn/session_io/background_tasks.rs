@@ -74,10 +74,8 @@ impl Agent {
 
         tokio::spawn(async move {
             let options = harness::SubagentRunOptions {
-                run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
-                    parent: Some(parent_ctx),
-                    ..Default::default()
-                },
+                run_context: crate::agent::tinyagents::host::OpenHumanRunContext::new()
+                    .with_parent(parent_ctx),
                 ..Default::default()
             };
             let result = harness::run_subagent(&definition, &extraction_prompt, options).await;

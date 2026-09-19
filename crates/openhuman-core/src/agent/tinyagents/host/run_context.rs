@@ -247,6 +247,13 @@ impl OpenHumanRunContext {
         self
     }
 
+    /// Binds a direct runner to its explicit parent without exposing the
+    /// child-ledger link reserved for recursive [`Self::child`] calls.
+    pub(crate) fn with_parent(mut self, parent: ParentExecutionContext) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
     /// Sets the same cancellation token on this context and its TinyAgents run.
     pub fn with_cancellation(
         mut self,
