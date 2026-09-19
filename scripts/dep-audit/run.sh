@@ -54,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --no-report) WRITE_REPORT=0; shift ;;
     --verbose) VERBOSE=1; shift ;;
     -h|--help) sed -n '2,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --) shift ;;
     *) echo "dep-audit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done

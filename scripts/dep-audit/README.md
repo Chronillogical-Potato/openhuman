@@ -6,8 +6,8 @@ Cargo submodule under `vendor/`**, using
 
 ```bash
 pnpm dep:audit                     # full sweep -> target/dep-audit/REPORT.md
-pnpm dep:audit -- --snapshot       # ...and archive it as docs/dep-audit/<date>.md
-pnpm dep:audit -- --targets '^(root|tinyagents)$' --top 25
+pnpm dep:audit --snapshot       # ...and archive it as docs/dep-audit/<date>.md
+pnpm dep:audit --targets '^(root|tinyagents)$' --top 25
 ```
 
 A full sweep of 24 targets takes about 20 seconds; nothing is compiled, the
@@ -124,7 +124,7 @@ listed; cargo unifies it.
 
 ## Workflow for a clean-up pass
 
-1. `pnpm dep:audit -- --snapshot` on a fresh branch.
+1. `pnpm dep:audit --snapshot` on a fresh branch.
 2. Work section 1 by graph win, then section 4, then section 2's `root`
    rows. Submodule changes go to that submodule's own upstream as their own
    PR; bump the gitlink here afterwards (see the submodule PR conventions in
