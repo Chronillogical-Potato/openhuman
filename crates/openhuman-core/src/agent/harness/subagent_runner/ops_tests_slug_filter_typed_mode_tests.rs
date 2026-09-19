@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::harness::spawn_depth_context::current_spawn_depth;
 
 #[test]
 fn lazy_resolver_tolerates_near_miss_slugs() {

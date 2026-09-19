@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::harness::spawn_depth_context::current_spawn_depth;
 
 #[tokio::test]
 async fn runner_rejects_spawn_beyond_max_depth() {

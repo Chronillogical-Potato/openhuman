@@ -37,7 +37,7 @@ pub(crate) mod required_output;
 pub mod run_queue;
 pub mod sandbox_context;
 pub mod session;
-mod spawn_depth_context;
+pub(crate) mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod tool_result_artifacts;
@@ -55,8 +55,6 @@ pub use fork_context::{
     with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
-#[cfg(test)]
-pub(crate) use spawn_depth_context::current_spawn_depth;
 pub(crate) use spawn_depth_context::{with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
