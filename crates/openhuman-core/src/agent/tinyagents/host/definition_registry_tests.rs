@@ -332,7 +332,6 @@ fn named_scope_drops_denied_tools_and_keeps_extras() {
     );
 }
 
-
 // ── config-backed custom agents ───────────────────────────────────────
 
 fn config_with(entries: Vec<AgentRegistryEntry>) -> Arc<Config> {

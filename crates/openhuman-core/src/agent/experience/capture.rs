@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use crate::agent::experience::store::AgentExperienceStore;
 use crate::agent::experience::types::{
-    redact_text, stable_experience_id, AgentExperience,
-    ExperienceOutcome, ExperienceSource,
+    redact_text, stable_experience_id, AgentExperience, ExperienceOutcome, ExperienceSource,
 };
 use crate::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use crate::memory::Memory;
@@ -26,10 +25,7 @@ impl AgentExperienceCaptureHook {
     }
 
     pub fn from_store(store: AgentExperienceStore, enabled: bool) -> Self {
-        Self {
-            store,
-            enabled,
-        }
+        Self { store, enabled }
     }
 
     pub fn extract_candidates(ctx: &TurnContext) -> Vec<AgentExperience> {

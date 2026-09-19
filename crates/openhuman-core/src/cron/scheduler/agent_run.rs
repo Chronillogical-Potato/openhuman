@@ -241,23 +241,23 @@ pub(super) fn build_agent_for_cron_job(
 ) -> anyhow::Result<BuiltCronAgent> {
     let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
     match Agent::from_config_for_agent(config, agent_id) {
-            Ok(agent) => {
-                tracing::debug!(
-                    job_id = %job.id,
-                    agent_id = %agent_id,
-                    "[cron] built scheduled job agent from definition"
-                );
-                Ok(BuiltCronAgent { agent })
-            }
-            Err(e) => {
-                tracing::warn!(
-                    job_id = %job.id,
-                    agent_id = %agent_id,
-                    error = %e,
-                    "[cron] failed to build agent from definition; falling back to canonical orchestrator"
-                );
-                Agent::from_config_for_agent(config, "orchestrator")
-                    .map(|agent| BuiltCronAgent { agent })
-            }
+        Ok(agent) => {
+            tracing::debug!(
+                job_id = %job.id,
+                agent_id = %agent_id,
+                "[cron] built scheduled job agent from definition"
+            );
+            Ok(BuiltCronAgent { agent })
+        }
+        Err(e) => {
+            tracing::warn!(
+                job_id = %job.id,
+                agent_id = %agent_id,
+                error = %e,
+                "[cron] failed to build agent from definition; falling back to canonical orchestrator"
+            );
+            Agent::from_config_for_agent(config, "orchestrator")
+                .map(|agent| BuiltCronAgent { agent })
+        }
     }
 }

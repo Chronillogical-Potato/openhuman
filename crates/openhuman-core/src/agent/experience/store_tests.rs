@@ -81,7 +81,6 @@ async fn put_list_and_dismiss_round_trip() {
     assert!(listed[0].dismissed);
 }
 
-
 #[tokio::test]
 async fn retrieve_ignores_dismissed_records() {
     let (store, _) = fresh_store();

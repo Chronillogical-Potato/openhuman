@@ -327,10 +327,6 @@ fn partial_outcomes_read_as_unsuccessful() {
     assert!(mapped.outcome.contains("do not repeat the failed call"));
 }
 
-    let record = adapter().to_domain(&exp("planner", &long, "ok", true));
-    assert_eq!(record.task_summary.chars().count(), MAX_SUMMARY_CHARS);
-}
-
 #[test]
 fn recorded_rows_carry_no_fabricated_tool_trace() {
     // A fake tool sequence would corrupt `score_experience`'s tool-overlap

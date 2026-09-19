@@ -206,7 +206,7 @@ impl Agent {
         &self,
     ) -> crate::agent::tinyagents::host::OpenHumanExperienceStore {
         crate::agent::tinyagents::host::OpenHumanExperienceStore::new(self.memory_arc())
-        .with_shared_recall_memory(self.shared_experience_memory.clone())
+            .with_shared_recall_memory(self.shared_experience_memory.clone())
     }
 
     /// The agent's working directory.

@@ -80,7 +80,6 @@ pub fn stable_experience_id(
     format!("exp_{}", &digest[..24])
 }
 
-
 fn outcome_key(outcome: ExperienceOutcome) -> &'static str {
     match outcome {
         ExperienceOutcome::Success => "success",

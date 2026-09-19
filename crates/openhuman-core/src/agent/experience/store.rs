@@ -1,6 +1,4 @@
-use crate::agent::experience::types::{
-    stable_experience_id, AgentExperience, ExperienceHit,
-};
+use crate::agent::experience::types::{stable_experience_id, AgentExperience, ExperienceHit};
 use crate::memory::safety::sanitize_text;
 use crate::memory::{Memory, MemoryCategory};
 use base64::Engine as _;
@@ -60,7 +58,6 @@ pub struct ExperienceQuery {
     pub entrypoint: Option<String>,
     pub max_hits: usize,
 }
-
 
 #[derive(Clone)]
 pub struct AgentExperienceStore {
@@ -142,7 +139,6 @@ impl AgentExperienceStore {
         Ok(experiences)
     }
 
-
     pub async fn dismiss(&self, id: &str) -> Result<bool, String> {
         let key = storage_key(id);
         let Some(mut experience) = self.fetch(&key).await? else {
@@ -153,7 +149,6 @@ impl AgentExperienceStore {
         self.put(experience).await?;
         Ok(true)
     }
-
 
     pub async fn retrieve(&self, query: ExperienceQuery) -> Result<Vec<ExperienceHit>, String> {
         if query.max_hits == 0 {

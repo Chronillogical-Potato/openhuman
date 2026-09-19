@@ -272,8 +272,7 @@ pub struct RetrieveParams {
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub struct ListParams {
-}
+pub struct ListParams {}
 
 #[derive(Debug, Deserialize)]
 pub struct DismissParams {
@@ -357,9 +356,7 @@ pub async fn dismiss(params: DismissParams) -> Result<RpcOutcome<DismissResult>,
     let stores = open_query_stores().await?;
     let mut dismissed = false;
     for store in stores {
-        dismissed |= store
-            .dismiss(&params.id)
-            .await?;
+        dismissed |= store.dismiss(&params.id).await?;
     }
     Ok(RpcOutcome::single_log(
         DismissResult {
