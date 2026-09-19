@@ -15,6 +15,16 @@ async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
     let middleware = ToolOutcomeCaptureMiddleware::new(sink.clone(), failure_map.clone());
     let mut ctx = context();
 
+    let mut success_call = tinyinference_llm::tool::ToolCall {
+        id: "echo-success".into(),
+        name: "echo".into(),
+        arguments: serde_json::json!({"message": "hello"}),
+        invalid: None,
+    };
+    middleware
+        .before_tool(&mut ctx, &(), &mut success_call)
+        .await
+        .expect("start metadata is captured");
     let success = ToolInvocationIdentity::new("echo-success", "echo");
     let mut success_result = TaToolResult::success("done");
     middleware
@@ -22,6 +32,16 @@ async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
         .await
         .expect("successful result is captured");
 
+    let mut failure_call = tinyinference_llm::tool::ToolCall {
+        id: "echo-failure".into(),
+        name: "echo".into(),
+        arguments: serde_json::json!({"message": "retry"}),
+        invalid: None,
+    };
+    middleware
+        .before_tool(&mut ctx, &(), &mut failure_call)
+        .await
+        .expect("start metadata is captured");
     let failure = ToolInvocationIdentity::new("echo-failure", "echo");
     let mut failure_result = TaToolResult::error("request timed out");
     middleware
@@ -33,13 +53,21 @@ async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
     assert_eq!(outcomes.len(), 2);
     assert_eq!(outcomes[0].call_id, "echo-success");
     assert!(outcomes[0].success);
+    assert_eq!(
+        outcomes[0].arguments,
+        serde_json::json!({"message": "hello"})
+    );
     assert_eq!(outcomes[1].call_id, "echo-failure");
     assert!(!outcomes[1].success);
+    assert_eq!(
+        outcomes[1].arguments,
+        serde_json::json!({"message": "retry"})
+    );
     drop(outcomes);
 
     let recorded = failure_map.lock().expect("failure lookup");
     assert_eq!(recorded.len(), 2, "same tool names cannot overwrite calls");
-    assert!(recorded["echo-success"].0);
-    assert!(!recorded["echo-failure"].0);
+    assert_eq!(recorded["echo-success"].0, true);
+    assert_eq!(recorded["echo-failure"].0, false);
     assert!(recorded["echo-failure"].1.is_some());
 }
