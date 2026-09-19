@@ -109,18 +109,20 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Arg
 /// Resolves the harness [`ToolSchema`] for `name` across the runner's shared
 /// tool sets.
 ///
-/// Built via the same [`spec_to_schema`](crate::agent::tinyagents::convert::spec_to_schema)
-/// conversion the runner uses for canonical tool schemas, so the
-/// `parameters` we validate against are byte-identical to the ones the crate's
-/// fatal `validate_call` gate checks — otherwise our pre-validation could
-/// disagree with the crate and either miss a fatal case or stub a call the crate
-/// still rejects.
+/// It constructs the canonical TinyInference schema directly from the
+/// TinyTools declaration, so the `parameters` we validate against are
+/// byte-identical to the ones the crate's fatal `validate_call` gate checks —
+/// otherwise our pre-validation could disagree with the crate and either miss
+/// a fatal case or stub a call the crate still rejects.
 fn schema_for_tool(tool_sets: &[Arc<Vec<Box<dyn Tool>>>], name: &str) -> Option<ToolSchema> {
     tool_sets
         .iter()
         .flat_map(|set| set.iter())
         .find(|tool| tool.name() == name)
-        .map(|tool| crate::agent::tinyagents::convert::spec_to_schema(&tool.spec()))
+        .map(|tool| {
+            let spec = tool.spec();
+            ToolSchema::new(spec.name, spec.description, spec.parameters)
+        })
 }
 
 /// Whether a tool's JSON-schema `parameters` declares any `required` field.

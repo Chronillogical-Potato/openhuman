@@ -21,8 +21,6 @@
 
 pub(crate) mod abort_guard;
 pub mod config;
-pub(crate) mod convert;
-
 mod embeddings;
 mod harness_assembly;
 mod harness_context_ladder;

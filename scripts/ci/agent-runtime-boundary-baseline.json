@@ -43,20 +43,6 @@
   },
   {
     "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/convert_tests.rs",
-    "line": 10,
-    "text": "let schema = spec_to_schema(&spec);",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/convert.rs",
-    "line": 11,
-    "text": "pub(crate) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/harness_assembly.rs",
     "line": 111,
     "text": "pub(super) fn assemble_turn_harness(",
@@ -64,15 +50,8 @@
   },
   {
     "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/tinyagents/middleware/arg_recovery.rs",
-    "line": 123,
-    "text": ".map(|tool| crate::agent::tinyagents::convert::spec_to_schema(&tool.spec()))",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 83,
+    "line": 81,
     "text": "pub(crate) use turn_runner::run_turn_via_tinyagents_shared;",
     "occurrence": 1
   },
@@ -95,20 +74,6 @@
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
     "line": 257,
     "text": "} = assemble_turn_harness(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/mcp/server/tools/dispatch.rs",
-    "line": 4,
-    "text": "use crate::agent::tinyagents::convert::spec_to_schema;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/mcp/server/tools/dispatch.rs",
-    "line": 242,
-    "text": ".map(|spec| spec_to_schema(spec))",
     "occurrence": 1
   },
   {
@@ -954,7 +919,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/mcp/server/tools/dispatch.rs",
-    "line": 385,
+    "line": 391,
     "text": "crate::agent::turn_origin::with_origin(origin, agent.run_single(&prompt)),",
     "occurrence": 1
   },
