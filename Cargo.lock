@@ -4241,28 +4241,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "openhuman-session"
-version = "0.63.29"
-dependencies = [
- "async-trait",
- "axum",
- "chrono",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tinyhumans-sdk",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "openhuman-tinyhumans"
 version = "0.63.29"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
+ "chrono",
  "log",
  "openhuman",
  "openhuman-embed",
@@ -4273,6 +4258,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tinyhumans-sdk",
  "tokio",
+ "url",
  "wiremock",
 ]
 
@@ -4289,7 +4275,7 @@ dependencies = [
  "log",
  "openhuman",
  "openhuman-rpc",
- "openhuman-session",
+ "openhuman-tinyhumans",
  "ratatui",
  "sentry",
  "serde_json",
