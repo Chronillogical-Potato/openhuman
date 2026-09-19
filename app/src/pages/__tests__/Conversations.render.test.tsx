@@ -57,8 +57,6 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
     refresh: vi.fn(),
   })),
 }));
-const mockUseOpenRouterFreeModels = vi.hoisted(() => vi.fn());
-
 // ── Module mocks ───────────────────────────────────────────────────────────
 
 vi.mock('../../services/chatService', () => ({
