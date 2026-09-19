@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use openhuman_embed::{
-    Access, ApiKey, Config, DomainSet, HostKind, Provider, Runtime, ServiceSet, Session,
+    Access, ApiKey, DomainSet, HostKind, Provider, Runtime, RuntimeConfig, ServiceSet, Session,
     ToolGroups, Workspace,
 };
 
@@ -113,7 +113,7 @@ impl RuntimeBuilder {
     }
 
     /// See [`openhuman_embed::RuntimeBuilder::config`].
-    pub fn config(mut self, config: Config) -> Self {
+    pub fn config(mut self, config: RuntimeConfig) -> Self {
         self.inner = self.inner.config(config);
         self
     }
