@@ -456,7 +456,7 @@ impl ExtractFromResultTool {
         let call_seq = self.next_call_seq();
         let provider_result = self
             .source
-            .build_summarizer(&self.model, EXTRACT_TEMPERATURE, thread_id)
+            .build_summarizer(&self.model, EXTRACT_TEMPERATURE, thread_id)?
             .invoke(
                 &(),
                 ModelRequest::new(vec![

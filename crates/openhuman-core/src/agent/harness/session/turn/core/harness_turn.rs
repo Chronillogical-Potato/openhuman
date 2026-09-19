@@ -526,7 +526,7 @@ impl Agent {
         // Charge this turn's usage against the thread's active goal (parity with
         // the legacy engine) so budgeted goals progress to `budget_limited` and
         // continuation scheduling reads a live budget. Self-guarding + best-effort
-        // — a no-op when there is no active goal for the ambient thread.
+        // — a no-op when this run has no active explicit thread goal.
         crate::agent::goals::runtime::account_turn_against_goal(
             &self.workspace_dir,
             self.thread_id(),

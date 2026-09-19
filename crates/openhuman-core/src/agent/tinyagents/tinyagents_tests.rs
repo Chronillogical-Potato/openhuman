@@ -50,7 +50,7 @@ fn crate_native_text_mode_disables_native_tools_on_workload_fallbacks() {
 
     let models = TurnModelSource::new_crate_native("chat", Arc::new(config))
         .with_text_mode()
-        .build("chat-v1", 0.0, Some(32_000))
+        .build("chat-v1", 0.0, Some(32_000), None)
         .expect("text-mode turn models build");
 
     assert!(
@@ -78,7 +78,7 @@ fn direct_model_turn_source_builds_without_provider_adapter() {
     assert!(source.direct_model.is_some());
 
     let models = source
-        .build("mock-model", 0.0, Some(32_000))
+        .build("mock-model", 0.0, Some(32_000), None)
         .expect("direct model source builds");
     assert_eq!(models.provider_id(), "injected");
     assert_eq!(models.context_window(), Some(32_000));

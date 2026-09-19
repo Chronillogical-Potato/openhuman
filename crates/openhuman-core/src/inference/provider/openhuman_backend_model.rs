@@ -456,10 +456,8 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
     response
 }
 
-/// Inject the current run's thread into provider options. Root entrypoints that
-/// have not yet migrated to the explicit run carrier still establish this
-/// scope; the shared-runner cutover preserves that boundary until those routes
-/// pass `OpenHumanRunContext.thread_id` end-to-end.
+/// Inject this managed model's explicitly owned thread into provider options.
+/// This backend-only wire extension is never inferred from ambient state.
 fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {
     let Some(thread_id) = thread_id else {
         return request;
