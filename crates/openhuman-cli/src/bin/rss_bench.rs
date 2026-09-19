@@ -26,6 +26,7 @@
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use openhuman_core::agent::harness::AgentDefinitionRegistry;
 use openhuman_core::agent::Agent;
 use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use openhuman_core::platform::proc_metrics::{
@@ -160,9 +161,14 @@ struct Roster {
 /// Build `n` bare agents, each with its own temp workspace, mock model,
 /// `"none"` memory backend, and a single host-supplied tool.
 fn build_roster(n: usize) -> Result<Roster> {
+    // Hosted turns require the process-level definition authority even when
+    // this fixture supplies its own model, memory, and tools. Built-ins keep
+    // the benchmark hermetic: no workspace scan or network access occurs.
+    AgentDefinitionRegistry::init_global_builtins()
+        .context("initialize built-in agent definitions for benchmark roster")?;
     let mut agents = Vec::with_capacity(n);
     let mut workspaces = Vec::with_capacity(n);
-    for i in 0..n {
+    for _ in 0..n {
         let workspace = TempDir::new().context("create temp workspace")?;
         let path = workspace.path().to_path_buf();
 
@@ -174,7 +180,10 @@ fn build_roster(n: usize) -> Result<Roster> {
             .memory(memory)
             .tool_dispatcher(Box::new(NativeDialect))
             .model_name("bench-mock".into())
-            .agent_definition_name(format!("bench-{i}"))
+            // Hosted execution resolves a stable definition id from the
+            // process registry. The roster index belongs in its isolated
+            // workspace, not the authority id.
+            .agent_definition_name("orchestrator".to_string())
             .workspace_dir(path.clone())
             .action_dir(path)
             .auto_save(false)

@@ -54,6 +54,7 @@ mod steer_subagent;
 #[cfg(test)]
 #[path = "tools/tools_e2e_tests.rs"]
 mod tools_e2e_tests;
+mod use_skill_dispatch;
 #[path = "tools/wait.rs"]
 mod wait;
 #[path = "tools/wait_subagent.rs"]
@@ -61,7 +62,8 @@ mod wait_subagent;
 #[path = "tools/worker_thread.rs"]
 mod worker_thread;
 
-pub(crate) use dispatch::{dispatch_subagent, DelegationDispatch, UseSkillDispatch};
+pub(crate) use dispatch::{dispatch_subagent, DelegationDispatch};
+pub(crate) use use_skill_dispatch::UseSkillDispatch;
 
 pub(crate) use agent_prepare_context::AgentPrepareContextDispatch;
 pub use agent_prepare_context::{
