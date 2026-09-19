@@ -7,6 +7,11 @@
 use super::*;
 use std::path::Path;
 use std::process::Command;
+use tinyagents_harness::workspace::{
+    create_git_worktree, detect_worktree_overlaps, git_worktree_diff_summary, git_worktree_status,
+    list_git_worktrees, remove_git_worktree, GitWorktreeBaseRef, GitWorktreeError,
+    GitWorktreeStatus,
+};
 
 /// `true` when `git` is invokable on this host.
 fn git_available() -> bool {
@@ -51,8 +56,8 @@ fn validate_repo_root_rejects_non_repo() {
         return;
     }
     let tmp = tempfile::tempdir().unwrap();
-    let err = create(tmp.path(), "run-1", BaseRef::Head).unwrap_err();
-    assert!(matches!(err, WorktreeError::NotAGitRepo(_)));
+    let err = create_git_worktree(tmp.path(), "run-1", GitWorktreeBaseRef::Head).unwrap_err();
+    assert!(matches!(err, GitWorktreeError::NotAGitRepo(_)));
 }
 
 #[test]
@@ -61,7 +66,7 @@ fn create_then_status_reports_clean_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-1", BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-1", GitWorktreeBaseRef::Head).expect("create");
     assert!(st.path.exists(), "worktree dir should exist");
     assert_eq!(st.branch.as_deref(), Some("worker/run-1"));
     assert!(!st.is_dirty, "fresh worktree is clean");
@@ -79,9 +84,9 @@ fn list_includes_created_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    create(&root, "run-a", BaseRef::Head).expect("create a");
-    create(&root, "run-b", BaseRef::Fresh).expect("create b");
-    let all = list(&root).expect("list");
+    create_git_worktree(&root, "run-a", GitWorktreeBaseRef::Head).expect("create a");
+    create_git_worktree(&root, "run-b", GitWorktreeBaseRef::Fresh).expect("create b");
+    let all = list_git_worktrees(&root).expect("list");
     // main worktree + the two we created
     assert!(all.len() >= 3, "expected >=3 worktrees, got {}", all.len());
     let branches: Vec<_> = all.iter().filter_map(|w| w.branch.clone()).collect();
@@ -95,12 +100,12 @@ fn status_detects_dirty_changes() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-dirty", BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-dirty", GitWorktreeBaseRef::Head).expect("create");
     // Touch a tracked file + add an untracked one.
     std::fs::write(st.path.join("README.md"), "changed\n").unwrap();
     std::fs::write(st.path.join("new.txt"), "fresh\n").unwrap();
 
-    let st2 = status(&root, &st.path).expect("status");
+    let st2 = git_worktree_status(&root, &st.path).expect("status");
     assert!(st2.is_dirty, "worktree with edits must be dirty");
     let names: Vec<String> = st2
         .changed_files
@@ -117,11 +122,11 @@ fn diff_summary_lists_tracked_and_untracked() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-diff", BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-diff", GitWorktreeBaseRef::Head).expect("create");
     std::fs::write(st.path.join("README.md"), "changed body\n").unwrap();
     std::fs::write(st.path.join("brand_new.txt"), "x\n").unwrap();
 
-    let summary = diff_summary(&root, &st.path).expect("diff");
+    let summary = git_worktree_diff_summary(&root, &st.path).expect("diff");
     assert!(
         summary.contains("README.md"),
         "diff should mention tracked change: {summary}"
@@ -138,11 +143,11 @@ fn remove_refuses_dirty_without_force() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-keep", BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-keep", GitWorktreeBaseRef::Head).expect("create");
     std::fs::write(st.path.join("README.md"), "dirty\n").unwrap();
 
-    let err = remove(&root, &st.path, false).expect_err("must refuse dirty");
-    assert!(matches!(err, WorktreeError::DirtyRefused(_)));
+    let err = remove_git_worktree(&root, &st.path, false).expect_err("must refuse dirty");
+    assert!(matches!(err, GitWorktreeError::DirtyRefused(_)));
     assert!(st.path.exists(), "dirty worktree must NOT be deleted");
 }
 
@@ -152,10 +157,10 @@ fn remove_force_deletes_dirty_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-force", BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-force", GitWorktreeBaseRef::Head).expect("create");
     std::fs::write(st.path.join("README.md"), "dirty\n").unwrap();
 
-    remove(&root, &st.path, true).expect("force remove");
+    remove_git_worktree(&root, &st.path, true).expect("force remove");
     assert!(!st.path.exists(), "force remove deletes the worktree dir");
 }
 
@@ -165,19 +170,34 @@ fn remove_clean_worktree_succeeds() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = create(&root, "run-clean", BaseRef::Head).expect("create");
-    remove(&root, &st.path, false).expect("clean remove");
+    let st = create_git_worktree(&root, "run-clean", GitWorktreeBaseRef::Head).expect("create");
+    remove_git_worktree(&root, &st.path, false).expect("clean remove");
     assert!(!st.path.exists(), "clean worktree removed without force");
 }
 
 #[test]
 fn base_ref_parse_defaults_to_head() {
-    assert_eq!(BaseRef::parse(None), BaseRef::Head);
-    assert_eq!(BaseRef::parse(Some("head")), BaseRef::Head);
-    assert_eq!(BaseRef::parse(Some("HEAD")), BaseRef::Head);
-    assert_eq!(BaseRef::parse(Some("fresh")), BaseRef::Fresh);
-    assert_eq!(BaseRef::parse(Some(" Fresh ")), BaseRef::Fresh);
-    assert_eq!(BaseRef::parse(Some("garbage")), BaseRef::Head);
+    assert_eq!(GitWorktreeBaseRef::parse(None), GitWorktreeBaseRef::Head);
+    assert_eq!(
+        GitWorktreeBaseRef::parse(Some("head")),
+        GitWorktreeBaseRef::Head
+    );
+    assert_eq!(
+        GitWorktreeBaseRef::parse(Some("HEAD")),
+        GitWorktreeBaseRef::Head
+    );
+    assert_eq!(
+        GitWorktreeBaseRef::parse(Some("fresh")),
+        GitWorktreeBaseRef::Fresh
+    );
+    assert_eq!(
+        GitWorktreeBaseRef::parse(Some(" Fresh ")),
+        GitWorktreeBaseRef::Fresh
+    );
+    assert_eq!(
+        GitWorktreeBaseRef::parse(Some("garbage")),
+        GitWorktreeBaseRef::Head
+    );
 }
 
 // `sanitize_run_id` is TinyAgents-internal now; the identical assertions live
@@ -198,7 +218,7 @@ fn detect_overlaps_flags_shared_files() {
         ),
         ("w3".to_string(), vec![PathBuf::from("src/c.rs")]),
     ];
-    let overlaps = detect_overlaps(&per_worker);
+    let overlaps = detect_worktree_overlaps(&per_worker);
     // b.rs touched by w1+w2; c.rs touched by w2+w3; a.rs only w1 (no overlap).
     assert_eq!(overlaps.len(), 2);
     assert_eq!(
@@ -218,7 +238,7 @@ fn detect_overlaps_empty_when_disjoint() {
         ("w1".to_string(), vec![PathBuf::from("a.rs")]),
         ("w2".to_string(), vec![PathBuf::from("b.rs")]),
     ];
-    assert!(detect_overlaps(&per_worker).is_empty());
+    assert!(detect_worktree_overlaps(&per_worker).is_empty());
 }
 
 #[test]
@@ -228,10 +248,10 @@ fn detect_overlaps_ignores_intra_worker_duplicates() {
         "w1".to_string(),
         vec![PathBuf::from("a.rs"), PathBuf::from("a.rs")],
     )];
-    assert!(detect_overlaps(&per_worker).is_empty());
+    assert!(detect_worktree_overlaps(&per_worker).is_empty());
 }
 
-/// Pins the JSON-RPC wire shape of [`WorktreeStatus`].
+/// Pins the JSON-RPC wire shape of [`GitWorktreeStatus`].
 ///
 /// `worktree_schemas.rs` serializes this type straight to the desktop UI, so a
 /// renamed or dropped field surfaces as an empty worktree panel rather than a
@@ -240,7 +260,7 @@ fn detect_overlaps_ignores_intra_worker_duplicates() {
 /// silently changing the contract.
 #[test]
 fn worktree_status_serializes_with_stable_camel_case_keys() {
-    let status = WorktreeStatus {
+    let status = GitWorktreeStatus {
         path: std::path::PathBuf::from("/tmp/repo/.claude/worktrees/run-1"),
         branch: Some("agent/run-1".to_string()),
         is_dirty: true,
@@ -250,7 +270,7 @@ fn worktree_status_serializes_with_stable_camel_case_keys() {
         ],
     };
 
-    let value = serde_json::to_value(&status).expect("WorktreeStatus serializes");
+    let value = serde_json::to_value(&status).expect("GitWorktreeStatus serializes");
     let object = value.as_object().expect("serializes to a JSON object");
 
     let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
@@ -270,7 +290,7 @@ fn worktree_status_serializes_with_stable_camel_case_keys() {
     );
 
     // A detached worktree serializes `branch` as null, not as an omitted key.
-    let detached = WorktreeStatus {
+    let detached = GitWorktreeStatus {
         branch: None,
         ..status
     };

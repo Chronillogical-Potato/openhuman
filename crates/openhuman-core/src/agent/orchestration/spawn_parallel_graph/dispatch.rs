@@ -14,12 +14,13 @@ use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::worktree;
 use crate::agent::progress::AgentProgress;
 
-use super::request::ParallelAgentTask;
 use super::staging::{
     prepare_spawn_parallel_tasks_from_defs, worktree_request_for_task, ParallelTaskRejectionKind,
     ParallelWorktreeRequest, SpawnParallelTaskPreflight, WorkerDispatchMode,
 };
-use super::types::{ParallelAgentLineage, ParallelAgentResult, SpawnParallelWorker};
+use super::types::{
+    ParallelAgentLineage, ParallelAgentResult, ParallelAgentTask, SpawnParallelWorker,
+};
 
 pub(crate) fn spawn_parallel_lineage(
     parent_session: &str,

@@ -148,8 +148,7 @@ async fn run_one_parallel_task(
         .map(|p| p.to_string_lossy().to_string());
     let (changed_files, dirty_status) = match (&worktree_path, &repo_root) {
         (Some(wt), Some(root)) => {
-            use crate::agent::orchestration::worktree;
-            match worktree::status(root, wt) {
+            match tinyagents_harness::workspace::git_worktree_status(root, wt) {
                 Ok(st) => {
                     tracing::debug!(
                         task_id = %task_id,

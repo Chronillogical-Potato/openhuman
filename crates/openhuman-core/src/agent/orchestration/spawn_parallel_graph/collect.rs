@@ -10,7 +10,6 @@ use tokio::sync::mpsc::Sender;
 use crate::agent::file_state;
 use crate::agent::progress::AgentProgress;
 
-use super::request::SpawnParallelTaskValidationError;
 use super::types::ParallelAgentResult;
 
 #[derive(Clone)]
@@ -22,7 +21,6 @@ pub(crate) struct SpawnParallelCollected {
 
 pub(crate) enum SpawnParallelGraphOutcome {
     Collected(SpawnParallelCollected),
-    InvalidRequest(SpawnParallelTaskValidationError),
     Rejected(String),
     Cancelled(String),
 }
@@ -201,7 +199,7 @@ fn overlap_warnings_for_results(
             )
         })
         .collect();
-    let overlaps = crate::agent::orchestration::worktree::detect_overlaps(&per_worker);
+    let overlaps = tinyagents_harness::workspace::detect_worktree_overlaps(&per_worker);
     let overlap_warnings: Vec<serde_json::Value> = overlaps
         .iter()
         .map(|(file, workers)| {

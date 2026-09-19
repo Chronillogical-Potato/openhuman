@@ -61,14 +61,8 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("agent:researcher", &t));
     }
 
-    if let Ok(t) =
-        crate::agent::orchestration::spawn_parallel_graph::spawn_parallel_graph_topology()
-    {
-        out.push(describe("spawn_parallel_graph", &t));
-    }
-
-    // Not exported: generic item-count-driven `map_reduce` fan-outs whose node
-    // set is determined per run rather than by a fixed named topology.
+    // Not exported: item-count-driven `map_reduce` fan-outs whose node set is
+    // determined per run rather than by a fixed named topology.
 
     out
 }
