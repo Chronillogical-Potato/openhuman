@@ -43,6 +43,8 @@ mod worker_mirror;
 // Re-exported under the original flat `graph::` path so external callers
 // (`ops/mod.rs`, `ops/runner.rs`, `graph_tests.rs`'s `use super::*`) are
 // unaffected by the responsibility split.
+#[cfg(test)]
+pub(super) use dispatch::inherited_thread_id;
 pub(crate) use dispatch::run_agent_turn_request_via_default_graph;
 pub(super) use dispatch::{run_subagent_via_graph, AggregatedUsage};
 

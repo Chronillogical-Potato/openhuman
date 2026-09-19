@@ -270,7 +270,10 @@ pub(in super::super) async fn run_subagent_via_graph(
     // workspace grants, and dispatch state follow the child while its route and
     // subagent-usage slots remain isolated.
     let mut child_context = run_context.child();
-    child_context.thread_id = thread_id.clone();
+    // A parallel task may omit `thread_id`; that means inherit the parent
+    // conversation, not erase it. Only an explicit task thread may replace
+    // the typed carrier's inherited affinity.
+    child_context.thread_id = inherited_thread_id(child_context.thread_id, thread_id.clone());
     child_context.progress = on_progress.clone().or(child_context.progress);
     child_context.workspace = workspace_descriptor.clone().or(child_context.workspace);
     let run_result = Box::pin(run_turn_via_tinyagents_shared(
@@ -572,6 +575,15 @@ pub(in super::super) async fn run_subagent_via_graph(
         // #4466: propagate a circuit-breaker halt so the runner reports Incomplete.
         outcome.breaker_halt,
     ))
+}
+
+/// A task-specific thread explicitly routes a worker; an absent task thread
+/// leaves the parent run's transcript affinity intact.
+pub(crate) fn inherited_thread_id(
+    parent_thread_id: Option<String>,
+    task_thread_id: Option<String>,
+) -> Option<String> {
+    task_thread_id.or(parent_thread_id)
 }
 
 /// Build the sub-agent turn's [`TurnContextMiddleware`] from the live

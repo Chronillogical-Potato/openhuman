@@ -71,7 +71,15 @@ use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult
 /// delegation section and the tests cannot disagree about it.
 pub const DELEGATE_TO_TOOL_NAME: &str = "delegate_to";
 
+/// JSON-Schema extension that carries the exact selector-to-agent mapping the
+/// collapsed tool was built with. The harness registers tools behind `dyn
+/// Tool`, so this keeps the concrete tool's routing table alongside its
+/// advertised enum without a downcast or a later lookup against every global
+/// definition.
+pub(crate) const DISPATCH_TARGETS_SCHEMA_KEY: &str = "x-openhuman-delegation-targets";
+
 /// One routable sub-agent.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DelegateTarget {
     /// The name this target had when it was its own tool, and the value the
     /// `agent` enum takes. Keeping the old name as the enum value is what lets
@@ -116,6 +124,20 @@ impl CollapsedDelegationTool {
 
     fn agent_enum(&self) -> Vec<&str> {
         self.targets.iter().map(|t| t.tool_name.as_str()).collect()
+    }
+
+    fn dispatch_targets_schema(&self) -> Value {
+        Value::Array(
+            self.targets
+                .iter()
+                .map(|target| {
+                    json!({
+                        "tool_name": target.tool_name,
+                        "agent_id": target.agent_id,
+                    })
+                })
+                .collect(),
+        )
     }
 
     /// The routable names, for the prompt renderer and the tests.
@@ -183,6 +205,7 @@ impl Tool for CollapsedDelegationTool {
                 }
             }
         });
+        schema[DISPATCH_TARGETS_SCHEMA_KEY] = self.dispatch_targets_schema();
         let properties = schema["properties"]
             .as_object_mut()
             .expect("properties is an object literal above");
@@ -237,6 +260,72 @@ impl Tool for CollapsedDelegationTool {
         )
         .await
     }
+}
+
+/// Recover the concrete collapsed target table retained in the advertised
+/// schema for typed harness registration. Reject malformed metadata instead
+/// of widening the route to every entry in the process-wide definition
+/// registry.
+pub(crate) fn dispatch_targets_from_schema(schema: &Value) -> Result<Vec<DelegateTarget>, String> {
+    let enum_names = schema
+        .pointer("/properties/agent/enum")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "delegate_to schema is missing `properties.agent.enum`".to_string())?;
+    let enum_names: Vec<&str> = enum_names
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|name| !name.trim().is_empty())
+                .ok_or_else(|| "delegate_to agent enum contains a non-string value".to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    let encoded_targets = schema
+        .get(DISPATCH_TARGETS_SCHEMA_KEY)
+        .and_then(Value::as_array)
+        .ok_or_else(|| "delegate_to schema is missing its target mapping".to_string())?;
+    let targets: Vec<DelegateTarget> = encoded_targets
+        .iter()
+        .map(|value| {
+            let object = value
+                .as_object()
+                .ok_or_else(|| "delegate_to target mapping entry is not an object".to_string())?;
+            let required = |key: &str| {
+                object
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .map(str::to_owned)
+                    .ok_or_else(|| format!("delegate_to target mapping is missing `{key}`"))
+            };
+            Ok(DelegateTarget {
+                tool_name: required("tool_name")?,
+                agent_id: required("agent_id")?,
+                // Descriptions are prompt-only routing guidance. The typed
+                // dispatch needs the exact selector-to-agent mapping, not a
+                // second copy of model-visible prose.
+                description: String::new(),
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    if targets.len() != enum_names.len()
+        || targets
+            .iter()
+            .map(|target| target.tool_name.as_str())
+            .ne(enum_names.iter().copied())
+        || targets.iter().any(|target| {
+            targets
+                .iter()
+                .filter(|candidate| candidate.tool_name == target.tool_name)
+                .count()
+                != 1
+        })
+    {
+        return Err(
+            "delegate_to target mapping does not exactly match its advertised agent enum".into(),
+        );
+    }
+    Ok(targets)
 }
 
 /// Execute a collapsed hand-off with an explicit child run carrier.

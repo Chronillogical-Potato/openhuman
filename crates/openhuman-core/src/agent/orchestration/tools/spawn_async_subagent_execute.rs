@@ -105,6 +105,7 @@ impl SpawnAsyncSubagentTool {
         let progress_sink = parent.on_progress.clone();
         let parent_thread_id = tool_context
             .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
             .map(str::to_owned);
 
         // Async delivery is thread-addressed: the finished result is inserted
@@ -140,7 +141,9 @@ impl SpawnAsyncSubagentTool {
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let workspace_descriptor = tool_context
+            .and_then(|ctx| ctx.workspace().cloned())
+            .or_else(|| run_context.workspace.clone());
         let effective_action_root = workspace_descriptor
             .as_ref()
             .map(|workspace| {

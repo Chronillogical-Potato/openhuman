@@ -48,6 +48,20 @@ fn the_schema_advertises_every_target() {
 }
 
 #[test]
+fn dispatch_target_mapping_matches_the_advertised_enum_and_agent_ids() {
+    let tool = tool();
+    let targets = dispatch_targets_from_schema(&tool.parameters_schema())
+        .expect("concrete collapsed tool publishes a dispatch map");
+    assert_eq!(
+        targets
+            .iter()
+            .map(|target| (target.tool_name.as_str(), target.agent_id.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("research", "researcher"), ("review_code", "code_reviewer")]
+    );
+}
+
+#[test]
 fn the_schema_carries_the_whole_delegation_envelope() {
     // The collapse must not quietly drop a field the members accepted:
     // `render_structured_handoff` reads these exact names, so a missing

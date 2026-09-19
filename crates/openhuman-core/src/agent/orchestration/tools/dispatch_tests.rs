@@ -3,6 +3,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tinytools::Tool;
 
+use super::super::collapsed_delegation::{
+    dispatch_targets_from_schema, CollapsedDelegationTool, DelegateTarget,
+};
 use crate::agent::tools::AskClarificationTool;
 
 struct DelegationRegistrationTool {
@@ -31,6 +34,14 @@ impl Tool for DelegationRegistrationTool {
 
 #[test]
 fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
+    let collapsed: Arc<dyn Tool> = Arc::new(
+        CollapsedDelegationTool::for_targets(vec![DelegateTarget {
+            tool_name: "research".to_string(),
+            agent_id: "researcher".to_string(),
+            description: "Research the request.".to_string(),
+        }])
+        .expect("one collapsed target is routable"),
+    );
     let integration = Arc::new(DelegationRegistrationTool {
         name: "delegate_to_integrations_agent",
         parameters: serde_json::json!({
@@ -38,10 +49,7 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
         }),
     });
     for tool in [
-        Arc::new(DelegationRegistrationTool {
-            name: "delegate_to",
-            parameters: serde_json::json!({}),
-        }) as Arc<dyn Tool>,
+        collapsed,
         Arc::new(DelegationRegistrationTool {
             name: "delegate_researcher",
             parameters: serde_json::json!({}),
@@ -53,6 +61,45 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
             "every synthesised delegation name must select the typed dispatch"
         );
     }
+}
+
+#[test]
+fn collapsed_dispatch_mapping_has_exact_advertised_vocabulary_and_rejects_drift() {
+    let tool = CollapsedDelegationTool::for_targets(vec![
+        DelegateTarget {
+            tool_name: "research".to_string(),
+            agent_id: "researcher".to_string(),
+            description: "Research the request.".to_string(),
+        },
+        DelegateTarget {
+            tool_name: "review".to_string(),
+            agent_id: "code_reviewer".to_string(),
+            description: "Review code.".to_string(),
+        },
+    ])
+    .expect("targets are routable");
+    let mut schema = tool.parameters_schema();
+    let targets = dispatch_targets_from_schema(&schema).expect("collapsed dispatch target mapping");
+    assert_eq!(
+        targets,
+        vec![
+            DelegateTarget {
+                tool_name: "research".to_string(),
+                agent_id: "researcher".to_string(),
+                description: String::new(),
+            },
+            DelegateTarget {
+                tool_name: "review".to_string(),
+                agent_id: "code_reviewer".to_string(),
+                description: String::new(),
+            },
+        ]
+    );
+
+    schema["properties"]["agent"]["enum"] = serde_json::json!(["research", "unadvertised"]);
+    let error = dispatch_targets_from_schema(&schema)
+        .expect_err("a selector absent from the concrete target map must be rejected");
+    assert!(error.contains("exactly match"), "{error}");
 }
 
 #[test]

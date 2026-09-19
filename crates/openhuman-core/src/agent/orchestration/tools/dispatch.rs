@@ -22,15 +22,25 @@ pub(crate) struct DelegationDispatch {
 }
 
 enum DelegationDispatchKind {
-    Collapsed,
-    Integrations { connected_toolkits: Vec<String> },
+    Collapsed {
+        targets: Result<Vec<super::collapsed_delegation::DelegateTarget>, String>,
+    },
+    Integrations {
+        connected_toolkits: Vec<String>,
+    },
     Archetype,
 }
 
 impl DelegationDispatch {
     pub(crate) fn for_tool(tool: Arc<dyn tinytools::Tool>) -> Option<Self> {
         let kind = match tool.name() {
-            super::collapsed_delegation::DELEGATE_TO_TOOL_NAME => DelegationDispatchKind::Collapsed,
+            super::collapsed_delegation::DELEGATE_TO_TOOL_NAME => {
+                DelegationDispatchKind::Collapsed {
+                    targets: super::collapsed_delegation::dispatch_targets_from_schema(
+                        &tool.parameters_schema(),
+                    ),
+                }
+            }
             super::skill_delegation::INTEGRATIONS_DELEGATE_TOOL_NAME => {
                 let connected_toolkits = tool
                     .parameters_schema()
@@ -65,26 +75,17 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
         let tool_context = ToolExecutionContext::from_run_context(parent);
         let child = parent.data.child();
         match &self.kind {
-            DelegationDispatchKind::Collapsed => {
-                let targets: Vec<super::collapsed_delegation::DelegateTarget> =
-                    AgentDefinitionRegistry::global()
-                        .map(|registry| {
-                            registry
-                                .list()
-                                .into_iter()
-                                .map(|definition| super::collapsed_delegation::DelegateTarget {
-                                    tool_name: definition
-                                        .delegate_name
-                                        .clone()
-                                        .unwrap_or_else(|| format!("delegate_{}", definition.id)),
-                                    agent_id: definition.id.clone(),
-                                    description: definition.when_to_use.clone(),
-                                })
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_default();
+            DelegationDispatchKind::Collapsed { targets } => {
+                let targets = match targets {
+                    Ok(targets) => targets,
+                    Err(reason) => {
+                        return Ok(ToolResult::error(format!(
+                            "delegate_to: invalid advertised target mapping: {reason}"
+                        )));
+                    }
+                };
                 super::collapsed_delegation::execute_collapsed_delegation(
-                    &targets,
+                    targets,
                     arguments,
                     Some(&tool_context),
                     child,

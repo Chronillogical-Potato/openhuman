@@ -85,6 +85,7 @@ impl ContinueSubagentTool {
         agent_id: &str,
         message: &str,
         tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
         use crate::agent::orchestration::subagent_sessions::{self, SubagentSessionStore};
 
@@ -151,7 +152,7 @@ impl ContinueSubagentTool {
             );
         }
         super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-            .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+            .execute_with_parent_context(async_args, tool_context, run_context)
             .await
     }
 }
@@ -313,7 +314,14 @@ impl ContinueSubagentTool {
                 // workflow_builder ("looks good, save it") instead of
                 // re-delegating a fresh, stateless one.
                 return self
-                    .resume_from_durable_store(&parent, &task_id, &agent_id, &message, tool_context)
+                    .resume_from_durable_store(
+                        &parent,
+                        &task_id,
+                        &agent_id,
+                        &message,
+                        tool_context,
+                        run_context,
+                    )
                     .await;
             }
         };
@@ -400,7 +408,9 @@ impl ContinueSubagentTool {
         }
 
         // Build options with initial_history for replay
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let workspace_descriptor = tool_context
+            .and_then(|ctx| ctx.workspace().cloned())
+            .or_else(|| run_context.workspace.clone());
         let worktree_action_dir = workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
@@ -421,6 +431,7 @@ impl ContinueSubagentTool {
             task_id: Some(task_id.clone()),
             thread_id: tool_context
                 .and_then(ToolRunContext::thread_id)
+                .or(run_context.thread_id.as_deref())
                 .map(str::to_owned),
             run_context,
             worker_thread_id: checkpoint.worker_thread_id.clone(),

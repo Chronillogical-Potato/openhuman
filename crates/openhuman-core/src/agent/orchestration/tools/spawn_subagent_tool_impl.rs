@@ -392,6 +392,7 @@ impl SpawnSubagentTool {
         // `dispatch.rs::dispatch_subagent`.
         let parent_thread_id = tool_context
             .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
             .map(str::to_owned);
         let has_delivery_thread = parent_thread_id.is_some();
         if !blocking && !has_delivery_thread {
@@ -422,7 +423,7 @@ impl SpawnSubagentTool {
                 "[spawn_subagent] routing to reusable async sub-agent by default"
             );
             return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+                .execute_with_parent_context(async_args, tool_context, run_context)
                 .await;
         }
 

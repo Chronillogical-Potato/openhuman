@@ -81,6 +81,21 @@ impl ChatModel<()> for TwoStepProvider {
 #[path = "graph_failed_run_tests.rs"]
 mod graph_failed_run_tests;
 
+#[test]
+fn parallel_worker_without_thread_keeps_parent_transcript_affinity() {
+    assert_eq!(
+        inherited_thread_id(Some("parent-thread".to_string()), None),
+        Some("parent-thread".to_string())
+    );
+    assert_eq!(
+        inherited_thread_id(
+            Some("parent-thread".to_string()),
+            Some("task-thread".to_string())
+        ),
+        Some("task-thread".to_string())
+    );
+}
+
 #[tokio::test]
 async fn subagent_runs_through_the_graph_engine_with_real_tools() {
     let provider = Arc::new(TwoStepProvider {

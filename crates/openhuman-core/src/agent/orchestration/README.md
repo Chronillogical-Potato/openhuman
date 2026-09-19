@@ -126,7 +126,13 @@ name:
 `dispatch.rs` (`dispatch_subagent`, the shared spawn path every tool above
 calls), `awaiting_user.rs` (the awaiting-user envelope), and
 `worker_thread.rs` (worker thread creation) are `pub(crate)` helpers, not
-tools. Execution itself routes through `agent::harness::run_subagent`.
+tools. Live harness registrations use typed `ToolDispatch<(),
+OpenHumanRunContext>` wrappers and fork the parent carrier for every child,
+so cancellation, origin, progress, dispatch state, thread, and workspace stay
+attached. `delegate_to` retains its concrete enum-to-agent routing table in
+its schema metadata at registration; it never broadens a call by rebuilding
+targets from the global agent registry. Execution itself routes through
+`agent::harness::run_subagent`.
 
 ## Persistence
 
