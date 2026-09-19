@@ -69,6 +69,7 @@ pub use agent_prepare_context::{
 pub use archetype_delegation::{ArchetypeDelegationTool, DelegationTarget};
 pub use close_subagent::CloseSubagentTool;
 pub use collapsed_delegation::{CollapsedDelegationTool, DelegateTarget, DELEGATE_TO_TOOL_NAME};
+pub(crate) use continue_subagent::ContinueSubagentDispatch;
 pub use continue_subagent::ContinueSubagentTool;
 pub use delegate_graph::DelegateGraphTool;
 pub use list_subagents::ListSubagentsTool;
