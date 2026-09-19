@@ -13,10 +13,13 @@
 #
 # Usage:
 #   scripts/dep-audit/run.sh [--out <dir>] [--top <n>] [--targets <regex>]
-#                            [--keep-nested] [--no-report] [--verbose]
+#                            [--snapshot] [--keep-nested] [--no-report] [--verbose]
 #
-#   --out <dir>       Where JSON reports and REPORT.md land.
+#   --out <dir>       Where JSON reports, summary.json and REPORT.md land.
 #                     Default: target/dep-audit (gitignored).
+#   --snapshot        Also copy REPORT.md to docs/dep-audit/<YYYY-MM-DD>.md so
+#                     the run is committed and the next one can be diffed
+#                     against it.
 #   --top <n>         How many heavy direct dependencies to list per target (default 15).
 #   --targets <re>    Only analyze targets whose name matches this regex
 #                     (e.g. --targets '^(root|tinyagents)$').
@@ -37,6 +40,7 @@ OUT_DIR="$ROOT/target/dep-audit"
 TOP=15
 TARGET_RE=""
 KEEP_NESTED=0
+SNAPSHOT=0
 WRITE_REPORT=1
 VERBOSE=0
 
@@ -45,10 +49,11 @@ while [[ $# -gt 0 ]]; do
     --out) OUT_DIR="$2"; shift 2 ;;
     --top) TOP="$2"; shift 2 ;;
     --targets) TARGET_RE="$2"; shift 2 ;;
+    --snapshot) SNAPSHOT=1; shift ;;
     --keep-nested) KEEP_NESTED=1; shift ;;
     --no-report) WRITE_REPORT=0; shift ;;
     --verbose) VERBOSE=1; shift ;;
-    -h|--help) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "dep-audit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -149,8 +154,15 @@ fi
 
 if [[ $WRITE_REPORT -eq 1 ]]; then
   node "$ROOT/scripts/dep-audit/report.mjs" --reports "$OUT_DIR" --top "$TOP" \
-    --tinyanalyzer-version "$(tinyanalyzer --version)" --out "$OUT_DIR/REPORT.md"
-  echo "dep-audit: report written to $OUT_DIR/REPORT.md"
+    --tinyanalyzer-version "$(tinyanalyzer --version)" \
+    --out "$OUT_DIR/REPORT.md" --json "$OUT_DIR/summary.json"
+  echo "dep-audit: report written to $OUT_DIR/REPORT.md (machine-readable: summary.json)"
+  if [[ $SNAPSHOT -eq 1 ]]; then
+    snap="$ROOT/docs/dep-audit/$(date -u +%Y-%m-%d).md"
+    mkdir -p "$(dirname "$snap")"
+    cp "$OUT_DIR/REPORT.md" "$snap"
+    echo "dep-audit: snapshot saved to ${snap#"$ROOT"/}"
+  fi
 fi
 
 ((${#failed[@]} == 0))
