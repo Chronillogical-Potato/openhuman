@@ -268,6 +268,26 @@ function otherDependents(data, depName, except) {
   return [...out].sort();
 }
 
+/**
+ * The package `depName` resolves to *for* workspace package `fromName`, found
+ * through the edge list so a crate present at two versions reports the one
+ * this package actually pulls, not the first by name.
+ */
+function resolvedDependency(data, fromName, depName) {
+  const { byId } = graphIndex(data);
+  const from = data.dependencies.packages.find(
+    (p) => p.name === fromName && (p.is_workspace_member || p.is_root_package),
+  );
+  if (from) {
+    for (const e of data.dependencies.edges) {
+      if (e.from !== from.id) continue;
+      const to = byId.get(e.to);
+      if (to && to.name === depName) return to;
+    }
+  }
+  return data.dependencies.packages.find((p) => p.name === depName) ?? null;
+}
+
 function unusedFor(target, data) {
   const rows = [];
   const seen = new Set();
@@ -281,7 +301,7 @@ function unusedFor(target, data) {
     seen.add(key);
     const dir = packageDir(data, u.package);
     const evidence = textualUse(dir, u.dependency);
-    const pkg = data.dependencies.packages.find((p) => p.name === u.dependency);
+    const pkg = resolvedDependency(data, u.package, u.dependency);
     const others = otherDependents(data, u.dependency, u.package);
     rows.push({
       package: u.package,
