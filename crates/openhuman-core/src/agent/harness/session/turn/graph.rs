@@ -95,6 +95,8 @@ pub(crate) struct ChatTurnGraph {
     /// The root host carrier, built before the turn begins and retained by all
     /// synchronous descendant dispatches.
     pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    /// Durable host authority captured at session construction.
+    pub hosted_base: Option<std::sync::Arc<crate::agent::tinyagents::host::OpenHumanHostBase>>,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam

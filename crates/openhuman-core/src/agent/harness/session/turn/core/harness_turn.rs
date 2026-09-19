@@ -195,6 +195,7 @@ impl Agent {
                 .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
             thread_id: self.thread_id.clone(),
             run_context: run_context.clone(),
+            hosted_base: self.hosted_base.clone(),
         })
         .await?;
         let subagent_usage_entries = run_context.subagent_usage_entries();

@@ -326,6 +326,7 @@ impl AgentBuilder {
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
             runtime_config: None,
+            hosted_base: None,
             definition: None,
             // Default to `true` (omit) so legacy / custom agents built
             // without a definition stay lean. Opt-in agents thread their

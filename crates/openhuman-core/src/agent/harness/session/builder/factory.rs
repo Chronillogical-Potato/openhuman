@@ -1283,6 +1283,22 @@ impl Agent {
         // second resident copy of a 95-field struct with nested `Vec`s
         // (openhuman#6218).
         agent.runtime_config = Some(Arc::clone(&base_config));
+        agent.hosted_base = AgentDefinitionRegistry::global_arc().map(|definitions| {
+            Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
+                config: Arc::clone(&base_config),
+                definitions,
+                security_policy: security,
+                memory: agent.memory_arc(),
+                shared_experience_memory: agent.shared_experience_memory.clone(),
+                profile_id: agent.active_profile_id.clone(),
+                post_turn_hooks: agent.post_turn_hooks.clone(),
+            })
+        });
+        if agent.hosted_base.is_none() {
+            tracing::warn!(
+                "[tinyagents] hosted invocation base unavailable: agent definition registry was not initialized"
+            );
+        }
         agent.definition = target_def.cloned().map(Arc::new);
         agent.last_seen_integrations_hash =
             crate::integrations::composio::connected_set_hash(&agent.connected_integrations);

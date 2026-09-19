@@ -373,6 +373,9 @@ pub struct Agent {
     /// re-run `Config::load_or_init()` on the hot path just to key into
     /// the Composio cache.
     pub(super) runtime_config: Option<Arc<crate::config::Config>>,
+    /// Durable inputs for hosted TinyAgents invocations. Built once by the
+    /// production factory; per-turn tools and progress remain outside it.
+    pub(super) hosted_base: Option<Arc<crate::agent::tinyagents::host::OpenHumanHostBase>>,
     /// The definition this session was built from, when the factory had one.
     ///
     /// Read back through [`Agent::resolved_definition`] by the in-turn sites
