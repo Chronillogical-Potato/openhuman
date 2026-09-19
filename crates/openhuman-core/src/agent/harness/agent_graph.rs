@@ -58,6 +58,8 @@ pub struct AgentTurnRequest {
     pub extended_policy: bool,
     /// Explicit caller/worker thread propagated from the originating tool.
     pub thread_id: Option<String>,
+    /// Explicit host carrier inherited by the recursive child run.
+    pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     pub worker_thread_id: Option<String>,
     pub workspace_dir: PathBuf,
     pub workspace_descriptor: Option<WorkspaceDescriptor>,
