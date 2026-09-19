@@ -127,7 +127,15 @@ pub async fn run_context_scout_with_catalog(
     focus: Option<&str>,
     tool_catalog: &str,
 ) -> anyhow::Result<ToolResult> {
-    run_context_scout_with_catalog_and_workspace(question, focus, tool_catalog, None, None).await
+    run_context_scout_with_catalog_and_workspace(
+        question,
+        focus,
+        tool_catalog,
+        None,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
+    .await
 }
 
 /// The text [`log_scout_failure`] classifies: a failed run flattened into one
@@ -209,6 +217,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     tool_catalog: &str,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
     thread_id: Option<String>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
@@ -301,7 +310,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     let options = SubagentRunOptions {
         task_id: Some(task_id.clone()),
         thread_id: thread_id.clone(),
-        run_context: Default::default(),
+        run_context,
         worktree_action_dir,
         workspace_descriptor: parent_workspace_descriptor,
         ..Default::default()

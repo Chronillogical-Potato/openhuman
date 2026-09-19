@@ -217,6 +217,7 @@ impl Tool for AgentPrepareContextTool {
             tool_context
                 .and_then(ToolRunContext::thread_id)
                 .map(str::to_owned),
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         )
         .await
     }
