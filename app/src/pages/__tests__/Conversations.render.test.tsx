@@ -94,6 +94,10 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
+vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
+
+vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
+
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
@@ -830,7 +834,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       threadId: thread.id,
       message: 'hello cloud',
       model: 'hint:chat',
-      profileId: 'default',
       locale: 'en',
     });
   });
@@ -854,7 +857,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: 'play highway to hell',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });
@@ -906,7 +908,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       threadId: thread.id,
       message: 'slow backend',
       model: 'hint:chat',
-      profileId: 'default',
       locale: 'en',
     });
     // The send cleared the composer; with an empty composer mid-send the Send
@@ -1681,7 +1682,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: 'enter send',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });
@@ -1756,7 +1756,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: '안녕',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });
