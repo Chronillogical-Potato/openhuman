@@ -111,10 +111,9 @@ impl IntegrationClient {
             .build()
             .expect("failed to build integration download HTTP client");
 
-        let credential =
-            crate::security::credentials::session_support::BackendCredential::Session(
-                auth_token.clone(),
-            );
+        let credential = crate::security::credentials::session_support::BackendCredential::Session(
+            auth_token.clone(),
+        );
         Self {
             backend_url,
             auth_token,

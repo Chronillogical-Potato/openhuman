@@ -54,7 +54,10 @@ pub fn install(options: InstallOptions) -> Result<Arc<SdkBackendTransport>, Inst
     let mut guard = slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
     if let Some(identity) = options.product_identity.clone() {
-        log::debug!("[tinyhumans] install: product identity {}", identity.as_str());
+        log::debug!(
+            "[tinyhumans] install: product identity {}",
+            identity.as_str()
+        );
         set_product_identity(identity);
         // A new identity means new attribution headers; rebuild below.
         *guard = None;

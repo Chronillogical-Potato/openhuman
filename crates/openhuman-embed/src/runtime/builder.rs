@@ -286,10 +286,7 @@ impl RuntimeBuilder {
         if let Some(transport) = self.backend_transport {
             builder = builder.backend_transport(transport);
         }
-        let runtime = builder
-            .build()
-            .await
-            .map_err(RuntimeError::Build)?;
+        let runtime = builder.build().await.map_err(RuntimeError::Build)?;
         let core = Core::from_runtime(Arc::new(runtime));
 
         if let Some(session) = self.session {

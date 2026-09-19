@@ -816,8 +816,8 @@ impl BackendOAuthClient {
             // implement retry/disable logic, so skip Sentry to avoid noise.
             let is_transient_infra =
                 crate::core::observability::is_transient_http_status_code(status_code);
-            let is_budget_exhausted = status_code == 400
-                && crate::api::classify::is_budget_exhausted_message(&text);
+            let is_budget_exhausted =
+                status_code == 400 && crate::api::classify::is_budget_exhausted_message(&text);
             if is_budget_exhausted {
                 tracing::info!(
                     method = method.as_str(),

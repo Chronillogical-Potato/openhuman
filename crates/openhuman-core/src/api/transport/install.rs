@@ -68,8 +68,8 @@ pub fn clear_backend_transport() {
 /// Resolve the transport a backend call should use right now (see the module
 /// docs for the precedence).
 pub fn resolve_backend_transport() -> Result<Arc<dyn BackendTransport>, BackendTransportError> {
-    if let Some(transport) =
-        crate::core::runtime::context::CoreContext::current().and_then(|ctx| ctx.backend_transport())
+    if let Some(transport) = crate::core::runtime::context::CoreContext::current()
+        .and_then(|ctx| ctx.backend_transport())
     {
         return Ok(transport);
     }

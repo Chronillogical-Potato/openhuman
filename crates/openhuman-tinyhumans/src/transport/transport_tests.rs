@@ -104,7 +104,13 @@ async fn non_2xx_maps_to_status_with_parsed_body() {
 
     let transport = SdkBackendTransport::new().unwrap();
     let err = transport
-        .send_json(request(&server.uri(), reqwest::Method::GET, "/x", None, true))
+        .send_json(request(
+            &server.uri(),
+            reqwest::Method::GET,
+            "/x",
+            None,
+            true,
+        ))
         .await
         .unwrap_err();
     assert!(matches!(
@@ -128,7 +134,13 @@ async fn failed_envelope_on_2xx_maps_to_envelope_error() {
 
     let transport = SdkBackendTransport::new().unwrap();
     let err = transport
-        .send_json(request(&server.uri(), reqwest::Method::POST, "/y", None, true))
+        .send_json(request(
+            &server.uri(),
+            reqwest::Method::POST,
+            "/y",
+            None,
+            true,
+        ))
         .await
         .unwrap_err();
     match err {
@@ -181,7 +193,9 @@ async fn sdk_route_policy_refuses_unexposed_routes_before_sending() {
         ))
         .await
         .unwrap_err();
-    assert!(matches!(err, BackendTransportError::RouteNotExposed(m, p) if m == "POST" && p.contains("admin")));
+    assert!(
+        matches!(err, BackendTransportError::RouteNotExposed(m, p) if m == "POST" && p.contains("admin"))
+    );
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
@@ -190,12 +204,18 @@ async fn install_makes_the_core_resolve_this_transport() {
     let _guard = global_lock().lock().unwrap_or_else(|p| p.into_inner());
     let _t = crate::install(crate::InstallOptions::default()).unwrap();
     assert!(crate::is_installed());
-    assert_eq!(resolve_backend_transport().unwrap().name(), "tinyhumans-sdk");
+    assert_eq!(
+        resolve_backend_transport().unwrap().name(),
+        "tinyhumans-sdk"
+    );
     clear_backend_transport();
     assert!(!crate::is_installed());
     // Re-install after a clear restores the same transport.
     let _t = crate::install(crate::InstallOptions::default()).unwrap();
-    assert_eq!(resolve_backend_transport().unwrap().name(), "tinyhumans-sdk");
+    assert_eq!(
+        resolve_backend_transport().unwrap().name(),
+        "tinyhumans-sdk"
+    );
 }
 
 #[tokio::test]

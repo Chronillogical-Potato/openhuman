@@ -79,7 +79,6 @@ async fn get_authed_value(
         .map_err(crate::api::flatten_authed_error)
 }
 
-
 pub async fn list_members(config: &Config, team_id: &str) -> Result<RpcOutcome<Value>, String> {
     let team_id = normalize_id(team_id, "teamId")?;
     let path = build_api_path(&["teams", &team_id, "members"])?;

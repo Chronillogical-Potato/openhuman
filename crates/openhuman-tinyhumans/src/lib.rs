@@ -38,6 +38,8 @@ mod runtime;
 pub mod transport;
 
 pub use install::{install, is_installed, InstallError, InstallOptions};
-pub use openhuman_embed::{BackendRequest, BackendTransport, BackendTransportError, TransportProfile};
+pub use openhuman_embed::{
+    BackendRequest, BackendTransport, BackendTransportError, TransportProfile,
+};
 pub use runtime::{RuntimeBuilder, RuntimeError};
 pub use transport::{map_sdk_error, SdkBackendTransport};

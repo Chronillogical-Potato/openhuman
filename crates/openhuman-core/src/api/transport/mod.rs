@@ -77,7 +77,12 @@ pub struct BackendRequest<'a> {
 
 impl<'a> BackendRequest<'a> {
     /// A request with no query, no body and no credential.
-    pub fn new(profile: TransportProfile, base_url: &'a str, method: Method, path: &'a str) -> Self {
+    pub fn new(
+        profile: TransportProfile,
+        base_url: &'a str,
+        method: Method,
+        path: &'a str,
+    ) -> Self {
         Self {
             profile,
             base_url,
@@ -124,7 +129,9 @@ pub const API_KEY_HEADER: &str = "x-api-key";
 /// The header a [`BackendCredential`] rides on: session JWT as
 /// `Authorization: Bearer`, API key as `x-api-key`. Shared by transport
 /// implementations that shape headers themselves.
-pub fn credential_headers(credential: &BackendCredential) -> Result<HeaderMap, BackendTransportError> {
+pub fn credential_headers(
+    credential: &BackendCredential,
+) -> Result<HeaderMap, BackendTransportError> {
     let secret = credential.secret().trim();
     let mut headers = HeaderMap::new();
     match credential {

@@ -88,8 +88,8 @@ fn unwrap_envelope_turns_failure_into_typed_error() {
 
 #[test]
 fn credential_headers_put_session_on_bearer_and_api_key_on_x_api_key() {
-    let session = credential_headers(&BackendCredential::Session(" jwt.token.sig \n".into()))
-        .unwrap();
+    let session =
+        credential_headers(&BackendCredential::Session(" jwt.token.sig \n".into())).unwrap();
     assert_eq!(
         session.get(reqwest::header::AUTHORIZATION).unwrap(),
         "Bearer jwt.token.sig"
@@ -174,7 +174,10 @@ async fn plain_transport_sends_attribution_and_credential_headers() {
     Mock::given(method("GET"))
         .and(path("/teams/me/usage"))
         .and(header("authorization", "Bearer jwt.a.b"))
-        .and(header(crate::api::product::PRODUCT_IDENTITY_HEADER, "openhuman"))
+        .and(header(
+            crate::api::product::PRODUCT_IDENTITY_HEADER,
+            "openhuman",
+        ))
         .and(header_exists("x-core-version"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
@@ -212,9 +215,7 @@ async fn plain_transport_maps_non_2xx_to_status_and_keeps_raw_when_not_unwrappin
         .await;
     Mock::given(method("GET"))
         .and(path("/raw"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": 1})),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": 1})))
         .mount(&server)
         .await;
 
