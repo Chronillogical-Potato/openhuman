@@ -1,7 +1,7 @@
 # bin
 
 Auxiliary binaries declared as `[[bin]]` targets in
-`crates/openhuman-core/Cargo.toml` next to the primary `openhuman-core`
+`crates/openhuman-cli/Cargo.toml` next to the primary `openhuman-core`
 binary (`src/main.rs`). None of these ship in the desktop product.
 
 ## Primary binary (not in this directory)
