@@ -12,6 +12,7 @@ use crate::agent::harness::MAX_SPAWN_DEPTH;
 /// so it can install the [`ToolPolicyMiddleware`](super::middleware::ToolPolicyMiddleware).
 /// `None` means "no policy enforcement on this turn" (the channel/CLI + sub-agent
 /// paths, which carry their own gating).
+#[derive(Clone)]
 pub(crate) struct ToolPolicyEnforcement {
     pub policy: std::sync::Arc<dyn crate::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel

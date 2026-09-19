@@ -2,8 +2,7 @@
 //!
 //! Per the per-folder `graph.rs` convention, this module owns the chat folder's
 //! graph definition, its available tools, and its summarization step — all thin
-//! over the shared tinyagents seam
-//! ([`run_turn_via_tinyagents_shared`](crate::agent::tinyagents::run_turn_via_tinyagents_shared)).
+//! over the hosted TinyAgents invocation seam.
 //!
 //! **Graph.** The top-level interactive chat turn: a single agent-loop turn
 //! driven by the tinyagents harness, observed via the session's `on_progress`
@@ -34,7 +33,7 @@ use crate::agent::harness::{with_current_sandbox_mode, SandboxMode};
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::{
-    run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,
+    run_root_turn_via_hosted_agent, TinyagentsTurnOutcome, TurnContextMiddleware,
 };
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use tinytools::Tool;
@@ -97,6 +96,9 @@ pub(crate) struct ChatTurnGraph {
     pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     /// Durable host authority captured at session construction.
     pub hosted_base: Option<std::sync::Arc<crate::agent::tinyagents::host::OpenHumanHostBase>>,
+    /// Stable definition id for hosted resolution.  The transcript-facing name
+    /// may contain a thread suffix and is never an authority lookup key.
+    pub agent_id: String,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam
@@ -104,6 +106,11 @@ pub(crate) struct ChatTurnGraph {
 /// ([`core`](super::core) folds usage, persists the conversation, and handles a
 /// cap-hit checkpoint).
 pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<TinyagentsTurnOutcome> {
+    let hosted_base = graph.hosted_base.clone().ok_or_else(|| {
+        anyhow::anyhow!(
+            "hosted root invocation is unavailable because the session has no hosted authority"
+        )
+    })?;
     // Fail-closed allowlist plumbing (issue #4452): the shared seam now takes an
     // `Option<HashSet<String>>` where `None` = no filter (all visible tools) and
     // `Some(set)` = exactly those tools. The chat path's historical convention is
@@ -124,8 +131,10 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         run_context.workspace = graph.workspace_descriptor.clone().or(run_context.workspace);
         run_context.sandbox_mode = Some(graph.sandbox_mode);
         run_context.thread_id = graph.thread_id;
-        run_turn_via_tinyagents_shared(
+        run_root_turn_via_hosted_agent(
             run_context,
+            hosted_base,
+            graph.agent_id,
             graph.turn_models,
             provider_id,
             &graph.model,
@@ -139,8 +148,6 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             vec![graph.tools, graph.synthesized_tools],
             visible_tool_names,
             graph.max_iterations,
-            // Top-level chat turn — no child-progress attribution.
-            None,
             graph.context_window,
             // Mid-flight steering from the session's run queue.
             graph.run_queue,
@@ -167,9 +174,6 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             graph.context_mw,
             // Builder-configured tool policy enforcement (session chat path).
             graph.tool_policy,
-            // Interactive chat turn — response caching MUST stay off so a live user
-            // turn is never served a cached model response (correctness/safety).
-            false,
             // #4457 (defect C): defer the terminal `TurnCompleted` to the caller.
             // The session path (`run_turn_impl` in `turn/core.rs`) runs its cap/#4093
             // wrap-up (`summarize_turn_wrapup`) *after* this seam returns and then

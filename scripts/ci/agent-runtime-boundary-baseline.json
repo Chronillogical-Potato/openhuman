@@ -15,20 +15,6 @@
   },
   {
     "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 37,
-    "text": "run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 125,
-    "text": "run_turn_via_tinyagents_shared(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/graph/dispatch.rs",
     "line": 13,
     "text": "use crate::agent::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};",
@@ -52,27 +38,27 @@
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
     "line": 81,
-    "text": "pub(crate) use turn_runner::run_turn_via_tinyagents_shared;",
+    "text": "pub(crate) use turn_runner::{run_root_turn_via_hosted_agent, run_turn_via_tinyagents_shared};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 27,
+    "line": 32,
     "text": "use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 199,
+    "line": 244,
     "text": "pub(crate) async fn run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/turn_runner.rs",
-    "line": 257,
+    "line": 416,
     "text": "} = assemble_turn_harness(",
     "occurrence": 1
   },
@@ -268,7 +254,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/builder/factory.rs",
-    "line": 1513,
+    "line": 1529,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
@@ -289,14 +275,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 33,
+    "line": 32,
     "text": "use crate::agent::harness::{with_current_sandbox_mode, SandboxMode};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 119,
+    "line": 128,
     "text": "with_current_sandbox_mode(graph.sandbox_mode, async {",
     "occurrence": 1
   },

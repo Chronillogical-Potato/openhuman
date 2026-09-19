@@ -196,6 +196,7 @@ impl Agent {
             thread_id: self.thread_id.clone(),
             run_context: run_context.clone(),
             hosted_base: self.hosted_base.clone(),
+            agent_id: self.agent_definition_id.clone(),
         })
         .await?;
         let subagent_usage_entries = run_context.subagent_usage_entries();

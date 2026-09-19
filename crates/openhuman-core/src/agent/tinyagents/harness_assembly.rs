@@ -123,6 +123,9 @@ pub(super) fn assemble_turn_harness(
     tool_policy: Option<ToolPolicyEnforcement>,
     required_capabilities: Option<CapabilitySet>,
     deterministic_cacheable: bool,
+    // Hosted roots authorize tools through `OpenHumanSecurityGate`; installing
+    // the legacy approval middleware as well would issue a second approval.
+    hosted_security_gate: bool,
     // Whether this run pauses gracefully at its model-call cap (issue #6014).
     // Only such a run gets the in-loop conclusion: a run that errors at its cap
     // instead (the channel/CLI path, which maps the stop to
@@ -505,9 +508,11 @@ pub(super) fn assemble_turn_harness(
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
     // an approved call records a terminal audit row. Replaces the inline approval
     // block that used to live in the legacy tool adapter.
-    harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
-        tool_sets.clone(),
-    )));
+    if !hosted_security_gate {
+        harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
+            tool_sets.clone(),
+        )));
+    }
 
     // CLI/RPC-only scope gate — a tool restricted to explicit CLI/RPC invocation
     // must not run from the model loop. Intrinsic to the tool, so installed on
