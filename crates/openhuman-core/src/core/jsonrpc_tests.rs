@@ -610,10 +610,22 @@ fn http_schema_dump_includes_openhuman_and_core_methods() {
     );
 }
 
+async fn invoke_hosted_method(
+    method: &str,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    use crate::core::runtime::{context::CoreContext, DomainSet};
+
+    CoreContext::scope(
+        CoreContext::for_test(DomainSet::full(), None, None),
+        invoke_method(default_state(), method, params),
+    )
+    .await
+}
+
 #[tokio::test]
 async fn billing_get_current_plan_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.billing_get_current_plan",
         json!({ "extra": true }),
     )
@@ -624,31 +636,23 @@ async fn billing_get_current_plan_rejects_unknown_param() {
 
 #[tokio::test]
 async fn billing_get_summary_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_get_summary",
-        json!({ "extra": true }),
-    )
-    .await
-    .expect_err("unknown param should fail");
+    let err = invoke_hosted_method("openhuman.billing_get_summary", json!({ "extra": true }))
+        .await
+        .expect_err("unknown param should fail");
     assert!(err.contains("unknown param 'extra'"));
 }
 
 #[tokio::test]
 async fn billing_purchase_plan_missing_plan_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_purchase_plan",
-        json!({}),
-    )
-    .await
-    .expect_err("missing plan should fail");
+    let err = invoke_hosted_method("openhuman.billing_purchase_plan", json!({}))
+        .await
+        .expect_err("missing plan should fail");
     assert!(err.contains("missing required param 'plan'"));
 }
 
 #[tokio::test]
 async fn billing_top_up_missing_amount_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.billing_top_up", json!({}))
+    let err = invoke_hosted_method("openhuman.billing_top_up", json!({}))
         .await
         .expect_err("missing amountUsd should fail");
     assert!(err.contains("missing required param 'amountUsd'"));
@@ -656,8 +660,7 @@ async fn billing_top_up_missing_amount_fails_validation() {
 
 #[tokio::test]
 async fn billing_top_up_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.billing_top_up",
         json!({ "amountUsd": 10.0, "unknownField": true }),
     )
@@ -668,19 +671,15 @@ async fn billing_top_up_rejects_unknown_param() {
 
 #[tokio::test]
 async fn billing_create_portal_session_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_create_portal_session",
-        json!({ "x": 1 }),
-    )
-    .await
-    .expect_err("unknown param should fail");
+    let err = invoke_hosted_method("openhuman.billing_create_portal_session", json!({ "x": 1 }))
+        .await
+        .expect_err("unknown param should fail");
     assert!(err.contains("unknown param 'x'"));
 }
 
 #[tokio::test]
 async fn team_list_members_missing_team_id_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.team_list_members", json!({}))
+    let err = invoke_hosted_method("openhuman.team_list_members", json!({}))
         .await
         .expect_err("missing teamId should fail");
     assert!(err.contains("missing required param 'teamId'"));
@@ -688,8 +687,7 @@ async fn team_list_members_missing_team_id_fails_validation() {
 
 #[tokio::test]
 async fn team_list_members_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.team_list_members",
         json!({ "teamId": "t1", "extra": true }),
     )
@@ -700,7 +698,7 @@ async fn team_list_members_rejects_unknown_param() {
 
 #[tokio::test]
 async fn team_create_invite_missing_team_id_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.team_create_invite", json!({}))
+    let err = invoke_hosted_method("openhuman.team_create_invite", json!({}))
         .await
         .expect_err("missing teamId should fail");
     assert!(err.contains("missing required param 'teamId'"));
@@ -708,20 +706,15 @@ async fn team_create_invite_missing_team_id_fails_validation() {
 
 #[tokio::test]
 async fn team_remove_member_missing_required_params_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.team_remove_member",
-        json!({ "teamId": "t1" }),
-    )
-    .await
-    .expect_err("missing userId should fail");
+    let err = invoke_hosted_method("openhuman.team_remove_member", json!({ "teamId": "t1" }))
+        .await
+        .expect_err("missing userId should fail");
     assert!(err.contains("missing required param 'userId'"));
 }
 
 #[tokio::test]
 async fn team_change_member_role_missing_role_fails_validation() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.team_change_member_role",
         json!({ "teamId": "t1", "userId": "u1" }),
     )
@@ -732,20 +725,15 @@ async fn team_change_member_role_missing_role_fails_validation() {
 
 #[tokio::test]
 async fn billing_create_coinbase_charge_missing_plan_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_create_coinbase_charge",
-        json!({}),
-    )
-    .await
-    .expect_err("missing plan should fail");
+    let err = invoke_hosted_method("openhuman.billing_create_coinbase_charge", json!({}))
+        .await
+        .expect_err("missing plan should fail");
     assert!(err.contains("missing required param 'plan'"));
 }
 
 #[tokio::test]
 async fn billing_create_coinbase_charge_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.billing_create_coinbase_charge",
         json!({ "plan": "pro", "extra": true }),
     )
@@ -756,7 +744,7 @@ async fn billing_create_coinbase_charge_rejects_unknown_param() {
 
 #[tokio::test]
 async fn team_list_invites_missing_team_id_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.team_list_invites", json!({}))
+    let err = invoke_hosted_method("openhuman.team_list_invites", json!({}))
         .await
         .expect_err("missing teamId should fail");
     assert!(err.contains("missing required param 'teamId'"));
@@ -764,8 +752,7 @@ async fn team_list_invites_missing_team_id_fails_validation() {
 
 #[tokio::test]
 async fn team_list_invites_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
+    let err = invoke_hosted_method(
         "openhuman.team_list_invites",
         json!({ "teamId": "t1", "extra": true }),
     )
@@ -776,7 +763,7 @@ async fn team_list_invites_rejects_unknown_param() {
 
 #[tokio::test]
 async fn team_revoke_invite_missing_team_id_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.team_revoke_invite", json!({}))
+    let err = invoke_hosted_method("openhuman.team_revoke_invite", json!({}))
         .await
         .expect_err("missing teamId should fail");
     assert!(err.contains("missing required param 'teamId'"));
@@ -784,13 +771,9 @@ async fn team_revoke_invite_missing_team_id_fails_validation() {
 
 #[tokio::test]
 async fn team_revoke_invite_missing_invite_id_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.team_revoke_invite",
-        json!({ "teamId": "t1" }),
-    )
-    .await
-    .expect_err("missing inviteId should fail");
+    let err = invoke_hosted_method("openhuman.team_revoke_invite", json!({ "teamId": "t1" }))
+        .await
+        .expect_err("missing inviteId should fail");
     assert!(err.contains("missing required param 'inviteId'"));
 }
 

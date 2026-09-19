@@ -1882,16 +1882,23 @@ fn capability_allowed_defaults_open_with_no_context() {
     }
 }
 
-#[test]
-fn unbound_registration_is_byte_identical() {
-    // Companion to `full_registration_is_byte_identical`: with no ambient
-    // context the capability filter must be an order-preserving identity, so
-    // adding the axis changed neither membership nor ordering of the unbound
-    // surface.
-    let filtered: Vec<String> = all_registered_controllers()
-        .iter()
-        .map(|c| c.rpc_method_name())
-        .collect();
+#[tokio::test]
+async fn unbound_registration_is_byte_identical() {
+    // A process-wide default context may have been established by a sibling
+    // test. Scope a full context explicitly so this continues to prove the
+    // identity property rather than depending on test execution order.
+    let ctx = crate::core::runtime::context::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        None,
+        None,
+    );
+    let filtered: Vec<String> = crate::core::runtime::context::CoreContext::scope(ctx, async {
+        all_registered_controllers()
+            .iter()
+            .map(|c| c.rpc_method_name())
+            .collect()
+    })
+    .await;
     let raw: Vec<String> = registry()
         .iter()
         .map(|g| g.controller.rpc_method_name())
