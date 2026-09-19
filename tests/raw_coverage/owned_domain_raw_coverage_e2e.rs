@@ -330,6 +330,7 @@ fn owned_domain_config(workspace_root: &std::path::Path) -> Config {
 
  #[tokio::test]
 async fn composio_client_round_trips_backend_paths_and_payload_normalization() {
+    crate::tinyhumans_boot::boot();
     let (base_url, state) = serve_composio_mock().await;
     let client = ComposioClient::new(Arc::new(IntegrationClient::new(
         format!("{base_url}/openai/v1/chat/completions"),
@@ -411,6 +412,7 @@ async fn composio_client_round_trips_backend_paths_and_payload_normalization() {
 
 #[test]
 fn tool_registry_public_apis_cover_entries_diagnostics_and_provider_policy() {
+    crate::tinyhumans_boot::boot();
     let dir = tempdir().expect("tempdir");
     let mut config = owned_domain_config(dir.path());
     config.mcp_client.enabled = true;
@@ -576,6 +578,7 @@ fn tool_registry_public_apis_cover_entries_diagnostics_and_provider_policy() {
 
 #[tokio::test]
 async fn tool_registry_controller_handlers_cover_list_get_and_validation_paths() {
+    crate::tinyhumans_boot::boot();
     let schemas = all_tool_registry_controller_schemas();
     assert_eq!(
         schemas

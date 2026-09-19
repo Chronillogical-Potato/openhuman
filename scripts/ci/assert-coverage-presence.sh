@@ -188,9 +188,9 @@ eligible() {
   base="$(basename "${f}")"
 
   case "${f}" in *.rs) ;; *) return 1 ;; esac  # non-Rust: assets, .md, fixtures
-  case "${f}" in src/* | crates/openhuman-core/src/* | crates/openhuman-embed/src/* | crates/openhuman-tui/src/*) ;; *) return 1 ;; esac
+  case "${f}" in src/* | crates/openhuman-core/src/* | crates/openhuman-embed/src/* | crates/openhuman-tinyhumans/src/* | crates/openhuman-tui/src/*) ;; *) return 1 ;; esac
   [ -f "${f}" ] || return 1                    # deleted / renamed-away
-  case "${f}" in src/lib.rs | src/main.rs | src/bin/* | crates/openhuman-core/src/lib.rs | crates/openhuman-core/src/main.rs | crates/openhuman-core/src/bin/* | crates/openhuman-tui/src/lib.rs | crates/openhuman-tui/src/main.rs) return 1 ;; esac
+  case "${f}" in src/lib.rs | src/main.rs | src/bin/* | crates/openhuman-core/src/lib.rs | crates/openhuman-cli/src/main.rs | crates/openhuman-cli/src/bin/* | crates/openhuman-tinyhumans/src/lib.rs | crates/openhuman-tui/src/lib.rs | crates/openhuman-tui/src/main.rs) return 1 ;; esac
   # Test-only sources. We do not demand coverage OF test code, and a test file
   # only ever appears in the lcov as a side effect of its own execution.
   case "${base}" in *_tests.rs | *_test.rs | tests.rs | test.rs | test_support.rs) return 1 ;; esac

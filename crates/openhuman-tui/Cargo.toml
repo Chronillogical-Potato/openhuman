@@ -18,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 openhuman-core.workspace = true
 openhuman-rpc.workspace = true
-openhuman-session.workspace = true
+openhuman-tinyhumans.workspace = true
 anyhow = "1"
 base64 = "0.22"
 chrono = "0.4"

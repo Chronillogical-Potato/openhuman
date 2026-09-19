@@ -76,6 +76,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 async fn setup(prefix: &str) -> Harness {
+
+    crate::tinyhumans_boot::boot();
     std::fs::create_dir_all("target").expect("target dir");
     let tmp = Builder::new()
         .prefix(prefix)

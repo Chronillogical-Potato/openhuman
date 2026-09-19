@@ -95,6 +95,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn ensure_rpc_auth() {
+
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
         let token_dir = std::env::temp_dir().join("openhuman-tool-registry-approval-e2e-auth");
@@ -178,6 +180,8 @@ disallowed_tools = ["write_file"]
 }
 
 async fn setup(capability_providers: &str) -> TestHarness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let workspace = home.join("openhuman-workspace");

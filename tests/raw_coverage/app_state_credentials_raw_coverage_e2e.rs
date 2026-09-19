@@ -129,6 +129,8 @@ embedding_strict = false
 }
 
 fn setup(api_url: &str) -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let root = tmp.path().join("openhuman");
     write_min_config(&root, api_url);
@@ -154,6 +156,8 @@ fn setup(api_url: &str) -> Harness {
 }
 
 fn setup_default_paths(api_url: &str) -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let guards = vec![
         EnvGuard::set_to_path("HOME", tmp.path()),

@@ -156,6 +156,8 @@ fn tempdir() -> TempDir {
 }
 
 async fn setup_config() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let root = tmp.path().join("openhuman");
     let workspace = root.join("workspace");

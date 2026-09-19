@@ -88,6 +88,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 /// Initialise the process RPC token (idempotent) and return the bearer the
 /// router will actually accept.
 fn ensure_rpc_auth() -> &'static str {
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         if get_rpc_token().is_none() {
             std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
@@ -115,6 +116,7 @@ fn ensure_rpc_auth() -> &'static str {
 /// depend on owning the store: they use ids unique to this suite and assert on
 /// their own records rather than on the store being empty.
 fn ensure_memory_seams() {
+    crate::tinyhumans_boot::boot();
     MEMORY_SEAMS_INIT.get_or_init(|| {
         std::thread::Builder::new()
             .name("agent-orchestration-e2e-memory-seams".to_string())
@@ -255,6 +257,8 @@ impl Harness {
 }
 
 async fn setup() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().to_path_buf();
     write_min_config(&home.join(".openhuman"));

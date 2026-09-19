@@ -2349,6 +2349,15 @@ pub fn run() {
     // stderr is a console or file. See `stderr_panic_hook`.
     stderr_panic_hook::neutralize_broken_parent_stderr();
 
+    // The in-process core reaches the hosted backend only through the
+    // transport `openhuman-tinyhumans` installs. `main.rs` installs it before
+    // dispatching here; this call is idempotent and covers embedders of
+    // `run()` that skip `main.rs`.
+    if let Err(err) = openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
+    {
+        log::error!("[boot] TinyHumans backend transport unavailable: {err}");
+    }
+
     // Must run before any GTK/CEF code that could trigger X calls — otherwise
     // Xlib's default handler calls exit(1) on the first BadWindow and we never
     // reach this line. See helper doc above for the full reasoning.
