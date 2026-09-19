@@ -4,12 +4,10 @@
 //! Two defects lived in the old `Arc<String>`:
 //!
 //! - **#6027** — the native channel runtime rendered its prompt from the
-//!   workspace-root `SOUL.md` and never consulted the active agent profile,
-//!   so a user who picked a personality got it in desktop chat and the stock
-//!   voice on every bot-token channel (the managed-DM path goes through
-//!   `web_chat` and did apply it).
+//!   workspace-root identity files and did not refresh their contents, so
+//!   channel replies could use stale identity context after an edit.
 //! - **#6028** — the prompt was rendered once in `start_channels` and kept
-//!   for the life of the process, so a profile switch, a `SOUL.md` edit or
+//!   for the life of the process, so a `SOUL.md` edit or
 //!   the archivist writing `MEMORY.md` stayed invisible until restart.
 //!
 //! [`ChannelSystemPrompt::refreshing`] keeps the *inputs* of the render (tool
@@ -56,7 +54,7 @@ pub(crate) struct ChannelPromptInputs {
 pub(crate) struct ChannelIdentity {}
 
 impl ChannelIdentity {
-    /// The identity a workspace has with no usable profile store: the root files.
+    /// The identity represented by the workspace-root files.
     fn root() -> Self {
         Self {}
     }

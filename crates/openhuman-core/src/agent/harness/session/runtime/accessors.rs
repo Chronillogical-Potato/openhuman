@@ -367,9 +367,8 @@ impl Agent {
     /// [`agent_chat`](crate::inference::host_runtime::ops::agent_chat).
     ///
     /// The descriptor is threaded onto the turn's run context, so it also
-    /// propagates to sub-agents spawned from this session (the same deliberate
-    /// isolation the per-profile descriptor has). `None` restores the shared
-    /// `action_dir` cwd.
+    /// propagates to sub-agents spawned from this session. `None` restores the
+    /// shared `action_dir` cwd.
     ///
     /// This only moves the *default* cwd: what the session may read and write is
     /// still decided by its [`SecurityPolicy`](crate::security::SecurityPolicy),

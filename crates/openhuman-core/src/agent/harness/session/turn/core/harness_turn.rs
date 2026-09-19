@@ -182,9 +182,9 @@ impl Agent {
                 channel: self.event_channel().to_string(),
                 agent_definition_id: self.agent_definition_id.clone(),
             }),
-            // Section D: forward the session's per-profile workspace
-            // descriptor (if any) so the top-level chat turn's acting
-            // tools default their cwd to the profile's dedicated dir.
+            // Section D: forward the session's turn workspace descriptor (if
+            // any) so the top-level chat turn's acting tools use its root as
+            // their default cwd.
             workspace_descriptor: self.workspace_descriptor.clone(),
             // Scope direct Master-Agent calls under its declared
             // sandbox. `agent_definition_name` can carry a thread

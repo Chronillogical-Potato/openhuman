@@ -11620,7 +11620,7 @@ async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner()
     rpc_join.abort();
 }
 
-// ── Model resolution + agent profile switching ──────────────────────────
+// ── Model resolution and voice settings ─────────────────────────────────
 
 /// E2E: voice-server settings round-trip over JSON-RPC — Phase 2 always-on
 /// toggle + "Hey Tiny" wake word. Regression guard for the bug where the

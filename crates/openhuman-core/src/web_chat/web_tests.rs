@@ -65,7 +65,6 @@ fn fp(
         provider_binding: provider_binding.to_string(),
         autonomy_signature: "sig-default".to_string(),
         model_registry_signature: "registry-default".to_string(),
-        profile_signature: "profile-default".to_string(),
     }
 }
 

@@ -2997,7 +2997,6 @@ const messages: TranslationMap = {
   'shortcuts.empty': '当前没有可用的键盘快捷键。',
   'shortcuts.openHint': '随时可用以下按键打开此列表',
   'shortcuts.group.navigation': '导航',
-  'shortcuts.group.profiles': '配置文件',
   'shortcuts.group.chat': '聊天',
   'shortcuts.group.view': '视图',
   'shortcuts.group.general': '常规',

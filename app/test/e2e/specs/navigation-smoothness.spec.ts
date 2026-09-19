@@ -33,7 +33,7 @@ interface RouteCheck {
 }
 
 const ROUTES: RouteCheck[] = [
-  // Chat composer header: "New" thread button, agent-profile "Reasoning" pill.
+  // Chat composer header: "New" thread button and the "Reasoning" pill.
   { hash: '/chat', markers: ['New', 'Chat', 'Message', 'Reasoning', 'Your assistant is ready'] },
   // Connections page (was /skills) — tabs: Apps, Messaging, Tools, Explorer
   { hash: '/connections', markers: ['Apps', 'Messaging', 'Tools', 'Connections'] },

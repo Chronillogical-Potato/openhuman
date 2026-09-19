@@ -3178,7 +3178,6 @@ const messages: TranslationMap = {
   'shortcuts.empty': 'এই মুহূর্তে কোনো কীবোর্ড শর্টকাট উপলব্ধ নেই।',
   'shortcuts.openHint': 'যেকোনো সময় এই তালিকা খুলুন',
   'shortcuts.group.navigation': 'নেভিগেশন',
-  'shortcuts.group.profiles': 'প্রোফাইল',
   'shortcuts.group.chat': 'চ্যাট',
   'shortcuts.group.view': 'ভিউ',
   'shortcuts.group.general': 'সাধারণ',

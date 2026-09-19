@@ -3272,7 +3272,6 @@ const messages: TranslationMap = {
   'shortcuts.empty': 'Derzeit sind keine Tastenkürzel verfügbar.',
   'shortcuts.openHint': 'Diese Liste jederzeit öffnen mit',
   'shortcuts.group.navigation': 'Navigation',
-  'shortcuts.group.profiles': 'Profile',
   'shortcuts.group.chat': 'Chat',
   'shortcuts.group.view': 'Ansicht',
   'shortcuts.group.general': 'Allgemein',

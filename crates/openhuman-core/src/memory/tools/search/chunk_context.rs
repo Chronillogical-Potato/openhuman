@@ -103,12 +103,12 @@ impl Tool for MemoryChunkContextTool {
         let source_id = target.metadata.source_id.clone();
         let source_kind = target.metadata.source_kind;
 
-        // Per-profile memory-source gate: if the target chunk belongs to a
-        // source the active profile didn't allow, surface nothing (its window
-        // shares the same source). Non-source chunks always pass.
+        // Source-scope gate: if the target chunk belongs to a source that the
+        // active turn did not allow, surface nothing (its window shares the
+        // same source). Non-source chunks always pass.
         if !crate::memory::source_scope::chunk_source_allowed(&target.metadata.tags, &source_id) {
             return Ok(ToolResult::success(
-                "Chunk is from a memory source not available to the active agent profile.",
+                "Chunk is from a memory source not available to this turn.",
             ));
         }
 

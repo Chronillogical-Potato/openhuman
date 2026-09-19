@@ -46,7 +46,7 @@ Flat files: `bus.rs` (`agent.run_turn` native request handler), `cost.rs` (`pub(
 
 ## RPC namespaces owned by this tree
 
-`agent`, `agent_registry`, `profiles`, `harness_init`, `session_import`, `plan_review`, `run_ledger` (session_db), `agent_experience` (experience), `ai` (artifacts), `learning`, `agent_team`, `agent_work` (orchestration/command_center), `workflow_run`, `worktree`, `subagent` (orchestration/subagent_control) — all registered under `DomainGroup::Agent` in `core/all.rs`.
+`agent`, `agent_registry`, `harness_init`, `session_import`, `plan_review`, `run_ledger` (session_db), `agent_experience` (experience), `ai` (artifacts), `learning`, `agent_team`, `agent_work` (orchestration/command_center), `workflow_run`, `worktree`, `subagent` (orchestration/subagent_control) — all registered under `DomainGroup::Agent` in `core/all.rs`.
 
 `crate::rpc` is `pub use openhuman_rpc as rpc` in `lib.rs`; shared RPC contracts, response decoding, and the HTTP client live in the separate `crates/openhuman-rpc` crate, not under `agent/`.
 
@@ -71,7 +71,7 @@ Flat files: `bus.rs` (`agent.run_turn` native request handler), `cost.rs` (`pub(
 - `crates/openhuman-core/src/agent/learning/{reflection,tool_tracker,user_profile}.rs` — read transcripts + tool outcomes.
 - `crates/openhuman-core/src/agent/orchestration/tools/{dispatch,spawn_subagent}.rs` — `spawn_subagent` tool delegates to `harness::subagent_runner`.
 - `crates/openhuman-core/src/core/runtime/services.rs` — starts `agent::task_dispatcher::start_board_poller` and runs `agent::harness_init::run_harness_init` during core startup.
-- `crates/openhuman-core/src/core/all.rs` — controller registry wires all `agent`, `agent_registry`, `profiles`, `harness_init`, `plan_review`, `artifacts`, `experience`, `learning`, `session_db`, `session_import`, and `orchestration` controllers under `DomainGroup::Agent`.
+- `crates/openhuman-core/src/core/all.rs` — controller registry wires all `agent`, `agent_registry`, `harness_init`, `plan_review`, `artifacts`, `experience`, `learning`, `session_db`, `session_import`, and `orchestration` controllers under `DomainGroup::Agent`.
 
 ## Tests
 
