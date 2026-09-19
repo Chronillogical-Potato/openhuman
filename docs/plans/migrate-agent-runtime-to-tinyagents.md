@@ -225,6 +225,12 @@ observer. Replace reads of:
 - `fork_context`, `sandbox_context`, `spawn_depth_context`,
   `task_recency_context`; attachment, dispatch, and usage state now live on
   `OpenHumanRunContext`;
+
+  Remaining `current_parent` reads are intentionally outside registered tool
+  dispatch: the legacy orchestration root builders/entrypoints establish their
+  own explicit parent before a direct run, while session construction uses its
+  own descriptor as the root fallback. Registered root tools receive
+  `OpenHumanRunContext` through typed dispatch and do not consult it.
 - `progress_sink`, `resolved_route`,
   `thread_context`, `turn_origin`, and `turn_workspace` task-local scopes.
 

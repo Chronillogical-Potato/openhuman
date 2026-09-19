@@ -20,7 +20,9 @@ use crate::agent::orchestration::tools::{
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
-use crate::agent::tools::{DelegateToPersonalityDispatch, DelegateToolDispatch};
+use crate::agent::tools::{
+    DelegateToPersonalityDispatch, DelegateToolDispatch, TodoToolDispatch, UpdateTaskDispatch,
+};
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
 /// `capability_registry` projection), project the visible agent set as
@@ -133,6 +135,10 @@ pub(super) fn register_turn_tools_and_agents(
                     harness.register_tool_dispatch(Arc::new(DelegateGraphDispatch::new(adapter)));
                 } else if name == "delegate" {
                     harness.register_tool_dispatch(Arc::new(DelegateToolDispatch::new(adapter)));
+                } else if name == "todo" {
+                    harness.register_tool_dispatch(Arc::new(TodoToolDispatch::new(adapter)));
+                } else if name == "update_task" {
+                    harness.register_tool_dispatch(Arc::new(UpdateTaskDispatch::new(adapter)));
                 } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
                     harness.register_tool_dispatch(Arc::new(dispatch));
                 } else {

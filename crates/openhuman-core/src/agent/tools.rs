@@ -55,4 +55,6 @@ pub use run_workflow::{
 };
 pub use save_preference::SavePreferenceTool;
 pub use todo::TodoTool;
+pub(crate) use todo::TodoToolDispatch;
+pub(crate) use update_task::UpdateTaskDispatch;
 pub use update_task::UpdateTaskTool;

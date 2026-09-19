@@ -617,20 +617,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tools/todo.rs",
-    "line": 210,
-    "text": "let Some(parent) = crate::agent::harness::fork_context::current_parent() else {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/tools/update_task.rs",
-    "line": 147,
-    "text": "if let Some(parent) = crate::agent::harness::fork_context::current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/turn_origin.rs",
     "line": 177,
     "text": "pub fn current_is_user_authored() -> bool {",
@@ -891,14 +877,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 572,
+    "line": 575,
     "text": ".invoke(state, with_thread_id(request, self.thread_id.as_deref()))",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 599,
+    "line": 602,
     "text": ".stream(state, with_thread_id(request, self.thread_id.as_deref()))",
     "occurrence": 1
   },

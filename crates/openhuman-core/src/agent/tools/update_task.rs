@@ -10,14 +10,44 @@
 //! applies the status move + field updates atomically and enforces the
 //! single-`in_progress` invariant.
 
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
 use crate::integrations::task_sources::TASK_SOURCES_THREAD_ID;
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
-use tinytools::{PermissionLevel, Tool, ToolResult};
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::ToolDispatch;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct UpdateTaskTool;
+
+pub(crate) struct UpdateTaskDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl UpdateTaskDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for UpdateTaskDispatch {
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        UpdateTaskTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone())
+            .await
+    }
+}
 
 impl UpdateTaskTool {
     pub fn new() -> Self {
@@ -83,6 +113,16 @@ impl Tool for UpdateTaskTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None).await
+    }
+}
+
+impl UpdateTaskTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         let Some(id) = optional_string(&args, "id") else {
             return Ok(ToolResult::error("missing required field `id`".to_string()));
         };
@@ -99,7 +139,7 @@ impl Tool for UpdateTaskTool {
             ));
         }
 
-        let location = match resolve_location(&args).await {
+        let location = match resolve_location(&args, parent.as_ref()).await {
             Ok(location) => location,
             Err(err) => return Ok(ToolResult::error(err)),
         };
@@ -132,19 +172,22 @@ async fn apply(location: &BoardLocation, id: &str, patch: CardPatch) -> ToolResu
 }
 
 /// Resolve the board to act on: the explicit `threadId` arg, else the proactive
-/// `task-sources` board. The workspace root comes from the running agent's fork
-/// context when present, otherwise from the loaded config.
-async fn resolve_location(args: &serde_json::Value) -> Result<BoardLocation, String> {
+/// `task-sources` board. The workspace root comes from the explicit parent
+/// carrier when present, otherwise from the loaded config.
+async fn resolve_location(
+    args: &serde_json::Value,
+    parent: Option<&ParentExecutionContext>,
+) -> Result<BoardLocation, String> {
     let thread_id =
         optional_string(args, "threadId").unwrap_or_else(|| TASK_SOURCES_THREAD_ID.to_string());
     Ok(BoardLocation::Thread {
-        workspace_dir: workspace_dir().await?,
+        workspace_dir: workspace_dir(parent).await?,
         thread_id,
     })
 }
 
-async fn workspace_dir() -> Result<PathBuf, String> {
-    if let Some(parent) = crate::agent::harness::fork_context::current_parent() {
+async fn workspace_dir(parent: Option<&ParentExecutionContext>) -> Result<PathBuf, String> {
+    if let Some(parent) = parent {
         return Ok(parent.workspace_dir.clone());
     }
     crate::config::ops::load_config_with_timeout()
