@@ -6657,6 +6657,7 @@ const en: TranslationMap = {
   'settings.agents.editor.create': 'Create agent',
   'settings.agents.editor.saving': 'Saving…',
 
+
   // ── Agent Workflows ──────────────────────────────────────────────────────
   'nav.workflows': 'Workflows',
   'workflows.title': 'Workflows',

@@ -942,6 +942,7 @@ describe('CoreStateProvider — identity-change cache clearing', () => {
 
     expect(vi.mocked(tauriCommands.storeSession)).toHaveBeenCalled();
   });
+
 });
 
 describe('coreStatePollFailureWarningMessage', () => {
