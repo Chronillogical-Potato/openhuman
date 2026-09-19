@@ -338,9 +338,11 @@ filetime = "0.2"
 flate2 = "1"
 futures-util = "0.3"
 hex = "0.4"
+lettre = { version = "0.11", default-features = false, features = ["builder"] }
 parking_lot = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 sha2 = "0.10"
+tar = "0.4"
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
@@ -355,6 +357,7 @@ tokio-stream = { version = "0.1.18", default-features = false, features = ["sync
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "native-tls"] }
 tower = { version = "0.5", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = "2"
 urlencoding = "2.1"
 wiremock = "0.6"
 
