@@ -343,6 +343,7 @@ parking_lot = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 sha2 = "0.10"
 tar = "0.4"
+tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
