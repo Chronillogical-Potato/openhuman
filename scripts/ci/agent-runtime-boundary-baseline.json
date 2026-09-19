@@ -254,14 +254,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 58,
-    "text": "pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};",
+    "line": 59,
+    "text": "pub(crate) use spawn_depth_context::current_spawn_depth;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
     "line": 60,
+    "text": "pub(crate) use spawn_depth_context::{with_spawn_depth, MAX_SPAWN_DEPTH};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/agent/harness/mod.rs",
+    "line": 62,
     "text": "pub use task_recency_context::{current_task_recency_window, with_task_recency_window};",
     "occurrence": 1
   },
