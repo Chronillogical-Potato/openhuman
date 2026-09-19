@@ -8,7 +8,7 @@
 //! and sends no `x-sdk-client`. The `openhuman-tinyhumans` crate carries a
 //! parity test pinning the headers and envelope behaviour both share.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use reqwest::header::CONTENT_TYPE;
@@ -35,11 +35,11 @@ impl PlainHttpTransport {
         }
     }
 
-    /// One shared instance per test process. Attribution headers are captured
-    /// at first use, exactly like a host-installed transport would.
-    pub fn shared() -> Arc<dyn BackendTransport> {
-        static SHARED: OnceLock<Arc<PlainHttpTransport>> = OnceLock::new();
-        SHARED.get_or_init(|| Arc::new(Self::new())).clone()
+    /// A fresh instance. Deliberately *not* cached: tests change the product
+    /// identity between calls and expect the next client to carry it, and
+    /// building two `reqwest::Client`s is cheap.
+    pub fn fresh() -> Arc<dyn BackendTransport> {
+        Arc::new(Self::new())
     }
 
     fn client(&self, profile: TransportProfile) -> &reqwest::Client {
@@ -79,9 +79,12 @@ impl Default for PlainHttpTransport {
 impl BackendTransport for PlainHttpTransport {
     async fn send_json(&self, req: BackendRequest<'_>) -> Result<Value, BackendTransportError> {
         let url = compose_url(req.base_url, req.path, req.query)?;
+        // Product identity is stamped per request, as the SDK transport does,
+        // so a change after this client was built still reaches the wire.
         let mut request = self
             .client(req.profile)
             .request(req.method, url)
+            .headers(crate::api::product::product_identity_headers())
             .header(reqwest::header::ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json");
         if let Some(credential) = req.credential {
@@ -102,6 +105,7 @@ impl BackendTransport for PlainHttpTransport {
         let mut request = self
             .client(req.profile)
             .request(Method::POST, url)
+            .headers(crate::api::product::product_identity_headers())
             .header(reqwest::header::ACCEPT, "application/json");
         if let Some(credential) = req.credential {
             request = request.headers(credential_headers(credential)?);
