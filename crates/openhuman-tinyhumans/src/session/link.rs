@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::credential::{Credential, CredentialKind};
+use crate::session::credential::{Credential, CredentialKind};
 
 const LOG_PREFIX: &str = "[session][link]";
 

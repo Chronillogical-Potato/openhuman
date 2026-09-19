@@ -50,12 +50,46 @@ pub(super) fn enforce_backend_egress(path: &str) -> anyhow::Result<()> {
 }
 
 impl IntegrationClient {
+    /// The process backend transport, or the typed "backend unavailable"
+    /// error already classified for this call.
+    pub(super) fn transport(
+        &self,
+        method: &str,
+        path: &str,
+        url: &str,
+    ) -> anyhow::Result<std::sync::Arc<dyn crate::api::transport::BackendTransport>> {
+        crate::api::transport::resolve_backend_transport()
+            .map_err(|error| Self::map_transport_error(error, method, path, url))
+    }
+
+    /// Describe one `/agent-integrations/*` round-trip for the transport: the
+    /// app-session JWT as bearer, no envelope unwrapping (this client parses
+    /// the `{success,data}` envelope itself so its error classification sees
+    /// the raw shape).
+    pub(super) fn backend_request<'a>(
+        &'a self,
+        method: reqwest::Method,
+        path: &'a str,
+        body: Option<&'a serde_json::Value>,
+    ) -> crate::api::transport::BackendRequest<'a> {
+        crate::api::transport::BackendRequest {
+            profile: crate::api::transport::TransportProfile::Integrations,
+            base_url: &self.backend_url,
+            method,
+            path,
+            query: &[],
+            body,
+            credential: Some(&self.credential),
+            unwrap_envelope: false,
+        }
+    }
+
     pub(super) async fn ensure_budget_available(&self, path: &str) -> anyhow::Result<()> {
         if !managed_budget_applies_to_path(path) {
             return Ok(());
         }
         if let Some(config) = &self.budget_config {
-            if crate::hosted::team::managed_tool_budget_exhausted(config).await {
+            if super::budget_gate::managed_tool_budget_exhausted(config).await {
                 anyhow::bail!(
                     "Managed cloud tools are disabled because your OpenHuman AI credits are exhausted. Add credits or route the task to user-supplied providers."
                 );
@@ -93,11 +127,10 @@ impl IntegrationClient {
         let method_name = method.as_str().to_ascii_lowercase();
         tracing::debug!("[integrations] {} {}", method.as_str(), url);
         let value = self
-            .sdk
-            .raw()
-            .send(method, path, &[], body, false)
+            .transport(&method_name, path, &url)?
+            .send_json(self.backend_request(method, path, body))
             .await
-            .map_err(|error| Self::map_sdk_error(error, &method_name, path, &url))?;
+            .map_err(|error| Self::map_transport_error(error, &method_name, path, &url))?;
         Self::parse_envelope(&method_name, path, &url, value)
     }
 
@@ -137,12 +170,14 @@ impl IntegrationClient {
         tracing::debug!("[integrations] POST(multipart) {}", url);
 
         let value = self
-            .sdk
-            .raw()
-            .post_multipart(path, form)
+            .transport("post_multipart", path, &url)?
+            .send_multipart(
+                self.backend_request(reqwest::Method::POST, path, None),
+                form,
+            )
             .await
-            .map_err(|error| Self::map_sdk_error(error, "post_multipart", path, &url))?;
-        // The SDK unwraps successful `{success,data}` responses. Preserve
+            .map_err(|error| Self::map_transport_error(error, "post_multipart", path, &url))?;
+        // The transport unwraps successful `{success,data}` responses. Preserve
         // compatibility with endpoints that return their payload directly,
         // while still recognizing a `success:false` envelope.
         if value.get("success") == Some(&serde_json::Value::Bool(false)) {

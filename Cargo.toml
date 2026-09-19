@@ -1,6 +1,6 @@
 # Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
 # the core + `openhuman-core` CLI), `crates/openhuman-embed` (library facade),
-# `crates/openhuman-rpc` (shared RPC contracts/client), `crates/openhuman-session`
+# `crates/openhuman-rpc` (shared RPC contracts/client), `crates/openhuman-tinyhumans`
 # (login/session ownership for hosts), and `crates/openhuman-tui` (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
 # own Cargo world with its own lockfile and target directory so that root-only
 # Cargo commands don't resolve GTK/WebKit/Tauri, and it must mirror this file's
@@ -13,7 +13,7 @@ members = [
     "crates/openhuman-core",
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
-    "crates/openhuman-session",
+    "crates/openhuman-tinyhumans",
     "crates/openhuman-tui",
 ]
 exclude = [
@@ -33,7 +33,8 @@ repository = "https://github.com/tinyhumansai/openhuman"
 [workspace.dependencies]
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
-openhuman-session = { path = "crates/openhuman-session" }
+openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
+openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 
 # Patches are workspace-root settings; Cargo ignores them in member manifests.
 [patch."https://github.com/tinyhumansai/tinymemory"]

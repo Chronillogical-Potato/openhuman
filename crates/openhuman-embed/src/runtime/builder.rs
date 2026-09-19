@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use openhuman_core::api::transport::BackendTransport;
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreBuilder, DomainSet, ServiceSet, TokenSource};
 use openhuman_core::core::types::HostKind;
@@ -30,6 +31,7 @@ pub struct RuntimeBuilder {
     session: Option<Session>,
     backend_url: Option<String>,
     api_key: Option<ApiKey>,
+    backend_transport: Option<Arc<dyn BackendTransport>>,
 }
 
 impl Default for RuntimeBuilder {
@@ -55,7 +57,22 @@ impl RuntimeBuilder {
             session: None,
             backend_url: None,
             api_key: None,
+            backend_transport: None,
         }
+    }
+
+    /// The transport the runtime reaches the hosted TinyHumans backend
+    /// through (see [`BackendTransport`]).
+    ///
+    /// The core carries no backend client of its own: without a transport
+    /// every hosted-backend surface (billing, integrations tools, channel
+    /// relay, cloud voice) answers with a typed "backend unavailable" error
+    /// while agents, memory, skills and RPC work as normal. The
+    /// `openhuman-tinyhumans` crate supplies the SDK-backed implementation
+    /// and a builder that installs it for you.
+    pub fn backend_transport(mut self, transport: Arc<dyn BackendTransport>) -> Self {
+        self.backend_transport = Some(transport);
+        self
     }
 
     /// Where the runtime keeps its credential store, session database and
@@ -260,15 +277,16 @@ impl RuntimeBuilder {
             self.provider.is_routed(),
         );
 
-        let runtime = CoreBuilder::new(host_kind)
+        let mut builder = CoreBuilder::new(host_kind)
             .domains(domains)
             .tool_groups(tool_groups.clone())
             .services(services)
             .token(TokenSource::EnvOrFile)
-            .config(config.clone())
-            .build()
-            .await
-            .map_err(RuntimeError::Build)?;
+            .config(config.clone());
+        if let Some(transport) = self.backend_transport {
+            builder = builder.backend_transport(transport);
+        }
+        let runtime = builder.build().await.map_err(RuntimeError::Build)?;
         let core = Core::from_runtime(Arc::new(runtime));
 
         if let Some(session) = self.session {

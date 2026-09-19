@@ -2,7 +2,7 @@
 
 Aggregator that the React shell polls every few seconds (`openhuman.app_state_snapshot`) to render the OS-level chrome: the stored credential and user, local-AI status, service health, onboarding tasks, keyring status, config-recovery notice. Owns the on-disk `app-state.json` and the merge/patch surface for shell-managed local fields. Does NOT own any of the underlying domain state — it assembles snapshots from peer domains and persists shell-side onboarding metadata.
 
-The snapshot never talks to the backend. The user it reports is the payload the host handed the core with `auth.set_credential` (the host's own `/auth/me` answer); the *live* current user is the session owner's business — the Tauri shell's `openhuman-session` cache (`crates/openhuman-session`) — and the frontend merges it in (`app/src/services/coreStateApi.ts`).
+The snapshot never talks to the backend. The user it reports is the payload the host handed the core with `auth.set_credential` (the host's own `/auth/me` answer); the *live* current user is the session owner's business — the Tauri shell's session cache (`openhuman_tinyhumans::session::CurrentUserCache`) — and the frontend merges it in (`app/src/services/coreStateApi.ts`).
 
 ## Key files
 

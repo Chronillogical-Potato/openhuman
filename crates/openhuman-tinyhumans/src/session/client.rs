@@ -9,7 +9,7 @@ use serde_json::Value;
 use tinyhumans_sdk::api::types::LoginTokenRequest;
 use tinyhumans_sdk::TinyHumansClient;
 
-use crate::credential::{Credential, CredentialKind};
+use crate::session::credential::{Credential, CredentialKind};
 
 const LOG_PREFIX: &str = "[session][client]";
 
@@ -251,7 +251,7 @@ impl SessionClient {
         base.set_query(None);
         base.set_fragment(None);
 
-        let http = crate::tls::client_builder()
+        let http = openhuman_core::util::tls::tls_client_builder()
             .http1_only()
             .timeout(REQUEST_TIMEOUT)
             .connect_timeout(CONNECT_TIMEOUT)

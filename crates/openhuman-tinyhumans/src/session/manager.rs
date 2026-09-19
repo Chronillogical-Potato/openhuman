@@ -13,14 +13,14 @@ use serde_json::{json, Value};
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
-use crate::cache::{CachedUser, CurrentUserCache};
-use crate::client::{ClientHeaders, FetchMeError, SessionClient};
-use crate::credential::{
+use crate::session::cache::{CachedUser, CurrentUserCache};
+use crate::session::client::{ClientHeaders, FetchMeError, SessionClient};
+use crate::session::credential::{
     decode_jwt_exp, jwt_is_live, user_id_from_jwt_claims, user_id_from_profile_payload, Credential,
     CredentialKind,
 };
-use crate::identity;
-use crate::link::{self, CoreAuthState, CoreLink};
+use crate::session::identity;
+use crate::session::link::{self, CoreAuthState, CoreLink};
 
 const LOG_PREFIX: &str = "[session][manager]";
 

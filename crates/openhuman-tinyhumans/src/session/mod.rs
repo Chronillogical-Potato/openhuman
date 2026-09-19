@@ -16,8 +16,11 @@
 //! * [`SessionManager`] — the host-facing orchestration on top of the three:
 //!   login, store, logout, current user, state and change events.
 //!
-//! No `openhuman` dependency: this crate must stay buildable from the Tauri
-//! shell's own Cargo world and must never pull the core's policy back in.
+//! Invariant kept from the standalone `openhuman-session` crate this module
+//! absorbed: it may use core *utilities* (`util::tls`, `api::product`,
+//! `openhuman_rpc::unwrap_rpc`) but must never call `openhuman_core::security::*`
+//! or dispatch into a core except through [`CoreLink`] — the host owns the
+//! login, the core only takes the credential.
 
 pub mod cache;
 pub mod client;
@@ -25,7 +28,6 @@ pub mod credential;
 pub mod identity;
 pub mod link;
 pub mod manager;
-mod tls;
 
 #[cfg(test)]
 pub(crate) mod test_support;

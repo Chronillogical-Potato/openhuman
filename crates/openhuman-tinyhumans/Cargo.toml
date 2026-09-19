@@ -1,0 +1,71 @@
+[package]
+name = "openhuman-tinyhumans"
+description = "OpenHuman on the hosted TinyHumans backend: the SDK-backed transport, an embed runtime that boots connected, and the host-side login/session owner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+publish = false
+
+# Every gate forwards 1:1 to `openhuman-embed`, which forwards it to the core.
+# This crate adds no gates of its own: it is the layer that *connects* an
+# embed runtime to the TinyHumans backend, not a feature surface.
+[features]
+default = ["openhuman-embed/default"]
+http-server = ["openhuman-embed/http-server"]
+inference = ["openhuman-embed/inference"]
+documents = ["openhuman-embed/documents"]
+hosting = ["openhuman-embed/hosting"]
+modules = ["openhuman-embed/modules"]
+voice = ["openhuman-embed/voice"]
+web3 = ["openhuman-embed/web3"]
+runtime-node = ["openhuman-embed/runtime-node"]
+contacts = ["openhuman-embed/contacts"]
+media = ["openhuman-embed/media"]
+flows = ["openhuman-embed/flows"]
+skills = ["openhuman-embed/skills"]
+mcp = ["openhuman-embed/mcp"]
+crash-reporting = ["openhuman-embed/crash-reporting"]
+medulla = ["openhuman-embed/medulla"]
+channels = ["openhuman-embed/channels"]
+sandbox-landlock = ["openhuman-embed/sandbox-landlock"]
+sandbox-bubblewrap = ["openhuman-embed/sandbox-bubblewrap"]
+peripheral-rpi = ["openhuman-embed/peripheral-rpi"]
+browser-native = ["openhuman-embed/browser-native"]
+whatsapp-web = ["openhuman-embed/whatsapp-web"]
+file-logging = ["openhuman-embed/file-logging"]
+scheduler-gate = ["openhuman-embed/scheduler-gate"]
+
+[dependencies]
+openhuman-embed = { path = "../openhuman-embed", default-features = false }
+# Direct access to `api::transport` / `core::all` — the surfaces embed does
+# not (and should not) re-export. Features unify with embed's forwarding.
+openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+# The vendored TinyHumans SDK: the only crate in the tree that may depend on
+# it. `default-features = false` drops the Socket.IO client; realtime stays
+# on the core's own `platform::socket` transport.
+tinyhumans-sdk = { path = "../../vendor/tinyhumans-sdk", default-features = false }
+anyhow = "1"
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+log = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }
+url = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Windows honours the OS certificate store through schannel so corporate
+# TLS-inspecting proxies keep working — the session client builds its HTTP
+# client through the core's `util::tls::tls_client_builder`, which needs the
+# `native-tls` backend compiled in.
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "native-tls"] }
+
+[dev-dependencies]
+axum = "0.8"
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time"] }
+wiremock = "0.6"

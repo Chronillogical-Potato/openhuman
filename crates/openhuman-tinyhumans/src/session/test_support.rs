@@ -15,7 +15,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::link::{self, CoreLink};
+use crate::session::link::{self, CoreLink};
 
 /// Serialises tests that touch process-global state (environment variables,
 /// the `identity` slot).

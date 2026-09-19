@@ -1,8 +1,9 @@
 use super::{
     backend_api_body_shape, flatten_authed_error, is_announcements_latest_path,
-    is_unmatched_route_404, key_bytes_from_string, parse_message_path, sanitize_client_version,
-    BackendApiError, BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
+    is_unmatched_route_404, key_bytes_from_string, parse_message_path, BackendApiError,
+    BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
 };
+use crate::api::headers::sanitize_client_version;
 use crate::api::product::{
     product_identity_test_lock, reset_product_identity_for_test, set_product_identity,
     ProductIdentity, DEFAULT_PRODUCT_IDENTITY, PRODUCT_IDENTITY_HEADER,
@@ -357,7 +358,7 @@ async fn backend_client_sends_x_tauri_version_when_env_set() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
     std::env::remove_var("OPENHUMAN_TAURI_VERSION");
 
@@ -411,7 +412,7 @@ async fn backend_raw_client_inherits_x_core_version_default_header() {
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
 
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
 
     let headers = captured.take();
@@ -461,7 +462,7 @@ async fn raw_client_sends_the_product_identity_alongside_the_version_headers() {
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
 
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
 
     let headers = captured.take();
@@ -492,7 +493,7 @@ async fn an_embedding_product_can_override_the_product_identity() {
         .await;
 
     let url = client.url_for("/probe").unwrap();
-    let raw_result = client.raw_client().get(url).send().await;
+    let raw_result = client.raw_client().unwrap().get(url).send().await;
 
     reset_product_identity_for_test();
 

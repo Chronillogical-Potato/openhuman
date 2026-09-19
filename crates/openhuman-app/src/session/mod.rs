@@ -1,5 +1,5 @@
 //! The desktop session owner: login-token exchange, `/auth/me` and the
-//! current-user cache live in `openhuman-session`; this module is the glue
+//! current-user cache live in `openhuman-tinyhumans`; this module is the glue
 //! that gives it a link to the embedded (or gateway) core, exposes it to the
 //! renderer as Tauri commands, and forwards its change events as Tauri events.
 //!
@@ -13,7 +13,7 @@ mod link;
 
 use std::sync::Arc;
 
-use openhuman_session::{ClientHeaders, SessionEvent, SessionManager};
+use openhuman_tinyhumans::{ClientHeaders, SessionEvent, SessionManager};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core_process::CoreProcessHandle;
@@ -22,7 +22,7 @@ use crate::AppRuntime;
 pub(crate) use link::HttpCoreLink;
 
 /// Tauri event emitted whenever the credential or the current user changes.
-/// Payload: `openhuman_session::SessionState`.
+/// Payload: `openhuman_tinyhumans::SessionState`.
 pub const AUTH_CHANGED_EVENT: &str = "auth://changed";
 /// Tauri event emitted when the backend rejected the stored credential and it
 /// has been cleared. Payload: `{ source }`.
@@ -89,5 +89,5 @@ pub fn install(app: &AppHandle<AppRuntime>, desktop: CoreProcessHandle) {
 
 /// The signed-in user id, for synchronous callers (Sentry `before_send`).
 pub fn peek_user_id() -> Option<String> {
-    openhuman_session::identity::peek_user_id()
+    openhuman_tinyhumans::identity::peek_user_id()
 }
