@@ -504,8 +504,8 @@ from the carrier rather than rediscovered by the middleware.
 the context, definition, security, model, memory, budget, progress, learning,
 tool-outcome and experience adapters from the same session/runtime inputs.
 OpenHuman retains all policy decisions; TinyAgents receives only the resulting
-capabilities and canonical run context once the deferred live cutover wires it
-into invocation.
+canonical run context today. Wiring the complete host-capability bundle into
+every invocation remains a later cutover step.
 
 ## Self-healing recap
 

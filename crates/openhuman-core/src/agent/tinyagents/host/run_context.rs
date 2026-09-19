@@ -4,8 +4,8 @@
 //! This type owns the product values that used to be recovered from ambient
 //! task-locals: approval origin, host progress, attachment and artifact scope,
 //! parent dispatch state, and the handles a tool needs to continue a run.
-//! The shared turn seam receives this as its live OpenHuman carrier. The
-//! The live middleware registry uses this type as the TinyAgents run context,
+//! The shared turn seam receives this as its live OpenHuman carrier. The live
+//! middleware registry uses this type as the TinyAgents run context,
 //! so every host seam receives the same explicit carrier rather than recovering
 //! product state from a task-local.
 
