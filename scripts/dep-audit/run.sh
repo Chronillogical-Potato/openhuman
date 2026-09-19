@@ -124,6 +124,7 @@ done < <(git submodule status --recursive | sort -k2,2 | awk '{ print $1, $2 }' 
 # ---------------------------------------------------------------------------
 analyzed=0
 failed=()
+rewritten_locks=()
 while IFS=$'\t' read -r name path sha remote; do
   if [[ -n "$TARGET_RE" ]] && ! [[ "$name" =~ $TARGET_RE ]]; then
     continue
@@ -131,6 +132,17 @@ while IFS=$'\t' read -r name path sha remote; do
   json="$OUT_DIR/$name.json"
   log="$OUT_DIR/$name.log"
   [[ $VERBOSE -eq 1 ]] && echo "dep-audit: tinyanalyzer $path -> $json"
+  # tinyanalyzer runs `cargo metadata`, which silently rewrites a Cargo.lock
+  # that is stale relative to its manifest (the app crate's lockfile is the
+  # usual victim). An audit must not leave edits behind, so the lockfile is
+  # snapshotted and put back if the run changed it.
+  lock="$path/Cargo.lock"
+  lock_backup=""
+  if [[ -f "$lock" ]]; then
+    lock_backup="$OUT_DIR/.lock-backup/$name.Cargo.lock"
+    mkdir -p "$(dirname "$lock_backup")"
+    cp "$lock" "$lock_backup"
+  fi
   # --no-dead-code and --hide-tests keep the run cheap; the dependency graph is
   # what we are after and it does not depend on either.
   if tinyanalyzer "$path" --config "$CONFIG" --output json --no-dead-code --hide-tests \
@@ -142,6 +154,10 @@ while IFS=$'\t' read -r name path sha remote; do
     printf 'dep-audit: %-28s FAILED (see %s)\n' "$name" "$log" >&2
     rm -f "$json"
   fi
+  if [[ -n "$lock_backup" ]] && ! cmp -s "$lock" "$lock_backup"; then
+    cp "$lock_backup" "$lock"
+    rewritten_locks+=("$lock")
+  fi
 done < "$TARGETS_TSV"
 
 echo "dep-audit: analyzed $analyzed target(s) into $OUT_DIR"
@@ -151,6 +167,11 @@ if ((${#skipped_nested[@]})); then
 fi
 if ((${#failed[@]})); then
   echo "dep-audit: ${#failed[@]} target(s) failed: ${failed[*]}" >&2
+fi
+if ((${#rewritten_locks[@]})); then
+  echo "dep-audit: cargo metadata re-resolved ${#rewritten_locks[@]} lockfile(s); restored them. Each is stale" \
+       "relative to its manifest — refresh it deliberately (cargo update / generate-lockfile) if that is wanted:"
+  printf '  %s\n' "${rewritten_locks[@]}"
 fi
 
 if [[ $WRITE_REPORT -eq 1 ]]; then
