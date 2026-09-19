@@ -229,67 +229,90 @@ impl Tool for CollapsedDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let requested = args.get("agent").and_then(Value::as_str).map(str::trim);
-        let Some(target) = requested.and_then(|agent| self.resolve(agent)) else {
-            return Ok(ToolResult::error(format!(
-                "`agent` must be one of: {}. Got: {}",
-                self.agent_enum().join(", "),
-                requested.filter(|s| !s.is_empty()).unwrap_or("(missing)")
-            )));
-        };
-
-        let raw_prompt = args
-            .get("prompt")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if raw_prompt.is_empty() {
-            return Ok(ToolResult::error(format!(
-                "{DELEGATE_TO_TOOL_NAME}: `prompt` is required"
-            )));
-        }
-        let prompt = render_structured_handoff(&raw_prompt, &args);
-
-        let model_override = args
-            .get("model")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        // Async by default, exactly as the member tools were: the specialist
-        // runs as a durable, resumable worker and its result arrives as a new
-        // chat turn. `blocking: true` is the opt-in for a result that must gate
-        // this reply.
-        let blocking = args
-            .get("blocking")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let mode = if blocking {
-            super::dispatch::DispatchMode::Blocking
-        } else {
-            super::dispatch::DispatchMode::PreferAsync
-        };
-
-        tracing::debug!(
-            agent = %target.agent_id,
-            via = %target.tool_name,
-            "[delegate] dispatch"
-        );
-        // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
-        // into run records and the UI, and reporting every hand-off as
-        // `delegate` would erase which specialist was chosen from every trace.
-        super::dispatch_subagent(
-            &target.agent_id,
-            &target.tool_name,
-            &prompt,
-            None,
-            model_override,
+        execute_collapsed_delegation(
+            &self.targets,
+            args,
             tool_context,
-            mode,
+            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
         )
         .await
     }
+}
+
+/// Execute a collapsed hand-off with an explicit child run carrier.
+pub(crate) async fn execute_collapsed_delegation(
+    targets: &[DelegateTarget],
+    args: Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> anyhow::Result<ToolResult> {
+    let requested = args.get("agent").and_then(Value::as_str).map(str::trim);
+    let Some(target) =
+        requested.and_then(|agent| targets.iter().find(|target| target.tool_name == agent))
+    else {
+        return Ok(ToolResult::error(format!(
+            "`agent` must be one of: {}. Got: {}",
+            targets
+                .iter()
+                .map(|target| target.tool_name.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            requested.filter(|s| !s.is_empty()).unwrap_or("(missing)")
+        )));
+    };
+
+    let raw_prompt = args
+        .get("prompt")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if raw_prompt.is_empty() {
+        return Ok(ToolResult::error(format!(
+            "{DELEGATE_TO_TOOL_NAME}: `prompt` is required"
+        )));
+    }
+    let prompt = render_structured_handoff(&raw_prompt, &args);
+
+    let model_override = args
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    // Async by default, exactly as the member tools were: the specialist
+    // runs as a durable, resumable worker and its result arrives as a new
+    // chat turn. `blocking: true` is the opt-in for a result that must gate
+    // this reply.
+    let blocking = args
+        .get("blocking")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mode = if blocking {
+        super::dispatch::DispatchMode::Blocking
+    } else {
+        super::dispatch::DispatchMode::PreferAsync
+    };
+
+    tracing::debug!(
+        agent = %target.agent_id,
+        via = %target.tool_name,
+        "[delegate] dispatch"
+    );
+    // `target.tool_name`, not `DELEGATE_TO_TOOL_NAME`: the dispatch name rides
+    // into run records and the UI, and reporting every hand-off as
+    // `delegate` would erase which specialist was chosen from every trace.
+    super::dispatch_subagent(
+        &target.agent_id,
+        &target.tool_name,
+        &prompt,
+        None,
+        model_override,
+        tool_context,
+        mode,
+        run_context,
+    )
+    .await
 }
 
 #[cfg(test)]

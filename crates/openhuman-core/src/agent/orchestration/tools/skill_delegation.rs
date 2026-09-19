@@ -202,110 +202,128 @@ impl Tool for SkillDelegationTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let raw_toolkit = args
-            .get("toolkit")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        log::debug!(
-            "[skill-delegation] execute start tool='{}' raw_toolkit={:?} prompt_chars={}",
-            self.tool_name,
-            raw_toolkit,
-            args.get("prompt")
-                .and_then(|v| v.as_str())
-                .map(|s| s.chars().count())
-                .unwrap_or(0)
-        );
-        if raw_toolkit.is_empty() {
-            log::debug!(
-                "[skill-delegation] reject: missing `toolkit` argument for tool='{}'",
-                self.tool_name
-            );
-            return Ok(ToolResult::error(format!(
-                "{}: `toolkit` is required and must match a connected integration slug",
-                self.tool_name
-            )));
-        }
-        let slug = sanitise_slug(&raw_toolkit);
-        let mut live_connected: Option<Vec<String>> = None;
-        let mut known = self
-            .connected_toolkits
-            .iter()
-            .any(|(known_slug, _)| known_slug == &slug);
-        if !known {
-            // Safety net for same-thread OAuth races: do one live status
-            // refresh before rejecting an unknown toolkit, mirroring the
-            // spawn_subagent integrations pre-flight.
-            live_connected = fetch_live_connected_toolkit_slugs_once().await;
-        }
-        let (known_after_recheck, allowed) =
-            resolve_connected_toolkits(&self.connected_toolkits, &slug, live_connected.as_deref());
-        if known_after_recheck && !known {
-            log::info!(
-                "[skill-delegation] toolkit '{}' accepted after live re-check (session schema stale)",
-                slug
-            );
-        }
-        known = known_after_recheck;
-        if !known {
-            log::debug!(
-                "[skill-delegation] reject: toolkit '{}' (sanitised='{}') not in connected set {:?}",
-                raw_toolkit,
-                slug,
-                allowed
-            );
-            return Ok(ToolResult::error(format!(
-                "{}: toolkit `{raw_toolkit}` is not connected — allowed: [{}]",
-                self.tool_name,
-                allowed.join(", ")
-            )));
-        }
-
-        let prompt = args
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if prompt.is_empty() {
-            log::debug!(
-                "[skill-delegation] reject: empty `prompt` for tool='{}' toolkit='{}'",
-                self.tool_name,
-                slug
-            );
-            return Ok(ToolResult::error(format!(
-                "{}: `prompt` is required",
-                self.tool_name
-            )));
-        }
-
-        let model_override = args
-            .get("model")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        log::debug!(
-            "[skill-delegation] dispatching toolkit='{}' to integrations_agent (prompt_chars={})",
-            slug,
-            prompt.chars().count()
-        );
-        // Integration delegations stay blocking: their outcomes (send the
-        // email, create the page, …) are usually approval-gated mid-turn and
-        // the orchestrator's reply reports the concrete result. The durable
-        // async default applies to archetype delegations only for now.
-        super::dispatch_subagent(
-            "integrations_agent",
+        execute_skill_delegation(
             &self.tool_name,
-            &prompt,
-            Some(&slug),
-            model_override,
+            &self.connected_toolkits,
+            args,
             tool_context,
-            super::dispatch::DispatchMode::Blocking,
+            crate::agent::tinyagents::host::OpenHumanRunContext::from_current_scopes(),
         )
         .await
     }
+}
+
+/// Execute an integration hand-off with an explicit child run carrier.
+pub(crate) async fn execute_skill_delegation(
+    tool_name: &str,
+    connected_toolkits: &[(String, String)],
+    args: serde_json::Value,
+    tool_context: Option<&dyn ToolRunContext>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> anyhow::Result<ToolResult> {
+    let raw_toolkit = args
+        .get("toolkit")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    log::debug!(
+        "[skill-delegation] execute start tool='{}' raw_toolkit={:?} prompt_chars={}",
+        tool_name,
+        raw_toolkit,
+        args.get("prompt")
+            .and_then(|v| v.as_str())
+            .map(|s| s.chars().count())
+            .unwrap_or(0)
+    );
+    if raw_toolkit.is_empty() {
+        log::debug!(
+            "[skill-delegation] reject: missing `toolkit` argument for tool='{}'",
+            tool_name
+        );
+        return Ok(ToolResult::error(format!(
+            "{}: `toolkit` is required and must match a connected integration slug",
+            tool_name
+        )));
+    }
+    let slug = sanitise_slug(&raw_toolkit);
+    let mut live_connected: Option<Vec<String>> = None;
+    let mut known = connected_toolkits
+        .iter()
+        .any(|(known_slug, _)| known_slug == &slug);
+    if !known {
+        // Safety net for same-thread OAuth races: do one live status
+        // refresh before rejecting an unknown toolkit, mirroring the
+        // spawn_subagent integrations pre-flight.
+        live_connected = fetch_live_connected_toolkit_slugs_once().await;
+    }
+    let (known_after_recheck, allowed) =
+        resolve_connected_toolkits(connected_toolkits, &slug, live_connected.as_deref());
+    if known_after_recheck && !known {
+        log::info!(
+            "[skill-delegation] toolkit '{}' accepted after live re-check (session schema stale)",
+            slug
+        );
+    }
+    known = known_after_recheck;
+    if !known {
+        log::debug!(
+            "[skill-delegation] reject: toolkit '{}' (sanitised='{}') not in connected set {:?}",
+            raw_toolkit,
+            slug,
+            allowed
+        );
+        return Ok(ToolResult::error(format!(
+            "{}: toolkit `{raw_toolkit}` is not connected — allowed: [{}]",
+            tool_name,
+            allowed.join(", ")
+        )));
+    }
+
+    let prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if prompt.is_empty() {
+        log::debug!(
+            "[skill-delegation] reject: empty `prompt` for tool='{}' toolkit='{}'",
+            tool_name,
+            slug
+        );
+        return Ok(ToolResult::error(format!(
+            "{}: `prompt` is required",
+            tool_name
+        )));
+    }
+
+    let model_override = args
+        .get("model")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    log::debug!(
+        "[skill-delegation] dispatching toolkit='{}' to integrations_agent (prompt_chars={})",
+        slug,
+        prompt.chars().count()
+    );
+    // Integration delegations stay blocking: their outcomes (send the
+    // email, create the page, …) are usually approval-gated mid-turn and
+    // the orchestrator's reply reports the concrete result. The durable
+    // async default applies to archetype delegations only for now.
+    super::dispatch_subagent(
+        "integrations_agent",
+        tool_name,
+        &prompt,
+        Some(&slug),
+        model_override,
+        tool_context,
+        super::dispatch::DispatchMode::Blocking,
+        run_context,
+    )
+    .await
 }
 
 #[cfg(test)]

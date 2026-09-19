@@ -1,7 +1,59 @@
 use super::*;
+use async_trait::async_trait;
+use std::sync::Arc;
 use tinytools::Tool;
 
 use crate::agent::tools::AskClarificationTool;
+
+struct DelegationRegistrationTool {
+    name: &'static str,
+    parameters: serde_json::Value,
+}
+
+#[async_trait]
+impl Tool for DelegationRegistrationTool {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn description(&self) -> &str {
+        "test delegation registration"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        self.parameters.clone()
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("unused"))
+    }
+}
+
+#[test]
+fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
+    let integration = Arc::new(DelegationRegistrationTool {
+        name: "delegate_to_integrations_agent",
+        parameters: serde_json::json!({
+            "properties": { "toolkit": { "enum": ["gmail"] } }
+        }),
+    });
+    for tool in [
+        Arc::new(DelegationRegistrationTool {
+            name: "delegate_to",
+            parameters: serde_json::json!({}),
+        }) as Arc<dyn Tool>,
+        Arc::new(DelegationRegistrationTool {
+            name: "delegate_researcher",
+            parameters: serde_json::json!({}),
+        }),
+        integration,
+    ] {
+        assert!(
+            DelegationDispatch::for_tool(tool).is_some(),
+            "every synthesised delegation name must select the typed dispatch"
+        );
+    }
+}
 
 #[test]
 fn ask_clarification_tool_re_exported() {
@@ -25,6 +77,7 @@ async fn dispatch_subagent_returns_tool_error_when_agent_unknown() {
         None,
         None,
         DispatchMode::Blocking,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
     )
     .await
     .expect("dispatch_subagent should not return Err on these inputs");
