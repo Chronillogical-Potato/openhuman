@@ -25,14 +25,12 @@ Existing owners remain authoritative:
 
 ## Public API
 
-The new crate exposes typed plans and trait seams, never OpenHuman values:
+The current crate exposes only the durable team ledger seam and callback member
+graph, never OpenHuman values. A future workflow slice may add typed plans and
+executor seams only when its engine consumes them:
 
 ```rust
 pub trait TeamLedger: Send + Sync { /* team/member/task/event operations */ }
-#[async_trait]
-pub trait TeamWorker: Send + Sync {
-    async fn run(&self, request: TeamWorkRequest) -> Result<TeamWorkResult, OrchestrationError>;
-}
 
 pub trait WorkflowStore: Send + Sync { /* load/upsert workflow snapshots */ }
 #[async_trait]
@@ -55,7 +53,7 @@ crate decisions.
 
 Add `crates/tinyagents-orchestration/Cargo.toml`, register it in
 `vendor/tinyagents/Cargo.toml` default members, and use direct dependencies on
-`anyhow`, `async-trait`, `serde`, `serde_json`, `tokio`, `uuid`,
+`anyhow`, `serde`, `serde_json`, `tokio`, `uuid`,
 `tinyagents-harness`, `tinyagents-graph`, and `tinyagents-session`. Forward a
 single optional `tracing` feature to the three TinyAgents crates. Do not add
 `tinytools` unless a public signature needs it, and do not enable graph SQLite
@@ -91,9 +89,11 @@ and `cargo test -p tinyagents-orchestration`.
 ### O2 — team service and member graph
 
 **RED:** Port `agent_teams/graph_tests.rs` and generic `ops_tests.rs` cases to
-the new crate with a fake `TeamLedger`/`TeamWorker`: duplicate names, unknown
+the new crate with a fake `TeamLedger`: duplicate names, unknown
 member/dependency, self/cycle rejection, ordered messages, claim race result,
-quality-gated completion, complete route, failed route, and worker engine error.
+quality-gated completion and recovery, non-claimant/owner-mismatch completion,
+complete route, failed route, worker engine error, and optional graph-sink
+delivery.
 
 **GREEN:** Implement typed team service and callback graph. Add the optional
 session-ledger adapter only after the trait suite is green.

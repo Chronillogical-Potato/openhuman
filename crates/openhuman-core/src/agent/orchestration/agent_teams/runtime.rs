@@ -27,6 +27,8 @@
 //! timeline or worker thread" criterion via both paths; a live inbox would be a
 //! separate orchestration-layer change.
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 use serde_json::json;
 
@@ -41,6 +43,8 @@ use tinyagents_session::run_ledger::{
 };
 
 use tinyagents_orchestration::teams::{claimable_task, run_member_graph, MemberOutcome, TeamError};
+
+use crate::agent::tinyagents::observability::GraphTracingSink;
 
 const LOG_TARGET: &str = "agent_team_runtime";
 /// Fallback worker archetype when a member carries no explicit `agent_id`.
@@ -417,7 +421,15 @@ async fn drive_member(
         }
     };
 
-    run_member_graph(run_worker, on_complete, on_failed).await
+    run_member_graph(
+        Some(Arc::new(GraphTracingSink::new(format!(
+            "team:{team_id}:{member_id}"
+        )))),
+        run_worker,
+        on_complete,
+        on_failed,
+    )
+    .await
 }
 
 /// Compose the worker prompt from the task + any pending messages addressed to
