@@ -4099,7 +4099,6 @@ dependencies = [
  "tinyflows-copilot",
  "tinyflows-sqlite",
  "tinyhosts",
- "tinyhumans-sdk",
  "tinyinference-core",
  "tinyinference-embeddings",
  "tinyinference-llm",
