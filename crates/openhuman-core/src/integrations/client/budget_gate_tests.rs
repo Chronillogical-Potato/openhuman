@@ -264,3 +264,170 @@ async fn failed_probe_is_not_cached_and_defers_to_backend() {
         "failed probe is re-fetched next time"
     );
 }
+
+#[test]
+fn usage_budget_exhausted_requires_real_cycle_signal() {
+    assert!(!usage_budget_exhausted(&json!({
+        "remainingUsd": 0,
+        "cycleBudgetUsd": 0,
+        "cycleSpentUsd": 0,
+    })));
+    assert!(usage_budget_exhausted(&json!({
+        "remainingUsd": 0,
+        "cycleBudgetUsd": 10,
+        "cycleSpentUsd": 10,
+    })));
+    assert!(usage_budget_exhausted(&json!({
+        "remainingUsd": 0,
+        "cycleBudgetUsd": 0,
+        "cycleSpentUsd": 2,
+    })));
+}
+
+#[test]
+fn usage_budget_exhausted_honors_remaining_and_bypass() {
+    assert!(!usage_budget_exhausted(&json!({
+        "remainingUsd": 0.25,
+        "cycleBudgetUsd": 10,
+    })));
+    assert!(!usage_budget_exhausted(&json!({
+        "remainingUsd": 0,
+        "cycleBudgetUsd": 10,
+        "bypassCycleLimit": true,
+    })));
+}
+
+// --- pre-HTTP input validation (no network) -----------------------------
+
+fn cfg() -> Config {
+    Config::default()
+}
+
+#[tokio::test]
+async fn list_members_rejects_empty_team_id() {
+    let err = list_members(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn list_members_rejects_whitespace_team_id() {
+    let err = list_members(&cfg(), "   ").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn get_team_rejects_empty_team_id() {
+    let err = get_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn create_team_rejects_empty_name() {
+    let err = create_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "name is required");
+}
+
+#[tokio::test]
+async fn create_team_rejects_whitespace_name() {
+    let err = create_team(&cfg(), "   ").await.unwrap_err();
+    assert_eq!(err, "name is required");
+}
+
+#[tokio::test]
+async fn update_team_rejects_empty_team_id() {
+    let err = update_team(&cfg(), "", Some("new")).await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn delete_team_rejects_empty_team_id() {
+    let err = delete_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn switch_team_rejects_empty_team_id() {
+    let err = switch_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn leave_team_rejects_empty_team_id() {
+    let err = leave_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn join_team_rejects_empty_code() {
+    let err = join_team(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "code is required");
+}
+
+#[tokio::test]
+async fn join_team_rejects_whitespace_code() {
+    let err = join_team(&cfg(), "   ").await.unwrap_err();
+    assert_eq!(err, "code is required");
+}
+
+#[tokio::test]
+async fn create_invite_rejects_empty_team_id() {
+    let err = create_invite(&cfg(), "", None, None).await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn remove_member_validates_team_id_before_user_id() {
+    // Failing input order must be deterministic: team_id is normalized
+    // first, so an empty team_id reports the teamId error regardless of
+    // the user_id.
+    let err = remove_member(&cfg(), "", "someone").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn remove_member_rejects_empty_user_id_when_team_id_valid() {
+    let err = remove_member(&cfg(), "t1", "").await.unwrap_err();
+    assert_eq!(err, "userId is required");
+}
+
+#[tokio::test]
+async fn change_member_role_rejects_missing_role() {
+    let err = change_member_role(&cfg(), "t1", "u1", "")
+        .await
+        .unwrap_err();
+    assert_eq!(err, "role is required");
+}
+
+#[tokio::test]
+async fn change_member_role_validates_team_id_first() {
+    let err = change_member_role(&cfg(), "", "u1", "admin")
+        .await
+        .unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn change_member_role_validates_user_id_before_role() {
+    let err = change_member_role(&cfg(), "t1", "", "admin")
+        .await
+        .unwrap_err();
+    assert_eq!(err, "userId is required");
+}
+
+#[tokio::test]
+async fn list_invites_rejects_empty_team_id() {
+    let err = list_invites(&cfg(), "").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn revoke_invite_rejects_empty_team_id() {
+    let err = revoke_invite(&cfg(), "", "inv1").await.unwrap_err();
+    assert_eq!(err, "teamId is required");
+}
+
+#[tokio::test]
+async fn revoke_invite_rejects_empty_invite_id() {
+    let err = revoke_invite(&cfg(), "t1", "").await.unwrap_err();
+    assert_eq!(err, "inviteId is required");
+}

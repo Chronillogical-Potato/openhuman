@@ -9,9 +9,6 @@
 //! receive a backend 401/403 surfaced verbatim as an RPC error string.
 //! API keys / JWTs are never written to logs.
 
-use std::sync::RwLock;
-use std::time::{Duration, Instant};
-
 use reqwest::{Method, Url};
 use serde::Serialize;
 use serde_json::{json, Value};
