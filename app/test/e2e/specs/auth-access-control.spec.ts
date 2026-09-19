@@ -242,17 +242,9 @@ describe('Auth & Access Control', () => {
 
   it('3.1.1 — billing dashboard handoff is available', async () => {
     await navigateToBilling();
-
-    const hasHandoff =
-      (await textExists('Billing moved to the web')) ||
-      (await textExists('Open billing dashboard'));
-    if (!hasHandoff) {
-      console.log('[AuthAccess] Billing request log:', JSON.stringify(getRequestLog(), null, 2));
-      const tree = await dumpAccessibilityTree();
-      console.log('[AuthAccess] Billing page tree:\n', tree.slice(0, 6000));
-    }
-    expect(hasHandoff).toBe(true);
-
+    // The upstream billing summary now arrives asynchronously. Reuse the
+    // polling marker assertion so this first navigation has the same contract
+    // as the later billing checks in this spec.
     await expectBillingMarkers(['Open billing dashboard']);
 
     console.log('[AuthAccess] 3.1.1 — Billing web handoff verified');
