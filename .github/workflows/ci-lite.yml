@@ -481,11 +481,11 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
 
-      - name: Check session crate
+      - name: Check tinyhumans crate
         if: needs.changes.outputs['rust-core'] == 'true'
-        # `openhuman-session` is the host-side login/session owner shared by the
-        # Tauri shell and the TUI. It has no `openhuman` dependency, so it
-        # compiles in seconds and its tests run against in-process stubs.
+        # `openhuman-tinyhumans` is the SDK-backed backend transport plus the
+        # host-side login/session owner shared by the Tauri shell and the TUI.
+        # Its tests run against wiremock / in-process stubs, never the backend.
         run: |
           bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-tinyhumans
