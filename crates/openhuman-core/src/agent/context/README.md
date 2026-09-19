@@ -81,7 +81,7 @@ The durable substrate session-memory targets is the workspace `MEMORY.md` file, 
 - **`agent::tinyagents`** — `harness_assembly.rs` reads `CLEARED_PLACEHOLDER` when configuring `MicrocompactMiddleware`; `payload_summarizer.rs` and `host/context_composer.rs` build `PromptContext`s through `agent::prompts`.
 - **`agent::registry::agents/*/prompt.rs`**, `flows/agents/*/prompt.rs`, `memory/agent/agent/prompt.rs`, `skills/*/agent/*/prompt.rs` — archetype prompt modules pull prompt sections/builder through `agent::prompts`.
 - **`channels`** — `channels/system_prompt.rs` (`ChannelSystemPrompt`, used by `channels/runtime/startup/start_channels.rs`) calls `channels_prompt::build_system_prompt_with_identity`; `channels/mod.rs` re-exports `build_system_prompt`; the `channels/tests/*` prompt/identity tests call it directly.
-- **`agent::triage`, `agent::debug`, `agent::orchestration::tools` (spawn_subagent and friends), `agent::learning::prompt_sections`, `agent::profiles::prompt_section`, `memory::tool_memory::prompt`, `tools::orchestrator_tools`, `integrations::composio`** — consume prompt types (`PromptContext`, `PromptSection`, `ToolCallFormat`, `ConnectedIntegration`, …) via `agent::prompts`.
+- **`agent::triage`, `agent::debug`, `agent::orchestration::tools` (spawn_subagent and friends), `agent::learning::prompt_sections`, `memory::tool_memory::prompt`, `tools::orchestrator_tools`, `integrations::composio`** — consume prompt types (`PromptContext`, `PromptSection`, `ToolCallFormat`, `ConnectedIntegration`, …) via `agent::prompts`.
 - **`config::schema`** — `context.rs` embeds `SessionMemoryConfig`.
 
 ## Notes / gotchas

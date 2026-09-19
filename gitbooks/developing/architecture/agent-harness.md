@@ -24,7 +24,7 @@ the runtime's base `Config`, applies the spec, and derives a child
 `CoreContext` (`CoreContext::derive_with`) carrying that config, the agent's
 domain set, tool groups and skill-root policy. Every turn is dispatched under
 that context (`CoreRuntime::run_in` → `agent_chat_for` with an explicit
-`AgentDefinition` and `AgentProfile`), so the config loader, the domain gate,
+`AgentDefinition`), so the config loader, the domain gate,
 the tool-group filter and skill discovery all read the agent's own settings.
 Transcripts are keyed by agent id and a turn resumes only its own thread.
 
