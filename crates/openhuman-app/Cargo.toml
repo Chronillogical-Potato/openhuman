@@ -232,7 +232,6 @@ nix = { version = "0.29", default-features = false, features = ["hostname", "sig
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = "0.3.2"
-mac-notification-sys = "0.6"
 # iMessage scanner reads ~/Library/Messages/chat.db read-only on macOS
 # (rusqlite is declared once in the general [dependencies] table above).
 objc2-user-notifications = "0.3.2"
@@ -243,7 +242,6 @@ objc2-foundation = { version = "0.3.2", features = ["NSTimer", "block2"] }
 objc2-web-kit = { version = "0.3.2", features = ["block2"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-notify-rust = { version = "4", default-features = false, features = ["dbus"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # AttachConsole — re-attach to the parent shell when the binary runs as a CLI
