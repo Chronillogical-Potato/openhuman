@@ -12,6 +12,7 @@ use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
+use tinyagents_harness::run_queue::RunQueue;
 use tinytools::WorkspaceDescriptor;
 use tinytools::{Tool, ToolSpec};
 
@@ -126,7 +127,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     specs: Vec<ToolSpec>,
     allowed_names: HashSet<String>,
     max_iterations: usize,
-    run_queue: Option<Arc<crate::agent::harness::run_queue::RunQueue>>,
+    run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
     agent_id: &str,
     task_id: &str,

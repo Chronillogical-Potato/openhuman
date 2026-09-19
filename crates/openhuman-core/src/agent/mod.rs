@@ -56,6 +56,8 @@ pub(crate) mod progress_tracing;
 /// Prompt plumbing — types, section builders, and
 /// [`SystemPromptBuilder`](prompts::SystemPromptBuilder).
 pub mod prompts;
+/// Host-owned payload carried through TinyAgents run queues.
+pub mod queued_turn;
 pub mod registry;
 mod schemas;
 pub mod session_db;

@@ -325,7 +325,8 @@ pub struct Agent {
     pub(super) on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
     /// Optional active-run queue for mid-turn steering. When set, the
     /// engine drains steers/collects at iteration boundaries.
-    pub(super) run_queue: Option<Arc<crate::agent::harness::run_queue::RunQueue>>,
+    pub(super) run_queue:
+        Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     /// Active Composio integrations the user has connected. Populated at
     /// agent build time and threaded into each agent's `prompt.rs` so
     /// the delegator / skill-executor voices can render their own

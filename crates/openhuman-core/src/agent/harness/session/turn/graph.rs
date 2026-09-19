@@ -28,7 +28,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use tokio::sync::mpsc::Sender;
 
-use crate::agent::harness::run_queue::RunQueue;
 use crate::agent::harness::{with_current_sandbox_mode, SandboxMode};
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
@@ -36,6 +35,7 @@ use crate::agent::tinyagents::{
     run_root_turn_via_hosted_agent, TinyagentsTurnOutcome, TurnContextMiddleware,
 };
 use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
+use tinyagents_harness::run_queue::RunQueue;
 use tinytools::Tool;
 
 /// Inputs for a single chat-turn graph dispatch. Grouped into a struct so the
@@ -73,7 +73,7 @@ pub(crate) struct ChatTurnGraph {
     /// provider does not advertise a window.
     pub context_window: Option<u64>,
     /// Session run queue for mid-flight steering.
-    pub run_queue: Option<Arc<RunQueue>>,
+    pub run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     /// openhuman context middlewares (cache-align, microcompact, tool-output
     /// budget + payload summarizer) sourced from the session's `ContextManager`.
     pub context_mw: TurnContextMiddleware,

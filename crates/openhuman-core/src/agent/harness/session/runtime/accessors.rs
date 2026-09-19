@@ -381,7 +381,11 @@ impl Agent {
     /// Attach an active-run queue for mid-turn steering.
     pub fn set_run_queue(
         &mut self,
-        rq: Option<std::sync::Arc<crate::agent::harness::run_queue::RunQueue>>,
+        rq: Option<
+            std::sync::Arc<
+                tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>,
+            >,
+        >,
     ) {
         self.run_queue = rq;
     }

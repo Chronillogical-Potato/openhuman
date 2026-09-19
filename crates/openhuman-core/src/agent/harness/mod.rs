@@ -34,7 +34,6 @@ pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 pub(crate) mod memory_protocol;
 pub(crate) mod required_output;
-pub mod run_queue;
 pub mod sandbox_context;
 pub mod session;
 pub(crate) mod spawn_depth_context;

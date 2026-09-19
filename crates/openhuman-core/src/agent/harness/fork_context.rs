@@ -157,7 +157,8 @@ pub struct ParentExecutionContext {
     /// Parent's active run queue. Tools that create background event sources
     /// use this to inject concise collect-context at the same safe iteration
     /// boundary as web-channel queue messages.
-    pub run_queue: Option<Arc<crate::agent::harness::run_queue::RunQueue>>,
+    pub run_queue:
+        Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
 }
 
 /// A context-preparation source that already ran for the current parent turn.

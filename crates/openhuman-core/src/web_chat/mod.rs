@@ -42,9 +42,10 @@ pub(crate) use web_errors::classify_inference_error;
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]
 pub(crate) use web_errors::{
-    extract_provider_error_detail, extract_provider_name, generic_inference_error_user_message,
-    is_action_budget_exhausted, is_fallback_chain_exhausted, is_non_retryable_rate_limit_text,
-    parse_retry_after_secs_from_str, retry_after_hint, with_provider_detail, ClassifiedError,
+    ClassifiedError, extract_provider_error_detail, extract_provider_name,
+    generic_inference_error_user_message, is_action_budget_exhausted, is_fallback_chain_exhausted,
+    is_non_retryable_rate_limit_text, parse_retry_after_secs_from_str, retry_after_hint,
+    with_provider_detail,
 };
 
 // Public API — event bus
@@ -60,6 +61,8 @@ pub use event_bus::{
 pub use event_bus::fresh_approval_surface_subscription;
 
 // Public API — operations
+#[cfg(test)]
+pub use ops::drain_queued_turns_for_test;
 #[cfg(any(test, debug_assertions))]
 pub use ops::parallel_in_flight_entries_for_test;
 pub use ops::{
@@ -105,11 +108,11 @@ pub(crate) use web_errors::{
 
 // Test helpers (debug/test builds only)
 #[cfg(any(test, debug_assertions))]
-pub use ops::set_test_forced_run_chat_task_error;
-#[cfg(any(test, debug_assertions))]
 pub use ops::RUN_CHAT_TASK_TEST_LOCK;
 #[cfg(any(test, debug_assertions))]
-pub use ops::{set_test_run_chat_task_block, TestRunChatTaskBlock};
+pub use ops::set_test_forced_run_chat_task_error;
+#[cfg(any(test, debug_assertions))]
+pub use ops::{TestRunChatTaskBlock, set_test_run_chat_task_block};
 
 #[cfg(any(test, debug_assertions))]
 #[path = "mod_test_support_tests.rs"]
