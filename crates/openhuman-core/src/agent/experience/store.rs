@@ -1,5 +1,5 @@
 use crate::agent::experience::types::{
-    stable_experience_id_for_profile, AgentExperience, ExperienceHit,
+    stable_experience_id, AgentExperience, ExperienceHit,
 };
 use crate::memory::safety::sanitize_text;
 use crate::memory::{Memory, MemoryCategory};
@@ -58,35 +58,9 @@ pub struct ExperienceQuery {
     pub tags: Vec<String>,
     pub agent_id: Option<String>,
     pub entrypoint: Option<String>,
-    /// Profile partition (1c). When `Some(P)`, retrieval returns records stamped
-    /// `P` plus unstamped legacy records and excludes records stamped with a
-    /// different profile. When `None` (the profile-less session), every record
-    /// is in scope — see [`experience_matches_profile`].
-    pub profile_id: Option<String>,
     pub max_hits: usize,
 }
 
-/// Profile partition predicate shared by retrieval and RPC list (1c).
-///
-/// - A **profile-less** query (`query_profile == None`) sees **everything**:
-///   the default session historically owns the whole shared experience pool and
-///   must keep recalling every record it and prior versions wrote, so narrowing
-///   it would silently drop guidance the default agent still relies on.
-/// - A **profiled** query (`Some(P)`) sees records stamped `P` plus unstamped
-///   legacy/shared records (`record_profile == None`), and excludes records
-///   stamped with a different profile `Q` — the isolation the feature adds.
-pub fn experience_matches_profile(
-    record_profile: Option<&str>,
-    query_profile: Option<&str>,
-) -> bool {
-    match query_profile {
-        None => true,
-        Some(active) => match record_profile {
-            None => true,
-            Some(owner) => owner == active,
-        },
-    }
-}
 
 #[derive(Clone)]
 pub struct AgentExperienceStore {
@@ -100,11 +74,10 @@ impl AgentExperienceStore {
 
     pub async fn put(&self, mut experience: AgentExperience) -> Result<AgentExperience, String> {
         if experience.id.trim().is_empty() {
-            experience.id = stable_experience_id_for_profile(
+            experience.id = stable_experience_id(
                 &experience.task_summary,
                 &experience.tool_sequence,
                 experience.outcome,
-                experience.profile_id.as_deref(),
             );
         }
         if experience.task_summary.trim().is_empty() {
@@ -169,49 +142,18 @@ impl AgentExperienceStore {
         Ok(experiences)
     }
 
-    /// [`Self::list`] narrowed to a profile partition (1c). `profile_id == None`
-    /// returns everything (the profile-less view); `Some(P)` returns records
-    /// stamped `P` plus unstamped legacy records. Shares
-    /// [`experience_matches_profile`] with retrieval so the two never diverge.
-    pub async fn list_for_profile(
-        &self,
-        profile_id: Option<&str>,
-    ) -> Result<Vec<AgentExperience>, String> {
-        Ok(self
-            .list()
-            .await?
-            .into_iter()
-            .filter(|experience| {
-                experience_matches_profile(experience.profile_id.as_deref(), profile_id)
-            })
-            .collect())
-    }
 
     pub async fn dismiss(&self, id: &str) -> Result<bool, String> {
-        self.dismiss_for_profile(id, None).await
-    }
-
-    /// Dismiss an experience only when it belongs to the caller's visible
-    /// profile partition. A profiled caller may dismiss its own or unstamped
-    /// legacy records, but never a sibling profile's record even if it knows
-    /// the storage id.
-    pub async fn dismiss_for_profile(
-        &self,
-        id: &str,
-        profile_id: Option<&str>,
-    ) -> Result<bool, String> {
         let key = storage_key(id);
         let Some(mut experience) = self.fetch(&key).await? else {
             return Ok(false);
         };
-        if !experience_matches_profile(experience.profile_id.as_deref(), profile_id) {
-            return Ok(false);
-        }
         experience.dismissed = true;
         experience.updated_at_ms = now_ms();
         self.put(experience).await?;
         Ok(true)
     }
+
 
     pub async fn retrieve(&self, query: ExperienceQuery) -> Result<Vec<ExperienceHit>, String> {
         if query.max_hits == 0 {
@@ -227,12 +169,6 @@ impl AgentExperienceStore {
             .await?
             .into_iter()
             .filter(|experience| !experience.dismissed)
-            .filter(|experience| {
-                experience_matches_profile(
-                    experience.profile_id.as_deref(),
-                    query.profile_id.as_deref(),
-                )
-            })
             .filter_map(|experience| {
                 let (score, match_reasons) = score_experience(
                     &experience,
@@ -276,8 +212,6 @@ impl AgentExperienceStore {
 
 /// Retrieve one logical experience pool across multiple physical memory stores.
 ///
-/// Dedicated profiles write new experiences into their own memory subtree, but
-/// still need to recall unstamped legacy experiences from the shared store.
 /// Keep the merge, de-duplication, ordering, and final limit in one place so the
 /// RPC and live-turn paths cannot drift.
 pub async fn retrieve_across_stores(
@@ -333,8 +267,7 @@ fn storage_key(id: &str) -> String {
 /// numbers is exactly what caused the corruption we fixed. `id` is the storage
 /// key (scrubbing it would desync key vs. content; a secret-bearing key is
 /// rejected up front by the memory layer's `has_likely_secret` guard) and
-/// `profile_id` is a hard partition-filter key, so both are deliberately left
-/// intact.
+/// key (scrubbing it would desync key vs. content); it is left intact.
 fn redact_experience(mut experience: AgentExperience) -> AgentExperience {
     fn scrub(value: &str) -> String {
         sanitize_text(value).value

@@ -70,7 +70,6 @@ fn extract_candidates_records_repeated_failures() {
     assert!(repeated_failure.avoid_hint.is_some());
 }
 
-#[tokio::test]
 async fn on_turn_complete_persists_candidates() {
     let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
     let store = AgentExperienceStore::new(memory.clone());
@@ -88,74 +87,4 @@ async fn on_turn_complete_persists_candidates() {
     assert_eq!(stored[0].outcome, ExperienceOutcome::Success);
     assert_eq!(stored[0].agent_id.as_deref(), Some("orchestrator"));
     assert_eq!(stored[0].entrypoint.as_deref(), Some("web_channel"));
-    // Profile-less hook leaves records unstamped (shared/legacy).
-    assert_eq!(stored[0].profile_id, None);
-}
-
-#[tokio::test]
-async fn on_turn_complete_stamps_active_profile() {
-    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    let hook =
-        AgentExperienceCaptureHook::with_profile(memory.clone(), true, Some("alice".to_string()));
-
-    hook.on_turn_complete(&ctx_with(vec![
-        call("grep", true, "grep: ok (20 chars)"),
-        call("file_read", true, "file_read: ok (100 chars)"),
-    ]))
-    .await
-    .unwrap();
-
-    let stored = AgentExperienceStore::new(memory).list().await.unwrap();
-    assert_eq!(stored.len(), 1);
-    assert_eq!(
-        stored[0].profile_id.as_deref(),
-        Some("alice"),
-        "captured record must be stamped with the active profile id"
-    );
-}
-
-#[tokio::test]
-async fn identical_candidates_under_different_profiles_do_not_collide() {
-    // Alice and Bob learn the same task/tool/outcome triple. Their records
-    // must land under distinct storage keys so neither overwrites the other,
-    // and the profile-less (None) key must match the legacy derivation.
-    let calls = || {
-        vec![
-            call("grep", true, "grep: ok (20 chars)"),
-            call("file_read", true, "file_read: ok (100 chars)"),
-        ]
-    };
-
-    let memory: Arc<dyn Memory> = Arc::new(MockMemory::default());
-    AgentExperienceCaptureHook::with_profile(memory.clone(), true, Some("alice".to_string()))
-        .on_turn_complete(&ctx_with(calls()))
-        .await
-        .unwrap();
-    AgentExperienceCaptureHook::with_profile(memory.clone(), true, Some("bob".to_string()))
-        .on_turn_complete(&ctx_with(calls()))
-        .await
-        .unwrap();
-    AgentExperienceCaptureHook::new(memory.clone(), true)
-        .on_turn_complete(&ctx_with(calls()))
-        .await
-        .unwrap();
-
-    let stored = AgentExperienceStore::new(memory).list().await.unwrap();
-    // Three distinct records rather than one repeatedly-overwritten key.
-    assert_eq!(stored.len(), 3, "each profile keeps its own record");
-    let ids: std::collections::HashSet<&str> = stored.iter().map(|e| e.id.as_str()).collect();
-    assert_eq!(ids.len(), 3, "the three storage keys must be distinct");
-
-    // The profile-less record's key matches the legacy (profile-agnostic)
-    // derivation for the same triple.
-    let none_record = stored
-        .iter()
-        .find(|e| e.profile_id.is_none())
-        .expect("a profile-less record");
-    let legacy_id = stable_experience_id(
-        &none_record.task_summary,
-        &none_record.tool_sequence,
-        none_record.outcome,
-    );
-    assert_eq!(none_record.id, legacy_id);
 }

@@ -58,7 +58,6 @@ async fn driver_memory_round_trips_through_the_bound_driver() {
     assert!(memory.health_check().await, "a bound driver is reachable");
 }
 
-/// The experience store opened for a profile-less caller and the one opened
 /// for the `"memory"` subtree are the same store — the shared-tree arm has
 /// no special case any more.
 #[tokio::test]
@@ -75,7 +74,6 @@ async fn experience_store_round_trips_over_the_bound_driver() {
         source: crate::agent::experience::types::ExperienceSource::ToolLoop,
         agent_id: None,
         entrypoint: None,
-        profile_id: None,
         task_fingerprint: "fp-adapter".into(),
         task_summary: "route the experience store onto the contract".into(),
         tools_used: Vec::new(),

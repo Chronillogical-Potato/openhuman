@@ -69,7 +69,7 @@ use crate::agent::experience::store::{
     retrieve_across_stores, AgentExperienceStore, ExperienceQuery,
 };
 use crate::agent::experience::types::{
-    redact_text, stable_experience_id, stable_experience_id_for_profile, AgentExperience,
+    redact_text, stable_experience_id, AgentExperience,
     ExperienceHit, ExperienceOutcome, ExperienceSource,
 };
 use crate::memory::Memory;
@@ -229,11 +229,10 @@ impl OpenHumanExperienceStore {
             // first agent's record. Using the one hashed field that is free
             // keeps identity per-agent without inventing a tool trace or
             // reaching into the domain's digest.
-            id: stable_experience_id_for_profile(
+            id: stable_experience_id(
                 &task_summary,
                 std::slice::from_ref(&agent_key),
                 outcome,
-                None,
             ),
             // Left at zero so `put` stamps creation time itself, and preserves
             // the original `created_at_ms` when this id already exists.
