@@ -63,6 +63,8 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
         "task-failed",
         false,
         None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        None,
         workspace.path().to_path_buf(),
         None,
         1024,

@@ -36,7 +36,7 @@ pub async fn load_for_thread(workspace_dir: &Path, thread_id: Option<&str>) -> O
     match store::get(workspace_dir, &thread_id).await {
         Ok(goal) => goal,
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] load_for_current_thread failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] load_for_thread failed");
             None
         }
     }
@@ -61,14 +61,14 @@ pub async fn resume_for_thread(
             Some(Some(goal))
         }
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] resume_for_current_thread failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] resume_for_thread failed");
             None
         }
     }
 }
 
-/// Pause the active goal for the ambient thread (interrupt/abort semantics).
-/// Best-effort; safe to call when there is no goal or no thread scope.
+/// Pause the active goal for an explicit thread (interrupt/abort semantics).
+/// Best-effort; safe to call when there is no goal or thread id.
 pub async fn pause_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
     let Some(thread_id) = normalized_thread(thread_id) else {
         return;
@@ -84,14 +84,14 @@ pub async fn pause_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
             }
         }
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] pause_for_current_thread failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] pause_for_thread failed");
         }
     }
 }
 
-/// Mark the active goal for the ambient thread `Complete` (the originating
+/// Mark the active goal for an explicit thread `Complete` (the originating
 /// task settled successfully). Best-effort; safe to call when there is no goal
-/// or no thread scope. Emits `ThreadGoalUpdated` so the UI chip refreshes.
+/// or no thread id. Emits `ThreadGoalUpdated` so the UI chip refreshes.
 ///
 /// This is the lifecycle counterpart the pause/resume pair was missing: without
 /// a settle, a goal a finished task left behind stays `Active` and is
@@ -113,14 +113,14 @@ pub async fn complete_for_thread(workspace_dir: &Path, thread_id: Option<&str>) 
             }
         }
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] complete_for_current_thread failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] complete_for_thread failed");
         }
     }
 }
 
-/// Delete the goal row for the ambient thread entirely (the originating task was
+/// Delete the goal row for an explicit thread entirely (the originating task was
 /// abandoned / superseded, and no completion contract should persist).
-/// Best-effort; safe to call when there is no goal or no thread scope.
+/// Best-effort; safe to call when there is no goal or thread id.
 ///
 /// Clearing removes the row rather than moving it to a terminal status, so a
 /// later turn loads `None` and injects no `[active_goal]` block at all — the
@@ -132,7 +132,7 @@ pub async fn clear_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
     match store::clear(workspace_dir, &thread_id).await {
         Ok(_existed) => {}
         Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] clear_for_current_thread failed");
+            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] clear_for_thread failed");
         }
     }
 }
@@ -157,7 +157,7 @@ fn is_goal_continuation_turn() -> bool {
     )
 }
 
-/// Account a finished turn's usage against the ambient thread's goal.
+/// Account a finished turn's usage against an explicit thread's goal.
 ///
 /// The accounting rules are the crate's
 /// ([`crate_budget::account_turn`](tinyagents_graph::goals::account_turn)):
@@ -166,7 +166,7 @@ fn is_goal_continuation_turn() -> bool {
 /// the one-shot continuation suppression (a continuation turn must not clear
 /// its own, see [`super::continuation`]).
 ///
-/// What is OpenHuman's here: reading the ambient thread from the turn scope,
+/// What is OpenHuman's here: receiving the owned thread from the turn,
 /// classifying the turn as user-initiated vs. continuation from its origin, and
 /// emitting `ThreadGoalUpdated` when the status changes (e.g. →
 /// `budget_limited`) so the UI chip refreshes. Best-effort throughout: a

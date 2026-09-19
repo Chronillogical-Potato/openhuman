@@ -472,6 +472,7 @@ impl TurnModelSource {
         &self,
         model: &str,
         temperature: f64,
+        thread_id: Option<&str>,
     ) -> anyhow::Result<Arc<dyn tinyinference_llm::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
             let profile = direct.profile().cloned().unwrap_or_default();
@@ -482,6 +483,28 @@ impl TurnModelSource {
             ));
         }
         if let Some(cn) = &self.crate_native {
+            let managed = cn
+                .primary_override
+                .as_deref()
+                .map(|provider| {
+                    let provider = provider.trim();
+                    provider.is_empty() || provider == "cloud" || provider == "openhuman"
+                })
+                .unwrap_or_else(|| {
+                    crate::inference::provider::factory::resolves_to_managed_backend(
+                        &cn.role, &cn.config,
+                    )
+                });
+            if managed {
+                return crate::inference::provider::factory::make_openhuman_backend_model_for_thread(
+                    &cn.role,
+                    &cn.config,
+                    model,
+                    !cn.force_text_mode,
+                    thread_id,
+                )
+                .map(|(model, _)| model);
+            }
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => {
                     crate::inference::provider::factory::create_turn_chat_model_from_string(

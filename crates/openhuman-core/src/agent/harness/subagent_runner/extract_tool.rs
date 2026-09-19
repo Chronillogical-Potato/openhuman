@@ -309,9 +309,9 @@ impl ExtractFromResultTool {
         // future clones the Arc (issue #4249, Phase 3 / Motion A). Model +
         // temperature are baked into the model, so the per-call request only
         // carries the messages.
-        let chat = self
-            .source
-            .build_summarizer(&self.model, EXTRACT_TEMPERATURE)?;
+        let chat =
+            self.source
+                .build_summarizer(&self.model, EXTRACT_TEMPERATURE, thread_id.as_deref())?;
         // Model id for the per-chunk transcript metadata (the chat call itself
         // bakes it into `chat`).
         let model = self.model.clone();
@@ -456,7 +456,7 @@ impl ExtractFromResultTool {
         let call_seq = self.next_call_seq();
         let provider_result = self
             .source
-            .build_summarizer(&self.model, EXTRACT_TEMPERATURE)?
+            .build_summarizer(&self.model, EXTRACT_TEMPERATURE, thread_id)
             .invoke(
                 &(),
                 ModelRequest::new(vec![

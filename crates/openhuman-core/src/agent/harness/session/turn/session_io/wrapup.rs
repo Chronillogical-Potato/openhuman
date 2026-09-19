@@ -40,10 +40,11 @@ impl Agent {
         let mut messages = base_messages.to_vec();
         messages.push(ChatMessage::user(instruction));
 
-        let chat_model = match self
-            .turn_model_source
-            .build_summarizer(effective_model, self.temperature)
-        {
+        let chat_model = match self.turn_model_source.build_summarizer(
+            effective_model,
+            self.temperature,
+            self.thread_id(),
+        ) {
             Ok(model) => model,
             Err(error) => {
                 tracing::error!(
@@ -336,10 +337,11 @@ impl Agent {
         effective_model: &str,
         purpose: &str,
     ) -> (String, Option<UsageInfo>) {
-        let chat_model = match self
-            .turn_model_source
-            .build_summarizer(effective_model, self.temperature)
-        {
+        let chat_model = match self.turn_model_source.build_summarizer(
+            effective_model,
+            self.temperature,
+            self.thread_id(),
+        ) {
             Ok(model) => model,
             Err(error) => {
                 tracing::error!(

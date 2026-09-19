@@ -106,9 +106,9 @@ Responses project the crate's own `AgentObservation` and `HarnessRunStatus` serd
 attachments, artifacts, dispatch, cancellation, thread, workspace and stop
 hooks) across the OpenHuman turn boundary. The shared runner builds
 `RunContext<OpenHumanRunContext>` with `into_tinyagents`, and the OpenHuman
-assembly plus middleware stack are specialized to that context. Route and
-thread task-local scopes remain only around the drive while legacy tool/model
-consumers still require them. Cancellation reaches recursive tools solely
+assembly plus middleware stack are specialized to that context. Model and
+transcript consumers receive the owned thread through that carrier; no thread
+task-local surrounds the drive. Cancellation reaches recursive tools solely
 through the typed parent run.
 
 ## Notes

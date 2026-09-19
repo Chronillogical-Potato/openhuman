@@ -175,6 +175,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     ),
     SubagentRunError,
 > {
+    // One resolved thread identity drives every child-facing boundary. An
+    // explicit worker/task thread deliberately replaces the inherited parent;
+    // otherwise a child remains in its parent's conversation. Do this before
+    // constructing *any* model so managed requests, transcript metadata, and
+    // the child carrier cannot disagree.
+    let thread_id = inherited_thread_id(run_context.thread_id.clone(), thread_id);
     tracing::info!(
         model,
         max_iterations,
@@ -205,7 +211,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // turn's own model set is consumed by the run). Built off the same source, so
     // the checkpoint invokes a crate `ChatModel` without naming `Provider`
     // (issue #4249, Phase 3 / Motion A).
-    let summary_model = source.build_summarizer(model, temperature)?;
+    let summary_model = source.build_summarizer(model, temperature, thread_id.as_deref())?;
 
     // Resolve the sub-agent model's effective context window so the harness runs
     // the context-window summarization step (issue #4249) on sub-agent turns too.
@@ -217,12 +223,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // Build the child turn's crate `ChatModel` set from the source; capability
     // reads (vision/native-tools) + telemetry id now come off the built bundle,
     // so the sub-agent path names crate model types only.
-    let turn_models = source.build(
-        model,
-        temperature,
-        context_window,
-        run_context.thread_id.as_deref(),
-    )?;
+    let turn_models = source.build(model, temperature, context_window, thread_id.as_deref())?;
 
     // Vision forwarding (parity with the legacy `run_inner_loop`): rehydrate
     // `[IMAGE:…]` placeholders in the sub-agent's history when either the model
@@ -278,7 +279,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // A parallel task may omit `thread_id`; that means inherit the parent
     // conversation, not erase it. Only an explicit task thread may replace
     // the typed carrier's inherited affinity.
-    child_context.thread_id = inherited_thread_id(child_context.thread_id, thread_id.clone());
+    child_context.thread_id = thread_id.clone();
     child_context.progress = on_progress.clone().or(child_context.progress);
     child_context.workspace = workspace_descriptor.clone().or(child_context.workspace);
     let run_result = Box::pin(run_turn_via_tinyagents_shared(

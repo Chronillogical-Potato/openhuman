@@ -421,7 +421,11 @@ impl SubagentPayloadSummarizer {
         let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
         harness.with_policy(policy);
         let provider_model = super::model::MaxTokensModel::new(
-            source.build_summarizer(&model, self.definition.temperature)?,
+            source.build_summarizer(
+                &model,
+                self.definition.temperature,
+                parent_ctx.data.thread_id.as_deref(),
+            )?,
             max_output_tokens,
         );
         harness

@@ -16,6 +16,28 @@ struct DelegationRegistrationTool {
     parameters: serde_json::Value,
 }
 
+struct BlockingDelegationTool {
+    started: tokio::sync::mpsc::Sender<()>,
+}
+
+#[async_trait]
+impl Tool for BlockingDelegationTool {
+    fn name(&self) -> &str {
+        "delegate"
+    }
+    fn description(&self) -> &str {
+        "blocking configured delegate"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({})
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        let _ = self.started.send(()).await;
+        std::future::pending::<()>().await;
+        unreachable!("the parent cancellation must win")
+    }
+}
+
 #[async_trait]
 impl Tool for DelegationRegistrationTool {
     fn name(&self) -> &str {
@@ -108,24 +130,27 @@ async fn delegate_graph_dispatch_uses_its_durable_graph_argument_path() {
 
 #[tokio::test]
 async fn config_delegate_dispatch_honours_the_parent_cancellation_token() {
-    let tool: Arc<dyn Tool> = Arc::new(DelegationRegistrationTool {
-        name: "delegate",
-        parameters: serde_json::json!({}),
+    let (started_tx, mut started_rx) = tokio::sync::mpsc::channel(1);
+    let tool: Arc<dyn Tool> = Arc::new(BlockingDelegationTool {
+        started: started_tx,
     });
     let dispatch = DelegateToolDispatch::new(tool);
     let cancellation = tinyagents_harness::CancellationToken::new();
     let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
         .with_cancellation(cancellation.clone())
         .into_tinyagents(RunConfig::new("config-delegate-parent").with_thread("thread-parent"));
-    cancellation.cancel();
-
-    let result = dispatch
-        .execute(
-            &(),
-            serde_json::json!({"agent": "configured", "prompt": "work"}),
-            tinytools::ToolCallOptions::default(),
-            &parent,
-        )
+    let execution = dispatch.execute(
+        &(),
+        serde_json::json!({"agent": "configured", "prompt": "work"}),
+        tinytools::ToolCallOptions::default(),
+        &parent,
+    );
+    tokio::pin!(execution);
+    tokio::select! {
+        _ = started_rx.recv() => cancellation.cancel(),
+        result = &mut execution => panic!("blocking delegate returned before cancellation: {result:?}"),
+    }
+    let result = execution
         .await
         .expect("cancellation is reported as a tool result");
     assert!(result.is_error);
