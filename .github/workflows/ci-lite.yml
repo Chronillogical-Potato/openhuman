@@ -700,6 +700,7 @@ jobs:
           agent/harness/mod.rs
           agent/harness/session/builder/factory.rs
           agent/harness/session/session_builder_and_listener_tests.rs
+          agent/harness/session/session_tests.rs
           agent/harness/session/turn/tools.rs
           agent/harness/subagent_runner/tool_prep_tests.rs
           agent/registry/agents/loader.rs

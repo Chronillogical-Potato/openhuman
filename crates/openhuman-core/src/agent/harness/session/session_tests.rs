@@ -555,6 +555,9 @@ fn agent_with_fake_locator(
 
 #[path = "session_builder_and_listener_tests.rs"]
 mod session_builder_and_listener_tests;
+#[cfg(feature = "flows")]
+#[path = "session_builder_autoload_tests.rs"]
+mod session_builder_autoload_tests;
 #[path = "session_dispatch_and_resume_tests.rs"]
 mod session_dispatch_and_resume_tests;
 #[path = "session_prefix_stability_tests.rs"]
