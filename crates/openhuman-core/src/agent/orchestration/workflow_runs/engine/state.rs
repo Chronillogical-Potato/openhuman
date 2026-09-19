@@ -9,8 +9,8 @@ use tinyagents_session::run_ledger::{
     upsert_workflow_run, WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert,
 };
 
-use super::super::types::{WorkflowDefinition, WorkflowPhase};
 use crate::config::Config;
+use tinyagents_orchestration::workflow::{WorkflowDefinition, WorkflowPhase};
 
 /// Per-phase status stored inside the run's `phase_states` JSON column.
 pub(super) const PHASE_PENDING: &str = "pending";

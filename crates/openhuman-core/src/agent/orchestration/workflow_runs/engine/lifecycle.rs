@@ -11,10 +11,10 @@ use tinyagents_session::run_ledger::{
 };
 
 use super::super::ops::definition_by_id;
-use super::super::types::WorkflowDefinition;
 use super::cancel::{clear_cancel_flag, lookup_cancel_flag, register_cancel_flag};
 use super::state::{init_phase_states, persist};
 use super::LOG_TARGET;
+use tinyagents_orchestration::workflow::WorkflowDefinition;
 
 /// Start a new workflow run and return immediately.
 ///

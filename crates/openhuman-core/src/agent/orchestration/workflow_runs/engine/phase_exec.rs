@@ -11,12 +11,12 @@ use tinyagents_harness::TinyAgentsError;
 
 use tinyagents_session::run_ledger::{get_workflow_run, WorkflowRunStatus};
 
-use super::super::types::{WorkflowDefinition, WorkflowPhase};
 use super::cancel::lookup_cancel_token;
 use super::state::{persist, phase_prompt, set_phase_reason, set_phase_status, upstream_outputs};
 use super::state::{PHASE_COMPLETED, PHASE_FAILED, PHASE_RUNNING};
 use super::LOG_TARGET;
 use crate::config::Config;
+use tinyagents_orchestration::workflow::{WorkflowDefinition, WorkflowPhase};
 
 /// One worker's outcome from the intra-phase graph fan-out (see
 /// [`execute_phase`]). Rides in the fan-out graph's typed state, so it is `Clone`.

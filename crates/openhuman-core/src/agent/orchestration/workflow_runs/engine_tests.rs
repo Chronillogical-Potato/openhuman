@@ -34,7 +34,8 @@ use tinyagents_session::run_ledger::{get_workflow_run, upsert_workflow_run, Work
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinytools::Tool;
 
-use super::super::types::{WorkflowDefinition, WorkflowPhase, WorkflowSafetyTier};
+use std::collections::BTreeMap;
+use tinyagents_orchestration::workflow::{WorkflowDefinition, WorkflowPhase};
 
 // ── Mocks (mirrors agent_orchestration::ops_tests) ──────────────────────────
 
@@ -258,7 +259,7 @@ fn linear_def(concurrency: u32, max_children: u32, parallel_in_b: usize) -> Work
         ],
         default_concurrency: concurrency,
         max_children,
-        safety_tier: WorkflowSafetyTier::ReadOnly,
+        extensions: BTreeMap::new(),
     }
 }
 

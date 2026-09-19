@@ -8,10 +8,10 @@ use anyhow::{anyhow, Result};
 
 use tinyagents_session::run_ledger::{get_workflow_run, WorkflowRunStatus};
 
-use super::super::types::{WorkflowDefinition, WorkflowPhase};
 use super::state::{all_phases_completed, next_runnable_phase, persist, synthesize_summary};
 use super::LOG_TARGET;
 use crate::config::Config;
+use tinyagents_orchestration::workflow::{WorkflowDefinition, WorkflowPhase};
 
 /// What the scheduler's `dispatch` step decided.
 pub(crate) enum PhaseSelection {

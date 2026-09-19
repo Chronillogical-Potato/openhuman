@@ -29,7 +29,7 @@ use crate::config::Config;
 use tinyagents_session::run_ledger::get_workflow_run;
 
 use super::engine::{execute_phase, select_next_phase, PhaseExecOutcome, PhaseSelection};
-use super::types::{WorkflowDefinition, WorkflowPhase};
+use tinyagents_orchestration::workflow::{WorkflowDefinition, WorkflowPhase};
 
 /// Lift an engine-internal `anyhow` error into the scheduler graph's error type
 /// so a ledger-write/spawn failure fails the run (and propagates back out via
