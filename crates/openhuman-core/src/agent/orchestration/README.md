@@ -8,26 +8,28 @@ lower-level `agent::harness` remains the execution engine — prompt
 construction, policy-filtered tools, model selection, and the sub-agent run
 loop itself.
 
-Execution fans out on TinyAgents **graphs**: `workflow_runs` schedules phase
-DAGs on a graph engine, `agent_teams` routes members through a
-conditional-routing graph, `delegation` wires the durable
-plan→execute⇄review→finalize graph, and parallel fanout goes through
-`tinyagents_graph::parallel::map_reduce`. What stays in this module is the
-product layer: durable SQL/JSON run ledgers, validation, cancellation
-semantics, compatibility events, and JSON-RPC/tool response formatting.
+The generic durable coordination model lives in
+`tinyagents-orchestration`: team/workflow types, validation, run-ledger
+services, graph composition, member prompt construction, message watermark
+delivery, and diagnostic workflow topology. OpenHuman imports those APIs
+directly. This module retains the product adapters: Config and root-parent
+construction, model/tool selection, `run_subagent`, progress and BUS events,
+RPC/tool formatting, and OpenHuman's worktree policy.
 
 ## Responsibilities
 
 - Register, wait on, and cancel child agent runs (`ops.rs`,
   `AgentOrchestrationSession`) as thin wrappers over TinyAgents'
   `DetachedTaskRegistry`.
-- Durable multi-agent models with their own run-ledger tables: agent teams
-  (`agent_teams/`), declarative phase-graph workflows (`workflow_runs/`), and
-  the plan→execute⇄review→finalize graph (`delegation.rs`).
+- Host adapters for durable teams and workflows: RPC schemas, root-parent
+  worker execution, model selection, cancellation policy, and BUS/progress
+  integration. Their host-neutral types, storage services, scheduling graphs,
+  prompt composition, and delivery bookkeeping are in
+  `tinyagents-orchestration`.
 - A read-only command-center view over background agent runs plus stop/retry/
   continue/follow-up control verbs (`command_center/`).
-- Git-worktree isolation so parallel coding workers never clobber the same
-  checkout (`worktree.rs`, `worktree_schemas.rs`).
+- OpenHuman's `OpenHumanWorktreeIsolation` adapter and RPC surface; generic
+  worktree operations are used directly from `tinyagents_harness::workspace`.
 - User-driven cancel/steer of detached (`spawn_async_subagent`) background
   sub-agents from the frontend background-tasks drawer (`subagent_control.rs`).
 - Mirroring detached sub-agent lifecycle into a TinyAgents task store, batching
@@ -45,29 +47,29 @@ semantics, compatibility events, and JSON-RPC/tool response formatting.
 - `ops.rs` / `types.rs` — `AgentOrchestrationSession`, `OrchestrationError`,
   `AgentSnapshot`, `OrchestrationTaskStatus`, `SpawnAgentRequest`/`Response`,
   `WaitAgentOptions`/`Response`.
-- `agent_teams/` — durable lead/worker team coordination (issue #3374):
-  atomic task claiming, dependency validation, quality-gated completion, and
-  live teammate execution via `start_member`.
+- `agent_teams/` — OpenHuman's live member-worker adapter for the generic
+  `tinyagents_orchestration::teams` service: it supplies Config, the root
+  parent context, model/tool execution, progress tracing, and BUS-facing
+  lifecycle behavior.
 - `command_center/` — read-only grouped view of background agent runs
   (`ops.rs`) plus stop/retry/continue/follow-up transitions (`control.rs`).
-- `workflow_runs/` — declarative `WorkflowDefinition` phase graphs (issue
-  #3375), the builtin "parallel research with cross-checking" workflow,
-  structural/agent validation, and the live execution engine (`engine.rs`).
+- `workflow_runs/` — OpenHuman's live workflow execution and RPC adapters;
+  workflow definitions, durable state, validation, graphs, and neutral engine
+  mechanics are imported directly from `tinyagents_orchestration::workflow`.
 - `delegation.rs` — production worker for TinyAgents' durable
   plan→execute⇄review→finalize graph; every stage runs through `run_subagent`.
-- `spawn_parallel_graph.rs` + `spawn_parallel_graph/` (`request.rs`, `staging.rs`,
-  `dispatch.rs`, `workers.rs`, `collect.rs`, `graph.rs`, `run.rs`, `types.rs`) —
-  the fanout behind
-  `spawn_parallel_agents`: request/claim validation, worktree preflight, and the
-  bounded `map_reduce` worker run; the tool file only translates `ToolResult`.
+- `spawn_parallel_agents` uses `tinyagents_graph::parallel::map_reduce` with
+  OpenHuman-owned request validation, worktree policy, dispatch, workers, and
+  result formatting. The former parallel coordinator/request graph modules
+  were removed; there is no OpenHuman forwarding layer around the graph API.
 - `subagent_events.rs` — the single owner that constructs and publishes
   `DomainEvent::Subagent{Spawned,Completed,Failed,AwaitingUser}`.
 - `subagent_control.rs` — manual cancel/steer of detached background
   sub-agents; the manual counterpart to the automatic thread-close
   cancellation in `crate::threads`.
-- `worktree.rs` / `worktree_schemas.rs` — `OpenHumanWorktreeIsolation` adapter
-  over TinyAgents' host-agnostic git-worktree plumbing, plus the
-  list/status/diff/remove RPC surface.
+- `worktree.rs` / `worktree_schemas.rs` — `OpenHumanWorktreeIsolation` and the
+  list/status/diff/remove RPC surface. They call
+  `tinyagents_harness::workspace` directly rather than maintaining aliases.
 - `subagent_sessions/` — durable subagent session records
   (`DurableSubagentSessionSummary`, `SubagentSessionStore`) used for
   reuse/dedup decisions across turns.

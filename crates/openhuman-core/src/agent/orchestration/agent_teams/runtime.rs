@@ -38,28 +38,21 @@ use crate::agent::orchestration::{
 };
 use crate::config::Config;
 use tinyagents_session::run_ledger::{
-    self, AgentTeamMemberStatus, AgentTeamTask, ClaimOutcome, RunEvent, RunEventAppend,
-    RunEventListRequest,
+    self, AgentTeamMemberStatus, AgentTeamTask, ClaimOutcome, RunEventAppend,
 };
 
-use tinyagents_orchestration::teams::{claimable_task, run_member_graph, MemberOutcome, TeamError};
+use tinyagents_orchestration::teams::{
+    build_member_prompt, claimable_task, deliver_pending_messages, run_member_graph,
+    truncate_chars, MemberOutcome, SessionTeamLedger, TeamError,
+};
 
 use crate::agent::tinyagents::observability::GraphTracingSink;
 
 const LOG_TARGET: &str = "agent_team_runtime";
 /// Fallback worker archetype when a member carries no explicit `agent_id`.
 const DEFAULT_TEAMMATE_AGENT_ID: &str = "researcher";
-const TEAM_MESSAGE_EVENT: &str = "team_message";
-/// Per-member delivery watermark event: payload `{ memberId, upToSeq }`. Stored
-/// on the same run-event log as the messages, so no schema change is needed.
-const MESSAGE_DELIVERED_EVENT: &str = "team_message_delivered";
 /// Event recorded when a worker run ends without completing its task.
 const MEMBER_FAILED_EVENT: &str = "team_member_failed";
-/// Page size when draining the full run-event log for a team. `list_recent_run_events`
-/// returns `sequence ASC` from the cursor and caps `limit` at 1000, so a team whose
-/// event count exceeds one page MUST be paged or later events (watermarks + messages)
-/// are silently dropped.
-const EVENT_PAGE_SIZE: u32 = 1000;
 /// Cap on how much worker output is captured as evidence (UTF-8 safe).
 const EVIDENCE_MAX_CHARS: usize = 280;
 
@@ -265,8 +258,9 @@ async fn drive_member(
     run_id: &str,
     model_override: Option<String>,
 ) -> Result<()> {
-    let delivered = deliver_pending_messages(config, team_id, member_id)?;
-    let prompt = build_member_prompt(task, &delivered);
+    let ledger = SessionTeamLedger::new(config.workspace_dir.clone());
+    let delivered = deliver_pending_messages(&ledger, team_id, member_id)?;
+    let prompt = build_member_prompt(task, &delivered.messages);
 
     let session = AgentOrchestrationSession::new(format!("team-{team_id}-{member_id}"));
 
@@ -432,101 +426,6 @@ async fn drive_member(
     .await
 }
 
-/// Compose the worker prompt from the task + any pending messages addressed to
-/// the member.
-fn build_member_prompt(task: &AgentTeamTask, messages: &[String]) -> String {
-    let mut prompt = format!("You are a teammate on an agent team. Task: {}", task.title);
-    if let Some(obj) = task.objective.as_deref() {
-        if !obj.trim().is_empty() {
-            prompt.push_str("\n\nObjective:\n");
-            prompt.push_str(obj.trim());
-        }
-    }
-    if !messages.is_empty() {
-        prompt.push_str("\n\nMessages from your lead / teammates:\n");
-        for msg in messages {
-            prompt.push_str("- ");
-            prompt.push_str(msg);
-            prompt.push('\n');
-        }
-    }
-    prompt.push_str("\n\nComplete the task and report what you did.");
-    prompt
-}
-
-/// Drain the entire `sequence ASC` run-event log for a team by paging past the
-/// per-query cap. A single `list_recent_run_events` call returns at most 1000
-/// rows from the cursor, so message delivery MUST page or a team that exceeds
-/// one page would lose every watermark and message beyond it.
-fn drain_run_events(config: &Config, team_id: &str) -> Result<Vec<RunEvent>> {
-    let mut events: Vec<RunEvent> = Vec::new();
-    let mut after: Option<u64> = None;
-    loop {
-        let response = run_ledger::list_recent_run_events(
-            &config.workspace_dir,
-            &RunEventListRequest {
-                run_id: team_id.to_string(),
-                after_sequence: after,
-                limit: Some(EVENT_PAGE_SIZE),
-            },
-        )?;
-        let exhausted = (response.count as u32) < EVENT_PAGE_SIZE;
-        after = response.events.last().map(|e| e.sequence);
-        events.extend(response.events);
-        if exhausted || after.is_none() {
-            break;
-        }
-    }
-    Ok(events)
-}
-
-/// Read undelivered messages addressed to `member_id` (direct or broadcast),
-/// advance the per-member delivery watermark, and return their contents. Uses
-/// only the existing run-event log — no schema change.
-fn deliver_pending_messages(
-    config: &Config,
-    team_id: &str,
-    member_id: &str,
-) -> Result<Vec<String>> {
-    let events = drain_run_events(config, team_id)?;
-
-    let watermark = events
-        .iter()
-        .filter(|e| e.event_type == MESSAGE_DELIVERED_EVENT)
-        .filter(|e| e.payload.get("memberId").and_then(|v| v.as_str()) == Some(member_id))
-        .filter_map(|e| e.payload.get("upToSeq").and_then(|v| v.as_i64()))
-        .max()
-        .unwrap_or(0);
-
-    let mut max_seq = watermark;
-    let mut contents = Vec::new();
-    for event in &events {
-        if event.event_type != TEAM_MESSAGE_EVENT || (event.sequence as i64) <= watermark {
-            continue;
-        }
-        let to = event.payload.get("to").and_then(|v| v.as_str());
-        // Direct (to == member) or broadcast (to absent/null).
-        if to.is_none() || to == Some(member_id) {
-            if let Some(content) = event.payload.get("content").and_then(|v| v.as_str()) {
-                contents.push(content.to_string());
-            }
-            max_seq = max_seq.max(event.sequence as i64);
-        }
-    }
-
-    if !contents.is_empty() {
-        run_ledger::append_run_event(
-            &config.workspace_dir,
-            RunEventAppend {
-                run_id: team_id.to_string(),
-                event_type: MESSAGE_DELIVERED_EVENT.to_string(),
-                payload: json!({ "memberId": member_id, "upToSeq": max_seq }),
-            },
-        )?;
-    }
-    Ok(contents)
-}
-
 fn record_failure_event(
     config: &Config,
     team_id: &str,
@@ -546,16 +445,6 @@ fn record_failure_event(
             }),
         },
     );
-}
-
-/// UTF-8-safe truncation by character count (never splits a codepoint).
-fn truncate_chars(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        return s.to_string();
-    }
-    let mut out: String = s.chars().take(max).collect();
-    out.push('…');
-    out
 }
 
 #[cfg(test)]

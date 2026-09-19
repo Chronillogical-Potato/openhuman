@@ -53,7 +53,7 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("delegation", &t));
     }
 
-    if let Ok(t) = crate::agent::orchestration::workflow_runs::scheduler_topology_preview() {
+    if let Ok(t) = tinyagents_orchestration::workflow::scheduler_topology_preview() {
         out.push(describe("workflow_runs:scheduler_preview", &t));
     }
 
