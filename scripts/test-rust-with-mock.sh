@@ -183,8 +183,11 @@ run_full_suite() {
   # temporary executable paths). Keep this aggregate invocation deterministic;
   # integration targets below retain their own, narrower isolation strategies.
   TINYCONNECTORS_TEST_MODULE="${TINYCONNECTORS_TEST_MODULE:-$connectors_module}" \
-    cargo_test --lib --bins -- --test-threads=1 \
+    cargo_test --lib -- --test-threads=1 \
     --skip a_build_only_runtime_is_swept_before_it_can_be_invoked "$@"
+  # The core binary and the developer bins live in `crates/openhuman-cli`;
+  # `--workspace --bins` picks them up there (plus the TUI binary).
+  cargo_test --bins -- --test-threads=1 "$@"
   run_build_only_reaper_test "$@"
   cargo_test --doc -- "$@"
 
