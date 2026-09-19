@@ -1,7 +1,7 @@
 use super::*;
-use crate::client::ClientHeaders;
-use crate::test_support::ENV_LOCK;
-use crate::test_support::{
+use crate::session::client::ClientHeaders;
+use crate::session::test_support::ENV_LOCK;
+use crate::session::test_support::{
     me_user, Backend, FakeCore, MeAnswer, StoredCredential, EXPIRED_JWT, LIVE_JWT, LIVE_JWT_NO_SUB,
     LOCAL_TOKEN, OPAQUE_TOKEN,
 };
@@ -344,7 +344,7 @@ async fn current_user_serves_the_stored_user_stale_while_the_backend_is_down() {
 async fn current_user_confirms_a_pending_session_once_the_backend_answers() {
     let backend = Backend::start(vec![MeAnswer::Ok(me_user())]).await;
     let core = FakeCore::new(&backend.url);
-    *core.session.lock().unwrap() = Some(crate::test_support::StoredCredential {
+    *core.session.lock().unwrap() = Some(crate::session::test_support::StoredCredential {
         kind: "session".into(),
         token: LIVE_JWT.clone(),
         user_id: Some("user-123".into()),
@@ -380,9 +380,9 @@ async fn rejection_of_a_superseded_token_leaves_the_new_session_alone() {
         tokio::spawn(async move { m.current_user(true).await })
     };
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    let replacement = crate::test_support::StoredCredential {
+    let replacement = crate::session::test_support::StoredCredential {
         kind: "session".into(),
-        token: crate::test_support::LIVE_JWT_NO_SUB.clone(),
+        token: crate::session::test_support::LIVE_JWT_NO_SUB.clone(),
         user_id: Some("user-456".into()),
         user: Some(serde_json::json!({ "_id": "user-456" })),
     };
@@ -434,7 +434,7 @@ async fn state_retries_its_core_snapshot_after_a_superseded_refresh() {
 async fn pending_confirmation_after_logout_does_not_restore_the_session() {
     let backend = Backend::start(vec![MeAnswer::Slow(300)]).await;
     let core = FakeCore::new(&backend.url);
-    *core.session.lock().unwrap() = Some(crate::test_support::StoredCredential {
+    *core.session.lock().unwrap() = Some(crate::session::test_support::StoredCredential {
         kind: "session".into(),
         token: LIVE_JWT.clone(),
         user_id: Some("user-123".into()),

@@ -13,8 +13,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use crate::client::{FetchMeError, SessionClient};
-use crate::credential::Credential;
+use crate::session::client::{FetchMeError, SessionClient};
+use crate::session::credential::Credential;
 
 const LOG_PREFIX: &str = "[session][cache]";
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_support::FakeCore;
+use crate::session::test_support::FakeCore;
 
 #[test]
 fn unwrap_envelope_walks_result_and_data() {
