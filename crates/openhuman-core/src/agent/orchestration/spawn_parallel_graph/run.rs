@@ -8,7 +8,6 @@ use tinyagents_harness::CancellationToken;
 use tinytools::WorkspaceDescriptor;
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 
 use super::collect::SpawnParallelGraphOutcome;
 use super::graph::run_spawn_parallel_execution_graph;
@@ -58,7 +57,7 @@ pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
         Err(err) => return Ok(SpawnParallelGraphOutcome::InvalidRequest(err)),
     };
 
-    let parent = match current_parent() {
+    let parent = match run_context.parent.clone() {
         Some(parent) => parent,
         None => {
             tracing::debug!("[spawn_parallel_agents] rejected_outside_agent_turn");

@@ -443,8 +443,8 @@ pub(super) fn assemble_turn_harness(
     //
     // FLIP CRITERIA — what must hold before the crate `BudgetMiddleware` becomes
     // the enforcing owner and the local `CostBudgetMiddleware` + the
-    // `agent/harness/turn_subagent_usage.rs` task-local are DELETED (deletion
-    // ledger row: "crate-internal CostBudgetMiddleware + turn_subagent_usage.rs
+    // `OpenHumanRunContext` explicit carrier owns the per-turn roll-up (deletion
+    // ledger row: "crate-internal CostBudgetMiddleware + explicit run context
     // task-local", `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`):
     //   1. ≥ 500 production turns across BOTH parent and sub-agent runs with
     //      ZERO `[budget_shadow]` divergence log lines — proving the crate
@@ -457,7 +457,7 @@ pub(super) fn assemble_turn_harness(
     //      and the local gate is the sole money-budget authority.
     //   3. Run-tree rollup wired: the same shared `BudgetTracker` handed to every
     //      sub-agent harness so a parent budget halts a recursive run pre-spend —
-    //      replacing the `turn_subagent_usage` parent-turn rollup (06-cost step 3
+    //      replacing the former task-local parent-turn rollup (06-cost step 3
     //      / 07.2 TaskStore rollup).
     // Until all three hold, this middleware is observe-only and the local gate
     // enforces.

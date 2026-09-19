@@ -273,6 +273,22 @@ impl OpenHumanRunContext {
         child
     }
 
+    /// Builds the explicit carrier for detached background work.
+    ///
+    /// A detached task keeps the authority, thread and workspace descriptor it
+    /// needs to execute and deliver its own result, but it is no longer part of
+    /// the originating turn. In particular it cannot consume that turn's
+    /// dispatch budget, append to its usage ledger, or observe a cancellation
+    /// request that only stopped the interactive turn.
+    pub fn detached_child(&self) -> Self {
+        let mut child = self.child();
+        child.dispatch = None;
+        child.subagent_usage = Arc::new(Mutex::new(Vec::new()));
+        child.parent_subagent_usage = None;
+        child.cancellation = tinyagents_harness::cancel::CancellationToken::new();
+        child
+    }
+
     /// Converts this host context into TinyAgents' canonical run context.
     ///
     /// The canonical context receives the exact same cancellation and direct
@@ -332,6 +348,16 @@ impl OpenHumanRunContext {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone()
+    }
+
+    /// Promote already-completed descendants when this run cannot produce its
+    /// own terminal outcome. This is intentionally a snapshot: callers invoke
+    /// it only from one terminal finalizer, so every completed descendant is
+    /// promoted once without exposing a shared, in-flight sibling ledger.
+    pub fn promote_completed_descendant_usage(&self) {
+        for entry in self.subagent_usage_entries() {
+            self.record_completed_subagent_usage(entry);
+        }
     }
 
     /// Resolves whether a file-state scope has been assigned to this context.

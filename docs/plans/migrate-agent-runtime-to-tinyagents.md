@@ -223,8 +223,8 @@ scope, attachments, dispatch/recency/fork state, subagent usage and route
 observer. Replace reads of:
 
 - `fork_context`, `sandbox_context`, `spawn_depth_context`,
-  `task_recency_context`, `turn_attachments_context`, `turn_dispatch_guard`,
-  `turn_subagent_usage`;
+  `task_recency_context`; attachment, dispatch, and usage state now live on
+  `OpenHumanRunContext`;
 - `progress_sink`, `resolved_route`,
   `thread_context`, `turn_origin`, and `turn_workspace` task-local scopes.
 

@@ -52,7 +52,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     CURRENT_AGENT_SANDBOX_MODE
         .scope(mode, Box::pin(future))
         .await

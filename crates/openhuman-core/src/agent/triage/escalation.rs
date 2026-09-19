@@ -13,13 +13,13 @@
 //! `react`/`escalate` build a full [`Agent`] from config so they have
 //! a real provider, tool registry, and memory backing — the same
 //! construction path `agent_chat` uses. A [`ParentExecutionContext`] is
-//! installed on the task-local so [`run_subagent`] can inherit the
-//! provider and tools.
+//! carried explicitly into [`run_subagent`] so it can inherit the provider
+//! and tools.
 
 use anyhow::{anyhow, Context};
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::harness::subagent_runner::{self, SubagentRunOptions};
 use crate::agent::orchestration::parent_context::build_root_parent;
 use crate::config::Config;
@@ -311,9 +311,17 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         "[triage::escalation] dispatching run_subagent with parent context"
     );
 
-    let outcome = with_parent_context(parent_ctx, async {
-        subagent_runner::run_subagent(definition, prompt, SubagentRunOptions::default()).await
-    })
+    let outcome = subagent_runner::run_subagent(
+        definition,
+        prompt,
+        SubagentRunOptions {
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
+                parent: Some(parent_ctx),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
     .await
     .map_err(|e| anyhow!("run_subagent(`{agent_id}`) failed: {e}"))?;
 

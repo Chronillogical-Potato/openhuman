@@ -109,6 +109,49 @@ fn child_ledgers_are_isolated_and_parent_keeps_completed_child_totals() {
 }
 
 #[test]
+fn failed_outer_run_promotes_completed_nested_usage_once() {
+    let root = OpenHumanRunContext::new();
+    let outer = root.child();
+    outer.append_subagent_usage(SubagentUsageEntry {
+        task_id: "nested".into(),
+        agent_id: "researcher".into(),
+        usage: crate::agent::harness::subagent_runner::SubagentUsage {
+            input_tokens: 7,
+            ..Default::default()
+        },
+    });
+
+    // This is the failure/cancellation finalizer path. Calling it once leaves
+    // the root with the completed nested work even though the outer run has no
+    // terminal outcome of its own.
+    outer.promote_completed_descendant_usage();
+    assert_eq!(root.subagent_usage_entries().len(), 1);
+    assert_eq!(root.subagent_usage_entries()[0].task_id, "nested");
+}
+
+#[test]
+fn detached_children_reset_turn_accounting_and_cancellation() {
+    let mut root = OpenHumanRunContext::new();
+    root.thread_id = Some("thread-a".into());
+    let dispatch = Arc::new(TurnDispatchState::new(Some(std::time::Duration::ZERO)));
+    dispatch.record_subagent_elapsed(std::time::Duration::from_secs(1));
+    root.dispatch = Some(dispatch);
+    let detached = root.detached_child();
+
+    assert_eq!(detached.thread_id.as_deref(), Some("thread-a"));
+    assert!(detached.dispatch.is_none());
+    root.cancellation.cancel();
+    assert!(!detached.cancellation.is_cancelled());
+    detached.record_completed_subagent_usage(SubagentUsageEntry {
+        task_id: "background".into(),
+        agent_id: "archivist".into(),
+        usage: Default::default(),
+    });
+    assert!(root.subagent_usage_entries().is_empty());
+    assert_eq!(detached.subagent_usage_entries().len(), 1);
+}
+
+#[test]
 fn children_inherit_attachment_placeholders() {
     let mut root = OpenHumanRunContext::new();
     root.attachment_placeholders = std::sync::Arc::new(vec!["[Image: x #att:1]".into()]);

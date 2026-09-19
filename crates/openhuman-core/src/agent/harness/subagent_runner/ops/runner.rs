@@ -388,6 +388,32 @@ pub async fn run_subagent(
     // child's tinyagents drive future further chunk the child's state so
     // a single sub-agent run can't blow the stack either.
     Box::pin(async move {
+        // A nested delegate writes its terminal total to this run's isolated
+        // ledger. If the outer future errors or is cancelled after that child
+        // has completed, Drop promotes those finished totals before the error
+        // can escape. Success marks the finalizer complete after folding the
+        // same entries into this run's single terminal total.
+        struct UsageFinalizer {
+            context: crate::agent::tinyagents::host::OpenHumanRunContext,
+            complete: bool,
+        }
+        impl UsageFinalizer {
+            fn finish(&mut self, entry: crate::agent::tinyagents::host::SubagentUsageEntry) {
+                self.context.record_completed_subagent_usage(entry);
+                self.complete = true;
+            }
+        }
+        impl Drop for UsageFinalizer {
+            fn drop(&mut self) {
+                if !self.complete {
+                    self.context.promote_completed_descendant_usage();
+                }
+            }
+        }
+        let mut usage_finalizer = UsageFinalizer {
+            context: options.run_context.clone(),
+            complete: false,
+        };
         let task_id = options
             .task_id
             .clone()
@@ -558,6 +584,11 @@ pub async fn run_subagent(
                 if let Some(dispatch) = options.run_context.dispatch.as_deref() {
                     dispatch.record_subagent_elapsed(started.elapsed());
                 }
+                usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
+                    task_id: task_id.clone(),
+                    agent_id: definition.id.clone(),
+                    usage: outcome.usage,
+                });
                 return Ok(outcome);
             }
         }
@@ -649,6 +680,12 @@ pub async fn run_subagent(
         // Truncate result to the definition's cap if set (shared with the
         // deterministic memory fast path via `apply_max_result_chars`).
         apply_max_result_chars(&mut outcome.output, definition.max_result_chars, &definition.id);
+
+        usage_finalizer.finish(crate::agent::tinyagents::host::SubagentUsageEntry {
+            task_id: task_id.clone(),
+            agent_id: definition.id.clone(),
+            usage: outcome.usage,
+        });
 
         tracing::info!(
             agent_id = %definition.id,
@@ -1745,14 +1782,6 @@ async fn run_typed_mode(
             .saturating_add(entry.usage.cached_input_tokens);
         usage.charged_amount_usd += entry.usage.charged_amount_usd;
     }
-    options.run_context.record_completed_subagent_usage(
-        crate::agent::tinyagents::host::SubagentUsageEntry {
-            task_id: task_id.to_string(),
-            agent_id: definition.id.clone(),
-            usage,
-        },
-    );
-
     Ok(SubagentRunOutcome {
         task_id: task_id.to_string(),
         agent_id: definition.id.clone(),

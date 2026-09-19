@@ -5,7 +5,7 @@
 use std::fmt::Write as _;
 use std::sync::Arc;
 
-use crate::agent::harness::fork_context::{current_agent_context_prepared_sources, current_parent};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use async_trait::async_trait;
 use serde_json::json;
 use tinyagents_harness::context::RunContext;
@@ -78,8 +78,8 @@ impl AgentPrepareContextTool {
     /// Falls back to that registry, name-filtered, when a context does not
     /// carry the visible list, to preserve behaviour for builders that don't
     /// populate it.
-    pub(super) fn render_parent_tool_catalog() -> String {
-        let Some(parent) = current_parent() else {
+    pub(super) fn render_parent_tool_catalog(parent: Option<&ParentExecutionContext>) -> String {
+        let Some(parent) = parent else {
             return String::new();
         };
         let visible = &parent.visible_tool_names;
@@ -242,7 +242,7 @@ impl AgentPrepareContextTool {
         tool_context: Option<&dyn ToolRunContext>,
         run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
-        let prepared_sources = current_agent_context_prepared_sources();
+        let prepared_sources = run_context.prepared_context_sources.as_ref();
         if !prepared_sources.is_empty() {
             tracing::info!(
                 target: "agent_prepare_context",
@@ -256,7 +256,8 @@ impl AgentPrepareContextTool {
 
         let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
         let focus = args.get("focus").and_then(|v| v.as_str());
-        let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+        let tool_catalog =
+            AgentPrepareContextTool::render_parent_tool_catalog(run_context.parent.as_ref());
         run_context_scout_with_catalog_and_workspace(
             question,
             focus,

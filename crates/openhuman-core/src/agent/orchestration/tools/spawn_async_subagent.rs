@@ -5,7 +5,6 @@
 //! events and, when possible, persisted in the child worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{current_parent, with_parent_context};
 use crate::agent::harness::run_queue::RunQueue;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::messages::ChatMessage;

@@ -316,13 +316,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core/experience_context.rs",
-    "line": 141,
-    "text": "let result = harness::with_parent_context(parent_context.clone(), async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/core/failed_turn.rs",
     "line": 81,
     "text": "crate::agent::turn_origin::current_request_id()",
@@ -340,13 +333,6 @@
     "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
     "line": 119,
     "text": "with_current_sandbox_mode(graph.sandbox_mode, async {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/session_io/background_tasks.rs",
-    "line": 78,
-    "text": "let result = harness::with_parent_context(parent_ctx, fut).await;",
     "occurrence": 1
   },
   {
@@ -394,14 +380,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 601,
+    "line": 632,
     "text": "let run_result = with_spawn_depth(attempted_depth, async {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 603,
+    "line": 634,
     "text": "with_current_sandbox_mode(definition.sandbox_mode, async {",
     "occurrence": 1
   },
@@ -526,69 +512,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/spawn_parallel_graph/run.rs",
-    "line": 11,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/spawn_parallel_graph/run.rs",
-    "line": 61,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/scout_run.rs",
-    "line": 6,
-    "text": "use crate::agent::harness::fork_context::{current_parent, AgentContextPreparedSource};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/scout_run.rs",
-    "line": 267,
-    "text": "let parent_session = current_parent()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/scout_run.rs",
-    "line": 270,
-    "text": "let progress_sink = current_parent().and_then(|p| p.on_progress.clone());",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/scout_run.rs",
-    "line": 407,
-    "text": "if let (Some(parent), Some(thread_id)) = (current_parent(), thread_id) {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/tool.rs",
-    "line": 8,
-    "text": "use crate::agent::harness::fork_context::{current_agent_context_prepared_sources, current_parent};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/tool.rs",
-    "line": 82,
-    "text": "let Some(parent) = current_parent() else {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/agent_prepare_context/tool.rs",
-    "line": 245,
-    "text": "let prepared_sources = current_agent_context_prepared_sources();",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/close_subagent.rs",
     "line": 3,
     "text": "use crate::agent::harness::fork_context::current_parent;",
@@ -598,20 +521,6 @@
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/close_subagent.rs",
     "line": 74,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/continue_subagent.rs",
-    "line": 12,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/continue_subagent.rs",
-    "line": 269,
     "text": "let parent = match current_parent() {",
     "occurrence": 1
   },
@@ -631,34 +540,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 57,
-    "text": "let parent = match current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 428,
-    "text": "let join = tokio::spawn(crate::agent::turn_origin::propagate(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 429,
-    "text": "crate::agent::turn_workspace::propagate(async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    "line": 446,
-    "text": "let result = with_parent_context(background_parent, async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent.rs",
     "line": 8,
     "text": "use crate::agent::harness::fork_context::{current_parent, with_parent_context};",
@@ -666,72 +547,9 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 204,
-    "text": "if let Some(parent_ctx) = current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 241,
-    "text": "let parent_ctx = current_parent();",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 431,
-    "text": "let parent_session = current_parent()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 441,
-    "text": "let worker_thread_id = current_parent().and_then(|p| {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 467,
-    "text": "if let Some(progress) = current_parent().and_then(|p| p.on_progress.clone()) {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 512,
-    "text": "let progress_sink = current_parent().and_then(|p| p.on_progress.clone());",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    "line": 592,
-    "text": "let workspace_dir = current_parent()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent.rs",
     "line": 16,
     "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_worker_thread.rs",
-    "line": 13,
-    "text": "use crate::agent::harness::fork_context::current_parent;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/tools/spawn_worker_thread.rs",
-    "line": 203,
-    "text": "let parent = current_parent().ok_or_else(|| anyhow::anyhow!(\"no parent context\"))?;",
     "occurrence": 1
   },
   {
@@ -865,20 +683,6 @@
     "path": "crates/openhuman-core/src/agent/tools/update_task.rs",
     "line": 147,
     "text": "if let Some(parent) = crate::agent::harness::fork_context::current_parent() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/triage/escalation.rs",
-    "line": 22,
-    "text": "use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/triage/escalation.rs",
-    "line": 314,
-    "text": "let outcome = with_parent_context(parent_ctx, async {",
     "occurrence": 1
   },
   {
@@ -1759,7 +1563,7 @@
   {
     "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/run_loop.rs",
-    "line": 1001,
+    "line": 1000,
     "text": "use tinytools_agent::dialect::{DialectResponse, ToolDialect, XmlDialect};",
     "occurrence": 1
   },

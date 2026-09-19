@@ -314,7 +314,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `run_queue/` | `tinyagents-harness::run_queue` | Delete the OpenHuman copy/facade after parity tests and direct imports. |
 | `tool_result_artifacts/` | Keep host store | OpenHuman action-dir artifact persistence implementing the upstream artifact callback/store seam. |
 | `credentials.rs`, `memory_context.rs`, `memory_context_safety.rs` | Keep host policy/adapters | Feed explicit context/capability requests; move only host-free formatting/traversal helpers. |
-| `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs`, `turn_attachments_context.rs`, `turn_dispatch_guard.rs`, `turn_subagent_usage.rs` | explicit `RunContext`/child context | Delete task-local shells. |
+| `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | explicit `RunContext`/child context | Delete task-local shells. |
 | `subagent_runner/` generic recursion/drive | host-capability `invoke_agent` + `tinyagents-graph` | Keep only OpenHuman request/result mapping if still needed. |
 | `subagent_runner/handoff.rs`, `extract_tool.rs` | `tinyagents-harness::handoff` | Delete OpenHuman wrapper/cache after upstream storage/chunk/extract parity and direct imports. |
 | `session/` loop/turn assembly | `AgentHarness::invoke_agent[_stream]` | Keep OpenHuman transcript/checkpoint persistence and a thin product-facing constructor only if it adds a real OpenHuman API; no runtime duplication. |

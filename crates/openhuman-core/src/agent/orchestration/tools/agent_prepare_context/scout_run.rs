@@ -3,7 +3,7 @@
 //! and bootstrapping a thread goal from the scout's proposal.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{current_parent, AgentContextPreparedSource};
+use crate::agent::harness::fork_context::AgentContextPreparedSource;
 use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentRunError, SubagentRunOptions, SubagentRunStatus,
 };
@@ -98,7 +98,7 @@ pub(super) fn already_prepared_context_bundle(sources: &[AgentContextPreparedSou
 /// and runs the scout against the parent's provider. Outside a turn the
 /// `run_subagent` call surfaces a no-parent error as a [`ToolResult::error`].
 pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::Result<ToolResult> {
-    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog(None);
     run_context_scout_with_catalog(question, focus, &tool_catalog).await
 }
 
@@ -219,6 +219,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     thread_id: Option<String>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    let parent = run_context.parent.clone();
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 
@@ -264,10 +265,11 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     );
 
     let task_id = format!("ctx-{}", uuid::Uuid::new_v4());
-    let parent_session = current_parent()
+    let parent_session = parent
+        .as_ref()
         .map(|p| p.session_id.clone())
         .unwrap_or_else(|| "standalone".into());
-    let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
+    let progress_sink = run_context.progress.clone();
 
     // Surface the scout as a live subagent row in the parent thread. The
     // child's own iterations/tool-calls already stream to this sink from
@@ -404,7 +406,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                 // context-gathering path just seeds a goal on the first scout of
                 // a fresh chat so the harness has something to steer toward.
                 // Best-effort — never fails the call.
-                if let (Some(parent), Some(thread_id)) = (current_parent(), thread_id) {
+                if let (Some(parent), Some(thread_id)) = (parent.as_ref(), thread_id) {
                     if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
                         match crate::agent::goals::store::set_if_absent(
                             &parent.workspace_dir,

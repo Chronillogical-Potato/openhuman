@@ -25,7 +25,7 @@ iterations.
   plumbing that lets a spawned tool see its parent's runtime context
   (`definition*.rs`, `builtin_definitions.rs`, `fork_context.rs`,
   `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs`,
-  `turn_attachments_context.rs`).
+  `OpenHumanRunContext`).
 - Run the channel/CLI turn graph (`graph.rs`) and let a built-in agent
   select a bespoke sub-agent turn graph (`agent_graph.rs`).
 - Extract lessons and episodic memory after each turn as a `PostTurnHook`
@@ -43,7 +43,7 @@ iterations.
 | `session/` | `Agent`/`AgentBuilder`/`TurnOverrides` (`types.rs`), the fluent builder + `Agent::from_config` factory (`builder/`), the turn lifecycle (`turn/`: `context.rs`, `core*.rs`, `graph.rs`, `recall_lanes.rs`, `session_io*.rs`, `tools.rs`), transcript persistence + legacy migration (`transcript*.rs`, `migration.rs`, `turn_checkpoint.rs`). |
 | `subagent_runner/` | `run_subagent`/`SubagentRunOptions`/`SubagentRunError` and the build pipeline around the tinyagents graph: model resolution, tool filtering, sandbox/action-root narrowing, checkpoint/handback, transcript mirroring (`autonomous.rs`, `extract_tool.rs`, `handoff.rs`, `tool_prep.rs`, `ops/{provider,prompt,runner,graph,checkpoint,pause_checkpoint}.rs`). |
 | `definition*.rs`, `builtin_definitions.rs`, `definition_loader.rs` | `AgentDefinition`/`AgentDefinitionRegistry`/`SandboxMode`/`ToolScope`/`PromptSource`/`ModelSpec`; loads built-ins from `crate::agent::registry::agents` and user TOML from the workspace/home `agents/` directory. |
-| `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs`, `turn_attachments_context.rs` | `ParentExecutionContext` and other task-locals a spawned tool reads to see its parent's provider, tools, sandbox mode, spawn depth (capped by `MAX_SPAWN_DEPTH`), and recent-task window. |
+| `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | Transitional task-locals for legacy callers. Live TinyAgents tool dispatch receives `OpenHumanRunContext` directly for parent, attachments, dispatch, and usage. |
 | `graph.rs` | `run_channel_turn_via_graph` (`pub(crate)`) — the channel/CLI turn graph, thin over `run_turn_via_tinyagents_shared`; called by the `agent.run_turn` native-bus handler in `agent/bus.rs`. |
 | `agent_graph.rs` | `AgentGraph` (`Default`/`Custom`), `AgentTurnRequest`, `AgentTurnResult`, `AgentTurnUsage` — per-agent sub-agent turn-graph selection consulted by `subagent_runner`'s `run_typed_mode`. Every built-in agent currently selects `Default`. |
 | `archivist/` | `ArchivistHook` (`types.rs`, `PostTurnHook` impl in `hook_impl.rs`) — post-turn episodic insert, segment boundary detection + lifecycle, LLM recap with heuristic fallback, lesson extraction from tool failures, and raw-prose ingestion into the memory tree when `config.learning.chat_to_tree_enabled` (`boundary.rs`, `lifecycle.rs`, `recap.rs`, `resummarise.rs`, `store.rs`, `tree_ingest.rs`, `events_heuristic.rs`). |
@@ -53,7 +53,7 @@ iterations.
 | `memory_context.rs`, `memory_context_safety.rs`, `memory_protocol.rs` | Working-memory and `[Cross-chat context]` lines surfaced into the prompt (capped by `WORKING_MEMORY_LIMIT`); trust-tier wrapping of recalled entries that came from connectors (`wrap_untrusted_for_agent`); and the read-index → dedupe → write → update-index enforcement state machine for memory-mutating tools (issue #4116). |
 | `instructions.rs`, `parse.rs`, `required_output.rs` | Text-mode `<tool_call>` protocol section (`build_tool_instructions*`), `parse_tool_calls_with_pformat`, and required structured-output validation/repair. |
 | `credentials.rs` | `scrub_credentials` — regex scrubbing of credential-shaped text (key/value secrets, AWS access-key IDs, `sk-…` keys). Applied to every tool result by the middleware in `agent/tinyagents/`. |
-| `turn_dispatch_guard.rs`, `turn_subagent_usage.rs` | Turn-scoped guard that refuses a new sub-agent dispatch once the run's remaining wall-clock/cap budget cannot fit it (issue #5804), and `LastTurnUsage`/`SubagentUsageEntry` accounting. |
+| `tinyagents/host/run_context.rs` | Explicit turn-scoped dispatch refusal and `LastTurnUsage`/`SubagentUsageEntry` accounting shared by synchronous descendants. Detached work resets these turn-only handles. |
 
 ## Public surface
 

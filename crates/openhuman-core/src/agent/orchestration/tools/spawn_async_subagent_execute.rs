@@ -54,7 +54,7 @@ impl SpawnAsyncSubagentTool {
             ));
         }
 
-        let parent = match current_parent() {
+        let parent = match run_context.parent.clone() {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
@@ -383,7 +383,6 @@ impl SpawnAsyncSubagentTool {
         let task_queue = steer_queue.clone();
         let (status_tx, status_rx) = running_subagents::status_channel();
 
-        let background_parent = parent.clone();
         let background_workspace_dir = parent.workspace_dir.clone();
         let background_definition = definition.clone();
         let background_agent_id = definition.id.clone();
@@ -417,16 +416,11 @@ impl SpawnAsyncSubagentTool {
             register_parent_thread_id.as_deref().unwrap_or("none")
         );
         let background_prompt = add_background_contract(&prompt);
-        // The detached child starts on a fresh task. Capture its durable thread
-        // identity now and carry it in `SubagentRunOptions`; task-local scope
-        // does not cross `tokio::spawn`. The turn's origin label and workspace
-        // root are the other values that must travel, and they are captured
-        // **here**, on the spawning task. Without the origin every external-effect tool the
-        // child calls reaches the approval gate unlabelled and is refused,
-        // which is the whole of why a delegated coding task could not run a
-        // shell.
-        let join = tokio::spawn(crate::agent::turn_origin::propagate(
-            crate::agent::turn_workspace::propagate(async move {
+        // The detached child starts on a fresh task. Its explicit carrier keeps
+        // authority, origin, thread, and workspace while deliberately dropping
+        // the originating turn's accounting, dispatch refusal, and cancellation.
+        let detached_run_context = run_context.detached_child();
+        let join = tokio::spawn(async move {
                 let options = SubagentRunOptions {
                     skill_filter_override: None,
                     toolkit_override,
@@ -434,7 +428,7 @@ impl SpawnAsyncSubagentTool {
                     model_override,
                     task_id: Some(background_task_id.clone()),
                     thread_id: Some(background_thread_id),
-                    run_context,
+                    run_context: detached_run_context,
                     worker_thread_id: background_worker_thread_id.clone(),
                     initial_history: background_initial_history,
                     checkpoint_dir: None,
@@ -443,10 +437,7 @@ impl SpawnAsyncSubagentTool {
                     run_queue: Some(task_queue),
                 };
 
-                let result = with_parent_context(background_parent, async move {
-                    run_subagent(&background_definition, &background_prompt, options).await
-                })
-                .await;
+                let result = run_subagent(&background_definition, &background_prompt, options).await;
 
                 match result {
                     Ok(outcome) => match outcome.status {
@@ -687,8 +678,7 @@ impl SpawnAsyncSubagentTool {
                         }
                     }
                 }
-            }),
-        ));
+        });
 
         // Register *after* spawn so the AbortHandle is available. The task owns
         // `status_tx`; this side holds `status_rx` for `wait_subagent`.

@@ -127,6 +127,10 @@ impl Agent {
         let options = harness::SubagentRunOptions {
             task_id: Some(task_id.clone()),
             model_override: Some(parent_context.model_name.clone()),
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
+                parent: Some(parent_context.clone()),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -138,10 +142,7 @@ impl Agent {
         );
 
         let started = std::time::Instant::now();
-        let result = harness::with_parent_context(parent_context.clone(), async move {
-            harness::run_subagent(&definition, &prompt, options).await
-        })
-        .await;
+        let result = harness::run_subagent(&definition, &prompt, options).await;
 
         match result {
             Ok(outcome) => {

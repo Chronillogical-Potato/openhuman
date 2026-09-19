@@ -73,9 +73,14 @@ impl Agent {
         );
 
         tokio::spawn(async move {
-            let options = harness::SubagentRunOptions::default();
-            let fut = harness::run_subagent(&definition, &extraction_prompt, options);
-            let result = harness::with_parent_context(parent_ctx, fut).await;
+            let options = harness::SubagentRunOptions {
+                run_context: crate::agent::tinyagents::host::OpenHumanRunContext {
+                    parent: Some(parent_ctx),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let result = harness::run_subagent(&definition, &extraction_prompt, options).await;
             match result {
                 Ok(outcome) => {
                     tracing::info!(

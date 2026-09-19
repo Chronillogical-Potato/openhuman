@@ -195,7 +195,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     PARENT_CONTEXT.scope(ctx, Box::pin(future)).await
 }
 
@@ -218,7 +218,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     AGENT_CONTEXT_PREPARED_SOURCES
         .scope(Arc::new(sources), Box::pin(future))
         .await

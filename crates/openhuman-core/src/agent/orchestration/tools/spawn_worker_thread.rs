@@ -10,7 +10,6 @@
 //! another worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::memory::conversations;
 use async_trait::async_trait;
@@ -200,7 +199,10 @@ impl SpawnWorkerThreadTool {
             return Ok(ToolResult::error("agent_id and prompt are required"));
         }
 
-        let parent = current_parent().ok_or_else(|| anyhow::anyhow!("no parent context"))?;
+        let parent = run_context
+            .parent
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("no parent context"))?;
 
         // ── Depth Guard ────────────────────────────────────────────────
         // Check if the current thread is already a worker thread.

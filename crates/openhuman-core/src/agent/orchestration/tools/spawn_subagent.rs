@@ -13,7 +13,6 @@
 //! prompt with a filtered tool list, on a cheaper model where applicable.
 //!
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
 };

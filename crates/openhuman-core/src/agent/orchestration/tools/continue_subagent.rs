@@ -9,7 +9,6 @@
 //! appended to the conversation history.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 use crate::agent::harness::subagent_runner::{
     run_subagent, SubagentCheckpointData, SubagentRunOptions, SubagentRunStatus,
 };
@@ -266,7 +265,7 @@ impl ContinueSubagentTool {
             ));
         }
 
-        let parent = match current_parent() {
+        let parent = match run_context.parent.clone() {
             Some(p) => p,
             None => {
                 return Ok(ToolResult::error(
