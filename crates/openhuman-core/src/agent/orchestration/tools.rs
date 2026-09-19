@@ -78,6 +78,7 @@ pub use spawn_async_subagent::SpawnAsyncSubagentTool;
 pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;
 pub use spawn_parallel_agents::SpawnParallelAgentsTool;
 pub use spawn_subagent::SpawnSubagentTool;
+pub(crate) use spawn_worker_thread::SpawnWorkerThreadDispatch;
 pub use spawn_worker_thread::SpawnWorkerThreadTool;
 pub use steer_subagent::SteerSubagentTool;
 pub use wait::{WaitLoopTool, WaitTool};

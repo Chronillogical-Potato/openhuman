@@ -11,7 +11,9 @@ use tinyagents_registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
 
-use crate::agent::orchestration::tools::{SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch};
+use crate::agent::orchestration::tools::{
+    SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch, SpawnWorkerThreadDispatch,
+};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
@@ -99,6 +101,9 @@ pub(super) fn register_turn_tools_and_agents(
                 } else if name == "spawn_async_subagent" {
                     harness
                         .register_tool_dispatch(Arc::new(SpawnAsyncSubagentDispatch::new(adapter)));
+                } else if name == "spawn_worker_thread" {
+                    harness
+                        .register_tool_dispatch(Arc::new(SpawnWorkerThreadDispatch::new(adapter)));
                 } else {
                     harness.register_tool(adapter);
                 }

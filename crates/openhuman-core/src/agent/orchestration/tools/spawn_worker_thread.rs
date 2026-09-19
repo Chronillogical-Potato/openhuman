@@ -15,11 +15,46 @@ use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::memory::conversations;
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Spawns a sub-agent in a dedicated worker thread.
 pub struct SpawnWorkerThreadTool;
+
+pub(crate) struct SpawnWorkerThreadDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl SpawnWorkerThreadDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SpawnWorkerThreadDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        SpawnWorkerThreadTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl Default for SpawnWorkerThreadTool {
     fn default() -> Self {
@@ -108,6 +143,22 @@ impl Tool for SpawnWorkerThreadTool {
         args: serde_json::Value,
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl SpawnWorkerThreadTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> anyhow::Result<ToolResult> {
         let started = std::time::Instant::now();
 
@@ -252,7 +303,7 @@ impl Tool for SpawnWorkerThreadTool {
             thread_id: tool_context
                 .and_then(ToolRunContext::thread_id)
                 .map(str::to_owned),
-            run_context: Default::default(),
+            run_context,
             worker_thread_id: Some(worker_thread_id.clone()),
             initial_history: None,
             checkpoint_dir: None,
