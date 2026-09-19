@@ -23,8 +23,11 @@ pub async fn transcribe_cloud(
     let url = client
         .url_for("/openai/v1/audio/transcriptions")
         .map_err(|error| error.to_string())?;
+    let http = client.raw_client().map_err(|error| {
+        crate::api::flatten_authed_error(error)
+    })?;
     let result = tinyinference_voice::cloud::transcribe(
-        client.raw_client(),
+        &http,
         url,
         &token,
         audio_base64,
