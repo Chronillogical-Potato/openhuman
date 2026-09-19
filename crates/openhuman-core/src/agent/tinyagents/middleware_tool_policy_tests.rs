@@ -129,9 +129,9 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
         .expect("a use_skill call naming a skill and no tool renders here");
 
     assert!(
-        !result.content.contains("propose_workflow"),
+        !result_text(&result).contains("propose_workflow"),
         "a non-owner must not be offered a tool the gate will refuse:\n{}",
-        result.content
+        result_text(&result)
     );
     // Assert the LISTING entry in its exact rendered form, not the bare name.
     //
@@ -143,16 +143,16 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
     // test exists to catch. A check that cannot fail reads as coverage and is
     // worse than none.
     assert!(
-        result.content.contains("## `build_workflow`"),
+        result_text(&result).contains("## `build_workflow`"),
         "the tool it CAN call must still be LISTED, not merely mentioned in a \
          route sentence:\n{}",
-        result.content
+        result_text(&result)
     );
     // And this really is a listing, not the "nothing callable" error.
     assert!(
-        result.content.starts_with("# Skill `workflows`"),
+        result_text(&result).starts_with("# Skill `workflows`"),
         "expected a rendered pack listing:\n{}",
-        result.content
+        result_text(&result)
     );
 }
 

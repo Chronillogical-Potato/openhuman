@@ -38,6 +38,17 @@ fn registry_of(defs: Vec<HostAgentDefinition>) -> OpenHumanDefinitionRegistry {
     OpenHumanDefinitionRegistry::new(Arc::new(registry))
 }
 
+#[test]
+fn projection_supplies_the_validated_tier_as_the_model_routing_role() {
+    for tier in [AgentTier::Chat, AgentTier::Reasoning, AgentTier::Worker] {
+        let def = synthetic("tiered", tier, &[]);
+        assert_eq!(
+            registry_of(vec![def.clone()]).project(&def).role.as_deref(),
+            Some(tier.as_str())
+        );
+    }
+}
+
 // ── the absence contract ──────────────────────────────────────────────
 
 #[tokio::test]

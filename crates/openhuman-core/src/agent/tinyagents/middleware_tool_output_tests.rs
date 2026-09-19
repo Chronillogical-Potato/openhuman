@@ -64,17 +64,15 @@ async fn unavailable_summarization_is_disclosed_in_the_payload() {
     .expect("after_tool should not fail");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "the notice must be a PREFIX — the downstream per-tool cap keeps the \
          head, so an appended notice is the first thing truncated away; got: {}",
-        result.content
+        result_text(&result)
     );
     assert!(
-        result.content.contains("RAW-TOOL-OUTPUT"),
+        result_text(&result).contains("RAW-TOOL-OUTPUT"),
         "disclosure must not cost the payload: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -96,7 +94,8 @@ async fn a_payload_that_needed_nothing_is_left_completely_alone() {
     .expect("after_tool should not fail");
 
     assert_eq!(
-        result.content, "RAW-TOOL-OUTPUT",
+        result_text(&result),
+        "RAW-TOOL-OUTPUT",
         "a below-threshold payload must be byte-identical"
     );
 }
@@ -134,11 +133,9 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     .expect("a summarizer error must never break the tool call");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "an errored summarizer must be disclosed too; got: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -212,12 +209,14 @@ async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
     .unwrap();
     // The bare denial now carries a workaround + relay directive, and keeps the
     // marker so classification / the loop-breaker still recognise it.
-    assert!(result.content.contains("Workaround:"), "{}", result.content);
-    assert!(result.content.contains("Relay this to the user"));
-    assert!(result
-        .content
-        .contains(crate::security::POLICY_BLOCKED_MARKER));
-    assert!(result.content.contains("read-only mode"));
+    assert!(
+        result_text(&result).contains("Workaround:"),
+        "{}",
+        result_text(&result)
+    );
+    assert!(result_text(&result).contains("Relay this to the user"));
+    assert!(result_text(&result).contains(crate::security::POLICY_BLOCKED_MARKER));
+    assert!(result_text(&result).contains("read-only mode"));
 }
 
 #[tokio::test]
@@ -233,10 +232,10 @@ async fn already_structured_denial_is_not_double_wrapped() {
         .await
         .unwrap();
     assert_eq!(
-        result.content.matches("Workaround:").count(),
+        result_text(&result).matches("Workaround:").count(),
         1,
         "must not double-wrap: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -353,11 +352,14 @@ async fn tool_output_truncates_over_the_flat_budget() {
     )
     .await
     .unwrap();
-    assert!(result.content.len() < 5_000, "content should be capped");
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).len() < 5_000,
+        "content should be capped"
+    );
+    assert!(
+        result_text(&result).contains("truncated by tool_result_budget"),
         "a truncation marker should be appended: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -383,7 +385,7 @@ async fn tool_output_leaves_small_results_untouched() {
     )
     .await
     .unwrap();
-    assert_eq!(result.content, "tiny");
+    assert_eq!(result_text(&result), "tiny");
 }
 
 #[test]
@@ -470,20 +472,18 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
 
     let notice = UnavailableReason::Failed.notice();
     assert!(
-        result.content.starts_with(notice),
+        result_text(&result).starts_with(notice),
         "the complete notice must lead the content, got {:?}",
-        result.content.chars().take(200).collect::<String>()
+        result_text(&result).chars().take(200).collect::<String>()
     );
     assert!(
-        result
-            .content
-            .contains("Do not re-run the tool for a summary"),
+        result_text(&result).contains("Do not re-run the tool for a summary"),
         "the do-not-re-run instruction is the whole point of the notice and must survive"
     );
     // The payload itself is still capped — deferring the notice must not
     // smuggle the tool past its own declared limit.
-    let payload = result
-        .content
+    let rendered = result_text(&result);
+    let payload = rendered
         .strip_prefix(notice)
         .expect("notice prefix")
         .trim_start();
@@ -530,11 +530,9 @@ async fn tool_output_honors_a_tools_own_cap() {
     .await
     .unwrap();
     assert!(
-        result
-            .content
-            .contains("truncated by tool cap: 480 more chars not shown"),
+        result_text(&result).contains("truncated by tool cap: 480 more chars not shown"),
         "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -586,10 +584,11 @@ async fn tool_output_tabulates_a_large_graph_for_a_non_exempt_tool() {
     .await
     .unwrap();
     assert_ne!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "a non-exempt tool's large uniform-array payload should be rewritten by tokenjuice"
     );
-    let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result.content);
+    let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result_text(&result));
     let marker_survived = reparsed
         .ok()
         .and_then(|v| v.get("type").and_then(|t| t.as_str().map(str::to_string)))
@@ -614,10 +613,11 @@ async fn tool_output_leaves_propose_workflow_byte_for_byte_intact() {
     .await
     .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "propose_workflow results must pass through compaction untouched"
     );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
+    let reparsed: serde_json::Value = serde_json::from_str(&result_text(&result)).unwrap();
     assert_eq!(reparsed["type"], "workflow_proposal");
     assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 20);
 }
@@ -631,13 +631,14 @@ async fn tool_output_leaves_every_exempt_tool_name_intact() {
         mw.after_tool(
             &mut ctx(),
             &(),
-            &invocation(format!("exempt-{tool}"), tool),
+            &invocation(format!("exempt-{tool}"), *tool),
             &mut result,
         )
         .await
         .unwrap();
         assert_eq!(
-            result.content, payload,
+            result_text(&result),
+            payload,
             "{tool}'s result must pass through compaction untouched"
         );
     }
@@ -668,10 +669,10 @@ async fn tool_output_leaves_an_oversized_propose_workflow_byte_for_byte_intact()
     .await
     .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result), payload,
         "an oversized propose_workflow result must not be truncated by the shared byte-budget backstop"
     );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content)
+    let reparsed: serde_json::Value = serde_json::from_str(&result_text(&result))
         .expect("must still be valid JSON after passing through after_tool");
     assert_eq!(reparsed["type"], "workflow_proposal");
     assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 30);
@@ -695,16 +696,16 @@ async fn tool_output_truncates_the_same_oversized_payload_for_a_non_exempt_tool(
     .await
     .unwrap();
     assert_ne!(
-        result.content, payload,
+        result_text(&result), payload,
         "a non-exempt tool's oversized payload should be truncated by the shared byte-budget backstop"
     );
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).contains("truncated by tool_result_budget"),
         "expected the byte-budget truncation marker: {}",
-        result.content
+        result_text(&result)
     );
     assert!(
-        serde_json::from_str::<serde_json::Value>(&result.content).is_err(),
+        serde_json::from_str::<serde_json::Value>(&result_text(&result)).is_err(),
         "truncated JSON should no longer parse as a whole document"
     );
 }
@@ -727,7 +728,8 @@ async fn get_tool_output_sample_is_compaction_exempt() {
     .await
     .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "get_tool_output_sample's response must not be tokenjuice-tabulated"
     );
 }
@@ -746,7 +748,8 @@ async fn get_tool_contract_is_compaction_exempt() {
     .await
     .unwrap();
     assert_eq!(
-        result.content, payload,
+        result_text(&result),
+        payload,
         "get_tool_contract's response must not be tokenjuice-tabulated"
     );
 }
@@ -830,14 +833,13 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
     .unwrap();
 
     assert!(
-        result
-            .content
+        result_text(&result)
             .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
         "the real size must lead the content whatever the caps did, got {:?}",
-        result.content.chars().take(160).collect::<String>()
+        result_text(&result).chars().take(160).collect::<String>()
     );
     assert!(
-        result.content.contains("[truncated by tool cap:"),
+        result_text(&result).contains("[truncated by tool cap:"),
         "the summary itself is still bound by the tool's cap"
     );
 }

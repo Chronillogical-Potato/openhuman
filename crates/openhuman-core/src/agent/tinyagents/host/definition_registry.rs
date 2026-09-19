@@ -289,6 +289,9 @@ impl OpenHumanDefinitionRegistry {
             // a delegating parent" — the same string the harness feeds into a
             // synthesised `delegate_*` tool description.
             description: def.when_to_use.clone(),
+            // The definition's validated tier is the host assertion the model
+            // resolver consumes for workload routing.
+            role: Some(def.agent_tier.to_string()),
             model: model_for(&def.model),
             subagents: declared_subagent_ids(def),
             tools: self.tools_for(def),
