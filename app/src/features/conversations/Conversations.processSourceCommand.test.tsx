@@ -27,22 +27,9 @@ import themeReducer from '../../store/themeSlice';
 import threadReducer from '../../store/threadSlice';
 import type { Thread } from '../../types/thread';
 
-const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(() => ({
+const { mockGetThreads, mockGetThreadMessages } = vi.hoisted(() => ({
   mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
   mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-  mockUseUsageState: vi.fn(() => ({
-    teamUsage: null,
-    currentPlan: null,
-    currentTier: 'FREE' as const,
-    isFreeTier: true,
-    usagePct: 0,
-    isNearLimit: false,
-    isAtLimit: false,
-    isBudgetExhausted: false,
-    shouldShowBudgetCompletedMessage: false,
-    isLoading: false,
-    refresh: vi.fn(),
-  })),
 }));
 
 vi.mock('../../services/chatService', () => ({
