@@ -1,5 +1,6 @@
 //! Shared HTTP client for all integration tools.
 
+pub mod budget_gate;
 mod construct;
 mod download;
 mod errors;
