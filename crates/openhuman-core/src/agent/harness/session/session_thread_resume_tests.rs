@@ -216,14 +216,9 @@ fn seed_resume_replays_compaction_to_reduced_context() {
     );
 }
 
-/// #5351 regression guard: resume must pick the NEWEST transcript across profile
-/// dirs, never the one in the agent's own dir. After the Reasoning profile is
-/// healed back to the shared `session_raw/`, an OLDER transcript there must not
-/// shadow the NEWER turns the profile wrote into its (pre-heal) scoped
-/// `session_raw-1/` — otherwise the switch drops the most recent context and the
-/// seeded history diverges from what the transcript view shows.
+/// Resume must pick the newest matching canonical transcript for a thread.
 #[test]
-fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
+fn seed_resume_from_thread_transcript_picks_newest_canonical_transcript() {
     use super::super::transcript::{self, TranscriptMeta};
     use crate::agent::messages::ChatMessage;
 
@@ -262,24 +257,22 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
     transcript::write_transcript(&old_path, &older, &meta("2026-01-01T00:00:00Z"), None)
         .expect("write older");
 
-    // NEWER transcript in a sibling scoped dir (written pre-heal, higher stem).
+    // NEWER transcript in the same canonical store.
     let newer = vec![
         ChatMessage::system("system prompt"),
         ChatMessage::user("finalize plan"),
         ChatMessage::assistant("FINAL: Minimax is the image generator"),
     ];
     let new_path = wsp
-        .join("session_raw-1")
+        .join("session_raw")
         .join("1700009999_orchestrator.jsonl");
     std::fs::create_dir_all(new_path.parent().unwrap()).unwrap();
     transcript::write_transcript(&new_path, &newer, &meta("2026-02-02T00:00:00Z"), None)
         .expect("write newer");
 
-    // Agent runs in the shared dir (healed). Own-dir-first would wrongly pick the
-    // older draft; newest-across-dirs must pick the finalized plan.
+    // The newest transcript must win over an older matching root transcript.
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.workspace_dir = wsp.clone();
-    agent.session_raw_subdir = "session_raw".to_string();
 
     assert!(agent.seed_resume_from_thread_transcript(thread_id));
     let cached = agent
@@ -288,11 +281,11 @@ fn seed_resume_from_thread_transcript_picks_newest_across_profile_dirs() {
         .expect("cached transcript populated");
     assert!(
         cached.iter().any(|m| m.content.contains("FINAL")),
-        "resume must load the NEWEST transcript across profile dirs, not the older own-dir copy"
+        "resume must load the newest canonical transcript, not the older copy"
     );
     assert!(
         !cached.iter().any(|m| m.content.contains("early draft")),
-        "the older own-dir transcript must not shadow the newer sibling"
+        "the older transcript must not shadow the newer canonical transcript"
     );
 }
 

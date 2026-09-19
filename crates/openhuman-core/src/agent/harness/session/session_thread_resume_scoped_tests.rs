@@ -77,7 +77,6 @@ fn seed_resume_from_thread_transcript_scoped_does_not_leak_across_agents() {
 
     let mut agent_b = build_minimal_agent_with_definition_name(Some("agent_b"));
     agent_b.workspace_dir = wsp.clone();
-    agent_b.session_raw_subdir = "session_raw".to_string();
 
     assert!(
         agent_b.seed_resume_from_thread_transcript_scoped(thread_id, Some("agent_b")),

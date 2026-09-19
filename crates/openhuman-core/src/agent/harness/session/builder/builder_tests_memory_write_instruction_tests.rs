@@ -19,15 +19,9 @@ async fn memory_write_instruction_is_present_with_learning_disabled() {
         "the default install has learning off; the write rule must not depend on it"
     );
     let orchestrator = builtin_def("orchestrator");
-    let agent = Agent::build_session_agent_inner(
-        &config,
-        "orchestrator",
-        Some(&orchestrator),
-        None,
-        false,
-        None,
-    )
-    .expect("build session");
+    let agent =
+        Agent::build_session_agent_inner(&config, "orchestrator", Some(&orchestrator), false)
+            .expect("build session");
 
     let prompt = agent
         .build_system_prompt(LearnedContextData::default())
@@ -46,9 +40,8 @@ async fn memory_write_instruction_names_only_the_write_tool_a_scoped_agent_holds
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
     let archivist = builtin_def("archivist");
-    let agent =
-        Agent::build_session_agent_inner(&config, "archivist", Some(&archivist), None, false, None)
-            .expect("build archivist session");
+    let agent = Agent::build_session_agent_inner(&config, "archivist", Some(&archivist), false)
+        .expect("build archivist session");
 
     let prompt = agent
         .build_system_prompt(LearnedContextData::default())

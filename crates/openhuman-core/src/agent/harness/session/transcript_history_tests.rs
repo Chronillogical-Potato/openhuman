@@ -394,7 +394,7 @@ fn transcript_fingerprint(t: &SessionTranscript) -> String {
 }
 
 fn locator(dir: &TempDir) -> FileTranscriptLocator {
-    FileTranscriptLocator::new(dir.path(), "session_raw")
+    FileTranscriptLocator::new(dir.path())
 }
 
 /// A tool round persisted the way the turn path persists it: the assistant
