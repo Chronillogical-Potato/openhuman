@@ -36,6 +36,7 @@ impl Agent {
         max_iterations: usize,
         artifact_store: Option<ToolResultArtifactStore>,
         suppress_tools: bool,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     ) -> Result<String> {
         let snapshot = TranscriptSnapshotSink::default();
         let result = Box::pin(self.run_turn_via_tinyagents_session_inner(
@@ -45,6 +46,7 @@ impl Agent {
             max_iterations,
             artifact_store,
             suppress_tools,
+            run_context,
             snapshot.clone(),
         ))
         .await;

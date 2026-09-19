@@ -9,21 +9,152 @@
 //! so every host seam receives the same explicit carrier rather than recovering
 //! product state from a task-local.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::time::Instant;
 
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::definition::SandboxMode;
 use crate::agent::harness::fork_context::{AgentContextPreparedSource, ParentExecutionContext};
+use crate::agent::harness::subagent_runner::SubagentUsage;
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore;
-use crate::agent::harness::turn_dispatch_guard::TurnDispatchState;
-use crate::agent::harness::turn_subagent_usage::SubagentUsageEntry;
 use crate::agent::progress::AgentProgress;
 use crate::agent::stop_hooks::StopHook;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 use crate::agent::turn_origin::AgentTurnOrigin;
 use tinyinference_llm::model::ResolvedModelRoute;
+
+/// One delegated run's token and cost totals, retained for the parent-turn
+/// usage breakdown.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubagentUsageEntry {
+    pub task_id: String,
+    pub agent_id: String,
+    pub usage: SubagentUsage,
+}
+
+/// Complete usage for a completed root turn, including synchronous children.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct LastTurnUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub cost_usd: f64,
+    pub context_window: u64,
+    pub subagents: Vec<SubagentUsageEntry>,
+}
+
+/// Immutable inputs to the host's pre-dispatch policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DispatchInputs {
+    pub pause_requested: bool,
+    pub pause_completed_calls: u64,
+    pub pause_cap: u64,
+    pub remaining: Option<Duration>,
+    pub observed_max: Option<Duration>,
+    pub observed_samples: u64,
+}
+
+/// Outcome of the host's pre-dispatch policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DispatchDecision {
+    Allow,
+    RefusePaused {
+        completed_model_calls: u64,
+        cap: u64,
+    },
+    RefuseBudget {
+        remaining_ms: u64,
+        observed_max_ms: u64,
+        observed_samples: u64,
+    },
+}
+
+/// Decide whether a child can be started using only evidence recorded on this
+/// turn. This stays host policy: TinyAgents owns the loop, not OpenHuman's
+/// pause and wall-clock refusal rules.
+pub fn decide_dispatch(inputs: DispatchInputs) -> DispatchDecision {
+    if inputs.pause_requested {
+        return DispatchDecision::RefusePaused {
+            completed_model_calls: inputs.pause_completed_calls,
+            cap: inputs.pause_cap,
+        };
+    }
+    let (Some(remaining), Some(observed_max)) = (inputs.remaining, inputs.observed_max) else {
+        return DispatchDecision::Allow;
+    };
+    if remaining < observed_max {
+        return DispatchDecision::RefuseBudget {
+            remaining_ms: remaining.as_millis().min(u128::from(u64::MAX)) as u64,
+            observed_max_ms: observed_max.as_millis().min(u128::from(u64::MAX)) as u64,
+            observed_samples: inputs.observed_samples,
+        };
+    }
+    DispatchDecision::Allow
+}
+
+/// Shared root-turn state used by all synchronous descendants and siblings to
+/// decide whether starting another delegate is still safe.
+#[derive(Debug)]
+pub struct TurnDispatchState {
+    pause_requested: AtomicBool,
+    pause_completed_calls: AtomicU64,
+    pause_cap: AtomicU64,
+    started: Instant,
+    budget: Option<Duration>,
+    observed_max_ms: AtomicU64,
+    observed_samples: AtomicU64,
+}
+
+impl TurnDispatchState {
+    pub fn new(budget: Option<Duration>) -> Self {
+        Self {
+            pause_requested: AtomicBool::new(false),
+            pause_completed_calls: AtomicU64::new(0),
+            pause_cap: AtomicU64::new(0),
+            started: Instant::now(),
+            budget,
+            observed_max_ms: AtomicU64::new(0),
+            observed_samples: AtomicU64::new(0),
+        }
+    }
+
+    pub fn record_pause_requested(&self, completed_model_calls: u64, cap: u64) {
+        self.pause_completed_calls
+            .store(completed_model_calls, Ordering::SeqCst);
+        self.pause_cap.store(cap, Ordering::SeqCst);
+        self.pause_requested.store(true, Ordering::SeqCst);
+    }
+
+    pub fn record_subagent_elapsed(&self, elapsed: Duration) {
+        let ms = elapsed.as_millis().min(u128::from(u64::MAX)) as u64;
+        self.observed_samples.fetch_add(1, Ordering::SeqCst);
+        self.observed_max_ms.fetch_max(ms, Ordering::SeqCst);
+    }
+
+    pub fn snapshot(&self) -> DispatchInputs {
+        let observed_max = match self.observed_max_ms.load(Ordering::SeqCst) {
+            0 => None,
+            ms => Some(Duration::from_millis(ms)),
+        };
+        DispatchInputs {
+            pause_requested: self.pause_requested.load(Ordering::SeqCst),
+            pause_completed_calls: self.pause_completed_calls.load(Ordering::SeqCst),
+            pause_cap: self.pause_cap.load(Ordering::SeqCst),
+            remaining: self
+                .budget
+                .map(|budget| budget.saturating_sub(self.started.elapsed())),
+            observed_max,
+            observed_samples: self.observed_samples.load(Ordering::SeqCst),
+        }
+    }
+
+    pub fn check(&self) -> DispatchDecision {
+        decide_dispatch(self.snapshot())
+    }
+}
 
 /// Explicit OpenHuman data carried by a top-level or child agent run.
 ///
@@ -59,6 +190,10 @@ pub struct OpenHumanRunContext {
     pub spawn_depth: usize,
     /// This run's subagent usage roll-up; intentionally isolated for children.
     pub subagent_usage: Arc<Mutex<Vec<SubagentUsageEntry>>>,
+    /// The immediate parent's ledger. A child writes its own completed total to
+    /// this explicit handle, while nested children first collect in this run's
+    /// isolated ledger. It is never a task-local or a root-global collector.
+    parent_subagent_usage: Option<Arc<Mutex<Vec<SubagentUsageEntry>>>>,
     /// Provider/model/host-route observation for this run, written from the
     /// canonical response metadata by typed model middleware. Intentionally
     /// isolated for children.
@@ -97,6 +232,7 @@ impl OpenHumanRunContext {
             sandbox_mode: None,
             spawn_depth: 0,
             subagent_usage: Arc::new(Mutex::new(Vec::new())),
+            parent_subagent_usage: None,
             resolved_route: Arc::new(Mutex::new(None)),
             cancellation: tinyagents_harness::cancel::CancellationToken::new(),
             thread_id: None,
@@ -131,6 +267,7 @@ impl OpenHumanRunContext {
         let mut child = self.clone();
         child.spawn_depth = self.spawn_depth.saturating_add(1);
         child.file_state_agent_id = None;
+        child.parent_subagent_usage = Some(self.subagent_usage.clone());
         child.subagent_usage = Arc::new(Mutex::new(Vec::new()));
         child.resolved_route = Arc::new(Mutex::new(None));
         child
@@ -171,6 +308,30 @@ impl OpenHumanRunContext {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .push(entry);
+    }
+
+    /// Record a completed child on the immediate parent's ledger. This makes
+    /// completed children visible at the root without leaking siblings into one
+    /// another's in-flight ledger. Direct/root callers retain their own entry.
+    pub fn record_completed_subagent_usage(&self, entry: SubagentUsageEntry) {
+        let ledger = self
+            .parent_subagent_usage
+            .as_ref()
+            .unwrap_or(&self.subagent_usage);
+        ledger
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(entry);
+    }
+
+    /// Snapshot child totals after the child has returned. A snapshot, rather
+    /// than a task-local drain, preserves totals even when sibling futures are
+    /// cancelled or one child fails after another has completed.
+    pub fn subagent_usage_entries(&self) -> Vec<SubagentUsageEntry> {
+        self.subagent_usage
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 
     /// Resolves whether a file-state scope has been assigned to this context.

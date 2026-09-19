@@ -51,6 +51,9 @@ pub use experience_store::OpenHumanExperienceStore;
 pub use learning_sink::OpenHumanLearningSink;
 pub use model_resolver::OpenHumanModelResolver;
 pub use progress_sink::OpenHumanProgressSink;
-pub use run_context::OpenHumanRunContext;
+pub use run_context::{
+    decide_dispatch, DispatchDecision, DispatchInputs, LastTurnUsage, OpenHumanRunContext,
+    SubagentUsageEntry, TurnDispatchState,
+};
 pub use security_gate::OpenHumanSecurityGate;
 pub use tool_outcome_classifier::OpenHumanToolOutcomeClassifier;

@@ -23,7 +23,7 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 122,
+    "line": 125,
     "text": "run_turn_via_tinyagents_shared(",
     "occurrence": 1
   },
@@ -247,42 +247,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 44,
-    "text": "pub mod turn_attachments_context;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 45,
-    "text": "pub mod turn_dispatch_guard;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 46,
-    "text": "pub mod turn_subagent_usage;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 60,
+    "line": 57,
     "text": "pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 61,
+    "line": 58,
     "text": "pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/mod.rs",
-    "line": 63,
+    "line": 60,
     "text": "pub use task_recency_context::{current_task_recency_window, with_task_recency_window};",
     "occurrence": 1
   },
@@ -337,48 +316,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 667,
-    "text": "harness::with_parent_context(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 669,
-    "text": "harness::with_agent_context_prepared_sources(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 671,
-    "text": "harness::turn_attachments_context::with_current_turn_image_placeholders(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 679,
-    "text": "harness::with_parent_context(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 681,
-    "text": "harness::with_agent_context_prepared_sources(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core_turn.rs",
-    "line": 683,
-    "text": "harness::turn_attachments_context::with_current_turn_image_placeholders(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/core/experience_context.rs",
     "line": 141,
     "text": "let result = harness::with_parent_context(parent_context.clone(), async move {",
@@ -387,22 +324,8 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/core/failed_turn.rs",
-    "line": 79,
+    "line": 81,
     "text": "crate::agent::turn_origin::current_request_id()",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core/harness_turn.rs",
-    "line": 179,
-    "text": "crate::agent::harness::turn_subagent_usage::with_turn_collector(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/session/turn/core/harness_turn.rs",
-    "line": 217,
-    "text": "crate::agent::harness::turn_dispatch_guard::with_dispatch_guard(",
     "occurrence": 1
   },
   {
@@ -415,7 +338,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/session/turn/graph.rs",
-    "line": 116,
+    "line": 119,
     "text": "with_current_sandbox_mode(graph.sandbox_mode, async {",
     "occurrence": 1
   },
@@ -457,71 +380,29 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/mod.rs",
-    "line": 73,
+    "line": 71,
     "text": "pub(super) use crate::agent::harness::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 411,
-    "text": "match turn_dispatch_guard::check() {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 451,
-    "text": "let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 453,
-    "text": "let current_depth = current_spawn_depth();",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 557,
-    "text": "turn_dispatch_guard::record_subagent_elapsed(started.elapsed());",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 598,
-    "text": "let run_result = with_spawn_depth(attempted_depth, async {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 600,
-    "text": "with_current_sandbox_mode(definition.sandbox_mode, async {",
+    "line": 37,
+    "text": "use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
     "line": 601,
-    "text": "with_parent_context(parent_for_subagent.clone(), async {",
+    "text": "let run_result = with_spawn_depth(attempted_depth, async {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 636,
-    "text": "turn_dispatch_guard::record_subagent_elapsed(started.elapsed());",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/subagent_runner/ops/runner.rs",
-    "line": 1733,
-    "text": "crate::agent::harness::turn_subagent_usage::record_subagent_usage(",
+    "line": 603,
+    "text": "with_current_sandbox_mode(definition.sandbox_mode, async {",
     "occurrence": 1
   },
   {
@@ -557,62 +438,6 @@
     "path": "crates/openhuman-core/src/agent/harness/task_recency_context.rs",
     "line": 59,
     "text": "let out = TASK_RECENCY_WINDOW.scope(window, future).await;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_attachments_context.rs",
-    "line": 20,
-    "text": "tokio::task_local! {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_attachments_context.rs",
-    "line": 22,
-    "text": "pub static CURRENT_TURN_IMAGE_PLACEHOLDERS: Vec<String>;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_attachments_context.rs",
-    "line": 26,
-    "text": "pub fn current_turn_image_placeholders() -> Vec<String> {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_attachments_context.rs",
-    "line": 27,
-    "text": "CURRENT_TURN_IMAGE_PLACEHOLDERS",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_attachments_context.rs",
-    "line": 42,
-    "text": "CURRENT_TURN_IMAGE_PLACEHOLDERS",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_dispatch_guard.rs",
-    "line": 239,
-    "text": "tokio::task_local! {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_subagent_usage.rs",
-    "line": 66,
-    "text": "tokio::task_local! {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/harness/turn_subagent_usage.rs",
-    "line": 83,
-    "text": "pub(crate) fn record_subagent_usage(task_id: &str, agent_id: &str, usage: SubagentUsage) {",
     "occurrence": 1
   },
   {

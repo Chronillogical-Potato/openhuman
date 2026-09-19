@@ -92,6 +92,9 @@ pub(crate) struct ChatTurnGraph {
     pub sandbox_mode: SandboxMode,
     /// Explicit backend/persistence thread for this root turn.
     pub thread_id: Option<String>,
+    /// The root host carrier, built before the turn begins and retained by all
+    /// synchronous descendant dispatches.
+    pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam
@@ -114,7 +117,7 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
     // on the bundle.
     let provider_id = graph.turn_models.provider_id().to_string();
     with_current_sandbox_mode(graph.sandbox_mode, async {
-        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        let mut run_context = graph.run_context;
         run_context.progress = graph.on_progress.clone().or(run_context.progress);
         run_context.workspace = graph.workspace_descriptor.clone().or(run_context.workspace);
         run_context.sandbox_mode = Some(graph.sandbox_mode);

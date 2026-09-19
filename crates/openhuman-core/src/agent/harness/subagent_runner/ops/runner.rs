@@ -21,9 +21,7 @@ use crate::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
     PromptSource, SandboxMode as AgentSandboxMode,
 };
-use crate::agent::harness::fork_context::{
-    current_parent, with_parent_context, ParentExecutionContext,
-};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
 use crate::agent::harness::subagent_runner::handoff::ResultHandoffCache;
 use crate::agent::harness::subagent_runner::subagent_iter_cap_with_autonomous_lift;
@@ -36,10 +34,7 @@ use crate::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
     SubagentUsage,
 };
-use crate::agent::harness::turn_dispatch_guard;
-use crate::agent::harness::{
-    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
-};
+use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};
 use crate::agent::prompts::{
     render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -362,10 +357,11 @@ async fn try_deterministic_memory_retrieval(
 /// This is the primary entry point for agent delegation. It performs the following:
 /// 1. Generates a unique `task_id` if one wasn't provided.
 /// 2. Asks the turn's
-///    [dispatch guard](crate::agent::harness::turn_dispatch_guard)
+///    explicit root-turn dispatch guard
 ///    whether a delegation can still succeed, and refuses before spending
 ///    anything if it cannot (#5804).
-/// 3. Resolves the [`ParentExecutionContext`] task-local.
+/// 3. Reads the parent's explicit [`ParentExecutionContext`] from its run
+///    carrier.
 /// 4. Dispatches to `run_typed_mode`.
 ///
 /// On success returns a [`SubagentRunOutcome`] whose `output` is the
@@ -408,9 +404,12 @@ pub async fn run_subagent(
         // cap, or less wall-clock remains than this turn's slowest completed
         // sub-agent took. Outside a turn scope the guard is absent and this is
         // a no-op, so CLI and direct invocations are unaffected.
-        match turn_dispatch_guard::check() {
-            turn_dispatch_guard::DispatchDecision::Allow => {}
-            turn_dispatch_guard::DispatchDecision::RefusePaused {
+        match options.run_context.dispatch.as_deref().map_or(
+            crate::agent::tinyagents::host::DispatchDecision::Allow,
+            crate::agent::tinyagents::host::TurnDispatchState::check,
+        ) {
+            crate::agent::tinyagents::host::DispatchDecision::Allow => {}
+            crate::agent::tinyagents::host::DispatchDecision::RefusePaused {
                 completed_model_calls,
                 cap,
             } => {
@@ -426,7 +425,7 @@ pub async fn run_subagent(
                     cap,
                 });
             }
-            turn_dispatch_guard::DispatchDecision::RefuseBudget {
+            crate::agent::tinyagents::host::DispatchDecision::RefuseBudget {
                 remaining_ms,
                 observed_max_ms,
                 observed_samples,
@@ -448,10 +447,13 @@ pub async fn run_subagent(
             }
         }
 
-        let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;
+        let parent = options
+            .run_context
+            .parent
+            .clone()
+            .ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
-        let current_depth = current_spawn_depth();
-        let attempted_depth = current_depth.saturating_add(1);
+        let attempted_depth = options.run_context.spawn_depth;
 
         // Synchronous pre-dispatch projection of the single depth authority
         // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
@@ -462,7 +464,6 @@ pub async fn run_subagent(
             tracing::warn!(
                 agent_id = %definition.id,
                 task_id = %task_id,
-                current_depth,
                 attempted_depth,
                 max_depth = MAX_SPAWN_DEPTH,
                 "[subagent_runner] spawn depth exceeded"
@@ -554,7 +555,9 @@ pub async fn run_subagent(
                 // the opposite and was wrong about its own statistic. What it
                 // does buy is a correct `observed_samples` count and a gate
                 // that arms on a turn shaped entirely from fast-path work.
-                turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
+                if let Some(dispatch) = options.run_context.dispatch.as_deref() {
+                    dispatch.record_subagent_elapsed(started.elapsed());
+                }
                 return Ok(outcome);
             }
         }
@@ -598,17 +601,14 @@ pub async fn run_subagent(
         let run_result = with_spawn_depth(attempted_depth, async {
             with_file_state_agent_id(task_id.clone(), async {
                 with_current_sandbox_mode(definition.sandbox_mode, async {
-                    with_parent_context(parent_for_subagent.clone(), async {
-                        Box::pin(run_typed_mode(
-                            definition,
-                            task_prompt,
-                            &options,
-                            &parent_for_subagent,
-                            &task_id,
-                            &loaded_config,
-                        ))
-                        .await
-                    })
+                    Box::pin(run_typed_mode(
+                        definition,
+                        task_prompt,
+                        &options,
+                        &parent_for_subagent,
+                        &task_id,
+                        &loaded_config,
+                    ))
                     .await
                 })
                 .await
@@ -633,7 +633,9 @@ pub async fn run_subagent(
         // the config load and the tier/hook gates are inside the figure — the
         // question the gate asks is how long a *dispatch* takes end to end,
         // not how long the child's own loop ran.
-        turn_dispatch_guard::record_subagent_elapsed(started.elapsed());
+        if let Some(dispatch) = options.run_context.dispatch.as_deref() {
+            dispatch.record_subagent_elapsed(started.elapsed());
+        }
 
         let mut outcome = run_result?;
 
@@ -1721,19 +1723,34 @@ async fn run_typed_mode(
     };
 
     // Surface this run's token/cost totals so the parent turn can roll them
-    // into the session-level meters and the global cost tracker. Also push the
-    // breakdown into any active turn-scoped collector (see
-    // `turn_subagent_usage`) so a delegating parent attributes per-child spend.
-    let usage = crate::agent::harness::subagent_runner::types::SubagentUsage {
+    // into the session-level meters and the global cost tracker. The caller's
+    // explicit host carrier owns the ledger; no Tokio task scope is involved.
+    let mut usage = crate::agent::harness::subagent_runner::types::SubagentUsage {
         input_tokens: agg_usage.input_tokens,
         output_tokens: agg_usage.output_tokens,
         cached_input_tokens: agg_usage.cached_input_tokens,
         charged_amount_usd: agg_usage.charged_amount_usd,
     };
-    crate::agent::harness::turn_subagent_usage::record_subagent_usage(
-        task_id,
-        &definition.id,
-        usage,
+    // A nested child records on this run's isolated ledger. Fold those totals
+    // into the completed child before writing the immediate parent's ledger so
+    // the root always receives complete subtree spend without siblings sharing
+    // mutable in-flight state.
+    for entry in options.run_context.subagent_usage_entries() {
+        usage.input_tokens = usage.input_tokens.saturating_add(entry.usage.input_tokens);
+        usage.output_tokens = usage
+            .output_tokens
+            .saturating_add(entry.usage.output_tokens);
+        usage.cached_input_tokens = usage
+            .cached_input_tokens
+            .saturating_add(entry.usage.cached_input_tokens);
+        usage.charged_amount_usd += entry.usage.charged_amount_usd;
+    }
+    options.run_context.record_completed_subagent_usage(
+        crate::agent::tinyagents::host::SubagentUsageEntry {
+            task_id: task_id.to_string(),
+            agent_id: definition.id.clone(),
+            usage,
+        },
     );
 
     Ok(SubagentRunOutcome {

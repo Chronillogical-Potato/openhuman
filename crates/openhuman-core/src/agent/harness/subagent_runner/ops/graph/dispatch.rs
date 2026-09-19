@@ -271,11 +271,11 @@ pub(in super::super) async fn run_subagent_via_graph(
     // (and the telemetry id) before `turn_models` is moved into the runner.
     let native_tools = turn_models.native_tools();
     let provider_id = turn_models.provider_id().to_string();
-    // This graph is entered from a parent tool call on the same task. Snapshot
-    // that owned carrier and fork it so cancellation, origin, thread, progress,
-    // workspace grants, and dispatch state follow the child while its route and
-    // subagent-usage slots remain isolated.
-    let mut child_context = run_context.child();
+    // `SubagentRunOptions` already carries the child context built at the tool
+    // dispatch boundary. Reusing that owned value preserves its immediate
+    // parent-ledger link; forking again here would hide nested child usage in a
+    // second, unreachable ledger.
+    let mut child_context = run_context;
     // A parallel task may omit `thread_id`; that means inherit the parent
     // conversation, not erase it. Only an explicit task thread may replace
     // the typed carrier's inherited affinity.

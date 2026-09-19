@@ -566,11 +566,11 @@ async fn last_turn_usage_is_public_and_non_draining() {
 
     // The accessor now yields totals, and the return type's fields are all
     // publicly readable (this closure would not compile if they were not).
-    let peeked: crate::agent::harness::LastTurnUsage = {
+    let peeked: crate::agent::tinyagents::host::LastTurnUsage = {
         let usage = agent
             .last_turn_usage()
             .expect("usage should be populated after a turn");
-        crate::agent::harness::LastTurnUsage {
+        crate::agent::tinyagents::host::LastTurnUsage {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
             cached_input_tokens: usage.cached_input_tokens,

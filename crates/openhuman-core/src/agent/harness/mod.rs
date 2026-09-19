@@ -41,9 +41,6 @@ mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod tool_result_artifacts;
-pub mod turn_attachments_context;
-pub mod turn_dispatch_guard;
-pub mod turn_subagent_usage;
 
 pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};
 // NOTE: deliberately no flat re-export here. `artifact_offload::ArtifactKind`
@@ -61,7 +58,6 @@ pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
-pub use turn_subagent_usage::{LastTurnUsage, SubagentUsageEntry};
 
 pub(crate) use graph::run_channel_turn_via_graph;
 

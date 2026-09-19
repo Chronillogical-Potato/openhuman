@@ -78,7 +78,7 @@ pub(super) struct WebChatTaskResult {
     /// Holistic token/cost/context totals for the turn (parent + sub-agents),
     /// forwarded to the frontend on `chat_done`. `None` for synthetic results
     /// (e.g. budget-exhausted placeholders) that never ran a real turn.
-    pub(super) usage: Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
     /// The workspace this turn actually ran in, carried to delivery so the
     /// reply is stored there before it is announced (#6034).
     ///

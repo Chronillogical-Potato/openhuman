@@ -55,3 +55,65 @@ fn root_context_is_owned_and_children_inherit_thread() {
     root.thread_id = Some("thread-a".to_owned());
     assert_eq!(root.child().thread_id.as_deref(), Some("thread-a"));
 }
+
+#[test]
+fn dispatch_guard_refuses_pause_and_budget_without_a_task_scope() {
+    let paused = TurnDispatchState::new(Some(std::time::Duration::from_secs(60)));
+    paused.record_pause_requested(15, 15);
+    assert_eq!(
+        paused.check(),
+        DispatchDecision::RefusePaused {
+            completed_model_calls: 15,
+            cap: 15,
+        }
+    );
+
+    // A zero budget makes the time relationship deterministic: after an
+    // observed child, any check is strictly short of that child's duration.
+    let exhausted = TurnDispatchState::new(Some(std::time::Duration::ZERO));
+    exhausted.record_subagent_elapsed(std::time::Duration::from_secs(1));
+    assert!(matches!(
+        exhausted.check(),
+        DispatchDecision::RefuseBudget {
+            observed_max_ms: 1_000,
+            observed_samples: 1,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn child_ledgers_are_isolated_and_parent_keeps_completed_child_totals() {
+    let root = OpenHumanRunContext::new();
+    let left = root.child();
+    let right = root.child();
+    left.append_subagent_usage(SubagentUsageEntry {
+        task_id: "left-task".into(),
+        agent_id: "researcher".into(),
+        usage: crate::agent::harness::subagent_runner::SubagentUsage {
+            input_tokens: 3,
+            output_tokens: 2,
+            cached_input_tokens: 1,
+            charged_amount_usd: 0.01,
+        },
+    });
+    assert!(right.subagent_usage_entries().is_empty());
+
+    left.record_completed_subagent_usage(SubagentUsageEntry {
+        task_id: "completed-child".into(),
+        agent_id: "researcher".into(),
+        usage: crate::agent::harness::subagent_runner::SubagentUsage::default(),
+    });
+    assert_eq!(root.subagent_usage_entries().len(), 1);
+    assert_eq!(left.subagent_usage_entries().len(), 1);
+}
+
+#[test]
+fn children_inherit_attachment_placeholders() {
+    let mut root = OpenHumanRunContext::new();
+    root.attachment_placeholders = std::sync::Arc::new(vec!["[Image: x #att:1]".into()]);
+    assert_eq!(
+        root.child().attachment_placeholders.as_slice(),
+        ["[Image: x #att:1]"]
+    );
+}

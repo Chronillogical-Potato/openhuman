@@ -205,8 +205,7 @@ pub struct Agent {
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until
     /// the first turn completes.
-    pub(super) last_turn_usage_totals:
-        Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) last_turn_usage_totals: Option<crate::agent::tinyagents::host::LastTurnUsage>,
     /// Whether the most recent turn's tinyagents loop paused because it hit
     /// `max_tool_iterations` (`TinyagentsTurnOutcome::hit_cap`), rather than
     /// finishing naturally. `false` until the first turn completes, and reset

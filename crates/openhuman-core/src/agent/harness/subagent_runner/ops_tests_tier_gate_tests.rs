@@ -131,18 +131,13 @@ fn tier_gate_allows_upward_reasoning_to_chat() {
 #[tokio::test]
 async fn dispatch_is_refused_after_the_turn_requests_a_graceful_pause() {
     let definition = make_def_named_tools(&[]);
-    let outcome = turn_dispatch_guard::with_dispatch_guard(
+    let dispatch = std::sync::Arc::new(crate::agent::tinyagents::host::TurnDispatchState::new(
         Some(std::time::Duration::from_secs(600)),
-        async {
-            // Stands in for `CapPauser`, which writes through a clone of this
-            // same `Arc` when the model-call cap is reached.
-            turn_dispatch_guard::current()
-                .expect("guard installed")
-                .record_pause_requested(15, 15);
-            run_subagent(&definition, "task", SubagentRunOptions::default()).await
-        },
-    )
-    .await;
+    ));
+    dispatch.record_pause_requested(15, 15);
+    let mut options = SubagentRunOptions::default();
+    options.run_context.dispatch = Some(dispatch);
+    let outcome = run_subagent(&definition, "task", options).await;
 
     assert!(
         matches!(
@@ -159,17 +154,13 @@ async fn dispatch_is_refused_after_the_turn_requests_a_graceful_pause() {
 #[tokio::test]
 async fn dispatch_is_refused_when_the_remaining_budget_cannot_fit_an_observed_subagent() {
     let definition = make_def_named_tools(&[]);
-    let outcome = turn_dispatch_guard::with_dispatch_guard(
-        Some(std::time::Duration::from_millis(1)),
-        async {
-            // One completed sub-agent took a minute; the turn's whole ceiling
-            // is a millisecond and it has already elapsed.
-            turn_dispatch_guard::record_subagent_elapsed(std::time::Duration::from_secs(60));
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-            run_subagent(&definition, "task", SubagentRunOptions::default()).await
-        },
-    )
-    .await;
+    let dispatch = std::sync::Arc::new(crate::agent::tinyagents::host::TurnDispatchState::new(
+        Some(std::time::Duration::ZERO),
+    ));
+    dispatch.record_subagent_elapsed(std::time::Duration::from_secs(60));
+    let mut options = SubagentRunOptions::default();
+    options.run_context.dispatch = Some(dispatch);
+    let outcome = run_subagent(&definition, "task", options).await;
 
     assert!(
         matches!(
@@ -188,14 +179,11 @@ async fn dispatch_is_not_refused_while_the_guard_has_no_evidence() {
     // `NoParentContext` is exactly that — the gate declined to interfere and
     // the normal path ran.
     let definition = make_def_named_tools(&[]);
-    let outcome = turn_dispatch_guard::with_dispatch_guard(
-        Some(std::time::Duration::from_millis(1)),
-        async {
-            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-            run_subagent(&definition, "task", SubagentRunOptions::default()).await
-        },
-    )
-    .await;
+    let mut options = SubagentRunOptions::default();
+    options.run_context.dispatch = Some(std::sync::Arc::new(
+        crate::agent::tinyagents::host::TurnDispatchState::new(Some(std::time::Duration::ZERO)),
+    ));
+    let outcome = run_subagent(&definition, "task", options).await;
 
     assert!(
         matches!(outcome, Err(SubagentRunError::NoParentContext)),
