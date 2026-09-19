@@ -12,8 +12,8 @@ use tinyagents_registry::{
 };
 
 use crate::agent::orchestration::tools::{
-    ContinueSubagentDispatch, SpawnAsyncSubagentDispatch, SpawnParallelAgentsDispatch,
-    SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
+    AgentPrepareContextDispatch, ContinueSubagentDispatch, SpawnAsyncSubagentDispatch,
+    SpawnParallelAgentsDispatch, SpawnSubagentDispatch, SpawnWorkerThreadDispatch,
 };
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
@@ -110,6 +110,10 @@ pub(super) fn register_turn_tools_and_agents(
                 } else if name == "continue_subagent" {
                     harness
                         .register_tool_dispatch(Arc::new(ContinueSubagentDispatch::new(adapter)));
+                } else if name == "agent_prepare_context" {
+                    harness.register_tool_dispatch(Arc::new(AgentPrepareContextDispatch::new(
+                        adapter,
+                    )));
                 } else {
                     harness.register_tool(adapter);
                 }

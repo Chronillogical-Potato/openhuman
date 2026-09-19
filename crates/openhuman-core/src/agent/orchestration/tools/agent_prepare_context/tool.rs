@@ -3,10 +3,13 @@
 //! the scout engine (see [`super::scout_run`]) is built from.
 
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 use crate::agent::harness::fork_context::{current_agent_context_prepared_sources, current_parent};
 use async_trait::async_trait;
 use serde_json::json;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
@@ -16,6 +19,35 @@ use super::scout_run::{
 
 /// Spawns the `context_scout` sub-agent to collect context and propose a plan.
 pub struct AgentPrepareContextTool;
+
+pub(crate) struct AgentPrepareContextDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl AgentPrepareContextDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for AgentPrepareContextDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        AgentPrepareContextTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl Default for AgentPrepareContextTool {
     fn default() -> Self {
@@ -194,6 +226,22 @@ impl Tool for AgentPrepareContextTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl AgentPrepareContextTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
         let prepared_sources = current_agent_context_prepared_sources();
         if !prepared_sources.is_empty() {
             tracing::info!(
@@ -217,7 +265,7 @@ impl Tool for AgentPrepareContextTool {
             tool_context
                 .and_then(ToolRunContext::thread_id)
                 .map(str::to_owned),
-            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            run_context,
         )
         .await
     }

@@ -63,6 +63,7 @@ mod worker_thread;
 
 pub(crate) use dispatch::dispatch_subagent;
 
+pub(crate) use agent_prepare_context::AgentPrepareContextDispatch;
 pub use agent_prepare_context::{
     run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
 };

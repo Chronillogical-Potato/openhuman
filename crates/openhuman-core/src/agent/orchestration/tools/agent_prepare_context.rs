@@ -25,6 +25,7 @@ mod tool;
 mod tests;
 
 pub use scout_run::{run_context_scout, run_context_scout_with_catalog};
+pub(crate) use tool::AgentPrepareContextDispatch;
 pub use tool::AgentPrepareContextTool;
 
 #[cfg(test)]
