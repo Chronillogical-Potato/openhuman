@@ -1311,21 +1311,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 463,
+    "line": 461,
     "text": "fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 574,
+    "line": 572,
     "text": ".invoke(state, with_thread_id(request, self.thread_id.as_deref()))",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 601,
+    "line": 599,
     "text": ".stream(state, with_thread_id(request, self.thread_id.as_deref()))",
     "occurrence": 1
   },
