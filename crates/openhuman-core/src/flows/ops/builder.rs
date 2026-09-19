@@ -64,6 +64,7 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
     let mut agent = Agent::from_config_for_agent(config, "workflow_builder")
         .map_err(|e| format!("failed to build workflow_builder agent: {e:#}"))?;
     agent.set_agent_definition_name("workflow_builder".to_string());
+    start_builder_turn_clean(&mut agent);
 
     // Restrict the visible run-advancing tools per path (PR3:
     // flows-copilot-live-run-approval). Streaming (copilot pane, real approval
@@ -453,4 +454,20 @@ pub(super) fn extract_workflow_proposal(
         }
     }
     latest
+}
+
+/// Keep the builder's first turn from auto-resuming another flow's session.
+///
+/// On an empty history `Agent::turn` falls back to `try_load_session_transcript`,
+/// which loads the newest transcript for the agent *name*. Every flow's builder
+/// shares the name `workflow_builder` and the profile's `session_raw/` dir, so
+/// that fallback hands a brand-new flow the most recent builder conversation from
+/// whichever flow ran last. Thread-scoped resume, where a host does it, seeds
+/// `cached_transcript_messages` and is unaffected. `agent_chat` suppresses the
+/// same fallback for the same reason.
+pub(crate) fn start_builder_turn_clean(agent: &mut crate::agent::Agent) {
+    agent.set_next_turn_overrides(crate::agent::harness::session::TurnOverrides {
+        suppress_transcript_autoload: true,
+        ..Default::default()
+    });
 }

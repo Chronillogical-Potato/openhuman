@@ -77,6 +77,8 @@ pub(crate) use turn_models::TurnModels;
 pub(crate) use turn_outcome::{
     HaltSummarySlot, TinyagentsTurnOutcome, ToolCallOutcome, ToolOutcomeSink,
 };
+#[cfg(test)]
+pub(crate) use turn_policy::is_subagent_spawn_or_delegate_tool;
 pub(crate) use turn_policy::{agent_turn_wall_clock_ms, ToolPolicyEnforcement};
 pub(crate) use turn_runner::{run_root_turn_via_hosted_agent, run_turn_via_tinyagents_shared};
 

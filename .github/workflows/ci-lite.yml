@@ -148,6 +148,11 @@ jobs:
               # entry, resolved to `["rust-tauri"]` alone, skipping every lane
               # that would have compiled the family it enabled.
               - 'scripts/ci/product-features.*'
+              # The prompt-budget ratchet runs in rust-quality; editing its
+              # limits or the script must arm the lane that checks them.
+              - 'scripts/prompt-budget.limits'
+              - 'scripts/check-prompt-budget.sh'
+              - 'scripts/prompt-size-measure.sh'
               # The coverage-presence gate and its allowlist decide whether this
               # lane FAILS, so they arm it for the same reason.
               - 'scripts/ci/assert-coverage-presence.sh'
@@ -453,6 +458,13 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman \
             --features "$(bash scripts/ci/product-features.sh)" -- -D warnings
 
+      - name: Guard — the fixed prompt prefix may not grow
+        if: needs.changes.outputs['rust-core'] == 'true'
+        # Until this step no lane ran check-prompt-budget.sh, and the recorded
+        # limits rotted unnoticed. It builds openhuman-core with the same
+        # product feature set clippy just resolved.
+        run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
+
       - name: Run clippy (core crate, contributor default set)
         if: needs.changes.outputs['rust-core'] == 'true'
         # The set a contributor's editor and pre-push hook actually compile. A
@@ -694,12 +706,14 @@ jobs:
           agent/harness/mod.rs
           agent/harness/session/builder/factory.rs
           agent/harness/session/session_builder_and_listener_tests.rs
+          agent/harness/session/session_tests.rs
           agent/harness/session/turn/tools.rs
           agent/harness/subagent_runner/tool_prep_tests.rs
           agent/registry/agents/loader.rs
           agent/registry/agents/loader_tests_builtin_registration_tests.rs
           agent/registry/agents/loader_tests_orchestrator_tier_tests.rs
           agent/registry/agents/loader_tests_specialist_agents_tests.rs
+          agent/registry/agents/mod.rs
           agent/tinyagents/mod.rs
           config/migrations/retire_local_whisper_stt_tests.rs
           core/all.rs

@@ -72,26 +72,16 @@ TOOL_ATTENTION_BYTES=1600
 # any change. A fresh empty workspace is the only reproducible baseline; it also
 # means `integrations_agent` has no connected toolkit and is skipped, which is
 # correct — its size is a property of the user's account, not of this repo.
-WORKSPACE="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-budget.XXXXXX")"
-cleanup() { rm -rf "$WORKSPACE" "${TOOL_LOOKUP:-}" "${TOOL_OVERSIZE:-}"; }
+cleanup() { rm -f "${TOOL_LOOKUP:-}" "${TOOL_OVERSIZE:-}"; }
 trap cleanup EXIT
 
-BIN="target/debug/openhuman-core"
-if [[ ! -x "$BIN" ]]; then
-  echo "[prompt-budget] building openhuman-core …" >&2
-  cargo build --manifest-path Cargo.toml --bin openhuman-core \
-    --features "$(bash scripts/ci/product-features.sh)" >&2
-fi
-
-echo "[prompt-budget] measuring against hermetic workspace $WORKSPACE" >&2
 # `--hermetic` isolates config and workspace but not HOME: skill discovery still
 # scans ~/.openhuman/skills and ~/.agents/skills, so one installed skill added
 # 515 B of `## Installed Skills` to the orchestrator on a dev machine and a
 # `--write` there baked it into the limits. An empty HOME matches CI.
 # OPENHUMAN_HOME is dropped too: the agent-definition loader prefers it
 # over ~/.openhuman.
-mkdir -p "$WORKSPACE/home"
-if ! measured="$(env -u OPENHUMAN_HOME HOME="$WORKSPACE/home" RUST_LOG=error "$BIN" agent prompt-size --workspace "$WORKSPACE/workspace" --hermetic --json)"; then
+if ! measured="$(bash scripts/prompt-size-measure.sh)"; then
   echo "::error::prompt-size failed to measure" >&2
   exit 1
 fi
