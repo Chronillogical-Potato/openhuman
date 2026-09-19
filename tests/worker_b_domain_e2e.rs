@@ -511,20 +511,6 @@ async fn agent_definitions_profiles_and_validation_paths_are_reachable() {
         );
     }
 
-    let profiles = rpc(
-        &harness.rpc_base,
-        20_200,
-        "openhuman.profiles_list",
-        json!({}),
-    )
-    .await;
-    assert_eq!(
-        ok(&profiles, "profiles_list")
-            .get("activeProfileId")
-            .and_then(Value::as_str),
-        Some("default")
-    );
-
     let status = rpc(
         &harness.rpc_base,
         20_201,

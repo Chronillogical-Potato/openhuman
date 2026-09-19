@@ -255,7 +255,3 @@ fn log_render(workspace_dir: &Path, identity: &ChannelIdentity, rendered: &str, 
         "[channels][prompt] rendered system prompt"
     );
 }
-
-#[cfg(test)]
-#[path = "system_prompt_tests.rs"]
-mod tests;

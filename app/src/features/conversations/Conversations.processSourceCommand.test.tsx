@@ -82,40 +82,6 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
-vi.mock('../../services/api/agentProfilesApi', () => ({
-  agentProfilesApi: {
-    list: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    select: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-  },
-}));
-
-vi.mock('../../services/api/openrouterFreeModels', () => ({
-  applyOpenRouterFreeModels: () => undefined,
-}));
-
-vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
-
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
-
-vi.mock('../../store/socketSelectors', () => ({
-  selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
-    state.socket?.byUser?.__pending__?.status ?? 'disconnected',
-}));
-
-vi.mock('../../hooks/useStickToBottom', () => ({
-  useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
-}));
-
-vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
-
-const mockCallCoreRpc = vi.fn().mockResolvedValue({});
-vi.mock('../../services/coreRpcClient', async orig => {
-  const actual = await orig<typeof import('../../services/coreRpcClient')>();
-  return { ...actual, callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args) };
-});
-
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
     isBootstrapping: false,

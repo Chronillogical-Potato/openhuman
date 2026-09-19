@@ -106,29 +106,6 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
-vi.mock('../../services/api/agentProfilesApi', () => {
-  const profiles = {
-    activeProfileId: 'default',
-    profiles: [
-      {
-        id: 'default',
-        name: 'Default',
-        description: 'Default',
-        agentId: 'orchestrator',
-        builtIn: true,
-      },
-    ],
-  };
-  return {
-    agentProfilesApi: {
-      list: vi.fn().mockResolvedValue(profiles),
-      select: vi.fn().mockResolvedValue(profiles),
-      upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-      delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    },
-  };
-});
-
 vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeModels: vi.fn() }));
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
