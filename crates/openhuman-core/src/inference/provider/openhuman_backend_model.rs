@@ -445,7 +445,7 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
 /// have not yet migrated to the explicit run carrier still establish this
 /// scope; the shared-runner cutover preserves that boundary until those routes
 /// pass `OpenHumanRunContext.thread_id` end-to-end.
-fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
+fn with_thread_id(request: ModelRequest) -> ModelRequest {
     let Some(thread_id) = thread_context::current_thread_id() else {
         return request;
     };
