@@ -126,34 +126,87 @@ function packageDir(data, packageName) {
   );
   if (!pkg) return null;
   const m = /^path\+file:\/\/(.+?)(#.*)?$/.exec(pkg.id);
-  return m ? m[1] : null;
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 /**
- * Directories whose `*.rs` files belong to a package: its own directory plus
- * the parent directory of every explicit `path = "..."` target in its
- * Cargo.toml (`[[test]]`, `[[example]]`, `[[bench]]`, `[[bin]]`, `[lib]`).
- * OpenHuman's root crate declares its integration tests as
- * `path = "../../tests/<name>.rs"`, which a scan of the crate dir alone misses.
+ * Sources that belong to a package: its own directory (scanned recursively,
+ * so an implicit `src/` or an implicit `build.rs` next to `Cargo.toml` are
+ * covered) plus the exact file for every explicit `path = "..."` target in
+ * its Cargo.toml (`[[test]]`, `[[example]]`, `[[bench]]`, `[[bin]]`, `[lib]`,
+ * `[package] build = "..."`).
+ *
+ * Explicit targets are tracked as single *files*, not their parent
+ * directory: OpenHuman's root crate declares its integration tests as
+ * `path = "../../tests/<name>.rs"`, and `tests/` holds one file per package
+ * (see AGENTS.md). Adding that whole directory would let an unrelated
+ * sibling test file reference a dependency and flip an actually-unused
+ * dependency to "keep".
  */
 function packageSourceDirs(dir) {
   const dirs = new Set([dir]);
+  const files = new Set();
   const manifest = path.join(dir, "Cargo.toml");
-  if (!fs.existsSync(manifest)) return [...dirs];
+  if (!fs.existsSync(manifest)) return { dirs: [...dirs], files: [...files] };
   const toml = fs.readFileSync(manifest, "utf8");
   let section = "";
   for (const raw of toml.split("\n")) {
     const line = raw.trim();
-    const head = /^\[\[?([a-zA-Z.-]+)\]?\]/.exec(line);
+    const head = /^\[\[?([a-zA-Z0-9_.-]+)\]?\]/.exec(line);
     if (head) {
       section = head[1];
       continue;
     }
+    if (section === "package") {
+      const b = /^build\s*=\s*"([^"]+)"/.exec(line);
+      if (b) files.add(path.resolve(dir, b[1]));
+      continue;
+    }
     if (!/^(test|example|bench|bin|lib)$/.test(section)) continue;
     const m = /^path\s*=\s*"([^"]+)"/.exec(line);
-    if (m) dirs.add(path.dirname(path.resolve(dir, m[1])));
+    if (m) files.add(path.resolve(dir, m[1]));
   }
-  return [...dirs];
+  return { dirs: [...dirs], files: [...files] };
+}
+
+/**
+ * Alias -> real crate name for dependencies renamed with `package = "..."`,
+ * covering both `alias = { package = "real", ... }` and
+ * `[dependencies.alias]` / `package = "real"` table forms. tinyanalyzer's
+ * `unused[].dependency` (and the graph's `packages[].name`) disagree for a
+ * renamed dependency: the former is the manifest key (what code actually
+ * imports), the latter is the real crate name (what the resolved package is
+ * called), so callers matching a dependency against the graph need this map.
+ */
+function dependencyAliasMap(dir) {
+  const map = new Map();
+  const manifest = path.join(dir, "Cargo.toml");
+  if (!fs.existsSync(manifest)) return map;
+  const toml = fs.readFileSync(manifest, "utf8");
+  let section = "";
+  let tableDepKey = null;
+  for (const raw of toml.split("\n")) {
+    const line = raw.trim();
+    const head = /^\[([a-zA-Z0-9_.-]+)\]/.exec(line);
+    if (head) {
+      section = head[1];
+      const table = /^(dependencies|dev-dependencies|build-dependencies)\.([A-Za-z0-9_-]+)$/.exec(section);
+      tableDepKey = table ? table[2] : null;
+      continue;
+    }
+    if (tableDepKey) {
+      const pkg = /^package\s*=\s*"([^"]+)"/.exec(line);
+      if (pkg) map.set(tableDepKey, pkg[1]);
+      continue;
+    }
+    if (!/^(dependencies|dev-dependencies|build-dependencies)$/.test(section)) continue;
+    const inline = /^([A-Za-z0-9_-]+)\s*=\s*\{([^}]*)\}/.exec(line);
+    if (inline) {
+      const pkg = /package\s*=\s*"([^"]+)"/.exec(inline[2]);
+      if (pkg) map.set(inline[1], pkg[1]);
+    }
+  }
+  return map;
 }
 
 /**
@@ -169,25 +222,31 @@ function packageSourceDirs(dir) {
  */
 function textualUse(dir, dep) {
   if (!dir || !fs.existsSync(dir)) return "unknown";
+  // Code imports a renamed dependency under its manifest alias (`dep`), not
+  // under the crate's real name, so the alias is the correct identifier to
+  // grep for here — see dependencyAliasMap's docstring for the name split.
   const ident = dep.replace(/-/g, "_");
-  const dirs = packageSourceDirs(dir);
+  const { dirs, files } = packageSourceDirs(dir);
   const pathRe = `(\\b${ident}::|\\buse\\s+${ident}\\b|extern\\s+crate\\s+${ident}\\b|#\\[${ident}\\b|\\b${ident}!)`;
-  if (grepAny(dirs, pathRe)) return "path";
-  if (grepAny(dirs, `\\b${ident}\\b`)) return "word";
+  if (grepAny(dirs, files, pathRe)) return "path";
+  if (grepAny(dirs, files, `\\b${ident}\\b`)) return "word";
   return "none";
 }
 
-function grepAny(dirs, pattern) {
+function grepAny(dirs, files, pattern) {
+  const targets = [...dirs, ...files];
+  if (targets.length === 0) return false;
   try {
     const out = execFileSync(
       "grep",
-      ["-rlE", pattern, "--include=*.rs", "--exclude-dir=target", "--exclude-dir=vendor", ...dirs],
+      ["-rlE", pattern, "--include=*.rs", "--exclude-dir=target", "--exclude-dir=vendor", ...targets],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     );
     return out.trim().length > 0;
   } catch (err) {
-    // grep exits 1 when nothing matched; anything else is a real failure we
-    // would rather surface as "used" than as a false removal.
+    // grep exits 1 when nothing matched (or a listed file does not exist);
+    // anything else is a real failure we would rather surface as "used" than
+    // as a false removal.
     return err.status !== 1;
   }
 }
@@ -301,8 +360,12 @@ function unusedFor(target, data) {
     seen.add(key);
     const dir = packageDir(data, u.package);
     const evidence = textualUse(dir, u.dependency);
-    const pkg = resolvedDependency(data, u.package, u.dependency);
-    const others = otherDependents(data, u.dependency, u.package);
+    // `u.dependency` is the manifest key; resolve a rename (`alias = {
+    // package = "real" }`) to the crate name the graph indexes packages by
+    // before looking anything up there.
+    const realName = dir ? (dependencyAliasMap(dir).get(u.dependency) ?? u.dependency) : u.dependency;
+    const pkg = resolvedDependency(data, u.package, realName);
+    const others = otherDependents(data, realName, u.package);
     rows.push({
       package: u.package,
       dependency: u.dependency,
@@ -329,7 +392,16 @@ function unusedFor(target, data) {
 
 function heavyFor(data, n) {
   return data.dependencies.packages
-    .filter((p) => p.is_direct && !p.is_workspace_member && !p.is_root_package)
+    // A package whose only edge kind is `development` is never linked into
+    // the shipped build, so it does not belong in a "heaviest shipped
+    // dependency" ranking even though `include_dev` charges it in section 1.
+    .filter(
+      (p) =>
+        p.is_direct &&
+        !p.is_workspace_member &&
+        !p.is_root_package &&
+        p.kinds.some((k) => k === "normal" || k === "build"),
+    )
     .map((p) => ({
       name: p.name,
       version: p.version,
@@ -388,14 +460,22 @@ function driftAcross(reports) {
     });
   }
   rows.sort((a, b) => b.versions.length - a.versions.length || a.name.localeCompare(b.name));
-  rows.patch_only = patchOnly;
-  return rows;
+  // `patch_only` must be a normal field, not a property tacked onto the
+  // array: JSON.stringify only serializes array elements, so a property
+  // like `rows.patch_only = n` is silently dropped from summary.json.
+  return { rows, patch_only: patchOnly };
 }
 
-/** Semver compatibility bucket: `0.x.y` -> `0.x`, `x.y.z` -> `x`. */
+/**
+ * Semver compatibility bucket: `x.y.z` -> `x`, `0.x.y` -> `0.x`, and
+ * `0.0.z` -> `0.0.z` (kept per-patch: Cargo treats every `0.0.z` as its own
+ * incompatible version, so `0.0.1` and `0.0.2` must not collapse together).
+ */
 function compatKey(v) {
-  const [major, minor] = v.split(/[.+-]/);
-  return major === "0" ? `0.${minor}` : major;
+  const [major, minor, patch] = v.split(/[.+-]/);
+  if (major !== "0") return major;
+  if (minor !== "0") return `0.${minor}`;
+  return `0.0.${patch}`;
 }
 
 function semverish(a, b) {
@@ -442,7 +522,7 @@ function renderMarkdown(summary, n) {
   // --- Unused --------------------------------------------------------------
   push(``, `## 1. Declared dependencies no source file names`, ``);
   push(
-    `Verdict ${code("remove")}: nothing in the package's ${code("*.rs")} files (including ${code("[[test]]")}/${code("[[example]]")} targets declared by path) references the crate as ${code("crate::…")}, ${code("use crate")}, ${code("#[crate…")} or ${code("crate!")}. Delete the line from ${code("Cargo.toml")} and build; if it was an optional dependency, drop the ${code("dep:")} feature too. "name only" means the word occurs in a comment or string, which is not a use.`,
+    `Verdict ${code("remove")}: nothing in the package's ${code("*.rs")} files (including ${code("[[test]]")}/${code("[[example]]")} targets, each scanned as the exact declared file rather than its whole directory) references the dependency the way Rust code references it: ${code("dep_name::…")}, ${code("use dep_name")}, ${code("extern crate dep_name")}, ${code("#[dep_name…")} or ${code("dep_name!")}, where ${code("dep_name")} is the crate's manifest name (its rename alias when one is declared with ${code('package = "…"')}) with ${code("-")} normalized to ${code("_")}. Delete the line from ${code("Cargo.toml")} and build; if it was an optional dependency, drop the ${code("dep:")} feature too. "name only" means the bare word occurs in a comment or string, which is not a use — but note this scan is textual, not syntax-aware, so a comment or string that happens to contain the exact reference pattern (${code("// dep_name::foo")}) is misclassified as a real use; treat "name only" rows with light suspicion too.`,
     `Verdict ${code("keep")}: tinyanalyzer saw no ${code("use")}/path, but one exists inside an attribute or macro body (${code("#[tokio::test]")}, ${code("#[derive(thiserror::Error)]")}) — a false positive of the tool, listed so the count is honest.`,
     `${code("Graph win")}: crates that leave this target's build if the line is deleted. It is 0 when another package in the same workspace still depends on the crate — the manifest still gets cleaner, the build does not get smaller.`,
     `Crates listed in ${code("[dependencies].ignore_unused")} of ${code("scripts/dep-audit/tinyanalyzer.toml")} are not reported at all.`,
@@ -520,11 +600,11 @@ function renderMarkdown(summary, n) {
     `Crates that two or more targets depend on *directly* but resolve to semver-incompatible versions. When the root workspace ${code("[patch]")}-es a submodule in, both versions end up in the root build (section 2), so aligning the submodule's requirement with the root's removes a duplicate for free. Rows are ordered by how many distinct versions are in play.`,
     ``,
   );
-  if (summary.drift.length === 0) {
+  if (summary.drift.rows.length === 0) {
     push(`_None._`);
   } else {
     push(`| Crate | Version | Targets |`, `| --- | --- | --- |`);
-    for (const d of summary.drift) {
+    for (const d of summary.drift.rows) {
       d.by_version.forEach((bv, i) => {
         push(`| ${i === 0 ? code(d.name) : ""} | ${code(bv.version)} | ${bv.targets.join(", ")} |`);
       });
