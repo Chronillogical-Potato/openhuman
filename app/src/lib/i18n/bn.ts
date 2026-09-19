@@ -4677,7 +4677,6 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'বিচ্ছিন্ন (প্রস্তাবিত)',
   'settings.cron.jobs.formSessionMain': 'প্রধান সেশন',
   'settings.cron.jobs.formSessionTarget': 'সেশন টার্গেট',
-    'নির্বাচিত প্রোফাইল হিসেবে এই কাজটি চালান, তার পরিচয়, মেমরি ও ওয়ার্কস্পেস ব্যবহার করে।',
   'settings.cron.jobs.lastStatus': 'শেষ স্ট্যাটাস',
   'settings.cron.jobs.loading': 'ক্রন জব লোড হচ্ছে...',
   'settings.cron.jobs.loadingRuns': 'রান লোড হচ্ছে',

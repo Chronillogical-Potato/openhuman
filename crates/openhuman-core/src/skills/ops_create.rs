@@ -154,10 +154,7 @@ fn legacy_workflow_dir(
         // remotely extensible, which is the whole thing it exists to prevent.
         // Flow entries are rows in `flows.db`, not bundle directories — there
         // is no path to resolve. Creating one is `save_workflow`'s job.
-        WorkflowScope::Builtin
-        | WorkflowScope::Legacy
-        | WorkflowScope::Profile
-        | WorkflowScope::Flow => return None,
+        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Flow => return None,
     };
     for root in roots {
         let canonical_root = match std::fs::canonicalize(&root) {
@@ -232,9 +229,9 @@ pub(crate) fn create_workflow_inner(
                     .to_string(),
             );
         }
-        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => {
+        WorkflowScope::Builtin | WorkflowScope::Legacy => {
             return Err(
-                "cannot create skill in legacy, builtin, or retired profile scope; choose 'user' or 'project'"
+                "cannot create skill in legacy or builtin scope; choose 'user' or 'project'"
                     .to_string(),
             );
         }

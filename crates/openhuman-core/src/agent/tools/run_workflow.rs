@@ -430,7 +430,7 @@ impl Tool for AwaitWorkflowTool {
         let Some(visible_run) = visible_run else {
             return Ok(ToolResult::error(format!(
                 "await_workflow: no run found for run_id `{run_id}` (it may not exist, is not \
-                 available to the active profile, or hasn't started writing its log yet)"
+                 available in this workspace, or hasn't started writing its log yet)"
             )));
         };
         let log_path = std::path::PathBuf::from(&visible_run.log_path);

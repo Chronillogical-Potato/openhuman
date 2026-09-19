@@ -462,8 +462,8 @@ const Conversations = ({
     onCancel: () => {},
   });
   const [resolvedModel, setResolvedModel] = useState<string | null>(null);
-  // A picker choice belongs to this composer session. It overrides the active
-  // profile route for subsequent sends without mutating the shared profile.
+  // A picker choice belongs to this composer session. It overrides the model
+  // route for subsequent sends without mutating shared configuration.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
@@ -471,7 +471,7 @@ const Conversations = ({
   const [composerModelContextWindow, setComposerModelContextWindow] = useState<
     number | null | undefined
   >(undefined);
-  // Whether the resolved model for the active profile accepts image input.
+  // Whether the resolved model accepts image input.
   // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
   // the composer's image-attachment affordance (docs flow regardless). Resolved
   // against the non-attachment hint so the affordance is stable as you attach.

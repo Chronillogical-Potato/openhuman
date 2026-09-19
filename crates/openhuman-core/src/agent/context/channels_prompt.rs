@@ -150,7 +150,7 @@ pub fn build_system_prompt(
     )
 }
 
-/// [`build_system_prompt`] with the active profile's identity substituted
+/// [`build_system_prompt`] with the selected identity substituted
 /// into the bootstrap section (see [`PromptIdentityOverride`]) and that
 /// section rendered per `placement`.
 pub fn build_system_prompt_with_identity(

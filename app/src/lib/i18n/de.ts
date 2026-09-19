@@ -4806,7 +4806,6 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Isoliert (empfohlen)',
   'settings.cron.jobs.formSessionMain': 'Hauptsitzung',
   'settings.cron.jobs.formSessionTarget': 'Sitzungsziel',
-    'Diesen Auftrag als ausgewähltes Profil ausführen, mit dessen Seele, Gedächtnis und Arbeitsbereich.',
   'settings.cron.jobs.lastStatus': 'Letzter Stand',
   'settings.cron.jobs.loading': 'Cron-Jobs werden geladen...',
   'settings.cron.jobs.loadingRuns': 'Ladeläufe',
