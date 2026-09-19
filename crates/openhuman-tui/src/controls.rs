@@ -198,7 +198,7 @@ async fn login_with_token(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     }
     ui.settings_status = "Signing in…".to_string();
     // Exchange, validate against `/auth/me`, and install in the core — all
-    // owned by `openhuman-session`; the JWT never passes through this module.
+    // owned by `openhuman-tinyhumans`; the JWT never passes through this module.
     let result = crate::session::session_manager(runtime)
         .login_with_token(token.trim())
         .await;

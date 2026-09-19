@@ -164,7 +164,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
               - 'crates/openhuman-embed/**'
-              - 'crates/openhuman-session/**'
+              - 'crates/openhuman-tinyhumans/**'
               - 'crates/openhuman-tui/**'
               - 'Cargo.lock'
               - 'build.rs'
@@ -199,7 +199,7 @@ jobs:
               - 'Cargo.toml'
               - 'crates/openhuman-core/Cargo.toml'
               - 'crates/openhuman-embed/Cargo.toml'
-              - 'crates/openhuman-session/Cargo.toml'
+              - 'crates/openhuman-tinyhumans/Cargo.toml'
               - 'crates/openhuman-tui/Cargo.toml'
               - 'Cargo.lock'
               - 'build.rs'
@@ -217,7 +217,7 @@ jobs:
               - 'crates/openhuman-core/src/**'
               - 'crates/openhuman-embed/src/**'
               - 'crates/openhuman-embed/tests/**'
-              - 'crates/openhuman-session/src/**'
+              - 'crates/openhuman-tinyhumans/src/**'
               - 'crates/openhuman-tui/src/**'
               - 'crates/openhuman-tui/tests/**'
               - 'tests/**'
@@ -487,8 +487,8 @@ jobs:
         # Tauri shell and the TUI. It has no `openhuman` dependency, so it
         # compiles in seconds and its tests run against in-process stubs.
         run: |
-          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-session --all-targets -- -D warnings
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-session
+          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-tinyhumans
 
       - name: Cache CEF binary distribution
         if: needs.changes.outputs['rust-tauri'] == 'true'

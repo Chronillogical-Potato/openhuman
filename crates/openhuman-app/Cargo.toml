@@ -36,8 +36,11 @@ serde_json = "1"
 [dependencies]
 openhuman-rpc = { path = "../openhuman-rpc", features = ["http-client"] }
 # The desktop session owner (login-token exchange, /auth/me, current-user
-# cache). No core dependency of its own; see crates/openhuman-session/README.md.
-openhuman-session = { path = "../openhuman-session" }
+# cache) and the SDK-backed backend transport the core needs installed at
+# boot. `default-features = false`: the shell controls every product gate
+# through the `openhuman_core` line above, and this crate must not re-enable
+# defaults behind `check-feature-forwarding`'s back.
+openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
 tauri = { version = "2.11", default-features = false, features = [
