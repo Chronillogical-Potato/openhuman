@@ -137,7 +137,7 @@ fn extract_query_token_url_decodes_value() {
 #[test]
 fn login_callbacks_are_no_longer_public() {
     // The desktop `/auth` fallback and `/auth/telegram` exchanged login tokens
-    // inside the core; the host (openhuman-session) owns that now.
+    // inside the core; the host (openhuman_tinyhumans::session) owns that now.
     assert!(!PUBLIC_PATHS.contains(&"/auth"));
     assert!(!PUBLIC_PATHS.contains(&"/auth/telegram"));
 }
