@@ -323,7 +323,7 @@ tempfile = "3"
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tokio = { version = "1", features = ["full"] }
-toml = "0.9"
+toml = "1.0"
 tracing = "0.1"
 
 [dev-dependencies]
