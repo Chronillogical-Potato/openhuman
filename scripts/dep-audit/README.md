@@ -13,11 +13,15 @@ pnpm dep:audit --targets '^(root|tinyagents)$' --top 25
 A full sweep of 24 targets takes about 20 seconds; nothing is compiled, the
 tool only runs `cargo metadata` and parses source.
 
-The run has no side effects on the tree: `cargo metadata` rewrites a
+The run avoids side effects on the tree: `cargo metadata` rewrites a
 `Cargo.lock` that is stale relative to its manifest (`crates/openhuman-app`'s
-lockfile in particular), so `run.sh` snapshots every target's lockfile before
-analyzing it and restores it afterwards, printing which ones it had to put
-back. Refresh those deliberately if you want them refreshed.
+lockfile in particular), or creates one where a target had none, so `run.sh`
+records each target's lockfile state (present, with its exact contents, or
+absent) before analyzing it and restores that state afterwards — restoring on
+interruption too — printing which lockfiles it had to put back or remove. It
+refuses to analyze a target whose `Cargo.lock` is a symlink rather than
+backing up and writing through it. Refresh a lockfile deliberately (`cargo
+update` / `cargo generate-lockfile`) if you want it refreshed.
 
 ## Files
 
@@ -57,40 +61,63 @@ siblings. `--keep-nested` analyzes every checkout regardless.
 ### Targets
 
 One row per target with its commit and headline counts. "Crates in graph" is
-the *full* `cargo metadata` resolve — every platform and every optional
-feature — which is why Windows-only crates appear on a Linux run and why a
-duplicate listed here may not show in `cargo tree` on your host.
+the `cargo metadata` resolve for every platform (no `--filter-platform`),
+using each package's **default features** (tinyanalyzer does not pass
+`--all-features`) — which is why Windows-only crates appear on a Linux run,
+why a duplicate listed here may not show in `cargo tree` on your host, and
+why a crate reachable only through a non-default optional feature will not
+appear at all.
 
 ### 1. Declared dependencies no source file names
 
 tinyanalyzer's check is textual: a dependency is "unused" if no `.rs` file in
-the package mentions the crate. That misses crate names inside attributes
-(`#[tokio::test]`, `#[derive(thiserror::Error)]`), so `report.mjs` re-checks
-every flag with a grep over the package's own sources, **including
-`[[test]]` / `[[example]]` targets declared by `path =` in its `Cargo.toml`**
-(the root crate keeps its integration tests in `tests/` that way). Verdicts:
+the package mentions it *the way Rust code references a dependency* —
+`dep_name::…`, `use dep_name`, `extern crate dep_name`, or `dep_name!` (`_`
+for `-`; `dep_name` is the crate's rename alias when one is declared). That
+misses crate names inside attributes (`#[tokio::test]`,
+`#[derive(thiserror::Error)]`), so `report.mjs` re-checks every flag with a
+grep over the package's own sources — **the crate's own directory,
+recursively, plus the exact file (not directory) of every `[[test]]` /
+`[[example]]` / `[[bench]]` / `[[bin]]` / build-script target declared by
+`path =` in its `Cargo.toml`** (the root crate keeps its integration tests in
+`tests/` that way; scanning the file rather than the shared `tests/`
+directory keeps an unrelated sibling test from flipping the verdict).
+Verdicts:
 
 | Verdict | Meaning | Action |
 | --- | --- | --- |
-| **remove** | No `crate::…`, `use crate`, `#[crate…` or `crate!` anywhere. | Delete the line, `cargo check` (both feature-on and feature-off builds if it was `optional`), delete the `dep:` feature if one existed. |
+| **remove** | No `dep_name::…`, `use dep_name`, `extern crate dep_name`, `#[dep_name…` or `dep_name!` anywhere. | Delete the line, `cargo check` (both feature-on and feature-off builds if it was `optional`), delete the `dep:` feature if one existed. |
 | **remove** (name only) | The bare word occurs in a comment or string but never as a path. | Same as above; the mention is not a use. |
 | keep (attribute/macro path) | Used through an attribute or macro body. | Nothing. Listed so the tool's false positives stay visible. |
+
+The re-check is a grep over raw text, not a syntax-aware scan: a comment or
+string that happens to spell the exact reference pattern (`// dep_name::foo`)
+is misclassified as a real use, same as tinyanalyzer's own check. Treat a
+`keep` verdict as a strong signal, not a proof.
 
 **Graph win** is the number of crates that leave the target's build if that
 one line is deleted. It is `0 (kept by …)` when another package in the same
 workspace still depends on the crate: the manifest gets cleaner, the build
 does not get smaller. Sort your effort by graph win.
 
-A crate that is used *only* through attributes everywhere (currently
-`thiserror`) can be added to `ignore_unused` in `tinyanalyzer.toml` so it stops
-being reported. Do that only for crates that can never be a real finding;
-every entry hides the crate from the check in all 24 targets.
+`ignore_unused` in `tinyanalyzer.toml` is empty and should generally stay
+that way: it hides a crate from tinyanalyzer's own unused check in *every*
+target, so a genuinely unused occurrence in some other target goes
+unreported too. `report.mjs`'s own re-check already covers the false
+positive this list historically existed for (`#[derive(thiserror::Error)]`
+with no `use thiserror`) by scanning for the attribute form and reporting
+"keep" instead of "remove". Only add an entry here for a crate that is
+provably unreachable through any `use`/path/attribute/macro form
+tinyanalyzer or the re-check could ever see.
 
 ### 2. Crates resolved at more than one version
 
 Each version is compiled and linked separately. **Only the `root` (and
 `openhuman-app`) sections cost the shipped build**; submodule sections show
-where a requirement should move so the root can unify.
+where a requirement should move so the root can unify. Within a `root` /
+`openhuman-app` section, a duplicate reached only through a `development`
+dependency (see section 1's Kind column) costs test/CI build time, not the
+shipped binary — check the Kind before treating a row as production weight.
 
 "Pulled in via" names the *direct* dependencies whose subtree carries that
 version, walked from tinyanalyzer's edge list. `direct dep of <pkg>` means one
@@ -110,7 +137,10 @@ of our own packages declares it. To unify:
 Per target, the direct dependencies with the largest **exclusive** transitive
 footprint — crates that would leave the build entirely if this one were
 dropped. "Reaches" is the raw transitive count, most of which something else
-pulls in anyway. "Source" is checked-out source size, not binary size.
+pulls in anyway. "Source" is checked-out source size, not binary size. Unlike
+section 1, this table excludes a dependency whose only edge kind is
+`development` (test/example/benchmark-only): those are never linked into the
+shipped binary, so they do not belong in a shipped-build weight ranking.
 
 A high exclusive count usually means default features pulling in a subtree we
 do not use. Try `default-features = false` plus the two or three features
