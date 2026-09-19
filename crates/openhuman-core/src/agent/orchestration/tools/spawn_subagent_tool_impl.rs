@@ -106,6 +106,22 @@ impl Tool for SpawnSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl SpawnSubagentTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -483,7 +499,7 @@ impl Tool for SpawnSubagentTool {
             model_override,
             task_id: Some(task_id.clone()),
             thread_id: parent_thread_id,
-            run_context: Default::default(),
+            run_context,
             worker_thread_id: worker_thread_id.clone(),
             initial_history: None,
             checkpoint_dir: None,

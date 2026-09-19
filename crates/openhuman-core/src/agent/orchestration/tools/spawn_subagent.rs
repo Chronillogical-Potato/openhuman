@@ -24,6 +24,9 @@ use crate::memory::conversations::{
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
@@ -35,6 +38,38 @@ use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 /// orchestrated runs see it; non-orchestrator parents see it too unless
 /// explicitly removed.
 pub struct SpawnSubagentTool;
+
+pub(crate) struct SpawnSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl SpawnSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SpawnSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent);
+        SpawnSubagentTool::new()
+            .execute_with_parent_context(arguments, Some(&context), parent.data.child())
+            .await
+    }
+}
 
 impl Default for SpawnSubagentTool {
     fn default() -> Self {
