@@ -204,6 +204,13 @@ pub enum ExpectedErrorKind {
     /// returned an empty response"` is also demoted — no per-channel typed
     /// suppression needed.
     EmptyProviderResponse,
+    /// The core has no backend transport installed (built and run without
+    /// `openhuman-tinyhumans`), so a hosted-backend call could not be sent
+    /// at all. Expected build state, not a defect: the core runs agents,
+    /// memory and tools without any TinyHumans connection, and every
+    /// backend-touching surface degrades to this typed error. Messages carry
+    /// the [`BACKEND_UNAVAILABLE_PREFIX`] sentinel.
+    BackendUnavailable,
     /// Channel supervisor (`channels::runtime::supervision::spawn_supervised_listener`)
     /// caught a transient error from a channel listener and restarted it. The
     /// wrapper shape `"Channel <name> error: <inner>; restarting"` is the
@@ -650,6 +657,9 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     }
     if crate::api::classify::is_budget_exhausted_message(message) {
         return Some(ExpectedErrorKind::BudgetExhausted);
+    }
+    if is_backend_unavailable_message(message) {
+        return Some(ExpectedErrorKind::BackendUnavailable);
     }
     if is_prompt_injection_blocked_message(&lower) {
         return Some(ExpectedErrorKind::PromptInjectionBlocked);
@@ -2216,6 +2226,18 @@ fn report_expected_message(kind: ExpectedErrorKind, message: &str, domain: &str,
                 "[observability] {domain}.{operation} skipped expected budget-exhausted error: {message}"
             );
         }
+        ExpectedErrorKind::BackendUnavailable => {
+            // Build-state condition: no backend transport is installed, so
+            // the hosted backend is unreachable by construction. Nothing to
+            // fix in Sentry — the host chose a backend-less core.
+            tracing::debug!(
+                domain = domain,
+                operation = operation,
+                kind = "backend_unavailable",
+                error = %message,
+                "[observability] {domain}.{operation} skipped expected backend-unavailable error: {message}"
+            );
+        }
         ExpectedErrorKind::SessionExpired => {
             // Auth-boundary condition: the user's JWT expired (or was never
             // present). The JSON-RPC dispatch layer already handles the
@@ -3147,6 +3169,20 @@ pub fn is_transient_message_failure(msg: &str) -> bool {
 /// builds its sentinel from this constant, and [`is_suppressed_usage_probe_backoff`]
 /// matches it — coupled by a unit test so the two cannot drift.
 pub const USAGE_PROBE_BACKOFF_PREFIX: &str = "USAGE_PROBE_BACKOFF:";
+
+/// Sentinel prefix on the error string a backend-touching call returns when
+/// the core has no [`BackendTransport`](crate::api::transport::BackendTransport)
+/// installed. `api::rest::flatten_authed_error` and the integrations client
+/// build their message from this constant; [`is_backend_unavailable_message`]
+/// classifies it as [`ExpectedErrorKind::BackendUnavailable`].
+pub const BACKEND_UNAVAILABLE_PREFIX: &str = "BACKEND_UNAVAILABLE:";
+
+/// Whether `msg` is the backend-unavailable sentinel (see
+/// [`BACKEND_UNAVAILABLE_PREFIX`]). Matched anywhere in the chain because
+/// callers wrap it with `anyhow` context before it reaches the reporter.
+pub fn is_backend_unavailable_message(msg: &str) -> bool {
+    msg.contains(BACKEND_UNAVAILABLE_PREFIX)
+}
 
 /// Returns true when a message is the usage-probe failure-backoff sentinel
 /// (see [`USAGE_PROBE_BACKOFF_PREFIX`]). Anchored on the exact prefix so a real
