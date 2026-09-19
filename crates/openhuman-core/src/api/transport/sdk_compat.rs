@@ -95,6 +95,10 @@ pub fn map_sdk_error(error: SdkError) -> BackendTransportError {
             error_code,
             details,
         },
+        // Socket.IO variants only exist with the SDK's `socket` feature, which
+        // the core turns off; kept as a catch-all so a future SDK variant maps
+        // to something rather than failing the build.
+        #[allow(unreachable_patterns)]
         other => BackendTransportError::Other(other.to_string()),
     }
 }
