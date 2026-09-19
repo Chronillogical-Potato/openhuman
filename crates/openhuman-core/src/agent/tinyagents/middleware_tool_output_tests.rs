@@ -669,7 +669,8 @@ async fn tool_output_leaves_an_oversized_propose_workflow_byte_for_byte_intact()
     .await
     .unwrap();
     assert_eq!(
-        result_text(&result), payload,
+        result_text(&result),
+        payload,
         "an oversized propose_workflow result must not be truncated by the shared byte-budget backstop"
     );
     let reparsed: serde_json::Value = serde_json::from_str(&result_text(&result))
@@ -696,7 +697,8 @@ async fn tool_output_truncates_the_same_oversized_payload_for_a_non_exempt_tool(
     .await
     .unwrap();
     assert_ne!(
-        result_text(&result), payload,
+        result_text(&result),
+        payload,
         "a non-exempt tool's oversized payload should be truncated by the shared byte-budget backstop"
     );
     assert!(
