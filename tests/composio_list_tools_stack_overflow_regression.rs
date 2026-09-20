@@ -218,6 +218,7 @@ impl ChatModel<()> for StubModel {
                         json!({ "toolkits": ["gmail"] }),
                     )],
                     usage: None,
+                    origin: None,
                 },
                 usage: None,
                 finish_reason: Some("tool_calls".into()),

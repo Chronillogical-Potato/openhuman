@@ -244,6 +244,7 @@ fn legacy_provider_extension_reasoning_still_round_trips() {
         ],
         tool_calls: vec![],
         usage: None,
+        origin: None,
     });
 
     let back = message_to_chat_message(&msg);
@@ -306,6 +307,7 @@ fn conversation_preserves_tool_call_structure() {
                 invalid: None,
             }],
             usage: None,
+            origin: None,
         }),
         Message::Tool(ToolMessage {
             tool_call_id: "c1".into(),
@@ -318,6 +320,7 @@ fn conversation_preserves_tool_call_structure() {
             content: vec![ContentBlock::Text("all done".into())],
             tool_calls: vec![],
             usage: None,
+            origin: None,
         }),
     ];
 

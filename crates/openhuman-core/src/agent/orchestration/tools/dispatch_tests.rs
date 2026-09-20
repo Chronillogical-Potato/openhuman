@@ -108,6 +108,7 @@ async fn delegate_graph_dispatch_uses_its_durable_graph_argument_path() {
     let result = dispatch
         .execute(
             &(),
+            tinyagents_harness::CallId::new("test-call"),
             serde_json::json!({"task": "review this change"}),
             tinytools::ToolCallOptions::default(),
             &parent,
@@ -135,6 +136,7 @@ async fn config_delegate_dispatch_honours_the_parent_cancellation_token() {
         .into_tinyagents(RunConfig::new("config-delegate-parent").with_thread("thread-parent"));
     let execution = dispatch.execute(
         &(),
+        tinyagents_harness::CallId::new("test-call"),
         serde_json::json!({"agent": "configured", "prompt": "work"}),
         tinytools::ToolCallOptions::default(),
         &parent,

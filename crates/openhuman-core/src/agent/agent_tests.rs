@@ -34,7 +34,7 @@ use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinytools::{Tool, ToolResult};
-use tinytools_agent::dialect::{NativeDialect, ToolDialect, ToolOutcome, XmlDialect};
+use tinytools_agent::dialect::{NativeDialect, ToolDialect, XmlDialect};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Test Helpers — Mock Provider, Mock Tool, Mock Memory

@@ -402,6 +402,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
             sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(10),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let mw = ToolOutputMiddleware {
@@ -442,6 +443,7 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
             // Far shorter than the ~165-char notice.
             max_result_bytes: Some(12),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let mw = ToolOutputMiddleware {
@@ -507,6 +509,7 @@ async fn tool_output_honors_a_tools_own_cap() {
             sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(20),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let mw = ToolOutputMiddleware {

@@ -202,6 +202,7 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
             ],
             tool_calls: vec![ToolCall::new("round21-call", name, arguments)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

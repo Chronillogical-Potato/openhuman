@@ -57,6 +57,7 @@ pub(crate) fn apply_handoff(
         .unwrap_or(HANDOFF_OVERSIZE_THRESHOLD_TOKENS);
     tinyagents_harness::handoff::apply_handoff(
         cache,
+        &tinyagents_harness::handoff::HandoffConfig::default(),
         tool_name,
         task_id,
         agent_id,

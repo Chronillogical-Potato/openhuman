@@ -70,6 +70,7 @@ fn tool_call(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(id, name, args)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

@@ -266,6 +266,7 @@ fn tool_response(name: &str, args: serde_json::Value) -> ModelResponse {
             content: vec![ContentBlock::Text("round25 call".to_string())],
             tool_calls: vec![ToolCall::new(format!("round25-{name}"), name, args)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

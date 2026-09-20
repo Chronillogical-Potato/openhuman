@@ -70,6 +70,7 @@ fn project_managed_usage_recovers_charged_and_cached() {
             content: vec![],
             tool_calls: vec![],
             usage: None,
+            origin: None,
         },
         usage: Some(Usage {
             input_tokens: 1000,
@@ -112,6 +113,7 @@ fn project_managed_usage_is_noop_without_envelope() {
             content: vec![],
             tool_calls: vec![],
             usage: None,
+            origin: None,
         },
         usage: Some(Usage {
             input_tokens: 10,

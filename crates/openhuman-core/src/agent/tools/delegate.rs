@@ -56,11 +56,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     async fn execute(
         &self,
         _state: &(),
+        _call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let context = ToolExecutionContext::from_run_context(parent);
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
         let child = parent.data.child();
         tokio::select! {
             _ = child.cancellation.cancelled() => Ok(ToolResult::error(

@@ -266,6 +266,7 @@ impl EventListener for OpenhumanEventBridge {
                 by,
                 excluded,
                 remaining,
+                ..
             } => {
                 tracing::debug!(
                     policy = by.as_str(),

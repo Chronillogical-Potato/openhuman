@@ -275,6 +275,7 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
             sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(12),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let summary = "summary ".repeat(50);

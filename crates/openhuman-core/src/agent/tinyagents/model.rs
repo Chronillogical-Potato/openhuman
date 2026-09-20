@@ -146,6 +146,7 @@ fn response_to_model_response(
             content,
             tool_calls,
             usage,
+            origin: None,
         },
         usage,
         finish_reason: Some(finish_reason.to_string()),
@@ -368,6 +369,7 @@ pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delt
                 call_id,
                 content: String::new(),
                 tool_name: Some(tool_name),
+                content_index: None,
             }));
         }
         ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
@@ -381,6 +383,7 @@ pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delt
                     call_id,
                     content: delta,
                     tool_name: None,
+                    content_index: None,
                 }));
             }
         }
