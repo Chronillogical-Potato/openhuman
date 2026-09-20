@@ -114,7 +114,7 @@ const McpServerForm = ({ existing, onClose, onSaved }: McpServerFormProps) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nameValid = /^[A-Za-z0-9][A-Za-z0-9._@\/-]*$/.test(name.trim());
+  const nameValid = /^[A-Za-z0-9][A-Za-z0-9._@/-]*$/.test(name.trim());
   const canSave =
     !saving &&
     nameValid &&
