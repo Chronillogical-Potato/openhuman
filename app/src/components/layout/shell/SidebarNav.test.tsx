@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
 import { AGENT_ACCOUNT_ID } from '../../../utils/accountsFullscreen';
@@ -8,14 +8,10 @@ import SidebarNav from './SidebarNav';
 // Analytics is fire-and-forget; stub it so the nav renders without a transport.
 vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
 
-// Mutable so each test can pick the session kind. `isReady` sits alongside
-// `snapshot` on the core-state value (not inside the snapshot). Must be
-// `mock`-prefixed so the hoisted vi.mock factory below may close over it.
-let mockCoreState: { snapshot: { sessionToken: string | null }; isReady: boolean } = {
-  snapshot: { sessionToken: 'cloud.session.token' },
-  isReady: true,
-};
-vi.mock('../../../providers/CoreStateProvider', () => ({ useCoreState: () => mockCoreState }));
+// A resolved cloud session, so nothing the nav renders waits on bootstrap.
+vi.mock('../../../providers/CoreStateProvider', () => ({
+  useCoreState: () => ({ snapshot: { sessionToken: 'cloud.session.token' }, isReady: true }),
+}));
 
 /**
  * `bg-white` spelled indirectly. `lint:ui-tokens` scans this directory now and
