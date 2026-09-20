@@ -649,7 +649,7 @@ pub(crate) fn messages_to_text_mode_chat(messages: &[Message]) -> Vec<ChatMessag
             Message::Tool(_) => pending.push(msg.text()),
             _ => {
                 flush(&mut out, &mut pending);
-                out.push(message_to_chat_message(msg));
+                out.extend(message_to_chat_message(msg));
             }
         }
     }

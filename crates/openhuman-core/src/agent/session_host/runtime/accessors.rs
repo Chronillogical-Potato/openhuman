@@ -293,7 +293,7 @@ impl OpenHumanSessionHost {
                 session
                     .history()
                     .iter()
-                    .map(crate::agent::message_convert::message_to_native_chat_message)
+                    .filter_map(crate::agent::message_convert::message_to_native_chat_message)
                     .map(ConversationMessage::Chat)
                     .collect()
             })
