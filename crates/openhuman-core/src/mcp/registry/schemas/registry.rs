@@ -7,9 +7,9 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::handlers::{
     handle_config_get, handle_config_set, handle_connect, handle_detect_auth, handle_disconnect,
-    handle_installed_list, handle_oauth_begin, handle_registry_get, handle_registry_search,
-    handle_registry_settings_get, handle_registry_settings_set, handle_set_enabled, handle_status,
-    handle_tool_call, handle_uninstall, handle_update_env,
+    handle_installed_list, handle_list_tools, handle_oauth_begin, handle_registry_get,
+    handle_registry_search, handle_registry_settings_get, handle_registry_settings_set,
+    handle_set_enabled, handle_status, handle_tool_call, handle_uninstall, handle_update_env,
 };
 
 // ── Schema registry ──────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("connect"),
         schemas("disconnect"),
         schemas("status"),
+        schemas("list_tools"),
         schemas("tool_call"),
         schemas("registry_settings_get"),
         schemas("registry_settings_set"),
@@ -84,6 +85,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("status"),
             handler: handle_status,
+        },
+        RegisteredController {
+            schema: schemas("list_tools"),
+            handler: handle_list_tools,
         },
         RegisteredController {
             schema: schemas("tool_call"),
@@ -439,6 +444,32 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 comment: "Per-server connection status summaries.",
                 required: true,
             }],
+        },
+
+        "list_tools" => ControllerSchema {
+            namespace: "mcp_clients",
+            function: "list_tools",
+            description: "The tools a connected server advertises, after the prompt-injection scan. Errors when the server is not connected.",
+            inputs: vec![FieldSchema {
+                name: "server_id",
+                ty: TypeSchema::String,
+                comment: "UUID of a connected server.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "server_id",
+                    ty: TypeSchema::String,
+                    comment: "The server asked about.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tools",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Ref("McpTool"))),
+                    comment: "The advertised tools.",
+                    required: true,
+                },
+            ],
         },
 
         "tool_call" => ControllerSchema {

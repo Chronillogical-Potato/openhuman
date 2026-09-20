@@ -72,13 +72,15 @@ fn schemas_unknown_function_returns_placeholder() {
 #[test]
 fn all_controller_schemas_covers_expected_methods() {
     let schemas = all_controller_schemas();
-    // 16 mcp_clients: the catalog install and the configuration assistant went
-    // with the setup agent; config_get / config_set (mcp.json) took their place.
-    assert_eq!(schemas.len(), 16);
+    // 17 mcp_clients: the catalog install and the configuration assistant went
+    // with the setup agent; config_get / config_set (mcp.json) and list_tools
+    // took their place.
+    assert_eq!(schemas.len(), 17);
     assert!(schemas.iter().all(|s| s.namespace == "mcp_clients"));
     let functions: Vec<_> = schemas.iter().map(|s| s.function).collect();
     assert!(functions.contains(&"config_get"));
     assert!(functions.contains(&"config_set"));
+    assert!(functions.contains(&"list_tools"));
     assert!(!functions.contains(&"install"));
     assert!(!functions.contains(&"config_assist"));
     // The #3039 + #3196 additions are present.
@@ -94,7 +96,7 @@ fn all_controller_schemas_covers_expected_methods() {
 #[test]
 fn all_registered_controllers_has_handler_per_schema() {
     let controllers = all_registered_controllers();
-    assert_eq!(controllers.len(), 16);
+    assert_eq!(controllers.len(), 17);
 }
 
 #[test]
