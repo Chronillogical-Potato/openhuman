@@ -588,15 +588,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             ],
         },
 
-        // Handled by setup_schemas() — surface a clearer error rather than
-        // falling through to the generic unknown sink.
-        "setup_search"
-        | "setup_get"
-        | "setup_request_secret"
-        | "setup_submit_secret"
-        | "setup_test_connection"
-        | "setup_install_and_connect" => setup_schemas(function.trim_start_matches("setup_")),
-
         _other => ControllerSchema {
             namespace: "mcp_clients",
             function: "unknown",
