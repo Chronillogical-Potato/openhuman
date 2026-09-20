@@ -655,7 +655,10 @@ async fn run_turn_via_tinyagents_inner(
                 Err(error) => Err(error),
             }
         } else {
-            root_hosted_harness().invoke_agent(invocation, &state).await
+            root_hosted_harness()
+                .invoke_agent(invocation, &state)
+                .await
+                .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
         }
     } else if streaming {
         let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));

@@ -180,6 +180,7 @@ fn tool_response(name: &str, args: serde_json::Value) -> ModelResponse {
             content: vec![ContentBlock::Text("before".to_string())],
             tool_calls: vec![ToolCall::new(format!("call-{name}"), name, args)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

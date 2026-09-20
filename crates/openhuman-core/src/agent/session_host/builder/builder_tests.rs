@@ -1,9 +1,6 @@
 //! Tests for the builder module — dedup_visible_tool_specs and related logic.
 
-use super::{
-    dedup_visible_tool_specs, ensure_recovery_tool_visible, should_synthesize_delegation_tools,
-    visible_tool_specs_for_policy,
-};
+use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
 use serde_json::json;
 use tinytools::ToolSpec;
 

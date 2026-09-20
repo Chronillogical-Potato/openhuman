@@ -1,6 +1,6 @@
 use super::*;
 use crate::agent::harness::definition::{ModelSpec, ToolScope};
-use tinytools::{Tool, ToolSpec};
+use tinytools::Tool;
 
 fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
     AgentDefinition {
@@ -205,6 +205,7 @@ fn text_response_with_reasoning(text: &str, reasoning: &str) -> ModelResponse {
             ],
             tool_calls: Vec::new(),
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: None,
@@ -228,6 +229,7 @@ fn tool_response(name: &str, args: &str) -> ModelResponse {
                 serde_json::from_str(args).expect("valid scripted tool arguments"),
             )],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

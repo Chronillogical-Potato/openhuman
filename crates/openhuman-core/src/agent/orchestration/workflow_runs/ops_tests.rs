@@ -1,5 +1,4 @@
 use super::*;
-use std::collections::BTreeMap;
 use tinyagents_orchestration::workflow::{
     validate_agents, validate_structure, DefinitionError, WorkflowDefinition, WorkflowPhase,
 };

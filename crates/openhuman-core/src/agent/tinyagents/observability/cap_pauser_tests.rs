@@ -9,8 +9,8 @@ use tinyagents_harness::events::EventSink;
 use tinyagents_harness::middleware::{AgentRun, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents_harness::steering::SteeringPolicy;
-use tinyagents_harness::subagent::SubAgent;
 use tinyagents_harness::testkit::{FakeTool, ScriptedModel, SlowModel};
+use tinyagents_orchestration::subagent::SubAgent;
 use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
@@ -25,6 +25,7 @@ fn tool_call_response(id: &str) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(id, "lookup", serde_json::json!({}))],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

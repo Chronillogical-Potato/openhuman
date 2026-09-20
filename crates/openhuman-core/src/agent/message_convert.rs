@@ -171,6 +171,9 @@ pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
     match msg.role.as_str() {
         "system" => Message::System(SystemMessage {
             content: vec![ContentBlock::Text(text)],
+            sections: Default::default(),
+            tools_added: Vec::new(),
+            tools_removed: Vec::new(),
         }),
         "assistant" => {
             // Restore any `reasoning_content` stashed on the persisted message so a
@@ -189,6 +192,7 @@ pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
                     content,
                     tool_calls,
                     usage: None,
+                    origin: None,
                 })
             } else {
                 let mut content = vec![ContentBlock::Text(text)];
@@ -198,6 +202,7 @@ pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
                     content,
                     tool_calls: Vec::new(),
                     usage: None,
+                    origin: None,
                 })
             }
         }

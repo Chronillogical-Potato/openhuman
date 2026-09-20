@@ -63,7 +63,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for U
             }
         }
 
-        let context = ToolExecutionContext::from_run_context(parent);
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
         self.tool
             .execute_with_context(arguments, options, Some(&context))
             .await

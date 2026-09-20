@@ -312,6 +312,7 @@ fn repeated_success_response(tool: &str, args: serde_json::Value) -> ModelRespon
             content: vec![ContentBlock::Text("working".to_string())],
             tool_calls: vec![TaToolCall::new("repeat-1", tool, args)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

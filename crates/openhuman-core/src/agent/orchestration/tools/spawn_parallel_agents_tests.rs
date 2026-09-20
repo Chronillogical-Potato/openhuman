@@ -207,6 +207,7 @@ async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
         dispatch
             .execute(
                 &(),
+                tinyagents_harness::CallId::new("test-call"),
                 json!({
                     "tasks": [
                         { "agent_id": "researcher", "prompt": "one" },
@@ -564,6 +565,7 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(format!("call-{name}"), name, arguments)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
