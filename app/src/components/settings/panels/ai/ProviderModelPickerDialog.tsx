@@ -59,7 +59,7 @@ const ManagedModelRow = ({
     aria-selected={selected}
     data-testid={testId}
     onClick={onClick}
-    className={cn('h-auto w-full justify-start px-2.5 py-2', selected && 'bg-surface-muted')}>
+    className={cn('h-auto w-full justify-start px-2.5 py-1.5', selected && 'bg-surface-muted')}>
     <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
       <span className="w-full text-left text-sm font-medium break-words whitespace-normal">
         {title}
@@ -363,7 +363,7 @@ export function ProviderModelPickerDialog({
             })}
           </div>
         </div>
-        <div className="min-w-0 p-4">
+        <div className={cn('min-w-0 px-4', isManaged(source) ? 'py-0' : 'py-4')}>
           {isManaged(source) ? (
             // Managed offers an OPTIONAL model pick. The list fills the pane:
             // "Automatic" first (empty model id -> the product routes per
@@ -373,7 +373,7 @@ export function ProviderModelPickerDialog({
               data-testid="model-picker-managed-pane"
               role="listbox"
               aria-label={t('settings.ai.modelLabel')}
-              className="max-h-96 space-y-1 overflow-y-auto">
+              className="max-h-96 overflow-y-auto">
               {normalizedQuery === '' ? (
                 <ManagedModelRow
                   testId="model-picker-managed-automatic"
