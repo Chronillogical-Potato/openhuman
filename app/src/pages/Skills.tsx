@@ -487,7 +487,6 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
  *  it), so the Connections pane skips the shared header + card wrapper. */
 const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
-  'mcp',
   'voice',
   'embeddings',
   'search',
@@ -1084,7 +1083,13 @@ export default function Skills() {
             panels (description, no title; the back button hides because the
             Connections sidebar owns navigation), so they fill the content pane
             and own their scroll directly. */
-        INTELLIGENCE_TABS.has(activeTab) ? (
+        activeTab === 'mcp' ? (
+          // The MCP page owns its own header and tab strip (Servers / mcp.json
+          // / Registry), like the LLM page does, so it takes the pane whole.
+          <div className="h-full p-4">
+            <McpServersPage />
+          </div>
+        ) : INTELLIGENCE_TABS.has(activeTab) ? (
           // API-keys / provider panels were orphaned flush on the shell — give
           // them a card surface (the integrations/skills grids below already
           // have their own card layouts, so they stay flush).
@@ -1096,7 +1101,6 @@ export default function Skills() {
             {SELF_HEADER_TABS.has(activeTab) ? (
               <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
-                {activeTab === 'mcp' && <McpServersPage />}
                 {activeTab === 'voice' && <VoiceConnectionsPanel />}
                 {activeTab === 'embeddings' && (
                   <SettingsTabbedPage
