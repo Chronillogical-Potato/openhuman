@@ -1,9 +1,11 @@
+import { FaDiscord } from 'react-icons/fa6';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
 import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { openUrl } from '../../../utils/openUrl';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
@@ -15,6 +17,7 @@ import {
   Tooltip,
 } from '../../ui';
 import { NavIcon } from './navIcons';
+import { DISCORD_URL } from './SidebarHeader';
 import { useCloudNavGate } from './useCloudNavGate';
 import { useHomeNav } from './useHomeNav';
 
