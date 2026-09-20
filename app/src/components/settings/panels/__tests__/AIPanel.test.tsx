@@ -18,7 +18,6 @@ import {
   setCloudProviderKey,
   startOpenAiCodexOAuth,
   testProviderModel,
-  upsertModelRegistryVision,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { callCoreRpc } from '../../../../services/coreRpcClient';

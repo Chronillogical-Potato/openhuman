@@ -259,8 +259,8 @@ export function useOllamaStatus() {
 
 export function useInstalledModels(snapshot: LocalProviderSnapshot | null): OllamaModel[] {
   // Hide embedding-only models (e.g. `bge-m3`) from every LLM/chat workload
-  // picker — both consumers of this hook (CustomRoutingDialog and
-  // GlobalOwnModelSelector) route a chat model, never the embedder (which is
+  // picker — the consumer of this hook (CustomRoutingDialog) routes a chat
+  // model, never the embedder (which is
   // configured separately in EmbeddingsPanel). Selecting an embedding model as
   // chat 400s every turn on Ollama (TAURI-RUST-4P6). Filter + map live in the
   // pure, unit-tested `toSelectableChatModels` helper.
