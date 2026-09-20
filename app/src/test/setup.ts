@@ -395,7 +395,11 @@ afterEach(async () => {
   // before Vitest tears the environment down.
   alignGlobalEventWithDom();
   cleanup();
-  await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+  // Fake-timer suites own their clock. Awaiting a synthetic timer there would
+  // wait until Vitest's per-test timeout, rather than draining anything.
+  if (!vi.isFakeTimers()) {
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+  }
   alignGlobalEventWithDom();
   // Re-seed the IPC handle after any test that may have deleted it
   // (e.g. tests exercising the CEF-gap branch of `isTauri()`). Without
