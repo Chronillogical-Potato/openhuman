@@ -8478,23 +8478,15 @@ async fn mcp_clients_lifecycle() {
     rpc_join.abort();
 }
 
-/// MCP clients **happy path** over real JSON-RPC: install → connect → tool_call
-/// → update_env (reconnect) → disconnect against a real stdio MCP subprocess
-/// (the `test-mcp-stub` binary), with the registry lookup served hermetically
-/// from the SQLite detail cache (issue #3039 acceptance: "JSON-RPC E2E —
-/// happy-path install/connect/tool_call against stub server over HTTP RPC").
+/// MCP clients **happy path** over real JSON-RPC: declare in `mcp.json` →
+/// connect → tool_call → update_env (reconnect) → disconnect against a real
+/// stdio MCP subprocess (the `test-mcp-stub` binary).
 ///
-/// No npx, no network: we pre-seed `smithery:detail:<name>` with a detail whose
-/// stdio `exampleConfig.command` points at the stub binary, so
-/// `mcp_clients_install` resolves the launch command to the stub.
-///
-/// Smithery is now opt-in (only enabled when an API key is set), so we install
-/// with the explicit `smithery::` source prefix. `registry_get` routes a
-/// prefixed name straight to that adapter via `registry_for_source`, which
-/// resolves Smithery regardless of the key gate — the same path used for detail
-/// lookups of an already-installed Smithery server.
+/// No npx, no network, no catalog: the server is declared through
+/// `mcp_clients_config_set` with a `command` pointing at the stub binary, which
+/// is how a user adds any server now — the registry is browse-only.
 #[tokio::test]
-async fn mcp_clients_install_connect_tool_call_happy_path() {
+async fn mcp_clients_declare_connect_tool_call_happy_path() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -8511,52 +8503,33 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the registry detail cache so `registry_get` resolves offline to a
-    // stdio connection whose command is the hermetic stub binary. The config we
-    // load here resolves the same workspace dir the RPC handlers use, so the
-    // cache row lands in the DB the install path reads.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo",
-        "description": "Stub MCP server for the json_rpc_e2e happy path.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install resolves the stub command from the seeded detail ──────────
-    let install = post_json_rpc(
+    // ── 1. declaring the stub in mcp.json installs it ────────────────────────
+    let declared = post_json_rpc(
         &rpc_base,
         9920,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo": { "command": stub_path } } }),
     )
     .await;
-    let install_result = assert_no_jsonrpc_error(&install, "mcp_clients_install (happy path)");
-    let install_body = peel_logs_envelope(install_result);
-    let server_id = install_body
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("install returns a server.server_id")
-        .to_string();
+    let declared_body =
+        peel_logs_envelope(assert_no_jsonrpc_error(&declared, "mcp_clients_config_set (declare)"));
+    assert_eq!(
+        declared_body.get("added"),
+        Some(&json!(["echo"])),
+        "config_set should report the new server as added: {declared_body}"
+    );
+    assert_eq!(
+        declared_body["mcpServers"]["echo"]["command"],
+        json!(stub_path),
+        "config_set should render the declared command back: {declared_body}"
+    );
+    let server_id = installed_server_id(&rpc_base, 9926, "echo").await;
 
     // ── 2. connect spawns the stub and lists its one `echo` tool ─────────────
     let connect = post_json_rpc(
@@ -8679,7 +8652,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     rpc_join.abort();
 }
 
-/// `mcp_clients_set_enabled` smoke: installs a server, disables it via RPC,
+/// `mcp_clients_set_enabled` smoke: declares a server, disables it via RPC,
 /// and asserts the response carries `enabled=false` (issue #3196).
 #[tokio::test]
 async fn mcp_clients_set_enabled_smoke() {
@@ -8699,53 +8672,22 @@ async fn mcp_clients_set_enabled_smoke() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the registry detail cache so install resolves offline to the stub.
-    // Smithery is opt-in (gated on an API key), so install routes via the
-    // explicit `smithery::` source prefix below — `registry_for_source` resolves
-    // the adapter regardless of the key gate.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo-set-enabled";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo SetEnabled",
-        "description": "Stub for set_enabled smoke.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install ───────────────────────────────────────────────────────────
-    let install = post_json_rpc(
+    // ── 1. declare ───────────────────────────────────────────────────────────
+    let declared = post_json_rpc(
         &rpc_base,
         9940,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-set-enabled": { "command": stub_path } } }),
     )
     .await;
-    let install_result =
-        assert_no_jsonrpc_error(&install, "mcp_clients_install (set_enabled smoke)");
-    let install_body = peel_logs_envelope(install_result);
-    let server_id = install_body
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("install returns server.server_id")
-        .to_string();
+    assert_no_jsonrpc_error(&declared, "mcp_clients_config_set (set_enabled smoke)");
+    let server_id = installed_server_id(&rpc_base, 9943, "echo-set-enabled").await;
 
     // ── 2. set_enabled=false ─────────────────────────────────────────────────
     let set_enabled = post_json_rpc(
@@ -8789,14 +8731,15 @@ async fn mcp_clients_set_enabled_smoke() {
     rpc_join.abort();
 }
 
-/// `mcp_clients_install` idempotency (issue #4120 review): a re-install of the
-/// same service (a) collapses to ONE row and returns `already_installed:true`
-/// even when the first install used a source-prefixed name and the second used
-/// the bare name (canonical dedup), and (b) MERGES new env onto the existing row
-/// so re-running the dialog to replace an expired token doesn't drop the user's
-/// other stored keys.
+/// The `mcp.json` round trip: a document is a *replace* of the install store,
+/// except for credentials, which are write-only.
+///
+/// (a) a second save that names one credential merges it over the stored set
+/// and keeps the row (same `server_id`); (b) saving exactly what `config_get`
+/// returned — which carries no values — changes nothing; (c) a key set to `""`
+/// removes that one value; (d) dropping the entry uninstalls the server.
 #[tokio::test]
-async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
+async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_servers() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -8813,125 +8756,145 @@ async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the smithery detail cache so the FIRST (prefixed) install resolves
-    // offline. The second install hits the idempotency branch before registry_get,
-    // so it needs no cache.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo-reinstall";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo Reinstall",
-        "description": "Stub for install idempotency.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install via the source-prefixed name with two env keys ────────────
-    let install1 = post_json_rpc(
+    // ── 1. declare with two credentials; disabled so nothing is dialled ──────
+    let first = post_json_rpc(
         &rpc_base,
         9960,
-        "openhuman.mcp_clients_install",
-        json!({
-            "qualified_name": format!("smithery::{qualified_name}"),
-            "env": { "TOKEN": "old", "KEEP": "v1" }
-        }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "TOKEN": "old", "KEEP": "v1" },
+            "enabled": false
+        } } }),
     )
     .await;
-    let r1 = assert_no_jsonrpc_error(&install1, "mcp_clients_install (first)");
-    let b1 = peel_logs_envelope(r1);
-    let server_id = b1
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("first install returns server_id")
-        .to_string();
-    // Stored qualified_name is the bare (canonical) name, not the prefixed one.
-    assert_eq!(
-        b1.get("server")
-            .and_then(|s| s.get("qualified_name"))
-            .and_then(Value::as_str),
-        Some(qualified_name),
-        "install should store the canonical (bare) qualified_name: {b1}"
-    );
-
-    // ── 2. re-install via the BARE name with a rotated token ─────────────────
-    let install2 = post_json_rpc(
-        &rpc_base,
-        9961,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": qualified_name, "env": { "TOKEN": "new" } }),
-    )
-    .await;
-    let r2 = assert_no_jsonrpc_error(&install2, "mcp_clients_install (re-install)");
-    let b2 = peel_logs_envelope(r2);
-    assert_eq!(
-        b2.get("already_installed"),
-        Some(&json!(true)),
-        "re-install should be flagged already_installed: {b2}"
-    );
-    assert_eq!(
-        b2.get("server")
-            .and_then(|s| s.get("server_id"))
-            .and_then(Value::as_str),
-        Some(server_id.as_str()),
-        "re-install should return the same server_id: {b2}"
-    );
-    // Env merged: the rotated key AND the untouched first-install key survive.
-    let env_keys: Vec<String> = b2
-        .get("server")
-        .and_then(|s| s.get("env_keys"))
-        .and_then(Value::as_array)
-        .expect("re-install returns env_keys")
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
+    let b1 = peel_logs_envelope(assert_no_jsonrpc_error(&first, "config_set (first)"));
+    assert_eq!(b1.get("added"), Some(&json!(["echo-rt"])), "{b1}");
+    // The read carries names and a flag, never a value.
+    assert_eq!(b1["mcpServers"]["echo-rt"]["authConfigured"], json!(true));
+    assert_eq!(b1["mcpServers"]["echo-rt"]["envKeys"], json!(["KEEP", "TOKEN"]));
+    assert_eq!(b1["mcpServers"]["echo-rt"]["enabled"], json!(false));
     assert!(
-        env_keys.contains(&"TOKEN".to_string()) && env_keys.contains(&"KEEP".to_string()),
-        "re-install should merge env (KEEP preserved, TOKEN present): {env_keys:?}"
+        b1["mcpServers"]["echo-rt"].get("env").is_none(),
+        "a read must not echo credential values: {b1}"
     );
+    let server_id = installed_server_id(&rpc_base, 9961, "echo-rt").await;
 
-    // ── 3. exactly one installed row for this service (no duplicate) ─────────
-    let listed = post_json_rpc(
+    // ── 2. a save naming one key merges it and keeps the row ─────────────────
+    let second = post_json_rpc(
         &rpc_base,
         9962,
-        "openhuman.mcp_clients_installed_list",
-        json!({}),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "TOKEN": "new" },
+            "enabled": false
+        } } }),
     )
     .await;
-    let lb = peel_logs_envelope(assert_no_jsonrpc_error(
-        &listed,
-        "mcp_clients_installed_list",
-    ));
-    let count = lb
-        .get("installed")
-        .and_then(Value::as_array)
-        .expect("installed list")
-        .iter()
-        .filter(|s| s.get("qualified_name").and_then(Value::as_str) == Some(qualified_name))
-        .count();
+    let b2 = peel_logs_envelope(assert_no_jsonrpc_error(&second, "config_set (rotate)"));
+    assert_eq!(b2.get("updated"), Some(&json!(["echo-rt"])), "{b2}");
+    assert_eq!(b2.get("added"), Some(&json!([])), "{b2}");
     assert_eq!(
-        count, 1,
-        "prefixed + bare install must collapse to one row: {lb}"
+        b2["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"]),
+        "rotating one key must keep the other: {b2}"
+    );
+    assert_eq!(
+        installed_server_id(&rpc_base, 9963, "echo-rt").await,
+        server_id,
+        "a credential change must not replace the row"
+    );
+
+    // ── 3. saving the read back verbatim changes nothing ─────────────────────
+    let read = post_json_rpc(&rpc_base, 9964, "openhuman.mcp_clients_config_get", json!({})).await;
+    let read_body = peel_logs_envelope(assert_no_jsonrpc_error(&read, "config_get"));
+    let resave = post_json_rpc(
+        &rpc_base,
+        9965,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": read_body["mcpServers"].clone() }),
+    )
+    .await;
+    let b3 = peel_logs_envelope(assert_no_jsonrpc_error(&resave, "config_set (re-save)"));
+    assert_eq!(b3.get("updated"), Some(&json!([])), "a re-save is not an edit: {b3}");
+    assert_eq!(b3["mcpServers"]["echo-rt"]["envKeys"], json!(["KEEP", "TOKEN"]));
+
+    // ── 4. an empty value removes that one credential ────────────────────────
+    let clear = post_json_rpc(
+        &rpc_base,
+        9966,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "KEEP": "" },
+            "enabled": false
+        } } }),
+    )
+    .await;
+    let b4 = peel_logs_envelope(assert_no_jsonrpc_error(&clear, "config_set (clear one)"));
+    assert_eq!(b4["mcpServers"]["echo-rt"]["envKeys"], json!(["TOKEN"]), "{b4}");
+
+    // ── 5. a document without the entry uninstalls it ────────────────────────
+    let drop = post_json_rpc(
+        &rpc_base,
+        9967,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": {} }),
+    )
+    .await;
+    let b5 = peel_logs_envelope(assert_no_jsonrpc_error(&drop, "config_set (remove)"));
+    assert_eq!(b5.get("removed"), Some(&json!(["echo-rt"])), "{b5}");
+    assert_eq!(b5["mcpServers"], json!({}), "{b5}");
+
+    // ── 6. a refused document names the entry and the field ──────────────────
+    let refused = post_json_rpc(
+        &rpc_base,
+        9968,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "bad": { "url": "https://x.test", "command": "npx" } } }),
+    )
+    .await;
+    let message = refused["error"]["message"]
+        .as_str()
+        .expect("a refusal is a JSON-RPC error");
+    assert!(
+        message.contains("`bad`") && message.contains("both"),
+        "refusal should name the entry and the problem: {message}"
     );
 
     mock_join.abort();
     rpc_join.abort();
+}
+
+/// The `server_id` the store gave a server declared under `name`.
+async fn installed_server_id(rpc_base: &str, id: u64, name: &str) -> String {
+    let listed = post_json_rpc(
+        rpc_base,
+        id,
+        "openhuman.mcp_clients_installed_list",
+        json!({}),
+    )
+    .await;
+    let body = peel_logs_envelope(assert_no_jsonrpc_error(
+        &listed,
+        "mcp_clients_installed_list",
+    ));
+    body.get("installed")
+        .and_then(Value::as_array)
+        .expect("installed list")
+        .iter()
+        .find(|s| s.get("qualified_name").and_then(Value::as_str) == Some(name))
+        .and_then(|s| s.get("server_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("`{name}` should be installed: {body}"))
+        .to_string()
 }
 
 /// Registry settings RPC: the getter reports `*_set` booleans without ever
