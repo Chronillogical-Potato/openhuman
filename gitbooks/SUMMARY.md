@@ -60,7 +60,6 @@
 - [Notifications & Activity](features/notifications-and-activity.md)
 - [Wallet](features/wallet.md)
 - [Billing, Cost & Usage](features/billing-and-usage.md)
-- [Rewards & Referrals](features/rewards-and-referrals.md)
 - [iOS Companion](features/ios-companion.md)
 - [Approval Gate](features/approval-gate.md)
 - [Privacy & Security](features/privacy-and-security.md)
