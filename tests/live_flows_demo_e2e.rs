@@ -71,12 +71,12 @@ fn required_env(name: &str) -> String {
 }
 
 /// Seed a config that routes agent-node/chat workloads to the live managed
-/// backend. `default_model = "chat-v1"` so the chat-tier `drafter` node resolves
-/// to `chat-v1` while the reasoning-tier `planner` node pins `reasoning-v1`.
+/// backend. Both the chat-role `drafter` and the reasoning-role `planner` run
+/// on the managed default model.
 fn write_live_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
-default_model = "chat-v1"
+default_model = "openrouter/deepseek/deepseek-v4-flash"
 default_temperature = 0.7
 chat_onboarding_completed = true
 

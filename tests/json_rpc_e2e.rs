@@ -10867,7 +10867,7 @@ fn opus_sonnet_demo_graph() -> Value {
 ///    plain completions (planner structured JSON, then drafter text). We assert
 ///    the run completed, the planner's structured plan flowed into the drafter's
 ///    prompt (data passing), and the two agent nodes routed to the expected
-///    managed tiers (`reasoning-v1` / `chat-v1`).
+///    pinned managed model.
 ///
 /// Runs on the agent-sized worker stack because the builder/scout turns and the
 /// agent-node run drive the full harness (deep async stacks).
@@ -12949,7 +12949,7 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
             "cached_input_tokens": 600, "charged_amount_usd": 0.0123, "thread_id": "thr-e2e"
         }}),
         json!({"role": "user", "content": "hi"}),
-        json!({"role": "assistant", "content": "hello", "model": "hint:reasoning",
+        json!({"role": "assistant", "content": "hello", "model": "reasoning-v1",
             "usage": {"input": 350, "output": 80, "cached_input": 40, "cost_usd": 0.0009},
             "ts": "2026-04-11T14:35:22Z"}),
     );
@@ -12997,14 +12997,15 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(data["cached_input_tokens"], 600);
     // Cost is RE-AUDITED at current pricing, NOT the stale persisted charge.
     // The coder sub-agent has no model, so it's priced at the thread's model
-    // (reasoning-v1 = "Pro"), NOT $0.
-    // orchestrator: (4200-600)*0.435 + 600*0.003625 + 900*0.87 = 0.002351175
-    // coder:        1000*0.435 + 0 + 200*0.87                  = 0.000609
-    // total                                                     = 0.002960175
+    // (`reasoning-v1`, a retired tier slug that prices as the managed default,
+    // DeepSeek V4 Flash), NOT $0.
+    // orchestrator: (4200-600)*0.0886 + 600*0.0886 + 900*0.1772 = 0.0005316
+    // coder:        1000*0.0886 + 0 + 200*0.1772                = 0.00012404
+    // total                                                      = 0.00065564
     let cost = data["cost_usd"].as_f64().expect("cost_usd");
     assert!(
-        (cost - 0.002_960_175).abs() < 1e-9,
-        "re-audited total cost should be ~0.00296, got {cost}"
+        (cost - 0.000_655_64).abs() < 1e-9,
+        "re-audited total cost should be ~0.000656, got {cost}"
     );
     assert_eq!(data["turn_count"], 2);
     assert_eq!(data["last_turn_input_tokens"], 350);
