@@ -818,6 +818,7 @@ impl SpawnAsyncSubagentTool {
         Ok(ToolResult::success(format_async_subagent_accepted(
             payload["agent_id"].as_str().unwrap_or("subagent"),
             &payload_json,
+            &fleet,
         )))
     }
 }
