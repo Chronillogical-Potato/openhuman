@@ -412,11 +412,8 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     // is the workload's canonical managed tier — NOT `default_model`,
     // and NOT the parent's model.
     //
-    // Regression (#hint-routing): the managed backend used to ignore the
-    // workload role and return `default_model`, so `hint = "agentic"`
-    // silently ran on whatever `default_model` was (here `chat-v1`).
-    // `make_openhuman_backend` now pins specialised roles to their tier,
-    // so `agentic` resolves to `agentic-v1` regardless of `default_model`.
+    // Every managed role runs on the managed default model; a retired tier
+    // slug in `default_model` is not a pin and must not leak to the backend.
     use crate::config::Config;
     let mut config = Config::default();
     // Route `agentic` to the OpenHuman backend explicitly, and set a
@@ -437,9 +434,10 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
         0.0,
     );
     assert_eq!(
-        resolved_model, "agentic-v1",
-        "Hint must resolve to the workload's managed tier (agentic-v1), not \
-         fall back to default_model (chat-v1) or the parent's model"
+        resolved_model,
+        crate::config::MODEL_MANAGED_DEFAULT,
+        "Hint must resolve to the managed default model, not a retired tier \
+         slug from default_model or the parent's model"
     );
 }
 
