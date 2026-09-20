@@ -662,6 +662,9 @@ impl OpenHumanTurnPrelude {
             crate::agent::orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
                 &self.workspace_dir,
+                &crate::agent::orchestration::fleet_tools::FleetToolSet::for_parent(
+                    &self.agent_definition_id,
+                ),
             )
         {
             context.push_str(&block);

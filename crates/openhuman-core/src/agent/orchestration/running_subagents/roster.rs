@@ -3,6 +3,7 @@
 //! `[active_subagents]` context block.
 
 use super::registry::{registry, SubagentStatus};
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 
 /// Compact, read-only view of one registered sub-agent, for ambient injection
 /// into a parent's turn context (see [`active_subagents_context_block`]).
