@@ -6,7 +6,6 @@ import { listProviderModels, type ModelInfo } from '../../../../services/api/aiS
 import Alert from '../../../ui/Alert';
 import Button from '../../../ui/Button';
 import { ModalShell } from '../../../ui/ModalShell';
-import NativeSelect from '../../../ui/NativeSelect';
 import TextField from '../../../ui/TextField';
 import {
   CLAUDE_CODE_DEFAULT_MODEL,
@@ -28,16 +27,49 @@ type TFn = (key: string, fallback?: string) => string;
  */
 const MANAGED_PROVIDER_SLUG = 'openhuman';
 
-/** `Display Name — $in/$out per 1M`, falling back to the bare id. */
-const managedOptionLabel = (m: ModelInfo): string => {
-  const name = m.display_name?.trim() || m.id;
+/** `$in/$out per 1M` for a managed catalog entry, or null when unpriced. */
+const managedPriceLabel = (m: ModelInfo): string | null => {
   const inPrice = m.input_per_1m;
   const outPrice = m.output_per_1m;
-  if (typeof inPrice !== 'number' || typeof outPrice !== 'number') return name;
+  if (typeof inPrice !== 'number' || typeof outPrice !== 'number') return null;
   const fmt = (n: number) =>
     n === 0 ? '$0' : `$${n < 1 ? n.toFixed(3).replace(/0+$/, '') : n.toFixed(2)}`;
-  return `${name} — ${fmt(inPrice)}/${fmt(outPrice)} per 1M`;
+  return `${fmt(inPrice)}/${fmt(outPrice)} per 1M`;
 };
+
+/** One row of the managed catalog list: name on top, price (or id) beneath. */
+const ManagedModelRow = ({
+  selected,
+  title,
+  detail,
+  onClick,
+  testId,
+}: {
+  selected: boolean;
+  title: string;
+  detail: string;
+  onClick: () => void;
+  testId: string;
+}) => (
+  <Button
+    type="button"
+    variant="tertiary"
+    size="sm"
+    role="option"
+    aria-selected={selected}
+    data-testid={testId}
+    onClick={onClick}
+    className={cn('h-auto w-full justify-start px-2.5 py-2', selected && 'bg-surface-muted')}>
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+      <span className="w-full text-left text-sm font-medium break-words whitespace-normal">
+        {title}
+      </span>
+      <span className="w-full text-left text-xs font-normal break-words whitespace-normal text-content-muted">
+        {detail}
+      </span>
+    </span>
+  </Button>
+);
 
 export interface ProviderModelSelection {
   source: CustomDialogSource;
@@ -330,40 +362,38 @@ export function ProviderModelPickerDialog({
         </div>
         <div className="min-w-0 p-4">
           {isManaged(source) ? (
-            // Managed offers an OPTIONAL model pick. Leaving it on "Automatic"
-            // preserves the original contract (empty model id -> the product
-            // routes per workload); choosing a catalog entry pins that model,
-            // still billed through managed credits like any tier.
-            <div data-testid="model-picker-managed-pane" className="space-y-2">
-              <p className="text-sm font-medium text-content">
-                {t('settings.ai.managedSourceLabel')}
-              </p>
-              <p className="text-xs leading-relaxed text-content-muted">
-                {t('settings.ai.routing.managedDesc')}
-              </p>
+            // Managed offers an OPTIONAL model pick. The list fills the pane:
+            // "Automatic" first (empty model id -> the product routes per
+            // workload); a catalog row pins that model, still billed through
+            // managed credits like any tier.
+            <div
+              data-testid="model-picker-managed-pane"
+              role="listbox"
+              aria-label={t('settings.ai.modelLabel')}
+              className="max-h-96 space-y-1 overflow-y-auto">
+              <ManagedModelRow
+                testId="model-picker-managed-automatic"
+                selected={model === ''}
+                title={t('settings.ai.picker.managedAutomatic')}
+                detail={t('settings.ai.managedSourceDetail')}
+                onClick={() => setModel('')}
+              />
               {loading ? (
-                <NativeSelect disabled className="mt-1 w-full cursor-wait opacity-60">
-                  <option>{t('settings.ai.loadingModels', 'Loading models…')}</option>
-                </NativeSelect>
-              ) : catalog.length > 0 ? (
-                <NativeSelect
-                  aria-label={t('settings.ai.modelLabel')}
-                  data-testid="model-picker-managed-select"
-                  value={model}
-                  onChange={event => setModel(event.target.value)}
-                  className="mt-1 w-full">
-                  {/* Always present, unlike ModelEntryField's empty option, so a
-                      pinned model can be cleared back to automatic routing. */}
-                  <option value="">
-                    {t('settings.ai.picker.managedAutomatic', 'Automatic (recommended)')}
-                  </option>
-                  {catalog.map(candidate => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {managedOptionLabel(candidate)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              ) : null}
+                <p className="px-2.5 py-2 text-xs text-content-muted">
+                  {t('settings.ai.loadingModels')}
+                </p>
+              ) : (
+                catalog.map(candidate => (
+                  <ManagedModelRow
+                    key={candidate.id}
+                    testId={`model-picker-managed-option-${candidate.id}`}
+                    selected={model === candidate.id}
+                    title={candidate.display_name?.trim() || candidate.id}
+                    detail={managedPriceLabel(candidate) ?? candidate.id}
+                    onClick={() => setModel(candidate.id)}
+                  />
+                ))
+              )}
               {catalogError ? (
                 <Alert variant="destructive" className="font-mono text-xs break-all">
                   {catalogError}
