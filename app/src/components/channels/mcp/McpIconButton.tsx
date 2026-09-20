@@ -10,8 +10,7 @@
  * reader and for anything driving this page by accessible name. There is no
  * arrangement of this component that produces a control with no name.
  */
-import type { LucideIcon } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, type LucideIcon } from 'lucide-react';
 
 import Button from '../../ui/Button';
 import Tooltip from '../../ui/Tooltip';
