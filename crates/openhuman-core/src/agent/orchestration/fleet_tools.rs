@@ -57,6 +57,23 @@ impl FleetToolSet {
         Self::from_scope(&definition.tools, &definition.disallowed_tools)
     }
 
+    /// Resolve the set from a turn's *effective* visible tool names — the
+    /// live, already-filtered membership set (hides, named restrictions, and
+    /// policy narrowing all applied), as opposed to [`Self::for_parent`]'s
+    /// static read of the parent's registered definition. Prefer this
+    /// whenever the caller already has that snapshot: a hide or restriction
+    /// applied mid-session can narrow a turn's real tool surface below what
+    /// the definition alone would suggest, and offering a control absent
+    /// from this snapshot invites a denied tool call.
+    pub(crate) fn from_visible_tool_names(names: &std::collections::HashSet<String>) -> Self {
+        let available = FLEET_TOOLS
+            .iter()
+            .copied()
+            .filter(|name| names.contains(*name))
+            .collect();
+        Self { available }
+    }
+
     /// Derive the set from a definition's tool scope and denylist. A
     /// `Named` scope exposes exactly the fleet tools it lists; `Wildcard`
     /// exposes all of them. `disallowed_tools` (exact or trailing-`*`
