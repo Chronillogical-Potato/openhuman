@@ -122,12 +122,20 @@ describe('ProviderModelPickerDialog', () => {
     // Fetched with the managed slug, not a BYOK provider id.
     await waitFor(() => expect(listProviderModels).toHaveBeenCalledWith('openhuman'));
 
-    const select = await screen.findByTestId('model-picker-managed-select');
-    // Display name and charged price are surfaced, not the bare slug.
-    expect(select).toHaveTextContent('DeepSeek V4 Flash');
-    expect(select).toHaveTextContent('per 1M');
+    // The catalog is a list filling the pane, not a dropdown: display name
+    // and charged price are surfaced on the row, not the bare slug.
+    const row = await screen.findByTestId(
+      'model-picker-managed-option-openrouter/deepseek/deepseek-v4-flash'
+    );
+    expect(row).toHaveTextContent('DeepSeek V4 Flash');
+    expect(row).toHaveTextContent('per 1M');
+    expect(screen.getByTestId('model-picker-managed-automatic')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
 
-    fireEvent.change(select, { target: { value: 'openrouter/deepseek/deepseek-v4-flash' } });
+    fireEvent.click(row);
+    expect(row).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Use this model' }));
 
     await waitFor(() =>
@@ -161,8 +169,9 @@ describe('ProviderModelPickerDialog', () => {
       />
     );
 
-    const select = await screen.findByTestId('model-picker-managed-select');
-    fireEvent.change(select, { target: { value: '' } });
+    const pinned = await screen.findByTestId('model-picker-managed-option-openrouter/a/b');
+    expect(pinned).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByTestId('model-picker-managed-automatic'));
     fireEvent.click(screen.getByRole('button', { name: 'Use this model' }));
 
     await waitFor(() =>
@@ -198,7 +207,7 @@ describe('ProviderModelPickerDialog', () => {
       />
     );
 
-    await screen.findByTestId('model-picker-managed-select');
+    await screen.findByTestId('model-picker-managed-option-openrouter/a/b');
 
     // Re-render with fresh inline props, exactly as the real callers do.
     for (let i = 0; i < 3; i += 1) {
@@ -216,7 +225,7 @@ describe('ProviderModelPickerDialog', () => {
     }
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-picker-managed-select')).toBeInTheDocument()
+      expect(screen.getByTestId('model-picker-managed-option-openrouter/a/b')).toBeInTheDocument()
     );
     expect(vi.mocked(listProviderModels)).toHaveBeenCalledTimes(1);
   });
