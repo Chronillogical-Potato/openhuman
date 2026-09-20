@@ -93,7 +93,7 @@ use subprocess_providers::{
     try_create_claude_agent_sdk_chat_model_from_string, try_create_claude_code_chat_model,
     try_create_claude_code_chat_model_from_string,
 };
-use tiers::{is_abstract_tier_model, managed_default_model, pinned_managed_default_model};
+use tiers::{is_abstract_tier_model, managed_default_model};
 
 /// Test-only seam: inject a mock [`ChatModel`] so e2e tests can drive the
 /// autonomous run paths (for example `spawn_workflow_run_background`)
