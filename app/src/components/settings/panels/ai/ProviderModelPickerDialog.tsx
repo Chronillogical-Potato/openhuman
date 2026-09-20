@@ -80,7 +80,7 @@ export interface ProviderModelSelection {
 
 interface ProviderModelPickerDialogProps {
   /**
-   * Offer "Managed by OpenHuman" as the first source. Default `true`: managed
+   * Offer the managed OpenRouter source ("Managed by TinyHumans") first. Default `true`: managed
    * is the product's own routing and must stay reachable from anywhere a model
    * is chosen, or picking a specific model becomes a one-way door.
    *
@@ -235,11 +235,14 @@ export function ProviderModelPickerDialog({
     };
   }, [catalogRequest, fetchSlug, isLocalSource]);
 
-  const filteredSources = sources.filter(candidate =>
-    sourceLabel(candidate, cloudProviders, t)
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase())
-  );
+  // The search box narrows the MODEL list of the selected source. Providers
+  // are a handful of fixed rows and stay put; a query only ever hides models.
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchesQuery = (candidate: ModelInfo) =>
+    normalizedQuery === '' ||
+    candidate.id.toLocaleLowerCase().includes(normalizedQuery) ||
+    (candidate.display_name ?? '').toLocaleLowerCase().includes(normalizedQuery);
+  const visibleCatalog = catalog.filter(matchesQuery);
   const selectSource = (nextSource: CustomDialogSource) => {
     setSource(nextSource);
     setModel(nextSource.kind === 'claude-code' ? CLAUDE_CODE_DEFAULT_MODEL : '');
@@ -319,7 +322,7 @@ export function ProviderModelPickerDialog({
             {t('settings.ai.picker.providersLabel')}
           </p>
           <div className="space-y-1">
-            {filteredSources.map(candidate => {
+            {sources.map(candidate => {
               const selected = source && sourceKey(candidate) === sourceKey(source);
               return (
                 <Button
@@ -371,19 +374,21 @@ export function ProviderModelPickerDialog({
               role="listbox"
               aria-label={t('settings.ai.modelLabel')}
               className="max-h-96 space-y-1 overflow-y-auto">
-              <ManagedModelRow
-                testId="model-picker-managed-automatic"
-                selected={model === ''}
-                title={t('settings.ai.picker.managedAutomatic')}
-                detail={t('settings.ai.managedSourceDetail')}
-                onClick={() => setModel('')}
-              />
+              {normalizedQuery === '' ? (
+                <ManagedModelRow
+                  testId="model-picker-managed-automatic"
+                  selected={model === ''}
+                  title={t('settings.ai.picker.managedAutomatic')}
+                  detail={t('settings.ai.managedSourceDetail')}
+                  onClick={() => setModel('')}
+                />
+              ) : null}
               {loading ? (
                 <p className="px-2.5 py-2 text-xs text-content-muted">
                   {t('settings.ai.loadingModels')}
                 </p>
               ) : (
-                catalog.map(candidate => (
+                visibleCatalog.map(candidate => (
                   <ManagedModelRow
                     key={candidate.id}
                     testId={`model-picker-managed-option-${candidate.id}`}
@@ -434,7 +439,7 @@ export function ProviderModelPickerDialog({
                   {t('settings.ai.picker.claudeCodeHint')}
                 </p>
               ) : (
-                catalog.map(candidate => (
+                visibleCatalog.map(candidate => (
                   <Button
                     key={candidate.id}
                     type="button"
