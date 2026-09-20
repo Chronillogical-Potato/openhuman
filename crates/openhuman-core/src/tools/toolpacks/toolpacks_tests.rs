@@ -485,8 +485,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "mcp_registry_connect",
                 "mcp_registry_disconnect",
                 "mcp_registry_tool_call",
-                "mcp_registry_config_assist",
-                "mcp_registry_install",
                 "mcp_registry_uninstall",
             ],
         ),
