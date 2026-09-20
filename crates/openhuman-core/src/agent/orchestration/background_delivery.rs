@@ -228,9 +228,7 @@ async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<
     // provider response is replaced with the empty-turn fallback.
     let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(128);
     host.set_on_progress(Some(progress_tx));
-    let progress_drain = tokio::spawn(async move {
-        while progress_rx.recv().await.is_some() {}
-    });
+    let progress_drain = tokio::spawn(async move { while progress_rx.recv().await.is_some() {} });
     let result = crate::agent::turn_origin::with_origin(
         crate::agent::turn_origin::AgentTurnOrigin::Cli,
         host.run_single(&prompt),
