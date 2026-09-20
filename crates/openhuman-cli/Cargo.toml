@@ -343,6 +343,8 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 parking_lot = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 sha2 = "0.10"
+# `ollama_lifecycle_e2e` checks the spawned runtime child is really gone.
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 tar = "0.4"
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }

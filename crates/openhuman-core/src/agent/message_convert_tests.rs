@@ -174,13 +174,13 @@ fn seeded_native_tool_round_recovers_structure_and_round_trips() {
 
     // Outbound: re-serialized to a well-formed native tool round (assistant
     // carries structured tool_calls, the tool row carries the matching id).
-    let a_native = message_to_native_chat_message(&a);
+    let a_native = message_to_native_chat_message(&a).expect("assistant converts");
     assert_eq!(a_native.role, "assistant");
     let av: serde_json::Value = serde_json::from_str(&a_native.content).unwrap();
     assert_eq!(av["tool_calls"][0]["id"], "call-1");
     assert_eq!(av["content"], "calling echo");
 
-    let t_native = message_to_native_chat_message(&t);
+    let t_native = message_to_native_chat_message(&t).expect("tool converts");
     assert_eq!(t_native.role, "tool");
     let tv: serde_json::Value = serde_json::from_str(&t_native.content).unwrap();
     assert_eq!(tv["tool_call_id"], "call-1");
@@ -218,7 +218,7 @@ fn reasoning_content_uses_typed_thinking_block_and_round_trips_metadata() {
         .iter()
         .any(|block| matches!(block, ContentBlock::ProviderExtension(_))));
 
-    let back = message_to_chat_message(&msg);
+    let back = message_to_chat_message(&msg).expect("assistant converts");
     assert_eq!(back.content, "visible answer");
     assert_eq!(
         back.extra_metadata
@@ -244,7 +244,7 @@ fn legacy_provider_extension_reasoning_still_round_trips() {
         origin: None,
     });
 
-    let back = message_to_chat_message(&msg);
+    let back = message_to_chat_message(&msg).expect("assistant converts");
     assert_eq!(back.content, "visible answer");
     assert_eq!(
         back.extra_metadata

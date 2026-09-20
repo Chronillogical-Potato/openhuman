@@ -118,6 +118,7 @@ impl ScriptedProvider {
                         Message::User(_) => "user",
                         Message::Assistant(_) => "assistant",
                         Message::Tool(_) => "tool",
+                        Message::Custom(_) => "custom",
                     },
                     content: message.text(),
                 })

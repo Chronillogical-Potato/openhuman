@@ -186,6 +186,7 @@ fn crate_model_response_preserves_flow_completion_contract() {
                 invalid: None,
             }],
             usage: Some(usage),
+            origin: None,
         },
         usage: Some(usage),
         finish_reason: Some("tool_calls".to_string()),

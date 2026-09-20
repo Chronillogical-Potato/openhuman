@@ -153,6 +153,8 @@ pub(crate) fn render_unanswered_steps(messages: &[Message]) -> Option<String> {
             Message::User(_) | Message::System(_) => {
                 out.push_str(&format!("- message: {}\n", clip(&msg.text())))
             }
+            // Host-side out-of-band record: not a step the model took.
+            Message::Custom(_) => {}
         }
     }
     Some(out)

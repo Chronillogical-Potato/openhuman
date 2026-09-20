@@ -386,8 +386,13 @@ pub(crate) fn history_to_messages(history: &[ChatMessage]) -> Vec<Message> {
 /// Assistant tool calls are flattened to their text (the loop already executed
 /// them and appended `Tool` result messages), and a tool message preserves its
 /// correlation id on [`ChatMessage::id`] so downstream persistence keeps it.
-pub(crate) fn message_to_chat_message(msg: &Message) -> ChatMessage {
-    match msg {
+///
+/// Returns `None` for [`Message::Custom`]: that variant is a host-side
+/// out-of-band record (compaction marker, label, audit note) that the harness
+/// never sends to a provider, and a [`ChatMessage`] history *is* provider
+/// input, so carrying it across would leak it into the next request.
+pub(crate) fn message_to_chat_message(msg: &Message) -> Option<ChatMessage> {
+    Some(match msg {
         Message::System(_) => ChatMessage::system(msg.text()),
         Message::User(_) => ChatMessage::user(msg.text()),
         Message::Assistant(a) => {
@@ -400,12 +405,21 @@ pub(crate) fn message_to_chat_message(msg: &Message) -> ChatMessage {
             cm.id = Some(t.tool_call_id.clone());
             cm
         }
-    }
+        Message::Custom(c) => {
+            log::trace!("[message_convert] dropping custom message kind={}", c.kind);
+            return None;
+        }
+    })
 }
 
 /// Convert a harness transcript back into openhuman history.
+///
+/// [`Message::Custom`] records are dropped; see [`message_to_chat_message`].
 pub(crate) fn messages_to_history(messages: &[Message]) -> Vec<ChatMessage> {
-    messages.iter().map(message_to_chat_message).collect()
+    messages
+        .iter()
+        .filter_map(message_to_chat_message)
+        .collect()
 }
 
 /// Serialize a user [`Message`]'s content blocks back into a single string for a
@@ -460,8 +474,11 @@ fn native_user_content(msg: &Message) -> String {
 /// followed by an orphan tool message and drops the round — breaking multi-turn
 /// native tool calling (e.g. the orchestrator's `spawn_parallel_agents` →
 /// synthesis hop).
-pub(crate) fn message_to_native_chat_message(msg: &Message) -> ChatMessage {
-    match msg {
+///
+/// Returns `None` for [`Message::Custom`], which is never provider input; see
+/// [`message_to_chat_message`].
+pub(crate) fn message_to_native_chat_message(msg: &Message) -> Option<ChatMessage> {
+    Some(match msg {
         Message::System(_) => ChatMessage::system(msg.text()),
         Message::User(_) => ChatMessage::user(native_user_content(msg)),
         Message::Assistant(a) if !a.tool_calls.is_empty() => {
@@ -488,7 +505,11 @@ pub(crate) fn message_to_native_chat_message(msg: &Message) -> ChatMessage {
             cm.id = Some(t.tool_call_id.clone());
             cm
         }
-    }
+        Message::Custom(c) => {
+            log::trace!("[message_convert] dropping custom message kind={}", c.kind);
+            return None;
+        }
+    })
 }
 
 /// Convert a harness transcript into the **typed** [`ConversationMessage`] shape
@@ -540,6 +561,11 @@ pub(crate) fn messages_to_conversation(messages: &[Message]) -> Vec<Conversation
                         extra_metadata: reasoning_extra_metadata(&a.content),
                     });
                 }
+            }
+            // Host-side out-of-band record; not part of the persisted
+            // conversation and never provider input.
+            Message::Custom(c) => {
+                log::trace!("[message_convert] dropping custom message kind={}", c.kind);
             }
         }
     }
@@ -626,7 +652,7 @@ pub(crate) fn messages_to_text_mode_chat(messages: &[Message]) -> Vec<ChatMessag
             Message::Tool(_) => pending.push(msg.text()),
             _ => {
                 flush(&mut out, &mut pending);
-                out.push(message_to_chat_message(msg));
+                out.extend(message_to_chat_message(msg));
             }
         }
     }

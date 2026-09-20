@@ -75,6 +75,8 @@ fn count_native_image_blocks(msg: &TaMessage) -> u64 {
         TaMessage::User(m) => &m.content,
         TaMessage::Assistant(m) => &m.content,
         TaMessage::Tool(m) => &m.content,
+        // Out-of-band host record; carries no content blocks.
+        TaMessage::Custom(_) => return 0,
     };
     content
         .iter()

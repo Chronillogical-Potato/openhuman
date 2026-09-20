@@ -39,6 +39,7 @@ fn native_tool_payload_collapses_mixed_blocks_to_text() {
         ],
         is_error: false,
         markdown_formatted: None,
+        ..ToolResult::default()
     };
     let payload = native_tool_payload(&result);
     let text = payload["text"].as_str().expect("text field");

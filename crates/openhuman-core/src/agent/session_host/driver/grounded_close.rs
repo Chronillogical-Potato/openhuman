@@ -73,8 +73,10 @@ pub(super) async fn repair_required_output(
         return None;
     }
 
-    let mut prompt_history: Vec<ChatMessage> =
-        history.iter().map(message_to_native_chat_message).collect();
+    let mut prompt_history: Vec<ChatMessage> = history
+        .iter()
+        .filter_map(message_to_native_chat_message)
+        .collect();
     prompt_history.push(ChatMessage::user(required::repair_instruction(contract)));
     let (candidate, candidate_usage) =
         completion(source, model, temperature, thread_id, prompt_history).await;
@@ -157,7 +159,7 @@ pub(super) async fn close_if_needed(
     };
     let mut base: Vec<ChatMessage> = base_history
         .iter()
-        .map(message_to_native_chat_message)
+        .filter_map(message_to_native_chat_message)
         .collect();
     base.push(ChatMessage::user(instruction));
 

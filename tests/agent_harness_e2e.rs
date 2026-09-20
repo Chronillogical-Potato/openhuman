@@ -2446,6 +2446,7 @@ mod streaming_support {
                 content: Vec::<ContentBlock>::new(),
                 tool_calls: vec![ToolCall::new(id, name, args)],
                 usage: Some(usage),
+                origin: None,
             },
             usage: Some(usage),
             finish_reason: Some("tool_calls".to_string()),
@@ -2630,6 +2631,7 @@ mod streaming_support {
                 }],
                 is_error: false,
                 markdown_formatted: None,
+                ..ToolResult::default()
             })
         }
 
@@ -2723,27 +2725,32 @@ async fn streaming_tool_call_accumulation() {
                 call_id: "stream-1".to_string(),
                 content: String::new(),
                 tool_name: Some("echo_tool".to_string()),
+                content_index: None,
             }),
             // Four argument fragments — mid-key / mid-value splits.
             ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
                 content: chunk0,
                 tool_name: None,
+                content_index: None,
             }),
             ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
                 content: chunk1,
                 tool_name: None,
+                content_index: None,
             }),
             ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
                 content: chunk2,
                 tool_name: None,
+                content_index: None,
             }),
             ModelStreamItem::ToolCallDelta(ToolDelta {
                 call_id: "stream-1".to_string(),
                 content: chunk3,
                 tool_name: None,
+                content_index: None,
             }),
         ],
         profile: ModelProfile {
