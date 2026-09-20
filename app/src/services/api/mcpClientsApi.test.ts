@@ -199,71 +199,58 @@ describe('mcpClientsApi', () => {
     });
   });
 
-  describe('install', () => {
-    it('calls install with correct params and returns server', async () => {
-      const server = {
-        server_id: 'srv-1',
-        qualified_name: 'test/server',
-        display_name: 'Test',
-        command_kind: 'node',
-        command: 'node',
-        args: [],
-        env_keys: ['API_KEY'],
-        installed_at: 1_700_000_000,
+  describe('configGet', () => {
+    it('calls config_get and returns the document', async () => {
+      const mcpServers = {
+        echo: { command: 'npx', args: ['-y', 'echo'], envKeys: ['TOKEN'], authConfigured: true },
       };
-      mockCallCoreRpc.mockResolvedValueOnce({ server });
+      mockCallCoreRpc.mockResolvedValueOnce({ mcpServers });
 
       const { mcpClientsApi } = await import('./mcpClientsApi');
-      const result = await mcpClientsApi.install({
-        qualified_name: 'test/server',
-        env: { API_KEY: 'secret' },
+      const result = await mcpClientsApi.configGet();
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.mcp_clients_config_get',
+        params: {},
+      });
+      expect(result).toEqual({ mcpServers });
+    });
+
+    it('returns an empty document when the envelope has no servers', async () => {
+      mockCallCoreRpc.mockResolvedValueOnce({});
+      const { mcpClientsApi } = await import('./mcpClientsApi');
+      expect(await mcpClientsApi.configGet()).toEqual({ mcpServers: {} });
+    });
+  });
+
+  describe('configSet', () => {
+    it('sends the document root as the params and returns what changed', async () => {
+      const mcpServers = { hosted: { url: 'https://h.test/mcp', authConfigured: false } };
+      mockCallCoreRpc.mockResolvedValueOnce({
+        mcpServers,
+        added: ['hosted'],
+        updated: [],
+        removed: ['old'],
+      });
+
+      const { mcpClientsApi } = await import('./mcpClientsApi');
+      const result = await mcpClientsApi.configSet({
+        mcpServers: { hosted: { url: 'https://h.test/mcp' } },
       });
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
-        method: 'openhuman.mcp_clients_install',
-        params: { qualified_name: 'test/server', env: { API_KEY: 'secret' } },
+        method: 'openhuman.mcp_clients_config_set',
+        params: { mcpServers: { hosted: { url: 'https://h.test/mcp' } } },
       });
-      expect(result).toEqual(server);
+      expect(result).toEqual({ mcpServers, added: ['hosted'], updated: [], removed: ['old'] });
     });
 
-    it('normalizes registry detail fetch failures during install', async () => {
-      mockCallCoreRpc.mockRejectedValueOnce(
-        new Error(
-          'Failed to fetch registry detail: MCP official registry GET unreal-mcp returned HTTP 404 Not Found: {"title":"Not Found","status":404,"detail":"Server not found"}'
-        )
+    it("throws the host's refusal verbatim", async () => {
+      mockCallCoreRpc.mockRejectedValueOnce(new Error('`bad` needs a `url` (hosted) or a `command` (run locally)'));
+      const { mcpClientsApi } = await import('./mcpClientsApi');
+      await expect(mcpClientsApi.configSet({ mcpServers: { bad: {} } })).rejects.toThrow(
+        '`bad` needs a `url`'
       );
-
-      const { mcpClientsApi } = await import('./mcpClientsApi');
-
-      try {
-        await mcpClientsApi.install({ qualified_name: 'unreal-mcp', env: {} });
-        throw new Error('expected install to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(McpRegistryUserError);
-        expect(err).toMatchObject({ kind: 'not_found' });
-        expect((err as Error).message).toContain('Server not found in registry');
-        expect((err as Error).message).not.toContain('"title"');
-      }
-    });
-
-    it('preserves non-registry install failures', async () => {
-      mockCallCoreRpc.mockRejectedValueOnce(new Error('spawn failed'));
-
-      const { mcpClientsApi } = await import('./mcpClientsApi');
-
-      await expect(
-        mcpClientsApi.install({ qualified_name: 'test/server', env: {} })
-      ).rejects.toThrow('spawn failed');
-    });
-
-    it('preserves non-registry HTTP failures during install', async () => {
-      mockCallCoreRpc.mockRejectedValueOnce(new Error('installer returned HTTP 404'));
-
-      const { mcpClientsApi } = await import('./mcpClientsApi');
-
-      await expect(
-        mcpClientsApi.install({ qualified_name: 'test/server', env: {} })
-      ).rejects.toThrow('installer returned HTTP 404');
     });
   });
 
@@ -441,36 +428,6 @@ describe('mcpClientsApi', () => {
         method: 'openhuman.mcp_clients_registry_settings_set',
         params: { smithery_api_key: 'sk-x' },
       });
-    });
-  });
-
-  describe('configAssist', () => {
-    it('calls config_assist and returns reply', async () => {
-      mockCallCoreRpc.mockResolvedValueOnce({
-        reply: 'Set API_KEY to your token',
-        suggested_env: { API_KEY: 'token-value' },
-      });
-
-      const { mcpClientsApi } = await import('./mcpClientsApi');
-      const result = await mcpClientsApi.configAssist({
-        qualified_name: 'test/server',
-        user_message: 'How do I configure this?',
-        history: [],
-      });
-
-      expect(mockCallCoreRpc).toHaveBeenCalledWith({
-        method: 'openhuman.mcp_clients_config_assist',
-        params: {
-          qualified_name: 'test/server',
-          user_message: 'How do I configure this?',
-          history: [],
-        },
-        // config_assist runs a full agent turn (web search + fetch) and is given
-        // a generous 5-minute ceiling instead of the default RPC budget.
-        timeoutMs: 300_000,
-      });
-      expect(result.reply).toBe('Set API_KEY to your token');
-      expect(result.suggested_env).toEqual({ API_KEY: 'token-value' });
     });
   });
 
