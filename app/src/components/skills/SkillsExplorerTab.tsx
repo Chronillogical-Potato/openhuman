@@ -455,10 +455,9 @@ interface SkillsExplorerTabProps {
   onToast?: (toast: { type: 'success' | 'error'; title: string; message?: string }) => void;
   /** Which notation the page header picked. */
   view: ExplorerView;
-  onViewChange: (view: ExplorerView) => void;
 }
 
-export default function SkillsExplorerTab({ onToast, view, onViewChange }: SkillsExplorerTabProps) {
+export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabProps) {
   const { t } = useT();
   const navigate = useNavigate();
 
