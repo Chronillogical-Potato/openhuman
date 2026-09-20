@@ -54,7 +54,19 @@ function makeInstalledServer(overrides: Partial<typeof INSTALLED_DEFAULT> = {}) 
   return { ...INSTALLED_DEFAULT, ...overrides };
 }
 
-const INSTALLED_DEFAULT = {
+const INSTALLED_DEFAULT: {
+  server_id: string;
+  qualified_name: string;
+  display_name: string;
+  description?: string;
+  command_kind: string;
+  command: string;
+  args: string[];
+  env_keys: string[];
+  installed_at: number;
+  transport?: { kind: 'stdio' } | { kind: 'http_remote'; url: string };
+  enabled: boolean;
+} = {
   server_id: 'srv_installed_1',
   qualified_name: 'io.github.test/memory-server',
   display_name: 'Memory Server',
@@ -205,8 +217,15 @@ async function setupMockRpc(page: Page, state: MockState) {
         state.installed = state.installed.filter(s => names.has(s.qualified_name));
         state.statuses = state.statuses.filter(s => !removed.includes(s.qualified_name));
         const added: string[] = [];
+        const updated: string[] = [];
         for (const [name, entry] of Object.entries(declared)) {
-          if (state.installed.some(s => s.qualified_name === name)) continue;
+          const current = state.installed.find(s => s.qualified_name === name);
+          if (current) {
+            current.command = (entry.command as string) ?? '';
+            current.args = (entry.args as string[]) ?? [];
+            updated.push(name);
+            continue;
+          }
           if (!entry.command && !entry.url) {
             return route.fulfill(
               rpcError(id, `\`${name}\` needs a \`url\` (hosted) or a \`command\` (run locally)`)
@@ -219,6 +238,7 @@ async function setupMockRpc(page: Page, state: MockState) {
               rpcError(id, `\`${name}\` has a \`cwd\` field this host doesn't understand`)
             );
           }
+          const credentials = (entry.env ?? entry.headers ?? {}) as Record<string, string>;
           state.installed.push(
             makeInstalledServer({
               server_id: `srv_${name}`,
@@ -227,20 +247,34 @@ async function setupMockRpc(page: Page, state: MockState) {
               description: undefined,
               command: (entry.command as string) ?? '',
               args: (entry.args as string[]) ?? [],
-              env_keys: Object.keys((entry.env as Record<string, string>) ?? {}),
+              env_keys: Object.keys(credentials),
+              transport: entry.url
+                ? { kind: 'http_remote', url: entry.url as string }
+                : { kind: 'stdio' },
             })
           );
           added.push(name);
         }
-        return route.fulfill(
-          rpcOk(id, { mcpServers: renderDoc(state), added, updated: [], removed })
-        );
+        return route.fulfill(rpcOk(id, { mcpServers: renderDoc(state), added, updated, removed }));
       }
 
       // Auth probe for the upfront connect modal — these test servers need no
       // credentials, so report `none` and the modal shows a single Connect button.
-      case 'openhuman.mcp_clients_detect_auth':
-        return route.fulfill(rpcOk(id, { kind: 'none' }));
+      case 'openhuman.mcp_clients_detect_auth': {
+        // A hosted server with nothing stored asks for browser sign-in; the
+        // rest need no credentials.
+        const inst = state.installed.find(s => s.server_id === params.server_id);
+        const oauth = inst?.transport?.kind === 'http_remote' && inst.env_keys.length === 0;
+        return route.fulfill(
+          rpcOk(
+            id,
+            oauth ? { kind: 'oauth', grant_types: ['authorization_code'] } : { kind: 'none' }
+          )
+        );
+      }
+
+      case 'openhuman.mcp_clients_oauth_begin':
+        return route.fulfill(rpcOk(id, { authorize_url: 'https://auth.example/authorize' }));
 
       case 'openhuman.mcp_clients_connect': {
         const sid = params.server_id;
@@ -381,6 +415,57 @@ test.describe('MCP page — Servers tab', () => {
     await installedRow(page, 'Memory Server').waitFor({ state: 'visible', timeout: 10_000 });
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.toLowerCase()).not.toContain('smithery');
+  });
+
+  test('add flow: form → local command with env → the row appears', async ({ page }) => {
+    await page.getByTestId('mcp-add-server').click();
+    const form = page.getByTestId('mcp-server-form');
+    await expect(form).toBeVisible({ timeout: 5_000 });
+    await form.getByTestId('mcp-form-name').fill('github');
+    await form.getByTestId('mcp-form-command').fill('npx');
+    await form.getByTestId('mcp-form-args').fill('-y @modelcontextprotocol/server-github');
+    await form.getByLabel('Variable name').fill('GITHUB_TOKEN');
+    await form.getByLabel('Value', { exact: true }).fill('ghp_test');
+    await form.getByTestId('mcp-form-save').click();
+
+    await expect(form).not.toBeVisible({ timeout: 5_000 });
+    const row = installedRow(page, 'github');
+    await expect(row).toBeVisible({ timeout: 5_000 });
+    await expect(row).toContainText('npx -y @modelcontextprotocol/server-github');
+  });
+
+  test('add flow: remote URL with browser sign-in hands off to the connect dialog', async ({
+    page,
+  }) => {
+    await page.getByTestId('mcp-add-server').click();
+    const form = page.getByTestId('mcp-server-form');
+    await form.getByTestId('mcp-form-name').fill('notion');
+    await form.getByTestId('mcp-form-transport').selectOption('http');
+    await form.getByTestId('mcp-form-url').fill('https://mcp.notion.com/mcp');
+    await form.getByTestId('mcp-form-auth').selectOption('oauth');
+    await expect(form.getByTestId('mcp-form-save')).toHaveText('Save & sign in');
+    await form.getByTestId('mcp-form-save').click();
+
+    // The connect dialog opens for the new server and offers the sign-in.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toContainText('Connect notion');
+    await expect(dialog.getByRole('button', { name: 'Sign in with browser' })).toBeVisible();
+  });
+
+  test("edit flow: the row's pencil opens the form prefilled, and saves in place", async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: 'Edit Memory Server' }).click();
+    const form = page.getByTestId('mcp-server-form');
+    await expect(form.getByTestId('mcp-form-name')).toHaveValue('io.github.test/memory-server');
+    await expect(form.getByTestId('mcp-form-command')).toHaveValue('npx');
+    await form
+      .getByTestId('mcp-form-args')
+      .fill('-y @modelcontextprotocol/server-memory --verbose');
+    await form.getByTestId('mcp-form-save').click();
+    await expect(form).not.toBeVisible({ timeout: 5_000 });
+    await expect(installedRow(page, 'Memory Server')).toContainText('--verbose');
   });
 });
 
