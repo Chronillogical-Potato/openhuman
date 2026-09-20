@@ -1696,7 +1696,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'Tego pliku nie można jeszcze zapisać',
   'mcp.json.unsaved': 'Niezapisane zmiany',
   'mcp.registry.title': 'Katalog MCP',
-  'mcp.tab.section.servers': 'Serwery ({count})',
+  'mcp.tab.section.servers': 'Serwery',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'Rejestr',
   'mcp.tab.back': 'Wróć do serwerów',

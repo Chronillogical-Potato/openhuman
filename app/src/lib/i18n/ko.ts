@@ -1655,7 +1655,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': '이 파일은 아직 저장할 수 없습니다',
   'mcp.json.unsaved': '저장되지 않은 변경 사항',
   'mcp.registry.title': 'MCP 디렉터리',
-  'mcp.tab.section.servers': '서버 ({count})',
+  'mcp.tab.section.servers': '서버',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': '레지스트리',
   'mcp.tab.back': '서버 목록으로 돌아가기',

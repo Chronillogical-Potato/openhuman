@@ -1681,7 +1681,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'Berkas ini belum bisa disimpan',
   'mcp.json.unsaved': 'Perubahan belum disimpan',
   'mcp.registry.title': 'Direktori MCP',
-  'mcp.tab.section.servers': 'Server ({count})',
+  'mcp.tab.section.servers': 'Server',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'Registri',
   'mcp.tab.back': 'Kembali ke server',

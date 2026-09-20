@@ -1689,7 +1689,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'Этот файл пока нельзя сохранить',
   'mcp.json.unsaved': 'Несохранённые изменения',
   'mcp.registry.title': 'Каталог MCP',
-  'mcp.tab.section.servers': 'Серверы ({count})',
+  'mcp.tab.section.servers': 'Серверы',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'Реестр',
   'mcp.tab.back': 'Назад к серверам',
