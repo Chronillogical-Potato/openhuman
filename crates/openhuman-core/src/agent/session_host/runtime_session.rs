@@ -991,7 +991,7 @@ impl OpenHumanTurnPrelude {
             .store(
                 crate::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
                 &key,
-                &message,
+                message,
                 crate::memory::MemoryCategory::Conversation,
                 self.thread_id.as_deref(),
             )
