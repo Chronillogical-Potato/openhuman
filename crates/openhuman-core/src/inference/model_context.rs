@@ -5,10 +5,7 @@
 //! otherwise long histories produce upstream `400 Bad Request` errors when usage
 //! metadata is not yet available.
 
-use crate::config::{
-    MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-    MODEL_REASONING_V1,
-};
+use crate::config::{legacy_tier_role, MODEL_MANAGED_DEFAULT};
 
 /// Conservative default for OpenHuman abstract tier models (tokens).
 const TIER_LARGE_CONTEXT: u64 = 200_000;
@@ -17,14 +14,10 @@ const TIER_REASONING_CONTEXT: u64 = 1_000_000;
 const TIER_STANDARD_CONTEXT: u64 = 128_000;
 const TIER_LOCAL_CONTEXT: u64 = 8_192;
 
-/// DeepSeek v4 Flash window (~1M tokens) — the shared backing for every managed
-/// "flash" tier: `chat-v1`, its legacy alias `reasoning-quick-v1`, and
-/// `summarization-v1`. Kept as a single constant so these tiers can't drift
-/// apart again (issue #4706: `chat-v1` was pinned at `TIER_STANDARD_CONTEXT`
-/// (128K) while `summarization-v1` was 1M, even though both resolve to DeepSeek
-/// v4 Flash in the backend model registry). `extract_from_result` also relies on
-/// this window to single-shot whole oversized payloads instead of chunking, so
-/// it must reflect the real backing model's capacity.
+/// DeepSeek v4 Flash window (~1M tokens) — the managed default model
+/// (`MODEL_MANAGED_DEFAULT`) and the backing of the retired flash tiers.
+/// `extract_from_result` relies on this window to single-shot whole oversized
+/// payloads instead of chunking, so it must reflect the real model's capacity.
 const TIER_FLASH_CONTEXT: u64 = 1_000_000;
 
 /// Resolve the context window (in tokens) for a model id or OpenHuman tier alias.
@@ -64,19 +57,23 @@ pub fn context_window_for_model(model: &str) -> Option<u64> {
 }
 
 fn tier_context_window(model: &str) -> Option<u64> {
-    match model {
-        MODEL_REASONING_V1 => Some(TIER_REASONING_CONTEXT),
-        MODEL_AGENTIC_V1 | MODEL_CODING_V1 => Some(TIER_LARGE_CONTEXT),
-        "summarization-v1" => Some(TIER_FLASH_CONTEXT),
-        // Burst tier advertises a 128k window on the managed backend. Matched on
-        // the `burst-v1` alias before any substring fallbacks below.
-        MODEL_BURST_V1 => Some(TIER_STANDARD_CONTEXT),
-        // `chat-v1` (and its legacy alias `reasoning-quick-v1`) are backed by
-        // DeepSeek v4 Flash — the same ~1M model as `summarization-v1`, not a
-        // 128K model (issue #4706). Share `TIER_FLASH_CONTEXT` so the three
-        // flash tiers stay in lockstep.
-        MODEL_CHAT_V1 | MODEL_REASONING_QUICK_V1 | "chat" => Some(TIER_FLASH_CONTEXT),
-        m if m.starts_with("gemma") || m.contains(":1b") || m.contains("270m") => {
+    if model == MODEL_MANAGED_DEFAULT {
+        return Some(TIER_FLASH_CONTEXT);
+    }
+    // Role aliases and retired tier slugs: the windows the roles ran on before
+    // every managed role collapsed onto the default model. Kept so an alias a
+    // caller still holds budgets the way it used to.
+    let role = model
+        .strip_prefix("hint:")
+        .or_else(|| legacy_tier_role(model))
+        .unwrap_or("");
+    match role {
+        "reasoning" => Some(TIER_REASONING_CONTEXT),
+        "agentic" | "coding" => Some(TIER_LARGE_CONTEXT),
+        "burst" => Some(TIER_STANDARD_CONTEXT),
+        "chat" | "summarization" | "subconscious" => Some(TIER_FLASH_CONTEXT),
+        _ if model == "chat" => Some(TIER_FLASH_CONTEXT),
+        _ if model.starts_with("gemma") || model.contains(":1b") || model.contains("270m") => {
             Some(TIER_LOCAL_CONTEXT)
         }
         _ => None,
@@ -112,11 +109,10 @@ pub fn model_vision_enabled(model: &str, config: &crate::config::Config) -> bool
 /// Whether a resolved model accepts image input. The single predicate shared by
 /// the chat UI resolve and the server-side session/sub-agent gates.
 ///
-/// - **Managed OpenHuman tiers** consult the hardcoded per-tier map
+/// - **Managed models and role aliases** consult the core-owned map
 ///   ([`crate::inference::provider::factory::oh_tier_supports_vision`]) —
-///   the remote backend does not advertise per-tier capability, so the core owns
-///   it. Currently `reasoning-v1` and `vision-v1` — plus their `hint:reasoning`
-///   / `hint:vision` aliases — are vision-capable; every other tier is not.
+///   the remote backend does not advertise per-model capability. The managed
+///   default model and the `vision` / `reasoning` aliases are vision-capable.
 /// - **Custom/BYOK models** consult the user-set `model_registry.vision` flag
 ///   ([`model_vision_enabled`]).
 pub fn model_supports_vision(model: &str, config: &crate::config::Config) -> bool {
