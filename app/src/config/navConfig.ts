@@ -55,16 +55,6 @@ export const NAV_TABS: NavTab[] = [
     path: '/connections',
     walkthroughAttr: 'tab-connections',
   },
-  // Rewards was a footer row beside Feedback; it is a primary destination now,
-  // directly below Connections. The cloud gate travelled with it — a local
-  // session still never sees it, because the page has nothing to show one.
-  {
-    id: 'rewards',
-    labelKey: 'nav.rewards',
-    path: '/rewards',
-    walkthroughAttr: 'tab-rewards',
-    cloudOnly: true,
-  },
   // Settings is reached via the gear icon in the sidebar header, so it no
   // longer has its own primary nav tab. Feedback lives in a slim footer row
   // pinned just above the status bar (see AppSidebar).
