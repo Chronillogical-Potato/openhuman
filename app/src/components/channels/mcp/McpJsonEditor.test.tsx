@@ -48,7 +48,7 @@ describe('McpJsonEditor', () => {
     expect(screen.queryByTestId('mcp-json-textarea')).not.toBeInTheDocument();
     // Retry re-reads.
     mockConfigGet.mockResolvedValue(LOADED);
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByTestId('mcp-json-editor');
   });
 

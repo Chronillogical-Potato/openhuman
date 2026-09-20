@@ -95,7 +95,7 @@ describe('McpRegistryBrowser', () => {
     render(<McpRegistryBrowser installedNames={new Set()} />);
     await screen.findByTestId('mcp-catalog-error');
     expect(screen.queryByTestId('mcp-catalog-empty')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getAllByTestId('mcp-registry-row')).toHaveLength(3));
   });
 
