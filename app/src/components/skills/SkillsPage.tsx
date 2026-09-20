@@ -25,7 +25,7 @@ const SkillsPage = ({ onToast, initialTab = 'installed' }: SkillsPageProps) => {
   return (
     <SettingsTabbedPage
       title={t('connections.tabs.skills')}
-      description={t('connections.header.skills')}
+      description={t('skills.explorer.subtitle')}
       headerAction={<BetaIndicator />}
       tabs={[
         { id: 'installed', label: t('skills.explorer.installedTab') },

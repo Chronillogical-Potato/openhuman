@@ -37,7 +37,7 @@ import {
   SkillCategoryIcon,
 } from '../components/skills/skillIcons';
 import SkillSearchBar from '../components/skills/SkillSearchBar';
-import SkillsExplorerTab from '../components/skills/SkillsExplorerTab';
+import SkillsPage from '../components/skills/SkillsPage';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import Badge from '../components/ui/Badge';
 import BetaIndicator from '../components/ui/BetaIndicator';
@@ -1083,11 +1083,11 @@ export default function Skills() {
             panels (description, no title; the back button hides because the
             Connections sidebar owns navigation), so they fill the content pane
             and own their scroll directly. */
-        activeTab === 'mcp' ? (
-          // The MCP page owns its own header and tab strip (Servers / mcp.json
-          // / Registry), like the LLM page does, so it takes the pane whole.
+        activeTab === 'mcp' || activeTab === 'skills' ? (
+          // The MCP and Skills pages own their own header and tab strip, like
+          // the LLM page does, so they take the pane whole.
           <div className="h-full p-4">
-            <McpServersPage />
+            {activeTab === 'mcp' ? <McpServersPage /> : <SkillsPage onToast={addToast} />}
           </div>
         ) : INTELLIGENCE_TABS.has(activeTab) ? (
           // API-keys / provider panels were orphaned flush on the shell — give
@@ -1152,10 +1152,8 @@ export default function Skills() {
             <SettingsTabbedPage
               title={t(CONNECTIONS_HEADERS[activeTab]!.titleKey)}
               description={t(CONNECTIONS_HEADERS[activeTab]!.descKey)}
-              headerAction={activeTab === 'skills' ? <BetaIndicator /> : undefined}
-              scrollable={activeTab !== 'skills'}>
-              <div
-                className={activeTab === 'skills' ? 'h-full min-h-0 w-full' : 'w-full space-y-4'}>
+              scrollable>
+              <div className="w-full space-y-4">
                 {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-base font-semibold text-content">
@@ -1359,13 +1357,6 @@ export default function Skills() {
 
                     {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
 
-                    {activeTab === 'skills' && (
-                      <div className="flex h-full min-h-0 flex-col gap-3 animate-fade-up">
-                        <div className="min-h-0 flex-1">
-                          <SkillsExplorerTab onToast={addToast} />
-                        </div>
-                      </div>
-                    )}
                   </>
                 }
               </div>
