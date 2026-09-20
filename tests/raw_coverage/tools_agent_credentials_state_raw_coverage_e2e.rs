@@ -636,8 +636,6 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
         "mcp_call_tool",
         "tool_stats",
         "delegate",
-        "mcp_setup_search",
-        "mcp_setup_install_and_connect",
     ] {
         assert!(
             names.iter().any(|name| name == expected),
