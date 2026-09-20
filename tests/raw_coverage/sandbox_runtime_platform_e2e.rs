@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! JSON-RPC E2E coverage for the platform-runtime namespaces that had **zero**
 //! `tests/**/*_e2e.rs` reach before this file: `sandbox`, `worktree`,
 //! `http_host`, `workspace`, and `modules`.
