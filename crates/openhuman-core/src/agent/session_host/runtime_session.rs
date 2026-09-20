@@ -38,6 +38,7 @@ pub(super) struct OpenHumanSessionState {
     context_middleware: Option<TurnContextMiddleware>,
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
+    pub(super) active_turn_overrides: super::types::TurnOverrides,
     prelude: Option<OpenHumanTurnPrelude>,
     pub(crate) pending_citations:
         Option<tokio::task::JoinHandle<Vec<crate::memory::agent::memory_loader::MemoryCitation>>>,
@@ -89,6 +90,14 @@ struct OpenHumanTurnPrelude {
     /// `ToolSnapshot`; this host surface is the source used to create it.
     tool_surface: Arc<std::sync::Mutex<OpenHumanTurnToolSurface>>,
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
+}
+
+pub(super) fn begin_turn_resume(state: &mut OpenHumanSessionState, resume: &mut ResumeMode) {
+    let overrides = std::mem::take(&mut state.pending_turn_overrides);
+    if overrides.suppress_transcript_autoload {
+        *resume = ResumeMode::Never;
+    }
+    state.active_turn_overrides = overrides;
 }
 
 /// Host-owned tool composition from which one runtime request is prepared.
@@ -1524,8 +1533,15 @@ impl OpenHumanSessionHost {
         let hooks = Arc::new(OpenHumanSessionHooks::new(
             {
                 let resume_target = resume_target.clone();
-                move |_, _, _| {
+                let state = self.runtime_state.clone();
+                move |_, options, _| {
                     let resume_target = resume_target.clone();
+                    begin_turn_resume(
+                        &mut state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+                        &mut options.resume,
+                    );
                     Box::pin(async move {
                         Ok(ResumePreparation {
                             transcript: Some(resume_target),
@@ -1593,7 +1609,7 @@ impl OpenHumanSessionHost {
                             &mut state
                                 .lock()
                                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                                .pending_turn_overrides,
+                                .active_turn_overrides,
                         );
                         let enriched = prelude
                             .enrich_request(

@@ -10,12 +10,31 @@ use tinyagents_session::transcript::{FileTranscriptLocator, TranscriptMeta};
 use tinyinference_llm::message::Message;
 
 use super::runtime_session::{
-    account_committed_turn_against_goal, holistic_last_turn_usage, reconcile_synthesized_visibility,
+    account_committed_turn_against_goal, begin_turn_resume, holistic_last_turn_usage,
+    reconcile_synthesized_visibility, OpenHumanSessionState,
 };
 use super::{OpenHumanSessionFactory, OpenHumanSessionHooks, OpenHumanTranscriptCodec};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 
 struct RecordingDriver(Arc<Mutex<Vec<OpenHumanRunContext>>>);
+
+#[test]
+fn transcript_suppression_is_applied_before_resume() {
+    let mut state = OpenHumanSessionState::default();
+    state.pending_turn_overrides = super::TurnOverrides {
+        suppress_transcript_autoload: true,
+        suppress_tools: true,
+        ..Default::default()
+    };
+    let mut resume = ResumeMode::LatestForAgent;
+
+    begin_turn_resume(&mut state, &mut resume);
+
+    assert_eq!(resume, ResumeMode::Never);
+    assert!(state.pending_turn_overrides == super::TurnOverrides::default());
+    assert!(state.active_turn_overrides.suppress_transcript_autoload);
+    assert!(state.active_turn_overrides.suppress_tools);
+}
 
 #[async_trait]
 impl SessionDriver<OpenHumanRunContext> for RecordingDriver {
