@@ -59,7 +59,12 @@ const ManagedModelRow = ({
     aria-selected={selected}
     data-testid={testId}
     onClick={onClick}
-    className={cn('h-auto w-full justify-start px-2.5 py-1.5', selected && 'bg-surface-muted')}>
+    // Full-bleed rows separated by a bottom rule, not floating pills: the list
+    // is the pane, so it touches the pane's sides and squares its corners.
+    className={cn(
+      'h-auto w-full justify-start rounded-none border-b border-line-subtle px-4 py-2.5',
+      selected && 'bg-surface-muted'
+    )}>
     <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
       <span className="w-full text-left text-sm font-medium break-words whitespace-normal">
         {title}
@@ -347,7 +352,7 @@ export function ProviderModelPickerDialog({
             })}
           </div>
         </div>
-        <div className={cn('min-w-0 px-4', isManaged(source) ? 'py-0' : 'py-4')}>
+        <div className={cn('min-w-0', isManaged(source) ? 'p-0' : 'p-4')}>
           {isManaged(source) ? (
             // The managed catalog fills the pane, alphabetically. Picking a
             // row pins that model; it is billed through managed credits like
@@ -358,7 +363,7 @@ export function ProviderModelPickerDialog({
               aria-label={t('settings.ai.modelLabel')}
               className="max-h-96 overflow-y-auto">
               {loading ? (
-                <p className="px-2.5 py-2 text-xs text-content-muted">
+                <p className="px-4 py-3 text-xs text-content-muted">
                   {t('settings.ai.loadingModels')}
                 </p>
               ) : (
@@ -374,7 +379,7 @@ export function ProviderModelPickerDialog({
                 ))
               )}
               {catalogError ? (
-                <Alert variant="destructive" className="font-mono text-xs break-all">
+                <Alert variant="destructive" className="m-4 font-mono text-xs break-all">
                   {catalogError}
                 </Alert>
               ) : null}
