@@ -5,7 +5,7 @@
 //! (`chat`, `reasoning`, `coding`, …) remain the routing vocabulary — a role
 //! picks its `*_provider` route — but on the managed backend every role runs on
 //! one concrete model: the pinned default (`config.default_model`) or
-//! [`MODEL_MANAGED_DEFAULT`]. The old `chat-v1`-style tier slugs are accepted
+//! [`MODEL_MANAGED_DEFAULT`]. The old `hint:chat`-style tier slugs are accepted
 //! as aliases of their role so un-migrated callers keep routing.
 
 use super::*;

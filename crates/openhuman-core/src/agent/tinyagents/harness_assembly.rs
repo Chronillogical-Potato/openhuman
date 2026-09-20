@@ -137,7 +137,7 @@ pub(super) fn assemble_turn_harness(
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
     // SDK `RunPolicy.fallback` with the ordered same-family route chain for this
     // turn's primary model so the harness fails over to a sibling workload tier
-    // (e.g. chat-v1 → burst-v1) when the primary route errors. Retry stays pinned
+    // (e.g. hint:chat → hint:burst) when the primary route errors. Retry stays pinned
     // to a single attempt (see `run_policy_for`) — fallback and retry are
     // independent knobs, and only fallback is enabled here because `ReliableProvider`
     // (still wrapped) does not fail over across the registered tier routes.
@@ -220,7 +220,7 @@ pub(super) fn assemble_turn_harness(
     harness.push_model_middleware(Arc::new(routes::ResolvedRouteMiddleware));
 
     // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
-    // derivable capability needs (today: vision for a `vision-v1` turn), stamp
+    // derivable capability needs (today: vision for a `hint:vision` turn), stamp
     // them onto every `ModelRequest` via `with_required_capabilities` so an unfit
     // model is rejected pre-dispatch (and, once 02.2 lands, a capable fallback is
     // selected) instead of failing at the provider.

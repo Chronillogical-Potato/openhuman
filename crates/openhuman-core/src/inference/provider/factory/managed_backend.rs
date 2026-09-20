@@ -4,7 +4,7 @@
 use super::*;
 
 /// The managed summarization model. Historically a dedicated
-/// `summarization-v1` tier; now the managed default like every other role.
+/// `hint:summarization` tier; now the managed default like every other role.
 /// Kept as a named seam because the memory tree, the chat-turn payload
 /// summarizer and the `extract` sub-agent all read it.
 pub(crate) fn summarization_tier_model() -> &'static str {
@@ -85,7 +85,7 @@ pub(super) fn resolve_managed_backend_with_model_override(
     // `model` is the managed default here, never a hint or a retired tier
     // slug; a caller's own `hint:*` / tier value only ever arrives through
     // `model_override`, translated below.
-    // An override that is itself a managed alias (`hint:coding`, `chat-v1`)
+    // An override that is itself a managed alias (`hint:coding`, `hint:chat`)
     // means "this role on the managed backend" — the default model. A concrete
     // id (`openrouter/deepseek/deepseek-v4-pro`) is forwarded verbatim; the
     // backend is authoritative over its validity (issue #4598).

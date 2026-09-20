@@ -37,7 +37,7 @@ impl CostRoute {
     }
 }
 
-/// The retired managed tier slugs (`chat-v1`, …). Older cost records still
+/// The retired managed tier slugs (`hint:chat`, …). Older cost records still
 /// carry them, and they were only ever served — and billed — by the managed
 /// backend, so they classify as managed. A BYOK provider is always addressed
 /// by its real model id (`minimax/minimax-m3`, `llama3:8b`), never by a slug.
@@ -96,8 +96,8 @@ fn is_managed_passthrough_id(normalized: &str) -> bool {
 ///
 /// Stripping loops until neither prefix applies, so the two decorations are
 /// **order-independent**. A single fixed-order pass classified
-/// `openhuman/hint:chat-v1` as BYOK (it stripped `openhuman/`, leaving
-/// `hint:chat-v1`, which is not a managed slug) while `hint:openhuman/chat-v1`
+/// `openhuman/hint:hint:chat` as BYOK (it stripped `openhuman/`, leaving
+/// `hint:hint:chat`, which is not a managed slug) while `hint:openhuman/hint:chat`
 /// classified as Managed — meaning managed spend could silently stop counting
 /// toward the cap depending only on which decoration a recording site applied
 /// first.

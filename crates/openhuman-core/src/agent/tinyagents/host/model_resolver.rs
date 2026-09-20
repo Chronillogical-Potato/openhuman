@@ -118,7 +118,7 @@ const LEAD_DEFAULT_ROLE: &str = "chat";
 /// already lands.
 const SUBAGENT_DEFAULT_ROLE: &str = "chat";
 
-/// Whether `lowered` is a retired tier slug (`reasoning-v1`, …) that
+/// Whether `lowered` is a retired tier slug (`hint:reasoning`, …) that
 /// `role_for_model_tier` still recognises as its role, rather than merely
 /// something that ends in `-v1`. Delegates to the config's own legacy table so
 /// this adapter never restates it.
@@ -131,7 +131,7 @@ fn is_known_model_tier(lowered: &str) -> bool {
 /// This function *is* the product policy the seam exists to hold:
 ///
 /// * an explicit role wins, after normalisation — a caller may spell it as a
-///   plain workload role (`"reasoning"`), as a model tier (`"reasoning-v1"`), or
+///   plain workload role (`"reasoning"`), as a model tier (`"hint:reasoning"`), or
 ///   as an agent-definition hint (`"hint:agentic"`), and all three are in live
 ///   use across `agent.toml` files and the channel routes;
 /// * otherwise the structural lead/subagent split decides, which is the one

@@ -26,7 +26,7 @@ pub enum AgentTier {
     /// reasoning. May delegate to `Reasoning` or `Worker`; must NOT
     /// delegate to another `Chat` agent.
     Chat,
-    /// Deep-thinking agent on a `reasoning-v1`-style model (e.g. the
+    /// Deep-thinking agent on a `hint:reasoning`-style model (e.g. the
     /// Planner). Decomposes long-running tasks and delegates execution
     /// to one or more `Worker`s. Must NOT delegate to another
     /// `Reasoning` agent.

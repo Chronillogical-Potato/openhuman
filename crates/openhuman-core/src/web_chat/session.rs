@@ -32,7 +32,7 @@ pub(crate) fn normalize_model_override(model_override: Option<String>) -> Option
 }
 
 pub(crate) fn provider_role_for_model_override(model_override: Option<&str>) -> &'static str {
-    // A role alias (`hint:coding`) or a retired tier slug (`coding-v1`) picks
+    // A role alias (`hint:coding`) or a retired tier slug (`hint:coding`) picks
     // that workload's route; a concrete model id rides the chat route.
     match model_override.map(str::trim) {
         Some(value) if value.starts_with("hint:") || crate::config::is_legacy_tier_model(value) => {

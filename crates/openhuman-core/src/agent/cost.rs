@@ -18,7 +18,7 @@
 //! backend always wins when available.
 //!
 //! The pricing table is intentionally tiny: the managed default model,
-//! with the retired tier slugs (`chat-v1`, …) still resolving to its rate so
+//! with the retired tier slugs (`hint:chat`, …) still resolving to its rate so
 //! older cost records estimate sanely. Every other model — catalog ids the
 //! user pins, BYOK vendor models — is priced from the vendor catalog.
 
