@@ -52,6 +52,7 @@ impl Tool for RecordingTool {
             ],
             is_error: args["fail"].as_bool().unwrap_or(false),
             markdown_formatted: Some("markdown content".to_string()),
+            ..ToolResult::default()
         })
     }
 }
@@ -102,6 +103,7 @@ async fn canonical_adapter_preserves_spec_policy_context_and_result() {
                 ],
                 is_error: args["fail"].as_bool().unwrap_or(false),
                 markdown_formatted: Some("markdown content".into()),
+                ..ToolResult::default()
             })
         }
     }

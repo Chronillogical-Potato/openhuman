@@ -37,21 +37,17 @@ async fn reads_a_database_written_by_the_previous_backend() {
     use tinyagents_graph::Checkpointer as LegacyCheckpointer;
 
     let old = tinyagents_graph::SqliteCheckpointer::<serde_json::Value>::open(&db).unwrap();
-    let written = tinyagents_graph::Checkpoint {
-        thread_id: "flow:f1:run-a".to_string(),
-        checkpoint_id: "cp-1".to_string(),
-        run_id: Some("run-1".to_string()),
-        parent_checkpoint_id: None,
-        namespace: Vec::new(),
-        state: json!({ "counter": 7 }),
-        next_nodes: vec![tinyagents_harness::ids::NodeId::new("next")],
-        completed_tasks: vec![tinyagents_harness::ids::NodeId::new("done")],
-        pending_writes: Vec::new(),
-        interrupts: Vec::new(),
-        pending_activations: None,
-        barrier_arrivals: Vec::new(),
-        metadata: json!({ "source": "loop", "step": 3 }),
-    };
+    // Built through the constructor rather than a struct literal: the
+    // upstream record keeps growing bookkeeping fields (channel versions,
+    // barrier arrivals, ...) and this test only cares about the columns the
+    // ported reader must still decode.
+    let mut written = tinyagents_graph::Checkpoint::new(json!({ "counter": 7 }), Vec::new())
+        .with_thread_id("flow:f1:run-a")
+        .with_checkpoint_id("cp-1");
+    written.run_id = Some("run-1".to_string());
+    written.next_nodes = vec![tinyagents_harness::ids::NodeId::new("next")];
+    written.completed_tasks = vec![tinyagents_harness::ids::NodeId::new("done")];
+    written.metadata = json!({ "source": "loop", "step": 3 });
     LegacyCheckpointer::put(&old, written).await.unwrap();
     drop(old);
 

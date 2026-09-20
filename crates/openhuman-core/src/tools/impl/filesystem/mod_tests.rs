@@ -17,7 +17,7 @@ use tinytools::WorkspaceDescriptor;
 fn tool_context_with_workspace(root: &Path) -> ToolExecutionContext {
     let ws = WorkspaceDescriptor::new(root.to_path_buf()).with_policy_id("test-descriptor");
     let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
-    ToolExecutionContext::from_run_context(&ctx)
+    ToolExecutionContext::from_run_context(&ctx, tinyagents_harness::ids::CallId::new("test-call"))
 }
 
 /// A policy whose `workspace_dir`/`action_dir` are the OpenHuman home — i.e. a
