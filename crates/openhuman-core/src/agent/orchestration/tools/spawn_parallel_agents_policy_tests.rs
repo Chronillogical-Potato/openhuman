@@ -118,7 +118,7 @@ async fn rejects_single_task() {
         .await
         .unwrap();
     assert!(result.is_error);
-    assert!(result.output().contains("at least two"));
+    assert!(result.output().contains("at least two"), "got: {}", result.output());
 }
 
 #[tokio::test]
