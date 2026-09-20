@@ -5869,7 +5869,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': '에이전트를 찾을 수 없습니다.',
   'settings.agents.editor.modelInherit': '상속 (플랫폼 기본값)',
   'settings.agents.editor.modelHints': '라우트 힌트',
-  'settings.agents.editor.modelTiers': '모델 등급',
   'settings.agents.editor.modelCustom': '사용자 정의 모델 ID…',
   'settings.agents.editor.modelManaged': '관리형 모델',
   'settings.agents.editor.modelCustomPlaceholder': '예: anthropic/claude-sonnet-4',

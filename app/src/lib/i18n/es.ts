@@ -6059,7 +6059,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': 'Agente no encontrado.',
   'settings.agents.editor.modelInherit': 'Heredar (predeterminado de la plataforma)',
   'settings.agents.editor.modelHints': 'Sugerencias de enrutamiento',
-  'settings.agents.editor.modelTiers': 'Niveles de modelo',
   'settings.agents.editor.modelCustom': 'ID de modelo personalizado…',
   'settings.agents.editor.modelManaged': 'Modelos gestionados',
   'settings.agents.editor.modelCustomPlaceholder': 'ej. anthropic/claude-sonnet-4',

@@ -6003,7 +6003,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': 'Агент не найден.',
   'settings.agents.editor.modelInherit': 'Унаследовать (системное по умолчанию)',
   'settings.agents.editor.modelHints': 'Подсказки маршрутизации',
-  'settings.agents.editor.modelTiers': 'Уровни моделей',
   'settings.agents.editor.modelCustom': 'Идентификатор модели…',
   'settings.agents.editor.modelManaged': 'Управляемые модели',
   'settings.agents.editor.modelCustomPlaceholder': 'напр. anthropic/claude-sonnet-4',

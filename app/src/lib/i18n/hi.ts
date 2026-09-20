@@ -5941,7 +5941,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': 'एजेंट नहीं मिला।',
   'settings.agents.editor.modelInherit': 'इनहेरिट करें (प्लेटफ़ॉर्म डिफ़ॉल्ट)',
   'settings.agents.editor.modelHints': 'रूट संकेत',
-  'settings.agents.editor.modelTiers': 'मॉडल स्तर',
   'settings.agents.editor.modelCustom': 'कस्टम मॉडल आईडी…',
   'settings.agents.editor.modelManaged': 'प्रबंधित मॉडल',
   'settings.agents.editor.modelCustomPlaceholder': 'जैसे anthropic/claude-sonnet-4',

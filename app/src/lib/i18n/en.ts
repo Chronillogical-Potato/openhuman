@@ -6692,7 +6692,6 @@ const en: TranslationMap = {
   'settings.agents.editor.notFound': 'Agent not found.',
   'settings.agents.editor.modelInherit': 'Inherit (platform default)',
   'settings.agents.editor.modelHints': 'Route hints',
-  'settings.agents.editor.modelTiers': 'Model tiers',
   'settings.agents.editor.modelCustom': 'Custom model id…',
   'settings.agents.editor.modelManaged': 'Managed models',
   'settings.agents.editor.modelCustomPlaceholder': 'e.g. anthropic/claude-sonnet-4',

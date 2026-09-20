@@ -5970,7 +5970,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': 'Agen tidak ditemukan.',
   'settings.agents.editor.modelInherit': 'Warisi (default platform)',
   'settings.agents.editor.modelHints': 'Petunjuk rute',
-  'settings.agents.editor.modelTiers': 'Tingkatan model',
   'settings.agents.editor.modelCustom': 'ID model kustom…',
   'settings.agents.editor.modelManaged': 'Model terkelola',
   'settings.agents.editor.modelCustomPlaceholder': 'mis. anthropic/claude-sonnet-4',

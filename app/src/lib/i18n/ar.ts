@@ -5800,7 +5800,6 @@ const messages: TranslationMap = {
   'settings.agents.editor.notFound': 'العامل غير موجود.',
   'settings.agents.editor.modelInherit': 'موروث (الافتراضي للمنصة)',
   'settings.agents.editor.modelHints': 'تلميحات التوجيه',
-  'settings.agents.editor.modelTiers': 'مستويات النموذج',
   'settings.agents.editor.modelCustom': 'معرّف نموذج مخصص…',
   'settings.agents.editor.modelManaged': 'النماذج المُدارة',
   'settings.agents.editor.modelCustomPlaceholder': 'مثال: anthropic/claude-sonnet-4',
