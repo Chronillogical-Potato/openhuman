@@ -140,6 +140,12 @@ where
         .name(name.to_string())
         .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
         .spawn(move || {
+            // The lightweight HTTP router used by these E2E cases does not
+            // execute the full core boot sequence. Hosted turns still need
+            // the same built-in definition registry that boot initializes in
+            // production, so install it before constructing the router.
+            openhuman_core::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+                .expect("initialize built-in agent definitions for JSON-RPC E2E");
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(2)
                 .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
@@ -11591,7 +11597,8 @@ async fn json_rpc_channel_web_chat_with_speak_reply_invokes_reply_speech_inner()
         .expect("sse task join should succeed");
     assert_eq!(
         sse_event.get("event").and_then(Value::as_str),
-        Some("chat_done")
+        Some("chat_done"),
+        "speak-reply chat must finish successfully; terminal event: {sse_event:?}"
     );
 
     // The bridge should have buffered the streamed assistant text and
