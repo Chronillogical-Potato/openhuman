@@ -376,6 +376,25 @@ function uniqueCallId(turn: TurnAccumulator, callId: string, seq: number): strin
  *  pointer sharing one `seq`, so the tool row orders consistently among the
  *  turn's narration / thinking. */
 function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
+  // The derived transcript can retain both the initial and terminal record for
+  // one call. They describe one UI step, not two calls: merge the later record
+  // into the existing row instead of manufacturing a `#seq` duplicate.
+  if (item.callId) {
+    const existing = turn.entries.find(entry => entry.id === item.callId);
+    const status = timelineStatusFromDerived(item.status);
+    // A replayed in-flight record is represented as `cancelled` by the
+    // settled mapper; a later terminal record for that same call supersedes
+    // it. Repeated completed IDs remain distinct calls (and stay disambiguated
+    // below), preserving parallel/retry history.
+    if (existing && (existing.status === 'cancelled' || status === 'cancelled')) {
+      existing.status = status === 'cancelled' ? existing.status : status;
+      existing.argsBuffer = stringifyArgs(item.args) ?? existing.argsBuffer;
+      existing.result = item.result ?? existing.result;
+      const failure = toFailureExplanation(item.failure, item.result);
+      if (failure) existing.failure = failure;
+      return;
+    }
+  }
   const seq = turn.seq++;
   const callId = uniqueCallId(turn, item.callId, seq);
   const entry: ToolTimelineEntry = {
