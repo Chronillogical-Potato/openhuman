@@ -1,8 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::OpenHumanSessionHost;
-use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools_agent::dialect::NativeDialect;
 
 use parking_lot::Mutex;
 use serde_json::json;
@@ -58,6 +58,8 @@ impl ChatModel<()> for MockCalendarModel {
                 resolved_model: None,
                 continue_turn: None,
                 served_from_cache: false,
+                correlation: None,
+                resolved_route: None,
             })
         } else {
             // End the loop
@@ -107,11 +109,14 @@ impl Tool for MockCalendarTool {
 async fn test_orchestrator_has_current_date_context() -> Result<()> {
     let captured_messages = Arc::new(Mutex::new(Vec::new()));
     let model = calendar_model(captured_messages.clone());
+    let _ =
+        openhuman_core::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
 
     let mut agent = OpenHumanSessionHost::builder()
         .chat_model(model)
         .tools(vec![Box::new(MockCalendarTool)])
         .tool_dispatcher(Box::new(NativeDialect))
+        .agent_definition_name("orchestrator")
         .memory(Arc::new(StubMemory))
         .workspace_dir(std::env::temp_dir())
         .build()?;
