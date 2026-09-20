@@ -29,7 +29,6 @@ import Button from '../../ui/Button';
 import { ModalShell } from '../../ui/ModalShell';
 import NativeSelect from '../../ui/NativeSelect';
 import TextField from '../../ui/TextField';
-import ConfigHelpModal from './ConfigHelpModal';
 import type { InstalledServer, McpTool, SmitheryServerDetail } from './types';
 
 const log = debug('mcp-clients:connect-auth');
@@ -248,7 +247,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
   // the token/header fields. `detecting` until the probe returns.
   const [authKind, setAuthKind] = useState<'detecting' | 'none' | 'token' | 'oauth'>('detecting');
   const [oauthWaiting, setOauthWaiting] = useState(false);
-  const [showConfigHelp, setShowConfigHelp] = useState(false);
   const oauthPollTimer = useRef<number | null>(null);
   const oauthCancelled = useRef(false);
   // Host of the server's HTTP-remote endpoint (from the registry detail's
@@ -498,18 +496,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
       onClose={handleClose}
       titleId={titleId}
       title={t('mcp.connectAuth.title').replace('{name}', server.display_name)}
-      subtitle={
-        <>
-          {t('mcp.connectAuth.hint')}{' '}
-          <Button
-            variant="tertiary"
-            size="xs"
-            onClick={() => setShowConfigHelp(true)}
-            className="h-auto p-0 align-baseline text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400">
-            {t('mcp.connectAuth.howToGetToken')}
-          </Button>
-        </>
-      }
+      subtitle={t('mcp.connectAuth.hint')}
       maxWidthClassName="max-w-md"
       contentClassName="space-y-4 p-5"
       closePolicy={{
@@ -569,14 +556,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                 </Button>
               </p>
             )}
-            <Button
-              variant="tertiary"
-              size="xs"
-              onClick={() => setShowConfigHelp(true)}
-              className="h-auto gap-1 p-0 align-baseline text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400">
-              {t('mcp.connectAuth.findToken')}
-              <span aria-hidden="true">↗</span>
-            </Button>
           </div>
         )}
 
@@ -737,19 +716,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
           ))}
         </div>
 
-        {/* Stacked configuration-help chat modal (above this one). Rendered
-            inside this Dialog's own tree — not as a separate top-level
-            sibling — so Radix's aria-hidden-others bookkeeping recognizes it
-            as part of the same branch instead of hiding this dialog behind
-            it. */}
-        {showConfigHelp && (
-          <ConfigHelpModal
-            qualifiedName={server.qualified_name}
-            displayName={server.display_name}
-            description={server.description}
-            onClose={() => setShowConfigHelp(false)}
-          />
-        )}
       </>
     </ModalShell>
   );
