@@ -49,13 +49,13 @@ describe('SidebarHeader', () => {
     );
   });
 
-  it('shortcuts button has matching aria-label and title', () => {
+  it('Discord button has matching aria-label and title', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    const btn = screen.getByRole('button', { name: 'shortcuts.title' });
-    expect(btn).toHaveAttribute('aria-label', 'shortcuts.title');
+    const btn = screen.getByRole('button', { name: 'nav.discord' });
+    expect(btn).toHaveAttribute('aria-label', 'nav.discord');
     // The styled <Tooltip> wrapper re-applies a native `title` fallback so the
     // label still surfaces if the portal pill is occluded by a CEF webview.
-    expect(btn).toHaveAttribute('title', 'shortcuts.title');
+    expect(btn).toHaveAttribute('title', 'nav.discord');
   });
 
   it('settings button navigates to /settings', () => {
