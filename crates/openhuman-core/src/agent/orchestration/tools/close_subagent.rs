@@ -136,7 +136,10 @@ impl CloseSubagentTool {
         ) {
             Ok(sessions) => sessions
                 .iter()
-                .any(|session| session.subagent_session_id == subagent_session_id),
+                .any(|session| {
+                    session.subagent_session_id == subagent_session_id
+                        && session.parent_thread_id.as_deref() == parent_thread_id
+                }),
             Err(err) => {
                 return Ok(ToolResult::error(format!(
                     "close_subagent: failed to read sub-agent sessions: {err}"

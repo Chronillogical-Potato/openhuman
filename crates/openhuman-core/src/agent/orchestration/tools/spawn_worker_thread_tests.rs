@@ -5,6 +5,8 @@ use crate::memory::conversations::CreateConversationThread;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tinyagents_harness::context::RunConfig;
+use tinyagents_harness::tool::ToolDispatch;
 
 struct MockMemory;
 #[async_trait]
@@ -105,24 +107,12 @@ async fn rejects_if_already_worker_thread() {
     )
     .unwrap();
 
-    let parent = test_parent_ctx(temp.path().to_path_buf());
-    with_parent_context(parent, async {
-        let tool = SpawnWorkerThreadTool::new();
-        let result = tool
-            .execute(json!({
-                "agent_id": "researcher",
-                "prompt": "do it",
-                "task_title": "Task"
-            }))
-            .await
-            .unwrap();
+    let result = spawn_from_thread(temp.path(), thread_id).await;
 
-        assert!(result.is_error);
-        assert!(result
-            .output()
-            .contains("cannot spawn other worker threads"));
-    })
-    .await;
+    assert!(result.is_error);
+    assert!(result
+        .output()
+        .contains("cannot spawn other worker threads"));
 }
 
 #[tokio::test]
@@ -142,24 +132,32 @@ async fn rejects_if_has_parent_thread_id() {
     )
     .unwrap();
 
-    let parent = test_parent_ctx(temp.path().to_path_buf());
-    with_parent_context(parent, async {
-        let tool = SpawnWorkerThreadTool::new();
-        let result = tool
-            .execute(json!({
+    let result = spawn_from_thread(temp.path(), thread_id).await;
+
+    assert!(result.is_error);
+    assert!(result
+        .output()
+        .contains("cannot spawn other worker threads"));
+}
+
+async fn spawn_from_thread(workspace: &std::path::Path, thread_id: &str) -> tinytools::ToolResult {
+    let parent = test_parent_ctx(workspace.to_path_buf());
+    let run = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .with_parent(parent)
+        .into_tinyagents(RunConfig::new("worker-depth-test").with_thread(thread_id));
+    SpawnWorkerThreadDispatch::new(Arc::new(SpawnWorkerThreadTool::new()))
+        .execute(
+            &(),
+            json!({
                 "agent_id": "researcher",
                 "prompt": "do it",
                 "task_title": "Task"
-            }))
-            .await
-            .unwrap();
-
-        assert!(result.is_error);
-        assert!(result
-            .output()
-            .contains("cannot spawn other worker threads"));
-    })
-    .await;
+            }),
+            tinytools::ToolCallOptions::default(),
+            &run,
+        )
+        .await
+        .expect("worker dispatch")
 }
 
 #[tokio::test]

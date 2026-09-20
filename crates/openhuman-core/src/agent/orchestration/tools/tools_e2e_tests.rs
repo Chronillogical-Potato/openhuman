@@ -13,6 +13,7 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
+use tinyagents_harness::context::RunConfig;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinytools::Tool;
@@ -119,12 +120,23 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
 
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-async-session".into();
+    let mut parent_data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    parent_data.thread_id = Some("thread-async-parent".into());
+    let parent_run = parent_data
+        .with_parent(ctx.clone())
+        .into_tinyagents(RunConfig::new("archetype-async-e2e").with_thread("thread-async-parent"));
     let result = with_parent_context(ctx, async {
-        tool.execute(json!({
-            "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
-            "model": "test-model"
-        }))
-        .await
+        super::archetype_delegation::execute_archetype_delegation_with_live_parent(
+            &tool.agent_id.0,
+            &tool.tool_name,
+            json!({
+                "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
+                "model": "test-model"
+            }),
+            None,
+            parent_run.data.child(),
+            Some(&parent_run),
+        ).await
     })
     .await
     .expect("tool execution");
@@ -247,14 +259,26 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
 
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-continue-session".into();
+    let mut parent_data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    parent_data.thread_id = Some("thread-continue-parent".into());
+    let parent_run = parent_data
+        .with_parent(ctx.clone())
+        .into_tinyagents(
+            RunConfig::new("continue-async-e2e").with_thread("thread-continue-parent"),
+        );
     let session_id = session.subagent_session_id.clone();
     let result = with_parent_context(ctx, async {
         ContinueSubagentTool::new()
-            .execute(json!({
-                "task_id": session_id,
-                "agent_id": "researcher",
-                "message": "looks good — proceed with continue-durable-canary"
-            }))
+            .execute_with_live_parent_context(
+                json!({
+                    "task_id": session_id,
+                    "agent_id": "researcher",
+                    "message": "looks good — proceed with continue-durable-canary"
+                }),
+                None,
+                parent_run.data.child(),
+                Some(&parent_run),
+            )
             .await
     })
     .await

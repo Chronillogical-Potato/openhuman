@@ -101,7 +101,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
     };
     let Some(live_parent) = live_parent else {
         return Ok(ToolResult::error(
-            "spawn_parallel_agents requires a live harness run context.",
+            "spawn_parallel_agents called outside of an agent turn",
         ));
     };
     let outcome = run_spawn_parallel_tasks_with_cancellation_and_workspace(

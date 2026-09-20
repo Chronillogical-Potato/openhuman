@@ -1,11 +1,13 @@
 use super::*;
-use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::prompts::ToolCallFormat;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use tinyagents_harness::context::RunConfig;
+use tinyagents_harness::tool::ToolDispatch;
 
 #[tokio::test]
 async fn missing_session_id_is_rejected() {
@@ -20,13 +22,7 @@ async fn rejects_session_from_different_parent_thread() {
     let store = SubagentSessionStore::new(workspace.path().to_path_buf());
     let session = seed_session(&store, "thread-b");
 
-    let res = with_parent_context(parent_context(workspace.path()), async {
-        CloseSubagentTool::new()
-            .execute(json!({ "subagent_session_id": session.subagent_session_id }))
-            .await
-    })
-    .await
-    .unwrap();
+    let res = close_for_thread(workspace.path(), "thread-a", &session.subagent_session_id).await;
 
     assert!(res.is_error);
     assert!(res.output().contains("not found for this parent thread"));
@@ -43,13 +39,7 @@ async fn closes_session_owned_by_current_parent_thread() {
     let store = SubagentSessionStore::new(workspace.path().to_path_buf());
     let session = seed_session(&store, "thread-a");
 
-    let res = with_parent_context(parent_context(workspace.path()), async {
-        CloseSubagentTool::new()
-            .execute(json!({ "subagent_session_id": session.subagent_session_id }))
-            .await
-    })
-    .await
-    .unwrap();
+    let res = close_for_thread(workspace.path(), "thread-a", &session.subagent_session_id).await;
 
     assert!(!res.is_error, "{}", res.output());
     assert!(res.output().contains("closed=true"));
@@ -58,6 +48,26 @@ async fn closes_session_owned_by_current_parent_thread() {
             .unwrap()
             .is_none()
     );
+}
+
+async fn close_for_thread(
+    workspace: &Path,
+    thread_id: &str,
+    subagent_session_id: &str,
+) -> tinytools::ToolResult {
+    let parent = parent_context(workspace);
+    let run = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .with_parent(parent)
+        .into_tinyagents(RunConfig::new("close-subagent-test").with_thread(thread_id));
+    CloseSubagentDispatch::new(Arc::new(CloseSubagentTool::new()))
+        .execute(
+            &(),
+            json!({ "subagent_session_id": subagent_session_id }),
+            tinytools::ToolCallOptions::default(),
+            &run,
+        )
+        .await
+        .expect("close dispatch")
 }
 
 fn seed_session(

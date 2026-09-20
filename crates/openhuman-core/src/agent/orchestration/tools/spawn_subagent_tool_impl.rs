@@ -203,12 +203,6 @@ impl SpawnSubagentTool {
         if prompt.is_empty() {
             return Ok(ToolResult::error("spawn_subagent: `prompt` is required"));
         }
-        let Some(live_parent) = live_parent else {
-            return Ok(ToolResult::error(
-                "spawn_subagent requires a live harness run context.",
-            ));
-        };
-
         let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
             None => {
@@ -408,6 +402,15 @@ impl SpawnSubagentTool {
                 }
             }
         }
+
+        // Input, registry, allowlist, and integration validation are safe to
+        // perform without a live run. A valid spawn must still fail closed
+        // unless its typed harness parent carries authority and cancellation.
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_subagent requires a live harness run context.",
+            ));
+        };
 
         // Async-by-default only holds where the finished result has somewhere
         // to land. `spawn_async_subagent` delivers thread-addressed (see

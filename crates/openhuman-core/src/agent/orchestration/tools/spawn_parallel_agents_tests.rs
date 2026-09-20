@@ -192,16 +192,17 @@ async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
     let cancellation = tinyagents_harness::CancellationToken::new();
     let workspace = tinytools::WorkspaceDescriptor::new("/work/parent-action");
     let started = Arc::new(tokio::sync::Notify::new());
-    let parent_run = OpenHumanRunContext::new()
-        .with_cancellation(cancellation.clone())
-        .with_workspace(workspace.clone())
-        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
     let dispatch = SpawnParallelAgentsDispatch::new(Arc::new(SpawnParallelAgentsTool::new()));
     let mut parent = parent_context(4);
     parent.turn_model_source =
         crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(BlockingFanoutModel {
             started: started.clone(),
         }));
+    let parent_run = OpenHumanRunContext::new()
+        .with_parent(parent.clone())
+        .with_cancellation(cancellation.clone())
+        .with_workspace(workspace.clone())
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
 
     let run = with_parent_context(parent, async {
         dispatch

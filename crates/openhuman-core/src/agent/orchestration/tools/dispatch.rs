@@ -213,11 +213,6 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "delegation requires a live harness run context.",
-        ));
-    };
     let parent_workspace_descriptor = tool_context
         .and_then(|ctx| ctx.workspace().cloned())
         .or_else(|| run_context.workspace.clone());
@@ -257,6 +252,15 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
             )));
         }
     }
+
+    // Registry and policy failures are deterministic and safe to report even
+    // to a raw tool caller. Executing a valid delegation still requires the
+    // typed harness carrier below, which supplies cancellation and authority.
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "delegation requires a live harness run context.",
+        ));
+    };
 
     // ── Forward the current turn's attached image(s) to a vision sub-agent ──
     // The orchestrator runs on a non-vision tier and keeps the user's image as a
