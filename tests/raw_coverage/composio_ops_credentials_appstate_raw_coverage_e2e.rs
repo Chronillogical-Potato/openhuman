@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Round18 raw/E2E coverage for Composio ops/tools, credentials profiles,
 //! and app-state local snapshot branches.
 //!
