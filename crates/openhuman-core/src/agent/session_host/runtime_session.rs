@@ -1582,10 +1582,6 @@ impl OpenHumanSessionHost {
                         prelude
                             .refresh_turn_boundary(!view.resumed && view.history.is_empty())
                             .await;
-                        // The driver resolves the same model source, but the
-                        // host sidecar needs this metadata before either the
-                        // successful or partial runtime append asks the codec
-                        // for atomic billing data.
                         let context_window = prelude
                             .turn_model_source
                             .effective_context_window(&prelude.model_name)
@@ -1636,10 +1632,6 @@ impl OpenHumanSessionHost {
                             policy_channel,
                         ) = prelude.current_tool_source();
                         if overrides.suppress_tools {
-                            // The execution source must narrow with the wire
-                            // snapshot. Leaving instances here would make a
-                            // tool-less override advisory instead of a hard
-                            // authority boundary.
                             current_tools = Arc::new(Vec::new());
                             current_synthesized_tools = Arc::new(Vec::new());
                         }
@@ -1664,11 +1656,6 @@ impl OpenHumanSessionHost {
                                 session: policy_session,
                                 session_id: policy_session_id,
                                 channel: policy_channel,
-                                // This is the stable agent definition key
-                                // used for driver diagnostics and policy
-                                // enforcement. The mutable surface carries
-                                // its current display name separately when it
-                                // rebuilds the policy session.
                                 agent_definition_id: prelude.agent_definition_id.clone(),
                             });
                         options.run_context.data.required_output = state
@@ -1769,15 +1756,7 @@ impl OpenHumanSessionHost {
                             .pending_citations
                             .take();
                         if let Some(prelude) = prelude {
-                            // `after_commit` is only reached after runtime
-                            // transcript durability. Every host write below is
-                            // therefore receipt-gated.
                             prelude.finalize_after_durable_commit(&receipt).await;
-                            // Account the same committed direct + child totals
-                            // that the codec atomically attached to the
-                            // transcript. A continuation's suppression state
-                            // is intentionally cleared by the goals runtime
-                            // only after this receipt exists.
                             account_committed_turn_against_goal(
                                 &prelude.workspace_dir,
                                 receipt.options.context.thread_id.as_deref(),

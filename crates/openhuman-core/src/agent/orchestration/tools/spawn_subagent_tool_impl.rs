@@ -509,11 +509,6 @@ impl SpawnSubagentTool {
             prompt.chars().count(),
         );
 
-        // Mirror the spawn onto the parent's per-turn progress sink so the
-        // web-channel bridge can stream a live subagent row into the
-        // parent thread's UI. Best-effort: a closed/missing sink is
-        // silently ignored — the global DomainEvent above is the
-        // authoritative record.
         if let Some(progress) = run_context.progress.clone() {
             let _ = progress
                 .send(AgentProgress::SubagentSpawned {
@@ -529,7 +524,6 @@ impl SpawnSubagentTool {
                 .await;
         }
 
-        // ── Run the sub-agent ──────────────────────────────────────────
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
         let worktree_action_dir = workspace_descriptor
             .as_ref()
@@ -576,10 +570,6 @@ impl SpawnSubagentTool {
                         options: _,
                         checkpoint,
                     } => {
-                        // Sub-agent paused for user input — publish
-                        // awaiting event and return structured envelope so
-                        // the orchestrator can relay the question and later
-                        // call continue_subagent.
                         if emit_lifecycle_effects {
                             crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                             parent_session,
@@ -611,11 +601,6 @@ impl SpawnSubagentTool {
                         Ok(ToolResult::success(envelope))
                     }
                     SubagentRunStatus::Completed => {
-                        // #3883: log the orchestrator taking delivery of each
-                        // artifact path the child handed back, so a run journal
-                        // shows both ends of every `[artifact]` pointer. The
-                        // `consumed_by_parent` stage distinguishes this from the
-                        // child's `recorded_by_child` line for the same path.
                         crate::agent::harness::artifact_offload::note_artifact_handoff(
                             crate::agent::harness::artifact_offload::HANDOFF_STAGE_CONSUMED,
                             &outcome.agent_id,
