@@ -15,7 +15,7 @@
       "kind": "agent",
       "name": "Plan the brief (reasoning tier)",
       "config": {
-        "model": "reasoning-v1",
+        "model": "hint:reasoning",
         "input_context": "=run.trigger",
         "prompt": "You are a research lead. The data above is the trigger payload (look for a `topic` field; if there is none, treat this as a request for a general research brief). Draft a concise research plan (3-5 steps) and pick one distinctive angle for the brief.",
         "output_parser": {
@@ -34,7 +34,7 @@
       "kind": "agent",
       "name": "Draft the brief (chat tier)",
       "config": {
-        "model": "chat-v1",
+        "model": "hint:chat",
         "input_context": "=nodes.planner.item.json",
         "prompt": "The data above is the plan and angle from the research lead (fields `plan` and `angle`). Using them, write a polished research brief (~300 words)."
       },
