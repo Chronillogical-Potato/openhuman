@@ -200,18 +200,18 @@ fn refusals_name_the_entry_and_the_field() {
 #[test]
 fn a_re_save_of_what_is_installed_is_not_a_change() {
     let row = stdio_row("a");
-    let declared = parse(&render(&[row.clone()], &BTreeMap::new())).unwrap();
+    let declared = parse(&render(std::slice::from_ref(&row), &BTreeMap::new())).unwrap();
     assert!(same_dial(&declared[0], &row));
 }
 
 #[test]
 fn a_changed_argument_or_flag_is_a_change() {
     let row = stdio_row("a");
-    let mut declared = parse(&render(&[row.clone()], &BTreeMap::new())).unwrap();
+    let mut declared = parse(&render(std::slice::from_ref(&row), &BTreeMap::new())).unwrap();
     declared[0].args.push("--verbose".to_string());
     assert!(!same_dial(&declared[0], &row));
 
-    let mut declared = parse(&render(&[row.clone()], &BTreeMap::new())).unwrap();
+    let mut declared = parse(&render(std::slice::from_ref(&row), &BTreeMap::new())).unwrap();
     declared[0].enabled = false;
     assert!(!same_dial(&declared[0], &row));
 }
