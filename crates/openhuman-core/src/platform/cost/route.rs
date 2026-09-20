@@ -37,27 +37,13 @@ impl CostRoute {
     }
 }
 
-/// Model ids the managed backend serves. These are the backend's own tier
-/// slugs (`crate::config::MODEL_*_V1`) — a BYOK
-/// provider is always addressed by its real model id (`minimax/minimax-m3`,
-/// `anthropic/claude-sonnet-4-20250514`, `llama3:8b`), never by a tier slug,
-/// because the tier vocabulary only means something to the managed backend.
-///
-/// Kept as a local list, deliberately: this is the set of ids that imply
-/// *managed billing*, which is a narrower question than "is this a known tier
-/// constant". A new tier must be added here consciously, and the
-/// `managed_tier_slugs_stay_in_sync` test fails if one is added upstream
-/// without doing so.
-const MANAGED_MODEL_SLUGS: &[&str] = &[
-    "chat-v1",
-    "reasoning-v1",
-    "reasoning-quick-v1",
-    "agentic-v1",
-    "burst-v1",
-    "coding-v1",
-    "vision-v1",
-    "summarization-v1",
-];
+/// The retired managed tier slugs (`chat-v1`, …). Older cost records still
+/// carry them, and they were only ever served — and billed — by the managed
+/// backend, so they classify as managed. A BYOK provider is always addressed
+/// by its real model id (`minimax/minimax-m3`, `llama3:8b`), never by a slug.
+/// Current managed ids are `openrouter/...` passthrough ids, classified by
+/// [`is_managed_passthrough_id`].
+const MANAGED_MODEL_SLUGS: &[&str] = &crate::config::LEGACY_TIER_MODELS;
 
 /// Classify a recorded model id into its billing route.
 ///
