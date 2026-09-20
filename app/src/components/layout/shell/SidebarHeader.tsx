@@ -91,7 +91,7 @@ export default function SidebarHeader() {
             variant="tertiary"
             iconOnly
             onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
-            className={`${ICON_BTN} text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300`}
+            className={ICON_BTN}
             analyticsId="sidebar-header-discord"
             aria-label={t('nav.discord')}>
             <FaDiscord className="h-4 w-4" />

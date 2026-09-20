@@ -103,7 +103,7 @@ export default function CollapsedNavRail() {
               onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
               aria-label={t('nav.discord')}
               data-analytics-id="collapsed-rail-discord"
-              className={`${RAIL_BTN} text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300`}>
+              className={RAIL_BTN}>
               <FaDiscord className="h-5 w-5" />
             </SidebarMenuButton>
           </Tooltip>
