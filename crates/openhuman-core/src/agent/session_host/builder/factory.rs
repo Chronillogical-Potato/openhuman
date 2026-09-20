@@ -619,29 +619,13 @@ impl OpenHumanSessionHost {
                     ToolScope::Named(names) => {
                         let mut set: std::collections::HashSet<String> =
                             names.iter().cloned().collect();
-                        // Only the *advertised* ones. A synthesised tool that
-                        // reports `ToolExposure::Hidden` is a member of a
-                        // collapsed tool — today every `ArchetypeDelegationTool`,
-                        // whose family the single `delegate_to` tool now stands
-                        // for. Inserting it here would put it back on the wire
-                        // beside the tool that replaced it, shipping both
-                        // surfaces and saving nothing.
-                        //
-                        // This is not the same judgement as
-                        // `strip_deferred_from_visible`, which deliberately
-                        // leaves a hand-written `[tools] named` belt alone. That
-                        // restraint is about not second-guessing a human's
-                        // choice; these names were never chosen by a human, they
-                        // are inserted right here. Hiding one removes nothing an
-                        // author asked for.
-                        //
-                        // The tool stays in `synthed`, so it stays registered
-                        // and dispatchable for a replayed transcript or a saved
-                        // skill that names it — exactly like a packed tool.
+                        // These are the per-specialist delegation routes the
+                        // collector actually synthesizes today. Do not infer a
+                        // collapsed replacement from `ToolExposure::Hidden`:
+                        // `CollapsedDelegationTool` is not constructed here,
+                        // so filtering these names would leave the orchestrator
+                        // with no executable hand-off route (#6370).
                         for t in &synthed {
-                            if t.exposure() == tinytools::ToolExposure::Hidden {
-                                continue;
-                            }
                             set.insert(t.name().to_string());
                         }
                         // `named = []` means zero tools. An empty set here is
@@ -739,7 +723,6 @@ impl OpenHumanSessionHost {
             Some(set) => set,
             None => delegation_tools
                 .iter()
-                .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                 .map(|t| t.name().to_string())
                 .collect(),
         };
@@ -760,12 +743,7 @@ impl OpenHumanSessionHost {
                         visible = tools
                             .iter()
                             .map(|t| t.name().to_string())
-                            .chain(
-                                delegation_tools
-                                    .iter()
-                                    .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
-                                    .map(|t| t.name().to_string()),
-                            )
+                            .chain(delegation_tools.iter().map(|t| t.name().to_string()))
                             .filter(|name| !definition_disallows_tool(&def.disallowed_tools, name))
                             .collect();
                     }

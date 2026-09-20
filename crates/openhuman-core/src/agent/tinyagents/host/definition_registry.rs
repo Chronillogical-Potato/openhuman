@@ -139,6 +139,10 @@ pub struct OpenHumanDefinitionRegistry {
     /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
     /// closed rather than re-granting the denied tools.
     registered_tools: Option<Arc<Vec<String>>>,
+    /// Per-invocation direct delegation routes synthesized beside the durable
+    /// tool registry. They must augment a named root scope so the hosted loop
+    /// authorizes the same hand-off routes it advertises.
+    session_delegation_tools: Option<Arc<Vec<String>>>,
 }
 
 /// Outcome of resolving a definition's own scope.
@@ -161,6 +165,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Shared(registry),
             config: None,
             registered_tools: None,
+            session_delegation_tools: None,
         }
     }
 
@@ -175,6 +180,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Global(registry),
             config: None,
             registered_tools: None,
+            session_delegation_tools: None,
         })
     }
 
@@ -198,6 +204,12 @@ impl OpenHumanDefinitionRegistry {
     /// list. Without it such a definition fails closed — see [`Self::tools_for`].
     pub fn with_registered_tools(mut self, tools: Arc<Vec<String>>) -> Self {
         self.registered_tools = Some(tools);
+        self
+    }
+
+    /// Attaches the root invocation's synthesized direct-delegation names.
+    pub fn with_session_delegation_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.session_delegation_tools = Some(tools);
         self
     }
 
@@ -277,6 +289,9 @@ impl OpenHumanDefinitionRegistry {
         match &def.tools {
             ToolScope::Named(named) => {
                 let mut names = named.clone();
+                if let Some(delegation_tools) = self.session_delegation_tools.as_deref() {
+                    names.extend(delegation_tools.iter().cloned());
+                }
                 // `extra_tools` is an "also include these" hook on top of a
                 // named scope. Under `Wildcard` it is meaningless — everything
                 // is already in scope.
