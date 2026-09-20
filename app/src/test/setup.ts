@@ -101,9 +101,13 @@ ensureStorage('sessionStorage');
 // accept events created by their own window realm. Keep the global constructor
 // aligned with jsdom so delayed focus-scope cleanup cannot throw after a test
 // has otherwise passed.
-if (typeof window !== 'undefined' && globalThis.Event !== window.Event) {
-  globalThis.Event = window.Event;
+function alignGlobalEventWithDom() {
+  if (typeof window !== 'undefined' && globalThis.Event !== window.Event) {
+    globalThis.Event = window.Event;
+  }
 }
+
+alignGlobalEventWithDom();
 
 // Polyfill window.matchMedia — used by Rive (@rive-app/react-webgl2) and
 // some media-query hooks; not implemented in jsdom.
@@ -384,9 +388,15 @@ if (!process.env.DEBUG_TESTS) {
 }
 
 // Shared mock API server lifecycle for unit tests (default)
-afterEach(() => {
+afterEach(async () => {
   clearRequestLog();
+  // Radix schedules focus restoration with setTimeout(0) during unmount.
+  // Keep its Event constructor in the jsdom realm and let that task drain
+  // before Vitest tears the environment down.
+  alignGlobalEventWithDom();
   cleanup();
+  await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+  alignGlobalEventWithDom();
   // Re-seed the IPC handle after any test that may have deleted it
   // (e.g. tests exercising the CEF-gap branch of `isTauri()`). Without
   // this, sibling tests in the same jsdom worker would silently regress
