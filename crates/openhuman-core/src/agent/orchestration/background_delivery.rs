@@ -222,12 +222,25 @@ async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<
         .map_err(|error| format!("build delivery host: {error:#}"))?;
     host.set_event_context(run_id.clone(), "background_delivery");
     host.set_thread_id(Some(&thread_id));
+    // The hosted harness only retains streamed terminal text for an observed
+    // turn. Background delivery has no UI progress consumer, so drain a local
+    // sink solely to preserve the generated reply; otherwise a successful
+    // provider response is replaced with the empty-turn fallback.
+    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(128);
+    host.set_on_progress(Some(progress_tx));
+    let progress_drain = tokio::spawn(async move {
+        while progress_rx.recv().await.is_some() {}
+    });
     let result = crate::agent::turn_origin::with_origin(
         crate::agent::turn_origin::AgentTurnOrigin::Cli,
         host.run_single(&prompt),
     )
     .await
     .map_err(|error| format!("{error:#}"));
+    // The runtime session owns a cloned sender for the lifetime of `host`, so
+    // explicitly end the local drain rather than waiting for channel closure.
+    drop(host);
+    progress_drain.abort();
 
     persist_then_announce(
         result,
