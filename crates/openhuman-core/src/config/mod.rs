@@ -26,6 +26,7 @@ pub use ops as rpc;
 pub use ops::*;
 
 pub use schema::{
+    is_legacy_tier_model, legacy_tier_role, WORKLOAD_ROLES,
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
     default_projects_dir, default_root_openhuman_dir, pre_login_user_dir, read_active_user_id,
