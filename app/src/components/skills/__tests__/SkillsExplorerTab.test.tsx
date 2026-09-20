@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CatalogEntry } from '../../../services/api/skillRegistryApi';
 import type { WorkflowSummary } from '../../../services/api/skillsApi';
-import SkillsExplorerTab from '../SkillsExplorerTab';
+import SkillsPage from '../SkillsPage';
 
 vi.mock('../../../services/api/skillsApi', () => ({
   skillsApi: {
@@ -127,7 +128,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Registry Skill')).toBeInTheDocument();
@@ -146,7 +151,11 @@ describe('SkillsExplorerTab', () => {
     }));
     vi.mocked(skillRegistryApi.browse).mockResolvedValue(entries);
 
-    const { container } = render(<SkillsExplorerTab />);
+    const { container } = render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Paged Skill 0')).toBeInTheDocument();
@@ -178,7 +187,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
     vi.mocked(skillRegistryApi.search).mockResolvedValue([MOCK_DOCKER_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Registry Skill')).toBeInTheDocument();
@@ -206,7 +219,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Installed')).toBeInTheDocument();
@@ -224,7 +241,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -238,7 +259,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockRejectedValue(new Error('Network error'));
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Network error')).toBeInTheDocument();
@@ -250,7 +275,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -268,7 +297,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('skill-install-from-url-btn')).toBeInTheDocument();
@@ -279,7 +312,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -294,7 +331,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -308,7 +349,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -323,7 +368,11 @@ describe('SkillsExplorerTab', () => {
     const skillWithWarning = { ...MOCK_SKILL, warnings: ['Missing required field: author'] };
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([skillWithWarning]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -349,7 +398,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([installedSkill]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([catalogEntry]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Apple Notes')).toBeInTheDocument();
@@ -388,7 +441,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([unrelatedInstalledSkill]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([catalogEntry]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     const tile = await screen.findByTestId('registry-tile-built-in/apple-notes');
     expect(within(tile).queryByText('Installed')).not.toBeInTheDocument();
@@ -419,7 +476,11 @@ describe('SkillsExplorerTab', () => {
       newSkills: ['apple-notes'],
     });
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     const installBtn = await screen.findByTestId('registry-install-built-in/apple-notes');
     await act(async () => {
@@ -440,7 +501,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('skill-install-from-url-btn')).toBeInTheDocument();
@@ -452,7 +517,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -471,7 +540,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -492,7 +565,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     const tile = await screen.findByTestId('skill-explorer-tile-test-skill');
@@ -512,7 +589,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY_WITH_META]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('registry-tile-full-meta-skill')).toBeInTheDocument();
@@ -538,7 +619,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     const tile = await screen.findByTestId('skill-explorer-tile-test-skill');
@@ -571,7 +656,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     // Click tile to open detail dialog
     const tile = await screen.findByTestId('registry-tile-registry-skill-1');
@@ -606,7 +695,11 @@ describe('SkillsExplorerTab', () => {
       newSkills: ['registry-skill-1'],
     });
 
-    render(<SkillsExplorerTab onToast={onToast} />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" onToast={onToast} />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('registry-install-registry-skill-1')).toBeInTheDocument();
@@ -638,7 +731,11 @@ describe('SkillsExplorerTab', () => {
       },
     ]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     const badge = await screen.findByTestId('registry-not-installable-lobehub/prompt-agent');
     expect(badge).toHaveTextContent('Not installable');
@@ -659,7 +756,11 @@ describe('SkillsExplorerTab', () => {
       },
     ]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     const tile = await screen.findByTestId('registry-tile-lobehub/prompt-agent');
     await act(async () => {
@@ -681,7 +782,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
     vi.mocked(skillRegistryApi.install).mockRejectedValue(new Error('Install failed'));
 
-    render(<SkillsExplorerTab onToast={onToast} />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" onToast={onToast} />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('registry-install-registry-skill-1')).toBeInTheDocument();
@@ -704,7 +809,11 @@ describe('SkillsExplorerTab', () => {
     // No catalog entries so "built-in" only appears in the toggle buttons
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Filter by source' })).toBeInTheDocument();
@@ -724,7 +833,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.search).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Filter by source' })).toBeInTheDocument();
@@ -748,7 +861,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY, MOCK_DOCKER_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       // The catalog count badge (2) should appear in the Registry tab
@@ -760,7 +877,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_SKILL, MOCK_PROJECT_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       // The skills count badge (2) should appear in the Installed tab
@@ -772,7 +893,11 @@ describe('SkillsExplorerTab', () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_LEGACY_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -792,7 +917,11 @@ describe('SkillsExplorerTab', () => {
     };
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([unknownFormatSkill]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -808,7 +937,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       // Empty registry state shows its title (i18n key: skills.explorer.registryEmptyTitle)
@@ -824,7 +957,11 @@ describe('SkillsExplorerTab', () => {
       .mockRejectedValueOnce(new Error('timeout'))
       .mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('timeout')).toBeInTheDocument();
@@ -845,7 +982,11 @@ describe('SkillsExplorerTab', () => {
       .mockRejectedValueOnce(new Error('skills fetch failed'))
       .mockResolvedValue([MOCK_SKILL]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -867,7 +1008,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Registry Skill')).toBeInTheDocument();
@@ -905,7 +1050,11 @@ describe('SkillsExplorerTab', () => {
     };
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([alphaSkill, hermesSkill]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
     await switchToInstalled();
 
     await waitFor(() => {
@@ -926,7 +1075,11 @@ describe('SkillsExplorerTab', () => {
     vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
     vi.mocked(skillRegistryApi.browse).mockResolvedValue([MOCK_CATALOG_ENTRY]);
 
-    render(<SkillsExplorerTab />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
 
     const tile = await screen.findByTestId('registry-tile-registry-skill-1');
 
@@ -954,7 +1107,11 @@ describe('SkillsExplorerTab', () => {
       newSkills: [],
     });
 
-    render(<SkillsExplorerTab onToast={onToast} />);
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" onToast={onToast} />
+      </MemoryRouter>
+    );
 
     // Wait for tile to appear, then open detail dialog
     const tile = await screen.findByTestId('registry-tile-registry-skill-1');

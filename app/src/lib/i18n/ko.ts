@@ -748,9 +748,11 @@ const messages: TranslationMap = {
     'Hermes 스타일 markdown, scripts, references, templates, examples, prompts를 포함한 SKILL.md 패키지를 탐색합니다.',
   'skills.explorer.title': '스킬 탐색기',
   'skills.rows.installedTitle': '설치된 스킬',
-  'skills.rows.installedIntro': '이 컴퓨터에서 에이전트가 실행할 수 있는 스킬입니다. 스킬을 열어 세부 정보를 보고, 해당 행에서 실행·편집·제거하세요.',
+  'skills.rows.installedIntro':
+    '이 컴퓨터에서 에이전트가 실행할 수 있는 스킬입니다. 스킬을 열어 세부 정보를 보고, 해당 행에서 실행·편집·제거하세요.',
   'skills.rows.registryTitle': '스킬 레지스트리',
-  'skills.rows.registryIntro': '설치할 수 있는 스킬 카탈로그입니다. 검색한 뒤 사용자 스킬에 설치하세요.',
+  'skills.rows.registryIntro':
+    '설치할 수 있는 스킬 카탈로그입니다. 검색한 뒤 사용자 스킬에 설치하세요.',
   'skills.rows.open': '{name} 열기',
   'skills.rows.run': '{name} 실행',
   'skills.rows.edit': '{name} 편집',

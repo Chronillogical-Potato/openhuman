@@ -703,7 +703,8 @@ const messages: TranslationMap = {
     '浏览 SKILL.md 包，包括 Hermes 风格的 Markdown、脚本、参考资料、模板、示例和提示词。',
   'skills.explorer.title': '技能浏览器',
   'skills.rows.installedTitle': '已安装的技能',
-  'skills.rows.installedIntro': '智能体可在这台机器上运行的技能。打开某项查看详情；在其所在行运行、编辑或移除。',
+  'skills.rows.installedIntro':
+    '智能体可在这台机器上运行的技能。打开某项查看详情；在其所在行运行、编辑或移除。',
   'skills.rows.registryTitle': '技能注册表',
   'skills.rows.registryIntro': '可安装的技能目录。搜索后将其安装到你的用户技能中。',
   'skills.rows.open': '打开 {name}',

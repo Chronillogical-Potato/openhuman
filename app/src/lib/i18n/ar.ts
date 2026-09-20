@@ -736,9 +736,11 @@ const messages: TranslationMap = {
     'تصفح حزم SKILL.md، بما في ذلك markdown والسكربتات والمراجع والقوالب والأمثلة والمطالبات بنمط Hermes.',
   'skills.explorer.title': 'مستكشف المهارات',
   'skills.rows.installedTitle': 'المهارات المثبّتة',
-  'skills.rows.installedIntro': 'المهارات التي يمكن لوكيلك تشغيلها على هذا الجهاز. افتح مهارة لعرض تفاصيلها؛ شغّلها أو عدّلها أو أزلها من صفّها.',
+  'skills.rows.installedIntro':
+    'المهارات التي يمكن لوكيلك تشغيلها على هذا الجهاز. افتح مهارة لعرض تفاصيلها؛ شغّلها أو عدّلها أو أزلها من صفّها.',
   'skills.rows.registryTitle': 'سجل المهارات',
-  'skills.rows.registryIntro': 'فهارس المهارات التي يمكنك تثبيتها. ابحث ثم ثبّت مهارة ضمن مهارات المستخدم.',
+  'skills.rows.registryIntro':
+    'فهارس المهارات التي يمكنك تثبيتها. ابحث ثم ثبّت مهارة ضمن مهارات المستخدم.',
   'skills.rows.open': 'فتح {name}',
   'skills.rows.run': 'تشغيل {name}',
   'skills.rows.edit': 'تعديل {name}',

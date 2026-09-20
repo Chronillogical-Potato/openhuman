@@ -756,9 +756,11 @@ const messages: TranslationMap = {
     'SKILL.md पैकेज ब्राउज़ करें, जिनमें Hermes-शैली markdown, scripts, references, templates, examples और prompts शामिल हैं।',
   'skills.explorer.title': 'स्किल एक्सप्लोरर',
   'skills.rows.installedTitle': 'इंस्टॉल किए गए स्किल',
-  'skills.rows.installedIntro': 'वे स्किल जिन्हें आपका एजेंट इस मशीन पर चला सकता है। विवरण के लिए खोलें; उसकी पंक्ति से चलाएँ, संपादित करें या हटाएँ।',
+  'skills.rows.installedIntro':
+    'वे स्किल जिन्हें आपका एजेंट इस मशीन पर चला सकता है। विवरण के लिए खोलें; उसकी पंक्ति से चलाएँ, संपादित करें या हटाएँ।',
   'skills.rows.registryTitle': 'स्किल रजिस्ट्री',
-  'skills.rows.registryIntro': 'स्किल के कैटलॉग जिन्हें आप इंस्टॉल कर सकते हैं। खोजें, फिर एक को अपने यूज़र स्किल में इंस्टॉल करें।',
+  'skills.rows.registryIntro':
+    'स्किल के कैटलॉग जिन्हें आप इंस्टॉल कर सकते हैं। खोजें, फिर एक को अपने यूज़र स्किल में इंस्टॉल करें।',
   'skills.rows.open': '{name} खोलें',
   'skills.rows.run': '{name} चलाएँ',
   'skills.rows.edit': '{name} संपादित करें',

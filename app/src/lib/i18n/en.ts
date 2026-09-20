@@ -610,9 +610,11 @@ const en: TranslationMap = {
     'Browse SKILL.md packages, including Hermes-style markdown, scripts, references, templates, examples, and prompts.',
   'skills.explorer.title': 'Skills explorer',
   'skills.rows.installedTitle': 'Installed skills',
-  'skills.rows.installedIntro': 'The skills your agent can run on this machine. Open one for its details; run, edit or remove it from its row.',
+  'skills.rows.installedIntro':
+    'The skills your agent can run on this machine. Open one for its details; run, edit or remove it from its row.',
   'skills.rows.registryTitle': 'Skill registry',
-  'skills.rows.registryIntro': 'Catalogues of skills you can install. Search, then install one into your user skills.',
+  'skills.rows.registryIntro':
+    'Catalogues of skills you can install. Search, then install one into your user skills.',
   'skills.rows.open': 'Open {name}',
   'skills.rows.run': 'Run {name}',
   'skills.rows.edit': 'Edit {name}',

@@ -765,9 +765,11 @@ const messages: TranslationMap = {
     'Jelajahi paket SKILL.md, termasuk markdown, skrip, referensi, templat, contoh, dan prompt bergaya Hermes.',
   'skills.explorer.title': 'Penjelajah skill',
   'skills.rows.installedTitle': 'Skill terpasang',
-  'skills.rows.installedIntro': 'Skill yang dapat dijalankan agen Anda di mesin ini. Buka salah satu untuk detailnya; jalankan, sunting, atau hapus dari barisnya.',
+  'skills.rows.installedIntro':
+    'Skill yang dapat dijalankan agen Anda di mesin ini. Buka salah satu untuk detailnya; jalankan, sunting, atau hapus dari barisnya.',
   'skills.rows.registryTitle': 'Registri skill',
-  'skills.rows.registryIntro': 'Katalog skill yang dapat Anda pasang. Cari, lalu pasang satu ke skill pengguna Anda.',
+  'skills.rows.registryIntro':
+    'Katalog skill yang dapat Anda pasang. Cari, lalu pasang satu ke skill pengguna Anda.',
   'skills.rows.open': 'Buka {name}',
   'skills.rows.run': 'Jalankan {name}',
   'skills.rows.edit': 'Sunting {name}',

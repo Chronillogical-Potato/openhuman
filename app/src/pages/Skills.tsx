@@ -1355,7 +1355,6 @@ export default function Skills() {
                     )}
 
                     {activeTab === 'composio' && otherGroups.map(group => renderGroup(group))}
-
                   </>
                 }
               </div>

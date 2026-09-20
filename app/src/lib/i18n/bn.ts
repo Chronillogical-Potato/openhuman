@@ -755,9 +755,11 @@ const messages: TranslationMap = {
     'Hermes-ধাঁচের markdown, scripts, references, templates, examples এবং prompts সহ SKILL.md প্যাকেজ ব্রাউজ করুন।',
   'skills.explorer.title': 'স্কিল এক্সপ্লোরার',
   'skills.rows.installedTitle': 'ইনস্টল করা স্কিল',
-  'skills.rows.installedIntro': 'এই মেশিনে আপনার এজেন্ট যে স্কিলগুলো চালাতে পারে। বিস্তারিত দেখতে খুলুন; সারি থেকে চালান, সম্পাদনা করুন বা সরান।',
+  'skills.rows.installedIntro':
+    'এই মেশিনে আপনার এজেন্ট যে স্কিলগুলো চালাতে পারে। বিস্তারিত দেখতে খুলুন; সারি থেকে চালান, সম্পাদনা করুন বা সরান।',
   'skills.rows.registryTitle': 'স্কিল রেজিস্ট্রি',
-  'skills.rows.registryIntro': 'ইনস্টল করার মতো স্কিলের ক্যাটালগ। খুঁজুন, তারপর আপনার ইউজার স্কিলে একটি ইনস্টল করুন।',
+  'skills.rows.registryIntro':
+    'ইনস্টল করার মতো স্কিলের ক্যাটালগ। খুঁজুন, তারপর আপনার ইউজার স্কিলে একটি ইনস্টল করুন।',
   'skills.rows.open': '{name} খুলুন',
   'skills.rows.run': '{name} চালান',
   'skills.rows.edit': '{name} সম্পাদনা করুন',

@@ -773,9 +773,11 @@ const messages: TranslationMap = {
     'Explore pacotes SKILL.md, incluindo markdown, scripts, referências, modelos, exemplos e prompts no estilo Hermes.',
   'skills.explorer.title': 'Explorador de skills',
   'skills.rows.installedTitle': 'Skills instaladas',
-  'skills.rows.installedIntro': 'As skills que seu agente pode executar nesta máquina. Abra uma para ver os detalhes; execute, edite ou remova a partir da linha.',
+  'skills.rows.installedIntro':
+    'As skills que seu agente pode executar nesta máquina. Abra uma para ver os detalhes; execute, edite ou remova a partir da linha.',
   'skills.rows.registryTitle': 'Registro de skills',
-  'skills.rows.registryIntro': 'Catálogos de skills que você pode instalar. Pesquise e instale uma nas suas skills de usuário.',
+  'skills.rows.registryIntro':
+    'Catálogos de skills que você pode instalar. Pesquise e instale uma nas suas skills de usuário.',
   'skills.rows.open': 'Abrir {name}',
   'skills.rows.run': 'Executar {name}',
   'skills.rows.edit': 'Editar {name}',

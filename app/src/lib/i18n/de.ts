@@ -788,9 +788,11 @@ const messages: TranslationMap = {
     'Durchsuche SKILL.md-Pakete, einschließlich Hermes-artigem Markdown, Skripten, Referenzen, Vorlagen, Beispielen und Prompts.',
   'skills.explorer.title': 'Skill-Explorer',
   'skills.rows.installedTitle': 'Installierte Skills',
-  'skills.rows.installedIntro': 'Die Skills, die dein Agent auf diesem Rechner ausführen kann. Öffne einen für Details; führe ihn aus, bearbeite oder entferne ihn aus seiner Zeile.',
+  'skills.rows.installedIntro':
+    'Die Skills, die dein Agent auf diesem Rechner ausführen kann. Öffne einen für Details; führe ihn aus, bearbeite oder entferne ihn aus seiner Zeile.',
   'skills.rows.registryTitle': 'Skill-Verzeichnis',
-  'skills.rows.registryIntro': 'Kataloge mit Skills, die du installieren kannst. Suche und installiere einen in deine Benutzer-Skills.',
+  'skills.rows.registryIntro':
+    'Kataloge mit Skills, die du installieren kannst. Suche und installiere einen in deine Benutzer-Skills.',
   'skills.rows.open': '{name} öffnen',
   'skills.rows.run': '{name} ausführen',
   'skills.rows.edit': '{name} bearbeiten',
