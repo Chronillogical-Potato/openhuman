@@ -6650,6 +6650,7 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'Cerca provider e modelli',
   'settings.ai.picker.providersLabel': 'Provider',
   'settings.ai.picker.modelIdPlaceholder': "Inserisci l'ID del modello",
+  'settings.ai.picker.managedAutomatic': 'Automatico (consigliato)',
   'settings.ai.picker.claudeCodeHint': 'Usa un alias di modello Claude Code o un ID modello.',
   'settings.ai.loops.memoryTreeWorkers.name': "Worker dell'albero di memoria",
   'settings.ai.loops.cadence.queue': 'coda',

@@ -4851,6 +4851,7 @@ const en: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'Search providers and models',
   'settings.ai.picker.providersLabel': 'Providers',
   'settings.ai.picker.modelIdPlaceholder': 'Enter a model ID',
+  'settings.ai.picker.managedAutomatic': 'Automatic (recommended)',
   'settings.ai.picker.claudeCodeHint': 'Use a Claude Code model alias or model ID.',
   'settings.ai.noCustomProviders': 'No custom providers',
   'settings.ai.openAiCompat.authHeaderExample': 'Authorization: Bearer <your key>',

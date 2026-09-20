@@ -6451,6 +6451,7 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': '제공업체와 모델 검색',
   'settings.ai.picker.providersLabel': '제공업체',
   'settings.ai.picker.modelIdPlaceholder': '모델 ID 입력',
+  'settings.ai.picker.managedAutomatic': '자동 (권장)',
   'settings.ai.picker.claudeCodeHint': 'Claude Code 모델 별칭 또는 모델 ID를 사용하세요.',
   'settings.ai.loops.memoryTreeWorkers.name': '메모리 트리 워커',
   'settings.ai.loops.cadence.queue': '대기열',

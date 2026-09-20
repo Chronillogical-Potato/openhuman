@@ -6158,6 +6158,7 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': '搜索提供方和模型',
   'settings.ai.picker.providersLabel': '提供方',
   'settings.ai.picker.modelIdPlaceholder': '输入模型 ID',
+  'settings.ai.picker.managedAutomatic': '自动（推荐）',
   'settings.ai.picker.claudeCodeHint': '使用 Claude Code 模型别名或模型 ID。',
   'settings.ai.loops.memoryTreeWorkers.name': '记忆树工作进程',
   'settings.ai.loops.cadence.queue': '队列',
