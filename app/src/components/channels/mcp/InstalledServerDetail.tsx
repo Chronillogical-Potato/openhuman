@@ -3,7 +3,7 @@
  * Shows header, status, env key names (never values), tool list, and action buttons.
  */
 import debug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';

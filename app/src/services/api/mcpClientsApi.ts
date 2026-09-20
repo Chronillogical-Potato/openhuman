@@ -20,7 +20,7 @@ import type {
   SmitheryServerDetail,
 } from '../../components/channels/mcp/types';
 import { callCoreRpc } from '../coreRpcClient';
-import { isMcpRegistryErrorLike, normalizeMcpRegistryError } from './mcpRegistryErrors';
+import { normalizeMcpRegistryError } from './mcpRegistryErrors';
 
 const log = debug('mcp-clients:api');
 
