@@ -288,10 +288,10 @@ impl OpenHumanDefinitionRegistry {
                 // denied, must project as no tools rather than as everything.
                 ResolvedScope::Named(names)
             }
-            ToolScope::Wildcard if def.disallowed_tools.is_empty() => ResolvedScope::Wildcard,
             ToolScope::Wildcard => match self.registered_tools.as_deref() {
-                // "Everything except these" is only expressible against a
-                // concrete list, so materialize and filter.
+                // The hosted API treats an empty list as deny-all, so materialize
+                // every wildcard scope rather than serializing it as an empty
+                // vector. Apply the denylist while doing so.
                 Some(registered) => {
                     let mut names: Vec<String> = registered
                         .iter()
@@ -301,19 +301,14 @@ impl OpenHumanDefinitionRegistry {
                     dedupe_preserving_order(&mut names);
                     ResolvedScope::Named(names)
                 }
-                // Fail closed. Emitting the wildcard here would silently
-                // re-grant every denied tool — for shipped definitions that
-                // means specialist-only routes becoming
-                // generally available. An agent with no tools is a visible,
-                // debuggable failure; a silently widened one is not.
+                // Fail closed when the concrete session tool surface is absent.
                 None => {
                     log::error!(
-                        "[tinyagents][definitions] agent '{}' has a wildcard tool scope with a \
-                         non-empty denylist ({} entries) but no registered tool list was \
+                        "[tinyagents][definitions] agent '{}' has a wildcard tool scope but no \
+                         registered tool list was \
                          attached — failing closed to no tools. Call \
                          `with_registered_tools(..)` to project this definition.",
-                        def.id,
-                        def.disallowed_tools.len()
+                        def.id
                     );
                     ResolvedScope::Named(Vec::new())
                 }
