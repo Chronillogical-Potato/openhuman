@@ -60,6 +60,54 @@ fn accepted_message_hides_task_id_from_prose() {
     assert!(message.contains("sub-internal-123"));
 }
 
+/// A parent with `wait_subagent` but not `steer_subagent` (a wait-only
+/// fleet) must be told it can wait/poll but never invited to "send more
+/// input" — that guidance, and the `send_message` instruction, require
+/// `steer_subagent` specifically. Regression for CodeRabbit finding on
+/// `format_async_subagent_accepted`/`async_subagent_ref_payload` gating both
+/// messages on `can_wait()` alone.
+#[test]
+fn wait_only_fleet_omits_steering_guidance_and_instruction() {
+    let fleet = FleetToolSet::from_scope(
+        &crate::agent::harness::definition::ToolScope::Named(vec!["wait_subagent".to_string()]),
+        &[],
+    );
+    assert!(fleet.can_wait());
+    assert!(!fleet.has("steer_subagent"));
+
+    let payload = async_subagent_ref_payload(
+        "sub-123",
+        "subsess-456",
+        "researcher",
+        Some("thread-worker"),
+        false,
+        "created",
+        "running",
+        &fleet,
+    );
+    assert_eq!(payload["instructions"]["wait"]["tool"], "wait_subagent");
+    assert!(
+        !payload["instructions"]
+            .as_object()
+            .expect("instructions map")
+            .contains_key("send_message"),
+        "send_message offered to a parent without steer_subagent"
+    );
+    let serialized = serde_json::to_string(&payload).unwrap();
+    assert!(
+        !serialized.contains("steer_subagent"),
+        "steer_subagent leaked into the envelope"
+    );
+
+    let message = format_async_subagent_accepted("researcher", &serialized, &fleet);
+    let prose = message.split("[async_subagent_ref]").next().unwrap();
+    assert!(prose.contains("wait for completion"));
+    assert!(
+        !prose.contains("send more input"),
+        "wait-only parent told to send more input it cannot send"
+    );
+}
+
 #[test]
 fn async_reference_payload_includes_agent_id_and_control_instructions() {
     let payload = async_subagent_ref_payload(
