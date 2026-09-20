@@ -6711,7 +6711,6 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'Modelle suchen',
   'settings.ai.picker.providersLabel': 'Anbieter',
   'settings.ai.picker.modelIdPlaceholder': 'Modell-ID eingeben',
-  'settings.ai.picker.managedAutomatic': 'Automatisch (empfohlen)',
   'settings.ai.picker.claudeCodeHint':
     'Verwende einen Claude-Code-Modellalias oder eine Modell-ID.',
   'settings.ai.loops.memoryTreeWorkers.name': 'Speicherbaum-Worker',

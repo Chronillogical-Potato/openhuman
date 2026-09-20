@@ -6598,7 +6598,6 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'Поиск моделей',
   'settings.ai.picker.providersLabel': 'Провайдеры',
   'settings.ai.picker.modelIdPlaceholder': 'Введите ID модели',
-  'settings.ai.picker.managedAutomatic': 'Автоматически (рекомендуется)',
   'settings.ai.picker.claudeCodeHint': 'Используйте псевдоним модели Claude Code или ID модели.',
   'settings.ai.loops.memoryTreeWorkers.name': 'Воркеры дерева памяти',
   'settings.ai.loops.cadence.queue': 'очередь',

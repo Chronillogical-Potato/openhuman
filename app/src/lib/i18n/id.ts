@@ -6562,7 +6562,6 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'Cari model',
   'settings.ai.picker.providersLabel': 'Penyedia',
   'settings.ai.picker.modelIdPlaceholder': 'Masukkan ID model',
-  'settings.ai.picker.managedAutomatic': 'Otomatis (disarankan)',
   'settings.ai.picker.claudeCodeHint': 'Gunakan alias model Claude Code atau ID model.',
   'settings.ai.loops.memoryTreeWorkers.name': 'Worker pohon memori',
   'settings.ai.loops.cadence.queue': 'antrean',

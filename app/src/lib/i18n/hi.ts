@@ -6524,7 +6524,6 @@ const messages: TranslationMap = {
   'settings.ai.picker.searchPlaceholder': 'मॉडल खोजें',
   'settings.ai.picker.providersLabel': 'प्रदाता',
   'settings.ai.picker.modelIdPlaceholder': 'मॉडल आईडी दर्ज करें',
-  'settings.ai.picker.managedAutomatic': 'स्वचालित (अनुशंसित)',
   'settings.ai.picker.claudeCodeHint': 'Claude Code मॉडल उपनाम या मॉडल आईडी का उपयोग करें।',
   'settings.ai.loops.memoryTreeWorkers.name': 'मेमोरी ट्री वर्कर',
   'settings.ai.loops.cadence.queue': 'कतार',
