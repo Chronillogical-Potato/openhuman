@@ -87,6 +87,7 @@ export default function FlowsPage() {
   const [busyByFlow, setBusyByFlow] = useState<Record<string, RowAction>>({});
   /** Run ids started from this page that have not reported terminal yet, mapped to their start time. */
   const outstandingRunsRef = useRef<Map<string, number>>(new Map());
+  const isMountedRef = useRef(true);
   const setRowBusy = useCallback((flowId: string, action: RowAction | null) => {
     setBusyByFlow(prev => {
       if (action === null) {
@@ -126,15 +127,24 @@ export default function FlowsPage() {
     setError(null);
     try {
       const result = await listFlows();
+      if (!isMountedRef.current) return;
       setFlows(result);
       log('loaded %d flows', result.length);
     } catch (err) {
+      if (!isMountedRef.current) return;
       log('load failed: %o', err);
       setError(t('flows.page.loadError'));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     void loadFlows();
