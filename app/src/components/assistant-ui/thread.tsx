@@ -637,8 +637,13 @@ const Composer: FC<{
             // bottom edge and is pulled in at the top — the asymmetry is what
             // says "lit from above".
             //
-            //   0 8px  12px -4px  / 0.34  — contact: tight, near the edge
-            //   0 30px 44px -16px / 0.48  — cast: far, wide, and the stronger
+            //   0 8px  12px -4px  / 0.18  — contact: tight, near the edge
+            //   0 30px 44px -16px / 0.24  — cast: far, wide, and the stronger
+            //
+            // Both halved from 0.34 / 0.48: at those strengths the composer
+            // read as hovering well above the page, and the cast crowded the
+            // last message. Half keeps the lit-from-above asymmetry while the
+            // surface sits closer to the transcript.
             //
             // The far layer carrying more alpha than the near one is
             // deliberate and is what gives depth; the usual instinct is the
@@ -665,7 +670,7 @@ const Composer: FC<{
             //
             // `border-ring` on drag is untouched — that state is meant to break
             // the pattern.
-            className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.34),0_30px_44px_-16px_rgb(0_0_0/0.48)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.18),0_30px_44px_-16px_rgb(0_0_0/0.24)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
             {HostComposerAttachments ? <HostComposerAttachments /> : <ComposerAttachments />}
             {/*
              * Lexical rather than the plain `ComposerPrimitive.Input` textarea,
