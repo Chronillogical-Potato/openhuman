@@ -613,7 +613,11 @@ jobs:
         # packages in the flows profile; native build count remains 2.
         # 275 -> 279 on 2026-09-20: the required TinyAgents runtime/session/
         # graph split adds four unique crate names without native dependencies.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 279
+        # 279 -> 277 on 2026-09-20: the resolved flows profile no longer
+        # reaches two of those names. Keep this independent calibration in
+        # lockstep with `scripts/kernel-floor.limits` rather than retaining a
+        # stale dependency floor.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 277
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
