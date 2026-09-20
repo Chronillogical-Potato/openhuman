@@ -1279,7 +1279,7 @@ async fn run_typed_mode(
                 tracing::warn!(
                     agent_id = %definition.id,
                     error = %e,
-                    "[subagent_host:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
+                    "[subagent_host:typed] config load failed for extract provider; falling back to parent provider + hint:summarization"
                 );
                 (parent.turn_model_source.clone(), summarization_tier.clone())
             }
