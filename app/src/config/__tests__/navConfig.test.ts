@@ -17,7 +17,6 @@ describe('NAV_TABS', () => {
       '/brain',
       '/flows',
       '/connections',
-      '/rewards',
     ]);
   });
 
@@ -27,7 +26,6 @@ describe('NAV_TABS', () => {
       'nav.brain',
       'nav.flows',
       'nav.connections',
-      'nav.rewards',
     ]);
   });
 
@@ -37,12 +35,11 @@ describe('NAV_TABS', () => {
       'tab-brain',
       'tab-flows',
       'tab-connections',
-      'tab-rewards',
     ]);
   });
 
-  it('gates only rewards on a cloud session', () => {
-    expect(NAV_TABS.filter(t => t.cloudOnly).map(t => t.id)).toEqual(['rewards']);
+  it('gates nothing on a cloud session now that Rewards is gone', () => {
+    expect(NAV_TABS.filter(t => t.cloudOnly).map(t => t.id)).toEqual([]);
   });
 
   it('no longer contains a human tab (reached from the composer idle button)', () => {

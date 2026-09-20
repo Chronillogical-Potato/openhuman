@@ -105,6 +105,3 @@ describe('SidebarNav active matching', () => {
 });
 
 
-    expect(tabButton('Rewards')).toHaveAttribute('aria-current', 'page');
-  });
-});
