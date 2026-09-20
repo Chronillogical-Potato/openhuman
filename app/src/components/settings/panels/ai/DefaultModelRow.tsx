@@ -20,7 +20,7 @@ export const RECOMMENDED_DEFAULT_MODEL = 'openrouter/deepseek/deepseek-v4-flash'
 
 /**
  * A managed passthrough id (`openrouter/<author>/<slug>[:tag]`). Anything else
- * in `default_model` — a tier such as `chat-v1`, a hint, or empty — is not a
+ * in `default_model` — a retired tier such as `chat-v1`, a hint, or empty — is not a
  * pin: the backend picks, and the row says so rather than naming a tier.
  */
 export const isPinnedManagedModel = (value: string | undefined): value is string => {

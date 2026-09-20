@@ -63,7 +63,7 @@ export const ALL_WORKLOADS: WorkloadId[] = [...CHAT_WORKLOADS, ...BACKGROUND_WOR
 // Workloads that own a `<id>_provider` config field and must round-trip through
 // settings serialization. Includes the tier-specific `vision` workload, which
 // is deliberately NOT part of `CHAT_WORKLOADS`/`ALL_WORKLOADS`: it defaults to
-// the managed `vision-v1` tier and is a delegate (like agentic BYOK), so it does
+// the managed vision route and is a delegate (like agentic BYOK), so it does
 // not participate in the billing-suppression / "routed away from OpenHuman"
 // checks in `useUsageState`.
 const ROUTABLE_WORKLOADS: WorkloadId[] = [...ALL_WORKLOADS, 'vision'];
@@ -150,7 +150,7 @@ export interface AISettings {
   /**
    * The managed "default model" (Routing → Default model): the catalog id a
    * managed `chat` turn runs on. Raw `config.default_model` — a managed tier
-   * name (`chat-v1`) means nothing is pinned and the backend picks.
+   * name (`chat-v1`) or empty means nothing is pinned and the managed default runs.
    */
   defaultModel?: string;
   /**

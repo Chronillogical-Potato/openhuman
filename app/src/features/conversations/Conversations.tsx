@@ -480,7 +480,7 @@ const Conversations = ({
   // When it is, an image may be attached and routed to that sub-agent even if
   // the active orchestrator model is non-vision — the orchestrator sees a text
   // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload tier (vision-v1 on the managed backend, or the BYOK
+  // the `vision` workload route (the managed default on the managed backend, or the BYOK
   // model routed to the Vision workload).
   const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
 
