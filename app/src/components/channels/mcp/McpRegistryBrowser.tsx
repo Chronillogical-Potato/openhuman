@@ -26,7 +26,6 @@ import Button from '../../ui/Button';
 import Card from '../../ui/Card';
 import TextField from '../../ui/TextField';
 import { mcpRegistryErrorMessage } from './mcpRegistryErrorMessage';
-import { deriveAuthor } from './McpServerCard';
 import type { SmitheryServer } from './types';
 
 const log = debug('mcp-clients:registry');
