@@ -20,11 +20,11 @@ vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
 describe('CollapsedNavRail', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Home, Keyboard Shortcuts, and every primary nav destination as icon buttons', () => {
+  it('renders Home, Discord, and every primary nav destination as icon buttons', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
     for (const key of [
       'nav.home',
-      'shortcuts.title',
+      'nav.discord',
       'nav.chat',
       'nav.brain',
       'nav.flows',
@@ -47,19 +47,17 @@ describe('CollapsedNavRail', () => {
     expect(screen.getByRole('button', { name: 'nav.chat' }).dataset.active).toBe('false');
   });
 
-  it('shortcuts button opens the keyboard-shortcuts help directory', () => {
-    const runAction = vi.spyOn(registry, 'runAction').mockReturnValue(true);
+  it('Discord button opens the community invite in the browser', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.title' }));
-    expect(runAction).toHaveBeenCalledWith('meta.keyboard-shortcuts');
-    runAction.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'nav.discord' }));
+    expect(openUrl).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
   });
 
-  it('shortcuts button has correct data-analytics-id', () => {
+  it('Discord button has correct data-analytics-id', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'nav.discord' })).toHaveAttribute(
       'data-analytics-id',
-      'collapsed-rail-shortcuts'
+      'collapsed-rail-discord'
     );
   });
 

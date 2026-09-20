@@ -13,6 +13,8 @@ vi.mock('react-router-dom', async importOriginal => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 vi.mock('./RootShellLayout', () => ({ useRootSidebar: () => ({ hide: mockHide }) }));
+const openUrl = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../utils/openUrl', () => ({ openUrl: (...args: unknown[]) => openUrl(...args) }));
 // Return i18n keys verbatim so queries don't depend on locale.
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
