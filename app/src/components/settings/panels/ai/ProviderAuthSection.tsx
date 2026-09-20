@@ -24,7 +24,6 @@ import type { ProviderAuthError } from '../../../../services/api/aiSettingsApi';
 import Alert from '../../../ui/Alert';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
-import Card from '../../../ui/Card';
 import StatusLine from '../../../ui/StatusLine';
 import Switch from '../../../ui/Switch';
 import { routingWithProviderRemoved } from '../aiRouting';

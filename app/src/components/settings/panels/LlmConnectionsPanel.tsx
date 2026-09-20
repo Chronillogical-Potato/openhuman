@@ -2,8 +2,8 @@ import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
-import AIPanel, { type AIPanelTab } from './AIPanel';
 import { AddProviderButton } from './ai/ProviderAuthSection';
+import AIPanel, { type AIPanelTab } from './AIPanel';
 
 /**
  * The Connections → LLM surface: provider credentials and workload routing.
