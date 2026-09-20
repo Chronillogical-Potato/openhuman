@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::config::MODEL_MANAGED_DEFAULT;
+
 use crate::inference::provider::factory::access_gates::local_only_violation;
 /// When the provider string includes a model id the factory should build
 /// successfully and return that model id unchanged.
@@ -246,65 +248,84 @@ fn local_provider_string_detection() {
 
 // ── resolve_model_for_hint ──────────────────────────────────────────────
 
+/// Every managed role runs on the managed default model: there are no
+/// per-role tier endpoints any more.
 #[test]
-fn resolve_model_for_hint_maps_known_hints_to_tiers() {
+fn resolve_model_for_hint_maps_every_managed_hint_to_the_default_model() {
     let config = Config::default();
-    assert_eq!(
-        resolve_model_for_hint("hint:reasoning", &config),
-        "reasoning-v1"
-    );
-    assert_eq!(resolve_model_for_hint("hint:chat", &config), "chat-v1");
-    assert_eq!(
-        resolve_model_for_hint("hint:agentic", &config),
-        "agentic-v1"
-    );
-    assert_eq!(resolve_model_for_hint("hint:burst", &config), "burst-v1");
-    assert_eq!(resolve_model_for_hint("hint:coding", &config), "coding-v1");
-    assert_eq!(
-        resolve_model_for_hint("hint:summarization", &config),
-        "summarization-v1"
-    );
+    for hint in [
+        "hint:reasoning",
+        "hint:chat",
+        "hint:agentic",
+        "hint:burst",
+        "hint:coding",
+        "hint:summarization",
+        "hint:vision",
+    ] {
+        assert_eq!(
+            resolve_model_for_hint(hint, &config),
+            MODEL_MANAGED_DEFAULT,
+            "{hint} must resolve to the managed default"
+        );
+    }
 }
 
-/// Routing → "Default model": a catalog id in `default_model` is what a managed
-/// `hint:chat` turn runs on. Tier names and hints stored there are not pins,
-/// and a BYOK chat route is untouched by the managed default.
+/// Routing → "Default model": a catalog id in `default_model` is what every
+/// managed role runs on. Hints and retired tier slugs stored there are not
+/// pins, and a BYOK route is untouched by the managed default.
 #[test]
-fn resolve_model_for_hint_uses_pinned_managed_default_for_chat() {
+fn resolve_model_for_hint_uses_the_pinned_managed_default() {
     let mut config = Config::default();
-    config.default_model = Some("openrouter/deepseek/deepseek-v4-flash".to_string());
+    config.default_model = Some("openrouter/deepseek/deepseek-v4-pro".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:chat", &config),
-        "openrouter/deepseek/deepseek-v4-flash"
+        "openrouter/deepseek/deepseek-v4-pro"
     );
-    // Only the chat tier is pinned; other managed tiers keep their names.
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        "reasoning-v1"
+        "openrouter/deepseek/deepseek-v4-pro"
     );
-    assert_eq!(resolve_model_for_hint("hint:coding", &config), "coding-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:coding", &config),
+        "openrouter/deepseek/deepseek-v4-pro"
+    );
 
-    // A tier or hint in `default_model` is the old "backend picks" contract.
+    // A retired tier slug or a hint in `default_model` is not a pin.
     config.default_model = Some("chat-v1".to_string());
-    assert_eq!(resolve_model_for_hint("hint:chat", &config), "chat-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:chat", &config),
+        MODEL_MANAGED_DEFAULT
+    );
     config.default_model = Some("hint:reasoning".to_string());
-    assert_eq!(resolve_model_for_hint("hint:chat", &config), "chat-v1");
+    assert_eq!(
+        resolve_model_for_hint("hint:chat", &config),
+        MODEL_MANAGED_DEFAULT
+    );
 
     // A BYOK chat route carries its own model and ignores the managed pin.
-    config.default_model = Some("openrouter/deepseek/deepseek-v4-flash".to_string());
+    config.default_model = Some("openrouter/deepseek/deepseek-v4-pro".to_string());
     config.chat_provider = Some("openai:gpt-4o".to_string());
     assert_eq!(resolve_model_for_hint("hint:chat", &config), "gpt-4o");
 }
 
+/// Retired tier slugs are aliases of their role: on the managed backend they
+/// resolve to the default model, never back to themselves. A concrete model id
+/// passes through untouched.
 #[test]
-fn resolve_model_for_hint_passes_through_tier_names() {
+fn resolve_model_for_hint_treats_retired_tier_slugs_as_role_aliases() {
     let config = Config::default();
+    for slug in ["reasoning-v1", "agentic-v1", "coding-v1", "chat-v1"] {
+        assert_eq!(
+            resolve_model_for_hint(slug, &config),
+            MODEL_MANAGED_DEFAULT,
+            "{slug} must resolve through its role"
+        );
+    }
     assert_eq!(
-        resolve_model_for_hint("reasoning-v1", &config),
-        "reasoning-v1"
+        resolve_model_for_hint("openrouter/deepseek/deepseek-v4-pro", &config),
+        "openrouter/deepseek/deepseek-v4-pro"
     );
-    assert_eq!(resolve_model_for_hint("agentic-v1", &config), "agentic-v1");
-    assert_eq!(resolve_model_for_hint("coding-v1", &config), "coding-v1");
+    assert_eq!(resolve_model_for_hint("gpt-4o", &config), "gpt-4o");
 }
 
 #[test]
@@ -326,19 +347,19 @@ fn resolve_model_for_hint_falls_through_openhuman_and_cloud_sentinels() {
     config.reasoning_provider = Some("openhuman".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        "reasoning-v1"
+        MODEL_MANAGED_DEFAULT
     );
 
     config.reasoning_provider = Some("cloud".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        "reasoning-v1"
+        MODEL_MANAGED_DEFAULT
     );
 
     config.reasoning_provider = Some("".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:reasoning", &config),
-        "reasoning-v1"
+        MODEL_MANAGED_DEFAULT
     );
 }
 
@@ -350,21 +371,21 @@ fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
 }
 
 #[test]
-fn resolve_model_for_hint_subconscious_managed_is_chat_v1() {
-    // Managed (no BYOK subconscious_provider) resolves to the chat tier model so
+fn resolve_model_for_hint_subconscious_managed_is_the_default_model() {
+    // Managed (no BYOK subconscious_provider) resolves to the default model so
     // the RPC `inference.resolve_model` reports the model the tick actually runs.
     let config = Config::default();
     assert_eq!(
         resolve_model_for_hint("hint:subconscious", &config),
-        "chat-v1"
+        MODEL_MANAGED_DEFAULT
     );
 
-    // An explicit managed sentinel still resolves to the tier, not the raw hint.
+    // An explicit managed sentinel still resolves to the model, not the raw hint.
     let mut config = Config::default();
     config.subconscious_provider = Some("openhuman".to_string());
     assert_eq!(
         resolve_model_for_hint("hint:subconscious", &config),
-        "chat-v1"
+        MODEL_MANAGED_DEFAULT
     );
 }
 
