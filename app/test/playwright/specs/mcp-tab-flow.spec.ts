@@ -392,25 +392,27 @@ test.describe('MCP page — mcp.json tab', () => {
   });
 
   test('declare flow: paste a server block → save → it appears in the rows', async ({ page }) => {
-    await page.getByTestId('mcp-json-textarea').fill(
-      JSON.stringify(
-        {
-          mcpServers: {
-            'io.github.test/memory-server': {
-              command: 'npx',
-              args: ['-y', '@modelcontextprotocol/server-memory'],
-            },
-            github: {
-              command: 'npx',
-              args: ['-y', '@modelcontextprotocol/server-github'],
-              env: { GITHUB_TOKEN: 'ghp_test_token_123' },
+    await page
+      .getByTestId('mcp-json-textarea')
+      .fill(
+        JSON.stringify(
+          {
+            mcpServers: {
+              'io.github.test/memory-server': {
+                command: 'npx',
+                args: ['-y', '@modelcontextprotocol/server-memory'],
+              },
+              github: {
+                command: 'npx',
+                args: ['-y', '@modelcontextprotocol/server-github'],
+                env: { GITHUB_TOKEN: 'ghp_test_token_123' },
+              },
             },
           },
-        },
-        null,
-        2
-      )
-    );
+          null,
+          2
+        )
+      );
     await expect(page.getByTestId('mcp-json-save')).toBeEnabled();
     await page.getByTestId('mcp-json-save').click();
 
@@ -469,10 +471,12 @@ test.describe('MCP page — Registry tab', () => {
   test('already-declared servers are excluded from the directory', async ({ page }) => {
     const rows = page.getByTestId('mcp-registry-row');
     await expect(rows.first()).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId('mcp-registry-row').filter({ hasText: 'Memory Server' })).toHaveCount(0);
+    await expect(
+      page.getByTestId('mcp-registry-row').filter({ hasText: 'Memory Server' })
+    ).toHaveCount(0);
   });
 
-  test('a row opens the server\'s own page in a new tab', async ({ page, context }) => {
+  test("a row opens the server's own page in a new tab", async ({ page, context }) => {
     // The browser shell is not Tauri here, so `openUrl` falls back to
     // `window.open`; the page it opens is the row's target.
     const popup = context.waitForEvent('page');
@@ -493,9 +497,10 @@ test.describe('MCP page — Registry tab', () => {
       }
       await route.fallback();
     });
-    await page.getByTestId('mcp-registry-browser').locator('input[type="search"]').fill(
-      'xyznonexistent999'
-    );
+    await page
+      .getByTestId('mcp-registry-browser')
+      .locator('input[type="search"]')
+      .fill('xyznonexistent999');
     await expect(page.getByTestId('mcp-catalog-empty')).toBeVisible({ timeout: 10_000 });
   });
 });
