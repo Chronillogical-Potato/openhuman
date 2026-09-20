@@ -323,9 +323,7 @@ pub async fn prepare_messages_for_provider(
             // Keep the wire contract strict before handing it to TinyAgents:
             // accepting a non-base64 form silently turned malformed image
             // input into a provider-visible marker after the resolver update.
-            if reference.trim_start().starts_with("data:")
-                && !data_uri_uses_base64(&reference)
-            {
+            if reference.trim_start().starts_with("data:") && !data_uri_uses_base64(&reference) {
                 return Err(anyhow::anyhow!("only base64 data URIs are supported"));
             }
             normalized_image_refs
