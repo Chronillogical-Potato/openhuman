@@ -4223,11 +4223,14 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
     .await;
     assert_no_jsonrpc_error(&store, "store_session");
 
+    // Every managed role — and a retired tier slug — runs on the managed
+    // default model; a concrete catalog id is forwarded verbatim.
     let routing_cases = [
-        ("hint:reasoning", "reasoning-v1"),
-        ("hint:agentic", "agentic-v1"),
-        ("hint:coding", "coding-v1"),
-        ("reasoning-v1", "reasoning-v1"),
+        ("hint:reasoning", "openrouter/deepseek/deepseek-v4-flash"),
+        ("hint:agentic", "openrouter/deepseek/deepseek-v4-flash"),
+        ("hint:coding", "openrouter/deepseek/deepseek-v4-flash"),
+        ("reasoning-v1", "openrouter/deepseek/deepseek-v4-flash"),
+        ("openrouter/deepseek/deepseek-v4-pro", "openrouter/deepseek/deepseek-v4-pro"),
         // Web chat forwards lightweight hint overrides as-is for this path,
         // so the upstream model receives the original hint string.
         ("hint:reaction", "hint:reaction"),
@@ -4525,7 +4528,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
     assert_eq!(
         agentic_request.get("model").and_then(Value::as_str),
-        Some("agentic-v1")
+        Some("openrouter/deepseek/deepseek-v4-flash")
     );
 
     mock_join.abort();
@@ -10749,15 +10752,14 @@ async fn json_rpc_flows_suggestion_lifecycle_methods_are_wired() {
 }
 
 /// Minimal config for the agent-backed flows arc: like `write_min_config` but
-/// pins `default_model = "chat-v1"` so an agent node on the **chat** tier
-/// resolves to `chat-v1` on the managed backend while a **reasoning**-tier node
-/// resolves to `reasoning-v1` — letting the full-arc test assert the two nodes
-/// routed to distinct managed tiers.
+/// pins `default_model` to a concrete catalog model so both agent nodes — the
+/// **chat**-role drafter and the **reasoning**-role planner — resolve to that
+/// pinned managed model, letting the full-arc test assert the pin took.
 #[cfg(feature = "flows")]
 fn write_flows_tier_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
-default_model = "chat-v1"
+default_model = "openrouter/deepseek/deepseek-v4-pro"
 default_temperature = 0.7
 chat_onboarding_completed = true
 
@@ -11093,8 +11095,8 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
         .expect("planner completion should have been captured");
     assert_eq!(
         planner_req.get("model").and_then(Value::as_str),
-        Some("reasoning-v1"),
-        "planner node (reasoning tier) must resolve to reasoning-v1"
+        Some("openrouter/deepseek/deepseek-v4-pro"),
+        "planner node (reasoning role) must resolve to the pinned managed model"
     );
     let drafter_req = requests
         .iter()
@@ -11103,8 +11105,8 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
         .expect("drafter completion should have been captured");
     assert_eq!(
         drafter_req.get("model").and_then(Value::as_str),
-        Some("chat-v1"),
-        "drafter node (chat tier) must resolve to chat-v1"
+        Some("openrouter/deepseek/deepseek-v4-pro"),
+        "drafter node (chat role) must resolve to the pinned managed model"
     );
     assert!(
         body_of(&drafter_req).contains("PLAN_MARKER"),
