@@ -182,7 +182,7 @@ fn build_roster(n: usize) -> Result<Roster> {
             .model_name("bench-mock".into())
             // Use a real built-in id because the hosted invocation resolves
             // root authority through the definition registry.
-            .agent_definition_name("orchestrator".into())
+            .agent_definition_name("orchestrator")
             .workspace_dir(path.clone())
             .action_dir(path)
             .auto_save(false)
