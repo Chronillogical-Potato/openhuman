@@ -38,7 +38,6 @@ const ICONS: Record<string, IconType> = {
   wallet: LuWallet,
   brain: LuBrain,
   keyboard: LuKeyboard,
-  rewards: LuGift,
 };
 
 interface NavIconProps {

@@ -125,7 +125,7 @@ describe('AppRoutes — each route renders its page behind the right guard', () 
     // dangerous is `requireAuth={false}`: the wrapper is still there, so the
     // route reads as protected in review while the check is off. The route
     // table below classifies that separately, so it cannot pass unnoticed.
-    visit('/rewards');
+    visit('/connections');
     expect(screen.getByTestId('guard-protected')).not.toHaveAttribute('data-require-auth', 'false');
   });
 });
