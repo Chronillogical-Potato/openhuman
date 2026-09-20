@@ -26,7 +26,7 @@ export interface NavTab {
 
 /**
  * Ordered list of sidebar nav entries:
- *   chat → brain → flows → connections → rewards
+ *   chat → brain → flows → connections
  *
  * Human has no primary tab: `/human` is reached from the chat composer, whose
  * primary button becomes the mascot when there is nothing to send (see

@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 5 entries', () => {
-    expect(NAV_TABS).toHaveLength(5);
+  it('has exactly 4 entries', () => {
+    expect(NAV_TABS).toHaveLength(4);
   });
 
   it('has the correct ids in order', () => {
-    expect(NAV_TABS.map(t => t.id)).toEqual(['chat', 'brain', 'flows', 'connections', 'rewards']);
+    expect(NAV_TABS.map(t => t.id)).toEqual(['chat', 'brain', 'flows', 'connections']);
   });
 
   it('has the correct paths', () => {
