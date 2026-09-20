@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import McpServersTab from './McpServersTab';
+import McpServersPage from './McpServersPage';
 
 const mockInstalledList = vi.fn();
 const mockStatus = vi.fn();
 const mockRegistrySearch = vi.fn();
 const mockConfigGet = vi.fn();
 const mockConfigSet = vi.fn();
+const mockDisconnect = vi.fn();
+const mockSetEnabled = vi.fn();
+const mockUninstall = vi.fn();
 
 vi.mock('../../../services/api/mcpClientsApi', () => ({
   mcpClientsApi: {
@@ -17,8 +20,9 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     configGet: (...args: unknown[]) => mockConfigGet(...args),
     configSet: (...args: unknown[]) => mockConfigSet(...args),
     connect: vi.fn(),
-    disconnect: vi.fn(),
-    uninstall: vi.fn(),
+    disconnect: (...args: unknown[]) => mockDisconnect(...args),
+    uninstall: (...args: unknown[]) => mockUninstall(...args),
+    setEnabled: (...args: unknown[]) => mockSetEnabled(...args),
     updateEnv: vi.fn(),
     detectAuth: vi.fn().mockResolvedValue({ kind: 'none', grant_types: [] }),
     registryGet: vi.fn().mockResolvedValue({ connections: [], required_env_keys: [] }),
@@ -49,40 +53,49 @@ const HOSTED = {
   env_keys: ['Authorization'],
   installed_at: 2,
   transport: { kind: 'http_remote' as const, url: 'https://h.test/mcp' },
-  enabled: true,
+  enabled: false,
 };
 
-describe('McpServersTab', () => {
+describe('McpServersPage', () => {
   beforeEach(() => {
     mockInstalledList.mockReset();
     mockStatus.mockReset();
     mockRegistrySearch.mockReset();
     mockConfigGet.mockReset();
     mockConfigSet.mockReset();
+    mockDisconnect.mockReset();
+    mockSetEnabled.mockReset();
+    mockUninstall.mockReset();
     mockInstalledList.mockResolvedValue([LOCAL, HOSTED]);
-    mockStatus.mockResolvedValue([{ server_id: 'srv-local', status: 'connected' }]);
+    mockStatus.mockResolvedValue([{ server_id: 'srv-local', status: 'connected', tool_count: 3 }]);
     mockRegistrySearch.mockResolvedValue({ servers: [], page: 1, total_pages: 1 });
     mockConfigGet.mockResolvedValue({ mcpServers: {} });
+    mockDisconnect.mockResolvedValue({ status: 'disconnected' });
+    mockSetEnabled.mockResolvedValue({ enabled: true });
+    mockUninstall.mockResolvedValue({ removed: true });
   });
 
-  it('opens on the server rows with the three notations as tabs', async () => {
-    render(<McpServersTab />);
-    await screen.findByTestId('mcp-servers-section');
-    expect(screen.getByRole('tab', { name: 'Servers (2)' })).toBeInTheDocument();
+  it('puts the three notations in the page header and opens on the rows', async () => {
+    render(<McpServersPage />);
+    expect(screen.getByRole('heading', { level: 1, name: 'MCP Servers' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Servers' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'mcp.json' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Registry' })).toBeInTheDocument();
 
+    await screen.findByTestId('mcp-servers-section');
     const rows = screen.getAllByTestId('mcp-installed-row');
     expect(rows).toHaveLength(2);
-    // The dial column says how each one runs, not where it was found.
+    // Each row says how it runs and how it is doing, not where it was found.
     expect(screen.getByText('npx -y echo')).toBeInTheDocument();
-    expect(screen.getByText('h.test')).toBeInTheDocument();
+    expect(screen.getByText('https://h.test/mcp')).toBeInTheDocument();
+    expect(screen.getByText(/Connected · 3 tools/)).toBeInTheDocument();
+    expect(screen.getByTestId('mcp-disabled-badge')).toBeInTheDocument();
     // Nothing from the directory sits among the user's own rows.
     expect(mockRegistrySearch).not.toHaveBeenCalled();
   });
 
   it('switches to the document and the directory, each rendered on demand', async () => {
-    render(<McpServersTab />);
+    render(<McpServersPage />);
     await screen.findByTestId('mcp-servers-section');
 
     fireEvent.click(screen.getByRole('tab', { name: 'mcp.json' }));
@@ -96,7 +109,7 @@ describe('McpServersTab', () => {
   });
 
   it('honours an initial tab', async () => {
-    render(<McpServersTab initialTab="registry" />);
+    render(<McpServersPage initialTab="registry" />);
     await screen.findByTestId('mcp-registry-browser');
   });
 
@@ -108,7 +121,7 @@ describe('McpServersTab', () => {
       updated: [],
       removed: ['echo', 'hosted'],
     });
-    render(<McpServersTab />);
+    render(<McpServersPage />);
     await screen.findByTestId('mcp-servers-section');
     expect(mockInstalledList).toHaveBeenCalledTimes(1);
 
@@ -121,26 +134,45 @@ describe('McpServersTab', () => {
     fireEvent.click(screen.getByTestId('mcp-json-save'));
 
     await waitFor(() => expect(mockInstalledList).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole('tab', { name: 'Servers (0)' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Servers' }));
     await screen.findByTestId('mcp-installed-empty');
   });
 
-  it('opens a row into its detail view and comes back', async () => {
-    render(<McpServersTab />);
+  it("opens a row's name into its detail view and comes back", async () => {
+    render(<McpServersPage />);
     await screen.findByTestId('mcp-servers-section');
-    fireEvent.click(screen.getByRole('button', { name: 'View details for echo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open echo' }));
     expect(await screen.findByRole('button', { name: 'Back to servers' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'mcp.json' })).not.toBeInTheDocument();
+    // The page's own tabs stay put above the detail.
+    expect(screen.getByRole('tab', { name: 'mcp.json' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to servers' }));
     await screen.findByTestId('mcp-servers-section');
   });
 
-  it('routes an empty list to the document and the directory', async () => {
+  it('drives a row from its icon controls', async () => {
+    render(<McpServersPage />);
+    await screen.findByTestId('mcp-servers-section');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect echo' }));
+    await waitFor(() => expect(mockDisconnect).toHaveBeenCalledWith('srv-local'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enable hosted' }));
+    await waitFor(() => expect(mockSetEnabled).toHaveBeenCalledWith('srv-hosted', true));
+
+    // Removal asks first, then tells the core.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove echo' }));
+    expect(await screen.findByTestId('mcp-remove-dialog')).toBeInTheDocument();
+    expect(mockUninstall).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+    await waitFor(() => expect(mockUninstall).toHaveBeenCalledWith('srv-local'));
+  });
+
+  it('routes an empty list to the document', async () => {
     mockInstalledList.mockResolvedValue([]);
     mockStatus.mockResolvedValue([]);
-    render(<McpServersTab />);
+    render(<McpServersPage />);
     await screen.findByTestId('mcp-installed-empty');
-    fireEvent.click(screen.getByRole('button', { name: 'Browse the registry' }));
-    await screen.findByTestId('mcp-registry-browser');
+    fireEvent.click(screen.getByRole('button', { name: 'Add one in mcp.json' }));
+    await screen.findByTestId('mcp-json-editor');
   });
 });
