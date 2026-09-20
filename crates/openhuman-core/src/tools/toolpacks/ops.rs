@@ -126,7 +126,7 @@ pub fn strip_packed_from_visible(visible: &mut HashSet<String>, agent_id: &str) 
 ///
 /// That distinction is load-bearing. Collapsing the archetype delegates without
 /// it silently re-advertised seven routes the pack table deliberately withholds
-/// (`do_crypto`, `setup_mcp_server`, `use_mcp_server`, `setup_skills`,
+/// (`do_crypto`, `use_mcp_server`, `setup_skills`,
 /// `run_skill`, `build_workflow`, `discover_workflows`): each one stopped being
 /// a tool — so `strip_packed_from_visible` had nothing to remove — and became a
 /// string inside another tool's schema instead. A collapse must never widen

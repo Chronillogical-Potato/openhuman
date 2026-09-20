@@ -183,7 +183,7 @@ pub fn all_tools_with_runtime(
         // (checkpoint → `AwaitingUser`, see `subagent_host`) and
         // the orchestrator resumes them via `continue_subagent` (#4291).
         // Several agent scopes (orchestrator, crypto, markets, scheduler,
-        // mcp_setup, desktop control) name it, so it must exist in the base
+        // desktop control) name it, so it must exist in the base
         // registry or none of them can actually ask the user anything.
         Box::new(AskClarificationTool::new()),
         // Read-only project overview (git status, recent commits, top-level
@@ -1204,7 +1204,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "goals",
     ];
 
-    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*, mcp_setup_*,
+    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*,
     // mcp_call_tool, mcp_list_servers, mcp_list_tools).
     if name.starts_with("mcp_") {
         return DomainGroup::Mcp;
