@@ -12,12 +12,7 @@ describe('NAV_TABS', () => {
   });
 
   it('has the correct paths', () => {
-    expect(NAV_TABS.map(t => t.path)).toEqual([
-      '/chat',
-      '/brain',
-      '/flows',
-      '/connections',
-    ]);
+    expect(NAV_TABS.map(t => t.path)).toEqual(['/chat', '/brain', '/flows', '/connections']);
   });
 
   it('has the correct labelKeys', () => {

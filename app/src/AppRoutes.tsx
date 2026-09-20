@@ -214,7 +214,6 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
           first-level module — redirect surviving deep links to /flows. */}
       <Route path="/routines" element={<Navigate to="/flows" replace />} />
 
-
       {/* Installed SKILL.md workflows remain a separate runtime surface from
           visual Flows. Keep the legacy top-level hub reachable. */}
       <Route

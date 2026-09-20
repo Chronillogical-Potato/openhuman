@@ -1,13 +1,13 @@
-import { FaDiscord } from 'react-icons/fa6';
 import { useMemo } from 'react';
+import { FaDiscord } from 'react-icons/fa6';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { openUrl } from '../../../utils/openUrl';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
+import { openUrl } from '../../../utils/openUrl';
 import {
   SidebarMenu,
   SidebarMenuBadge,

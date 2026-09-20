@@ -1,7 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { registry } from '../../../lib/commands/registry';
 import { renderWithProviders } from '../../../test/test-utils';
 import CollapsedNavRail from './CollapsedNavRail';
 
@@ -16,6 +15,8 @@ vi.mock('./useHomeNav', () => ({ useHomeNav: () => mockHome }));
 // Deterministic labels: render the i18n key so queries don't depend on locale.
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
+const openUrl = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../utils/openUrl', () => ({ openUrl: (...args: unknown[]) => openUrl(...args) }));
 
 describe('CollapsedNavRail', () => {
   beforeEach(() => vi.clearAllMocks());
