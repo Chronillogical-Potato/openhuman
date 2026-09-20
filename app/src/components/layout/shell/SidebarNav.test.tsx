@@ -103,5 +103,3 @@ describe('SidebarNav active matching', () => {
     expect(store.getState().accounts.activeAccountId).toBe(AGENT_ACCOUNT_ID);
   });
 });
-
-
