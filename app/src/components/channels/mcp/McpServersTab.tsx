@@ -1,62 +1,45 @@
 /**
- * Top-level MCP Servers tab.
+ * Top-level MCP Servers tab: the user's tool servers, said three ways.
  *
- * Unified table view: shows both installed servers and registry catalog
- * results in a single table. Filter chips at the top let users toggle
- * between "All", "Installed", and "Registry" views.
+ * **Servers** is the list — a row per declared server with its status, and a
+ * detail view with the credential form (sign-in or token) and the tool list.
+ * **mcp.json** is the same configuration as one document, in the shape a user
+ * already has in a desktop config: paste a block of servers, or read the whole
+ * set at once instead of expanding rows. **Registry** is the upstream
+ * directories, browse-only: a row opens the server's own page, where its
+ * install instructions live, and the user declares it in mcp.json.
+ *
+ * The first two are tabs and not two pages because they are not two things.
+ * Both go through the same core RPCs into the same store, so an edit made in
+ * one is visible in the other on its next read, and neither is an import
+ * format that can drift from "what is actually configured".
  */
 import debug from 'debug';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
-import { openUrl } from '../../../utils/openUrl';
 import ChipTabs from '../../layout/ChipTabs';
 import Button from '../../ui/Button';
-import Separator from '../../ui/Separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/Table';
 import TextField from '../../ui/TextField';
-import InstallDialog from './InstallDialog';
 import InstalledServerDetail from './InstalledServerDetail';
 import McpConnectionHealthToolbar from './McpConnectionHealthToolbar';
-import McpInventoryPanel from './McpInventoryPanel';
-import { mcpRegistryErrorMessage } from './mcpRegistryErrorMessage';
+import McpJsonEditor from './McpJsonEditor';
+import McpRegistryBrowser from './McpRegistryBrowser';
 import { deriveAuthor } from './McpServerCard';
-import type { ConnStatus, InstalledServer, ServerStatus, SmitheryServer } from './types';
+import type { ConnStatus, InstalledServer, ServerStatus } from './types';
 
 const log = debug('mcp-clients:tab');
 const POLL_INTERVAL_MS = 5_000;
-const DEBOUNCE_MS = 300;
-const PAGE_SIZE = 30;
 
-type View =
-  | { mode: 'home' }
-  | { mode: 'detail'; serverId: string }
-  | { mode: 'install'; qualifiedName: string; prefillEnv?: Record<string, string> };
+/** The three notations. `id` doubles as the chip's stable identifier. */
+export type McpPageTab = 'servers' | 'json' | 'registry';
 
-type FilterChip = 'all' | 'installed' | 'registry';
+type View = { mode: 'home' } | { mode: 'detail'; serverId: string };
 
 /**
- * Collapse catalog entries to a single row per `qualified_name`. The registry
- * can return the same server within a page or across paginated "load more"
- * fetches; without this the unified table renders duplicate rows and React
- * collides on the `catalog-<qualified_name>` key. First occurrence wins so the
- * earliest (highest-ranked) result is the one kept.
- */
-const dedupeByQualifiedName = (servers: SmitheryServer[]): SmitheryServer[] => {
-  const seen = new Set<string>();
-  const out: SmitheryServer[] = [];
-  for (const server of servers) {
-    if (seen.has(server.qualified_name)) continue;
-    seen.add(server.qualified_name);
-    out.push(server);
-  }
-  return out;
-};
-
-/**
- * Collapse installed servers to one row per `qualified_name`. Install is
+ * Collapse installed servers to one row per `qualified_name`. Declaring is
  * idempotent in the core now, but pre-existing double-installs can linger on
  * disk; the first occurrence (earliest install) is kept.
  */
@@ -80,213 +63,33 @@ const STATUS_DOT: Record<ServerStatus, string> = {
   disabled: 'bg-surface-strong',
 };
 
-/** Transport classification a catalog row can be filtered by. */
-type Transport = 'hosted' | 'stdio';
-
-/**
- * Classify a catalog row by how it runs: `hosted` = reachable over an HTTP
- * endpoint (cloud-run); `stdio` = installed and run on-device as a subprocess.
- * `is_deployed` is set by the registry adapter when the server exposes a remote.
- */
-const transportOf = (server: SmitheryServer): Transport =>
-  server.is_deployed ? 'hosted' : 'stdio';
-
-/**
- * Derive a browsable source-repository URL from the registry slug. The official
- * registry namespaces community servers as `io.github.<user>/<repo>` (and
- * `io.gitlab.<user>/…`), which maps 1:1 to a repo page. Returns `null` for
- * vendor reverse-DNS slugs that don't encode a code host.
- */
-const deriveRepoUrl = (qualifiedName: string): string | null => {
-  const slash = qualifiedName.indexOf('/');
-  if (slash < 1) return null;
-  const prefix = qualifiedName.slice(0, slash);
-  const repo = qualifiedName.slice(slash + 1);
-  if (!repo) return null;
-  if (prefix.startsWith('io.github.')) {
-    return `https://github.com/${prefix.slice('io.github.'.length)}/${repo}`;
+/** The dial column: the hosted endpoint's host, or the local command. */
+const dialOf = (server: InstalledServer): string => {
+  if (server.transport?.kind === 'http_remote') {
+    try {
+      return new URL(server.transport.url).host;
+    } catch {
+      return server.transport.url;
+    }
   }
-  if (prefix.startsWith('io.gitlab.')) {
-    return `https://gitlab.com/${prefix.slice('io.gitlab.'.length)}/${repo}`;
-  }
-  return null;
+  return [server.command, ...server.args].filter(Boolean).join(' ');
 };
 
-/** Transport pill (Stdio vs Hosted) — the catalog's primary classification. */
-const TransportBadge = ({ transport }: { transport: Transport }) => {
+interface McpServersTabProps {
+  /** The tab to open on. Defaults to the server rows. */
+  initialTab?: McpPageTab;
+}
+
+const McpServersTab = ({ initialTab = 'servers' }: McpServersTabProps) => {
   const { t } = useT();
-  const hosted = transport === 'hosted';
-  return (
-    <span
-      title={t(hosted ? 'mcp.tab.transport.hostedHint' : 'mcp.tab.transport.localHint')}
-      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-        hosted
-          ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
-          : 'bg-surface-strong text-content-muted'
-      }`}>
-      {t(hosted ? 'mcp.tab.transport.hosted' : 'mcp.tab.transport.local')}
-    </span>
-  );
-};
-
-/**
- * External link that opens in the system browser. Stops propagation so clicking
- * a server's website/repo never also triggers the row's install action.
- */
-const ExternalLink = ({ href, label }: { href: string; label: string }) => (
-  <Button
-    variant="tertiary"
-    size="xs"
-    onClick={e => {
-      e.stopPropagation();
-      void openUrl(href).catch(() => {});
-    }}
-    className="h-auto gap-0.5 p-0 text-[11px] font-normal text-primary-600 hover:underline dark:text-primary-400">
-    {label}
-    <svg
-      className="w-2.5 h-2.5"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-      aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-      />
-    </svg>
-  </Button>
-);
-
-/**
- * One catalog (registry) row. Memoized so the 5s status poll — which re-renders
- * the parent tab — doesn't re-render the (potentially large) catalog list: the
- * catalog data and the install handler are stable across polls, so memo skips
- * every row. This is the main lever against the "rendering is slow" report.
- */
-const CatalogRow = memo(
-  ({
-    server,
-    onInstall,
-  }: {
-    server: SmitheryServer;
-    onInstall: (qualifiedName: string) => void;
-  }) => {
-    const { t } = useT();
-    const repoUrl = deriveRepoUrl(server.qualified_name);
-    const author = deriveAuthor(server.qualified_name);
-    return (
-      <TableRow
-        className="cursor-pointer"
-        tabIndex={0}
-        role="button"
-        aria-label={t('mcp.tab.aria.installServer').replace('{name}', server.display_name)}
-        onClick={() => onInstall(server.qualified_name)}
-        onKeyDown={e => {
-          // Only act on keys aimed at the row itself — Enter/Space bubble up
-          // from the nested Website/Repository buttons, which must not open
-          // the install flow.
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onInstall(server.qualified_name);
-          }
-        }}>
-        <TableCell>
-          <div className="flex items-center gap-2.5">
-            {server.icon_url ? (
-              <img
-                src={server.icon_url}
-                alt=""
-                className="w-5 h-5 rounded shrink-0 object-contain"
-              />
-            ) : (
-              <span className="w-5 h-5 rounded shrink-0 bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-[10px]">
-                🔌
-              </span>
-            )}
-            <div className="min-w-0">
-              <span className="flex items-center gap-1.5">
-                <span className="font-medium text-content truncate">{server.display_name}</span>
-                {server.official && (
-                  <span
-                    title={t('mcp.tab.officialHint')}
-                    className="inline-flex items-center gap-0.5 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
-                    ✓ {t('mcp.tab.officialBadge')}
-                  </span>
-                )}
-              </span>
-              {/* The registry is full of look-alike names (a dozen "gmail"
-                  servers); the slug is the unique identifier that tells them
-                  apart. */}
-              <span className="text-[11px] font-mono text-content-faint truncate block">
-                {server.qualified_name}
-              </span>
-              {server.description && (
-                <span className="text-xs text-content-faint line-clamp-3 block">
-                  {server.description}
-                </span>
-              )}
-              {(server.website_url || repoUrl) && (
-                <span className="flex items-center gap-3 mt-1">
-                  {server.website_url && (
-                    <ExternalLink href={server.website_url} label={t('mcp.tab.link.website')} />
-                  )}
-                  {repoUrl && <ExternalLink href={repoUrl} label={t('mcp.tab.link.repo')} />}
-                </span>
-              )}
-            </div>
-          </div>
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          <TransportBadge transport={transportOf(server)} />
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          <span className="text-xs text-content-muted truncate block">{author ?? '—'}</span>
-        </TableCell>
-        <TableCell className="text-right">
-          <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
-            {t('mcp.install.button')}
-          </span>
-        </TableCell>
-      </TableRow>
-    );
-  }
-);
-CatalogRow.displayName = 'CatalogRow';
-
-const McpServersTab = () => {
-  const { t } = useT();
+  const [tab, setTab] = useState<McpPageTab>(initialTab);
   const [servers, setServers] = useState<InstalledServer[]>([]);
   const [statuses, setStatuses] = useState<ConnStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<View>({ mode: 'home' });
-  const [inventoryOpen, setInventoryOpen] = useState(false);
-
-  // Unified search + filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeChip, setActiveChip] = useState<FilterChip>('all');
-  // Secondary classification filter over catalog rows: by transport.
-  const [transportFilter, setTransportFilter] = useState<'all' | Transport>('all');
-  const catalogFilters = useMemo(
-    () => ({ query: searchQuery, transport: transportFilter }),
-    [searchQuery, transportFilter]
-  );
-  const debouncedCatalogFilters = useDebouncedValue(catalogFilters, DEBOUNCE_MS);
-
-  // Registry catalog results
-  const [catalogServers, setCatalogServers] = useState<SmitheryServer[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogPage, setCatalogPage] = useState(1);
-  const [catalogTotalPages, setCatalogTotalPages] = useState(1);
-  // Set when a registry fetch fails so the Registry view shows an error state
-  // (with retry) instead of silently falling back to an empty/stale catalog.
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestSeqRef = useRef(0);
 
   const loadInstalled = useCallback(async () => {
     log('loading installed servers');
@@ -309,64 +112,15 @@ const McpServersTab = () => {
     }
   }, []);
 
-  const fetchCatalog = useCallback(
-    async (query: string, transport: 'all' | Transport, page: number, append: boolean) => {
-      const seq = ++requestSeqRef.current;
-      setCatalogLoading(true);
-      try {
-        const result = await mcpClientsApi.registrySearch({
-          query: query || undefined,
-          transport: transport === 'all' ? undefined : transport,
-          page,
-          page_size: PAGE_SIZE,
-        });
-        if (seq !== requestSeqRef.current) return;
-        const incoming = result.servers ?? [];
-        setCatalogServers(prev =>
-          dedupeByQualifiedName(append ? [...prev, ...incoming] : incoming)
-        );
-        setCatalogPage(result.page);
-        setCatalogTotalPages(result.total_pages);
-        setCatalogError(null);
-      } catch (err) {
-        if (seq !== requestSeqRef.current) return;
-        log('catalog fetch error: %o', err);
-        // A fresh (non-append) fetch that fails leaves no usable rows — surface
-        // the error. A failed "load more" keeps the rows already shown.
-        if (!append) setCatalogError(mcpRegistryErrorMessage(err, t, 'mcp.catalog.loadFailed'));
-      } finally {
-        if (seq === requestSeqRef.current) setCatalogLoading(false);
-      }
-    },
-    [t]
-  );
-  const lastEffectFetchRef = useRef<{
-    filters: typeof debouncedCatalogFilters;
-    fetchCatalog: typeof fetchCatalog;
-  } | null>(null);
-
   useEffect(() => {
     Promise.all([loadInstalled(), fetchStatuses()]).finally(() => setLoading(false));
   }, [loadInstalled, fetchStatuses]);
 
-  // Fetch catalog (page 1) on mount and whenever the query or transport filter
-  // changes. Search + transport now run in the core over the cached full
-  // catalog, so changing either re-queries from the top.
+  // Poll status while anything is in a non-terminal state — not just
+  // `connected`. An `unauthorized`/`error`/`connecting` server can transition
+  // (the background reconnect supervisor, a completed OAuth sign-in, an
+  // expiring token) and the UI must reflect that without a manual refresh.
   useEffect(() => {
-    const lastFetch = lastEffectFetchRef.current;
-    if (lastFetch?.filters === debouncedCatalogFilters && lastFetch.fetchCatalog === fetchCatalog) {
-      return;
-    }
-    lastEffectFetchRef.current = { filters: debouncedCatalogFilters, fetchCatalog };
-    void fetchCatalog(debouncedCatalogFilters.query, debouncedCatalogFilters.transport, 1, false);
-  }, [debouncedCatalogFilters, fetchCatalog]);
-
-  // Poll status
-  useEffect(() => {
-    // Poll while anything is in a non-terminal state — not just `connected`.
-    // An `unauthorized`/`error`/`connecting` server can transition (the
-    // background reconnect supervisor, a completed OAuth sign-in, an expiring
-    // token) and the UI must reflect that without a manual refresh (#3719 RC5).
     const hasActive = statuses.some(
       s =>
         s.status === 'connected' ||
@@ -400,19 +154,6 @@ const McpServersTab = () => {
     setView({ mode: 'detail', serverId });
   }, []);
 
-  const handleSelectInstall = useCallback((qualifiedName: string) => {
-    setView({ mode: 'install', qualifiedName });
-  }, []);
-
-  const handleInstallSuccess = useCallback(
-    async (server: InstalledServer) => {
-      await loadInstalled();
-      await fetchStatuses();
-      setView({ mode: 'detail', serverId: server.server_id });
-    },
-    [loadInstalled, fetchStatuses]
-  );
-
   const handleUninstalled = useCallback(
     async (_serverId: string) => {
       await loadInstalled();
@@ -430,14 +171,14 @@ const McpServersTab = () => {
     [loadInstalled, fetchStatuses]
   );
 
-  const handleLoadMore = () => {
-    void fetchCatalog(
-      debouncedCatalogFilters.query,
-      debouncedCatalogFilters.transport,
-      catalogPage + 1,
-      true
-    );
-  };
+  // A save in the document tab adds, rewrites or removes rows; re-read them so
+  // the Servers tab describes the configuration as it is after the write. The
+  // core connects new servers in the background, so the status poll picks the
+  // rest up.
+  const handleDocumentSaved = useCallback(async () => {
+    await loadInstalled();
+    await fetchStatuses();
+  }, [loadInstalled, fetchStatuses]);
 
   // Bulk lifecycle actions for the health toolbar. One failure doesn't abort the
   // batch (allSettled), and we always refresh status so the dots reflect reality
@@ -472,16 +213,14 @@ const McpServersTab = () => {
   const selectedConnStatus =
     view.mode === 'detail' ? statuses.find(s => s.server_id === view.serverId) : undefined;
 
-  // One installed row per service. Install is idempotent server-side now, but
-  // legacy double-installs can still exist on disk; collapse them by
-  // qualified_name (servers arrive earliest-first) so the list stays "one per
-  // thing". Raw `servers` is kept for server_id-keyed detail/status lookups.
-  // Memoized so the 5s status poll doesn't rebuild + refilter the list.
+  // One installed row per service; raw `servers` is kept for server_id-keyed
+  // detail/status lookups. Memoized so the 5s status poll doesn't rebuild +
+  // refilter the list.
   const filteredInstalled = useMemo(() => {
-    const view = dedupeInstalledByQualifiedName(servers);
+    const rows = dedupeInstalledByQualifiedName(servers);
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return view;
-    return view.filter(
+    if (!q) return rows;
+    return rows.filter(
       s =>
         s.display_name.toLowerCase().includes(q) ||
         s.qualified_name.toLowerCase().includes(q) ||
@@ -489,30 +228,9 @@ const McpServersTab = () => {
     );
   }, [servers, searchQuery]);
 
-  // Catalog rows minus already-installed servers. Search + transport filtering
-  // now happen in the core over the cached full catalog (so relevance and
-  // pagination are accurate); the only thing left to do client-side is hide
-  // servers the user already installed. Memoized so the status poll doesn't
-  // recompute it.
-  const availableCatalog = useMemo(() => {
-    const installedNames = new Set(servers.map(s => s.qualified_name));
-    return catalogServers.filter(s => !installedNames.has(s.qualified_name));
-  }, [catalogServers, servers]);
-
-  const showRegistry = activeChip === 'all' || activeChip === 'registry';
-
-  // Render catalog rows from memoized data so they survive parent re-renders
-  // (the status poll) untouched — `CatalogRow` is itself memoized.
-  const catalogRows = useMemo(
-    () =>
-      availableCatalog.map(server => (
-        <CatalogRow
-          key={`catalog-${server.qualified_name}`}
-          server={server}
-          onInstall={handleSelectInstall}
-        />
-      )),
-    [availableCatalog, handleSelectInstall]
+  const installedNames = useMemo(
+    () => new Set(servers.map(s => s.qualified_name)),
+    [servers]
   );
 
   const statusMap = new Map(statuses.map(s => [s.server_id, s]));
@@ -523,7 +241,7 @@ const McpServersTab = () => {
     );
   }
 
-  // Detail view
+  // Detail view — a server's own page, reached from the rows.
   if (view.mode === 'detail' && selectedServer) {
     return (
       <div className="space-y-3">
@@ -541,7 +259,7 @@ const McpServersTab = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           }>
-          {t('mcp.install.back')}
+          {t('mcp.tab.back')}
         </Button>
         <InstalledServerDetail
           server={selectedServer}
@@ -553,279 +271,152 @@ const McpServersTab = () => {
     );
   }
 
-  // Install view — InstallDialog renders its own "← Go back", so the tab does
-  // NOT add a second one here (that was the duplicate back button).
-  if (view.mode === 'install') {
-    return (
-      <div className="space-y-3">
-        <InstallDialog
-          qualifiedName={view.qualifiedName}
-          prefillEnv={view.prefillEnv}
-          onSuccess={server => void handleInstallSuccess(server)}
-          onCancel={() => setView({ mode: 'home' })}
-        />
-      </div>
-    );
-  }
-
-  // Home view — unified table
   return (
     <div className="space-y-3">
-      {/* Search + filter chips */}
-      <div className="flex items-center gap-3">
-        <TextField
-          type="search"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder={t('mcp.catalog.searchPlaceholder')}
-          aria-label={t('mcp.catalog.searchAria')}
-          className="flex-1"
-        />
-        <Button
-          variant="secondary"
-          size="md"
-          onClick={() => setInventoryOpen(true)}
-          aria-label={t('mcp.inventory.openAria')}
-          className="shrink-0">
-          {t('mcp.inventory.openButton')}
-        </Button>
-      </div>
+      <ChipTabs<McpPageTab>
+        ariaLabel={t('mcp.tab.tablistAria')}
+        testIdPrefix="mcp-page-tab"
+        value={tab}
+        onChange={setTab}
+        items={[
+          {
+            id: 'servers',
+            label: t('mcp.tab.section.servers').replace(
+              '{count}',
+              String(dedupeInstalledByQualifiedName(servers).length)
+            ),
+          },
+          { id: 'json', label: t('mcp.tab.section.json') },
+          { id: 'registry', label: t('mcp.tab.section.registry') },
+        ]}
+      />
 
-      {/* Filters on one bar: the scope (All / Installed / Registry) chips, then —
-          when registry rows are visible — a labelled transport filter rendered
-          as Stdio/Hosted TOGGLES (no second "All" chip; deselecting both means
-          all). This avoids the duplicate-"All" confusion. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <ChipTabs<FilterChip>
-          className="flex flex-wrap items-center gap-1.5"
-          value={activeChip}
-          onChange={setActiveChip}
-          items={[
-            { id: 'all', label: t('mcp.tab.filter.all') },
-            {
-              id: 'installed',
-              label: t('mcp.tab.filter.installed').replace(
-                '{count}',
-                String(filteredInstalled.length)
-              ),
-            },
-            { id: 'registry', label: t('mcp.tab.filter.registry') },
-          ]}
-        />
+      {tab === 'servers' && (
+        <div className="space-y-3" data-testid="mcp-servers-section">
+          <TextField
+            type="search"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={t('mcp.installed.search.placeholder')}
+            aria-label={t('mcp.installed.search.inputAria')}
+          />
 
-        {showRegistry && (
-          <>
-            <Separator orientation="vertical" className="hidden sm:block h-5 bg-line-subtle" />
-            <span className="text-xs font-medium text-content-muted">
-              {t('mcp.tab.transportFilter.label')}
-            </span>
-            <div
-              className="flex flex-wrap items-center gap-2"
-              role="group"
-              aria-label={t('mcp.tab.transportFilter.aria')}>
-              {(['stdio', 'hosted'] as const).map(tp => {
-                const active = transportFilter === tp;
+          {loadError && (
+            <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
+              {loadError}
+            </div>
+          )}
+
+          {/* Connection health + bulk lifecycle actions. Only meaningful once
+              servers are declared; reads the polled statuses — no extra
+              fetches. */}
+          {statuses.length > 0 && (
+            <McpConnectionHealthToolbar
+              statuses={statuses}
+              onReconnect={handleReconnectAll}
+              onDisconnect={handleDisconnectAll}
+            />
+          )}
+
+          <Table className="min-w-[640px] rounded-lg border border-line">
+            <TableHeader>
+              <TableRow className="bg-surface-muted">
+                <TableHead>{t('mcp.tab.column.name')}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t('mcp.tab.column.dial')}</TableHead>
+                <TableHead className="hidden w-36 sm:table-cell">
+                  {t('mcp.tab.column.author')}
+                </TableHead>
+                <TableHead className="w-28 text-right">{t('mcp.tab.column.action')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredInstalled.map(server => {
+                const status: ServerStatus =
+                  statusMap.get(server.server_id)?.status ?? 'disconnected';
                 return (
-                  <Button
-                    key={tp}
-                    variant={active ? 'primary' : 'secondary'}
-                    size="xs"
-                    aria-pressed={active}
-                    onClick={() => setTransportFilter(prev => (prev === tp ? 'all' : tp))}
-                    className={`rounded-full font-medium ${active ? 'bg-content text-surface' : ''}`}>
-                    {t(tp === 'stdio' ? 'mcp.tab.transport.local' : 'mcp.tab.transport.hosted')}
-                  </Button>
+                  <TableRow
+                    key={`installed-${server.server_id}`}
+                    className="cursor-pointer"
+                    tabIndex={0}
+                    role="button"
+                    data-testid="mcp-installed-row"
+                    aria-label={t('mcp.tab.aria.viewDetails').replace(
+                      '{name}',
+                      server.display_name
+                    )}
+                    onClick={() => handleSelectServer(server.server_id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectServer(server.server_id);
+                      }
+                    }}>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`}
+                          title={status}
+                        />
+                        <div className="min-w-0">
+                          <span className="font-medium text-content truncate block">
+                            {server.display_name}
+                          </span>
+                          {server.description && (
+                            <span className="text-xs text-content-faint line-clamp-4 block">
+                              {server.description}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className="text-[11px] font-mono text-content-muted truncate block max-w-64">
+                        {dialOf(server)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className="text-xs text-content-muted truncate block">
+                        {deriveAuthor(server.qualified_name) ?? '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
+                        {t('mcp.tab.action.manage')}
+                      </span>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </div>
-          </>
-        )}
-      </div>
+            </TableBody>
+          </Table>
 
-      {loadError && (
-        <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
-          {loadError}
+          {filteredInstalled.length === 0 && (
+            <div
+              data-testid="mcp-installed-empty"
+              className="rounded-b-lg border border-t-0 border-line py-8 text-center text-sm text-content-faint space-y-2">
+              <p>
+                {searchQuery
+                  ? t('mcp.installed.search.noMatches').replace('{query}', searchQuery)
+                  : t('mcp.installed.empty')}
+              </p>
+              {!searchQuery && (
+                <p className="flex items-center justify-center gap-3">
+                  <Button variant="tertiary" size="xs" onClick={() => setTab('json')}>
+                    {t('mcp.installed.emptyAddInJson')}
+                  </Button>
+                  <Button variant="tertiary" size="xs" onClick={() => setTab('registry')}>
+                    {t('mcp.installed.emptyBrowseRegistry')}
+                  </Button>
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Connection health + bulk lifecycle actions. Only meaningful once
-          servers are installed; surfaces "Retry all" for error-state servers
-          (the failed-connection retry affordance #4272 asks for) and
-          "Disconnect all". Reads the polled statuses — no extra fetches. */}
-      {(activeChip === 'all' || activeChip === 'installed') && statuses.length > 0 && (
-        <McpConnectionHealthToolbar
-          statuses={statuses}
-          onReconnect={handleReconnectAll}
-          onDisconnect={handleDisconnectAll}
-        />
-      )}
+      {tab === 'json' && <McpJsonEditor onSaved={() => void handleDocumentSaved()} />}
 
-      {/* Table — horizontally scrollable so the Source/Author/Action columns
-          aren't clipped when the panel is narrower than the table's natural
-          width (the wrapper was `overflow-hidden`, which cut them off with no
-          way to scroll). `min-w` keeps the columns readable rather than
-          crushing them. */}
-      <Table className="min-w-[640px] rounded-lg border border-line">
-        <TableHeader>
-          <TableRow className="bg-surface-muted">
-            <TableHead>{t('mcp.tab.column.name')}</TableHead>
-            <TableHead className="hidden w-28 sm:table-cell">{t('mcp.tab.column.type')}</TableHead>
-            <TableHead className="hidden w-36 sm:table-cell">
-              {t('mcp.tab.column.author')}
-            </TableHead>
-            <TableHead className="w-28 text-right">{t('mcp.tab.column.action')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {/* Installed servers */}
-          {(activeChip === 'all' || activeChip === 'installed') &&
-            filteredInstalled.map(server => {
-              const status: ServerStatus =
-                statusMap.get(server.server_id)?.status ?? 'disconnected';
-              return (
-                <TableRow
-                  key={`installed-${server.server_id}`}
-                  className="cursor-pointer"
-                  tabIndex={0}
-                  role="button"
-                  aria-label={t('mcp.tab.aria.viewDetails').replace('{name}', server.display_name)}
-                  onClick={() => handleSelectServer(server.server_id)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSelectServer(server.server_id);
-                    }
-                  }}>
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`}
-                        title={status}
-                      />
-                      <div className="min-w-0">
-                        <span className="font-medium text-content truncate block">
-                          {server.display_name}
-                        </span>
-                        {server.description && (
-                          <span className="text-xs text-content-faint line-clamp-4 block">
-                            {server.description}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <span className="text-xs text-content-faint">—</span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <span className="text-xs text-content-muted truncate block">
-                      {deriveAuthor(server.qualified_name) ?? '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
-                      {t('mcp.tab.action.manage')}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-
-          {/* Registry servers — official first, then the registry's relevance
-                order. Each row shows its transport, website/repo links, and the
-                real auth surfaces on install. */}
-          {showRegistry && catalogRows}
-        </TableBody>
-      </Table>
-
-      <div className="rounded-b-lg border border-t-0 border-line">
-        {/* Registry fetch error — takes precedence over the empty state so a
-            failed load reads as an error (with retry), not "no results". */}
-        {showRegistry && catalogError && !catalogLoading && (
-          <div
-            data-testid="mcp-catalog-error"
-            className="py-8 text-center text-sm text-coral-700 dark:text-coral-300 space-y-2">
-            <p>{catalogError}</p>
-            <Button
-              variant="tertiary"
-              size="xs"
-              onClick={() =>
-                void fetchCatalog(
-                  debouncedCatalogFilters.query,
-                  debouncedCatalogFilters.transport,
-                  1,
-                  false
-                )
-              }
-              className="text-primary-600 dark:text-primary-400 hover:underline">
-              {t('common.retry')}
-            </Button>
-          </div>
-        )}
-
-        {/* Empty states */}
-        {activeChip === 'installed' && filteredInstalled.length === 0 && (
-          <div
-            data-testid="mcp-installed-empty"
-            className="py-8 text-center text-sm text-content-faint">
-            {t('mcp.installed.empty')}
-          </div>
-        )}
-        {activeChip === 'registry' &&
-          availableCatalog.length === 0 &&
-          !catalogLoading &&
-          !catalogError && (
-            <div
-              data-testid="mcp-catalog-empty"
-              className="py-8 text-center text-sm text-content-faint">
-              {searchQuery
-                ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
-                : t('mcp.catalog.noResults')}
-            </div>
-          )}
-        {activeChip === 'all' &&
-          filteredInstalled.length === 0 &&
-          availableCatalog.length === 0 &&
-          !catalogLoading &&
-          !catalogError && (
-            <div
-              data-testid="mcp-catalog-empty"
-              className="py-8 text-center text-sm text-content-faint">
-              {searchQuery
-                ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
-                : t('mcp.catalog.noResults')}
-            </div>
-          )}
-
-        {/* Loading / load more */}
-        {catalogLoading && (
-          <div className="py-4 text-center text-xs text-content-faint">{t('common.loading')}</div>
-        )}
-        {!catalogLoading &&
-          catalogPage < catalogTotalPages &&
-          (activeChip === 'all' || activeChip === 'registry') && (
-            <div className="py-3 text-center border-t border-line-subtle">
-              <Button
-                variant="tertiary"
-                size="xs"
-                onClick={handleLoadMore}
-                className="text-primary-600 dark:text-primary-400 hover:underline">
-                {t('mcp.catalog.loadMore')}
-              </Button>
-            </div>
-          )}
-      </div>
-
-      {inventoryOpen && (
-        <McpInventoryPanel
-          servers={servers}
-          onInstallServer={(qualifiedName, prefillEnv) => {
-            setInventoryOpen(false);
-            setView({ mode: 'install', qualifiedName, prefillEnv });
-          }}
-          onClose={() => setInventoryOpen(false)}
-        />
-      )}
+      {tab === 'registry' && <McpRegistryBrowser installedNames={installedNames} />}
     </div>
   );
 };
