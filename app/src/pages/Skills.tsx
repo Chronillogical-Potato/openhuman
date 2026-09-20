@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import ChannelSetupModal from '../components/channels/ChannelSetupModal';
-import McpServersTab from '../components/channels/mcp/McpServersTab';
+import McpServersPage from '../components/channels/mcp/McpServersPage';
 import ComposioConnectModal from '../components/composio/ComposioConnectModal';
 import {
   composioToolkitMeta,
@@ -487,6 +487,7 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
  *  it), so the Connections pane skips the shared header + card wrapper. */
 const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
+  'mcp',
   'voice',
   'embeddings',
   'search',
@@ -1095,6 +1096,7 @@ export default function Skills() {
             {SELF_HEADER_TABS.has(activeTab) ? (
               <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
+                {activeTab === 'mcp' && <McpServersPage />}
                 {activeTab === 'voice' && <VoiceConnectionsPanel />}
                 {activeTab === 'embeddings' && (
                   <SettingsTabbedPage
@@ -1146,9 +1148,7 @@ export default function Skills() {
             <SettingsTabbedPage
               title={t(CONNECTIONS_HEADERS[activeTab]!.titleKey)}
               description={t(CONNECTIONS_HEADERS[activeTab]!.descKey)}
-              headerAction={
-                activeTab === 'skills' || activeTab === 'mcp' ? <BetaIndicator /> : undefined
-              }
+              headerAction={activeTab === 'skills' ? <BetaIndicator /> : undefined}
               scrollable={activeTab !== 'skills'}>
               <div
                 className={activeTab === 'skills' ? 'h-full min-h-0 w-full' : 'w-full space-y-4'}>
@@ -1363,15 +1363,6 @@ export default function Skills() {
                       </div>
                     )}
 
-                    {activeTab === 'mcp' && (
-                      <div className="space-y-3 animate-fade-up">
-                        <Card>
-                          <div className="p-4">
-                            <McpServersTab />
-                          </div>
-                        </Card>
-                      </div>
-                    )}
                   </>
                 }
               </div>
