@@ -18,6 +18,7 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     updateEnv: (...args: unknown[]) => mockUpdateEnv(...args),
     detectAuth: (...args: unknown[]) => mockDetectAuth(...args),
     registryGet: (...args: unknown[]) => mockRegistryGet(...args),
+    listTools: vi.fn().mockResolvedValue([]),
   },
 }));
 
