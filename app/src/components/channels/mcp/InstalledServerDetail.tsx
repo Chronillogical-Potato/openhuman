@@ -47,8 +47,7 @@ const InstalledServerDetail = ({
   // Reconfigure form: when open, renders one input per env key so the user can
   // supply replacement values and reconnect without uninstall/reinstall
   // (issue #3039 env-reconfiguration). Values are never pre-filled from the
-  // server (we only ever hold key names) — except when the config assistant
-  // suggests values, which seed `reconfigValues` for the user to confirm.
+  // server: we only ever hold key names.
   const [reconfigOpen, setReconfigOpen] = useState(false);
   const [reconfigValues, setReconfigValues] = useState<Record<string, string>>({});
   const [showReconfig, setShowReconfig] = useState<Record<string, boolean>>({});
@@ -148,21 +147,18 @@ const InstalledServerDetail = ({
     [server.server_id, runBusy, onEnabledChange]
   );
 
-  const openReconfigure = useCallback(
-    (prefill?: Record<string, string>) => {
-      const initial: Record<string, string> = {};
-      const initialVisibility: Record<string, boolean> = {};
-      for (const key of visibleEnvKeys) {
-        initial[key] = prefill?.[key] ?? '';
-        initialVisibility[key] = false;
-      }
-      setReconfigValues(initial);
-      setShowReconfig(initialVisibility);
-      setReconfigDone(false);
-      setReconfigOpen(true);
-    },
-    [server.env_keys]
-  );
+  const openReconfigure = useCallback(() => {
+    const initial: Record<string, string> = {};
+    const initialVisibility: Record<string, boolean> = {};
+    for (const key of visibleEnvKeys) {
+      initial[key] = '';
+      initialVisibility[key] = false;
+    }
+    setReconfigValues(initial);
+    setShowReconfig(initialVisibility);
+    setReconfigDone(false);
+    setReconfigOpen(true);
+  }, [server.env_keys]);
 
   const handleSaveReconfigure = useCallback(() => {
     void runBusy(async () => {
