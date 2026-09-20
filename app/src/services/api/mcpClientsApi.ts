@@ -3,6 +3,9 @@
  * All methods call `openhuman.mcp_clients_<function>` and unwrap the
  * `{ result: T }` envelope returned by the core RPC framework.
  *
+ * There is no install call: a server is declared in the user's `mcp.json`
+ * (`configGet` / `configSet`); the registry calls are browse-only.
+ *
  * Centralises method-name strings so components never spell them out directly.
  */
 import debug from 'debug';
@@ -10,6 +13,8 @@ import debug from 'debug';
 import type {
   ConnStatus,
   InstalledServer,
+  McpConfigDoc,
+  McpConfigWriteResult,
   McpTool,
   SmitheryServer,
   SmitheryServerDetail,
@@ -35,10 +40,6 @@ interface RegistryGetResult {
 
 interface InstalledListResult {
   installed: InstalledServer[];
-}
-
-interface InstallResult {
-  server: InstalledServer;
 }
 
 interface UninstallResult {
@@ -69,11 +70,6 @@ interface StatusResult {
 interface ToolCallResult {
   result: unknown;
   is_error: boolean;
-}
-
-interface ConfigAssistResult {
-  reply: string;
-  suggested_env?: Record<string, string>;
 }
 
 interface UpdateEnvResult {
@@ -202,26 +198,46 @@ export const mcpClientsApi = {
     return Array.isArray(result.installed) ? result.installed : [];
   },
 
-  /** Install a server with the given env vars and optional config. */
-  install: async (params: {
-    qualified_name: string;
-    env: Record<string, string>;
-    config?: unknown;
-  }): Promise<InstalledServer> => {
-    log('install qualified_name=%s', params.qualified_name);
-    try {
-      const result = await callCoreRpc<InstallResult>({
-        method: 'openhuman.mcp_clients_install',
-        params,
-      });
-      log('install returned server_id=%s', result.server?.server_id);
-      return result.server;
-    } catch (err) {
-      if (!isMcpRegistryErrorLike(err)) throw err;
-      const normalized = normalizeMcpRegistryError(err);
-      log('install registry error kind=%s', normalized.kind);
-      throw normalized;
-    }
+  /**
+   * Read the user's servers as one `mcp.json` document. Credential values are
+   * never in it — each entry carries `envKeys` (names) and `authConfigured`.
+   */
+  configGet: async (): Promise<McpConfigDoc> => {
+    log('config_get');
+    const result = await callCoreRpc<McpConfigDoc>({
+      method: 'openhuman.mcp_clients_config_get',
+      params: {},
+    });
+    const count = Object.keys(result.mcpServers ?? {}).length;
+    log('config_get returned %d servers', count);
+    return { mcpServers: result.mcpServers ?? {} };
+  },
+
+  /**
+   * Replace the user's servers with an `mcp.json` document. A server absent
+   * from the document is uninstalled; a new one is added; one whose dial
+   * changed is rewritten in place. `env` / `headers` are write-only: omit the
+   * block to keep what is stored, set a key to `""` to remove it. The host's
+   * refusal (a sentence naming the entry and field) is thrown as-is.
+   */
+  configSet: async (doc: McpConfigDoc): Promise<McpConfigWriteResult> => {
+    log('config_set servers=%d', Object.keys(doc.mcpServers).length);
+    const result = await callCoreRpc<McpConfigWriteResult>({
+      method: 'openhuman.mcp_clients_config_set',
+      params: { mcpServers: doc.mcpServers },
+    });
+    log(
+      'config_set added=%d updated=%d removed=%d',
+      result.added?.length ?? 0,
+      result.updated?.length ?? 0,
+      result.removed?.length ?? 0
+    );
+    return {
+      mcpServers: result.mcpServers ?? {},
+      added: result.added ?? [],
+      updated: result.updated ?? [],
+      removed: result.removed ?? [],
+    };
   },
 
   /**
@@ -345,29 +361,6 @@ export const mcpClientsApi = {
       params,
     });
     log('tool_call is_error=%s', result.is_error);
-    return result;
-  },
-
-  /** Call the LLM-driven configuration assistant. */
-  configAssist: async (params: {
-    qualified_name: string;
-    user_message: string;
-    history?: { role: 'user' | 'assistant'; content: string }[];
-  }): Promise<ConfigAssistResult> => {
-    log('config_assist qualified_name=%s', params.qualified_name);
-    const result = await callCoreRpc<ConfigAssistResult>({
-      method: 'openhuman.mcp_clients_config_assist',
-      params,
-      // config_assist now runs a full agent turn (web search + fetch to read
-      // the provider's docs), which legitimately takes far longer than the 30s
-      // default RPC budget. Give it a generous 5-minute ceiling.
-      timeoutMs: 300_000,
-    });
-    log(
-      'config_assist reply length=%d suggested_env=%s',
-      result.reply?.length ?? 0,
-      result.suggested_env ? 'yes' : 'no'
-    );
     return result;
   },
 };
