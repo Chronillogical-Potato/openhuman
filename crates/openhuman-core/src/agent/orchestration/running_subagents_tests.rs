@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::orchestration::running_subagents::registry::DETACHED_LEDGER_TIMEOUT_MS;
 use crate::agent::orchestration::running_subagents::resolve::resume_ref_for_task;
 use crate::agent::orchestration::running_subagents::resolve::task_id_for_session;
@@ -242,15 +243,45 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
     assert_eq!(snap[1].status, "running");
 
     let block =
-        active_subagents_context_block("fleet-parent", &test_workspace()).expect("block present");
+        active_subagents_context_block("fleet-parent", &test_workspace(), &FleetToolSet::all())
+            .expect("block present");
     assert!(block.contains("[active_subagents]"));
+    assert!(block.contains("use wait_subagent to collect"));
     assert!(block.contains("You have 2 sub-agent worker(s)"));
     assert!(block.contains("session=subsess-a"));
     assert!(block.contains("session=subsess-b · task=task-fleet-b · status=awaiting_user"));
     assert!(block.ends_with("[/active_subagents]\n\n"));
 
     // A parent with no registered workers gets no block (no perturbation).
-    assert!(active_subagents_context_block("nobody-here", &test_workspace()).is_none());
+    assert!(
+        active_subagents_context_block("nobody-here", &test_workspace(), &FleetToolSet::all())
+            .is_none()
+    );
+
+    // The shipped orchestrator has no wait/steer/close tools (#5701): the
+    // guidance must not name them and must say results arrive on their own.
+    {
+        use crate::agent::harness::definition::AgentDefinitionRegistry;
+        let registry = AgentDefinitionRegistry::builtins_only();
+        let def = registry.get("orchestrator").expect("built-in orchestrator");
+        let fleet = FleetToolSet::from_scope(&def.tools, &def.disallowed_tools);
+        let block = active_subagents_context_block("fleet-parent", &test_workspace(), &fleet)
+            .expect("block present");
+        for name in [
+            "wait_subagent",
+            "steer_subagent",
+            "close_subagent",
+            "wait_loop",
+        ] {
+            assert!(
+                !block.contains(name),
+                "{name} named for a parent without it:\n{block}"
+            );
+        }
+        assert!(block.contains("delivered to you automatically"));
+        assert!(block.contains("continue_subagent"));
+        assert!(block.contains("list_subagents"));
+    }
 
     // Durable-store fallback: a session persisted by an EARLIER turn /
     // process lifetime (empty live registry for this parent) must still
@@ -295,13 +326,19 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         )
         .expect("mark idle");
 
-        let block = active_subagents_context_block("cold-parent", durable_ws.path())
-            .expect("durable-only roster present");
+        let block =
+            active_subagents_context_block("cold-parent", durable_ws.path(), &FleetToolSet::all())
+                .expect("durable-only roster present");
         assert!(block.contains(&format!("session={}", session.subagent_session_id)));
         assert!(block.contains("status=idle"));
         assert!(block.contains("about: Daily X trending email workflow"));
         // Other parents' durable sessions must not leak in.
-        assert!(active_subagents_context_block("unrelated-parent", durable_ws.path()).is_none());
+        assert!(active_subagents_context_block(
+            "unrelated-parent",
+            durable_ws.path(),
+            &FleetToolSet::all()
+        )
+        .is_none());
     }
 
     let _ = tx_a.send(SubagentStatus::Completed {

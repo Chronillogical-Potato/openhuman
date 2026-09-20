@@ -20,6 +20,7 @@ pub(crate) mod background_completions;
 pub(crate) mod background_delivery;
 pub mod command_center;
 pub(crate) mod delegation;
+pub(crate) mod fleet_tools;
 mod ops;
 pub(crate) mod parent_context;
 pub(crate) mod run_ledger_finalize;

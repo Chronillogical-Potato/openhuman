@@ -38,6 +38,7 @@ pub(super) struct OpenHumanSessionState {
     context_middleware: Option<TurnContextMiddleware>,
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
+    pub(super) active_turn_overrides: super::types::TurnOverrides,
     prelude: Option<OpenHumanTurnPrelude>,
     pub(crate) pending_citations:
         Option<tokio::task::JoinHandle<Vec<crate::memory::agent::memory_loader::MemoryCitation>>>,
@@ -89,6 +90,14 @@ struct OpenHumanTurnPrelude {
     /// `ToolSnapshot`; this host surface is the source used to create it.
     tool_surface: Arc<std::sync::Mutex<OpenHumanTurnToolSurface>>,
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
+}
+
+pub(super) fn begin_turn_resume(state: &mut OpenHumanSessionState, resume: &mut ResumeMode) {
+    let overrides = std::mem::take(&mut state.pending_turn_overrides);
+    if overrides.suppress_transcript_autoload {
+        *resume = ResumeMode::Never;
+    }
+    state.active_turn_overrides = overrides;
 }
 
 /// Host-owned tool composition from which one runtime request is prepared.
@@ -658,10 +667,34 @@ impl OpenHumanTurnPrelude {
                 run_context.stop_hooks.push(Arc::new(hook));
             }
         }
+        // Build the roster from this turn's *effective* visible tool set
+        // (snapshotted under the tool-surface lock, then released) rather
+        // than the parent definition's static scope alone: a hide or named
+        // restriction can narrow what this turn can actually call below the
+        // definition's baseline, and the roster must not advertise a fleet
+        // control the turn cannot invoke.
+        let turn_fleet = {
+            let visible = self
+                .tool_surface
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .visible_tool_names
+                .clone();
+            if visible.is_empty() {
+                crate::agent::orchestration::fleet_tools::FleetToolSet::for_parent(
+                    &self.agent_definition_id,
+                )
+            } else {
+                crate::agent::orchestration::fleet_tools::FleetToolSet::from_visible_tool_names(
+                    &visible,
+                )
+            }
+        };
         if let Some(block) =
             crate::agent::orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
                 &self.workspace_dir,
+                &turn_fleet,
             )
         {
             context.push_str(&block);
@@ -1540,8 +1573,15 @@ impl OpenHumanSessionHost {
         let hooks = Arc::new(OpenHumanSessionHooks::new(
             {
                 let resume_target = resume_target.clone();
-                move |_, _, _| {
+                let state = self.runtime_state.clone();
+                move |_, options, _| {
                     let resume_target = resume_target.clone();
+                    begin_turn_resume(
+                        &mut state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+                        &mut options.resume,
+                    );
                     Box::pin(async move {
                         Ok(ResumePreparation {
                             transcript: Some(resume_target),
@@ -1605,7 +1645,7 @@ impl OpenHumanSessionHost {
                             &mut state
                                 .lock()
                                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                                .pending_turn_overrides,
+                                .active_turn_overrides,
                         );
                         let enriched = prelude
                             .enrich_request(
