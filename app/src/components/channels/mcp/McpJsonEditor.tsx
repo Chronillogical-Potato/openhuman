@@ -22,6 +22,7 @@
  * - **Reformat as you type.** The text is the user's until they press Revert.
  */
 import debug from 'debug';
+import { Loader2, RotateCcw, Save } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -143,11 +144,7 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
 
   return (
     <div className="space-y-3" data-testid="mcp-json-editor">
-      <p className="text-xs text-content-muted">{t('mcp.json.intro')}</p>
-
-      <Alert density="compact" role={undefined}>
-        <AlertDescription>{t('mcp.json.credentialsNote')}</AlertDescription>
-      </Alert>
+      <p className="text-sm text-content-muted">{t('mcp.json.intro')}</p>
 
       <TextArea
         id={textareaId}
@@ -156,17 +153,21 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
         value={text}
         onChange={e => setText(e.target.value)}
         spellCheck={false}
-        invalid={!parsed.ok}
-        rows={18}
-        className="font-mono text-xs leading-relaxed"
+        invalid={!parsed.ok && changed}
+        className="min-h-72 font-mono text-xs leading-relaxed"
       />
 
-      {parseMessage && (
-        <p
-          className="text-xs text-coral-700 dark:text-coral-300"
-          data-testid="mcp-json-parse-error">
-          {parseMessage}
-        </p>
+      {/* Said beside the buffer rather than in the docs: `env` and `headers`
+          are absent from every entry the core sends, and the reading a user
+          would otherwise take from that — "this server has no credential" —
+          is one keystroke away from pasting a token that was never missing. */}
+      <p className="text-xs text-content-muted">{t('mcp.json.credentialsNote')}</p>
+
+      {!parsed.ok && changed && parseMessage && (
+        <Alert variant="destructive" density="compact" data-testid="mcp-json-parse-error">
+          <AlertTitle>{t('mcp.json.invalidTitle')}</AlertTitle>
+          <AlertDescription>{parseMessage}</AlertDescription>
+        </Alert>
       )}
 
       {refusal && (
@@ -176,32 +177,42 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
         </Alert>
       )}
 
-      {lastWrite && !changed && !refusal && (
-        <p className="text-xs text-content-muted" data-testid="mcp-json-saved">
-          {t('mcp.json.saved')
-            .replace('{added}', String(lastWrite.added.length))
-            .replace('{updated}', String(lastWrite.updated.length))
-            .replace('{removed}', String(lastWrite.removed.length))}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="primary"
           size="sm"
           disabled={!parsed.ok || !changed || saving}
           onClick={() => void handleSave()}
+          leadingIcon={
+            saving ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Save className="size-4" aria-hidden="true" />
+            )
+          }
           data-testid="mcp-json-save">
           {saving ? t('mcp.json.saving') : t('mcp.json.save')}
         </Button>
         <Button
-          variant="secondary"
+          variant="tertiary"
           size="sm"
           disabled={!changed || saving}
           onClick={handleRevert}
+          leadingIcon={<RotateCcw className="size-4" aria-hidden="true" />}
           data-testid="mcp-json-revert">
           {t('mcp.json.revert')}
         </Button>
+        {changed && parsed.ok && (
+          <span className="text-xs text-content-muted">{t('mcp.json.unsaved')}</span>
+        )}
+        {lastWrite && !changed && !refusal && (
+          <span className="text-xs text-content-muted" data-testid="mcp-json-saved">
+            {t('mcp.json.saved')
+              .replace('{added}', String(lastWrite.added.length))
+              .replace('{updated}', String(lastWrite.updated.length))
+              .replace('{removed}', String(lastWrite.removed.length))}
+          </span>
+        )}
       </div>
 
       <details className="text-xs text-content-muted">
