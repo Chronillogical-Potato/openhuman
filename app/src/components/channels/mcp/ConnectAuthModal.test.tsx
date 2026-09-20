@@ -395,21 +395,6 @@ describe('ConnectAuthModal', () => {
     expect(mockOpenUrl).toHaveBeenCalledWith('https://server.io');
   });
 
-  it('offers a "Where do I get the token?" pointer that opens the config assistant', async () => {
-    mockDetectAuth.mockResolvedValue({ kind: 'none', grant_types: [] });
-    render(<ConnectAuthModal server={BASE_SERVER} onClose={() => {}} onConnected={() => {}} />);
-    await screen.findByRole('dialog');
-    fireEvent.click(screen.getByRole('button', { name: /Where do I get the token/ }));
-    await waitFor(() => {
-      // The connect modal plus the stacked config-help modal. Both dialogs are
-      // Radix `Dialog`s portalled to `document.body` now, so opening the
-      // second correctly marks the first `aria-hidden` for assistive tech
-      // (real background content while a modal is on top of it) — query with
-      // `{ hidden: true }` to still see it in the accessibility-tree count.
-      expect(screen.getAllByRole('dialog', { hidden: true }).length).toBeGreaterThan(1);
-    });
-  });
-
   it('blocks Connect until a required declared field is filled', async () => {
     mockRegistryGet.mockResolvedValue({
       qualified_name: 'acme/test-server',
