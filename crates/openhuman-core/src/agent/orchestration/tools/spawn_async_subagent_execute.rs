@@ -92,6 +92,18 @@ impl SpawnAsyncSubagentTool {
             }
         };
 
+        // The follow-up vocabulary offered back to the parent is limited to
+        // the fleet tools visible on *this turn* (see `fleet_tools`), not
+        // just the parent definition's static scope: a hide or named
+        // restriction can narrow the turn's real tool surface below what the
+        // definition alone would suggest, and offering a control the parent
+        // cannot currently call invites a denied tool call.
+        let fleet = if parent.visible_tool_names.is_empty() {
+            FleetToolSet::for_parent(&parent.agent_definition_id)
+        } else {
+            FleetToolSet::from_visible_tool_names(&parent.visible_tool_names)
+        };
+
         if !parent.allowed_subagent_ids.contains(&definition.id) {
             log::warn!(
                 "[spawn_async_subagent] blocked subagent outside allowlist parent={} requested={} allowed={:?}",
@@ -256,11 +268,18 @@ impl SpawnAsyncSubagentTool {
                                 true,
                                 reuse_decision.as_str(),
                                 "running",
+                                &fleet,
                             );
+                            let follow_up = if fleet.can_wait() {
+                                "Use the structured reference below to send more input, wait, or perform a short timeout tick."
+                            } else {
+                                "Its result is delivered to you automatically on a later turn; do not wait or poll for it."
+                            };
                             return Ok(ToolResult::success(format!(
                                 "Continued reusable async sub-agent `{}`. It is already running and will pick up the new instruction at its next step. \
-                                 Use the structured reference below to send more input, wait, or perform a short timeout tick.\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
+                                 {}\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
                                 payload["agent_id"].as_str().unwrap_or("subagent"),
+                                follow_up,
                                 serde_json::to_string(&payload)
                                     .unwrap_or_else(|_| "{}".to_string())
                             )));
@@ -785,6 +804,7 @@ impl SpawnAsyncSubagentTool {
             reusable.is_some(),
             reuse_decision.as_str(),
             "running",
+            &fleet,
         );
         let payload_json = match serde_json::to_string(&payload) {
             Ok(serialized) => {
@@ -806,6 +826,7 @@ impl SpawnAsyncSubagentTool {
         Ok(ToolResult::success(format_async_subagent_accepted(
             payload["agent_id"].as_str().unwrap_or("subagent"),
             &payload_json,
+            &fleet,
         )))
     }
 }

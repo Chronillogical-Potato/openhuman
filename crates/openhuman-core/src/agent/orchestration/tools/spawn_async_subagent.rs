@@ -6,6 +6,7 @@
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::messages::ChatMessage;
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::orchestration::running_subagents::{self, SubagentStatus};
 use crate::agent::orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
@@ -196,15 +197,49 @@ impl SpawnAsyncSubagentTool {
 include!("spawn_async_subagent_execute.rs");
 
 /// Format the user-facing acceptance text around a structured async sub-agent reference.
-fn format_async_subagent_accepted(agent_id: &str, payload_json: &str) -> String {
+///
+/// The wording follows what the parent can actually do: a parent without
+/// `wait_subagent` (the orchestrator, #5701) is told the result arrives on its
+/// own and not to poll, instead of being invited to "wait for completion".
+fn format_async_subagent_accepted(
+    agent_id: &str,
+    payload_json: &str,
+    fleet: &FleetToolSet,
+) -> String {
+    // Steering and waiting are independent fleet capabilities: a parent can
+    // have `wait_subagent` without `steer_subagent` (or vice versa), so the
+    // guidance text is built from each independently rather than gated
+    // entirely on `can_wait()` — otherwise a wait-only parent is told to
+    // "send more input" through a tool it does not have.
+    let can_send = fleet.has("steer_subagent");
+    let can_wait = fleet.can_wait();
+    let guidance = match (can_send, can_wait) {
+        (true, true) => {
+            "Use the structured reference below to send more input, wait for completion, or perform a          short timeout tick to check status. If the user does not need the result now, continue          without blocking."
+        }
+        (true, false) => {
+            "Use the structured reference below to send more input if needed. You cannot and need not          wait or poll for it (no shell/sleep, no fake status checks); its result is delivered to          you automatically on a later turn. If the user does not need the result now, continue          without blocking."
+        }
+        (false, true) => {
+            "Use the structured reference below to wait for completion or perform a short timeout tick          to check status. If the user does not need the result now, continue without blocking."
+        }
+        (false, false) => {
+            "Its result is delivered to you automatically on a later turn — you cannot and need not          wait or poll for it (no shell/sleep, no fake status checks). Reply to the user now with          what you know, say the result is on its way, and continue. The structured reference          below lists the only follow-up tools you have for this worker."
+        }
+    };
     format!(
-        "Accepted async sub-agent `{agent_id}`. Use the structured reference below to send more input, \
-         wait for completion, or perform a short timeout tick to check status. If the user does not need \
-         the result now, continue without blocking.\n\n[async_subagent_ref]\n{payload_json}\n[/async_subagent_ref]"
+        "Accepted async sub-agent `{agent_id}`. {guidance}
+
+[async_subagent_ref]
+{payload_json}
+[/async_subagent_ref]"
     )
 }
 
-/// Build the machine-readable reference the orchestrator uses to steer, wait, or poll a worker.
+/// Build the machine-readable reference the orchestrator uses to follow up on a worker.
+///
+/// Only tools in `fleet` are offered: an instruction naming a tool the parent
+/// cannot see costs an iteration of confused reasoning per delegation.
 fn async_subagent_ref_payload(
     task_id: &str,
     subagent_session_id: &str,
@@ -213,7 +248,102 @@ fn async_subagent_ref_payload(
     reused: bool,
     reuse_decision: &str,
     status: &str,
+    fleet: &FleetToolSet,
 ) -> serde_json::Value {
+    let mut instructions = serde_json::Map::new();
+    let mut next_actions: Vec<String> = Vec::new();
+
+    if fleet.has("steer_subagent") {
+        instructions.insert(
+            "send_message".into(),
+            json!({
+                "tool": "steer_subagent",
+                "description": "Send additional instructions or context to this running async sub-agent.",
+                "arguments": {
+                    "subagent_session_id": subagent_session_id,
+                    "message": "<message>",
+                    "mode": "steer"
+                }
+            }),
+        );
+        next_actions.push("call steer_subagent to send more input".into());
+    }
+    if fleet.has("wait_subagent") {
+        instructions.insert(
+            "wait".into(),
+            json!({
+                "tool": "wait_subagent",
+                "description": "Block until the async sub-agent finishes, up to the timeout.",
+                "arguments": { "subagent_session_id": subagent_session_id, "timeout_secs": 120 }
+            }),
+        );
+        instructions.insert(
+            "timeout_tick".into(),
+            json!({
+                "tool": "wait_subagent",
+                "description": "Perform a short status tick without committing the parent to a long wait.",
+                "arguments": { "subagent_session_id": subagent_session_id, "timeout_secs": 1 }
+            }),
+        );
+        next_actions.push("call wait_subagent with timeout_secs to collect the result".into());
+        next_actions
+            .push("call wait_subagent with timeout_secs=1 as a timeout tick/status check".into());
+        let reminder = format!(
+            "Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}."
+        );
+        if fleet.has("wait") {
+            instructions.insert(
+                "delayed_tick".into(),
+                json!({
+                    "tool": "wait",
+                    "description": "Trigger a delayed callback before checking this async sub-agent again.",
+                    "arguments": { "duration_secs": 30, "message": reminder }
+                }),
+            );
+        }
+        if fleet.has("wait_loop") {
+            instructions.insert(
+                "delayed_loop".into(),
+                json!({
+                    "tool": "wait_loop",
+                    "description": "Trigger repeatable delayed callbacks while this async sub-agent is still relevant.",
+                    "arguments": {
+                        "duration_secs": 30,
+                        "message": reminder,
+                        "loop_key": subagent_session_id,
+                        "iteration": 1
+                    }
+                }),
+            );
+        }
+        if fleet.has("wait") || fleet.has("wait_loop") {
+            next_actions.push(
+                "call wait or wait_loop with the returned message to trigger a delayed status check".into(),
+            );
+        }
+    }
+    if fleet.has("continue_subagent") {
+        instructions.insert(
+            "answer_or_resume".into(),
+            json!({
+                "tool": "continue_subagent",
+                "description": "Answer this worker if it pauses on ask_user_clarification (awaiting_user), or resume it later with a follow-up that keeps its context.",
+                "arguments": { "subagent_session_id": subagent_session_id, "message": "<answer or follow-up>" }
+            }),
+        );
+        next_actions.push(
+            "call continue_subagent only if this worker reports awaiting_user, or to resume it with a follow-up".into(),
+        );
+    }
+    if fleet.has("list_subagents") {
+        next_actions.push("call list_subagents to re-enumerate your workers if this reference scrolls out of context".into());
+    }
+    next_actions.push(if fleet.can_wait() {
+        "continue without waiting when the current user reply does not depend on the result".into()
+    } else {
+        "continue now: the result is delivered to you automatically on a later turn; never poll for it".into()
+    });
+
     json!({
         "task_id": task_id,
         "taskId": task_id,
@@ -228,58 +358,9 @@ fn async_subagent_ref_payload(
         "reused": reused,
         "reuse_decision": reuse_decision,
         "reuseDecision": reuse_decision,
-        "instructions": {
-            "send_message": {
-                "tool": "steer_subagent",
-                "description": "Send additional instructions or context to this running async sub-agent.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "message": "<message>",
-                    "mode": "steer"
-                }
-            },
-            "wait": {
-                "tool": "wait_subagent",
-                "description": "Block until the async sub-agent finishes, up to the timeout.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "timeout_secs": 120
-                }
-            },
-            "timeout_tick": {
-                "tool": "wait_subagent",
-                "description": "Perform a short status tick without committing the parent to a long wait.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "timeout_secs": 1
-                }
-            },
-            "delayed_tick": {
-                "tool": "wait",
-                "description": "Trigger a delayed callback before checking this async sub-agent again.",
-                "arguments": {
-                    "duration_secs": 30,
-                    "message": format!("Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}.")
-                }
-            },
-            "delayed_loop": {
-                "tool": "wait_loop",
-                "description": "Trigger repeatable delayed callbacks while this async sub-agent is still relevant.",
-                "arguments": {
-                    "duration_secs": 30,
-                    "message": format!("Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}."),
-                    "loop_key": subagent_session_id,
-                    "iteration": 1
-                }
-            }
-        },
-        "next_actions": [
-            "call steer_subagent to send more input",
-            "call wait_subagent with timeout_secs to collect the result",
-            "call wait_subagent with timeout_secs=1 as a timeout tick/status check",
-            "call wait or wait_loop with the returned message to trigger a delayed status check",
-            "continue without waiting when the current user reply does not depend on the result"
-        ]
+        "result_delivery": "automatic",
+        "instructions": instructions,
+        "next_actions": next_actions
     })
 }
 

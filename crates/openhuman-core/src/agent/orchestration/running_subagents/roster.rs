@@ -3,6 +3,7 @@
 //! `[active_subagents]` context block.
 
 use super::registry::{registry, SubagentStatus};
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 
 /// Compact, read-only view of one registered sub-agent, for ambient injection
 /// into a parent's turn context (see [`active_subagents_context_block`]).
@@ -52,6 +53,40 @@ pub(crate) fn snapshot_for_parent(parent_session: &str) -> Vec<SubagentSnapshot>
     out
 }
 
+/// The follow-up guidance sentence, built from the tools the parent can see.
+fn roster_guidance(fleet: &FleetToolSet) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if fleet.has("wait_subagent") {
+        parts.push("use wait_subagent to collect a `completed` one".into());
+    } else {
+        parts.push(
+            "a `running` or `completed` worker's result is delivered to you automatically on a \
+             later turn — do not wait or poll for it"
+                .into(),
+        );
+    }
+    if fleet.has("steer_subagent") {
+        parts.push("steer_subagent to redirect a `running` one".into());
+    }
+    if fleet.has("continue_subagent") {
+        parts.push(
+            "continue_subagent to answer an `awaiting_user` one or to RESUME an `idle` one with \
+             a follow-up (it keeps its full prior context — do NOT re-delegate the same task \
+             from scratch)"
+                .into(),
+        );
+    }
+    if fleet.has("close_subagent") {
+        parts.push("close_subagent when done".into());
+    }
+    if fleet.has("list_subagents") {
+        parts.push("list_subagents to re-enumerate".into());
+    }
+    let mut sentence = parts.join(", ");
+    sentence.push('.');
+    sentence
+}
+
 /// Most-recent durable sessions surfaced in the roster when they are not in
 /// the live registry (cold boot / later turn). Bounds prompt growth on
 /// threads with a long delegation history.
@@ -71,9 +106,15 @@ const DURABLE_ROSTER_CAP: usize = 12;
 ///    cold-booted parent had no idea its previous sub-agents existed and
 ///    would re-delegate from scratch instead of resuming by
 ///    `subagent_session_id` (the "fresh context from day 0" bug).
+///
+/// `fleet` is the parent's fleet-control vocabulary: the guidance sentence
+/// only names tools the parent can call (the orchestrator has no
+/// `wait_subagent` / `steer_subagent` / `close_subagent` since #5701, and
+/// telling it otherwise cost an iteration of confused reasoning per turn).
 pub(crate) fn active_subagents_context_block(
     parent_session: &str,
     workspace_dir: &std::path::Path,
+    fleet: &FleetToolSet,
 ) -> Option<String> {
     let workers = snapshot_for_parent(parent_session);
 
@@ -114,13 +155,10 @@ pub(crate) fn active_subagents_context_block(
         "[active_subagents]\n\
          You have {} sub-agent worker(s) for this conversation (live and/or from earlier \
          turns). This is your authoritative roster — trust it over memory. Track each by \
-         subagent_session_id; use wait_subagent to collect a `completed` one, steer_subagent \
-         to redirect a `running` one, continue_subagent to answer an `awaiting_user` one or \
-         to RESUME an `idle` one with a follow-up (it keeps its full prior context — do NOT \
-         re-delegate the same task from scratch), close_subagent when done, and \
-         list_subagents to re-enumerate. Never fabricate a result for a worker still running \
+         subagent_session_id. {} Never fabricate a result for a worker still running \
          or one that has failed.\n",
-        workers.len() + durable.len()
+        workers.len() + durable.len(),
+        roster_guidance(fleet)
     );
     for w in &workers {
         let session = w.subagent_session_id.as_deref().unwrap_or("(none)");
