@@ -91,7 +91,7 @@ describe('ProviderModelPickerDialog', () => {
 
   /**
    * The managed backend's OpenRouter passthrough catalog is offered under
-   * "Managed by OpenHuman" so a specific model can be pinned while still
+   * "OpenRouter — Managed by TinyHumans" so a specific model can be pinned while still
    * billing through managed credits. Automatic stays the default.
    */
   it('lists the managed catalog and forwards a pinned model', async () => {
@@ -228,6 +228,38 @@ describe('ProviderModelPickerDialog', () => {
       expect(screen.getByTestId('model-picker-managed-option-openrouter/a/b')).toBeInTheDocument()
     );
     expect(vi.mocked(listProviderModels)).toHaveBeenCalledTimes(1);
+  });
+
+  it('the search box narrows the managed model list, not the provider column', async () => {
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'openrouter/a/alpha', owned_by: 'openrouter', display_name: 'Alpha' },
+      { id: 'openrouter/b/beta', owned_by: 'openrouter', display_name: 'Beta' },
+    ]);
+
+    render(
+      <ProviderModelPickerDialog
+        cloudProviders={[
+          { id: 'p1', slug: 'openai', label: 'OpenAI', maskedKey: '', endpoint: '' } as never,
+        ]}
+        localModels={[]}
+        ollamaRunning={false}
+        claudeCodeEnabled={false}
+        initial={null}
+        onClose={() => {}}
+        onSelect={() => {}}
+      />
+    );
+    await screen.findByTestId('model-picker-managed-option-openrouter/a/alpha');
+
+    fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'bet' } });
+
+    expect(screen.queryByTestId('model-picker-managed-option-openrouter/a/alpha')).toBeNull();
+    expect(screen.getByTestId('model-picker-managed-option-openrouter/b/beta')).toBeInTheDocument();
+    // "Automatic" is not a model; it steps aside while a query is active.
+    expect(screen.queryByTestId('model-picker-managed-automatic')).toBeNull();
+    // Providers are untouched by the query.
+    expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('OpenRouter')).toBeInTheDocument();
   });
 
   it('omits managed when the host opts out', () => {

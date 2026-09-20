@@ -17,7 +17,7 @@
  *
  * Which providers appear in the picker comes from core config, and the e2e
  * fixture does not seed a cloud provider. The always-available option is the
- * managed tier ("Managed by OpenHuman"), which the dialog deliberately lets you
+ * managed tier ("OpenRouter — Managed by TinyHumans"), which the dialog deliberately lets you
  * pick with no model id (`ProviderModelPickerDialog.tsx:189-196`). Where a case
  * needs a provider this fixture does not have, it skips with a reason rather
  * than asserting something weaker — per the lane rules, a case that cannot be
