@@ -820,6 +820,7 @@ fn news_digest_graph() -> Value {
 /// failure — so a loop in the runtime (a re-issued call, a retry that repeats
 /// the search) cannot pass as progress.
 #[test]
+#[ignore = "TODO(#6376): hosted TinyAgents omits workflow specialist tools"]
 fn workflow_builder_reaches_propose_workflow() {
     run_case(Case {
         agent: "workflow_builder",
@@ -851,6 +852,7 @@ fn workflow_builder_reaches_propose_workflow() {
 /// The orchestrator routes integration work through the hand-off, and never
 /// holds the raw Composio or cron tools its specialists own.
 #[test]
+#[ignore = "TODO(#6376): hosted TinyAgents omits integration delegation tools"]
 fn orchestrator_hands_integration_work_to_the_specialist() {
     run_case(Case {
         agent: "orchestrator",
@@ -884,6 +886,7 @@ fn orchestrator_hands_integration_work_to_the_specialist() {
 /// the text-mode `Call as: NAME[...]` catalogue rather than only native tool
 /// declarations.
 #[test]
+#[ignore = "TODO(#6376): hosted TinyAgents omits integrations specialist tools"]
 fn integrations_agent_holds_the_composio_surface() {
     run_case(Case {
         agent: "integrations_agent",
@@ -913,6 +916,7 @@ fn integrations_agent_holds_the_composio_surface() {
 
 /// `schedule_task` lands in scheduler_agent, which owns cron and nothing else.
 #[test]
+#[ignore = "TODO(#6376): hosted TinyAgents omits scheduler specialist tools"]
 fn scheduler_agent_owns_the_cron_surface() {
     run_case(Case {
         agent: "scheduler_agent",

@@ -485,7 +485,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/builder/factory.rs",
-    "line": 1231,
+    "line": 1209,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
