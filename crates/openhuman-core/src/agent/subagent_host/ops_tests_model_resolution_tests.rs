@@ -16,13 +16,16 @@ async fn runner_rejects_spawn_beyond_max_depth() {
     })
     .await;
 
-    assert!(matches!(
-        result,
-        Err(SubagentRunError::SpawnDepthExceeded {
-            attempted_depth,
-            max_depth
-        }) if attempted_depth == MAX_SPAWN_DEPTH + 1 && max_depth == MAX_SPAWN_DEPTH
-    ));
+    assert!(
+        matches!(
+            result,
+            Err(SubagentRunError::SpawnDepthExceeded {
+                attempted_depth,
+                max_depth
+            }) if attempted_depth == MAX_SPAWN_DEPTH + 1 && max_depth == MAX_SPAWN_DEPTH
+        ),
+        "got: {result:?}"
+    );
     assert!(
         provider.captured.lock().is_empty(),
         "depth rejection must happen before provider dispatch"

@@ -39,7 +39,7 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
     ) -> Result<Vec<TranscriptMessage>, RuntimeError> {
         let mut rows = next
             .iter()
-            .map(message_convert::message_to_native_chat_message)
+            .filter_map(message_convert::message_to_native_chat_message)
             .map(|message| transcript_message_from_chat(&message))
             .collect::<Vec<_>>();
 

@@ -156,8 +156,7 @@ fn is_provider_not_configured_error_matches_exact_backend_shape() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
-        partial_message: None,
-        stop_reason: None,
+        ..ProviderError::default()
     };
     assert!(is_provider_not_configured_error(&err));
 }
@@ -176,8 +175,7 @@ fn is_provider_not_configured_error_rejects_other_400s() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
-        partial_message: None,
-        stop_reason: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }
@@ -197,8 +195,7 @@ fn is_provider_not_configured_error_tolerates_not_configured_for_provider_wordin
         retryable: false,
         retry_after_ms: None,
         raw: None,
-        partial_message: None,
-        stop_reason: None,
+        ..ProviderError::default()
     };
     assert!(is_provider_not_configured_error(&err));
 }
@@ -221,8 +218,7 @@ fn is_provider_not_configured_error_rejects_generic_not_configured_400() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
-        partial_message: None,
-        stop_reason: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }
@@ -238,8 +234,7 @@ fn is_provider_not_configured_error_rejects_non_400_status() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
-        partial_message: None,
-        stop_reason: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }

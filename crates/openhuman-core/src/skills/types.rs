@@ -46,6 +46,8 @@ pub fn tool_result_from_mcp(result: tinymcp_bus::McpToolResult) -> ToolResult {
             .collect(),
         is_error: result.is_error,
         markdown_formatted: result.markdown_formatted,
+        // MCP results carry no follow-up, metadata, control or error-kind
+        // channels; leave the host-side defaults.
         ..ToolResult::default()
     }
 }

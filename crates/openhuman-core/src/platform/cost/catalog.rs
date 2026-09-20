@@ -513,6 +513,7 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
             cache_creation_input_per_token: None,
             input_audio_per_token: None,
             output_reasoning_per_token: None,
+            // The local price table is flat; context-size tiers are not modeled.
             tiers: Vec::new(),
         },
         capabilities: tinyagents_registry::ModelCapabilities {

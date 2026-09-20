@@ -24,7 +24,7 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
     request
         .messages
         .iter()
-        .map(crate::agent::message_convert::message_to_native_chat_message)
+        .filter_map(crate::agent::message_convert::message_to_native_chat_message)
         .collect()
 }
 

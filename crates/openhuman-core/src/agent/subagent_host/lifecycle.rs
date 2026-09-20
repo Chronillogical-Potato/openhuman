@@ -479,7 +479,7 @@ impl SubagentPlanner<crate::agent::tinyagents::host::OpenHumanRunContext, HostRe
             options.initial_history = Some(
                 history
                     .iter()
-                    .map(crate::agent::message_convert::message_to_native_chat_message)
+                    .filter_map(crate::agent::message_convert::message_to_native_chat_message)
                     .collect(),
             );
             history
@@ -1023,7 +1023,7 @@ impl tinyagents_orchestration::subagent::SubagentPersistence for OpenHumanPersis
                 .outcome
                 .history
                 .iter()
-                .map(crate::agent::message_convert::message_to_native_chat_message)
+                .filter_map(crate::agent::message_convert::message_to_native_chat_message)
                 .collect(),
             question: paused.reason.clone(),
             options: None,
@@ -1265,7 +1265,7 @@ fn outcome_to_host(
         final_history: outcome
             .history
             .iter()
-            .map(crate::agent::message_convert::message_to_native_chat_message)
+            .filter_map(crate::agent::message_convert::message_to_native_chat_message)
             .collect(),
         usage: SubagentUsage {
             input_tokens: outcome.usage.usage.input_tokens,
