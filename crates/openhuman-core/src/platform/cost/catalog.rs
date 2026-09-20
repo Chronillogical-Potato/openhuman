@@ -505,6 +505,7 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
         max_input_tokens: Some(u64::from(price.context_window)),
         max_output_tokens: None,
         deprecation_date: None,
+        release_date: None,
         pricing: tinyagents_harness::cost::ModelPricing {
             input_per_token: per_token(price.input_per_mtok_usd),
             output_per_token: per_token(price.output_per_mtok_usd),
@@ -512,6 +513,8 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
             cache_creation_input_per_token: None,
             input_audio_per_token: None,
             output_reasoning_per_token: None,
+            // The local price table is flat; context-size tiers are not modeled.
+            tiers: Vec::new(),
         },
         capabilities: tinyagents_registry::ModelCapabilities {
             prompt_caching: price.cached_input_per_mtok_usd > 0.0,
@@ -568,6 +571,7 @@ fn local_catalog_entry(model: &LocalCatalogModel) -> tinyagents_registry::ModelC
         max_input_tokens: model.context_window,
         max_output_tokens: None,
         deprecation_date: None,
+        release_date: None,
         // Local runtimes are not billed per token; leave every price unset (not
         // zero — `None` means "not applicable", not "free of charge").
         pricing: tinyagents_harness::cost::ModelPricing::default(),

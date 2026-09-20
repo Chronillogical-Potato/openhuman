@@ -334,6 +334,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
                     temperature_unsupported_models: config
                         .temperature_unsupported_models
                         .as_slice(),
+                    extra_headers: &[],
                 });
                 return Some(Ok((chat, effective_model)));
             }
