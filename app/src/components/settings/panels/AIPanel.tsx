@@ -66,6 +66,10 @@ interface AIPanelProps {
   onTabChange?: (tab: AIPanelTab) => void;
   /** Suppress PanelPage's internal tab chrome for a host-rendered chip row. */
   hideTabChrome?: boolean;
+  /** Host-owned "Add provider" dialog state (the host renders the button in
+   *  its header). Undefined lets the providers section keep its own button. */
+  addProviderOpen?: boolean;
+  onAddProviderOpenChange?: (open: boolean) => void;
 }
 
 const AIPanel = ({
@@ -73,6 +77,8 @@ const AIPanel = ({
   tab: controlledTab,
   onTabChange,
   hideTabChrome = false,
+  addProviderOpen,
+  onAddProviderOpenChange,
 }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack } = useSettingsNavigation();
@@ -225,6 +231,8 @@ const AIPanel = ({
                   }}
                   onAddCustomProvider={() => setEditing('new')}
                   onEditCustomProvider={provider => setEditing(provider)}
+                  addOpen={addProviderOpen}
+                  onAddOpenChange={onAddProviderOpenChange}
                 />
                 {isDirty && (
                   <SaveBar
