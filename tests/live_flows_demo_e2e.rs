@@ -377,7 +377,7 @@ async fn live_flows_demo_discover_build_save_run() {
             );
         }
     }
-    println!("\nmodels used: planner→reasoning-v1, drafter→chat-v1 (per node config.model)");
+    println!("\nmodels used: planner→hint:reasoning, drafter→hint:chat (per node config.model)");
 
     // Pull the persisted run row for the recorded per-step models/status.
     let run_row = post_json_rpc(
