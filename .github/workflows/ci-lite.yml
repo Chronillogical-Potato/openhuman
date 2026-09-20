@@ -153,6 +153,12 @@ jobs:
               - 'scripts/prompt-budget.limits'
               - 'scripts/check-prompt-budget.sh'
               - 'scripts/prompt-size-measure.sh'
+              # The feature-gate smoke owns the dependency-floor ratchet. Its
+              # limits and measurement logic must arm that lane themselves.
+              - 'scripts/kernel-floor.limits'
+              - 'scripts/check-kernel-floor.sh'
+              - 'scripts/kernel-floor.sh'
+              - 'scripts/dep-sim.py'
               # The coverage-presence gate and its allowlist decide whether this
               # lane FAILS, so they arm it for the same reason.
               - 'scripts/ci/assert-coverage-presence.sh'
