@@ -191,7 +191,12 @@ pub(super) fn resolve_managed_backend_with_model_override(
     // "deepseek-v4-pro", "claude-opus-4-7") fall back to the platform default.
     let model = match model.strip_prefix("hint:") {
         Some("reasoning") => crate::config::MODEL_REASONING_V1.to_string(),
-        Some("chat") => crate::config::MODEL_CHAT_V1.to_string(),
+        // The app's chat turn always sends `hint:chat`, so the pinned default
+        // model (Routing → "Default model") has to be honoured here, not only
+        // when `default_model` reaches this function unhinted.
+        Some("chat") => pinned_managed_default_model(config).unwrap_or_else(|| {
+            crate::config::MODEL_CHAT_V1.to_string()
+        }),
         Some("agentic") => crate::config::MODEL_AGENTIC_V1.to_string(),
         Some("burst") => crate::config::MODEL_BURST_V1.to_string(),
         Some("coding") => crate::config::MODEL_CODING_V1.to_string(),

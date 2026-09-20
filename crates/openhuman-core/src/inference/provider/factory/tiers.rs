@@ -80,6 +80,19 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
     let ps = provider_string.trim();
     if ps.is_empty() || ps == "cloud" || ps == PROVIDER_OPENHUMAN || ps == BYOK_INCOMPLETE_SENTINEL
     {
+        // A managed chat turn runs on the pinned default model when one is
+        // set; every other tier keeps its name. Mirrors the managed backend's
+        // own `hint:chat` translation so what the UI displays is what runs.
+        if role == "chat" && tier == crate::config::MODEL_CHAT_V1 {
+            if let Some(pinned) = pinned_managed_default_model(config) {
+                log::debug!(
+                    "[providers][resolve-hint] hint={} managed chat resolves to pinned default model={}",
+                    hint_or_tier,
+                    pinned
+                );
+                return pinned;
+            }
+        }
         tier.to_string()
     } else if let Some(idx) = ps.find(':') {
         let model_with_temp = &ps[idx + 1..];
@@ -145,6 +158,22 @@ pub fn role_for_model_tier(hint_or_tier: &str) -> &'static str {
 /// unrecognized `hint:*` value is intentionally rejected so the factory falls
 /// back to the platform default instead of forwarding an untranslated string
 /// to the backend.
+/// The user's pinned managed **default model** — `config.default_model` when
+/// it names a concrete catalog model (e.g. `openrouter/deepseek/deepseek-v4-flash`)
+/// rather than a managed tier or a `hint:*` marker.
+///
+/// The Routing page writes a catalog id here as the "default model": the one a
+/// managed `chat` turn runs on instead of the anonymous `chat-v1` tier. Tier
+/// names and hints are not pins — they are the pre-existing "let the backend
+/// pick" contract — so they yield `None` and the caller keeps its tier.
+pub(crate) fn pinned_managed_default_model(config: &Config) -> Option<String> {
+    let model = config.default_model.as_deref()?.trim();
+    if model.is_empty() || model.starts_with("hint:") || is_known_openhuman_tier(model) {
+        return None;
+    }
+    Some(model.to_string())
+}
+
 pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
     use crate::config::{
         MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
