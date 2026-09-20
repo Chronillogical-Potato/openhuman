@@ -1710,7 +1710,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '"{key}" est requis',
   'mcp.tab.tablistAria': 'Vues MCP',
   'mcp.rows.title': 'Serveurs installés',
-  'mcp.rows.intro': 'Les serveurs MCP que votre agent peut appeler, tels que déclarés dans mcp.json. Ouvrez un serveur pour ses identifiants et ses outils.',
+  'mcp.rows.intro':
+    'Les serveurs MCP que votre agent peut appeler, tels que déclarés dans mcp.json. Ouvrez un serveur pour ses identifiants et ses outils.',
   'mcp.rows.open': 'Ouvrir {name}',
   'mcp.rows.connect': 'Connecter {name}',
   'mcp.rows.disconnect': 'Déconnecter {name}',
@@ -1718,7 +1719,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': 'Désactiver {name}',
   'mcp.rows.remove': 'Supprimer {name}',
   'mcp.rows.removeTitle': 'Supprimer {name} ?',
-  'mcp.rows.removeBody': 'Le serveur et ses identifiants stockés sont supprimés. Le déclarer à nouveau dans mcp.json repart de zéro.',
+  'mcp.rows.removeBody':
+    'Le serveur et ses identifiants stockés sont supprimés. Le déclarer à nouveau dans mcp.json repart de zéro.',
   'mcp.rows.opFailed': 'L’action a échoué.',
   'mcp.json.invalidTitle': 'Ce fichier ne peut pas encore être enregistré',
   'mcp.json.unsaved': 'Modifications non enregistrées',

@@ -76,7 +76,13 @@ const statusTone = (
   }
 };
 
-const McpServerRows = ({ servers, statuses, onOpen, onChanged, onAddInJson }: McpServerRowsProps) => {
+const McpServerRows = ({
+  servers,
+  statuses,
+  onOpen,
+  onChanged,
+  onAddInJson,
+}: McpServerRowsProps) => {
   const { t } = useT();
   // The id of the row currently mutating. Every handler serialises on it, so
   // while one is in flight the controls on ALL rows disable, not just the busy
@@ -167,7 +173,10 @@ const McpServerRows = ({ servers, statuses, onOpen, onChanged, onAddInJson }: Mc
                           onClick={() => onOpen(server.server_id)}
                           className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-sm font-medium text-content transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                           {server.display_name}
-                          <ChevronRight className="size-3.5 text-content-muted" aria-hidden="true" />
+                          <ChevronRight
+                            className="size-3.5 text-content-muted"
+                            aria-hidden="true"
+                          />
                         </button>
                         <Badge variant="neutral">
                           {t(hosted ? 'mcp.tab.transport.hosted' : 'mcp.tab.transport.local')}

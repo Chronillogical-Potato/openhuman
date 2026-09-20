@@ -1683,7 +1683,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': 'Pole „{key}” jest wymagane',
   'mcp.tab.tablistAria': 'Widoki MCP',
   'mcp.rows.title': 'Zainstalowane serwery',
-  'mcp.rows.intro': 'Serwery MCP, które może wywołać twój agent, zgodnie z deklaracją w mcp.json. Otwórz serwer, aby zobaczyć jego dane uwierzytelniające i narzędzia.',
+  'mcp.rows.intro':
+    'Serwery MCP, które może wywołać twój agent, zgodnie z deklaracją w mcp.json. Otwórz serwer, aby zobaczyć jego dane uwierzytelniające i narzędzia.',
   'mcp.rows.open': 'Otwórz {name}',
   'mcp.rows.connect': 'Połącz {name}',
   'mcp.rows.disconnect': 'Rozłącz {name}',
@@ -1691,7 +1692,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': 'Wyłącz {name}',
   'mcp.rows.remove': 'Usuń {name}',
   'mcp.rows.removeTitle': 'Usunąć {name}?',
-  'mcp.rows.removeBody': 'Serwer i jego zapisane dane uwierzytelniające zostaną usunięte. Ponowna deklaracja w mcp.json zaczyna od zera.',
+  'mcp.rows.removeBody':
+    'Serwer i jego zapisane dane uwierzytelniające zostaną usunięte. Ponowna deklaracja w mcp.json zaczyna od zera.',
   'mcp.rows.opFailed': 'Akcja nie powiodła się.',
   'mcp.json.invalidTitle': 'Tego pliku nie można jeszcze zapisać',
   'mcp.json.unsaved': 'Niezapisane zmiany',

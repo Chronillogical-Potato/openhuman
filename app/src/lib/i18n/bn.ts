@@ -1655,7 +1655,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '"{key}" প্রয়োজন',
   'mcp.tab.tablistAria': 'MCP ভিউ',
   'mcp.rows.title': 'ইনস্টল করা সার্ভার',
-  'mcp.rows.intro': 'mcp.json-এ ঘোষিত, আপনার এজেন্ট যে MCP সার্ভারগুলো কল করতে পারে। ক্রেডেনশিয়াল ও টুল দেখতে সার্ভারটি খুলুন।',
+  'mcp.rows.intro':
+    'mcp.json-এ ঘোষিত, আপনার এজেন্ট যে MCP সার্ভারগুলো কল করতে পারে। ক্রেডেনশিয়াল ও টুল দেখতে সার্ভারটি খুলুন।',
   'mcp.rows.open': '{name} খুলুন',
   'mcp.rows.connect': '{name} সংযোগ করুন',
   'mcp.rows.disconnect': '{name} সংযোগ বিচ্ছিন্ন করুন',
@@ -1663,7 +1664,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': '{name} নিষ্ক্রিয় করুন',
   'mcp.rows.remove': '{name} সরান',
   'mcp.rows.removeTitle': '{name} সরাবেন?',
-  'mcp.rows.removeBody': 'সার্ভার ও তার সংরক্ষিত ক্রেডেনশিয়াল সরানো হবে। mcp.json-এ আবার ঘোষণা করলে শুরু থেকে শুরু হবে।',
+  'mcp.rows.removeBody':
+    'সার্ভার ও তার সংরক্ষিত ক্রেডেনশিয়াল সরানো হবে। mcp.json-এ আবার ঘোষণা করলে শুরু থেকে শুরু হবে।',
   'mcp.rows.opFailed': 'কাজটি ব্যর্থ হয়েছে।',
   'mcp.json.invalidTitle': 'এই ফাইলটি এখনো সেভ করা যাবে না',
   'mcp.json.unsaved': 'অসংরক্ষিত পরিবর্তন',

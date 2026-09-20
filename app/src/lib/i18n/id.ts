@@ -1668,7 +1668,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '"{key}" diperlukan',
   'mcp.tab.tablistAria': 'Tampilan MCP',
   'mcp.rows.title': 'Server terpasang',
-  'mcp.rows.intro': 'Server MCP yang dapat dipanggil agen Anda, seperti yang dideklarasikan di mcp.json. Buka server untuk melihat kredensial dan alatnya.',
+  'mcp.rows.intro':
+    'Server MCP yang dapat dipanggil agen Anda, seperti yang dideklarasikan di mcp.json. Buka server untuk melihat kredensial dan alatnya.',
   'mcp.rows.open': 'Buka {name}',
   'mcp.rows.connect': 'Hubungkan {name}',
   'mcp.rows.disconnect': 'Putuskan {name}',
@@ -1676,7 +1677,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': 'Nonaktifkan {name}',
   'mcp.rows.remove': 'Hapus {name}',
   'mcp.rows.removeTitle': 'Hapus {name}?',
-  'mcp.rows.removeBody': 'Server dan kredensial tersimpannya dihapus. Mendeklarasikannya lagi di mcp.json dimulai dari awal.',
+  'mcp.rows.removeBody':
+    'Server dan kredensial tersimpannya dihapus. Mendeklarasikannya lagi di mcp.json dimulai dari awal.',
   'mcp.rows.opFailed': 'Tindakan gagal.',
   'mcp.json.invalidTitle': 'Berkas ini belum bisa disimpan',
   'mcp.json.unsaved': 'Perubahan belum disimpan',

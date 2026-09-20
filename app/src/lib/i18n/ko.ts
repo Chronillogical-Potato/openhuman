@@ -1642,7 +1642,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '"{key}"이 필요합니다.',
   'mcp.tab.tablistAria': 'MCP 보기',
   'mcp.rows.title': '설치된 서버',
-  'mcp.rows.intro': 'mcp.json에 선언된, 에이전트가 호출할 수 있는 MCP 서버입니다. 서버를 열어 자격 증명과 도구를 확인하세요.',
+  'mcp.rows.intro':
+    'mcp.json에 선언된, 에이전트가 호출할 수 있는 MCP 서버입니다. 서버를 열어 자격 증명과 도구를 확인하세요.',
   'mcp.rows.open': '{name} 열기',
   'mcp.rows.connect': '{name} 연결',
   'mcp.rows.disconnect': '{name} 연결 해제',
@@ -1650,7 +1651,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': '{name} 비활성화',
   'mcp.rows.remove': '{name} 제거',
   'mcp.rows.removeTitle': '{name}을(를) 제거할까요?',
-  'mcp.rows.removeBody': '서버와 저장된 자격 증명이 제거됩니다. mcp.json에 다시 선언하면 처음부터 시작합니다.',
+  'mcp.rows.removeBody':
+    '서버와 저장된 자격 증명이 제거됩니다. mcp.json에 다시 선언하면 처음부터 시작합니다.',
   'mcp.rows.opFailed': '작업에 실패했습니다.',
   'mcp.json.invalidTitle': '이 파일은 아직 저장할 수 없습니다',
   'mcp.json.unsaved': '저장되지 않은 변경 사항',

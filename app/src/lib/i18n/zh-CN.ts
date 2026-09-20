@@ -1557,7 +1557,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '“{key}”为必填项',
   'mcp.tab.tablistAria': 'MCP 视图',
   'mcp.rows.title': '已安装的服务器',
-  'mcp.rows.intro': '你的智能体可调用的 MCP 服务器，按 mcp.json 中的声明列出。打开服务器可查看其凭据和工具。',
+  'mcp.rows.intro':
+    '你的智能体可调用的 MCP 服务器，按 mcp.json 中的声明列出。打开服务器可查看其凭据和工具。',
   'mcp.rows.open': '打开 {name}',
   'mcp.rows.connect': '连接 {name}',
   'mcp.rows.disconnect': '断开 {name}',

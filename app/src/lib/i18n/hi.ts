@@ -1655,7 +1655,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': '"{key}" आवश्यक है',
   'mcp.tab.tablistAria': 'MCP दृश्य',
   'mcp.rows.title': 'इंस्टॉल किए गए सर्वर',
-  'mcp.rows.intro': 'mcp.json में घोषित, वे MCP सर्वर जिन्हें आपका एजेंट कॉल कर सकता है। क्रेडेंशियल और टूल देखने के लिए सर्वर खोलें।',
+  'mcp.rows.intro':
+    'mcp.json में घोषित, वे MCP सर्वर जिन्हें आपका एजेंट कॉल कर सकता है। क्रेडेंशियल और टूल देखने के लिए सर्वर खोलें।',
   'mcp.rows.open': '{name} खोलें',
   'mcp.rows.connect': '{name} कनेक्ट करें',
   'mcp.rows.disconnect': '{name} डिस्कनेक्ट करें',
@@ -1663,7 +1664,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': '{name} अक्षम करें',
   'mcp.rows.remove': '{name} हटाएँ',
   'mcp.rows.removeTitle': '{name} हटाएँ?',
-  'mcp.rows.removeBody': 'सर्वर और उसके संग्रहीत क्रेडेंशियल हटा दिए जाएँगे। mcp.json में फिर से घोषित करने पर शुरुआत से शुरू होगा।',
+  'mcp.rows.removeBody':
+    'सर्वर और उसके संग्रहीत क्रेडेंशियल हटा दिए जाएँगे। mcp.json में फिर से घोषित करने पर शुरुआत से शुरू होगा।',
   'mcp.rows.opFailed': 'कार्रवाई विफल रही।',
   'mcp.json.invalidTitle': 'यह फ़ाइल अभी सेव नहीं की जा सकती',
   'mcp.json.unsaved': 'असहेजे बदलाव',

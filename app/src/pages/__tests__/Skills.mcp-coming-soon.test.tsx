@@ -75,7 +75,9 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
     });
 
     expect(screen.getByRole('heading', { level: 1, name: 'MCP Servers' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Installed servers' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Installed servers' })
+    ).toBeInTheDocument();
   });
 
   it('shows the empty state with a route to mcp.json when nothing is declared', async () => {

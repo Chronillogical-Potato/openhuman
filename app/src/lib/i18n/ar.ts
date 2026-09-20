@@ -1619,7 +1619,8 @@ const messages: TranslationMap = {
   'mcp.install.missingRequired': 'مطلوب "{key}"',
   'mcp.tab.tablistAria': 'طرق عرض MCP',
   'mcp.rows.title': 'الخوادم المثبّتة',
-  'mcp.rows.intro': 'خوادم MCP التي يمكن لوكيلك استدعاؤها، كما هي معلنة في mcp.json. افتح خادمًا لعرض بيانات اعتماده وأدواته.',
+  'mcp.rows.intro':
+    'خوادم MCP التي يمكن لوكيلك استدعاؤها، كما هي معلنة في mcp.json. افتح خادمًا لعرض بيانات اعتماده وأدواته.',
   'mcp.rows.open': 'فتح {name}',
   'mcp.rows.connect': 'توصيل {name}',
   'mcp.rows.disconnect': 'قطع اتصال {name}',
@@ -1627,7 +1628,8 @@ const messages: TranslationMap = {
   'mcp.rows.disable': 'تعطيل {name}',
   'mcp.rows.remove': 'إزالة {name}',
   'mcp.rows.removeTitle': 'إزالة {name}؟',
-  'mcp.rows.removeBody': 'سيُزال الخادم وبيانات اعتماده المخزنة. إعلانه مجددًا في mcp.json يبدأ من الصفر.',
+  'mcp.rows.removeBody':
+    'سيُزال الخادم وبيانات اعتماده المخزنة. إعلانه مجددًا في mcp.json يبدأ من الصفر.',
   'mcp.rows.opFailed': 'فشل الإجراء.',
   'mcp.json.invalidTitle': 'لا يمكن حفظ هذا الملف بعد',
   'mcp.json.unsaved': 'تغييرات غير محفوظة',
