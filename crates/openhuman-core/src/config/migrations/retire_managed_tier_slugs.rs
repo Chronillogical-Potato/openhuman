@@ -7,9 +7,9 @@
 //! (or an older build) could have written one is rewritten:
 //!
 //! - `default_model` — any tier slug becomes [`MODEL_MANAGED_DEFAULT`].
-//! - `agent.orchestrator.model`, `agent.team_models.{lead,agent}_model` and
-//!   each `agents.<id>.model` delegate pin — tier slugs become the managed
-//!   default too; a slug that was pinning a *role* (`reasoning-v1` on a lead)
+//! - `orchestrator.model`, every `teams.<name>.{lead,agent}_model` and each
+//!   `agents.<id>.model` delegate pin — tier slugs become the managed default
+//!   too; a slug that was pinning a *role* (`reasoning-v1` on a lead)
 //!   loses nothing, since on the managed backend every role now runs the same
 //!   model.
 //! - `model_routes[].model` — the same rewrite; the `hint` key is untouched.
@@ -53,20 +53,22 @@ pub fn run(config: &mut Config) -> anyhow::Result<MigrationStats> {
 
     rewrite_opt("default_model", &mut config.default_model, &mut stats);
     rewrite_opt(
-        "agent.orchestrator.model",
-        &mut config.agent.orchestrator.model,
+        "orchestrator.model",
+        &mut config.orchestrator.model,
         &mut stats,
     );
-    rewrite_opt(
-        "agent.team_models.lead_model",
-        &mut config.agent.team_models.lead_model,
-        &mut stats,
-    );
-    rewrite_opt(
-        "agent.team_models.agent_model",
-        &mut config.agent.team_models.agent_model,
-        &mut stats,
-    );
+    for (name, team) in config.teams.iter_mut() {
+        rewrite_opt(
+            &format!("teams.{name}.lead_model"),
+            &mut team.lead_model,
+            &mut stats,
+        );
+        rewrite_opt(
+            &format!("teams.{name}.agent_model"),
+            &mut team.agent_model,
+            &mut stats,
+        );
+    }
     for (id, delegate) in config.agents.iter_mut() {
         rewrite(&format!("agents.{id}.model"), &mut delegate.model, &mut stats);
     }
