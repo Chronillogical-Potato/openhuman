@@ -13,8 +13,10 @@
 //!   the extraction: an end-to-end test seeding the upstream response cache.
 //! - [`ops`] — the `mcp_clients` RPC handlers, delegating to the service
 //!   [`super::host`] holds and publishing this application's own events.
-//! - [`config_doc`] — the `mcp.json` document: how the store renders as one,
-//!   what a written one may say, and how the two are reconciled.
+//! - [`config_doc`] — the `mcp.json` document: how the store renders as one
+//!   and what a written one may say.
+//! - [`config_ops`] — the `config_get` / `config_set` handlers that reconcile
+//!   the store against that document.
 //! - `schemas` — the controller schemas and dispatch.
 //! - [`supervisor_events`] — what the reconnect supervisor observed each
 //!   tick, as this domain's events; the Event Log and the notification bridge
@@ -38,6 +40,8 @@
 pub mod bus;
 #[cfg(feature = "mcp")]
 pub mod config_doc;
+#[cfg(feature = "mcp")]
+pub mod config_ops;
 #[cfg(feature = "mcp")]
 pub(crate) mod helpers;
 #[cfg(feature = "mcp")]

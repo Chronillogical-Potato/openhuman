@@ -134,7 +134,7 @@ pub(super) fn handle_config_get(params: Map<String, Value>) -> ControllerFuture 
     Box::pin(async move {
         let _ = params;
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::mcp::registry::ops::mcp_clients_config_get(&config).await?)
+        to_json(crate::mcp::registry::config_ops::mcp_clients_config_get(&config).await?)
     })
 }
 
@@ -145,7 +145,7 @@ pub(super) fn handle_config_set(params: Map<String, Value>) -> ControllerFuture 
         // is what a user pastes, and wrapping it in another key would make the
         // wire shape differ from the file shape for no reason.
         let doc = Value::Object(params);
-        to_json(crate::mcp::registry::ops::mcp_clients_config_set(&config, doc).await?)
+        to_json(crate::mcp::registry::config_ops::mcp_clients_config_set(&config, doc).await?)
     })
 }
 
