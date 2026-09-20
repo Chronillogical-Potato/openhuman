@@ -180,7 +180,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Plan the brief (reasoning tier)",
                 "config": {
-                    "model": "reasoning-v1",
+                    "model": "hint:reasoning",
                     "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
                     "output_parser": {
                         "schema": {
@@ -199,7 +199,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Draft the brief (chat tier)",
                 "config": {
-                    "model": "chat-v1",
+                    "model": "hint:chat",
                     "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
                 }
             },

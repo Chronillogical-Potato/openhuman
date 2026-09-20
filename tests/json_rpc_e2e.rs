@@ -1642,7 +1642,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "id": "researcher",
             "name": "Research Specialist",
             "description": "Workspace-specific research specialist.",
-            "model": "reasoning-v1",
+            "model": "hint:reasoning",
             "tool_allowlist": ["tools.web_search", "memory.search"],
             "tool_denylist": ["wallet.execute_prepared"],
             "tags": ["research", "workspace"],
@@ -1814,7 +1814,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "id": "custom_writer",
             "name": "Custom Writer",
             "description": "Drafts polished workspace updates.",
-            "model": "reasoning-v1",
+            "model": "hint:reasoning",
             "system_prompt": "Write concise, accurate updates.",
             "tool_allowlist": ["memory.search", "tools.web_search"],
             "tool_denylist": ["wallet.execute_prepared"],
@@ -1868,7 +1868,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "name": "Custom Writer v2",
             "description": "Drafts polished workspace updates and summaries.",
             "enabled": false,
-            "model": "coding-v1",
+            "model": "hint:coding",
             "system_prompt": "Write concise updates with citations when available.",
             "tool_allowlist": ["memory.search"],
             "tool_denylist": ["shell"],
@@ -1926,7 +1926,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
                 "description": "Reviews agent plans before execution.",
                 "source": "default",
                 "enabled": false,
-                "model": "reasoning-v1",
+                "model": "hint:reasoning",
                 "system_prompt": "Review plans for missing validation.",
                 "tool_allowlist": ["memory.search"],
                 "tool_denylist": ["shell", "file_write"],
@@ -10813,7 +10813,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Plan the brief (reasoning tier)",
                 "config": {
-                    "model": "reasoning-v1",
+                    "model": "hint:reasoning",
                     "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
                     "output_parser": {
                         "schema": {
@@ -10832,7 +10832,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Draft the brief (chat tier)",
                 "config": {
-                    "model": "chat-v1",
+                    "model": "hint:chat",
                     "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
                 }
             },
@@ -12949,7 +12949,7 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
             "cached_input_tokens": 600, "charged_amount_usd": 0.0123, "thread_id": "thr-e2e"
         }}),
         json!({"role": "user", "content": "hi"}),
-        json!({"role": "assistant", "content": "hello", "model": "reasoning-v1",
+        json!({"role": "assistant", "content": "hello", "model": "hint:reasoning",
             "usage": {"input": 350, "output": 80, "cached_input": 40, "cost_usd": 0.0009},
             "ts": "2026-04-11T14:35:22Z"}),
     );
