@@ -237,12 +237,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::help::prompt::build,
         graph_fn: None,
     },
-    BuiltinAgent {
-        id: "mcp_setup",
-        toml: include_str!("mcp_setup/agent.toml"),
-        prompt_fn: super::mcp_setup::prompt::build,
-        graph_fn: None,
-    },
     // Connected-server execution specialist. Compiled out with the `mcp`
     // feature, which drops the `delegate_use_mcp_server` tool from the
     // orchestrator's synthesised belt.
