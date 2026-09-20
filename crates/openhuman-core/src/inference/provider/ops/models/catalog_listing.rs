@@ -124,7 +124,7 @@ pub async fn list_configured_models_from_config(
     //     request would go out unauthenticated (401).
     //
     // `?catalog=openrouter` is required: without it the backend returns only
-    // the curated tier list (hint:chat, hint:reasoning, ...), which is deliberately
+    // the curated legacy list, which is deliberately
     // byte-identical to the legacy payload. The catalog listing is gated
     // server-side by OPENROUTER_PASSTHROUGH_ENABLED and returns an empty set
     // when the passthrough is off, so this degrades to "no models" rather than
