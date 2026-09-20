@@ -274,6 +274,7 @@ const McpServersTab = ({ initialTab = 'servers' }: McpServersTabProps) => {
   return (
     <div className="space-y-3">
       <ChipTabs<McpPageTab>
+        className="flex flex-wrap items-center gap-1.5"
         ariaLabel={t('mcp.tab.tablistAria')}
         testIdPrefix="mcp-page-tab"
         value={tab}
