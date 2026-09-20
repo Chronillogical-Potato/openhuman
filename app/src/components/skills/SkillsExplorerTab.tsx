@@ -466,7 +466,6 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
   const [skillsError, setSkillsError] = useState<string | null>(null);
 
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([]);
-  const [catalogTotal, setCatalogTotal] = useState(0);
   // How many catalog entries are currently revealed. We fetch the whole list
   // up front, then page through it client-side via the "Show more" control.
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
@@ -552,7 +551,6 @@ export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabPr
           entries = await skillRegistryApi.search(query || '', sourceFilter);
         }
         log('fetchCatalog: total=%d', entries.length);
-        setCatalogTotal(entries.length);
         // Keep the full list so "Show more" can page through it without another
         // RPC; only a window of it is rendered (see displayedCatalog).
         setCatalogEntries(entries);

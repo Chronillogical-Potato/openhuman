@@ -40,7 +40,6 @@ import SkillSearchBar from '../components/skills/SkillSearchBar';
 import SkillsPage from '../components/skills/SkillsPage';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import Badge from '../components/ui/Badge';
-import BetaIndicator from '../components/ui/BetaIndicator';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
