@@ -1,10 +1,10 @@
 /**
- * MCP Tab — full lifecycle e2e tests.
+ * MCP page — full lifecycle e2e tests over its three tabs.
  *
- * Covers: browse catalog → search → install (env-key form) → verify in
- * installed list → manage detail view → connect/disconnect → uninstall →
- * verify removal. All RPC calls are mocked via page.route so no running
- * core is required.
+ * Covers: the server rows → manage detail view → connect → run a tool →
+ * uninstall; the mcp.json editor → declare a server → it appears in the rows;
+ * the browse-only registry → a row opens the server's page. All RPC calls are
+ * mocked via page.route so no running core is required.
  */
 import { expect, type Page, test } from '@playwright/test';
 
@@ -82,24 +82,21 @@ const MOCK_TOOLS = [
   { name: 'list_memories', description: 'List all memories', input_schema: {} },
 ];
 
-const GITHUB_DETAIL = {
-  ...REGISTRY_SERVERS[1],
-  connections: [{ type: 'stdio', published: true }],
-  required_env_keys: ['GITHUB_TOKEN'],
-};
-
-const GITHUB_INSTALLED = {
-  server_id: 'srv_github_1',
-  qualified_name: 'io.github.test/github-tools',
-  display_name: 'GitHub Tools',
-  description: 'MCP server for GitHub API integration',
-  command_kind: 'node',
-  command: 'npx',
-  args: ['-y', '@modelcontextprotocol/server-github'],
-  env_keys: ['GITHUB_TOKEN'],
-  installed_at: 1700000100,
-  enabled: true,
-};
+/** What the core's `config_get` renders: the dial plus credential names. */
+function renderDoc(state: MockState) {
+  const out: Record<string, unknown> = {};
+  for (const s of [...state.installed].sort((a, b) =>
+    a.qualified_name.localeCompare(b.qualified_name)
+  )) {
+    out[s.qualified_name] = {
+      command: s.command,
+      ...(s.args.length ? { args: s.args } : {}),
+      ...(s.env_keys.length ? { envKeys: s.env_keys } : {}),
+      authConfigured: s.env_keys.length > 0,
+    };
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // RPC mock layer — mutable state so tests can drive lifecycle transitions
@@ -186,9 +183,6 @@ async function setupMockRpc(page: Page, state: MockState) {
       }
 
       case 'openhuman.mcp_clients_registry_get':
-        if (params.qualified_name === GITHUB_DETAIL.qualified_name) {
-          return route.fulfill(rpcOk(id, { server: GITHUB_DETAIL }));
-        }
         return route.fulfill(rpcError(id, `server not found: ${params.qualified_name}`));
 
       // ---- Installed servers (mutable) ----
@@ -198,12 +192,43 @@ async function setupMockRpc(page: Page, state: MockState) {
       case 'openhuman.mcp_clients_status':
         return route.fulfill(rpcOk(id, { servers: state.statuses }));
 
-      case 'openhuman.mcp_clients_install':
-        if (!params.qualified_name) {
-          return route.fulfill(rpcError(id, "missing required param 'qualified_name'"));
+      // ---- mcp.json (the only way a server is added or removed) ----
+      case 'openhuman.mcp_clients_config_get':
+        return route.fulfill(rpcOk(id, { mcpServers: renderDoc(state) }));
+
+      case 'openhuman.mcp_clients_config_set': {
+        const declared = (params.mcpServers ?? {}) as Record<string, Record<string, unknown>>;
+        const names = new Set(Object.keys(declared));
+        const removed = state.installed
+          .filter(s => !names.has(s.qualified_name))
+          .map(s => s.qualified_name);
+        state.installed = state.installed.filter(s => names.has(s.qualified_name));
+        state.statuses = state.statuses.filter(s => !removed.includes(s.qualified_name));
+        const added: string[] = [];
+        for (const [name, entry] of Object.entries(declared)) {
+          if (state.installed.some(s => s.qualified_name === name)) continue;
+          if (!entry.command && !entry.url) {
+            return route.fulfill(
+              rpcError(id, `\`${name}\` needs a \`url\` (hosted) or a \`command\` (run locally)`)
+            );
+          }
+          state.installed.push(
+            makeInstalledServer({
+              server_id: `srv_${name}`,
+              qualified_name: name,
+              display_name: name,
+              description: undefined,
+              command: (entry.command as string) ?? '',
+              args: (entry.args as string[]) ?? [],
+              env_keys: Object.keys((entry.env as Record<string, string>) ?? {}),
+            })
+          );
+          added.push(name);
         }
-        state.installed.push(GITHUB_INSTALLED);
-        return route.fulfill(rpcOk(id, { server: GITHUB_INSTALLED }));
+        return route.fulfill(
+          rpcOk(id, { mcpServers: renderDoc(state), added, updated: [], removed })
+        );
+      }
 
       // Auth probe for the upfront connect modal — these test servers need no
       // credentials, so report `none` and the modal shows a single Connect button.
@@ -286,15 +311,21 @@ async function navigateToMcpTab(page: Page) {
   // Phase 2: /skills → /connections, ?tab=mcp → ?tab=tools (back-compat alias also works)
   await page.goto('/#/connections?tab=tools');
   await page.waitForSelector('#root', { state: 'visible', timeout: 20_000 });
-  await page.locator('input[type="search"]').waitFor({ state: 'visible', timeout: 10_000 });
-  await page.locator('table').waitFor({ state: 'visible', timeout: 10_000 });
+  await page.getByTestId('mcp-page-tab-servers').waitFor({ state: 'visible', timeout: 10_000 });
+}
+
+/** A row in the Servers tab's table, by display name. */
+function installedRow(page: Page, name: string) {
+  return page.locator('table tbody tr[data-testid="mcp-installed-row"]', {
+    has: page.locator(`td:first-child:has-text("${name}")`),
+  });
 }
 
 // ==========================================================================
 // Tests
 // ==========================================================================
 
-test.describe('MCP Tab — Table View & Filtering', () => {
+test.describe('MCP page — Servers tab', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
@@ -304,86 +335,41 @@ test.describe('MCP Tab — Table View & Filtering', () => {
     await navigateToMcpTab(page);
   });
 
-  test('renders search bar and filter chips', async ({ page }) => {
+  test('renders the three notations as tabs and opens on the rows', async ({ page }) => {
+    await expect(page.getByRole('tab', { name: /Servers \(1\)/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'mcp.json' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Registry' })).toBeVisible();
+    await expect(page.getByTestId('mcp-servers-section')).toBeVisible();
     await expect(page.locator('input[type="search"]')).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^All$/ })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /Installed/ })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /Registry/ })).toBeVisible();
   });
 
-  test('displays installed servers with status dot and Manage action', async ({ page }) => {
-    const row = page.locator('table tbody tr').first();
-    await expect(row.locator('td:first-child')).toContainText('Memory Server');
+  test('displays declared servers with their dial and a Manage action', async ({ page }) => {
+    const row = installedRow(page, 'Memory Server');
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('npx -y @modelcontextprotocol/server-memory');
     await expect(row.locator('text=Manage')).toBeVisible();
   });
 
-  test('displays registry servers as clickable rows', async ({ page }) => {
-    const registryRow = page.locator('table tbody tr[role="button"]', {
-      has: page.locator('text=GitHub Tools'),
-    });
-    await expect(registryRow).toBeVisible({ timeout: 10_000 });
-    await expect(registryRow.locator('text=Install')).toBeVisible();
+  test('the rows hold nothing from the directory, and nothing installs', async ({ page }) => {
+    await expect(page.locator('text=Install')).toHaveCount(0);
+    await expect(page.locator('text=GitHub Tools')).toHaveCount(0);
   });
 
-  test('filter "Installed" hides registry rows', async ({ page }) => {
-    await page.getByRole('tab', { name: /Installed/ }).click();
-    const rows = page.locator('table tbody tr');
-    const count = await rows.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i).locator('text=Manage')).toBeVisible();
-    }
-  });
-
-  test('filter "Registry" hides installed rows', async ({ page }) => {
-    await page.getByRole('tab', { name: /Registry/ }).click();
-    const rows = page.locator('table tbody tr');
-    const count = await rows.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i).locator('text=Install')).toBeVisible();
-    }
-  });
-
-  test('already-installed servers are excluded from registry rows', async ({ page }) => {
-    await page.getByRole('tab', { name: /Registry/ }).click();
-    const rows = page.locator('table tbody tr');
-    const count = await rows.count();
-    for (let i = 0; i < count; i++) {
-      const text = await rows.nth(i).locator('td:first-child').innerText();
-      expect(text).not.toContain('Memory Server');
-    }
-  });
-
-  test('search filters both installed and registry servers', async ({ page }) => {
-    const search = page.locator('input[type="search"]');
-    await search.fill('notion');
-    // Wait for a Notion row to appear AND for non-matching rows (e.g. "Memory
-    // Server") to disappear — the table re-renders asynchronously and a naive
-    // count() immediately after the first visible check can race against the
-    // previous state still being in the DOM.
-    await expect(
-      page.locator('table tbody tr', { has: page.locator('td:has-text("Notion")') })
-    ).toBeVisible({ timeout: 5_000 });
-    await expect(
-      page.locator('table tbody tr', { has: page.locator('td:has-text("Memory Server")') })
-    ).toHaveCount(0, { timeout: 5_000 });
-    // The positive (Notion row present) + negative (Memory Server gone) checks
-    // above already prove the filter works. Avoid iterating `td:first-child`
-    // per row — the #3480 registry redesign changed the column layout, and the
-    // table re-renders async (the old per-row loop raced + assumed name-first).
-    await expect(page.locator('table tbody tr')).not.toHaveCount(0);
+  test('search filters the rows', async ({ page }) => {
+    await page.locator('input[type="search"]').fill('nomatch');
+    await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 5_000 });
+    await page.locator('input[type="search"]').fill('memory');
+    await expect(installedRow(page, 'Memory Server')).toBeVisible({ timeout: 5_000 });
   });
 
   test('no Smithery branding visible anywhere', async ({ page }) => {
-    // Wait for the table to be fully rendered before scanning body text
-    await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 10_000 });
+    await installedRow(page, 'Memory Server').waitFor({ state: 'visible', timeout: 10_000 });
     const bodyText = await page.locator('body').innerText();
     expect(bodyText.toLowerCase()).not.toContain('smithery');
   });
 });
 
-test.describe('MCP Tab — Install Lifecycle', () => {
+test.describe('MCP page — mcp.json tab', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
@@ -391,62 +377,130 @@ test.describe('MCP Tab — Install Lifecycle', () => {
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
     await navigateToMcpTab(page);
+    await page.getByRole('tab', { name: 'mcp.json' }).click();
+    await expect(page.getByTestId('mcp-json-editor')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('install flow: click row → detail → configure → fill env → submit → appears installed', async ({
+  test('shows the declared servers as one document, with no credential values', async ({
     page,
   }) => {
-    // 1. Click the GitHub Tools registry row (entire row is clickable)
-    const githubRow = page.locator('table tbody tr[role="button"]', {
-      has: page.locator('td:first-child:has-text("GitHub Tools")'),
-    });
-    await expect(githubRow).toBeVisible({ timeout: 10_000 });
-    await githubRow.click();
-
-    // 2. Install dialog detail step — shows server info and "Configure & install"
-    await expect(page.locator('text=GitHub Tools').first()).toBeVisible({ timeout: 5_000 });
-    const configureBtn = page.locator('button:has-text("Configure & install")');
-    await expect(configureBtn).toBeVisible({ timeout: 5_000 });
-    await configureBtn.click();
-
-    // 3. Configure step — env input appears
-    const envInput = page.locator('input[id="env-GITHUB_TOKEN"]');
-    await expect(envInput).toBeVisible({ timeout: 5_000 });
-
-    // 4. Fill in the env value
-    await envInput.fill('ghp_test_token_123');
-
-    // 5. Click "Install" submit button
-    const submitBtn = page.locator('button:has-text("Install")');
-    await submitBtn.click();
-
-    // 6. Should navigate to detail view (the installed server detail)
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 10_000 });
-
-    // 7. Go back and verify the server appears in the installed list
-    await page.locator('button:has-text("Go back")').click();
-    await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
-    const installedGithub = page.locator('table tbody tr', {
-      has: page.locator('td:has-text("GitHub Tools")'),
-    });
-    await expect(installedGithub).toBeVisible({ timeout: 5_000 });
+    const text = await page.getByTestId('mcp-json-textarea').inputValue();
+    expect(text).toContain('"mcpServers"');
+    expect(text).toContain('"io.github.test/memory-server"');
+    expect(text).toContain('"authConfigured": false');
+    await expect(page.getByTestId('mcp-json-save')).toBeDisabled();
   });
 
-  test('cancel from install dialog returns to table', async ({ page }) => {
-    // Click a registry row to open install dialog
-    const registryRow = page.locator('table tbody tr[role="button"]', {
-      has: page.locator('td:first-child:has-text("GitHub Tools")'),
-    });
-    await registryRow.click();
+  test('declare flow: paste a server block → save → it appears in the rows', async ({ page }) => {
+    await page.getByTestId('mcp-json-textarea').fill(
+      JSON.stringify(
+        {
+          mcpServers: {
+            'io.github.test/memory-server': {
+              command: 'npx',
+              args: ['-y', '@modelcontextprotocol/server-memory'],
+            },
+            github: {
+              command: 'npx',
+              args: ['-y', '@modelcontextprotocol/server-github'],
+              env: { GITHUB_TOKEN: 'ghp_test_token_123' },
+            },
+          },
+        },
+        null,
+        2
+      )
+    );
+    await expect(page.getByTestId('mcp-json-save')).toBeEnabled();
+    await page.getByTestId('mcp-json-save').click();
 
-    // Cancel button should be visible on detail step
-    await expect(page.locator('button:has-text("Cancel")')).toBeVisible({ timeout: 5_000 });
-    await page.locator('button:has-text("Cancel")').click();
-    await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('mcp-json-saved')).toContainText('1 added', { timeout: 5_000 });
+    // The buffer is what the core rendered back: names, never the value.
+    const text = await page.getByTestId('mcp-json-textarea').inputValue();
+    expect(text).toContain('"GITHUB_TOKEN"');
+    expect(text).not.toContain('ghp_test_token_123');
+
+    await page.getByRole('tab', { name: /Servers \(2\)/ }).click();
+    await expect(installedRow(page, 'github')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('a document the core refuses shows its reason and keeps the text', async ({ page }) => {
+    const text = JSON.stringify({ mcpServers: { bad: { args: ['x'] } } });
+    await page.getByTestId('mcp-json-textarea').fill(text);
+    await page.getByTestId('mcp-json-save').click();
+    await expect(page.getByTestId('mcp-json-refusal')).toContainText('`bad` needs a `url`', {
+      timeout: 5_000,
+    });
+    expect(await page.getByTestId('mcp-json-textarea').inputValue()).toBe(text);
+  });
+
+  test('a broken buffer is caught locally and can be reverted', async ({ page }) => {
+    await page.getByTestId('mcp-json-textarea').fill('{ "mcpServers": ');
+    await expect(page.getByTestId('mcp-json-parse-error')).toBeVisible();
+    await expect(page.getByTestId('mcp-json-save')).toBeDisabled();
+    await page.getByTestId('mcp-json-revert').click();
+    await expect(page.getByTestId('mcp-json-parse-error')).toHaveCount(0);
   });
 });
 
-test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
+test.describe('MCP page — Registry tab', () => {
+  let state: MockState;
+
+  test.beforeEach(async ({ page }) => {
+    state = { installed: [makeInstalledServer()], statuses: [{ ...STATUS_CONNECTED }] };
+    await seedLocalStorage(page);
+    await setupMockRpc(page, state);
+    await navigateToMcpTab(page);
+    await page.getByRole('tab', { name: 'Registry' }).click();
+    await expect(page.getByTestId('mcp-registry-browser')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('lists directory servers as rows that open a page, never install', async ({ page }) => {
+    const rows = page.getByTestId('mcp-registry-row');
+    await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+    const count = await rows.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(rows.nth(i)).toContainText('Open page');
+    }
+    await expect(page.locator('text=Install')).toHaveCount(0);
+  });
+
+  test('already-declared servers are excluded from the directory', async ({ page }) => {
+    const rows = page.getByTestId('mcp-registry-row');
+    await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('mcp-registry-row').filter({ hasText: 'Memory Server' })).toHaveCount(0);
+  });
+
+  test('a row opens the server\'s own page in a new tab', async ({ page, context }) => {
+    // The browser shell is not Tauri here, so `openUrl` falls back to
+    // `window.open`; the page it opens is the row's target.
+    const popup = context.waitForEvent('page');
+    await page.getByRole('button', { name: 'Open the page for GitHub Tools' }).click();
+    const opened = await popup;
+    expect(opened.url()).toBe('https://github.com/test/github-tools');
+    await opened.close();
+  });
+
+  test('search with no results shows the empty state', async ({ page }) => {
+    await page.route('**/rpc', async (route, request) => {
+      const body = JSON.parse(request.postData() || '{}');
+      if (
+        body.method === 'openhuman.mcp_clients_registry_search' &&
+        body.params?.query === 'xyznonexistent999'
+      ) {
+        return route.fulfill(rpcOk(body.id, { servers: [], page: 1, total_pages: 1 }));
+      }
+      await route.fallback();
+    });
+    await page.getByTestId('mcp-registry-browser').locator('input[type="search"]').fill(
+      'xyznonexistent999'
+    );
+    await expect(page.getByTestId('mcp-catalog-empty')).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+test.describe('MCP page — Manage & Uninstall Lifecycle', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
@@ -456,31 +510,20 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
     await navigateToMcpTab(page);
   });
 
-  test('click installed server row → detail view shows server info', async ({ page }) => {
-    const row = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
+  test('click a server row → detail view shows server info and the name', async ({ page }) => {
+    await installedRow(page, 'Memory Server').click();
+    await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
+      timeout: 5_000,
     });
-    await row.click();
-
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('text=Memory Server')).toBeVisible();
-  });
-
-  test('detail view shows qualified name', async ({ page }) => {
-    const row = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
-    });
-    await row.click();
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('text=io.github.test/memory-server')).toBeVisible();
   });
 
-  test('uninstall flow: detail → confirm uninstall → returns to table', async ({ page }) => {
-    const row = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
+  test('uninstall flow: detail → confirm uninstall → returns to the rows', async ({ page }) => {
+    await installedRow(page, 'Memory Server').click();
+    await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
+      timeout: 5_000,
     });
-    await row.click();
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 5_000 });
 
     const uninstallBtn = page.locator('button:has-text("Uninstall")');
     await expect(uninstallBtn.first()).toBeVisible({ timeout: 5_000 });
@@ -490,31 +533,25 @@ test.describe('MCP Tab — Manage & Uninstall Lifecycle', () => {
     await expect(confirmBtn.first()).toBeVisible({ timeout: 5_000 });
     await confirmBtn.first().click();
 
-    await expect(page.locator('table')).toBeVisible({ timeout: 10_000 });
-
-    await page.getByRole('tab', { name: /Installed/ }).click();
-    const removedRow = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
-    });
-    await expect(removedRow).toHaveCount(0, { timeout: 5_000 });
+    await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 10_000 });
+    await expect(installedRow(page, 'Memory Server')).toHaveCount(0, { timeout: 5_000 });
   });
 
-  test('back button from detail returns to table', async ({ page }) => {
-    const row = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
+  test('back button from detail returns to the rows', async ({ page }) => {
+    await installedRow(page, 'Memory Server').click();
+    await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
+      timeout: 5_000,
     });
-    await row.click();
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 5_000 });
-    await page.locator('button:has-text("Go back")').click();
-    await expect(page.locator('table')).toBeVisible({ timeout: 5_000 });
+    await page.locator('button:has-text("Back to servers")').click();
+    await expect(page.getByTestId('mcp-servers-section')).toBeVisible({ timeout: 5_000 });
   });
 });
 
-test.describe('MCP Tab — Connect & Tool Execution', () => {
+test.describe('MCP page — Connect & Tool Execution', () => {
   let state: MockState;
 
   test.beforeEach(async ({ page }) => {
-    // Seed the installed server in `error` status: the detail offers a Connect
+    // Seed the declared server in `error` status: the detail offers a Connect
     // affordance AND the status poll stays active (error is non-terminal), so
     // the status flips to connected once the modal connects.
     state = {
@@ -535,12 +572,10 @@ test.describe('MCP Tab — Connect & Tool Execution', () => {
   });
 
   test('connect a server, then run one of its tools and see the result', async ({ page }) => {
-    // Open the installed server's detail view.
-    const row = page.locator('table tbody tr', {
-      has: page.locator('td:first-child:has-text("Memory Server")'),
+    await installedRow(page, 'Memory Server').click();
+    await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
+      timeout: 5_000,
     });
-    await row.click();
-    await expect(page.locator('button:has-text("Go back")')).toBeVisible({ timeout: 5_000 });
 
     // Connect via the upfront auth modal (no-auth server → a single Connect
     // button). `exact` avoids the "Connections" sidebar nav button.
@@ -550,8 +585,7 @@ test.describe('MCP Tab — Connect & Tool Execution', () => {
     await connectDialog.getByRole('button', { name: /^Connect$/ }).click();
 
     // The status poll flips the server to connected → its (collapsed) tool list
-    // appears. Expand it, then open the execution playground for a tool. This is
-    // the connect → tool step of the install→connect→tool path.
+    // appears. Expand it, then open the execution playground for a tool.
     const toolsToggle = page.getByRole('button', { name: /tools available/ });
     await expect(toolsToggle).toBeVisible({ timeout: 15_000 });
     await toolsToggle.click();
@@ -562,8 +596,6 @@ test.describe('MCP Tab — Connect & Tool Execution', () => {
     await expect(tryButton).toBeVisible({ timeout: 5_000 });
     await tryButton.click();
 
-    // The Tool Execution Playground opens; run the tool and assert the result
-    // surfaced from the mocked `mcp_clients_tool_call`.
     const playground = page.getByRole('dialog');
     await expect(playground.getByText('Run create_memory')).toBeVisible({ timeout: 5_000 });
     await playground.getByRole('button', { name: 'Run tool' }).click();
@@ -573,44 +605,15 @@ test.describe('MCP Tab — Connect & Tool Execution', () => {
   });
 });
 
-test.describe('MCP Tab — Empty & Edge States', () => {
-  test('empty installed list shows appropriate message', async ({ page }) => {
+test.describe('MCP page — Empty & Edge States', () => {
+  test('an empty list routes to the document and the directory', async ({ page }) => {
     const state: MockState = { installed: [], statuses: [] };
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
     await navigateToMcpTab(page);
 
-    await page.getByRole('tab', { name: /Installed/ }).click();
-    // Target the empty-state element directly: a broad `text=/no.*servers/i`
-    // locator also matches ancestor containers (the root shell wraps the panel),
-    // tripping Playwright strict mode.
     await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 10_000 });
-  });
-
-  test('search with no results shows no-results message', async ({ page }) => {
-    const state: MockState = { installed: [], statuses: [] };
-    await seedLocalStorage(page);
-    await setupMockRpc(page, state);
-
-    // Registered after setupMockRpc — Playwright routes use LIFO ordering, so
-    // this handler runs first and falls through to the base mock for all other
-    // methods.
-    await page.route('**/rpc', async (route, request) => {
-      const body = JSON.parse(request.postData() || '{}');
-      if (
-        body.method === 'openhuman.mcp_clients_registry_search' &&
-        body.params?.query === 'xyznonexistent999'
-      ) {
-        return route.fulfill(rpcOk(body.id, { servers: [], page: 1, total_pages: 1 }));
-      }
-      await route.fallback();
-    });
-
-    await navigateToMcpTab(page);
-    await page.locator('input[type="search"]').fill('xyznonexistent999');
-
-    // Target the catalog empty-state element directly — a broad text regex also
-    // matches the root-shell ancestor container and trips strict mode.
-    await expect(page.getByTestId('mcp-catalog-empty')).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Add one in mcp.json' }).click();
+    await expect(page.getByTestId('mcp-json-editor')).toBeVisible({ timeout: 10_000 });
   });
 });
