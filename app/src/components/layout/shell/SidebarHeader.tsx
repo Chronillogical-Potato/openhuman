@@ -1,4 +1,5 @@
-import { LuKeyboard, LuPanelLeftClose, LuSearch, LuSettings } from 'react-icons/lu';
+import { FaDiscord } from 'react-icons/fa6';
+import { LuPanelLeftClose, LuSearch, LuSettings } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 
 import { registry } from '../../../lib/commands/registry';
@@ -78,16 +79,18 @@ export default function SidebarHeader() {
       data-tauri-drag-region="deep"
       className="flex-row items-center justify-end gap-1">
       <div className="flex items-center gap-0.5">
-        {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
-        <Tooltip label={t('shortcuts.title')}>
+        {/* Community Discord — opens the invite in the system browser. This slot
+            held the keyboard-shortcuts help; that directory is still one
+            keystroke away (? / ⌘/), while the community had no door at all. */}
+        <Tooltip label={t('nav.discord')}>
           <Button
             variant="tertiary"
             iconOnly
-            onClick={() => registry.runAction('meta.keyboard-shortcuts')}
-            className={ICON_BTN}
-            analyticsId="sidebar-header-shortcuts"
-            aria-label={t('shortcuts.title')}>
-            <LuKeyboard className="h-4 w-4" />
+            onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
+            className={`${ICON_BTN} text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300`}
+            analyticsId="sidebar-header-discord"
+            aria-label={t('nav.discord')}>
+            <FaDiscord className="h-4 w-4" />
           </Button>
         </Tooltip>
 
