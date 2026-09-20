@@ -106,9 +106,20 @@ fn async_reference_matches_the_orchestrator_fleet_vocabulary() {
         "running",
         &fleet,
     );
-    let instructions = payload["instructions"].as_object().expect("instructions map");
-    for absent in ["wait", "timeout_tick", "delayed_tick", "delayed_loop", "send_message"] {
-        assert!(!instructions.contains_key(absent), "{absent} offered to a parent without it");
+    let instructions = payload["instructions"]
+        .as_object()
+        .expect("instructions map");
+    for absent in [
+        "wait",
+        "timeout_tick",
+        "delayed_tick",
+        "delayed_loop",
+        "send_message",
+    ] {
+        assert!(
+            !instructions.contains_key(absent),
+            "{absent} offered to a parent without it"
+        );
     }
     assert_eq!(
         payload["instructions"]["answer_or_resume"]["tool"],
@@ -116,8 +127,16 @@ fn async_reference_matches_the_orchestrator_fleet_vocabulary() {
     );
     assert_eq!(payload["result_delivery"], "automatic");
     let serialized = serde_json::to_string(&payload).unwrap();
-    for name in ["wait_subagent", "steer_subagent", "wait_loop", "close_subagent"] {
-        assert!(!serialized.contains(name), "{name} leaked into the envelope");
+    for name in [
+        "wait_subagent",
+        "steer_subagent",
+        "wait_loop",
+        "close_subagent",
+    ] {
+        assert!(
+            !serialized.contains(name),
+            "{name} leaked into the envelope"
+        );
     }
     let next: Vec<&str> = payload["next_actions"]
         .as_array()
@@ -125,7 +144,9 @@ fn async_reference_matches_the_orchestrator_fleet_vocabulary() {
         .iter()
         .filter_map(|v| v.as_str())
         .collect();
-    assert!(next.iter().any(|a| a.contains("delivered to you automatically")));
+    assert!(next
+        .iter()
+        .any(|a| a.contains("delivered to you automatically")));
 
     let message = format_async_subagent_accepted("integrations_agent", &serialized, &fleet);
     let prose = message.split("[async_subagent_ref]").next().unwrap();

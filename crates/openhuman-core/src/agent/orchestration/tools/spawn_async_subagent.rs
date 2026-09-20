@@ -5,8 +5,8 @@
 //! events and, when possible, persisted in the child worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::messages::ChatMessage;
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::orchestration::running_subagents::{self, SubagentStatus};
 use crate::agent::orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
@@ -201,7 +201,11 @@ include!("spawn_async_subagent_execute.rs");
 /// The wording follows what the parent can actually do: a parent without
 /// `wait_subagent` (the orchestrator, #5701) is told the result arrives on its
 /// own and not to poll, instead of being invited to "wait for completion".
-fn format_async_subagent_accepted(agent_id: &str, payload_json: &str, fleet: &FleetToolSet) -> String {
+fn format_async_subagent_accepted(
+    agent_id: &str,
+    payload_json: &str,
+    fleet: &FleetToolSet,
+) -> String {
     let guidance = if fleet.can_wait() {
         "Use the structured reference below to send more input, wait for completion, or perform a          short timeout tick to check status. If the user does not need the result now, continue          without blocking."
     } else {
@@ -266,7 +270,8 @@ fn async_subagent_ref_payload(
             }),
         );
         next_actions.push("call wait_subagent with timeout_secs to collect the result".into());
-        next_actions.push("call wait_subagent with timeout_secs=1 as a timeout tick/status check".into());
+        next_actions
+            .push("call wait_subagent with timeout_secs=1 as a timeout tick/status check".into());
         let reminder = format!(
             "Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}."
         );

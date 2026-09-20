@@ -242,8 +242,9 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
     assert_eq!(snap[1].agent_id, "researcher");
     assert_eq!(snap[1].status, "running");
 
-    let block = active_subagents_context_block("fleet-parent", &test_workspace(), &FleetToolSet::all())
-        .expect("block present");
+    let block =
+        active_subagents_context_block("fleet-parent", &test_workspace(), &FleetToolSet::all())
+            .expect("block present");
     assert!(block.contains("[active_subagents]"));
     assert!(block.contains("use wait_subagent to collect"));
     assert!(block.contains("You have 2 sub-agent worker(s)"));
@@ -266,8 +267,16 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         let fleet = FleetToolSet::from_scope(&def.tools, &def.disallowed_tools);
         let block = active_subagents_context_block("fleet-parent", &test_workspace(), &fleet)
             .expect("block present");
-        for name in ["wait_subagent", "steer_subagent", "close_subagent", "wait_loop"] {
-            assert!(!block.contains(name), "{name} named for a parent without it:\n{block}");
+        for name in [
+            "wait_subagent",
+            "steer_subagent",
+            "close_subagent",
+            "wait_loop",
+        ] {
+            assert!(
+                !block.contains(name),
+                "{name} named for a parent without it:\n{block}"
+            );
         }
         assert!(block.contains("delivered to you automatically"));
         assert!(block.contains("continue_subagent"));

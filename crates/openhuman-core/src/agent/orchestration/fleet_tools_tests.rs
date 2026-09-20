@@ -8,7 +8,12 @@ fn named(tools: &[&str]) -> ToolScope {
 #[test]
 fn named_scope_exposes_only_listed_fleet_tools() {
     let set = FleetToolSet::from_scope(
-        &named(&["spawn_async_subagent", "list_subagents", "continue_subagent", "shell"]),
+        &named(&[
+            "spawn_async_subagent",
+            "list_subagents",
+            "continue_subagent",
+            "shell",
+        ]),
         &[],
     );
     assert!(set.has("list_subagents"));

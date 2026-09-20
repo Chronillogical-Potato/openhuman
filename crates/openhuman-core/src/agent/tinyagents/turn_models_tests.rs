@@ -40,7 +40,8 @@ async fn name_of(model: &Arc<dyn ChatModel<()>>) -> String {
 }
 
 fn resolver() -> TurnModelResolver {
-    let primary: Arc<dyn ChatModel<()>> = Arc::new(NamedModel("openrouter/deepseek/deepseek-v4.1-flash"));
+    let primary: Arc<dyn ChatModel<()>> =
+        Arc::new(NamedModel("openrouter/deepseek/deepseek-v4.1-flash"));
     let mut routes: HashMap<String, Arc<dyn ChatModel<()>>> = HashMap::new();
     routes.insert("coding-v1".to_string(), Arc::new(NamedModel("coding-v1")));
     routes.insert("burst-v1".to_string(), Arc::new(NamedModel("burst-v1")));
@@ -56,14 +57,20 @@ async fn lead_keeps_selected_primary_over_definition_pin() {
         .as_team_lead()
         .with_model_pin("coding-v1");
     let model = resolver().resolve(&request).await.expect("resolves");
-    assert_eq!(name_of(&model).await, "openrouter/deepseek/deepseek-v4.1-flash");
+    assert_eq!(
+        name_of(&model).await,
+        "openrouter/deepseek/deepseek-v4.1-flash"
+    );
 }
 
 #[tokio::test]
 async fn lead_without_pin_gets_primary() {
     let request = ModelResolveRequest::new("orchestrator").as_team_lead();
     let model = resolver().resolve(&request).await.expect("resolves");
-    assert_eq!(name_of(&model).await, "openrouter/deepseek/deepseek-v4.1-flash");
+    assert_eq!(
+        name_of(&model).await,
+        "openrouter/deepseek/deepseek-v4.1-flash"
+    );
 }
 
 #[tokio::test]
@@ -77,5 +84,8 @@ async fn subagent_pin_resolves_to_its_tier_route() {
 async fn subagent_pin_without_route_falls_back_to_primary() {
     let request = ModelResolveRequest::new("worker").with_model_pin("vision-v1");
     let model = resolver().resolve(&request).await.expect("resolves");
-    assert_eq!(name_of(&model).await, "openrouter/deepseek/deepseek-v4.1-flash");
+    assert_eq!(
+        name_of(&model).await,
+        "openrouter/deepseek/deepseek-v4.1-flash"
+    );
 }

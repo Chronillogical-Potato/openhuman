@@ -63,10 +63,12 @@ impl FleetToolSet {
     /// prefix) removes entries from either.
     pub(crate) fn from_scope(scope: &ToolScope, disallowed: &[String]) -> Self {
         let denied = |name: &str| {
-            disallowed.iter().any(|entry| match entry.strip_suffix('*') {
-                Some(prefix) => name.starts_with(prefix),
-                None => entry == name,
-            })
+            disallowed
+                .iter()
+                .any(|entry| match entry.strip_suffix('*') {
+                    Some(prefix) => name.starts_with(prefix),
+                    None => entry == name,
+                })
         };
         let available = FLEET_TOOLS
             .iter()
