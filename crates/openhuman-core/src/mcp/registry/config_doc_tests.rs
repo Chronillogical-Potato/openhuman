@@ -77,7 +77,10 @@ fn a_read_is_sorted_and_says_when_a_server_is_off() {
     let names: Vec<&String> = doc["mcpServers"].as_object().unwrap().keys().collect();
     assert_eq!(names, ["alpha", "zeta"]);
     assert_eq!(doc["mcpServers"]["zeta"]["enabled"], json!(false));
-    assert_eq!(doc["mcpServers"]["zeta"]["description"], json!("the last one"));
+    assert_eq!(
+        doc["mcpServers"]["zeta"]["description"],
+        json!("the last one")
+    );
     assert!(doc["mcpServers"]["alpha"].get("enabled").is_none());
 }
 
@@ -144,7 +147,10 @@ fn refusals_name_the_entry_and_the_field() {
         (json!([]), "holds an object"),
         (json!({}), "no `mcpServers` key"),
         (json!({ "mcpServers": 1 }), "maps a server name"),
-        (json!({ "mcpServers": { "": {} } }), "one entry's key is empty"),
+        (
+            json!({ "mcpServers": { "": {} } }),
+            "one entry's key is empty",
+        ),
         (json!({ "mcpServers": { "a": "x" } }), "`a` holds an object"),
         (json!({ "mcpServers": { "a": {} } }), "`a` needs a `url`"),
         (
@@ -212,8 +218,9 @@ fn a_changed_argument_or_flag_is_a_change() {
 
 #[test]
 fn a_declaration_becomes_a_row_keyed_by_its_name() {
-    let declared = parse(&json!({ "mcpServers": { "fs": { "command": "npx", "args": ["-y", "x"] } } }))
-        .unwrap();
+    let declared =
+        parse(&json!({ "mcpServers": { "fs": { "command": "npx", "args": ["-y", "x"] } } }))
+            .unwrap();
     let row = to_installed(&declared[0], "id-1".to_string(), 42);
     assert_eq!(row.server_id, "id-1");
     assert_eq!(row.qualified_name, "fs");

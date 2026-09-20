@@ -26,9 +26,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import { Alert, AlertDescription, AlertTitle } from '../../ui';
 import Button from '../../ui/Button';
 import TextArea from '../../ui/TextArea';
-import { Alert, AlertDescription, AlertTitle } from '../../ui';
 import { formatMcpConfig, mcpConfigChanged, parseMcpConfig } from './mcpJson';
 import type { McpConfigDoc, McpConfigWriteResult } from './types';
 
@@ -162,7 +162,9 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
       />
 
       {parseMessage && (
-        <p className="text-xs text-coral-700 dark:text-coral-300" data-testid="mcp-json-parse-error">
+        <p
+          className="text-xs text-coral-700 dark:text-coral-300"
+          data-testid="mcp-json-parse-error">
           {parseMessage}
         </p>
       )}

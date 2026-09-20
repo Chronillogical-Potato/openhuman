@@ -8517,8 +8517,10 @@ async fn mcp_clients_declare_connect_tool_call_happy_path() {
         json!({ "mcpServers": { "echo": { "command": stub_path } } }),
     )
     .await;
-    let declared_body =
-        peel_logs_envelope(assert_no_jsonrpc_error(&declared, "mcp_clients_config_set (declare)"));
+    let declared_body = peel_logs_envelope(assert_no_jsonrpc_error(
+        &declared,
+        "mcp_clients_config_set (declare)",
+    ));
     assert_eq!(
         declared_body.get("added"),
         Some(&json!(["echo"])),
@@ -8778,7 +8780,10 @@ async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_ser
     assert_eq!(b1.get("added"), Some(&json!(["echo-rt"])), "{b1}");
     // The read carries names and a flag, never a value.
     assert_eq!(b1["mcpServers"]["echo-rt"]["authConfigured"], json!(true));
-    assert_eq!(b1["mcpServers"]["echo-rt"]["envKeys"], json!(["KEEP", "TOKEN"]));
+    assert_eq!(
+        b1["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"])
+    );
     assert_eq!(b1["mcpServers"]["echo-rt"]["enabled"], json!(false));
     assert!(
         b1["mcpServers"]["echo-rt"].get("env").is_none(),
@@ -8813,7 +8818,13 @@ async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_ser
     );
 
     // ── 3. saving the read back verbatim changes nothing ─────────────────────
-    let read = post_json_rpc(&rpc_base, 9964, "openhuman.mcp_clients_config_get", json!({})).await;
+    let read = post_json_rpc(
+        &rpc_base,
+        9964,
+        "openhuman.mcp_clients_config_get",
+        json!({}),
+    )
+    .await;
     let read_body = peel_logs_envelope(assert_no_jsonrpc_error(&read, "config_get"));
     let resave = post_json_rpc(
         &rpc_base,
@@ -8823,8 +8834,15 @@ async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_ser
     )
     .await;
     let b3 = peel_logs_envelope(assert_no_jsonrpc_error(&resave, "config_set (re-save)"));
-    assert_eq!(b3.get("updated"), Some(&json!([])), "a re-save is not an edit: {b3}");
-    assert_eq!(b3["mcpServers"]["echo-rt"]["envKeys"], json!(["KEEP", "TOKEN"]));
+    assert_eq!(
+        b3.get("updated"),
+        Some(&json!([])),
+        "a re-save is not an edit: {b3}"
+    );
+    assert_eq!(
+        b3["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"])
+    );
 
     // ── 4. an empty value removes that one credential ────────────────────────
     let clear = post_json_rpc(
@@ -8839,7 +8857,11 @@ async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_ser
     )
     .await;
     let b4 = peel_logs_envelope(assert_no_jsonrpc_error(&clear, "config_set (clear one)"));
-    assert_eq!(b4["mcpServers"]["echo-rt"]["envKeys"], json!(["TOKEN"]), "{b4}");
+    assert_eq!(
+        b4["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["TOKEN"]),
+        "{b4}"
+    );
 
     // ── 5. a document without the entry uninstalls it ────────────────────────
     let drop = post_json_rpc(

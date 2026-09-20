@@ -715,7 +715,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             </div>
           ))}
         </div>
-
       </>
     </ModalShell>
   );

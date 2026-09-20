@@ -150,11 +150,8 @@ pub async fn mcp_clients_config_set(
                     store
                         .delete_server(&server_id)
                         .map_err(|error| error.to_string())?;
-                    let row = config_doc::to_installed(
-                        entry,
-                        server_id.clone(),
-                        existing.installed_at,
-                    );
+                    let row =
+                        config_doc::to_installed(entry, server_id.clone(), existing.installed_at);
                     store
                         .insert_server(&row)
                         .map_err(|error| error.to_string())?;

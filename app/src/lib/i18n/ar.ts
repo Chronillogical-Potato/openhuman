@@ -1628,12 +1628,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'فتح صفحة {name}',
   'mcp.installed.emptyAddInJson': 'أضِف واحدًا في mcp.json',
   'mcp.installed.emptyBrowseRegistry': 'تصفّح السجل',
-  'mcp.registry.intro': 'دليل لخوادم MCP. فتح خادم ينقلك إلى صفحته الخاصة حيث توجد تعليمات التثبيت؛ أضفه من تبويب mcp.json.',
+  'mcp.registry.intro':
+    'دليل لخوادم MCP. فتح خادم ينقلك إلى صفحته الخاصة حيث توجد تعليمات التثبيت؛ أضفه من تبويب mcp.json.',
   'mcp.json.loading': 'جارٍ تحميل mcp.json…',
   'mcp.json.loadFailedTitle': 'تعذّر قراءة mcp.json',
-  'mcp.json.loadFailedBody': 'لم يستجب النواة، لذا لا يُعرض المستند — محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
-  'mcp.json.intro': 'خوادم MCP الخاصة بك كمستند واحد، بالشكل الذي تستخدمه عملاء MCP الأخرى. الصق كتلة الخادم من صفحة تثبيته ثم احفظ.',
-  'mcp.json.credentialsNote': 'بيانات الاعتماد للكتابة فقط: تُخزَّن قيم env وheaders عند الحفظ ولا تُعرض مجددًا. الإدخال المحفوظ بدونها يحتفظ بما هو مخزَّن؛ اضبط مفتاحًا على "" لإزالته.',
+  'mcp.json.loadFailedBody':
+    'لم يستجب النواة، لذا لا يُعرض المستند — محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
+  'mcp.json.intro':
+    'خوادم MCP الخاصة بك كمستند واحد، بالشكل الذي تستخدمه عملاء MCP الأخرى. الصق كتلة الخادم من صفحة تثبيته ثم احفظ.',
+  'mcp.json.credentialsNote':
+    'بيانات الاعتماد للكتابة فقط: تُخزَّن قيم env وheaders عند الحفظ ولا تُعرض مجددًا. الإدخال المحفوظ بدونها يحتفظ بما هو مخزَّن؛ اضبط مفتاحًا على "" لإزالته.',
   'mcp.json.editorAria': 'مستند mcp.json',
   'mcp.json.refusedTitle': 'رفضت النواة هذا المستند',
   'mcp.json.saved': 'تم الحفظ: {added} مضاف، {updated} محدَّث، {removed} محذوف.',
@@ -1648,9 +1652,12 @@ const messages: TranslationMap = {
   'mcp.json.parseError.missingRoot': 'لا يوجد مفتاح `mcpServers` — كل خادم يقع تحته.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` يربط اسم الخادم بإعداداته.',
   'mcp.json.parseError.emptyName': 'يحتاج الخادم إلى اسم — مفتاح أحد الإدخالات فارغ.',
-  'mcp.json.parseError.entryNotObject': '`{name}` يجب أن يكون كائنًا، مثل { "command": "npx", "args": ["-y", "…"] } أو { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` يحتاج إلى `url` (مستضاف) أو `command` (يعمل محليًا).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` يذكر `url` و`command` معًا؛ يُتصل بالخادم بطريقة واحدة فقط.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` يجب أن يكون كائنًا، مثل { "command": "npx", "args": ["-y", "…"] } أو { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` يحتاج إلى `url` (مستضاف) أو `command` (يعمل محليًا).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` يذكر `url` و`command` معًا؛ يُتصل بالخادم بطريقة واحدة فقط.',
   'mcp.tab.aria.viewDetails': 'عرض تفاصيل {name}',
   'mcp.detail.connect': 'اتصال',
   'mcp.detail.connecting': 'جارٍ الاتصال...',

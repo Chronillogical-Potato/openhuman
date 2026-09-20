@@ -1664,12 +1664,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name}-এর পেজ খুলুন',
   'mcp.installed.emptyAddInJson': 'mcp.json-এ যোগ করুন',
   'mcp.installed.emptyBrowseRegistry': 'রেজিস্ট্রি ব্রাউজ করুন',
-  'mcp.registry.intro': 'MCP সার্ভারের একটি ডিরেক্টরি। কোনো সার্ভার খুললে আপনি তার নিজস্ব পেজে যাবেন, যেখানে ইনস্টল নির্দেশনা আছে; এটি mcp.json ট্যাবে যোগ করুন।',
+  'mcp.registry.intro':
+    'MCP সার্ভারের একটি ডিরেক্টরি। কোনো সার্ভার খুললে আপনি তার নিজস্ব পেজে যাবেন, যেখানে ইনস্টল নির্দেশনা আছে; এটি mcp.json ট্যাবে যোগ করুন।',
   'mcp.json.loading': 'mcp.json লোড হচ্ছে…',
   'mcp.json.loadFailedTitle': 'mcp.json পড়া যায়নি',
-  'mcp.json.loadFailedBody': 'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না — খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',
-  'mcp.json.intro': 'আপনার MCP সার্ভারগুলো একটি ডকুমেন্ট হিসেবে, অন্য MCP ক্লায়েন্টরা যে রূপ ব্যবহার করে সেই রূপে। সার্ভারের ইনস্টল পেজ থেকে ব্লকটি পেস্ট করে সেভ করুন।',
-  'mcp.json.credentialsNote': 'ক্রেডেনশিয়াল শুধু লেখার জন্য: env ও headers-এর মান সেভ করার সময় সংরক্ষিত হয় এবং আর কখনো দেখানো হয় না। সেগুলো ছাড়া সেভ করা এন্ট্রি সংরক্ষিত মান বজায় রাখে; কোনো কী "" করে দিলে তা মুছে যাবে।',
+  'mcp.json.loadFailedBody':
+    'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না — খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',
+  'mcp.json.intro':
+    'আপনার MCP সার্ভারগুলো একটি ডকুমেন্ট হিসেবে, অন্য MCP ক্লায়েন্টরা যে রূপ ব্যবহার করে সেই রূপে। সার্ভারের ইনস্টল পেজ থেকে ব্লকটি পেস্ট করে সেভ করুন।',
+  'mcp.json.credentialsNote':
+    'ক্রেডেনশিয়াল শুধু লেখার জন্য: env ও headers-এর মান সেভ করার সময় সংরক্ষিত হয় এবং আর কখনো দেখানো হয় না। সেগুলো ছাড়া সেভ করা এন্ট্রি সংরক্ষিত মান বজায় রাখে; কোনো কী "" করে দিলে তা মুছে যাবে।',
   'mcp.json.editorAria': 'mcp.json ডকুমেন্ট',
   'mcp.json.refusedTitle': 'কোর এই ডকুমেন্টটি প্রত্যাখ্যান করেছে',
   'mcp.json.saved': 'সেভ হয়েছে: {added} যোগ, {updated} আপডেট, {removed} সরানো হয়েছে।',
@@ -1684,9 +1688,12 @@ const messages: TranslationMap = {
   'mcp.json.parseError.missingRoot': '`mcpServers` কী নেই — প্রতিটি সার্ভার এর নিচে থাকে।',
   'mcp.json.parseError.rootNotMap': '`mcpServers` সার্ভারের নামকে তার সেটিংসের সাথে যুক্ত করে।',
   'mcp.json.parseError.emptyName': 'সার্ভারের একটি নাম দরকার — একটি এন্ট্রির কী খালি।',
-  'mcp.json.parseError.entryNotObject': '`{name}`-এ একটি অবজেক্ট থাকতে হবে, যেমন { "command": "npx", "args": ["-y", "…"] } বা { "url": "https://…" }।',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}`-এর `url` (হোস্টেড) বা `command` (স্থানীয়ভাবে চালানো) দরকার।',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}`-এ `url` ও `command` দুটোই আছে; সার্ভার একটি মাত্র উপায়ে যুক্ত হয়।',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}`-এ একটি অবজেক্ট থাকতে হবে, যেমন { "command": "npx", "args": ["-y", "…"] } বা { "url": "https://…" }।',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}`-এর `url` (হোস্টেড) বা `command` (স্থানীয়ভাবে চালানো) দরকার।',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}`-এ `url` ও `command` দুটোই আছে; সার্ভার একটি মাত্র উপায়ে যুক্ত হয়।',
   'mcp.tab.aria.viewDetails': '{name} এর বিবরণ দেখুন',
   'mcp.detail.connect': 'সংযোগ করুন',
   'mcp.detail.connecting': 'সংযুক্ত হচ্ছে...',

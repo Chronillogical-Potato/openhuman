@@ -1719,12 +1719,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Seite für {name} öffnen',
   'mcp.installed.emptyAddInJson': 'In mcp.json hinzufügen',
   'mcp.installed.emptyBrowseRegistry': 'Verzeichnis durchsuchen',
-  'mcp.registry.intro': 'Ein Verzeichnis von MCP-Servern. Ein Server öffnet seine eigene Seite mit der Installationsanleitung; füge ihn im Tab mcp.json hinzu.',
+  'mcp.registry.intro':
+    'Ein Verzeichnis von MCP-Servern. Ein Server öffnet seine eigene Seite mit der Installationsanleitung; füge ihn im Tab mcp.json hinzu.',
   'mcp.json.loading': 'mcp.json wird geladen…',
   'mcp.json.loadFailedTitle': 'mcp.json konnte nicht gelesen werden',
-  'mcp.json.loadFailedBody': 'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt — ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
-  'mcp.json.intro': 'Deine MCP-Server als ein Dokument, in der Form, die andere MCP-Clients verwenden. Füge einen Serverblock von seiner Installationsseite ein und speichere.',
-  'mcp.json.credentialsNote': 'Zugangsdaten sind nur schreibbar: env- und headers-Werte werden beim Speichern gespeichert und nie wieder angezeigt. Ein Eintrag ohne sie behält das Gespeicherte; setze einen Schlüssel auf "", um ihn zu entfernen.',
+  'mcp.json.loadFailedBody':
+    'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt — ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
+  'mcp.json.intro':
+    'Deine MCP-Server als ein Dokument, in der Form, die andere MCP-Clients verwenden. Füge einen Serverblock von seiner Installationsseite ein und speichere.',
+  'mcp.json.credentialsNote':
+    'Zugangsdaten sind nur schreibbar: env- und headers-Werte werden beim Speichern gespeichert und nie wieder angezeigt. Ein Eintrag ohne sie behält das Gespeicherte; setze einen Schlüssel auf "", um ihn zu entfernen.',
   'mcp.json.editorAria': 'mcp.json-Dokument',
   'mcp.json.refusedTitle': 'Der Kern hat dieses Dokument abgelehnt',
   'mcp.json.saved': 'Gespeichert: {added} hinzugefügt, {updated} aktualisiert, {removed} entfernt.',
@@ -1735,13 +1739,18 @@ const messages: TranslationMap = {
   'mcp.json.saveFailed': 'mcp.json konnte nicht gespeichert werden.',
   'mcp.json.parseError.empty': 'Das Dokument ist leer. Keine Server bedeutet { "mcpServers": {} }.',
   'mcp.json.parseError.invalidJson': 'Kein gültiges JSON — {detail}',
-  'mcp.json.parseError.rootNotObject': 'mcp.json enthält ein Objekt mit einem Schlüssel `mcpServers`.',
+  'mcp.json.parseError.rootNotObject':
+    'mcp.json enthält ein Objekt mit einem Schlüssel `mcpServers`.',
   'mcp.json.parseError.missingRoot': 'Kein Schlüssel `mcpServers` — jeder Server steht darunter.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` ordnet einem Servernamen seine Einstellungen zu.',
-  'mcp.json.parseError.emptyName': 'Ein Server braucht einen Namen — der Schlüssel eines Eintrags ist leer.',
-  'mcp.json.parseError.entryNotObject': '`{name}` enthält ein Objekt, z. B. { "command": "npx", "args": ["-y", "…"] } oder { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` braucht eine `url` (gehostet) oder ein `command` (lokal ausgeführt).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` nennt sowohl `url` als auch `command`; ein Server wird auf eine Weise angesprochen.',
+  'mcp.json.parseError.emptyName':
+    'Ein Server braucht einen Namen — der Schlüssel eines Eintrags ist leer.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` enthält ein Objekt, z. B. { "command": "npx", "args": ["-y", "…"] } oder { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` braucht eine `url` (gehostet) oder ein `command` (lokal ausgeführt).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` nennt sowohl `url` als auch `command`; ein Server wird auf eine Weise angesprochen.',
   'mcp.tab.aria.viewDetails': 'Details für {name} anzeigen',
   'mcp.detail.connect': 'Verbinden',
   'mcp.detail.connecting': 'Verbinden ...',

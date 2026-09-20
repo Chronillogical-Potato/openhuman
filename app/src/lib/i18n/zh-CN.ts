@@ -1566,12 +1566,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '打开 {name} 的页面',
   'mcp.installed.emptyAddInJson': '在 mcp.json 中添加',
   'mcp.installed.emptyBrowseRegistry': '浏览注册表',
-  'mcp.registry.intro': 'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
+  'mcp.registry.intro':
+    'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
   'mcp.json.loading': '正在加载 mcp.json…',
   'mcp.json.loadFailedTitle': '无法读取 mcp.json',
   'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档——空编辑器会诱使保存并清空你的服务器。',
-  'mcp.json.intro': '你的 MCP 服务器以单个文档呈现，采用其他 MCP 客户端使用的格式。从安装页面粘贴服务器块并保存。',
-  'mcp.json.credentialsNote': '凭据为只写：env 和 headers 的值在保存时存储，之后不再显示。不含这些值的条目保存后会保留已存储的值；将键设为 "" 可将其删除。',
+  'mcp.json.intro':
+    '你的 MCP 服务器以单个文档呈现，采用其他 MCP 客户端使用的格式。从安装页面粘贴服务器块并保存。',
+  'mcp.json.credentialsNote':
+    '凭据为只写：env 和 headers 的值在保存时存储，之后不再显示。不含这些值的条目保存后会保留已存储的值；将键设为 "" 可将其删除。',
   'mcp.json.editorAria': 'mcp.json 文档',
   'mcp.json.refusedTitle': '核心拒绝了该文档',
   'mcp.json.saved': '已保存：新增 {added}，更新 {updated}，删除 {removed}。',
@@ -1586,9 +1589,11 @@ const messages: TranslationMap = {
   'mcp.json.parseError.missingRoot': '缺少 `mcpServers` 键——所有服务器都位于其下。',
   'mcp.json.parseError.rootNotMap': '`mcpServers` 将服务器名称映射到其设置。',
   'mcp.json.parseError.emptyName': '服务器需要一个名称——某个条目的键为空。',
-  'mcp.json.parseError.entryNotObject': '`{name}` 应为对象，例如 { "command": "npx", "args": ["-y", "…"] } 或 { "url": "https://…" }。',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` 应为对象，例如 { "command": "npx", "args": ["-y", "…"] } 或 { "url": "https://…" }。',
   'mcp.json.parseError.needsUrlOrCommand': '`{name}` 需要 `url`（托管）或 `command`（本地运行）。',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` 同时指定了 `url` 和 `command`；服务器只能以一种方式连接。',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` 同时指定了 `url` 和 `command`；服务器只能以一种方式连接。',
   'mcp.tab.aria.viewDetails': '查看 {name} 的详情',
   'mcp.detail.connect': '连接',
   'mcp.detail.connecting': '正在连接...',

@@ -1664,12 +1664,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} का पेज खोलें',
   'mcp.installed.emptyAddInJson': 'mcp.json में जोड़ें',
   'mcp.installed.emptyBrowseRegistry': 'रजिस्ट्री ब्राउज़ करें',
-  'mcp.registry.intro': 'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
+  'mcp.registry.intro':
+    'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
   'mcp.json.loading': 'mcp.json लोड हो रहा है…',
   'mcp.json.loadFailedTitle': 'mcp.json पढ़ा नहीं जा सका',
-  'mcp.json.loadFailedBody': 'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया — खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
-  'mcp.json.intro': 'आपके MCP सर्वर एक ही दस्तावेज़ के रूप में, उसी रूप में जो अन्य MCP क्लाइंट उपयोग करते हैं। किसी सर्वर का ब्लॉक उसके इंस्टॉल पेज से पेस्ट करें और सेव करें।',
-  'mcp.json.credentialsNote': 'क्रेडेंशियल केवल-लेखन हैं: env और headers के मान सेव करते समय संग्रहीत होते हैं और फिर कभी नहीं दिखाए जाते। उनके बिना सेव की गई प्रविष्टि संग्रहीत मान बनाए रखती है; किसी कुंजी को "" पर सेट करके उसे हटाएँ।',
+  'mcp.json.loadFailedBody':
+    'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया — खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
+  'mcp.json.intro':
+    'आपके MCP सर्वर एक ही दस्तावेज़ के रूप में, उसी रूप में जो अन्य MCP क्लाइंट उपयोग करते हैं। किसी सर्वर का ब्लॉक उसके इंस्टॉल पेज से पेस्ट करें और सेव करें।',
+  'mcp.json.credentialsNote':
+    'क्रेडेंशियल केवल-लेखन हैं: env और headers के मान सेव करते समय संग्रहीत होते हैं और फिर कभी नहीं दिखाए जाते। उनके बिना सेव की गई प्रविष्टि संग्रहीत मान बनाए रखती है; किसी कुंजी को "" पर सेट करके उसे हटाएँ।',
   'mcp.json.editorAria': 'mcp.json दस्तावेज़',
   'mcp.json.refusedTitle': 'कोर ने इस दस्तावेज़ को अस्वीकार कर दिया',
   'mcp.json.saved': 'सेव किया गया: {added} जोड़े गए, {updated} अपडेट किए गए, {removed} हटाए गए।',
@@ -1684,9 +1688,12 @@ const messages: TranslationMap = {
   'mcp.json.parseError.missingRoot': '`mcpServers` कुंजी नहीं है — हर सर्वर इसके अंदर रहता है।',
   'mcp.json.parseError.rootNotMap': '`mcpServers` सर्वर के नाम को उसकी सेटिंग से जोड़ता है।',
   'mcp.json.parseError.emptyName': 'सर्वर को एक नाम चाहिए — एक प्रविष्टि की कुंजी खाली है।',
-  'mcp.json.parseError.entryNotObject': '`{name}` में एक ऑब्जेक्ट होना चाहिए, जैसे { "command": "npx", "args": ["-y", "…"] } या { "url": "https://…" }।',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` को `url` (होस्टेड) या `command` (स्थानीय रूप से चलने वाला) चाहिए।',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` में `url` और `command` दोनों हैं; सर्वर एक ही तरीके से जुड़ता है।',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` में एक ऑब्जेक्ट होना चाहिए, जैसे { "command": "npx", "args": ["-y", "…"] } या { "url": "https://…" }।',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` को `url` (होस्टेड) या `command` (स्थानीय रूप से चलने वाला) चाहिए।',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` में `url` और `command` दोनों हैं; सर्वर एक ही तरीके से जुड़ता है।',
   'mcp.tab.aria.viewDetails': '{name} के विवरण देखें',
   'mcp.detail.connect': 'कनेक्ट करें',
   'mcp.detail.connecting': 'कनेक्ट हो रहा है...',

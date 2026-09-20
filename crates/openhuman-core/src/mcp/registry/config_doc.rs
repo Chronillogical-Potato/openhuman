@@ -11,7 +11,7 @@
 //! The rows the **Servers** tab renders and the document the **mcp.json** tab
 //! edits are the same `tinymcp` store. [`render`] projects the store into the
 //! document; [`parse`] reads a document back into declarations; and
-//! [`ops::mcp_clients_config_set`](super::ops) applies the difference. Neither
+//! [`config_ops::mcp_clients_config_set`](super::config_ops) applies the difference. Neither
 //! is an import format that can drift from what is configured.
 //!
 //! # Credentials are write-only
@@ -127,14 +127,10 @@ pub fn render(servers: &[InstalledServer], stored_keys: &BTreeMap<String, Vec<St
 /// not understand (a `cwd`, say, which the install store cannot carry).
 pub fn parse(doc: &Value) -> Result<Vec<Declared>, String> {
     let Some(root) = doc.as_object() else {
-        return Err(format!(
-            "mcp.json holds an object with an `{ROOT_KEY}` key"
-        ));
+        return Err(format!("mcp.json holds an object with an `{ROOT_KEY}` key"));
     };
     let Some(servers) = root.get(ROOT_KEY) else {
-        return Err(format!(
-            "no `{ROOT_KEY}` key — every server lives under it"
-        ));
+        return Err(format!("no `{ROOT_KEY}` key — every server lives under it"));
     };
     let Some(servers) = servers.as_object() else {
         return Err(format!("`{ROOT_KEY}` maps a server name to its settings"));
@@ -241,9 +237,7 @@ fn parse_entry(name: &str, entry: &Map<String, Value>) -> Result<Declared, Strin
                     ));
                 }
                 let Some(value) = value.as_str() else {
-                    return Err(format!(
-                        "`{name}`.{credential_field}.{key} holds a string"
-                    ));
+                    return Err(format!("`{name}`.{credential_field}.{key} holds a string"));
                 };
                 out.insert(key.to_string(), value.to_string());
             }

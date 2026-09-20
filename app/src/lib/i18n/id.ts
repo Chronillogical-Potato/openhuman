@@ -1677,12 +1677,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Buka halaman {name}',
   'mcp.installed.emptyAddInJson': 'Tambahkan di mcp.json',
   'mcp.installed.emptyBrowseRegistry': 'Jelajahi registri',
-  'mcp.registry.intro': 'Direktori server MCP. Membuka server membawa Anda ke halamannya sendiri, tempat petunjuk pemasangan berada; tambahkan di tab mcp.json.',
+  'mcp.registry.intro':
+    'Direktori server MCP. Membuka server membawa Anda ke halamannya sendiri, tempat petunjuk pemasangan berada; tambahkan di tab mcp.json.',
   'mcp.json.loading': 'Memuat mcp.json…',
   'mcp.json.loadFailedTitle': 'Tidak dapat membaca mcp.json',
-  'mcp.json.loadFailedBody': 'Inti tidak menjawab, jadi dokumen tidak ditampilkan — editor kosong akan mengundang penyimpanan yang menghapus server Anda.',
-  'mcp.json.intro': 'Server MCP Anda sebagai satu dokumen, dalam bentuk yang digunakan klien MCP lain. Tempel blok server dari halaman pemasangannya lalu simpan.',
-  'mcp.json.credentialsNote': 'Kredensial hanya-tulis: nilai env dan headers disimpan saat Anda menyimpan dan tidak pernah ditampilkan lagi. Entri yang disimpan tanpa itu mempertahankan yang tersimpan; setel kunci ke "" untuk menghapusnya.',
+  'mcp.json.loadFailedBody':
+    'Inti tidak menjawab, jadi dokumen tidak ditampilkan — editor kosong akan mengundang penyimpanan yang menghapus server Anda.',
+  'mcp.json.intro':
+    'Server MCP Anda sebagai satu dokumen, dalam bentuk yang digunakan klien MCP lain. Tempel blok server dari halaman pemasangannya lalu simpan.',
+  'mcp.json.credentialsNote':
+    'Kredensial hanya-tulis: nilai env dan headers disimpan saat Anda menyimpan dan tidak pernah ditampilkan lagi. Entri yang disimpan tanpa itu mempertahankan yang tersimpan; setel kunci ke "" untuk menghapusnya.',
   'mcp.json.editorAria': 'Dokumen mcp.json',
   'mcp.json.refusedTitle': 'Inti menolak dokumen ini',
   'mcp.json.saved': 'Tersimpan: {added} ditambahkan, {updated} diperbarui, {removed} dihapus.',
@@ -1694,12 +1698,16 @@ const messages: TranslationMap = {
   'mcp.json.parseError.empty': 'Dokumen kosong. Tanpa server berarti { "mcpServers": {} }.',
   'mcp.json.parseError.invalidJson': 'JSON tidak valid — {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json berisi objek dengan kunci `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Tidak ada kunci `mcpServers` — setiap server berada di bawahnya.',
+  'mcp.json.parseError.missingRoot':
+    'Tidak ada kunci `mcpServers` — setiap server berada di bawahnya.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` memetakan nama server ke pengaturannya.',
   'mcp.json.parseError.emptyName': 'Server memerlukan nama — kunci salah satu entri kosong.',
-  'mcp.json.parseError.entryNotObject': '`{name}` berisi objek, mis. { "command": "npx", "args": ["-y", "…"] } atau { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` memerlukan `url` (dihosting) atau `command` (dijalankan lokal).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` menyebutkan `url` dan `command` sekaligus; server dihubungi dengan satu cara.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` berisi objek, mis. { "command": "npx", "args": ["-y", "…"] } atau { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` memerlukan `url` (dihosting) atau `command` (dijalankan lokal).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` menyebutkan `url` dan `command` sekaligus; server dihubungi dengan satu cara.',
   'mcp.tab.aria.viewDetails': 'Lihat detail untuk {name}',
   'mcp.detail.connect': 'Sambungkan',
   'mcp.detail.connecting': 'Sambungan...',

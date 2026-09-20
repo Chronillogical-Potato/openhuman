@@ -1651,12 +1651,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} 페이지 열기',
   'mcp.installed.emptyAddInJson': 'mcp.json에서 추가',
   'mcp.installed.emptyBrowseRegistry': '레지스트리 둘러보기',
-  'mcp.registry.intro': 'MCP 서버 디렉터리입니다. 서버를 열면 설치 안내가 있는 해당 서버의 페이지로 이동합니다. mcp.json 탭에서 추가하세요.',
+  'mcp.registry.intro':
+    'MCP 서버 디렉터리입니다. 서버를 열면 설치 안내가 있는 해당 서버의 페이지로 이동합니다. mcp.json 탭에서 추가하세요.',
   'mcp.json.loading': 'mcp.json 불러오는 중…',
   'mcp.json.loadFailedTitle': 'mcp.json을 읽을 수 없습니다',
-  'mcp.json.loadFailedBody': '코어가 응답하지 않아 문서를 표시하지 않습니다. 빈 편집기는 서버를 지우는 저장을 유도할 수 있습니다.',
-  'mcp.json.intro': '다른 MCP 클라이언트가 사용하는 형식의 단일 문서로 된 MCP 서버 목록입니다. 설치 페이지의 서버 블록을 붙여넣고 저장하세요.',
-  'mcp.json.credentialsNote': '자격 증명은 쓰기 전용입니다. env와 headers 값은 저장 시 보관되며 다시 표시되지 않습니다. 이 값 없이 저장된 항목은 보관된 값을 유지하며, 키를 ""로 설정하면 제거됩니다.',
+  'mcp.json.loadFailedBody':
+    '코어가 응답하지 않아 문서를 표시하지 않습니다. 빈 편집기는 서버를 지우는 저장을 유도할 수 있습니다.',
+  'mcp.json.intro':
+    '다른 MCP 클라이언트가 사용하는 형식의 단일 문서로 된 MCP 서버 목록입니다. 설치 페이지의 서버 블록을 붙여넣고 저장하세요.',
+  'mcp.json.credentialsNote':
+    '자격 증명은 쓰기 전용입니다. env와 headers 값은 저장 시 보관되며 다시 표시되지 않습니다. 이 값 없이 저장된 항목은 보관된 값을 유지하며, 키를 ""로 설정하면 제거됩니다.',
   'mcp.json.editorAria': 'mcp.json 문서',
   'mcp.json.refusedTitle': '코어가 이 문서를 거부했습니다',
   'mcp.json.saved': '저장됨: {added}개 추가, {updated}개 업데이트, {removed}개 제거.',
@@ -1665,15 +1669,20 @@ const messages: TranslationMap = {
   'mcp.json.revert': '되돌리기',
   'mcp.json.exampleTitle': '예시',
   'mcp.json.saveFailed': 'mcp.json을 저장할 수 없습니다.',
-  'mcp.json.parseError.empty': '문서가 비어 있습니다. 서버가 없는 상태는 { "mcpServers": {} }입니다.',
+  'mcp.json.parseError.empty':
+    '문서가 비어 있습니다. 서버가 없는 상태는 { "mcpServers": {} }입니다.',
   'mcp.json.parseError.invalidJson': '유효하지 않은 JSON — {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json은 `mcpServers` 키를 가진 객체여야 합니다.',
-  'mcp.json.parseError.missingRoot': '`mcpServers` 키가 없습니다. 모든 서버는 그 아래에 있어야 합니다.',
+  'mcp.json.parseError.missingRoot':
+    '`mcpServers` 키가 없습니다. 모든 서버는 그 아래에 있어야 합니다.',
   'mcp.json.parseError.rootNotMap': '`mcpServers`는 서버 이름을 해당 설정에 매핑합니다.',
   'mcp.json.parseError.emptyName': '서버에는 이름이 필요합니다. 한 항목의 키가 비어 있습니다.',
-  'mcp.json.parseError.entryNotObject': '`{name}`은(는) 객체여야 합니다. 예: { "command": "npx", "args": ["-y", "…"] } 또는 { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}`에는 `url`(호스팅) 또는 `command`(로컬 실행)가 필요합니다.',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}`에 `url`과 `command`가 모두 있습니다. 서버는 한 가지 방식으로만 연결됩니다.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}`은(는) 객체여야 합니다. 예: { "command": "npx", "args": ["-y", "…"] } 또는 { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}`에는 `url`(호스팅) 또는 `command`(로컬 실행)가 필요합니다.',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}`에 `url`과 `command`가 모두 있습니다. 서버는 한 가지 방식으로만 연결됩니다.',
   'mcp.tab.aria.viewDetails': '{name} 세부정보 보기',
   'mcp.detail.connect': '연결',
   'mcp.detail.connecting': '연결 중...',

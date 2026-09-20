@@ -98,7 +98,7 @@ describe('McpJsonEditor', () => {
 
   it("shows the core's refusal verbatim and keeps the user's text", async () => {
     mockConfigSet.mockRejectedValue(
-      new Error('`bad` has a `cwd` field this host doesn\'t understand')
+      new Error("`bad` has a `cwd` field this host doesn't understand")
     );
     render(<McpJsonEditor />);
     await screen.findByTestId('mcp-json-editor');

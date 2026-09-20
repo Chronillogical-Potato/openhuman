@@ -389,11 +389,8 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
 /// token-cost decision, and the same closing rule takes effect for any of them
 /// as soon as it is unpacked and listed here.
 #[cfg(test)]
-pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] = &[
-    "use_mcp_server",
-    "setup_skills",
-    "run_skill",
-];
+pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] =
+    &["use_mcp_server", "setup_skills", "run_skill"];
 
 pub fn pack(id: &str) -> Option<&'static ToolPack> {
     PACKS.iter().find(|p| p.id == id)

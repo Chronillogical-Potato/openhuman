@@ -95,9 +95,7 @@ export type McpConfigEntry = {
 };
 
 /** The document: `{ "mcpServers": { … } }`. */
-export type McpConfigDoc = {
-  mcpServers: Record<string, McpConfigEntry>;
-};
+export type McpConfigDoc = { mcpServers: Record<string, McpConfigEntry> };
 
 /** What a save answers: the re-rendered document plus what changed. */
 export type McpConfigWriteResult = McpConfigDoc & {

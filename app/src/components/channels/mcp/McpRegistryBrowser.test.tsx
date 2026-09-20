@@ -7,9 +7,7 @@ const mockRegistrySearch = vi.fn();
 const mockOpenUrl = vi.fn();
 
 vi.mock('../../../services/api/mcpClientsApi', () => ({
-  mcpClientsApi: {
-    registrySearch: (...args: unknown[]) => mockRegistrySearch(...args),
-  },
+  mcpClientsApi: { registrySearch: (...args: unknown[]) => mockRegistrySearch(...args) },
 }));
 
 vi.mock('../../../utils/openUrl', () => ({
@@ -31,11 +29,7 @@ const SERVERS = [
     website_url: 'https://hosted.example',
     source: 'mcp_official',
   },
-  {
-    qualified_name: 'installed/already',
-    display_name: 'Already Declared',
-    source: 'smithery',
-  },
+  { qualified_name: 'installed/already', display_name: 'Already Declared', source: 'smithery' },
 ];
 
 describe('serverPageUrl', () => {

@@ -54,9 +54,7 @@ describe('parseMcpConfig', () => {
 
 describe('mcpConfigChanged', () => {
   const loaded = {
-    mcpServers: {
-      a: { command: 'npx', args: ['-y', 'a'], envKeys: ['K'], authConfigured: true },
-    },
+    mcpServers: { a: { command: 'npx', args: ['-y', 'a'], envKeys: ['K'], authConfigured: true } },
   };
 
   it('is false for the loaded document as formatted', () => {

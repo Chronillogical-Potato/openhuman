@@ -1856,12 +1856,16 @@ const en: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Open the page for {name}',
   'mcp.installed.emptyAddInJson': 'Add one in mcp.json',
   'mcp.installed.emptyBrowseRegistry': 'Browse the registry',
-  'mcp.registry.intro': 'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
+  'mcp.registry.intro':
+    'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
   'mcp.json.loading': 'Loading mcp.json…',
   'mcp.json.loadFailedTitle': "Couldn't read mcp.json",
-  'mcp.json.loadFailedBody': 'The core did not answer, so the document is not shown — an empty editor would invite a save that wipes your servers.',
-  'mcp.json.intro': 'Your MCP servers as one document, in the shape other MCP clients use. Paste a server block from its install page and save.',
-  'mcp.json.credentialsNote': 'Credentials are write-only: env and headers values are stored when you save and never shown again. An entry saved without them keeps what is stored; set a key to "" to remove it.',
+  'mcp.json.loadFailedBody':
+    'The core did not answer, so the document is not shown — an empty editor would invite a save that wipes your servers.',
+  'mcp.json.intro':
+    'Your MCP servers as one document, in the shape other MCP clients use. Paste a server block from its install page and save.',
+  'mcp.json.credentialsNote':
+    'Credentials are write-only: env and headers values are stored when you save and never shown again. An entry saved without them keeps what is stored; set a key to "" to remove it.',
   'mcp.json.editorAria': 'mcp.json document',
   'mcp.json.refusedTitle': 'The core refused this document',
   'mcp.json.saved': 'Saved: {added} added, {updated} updated, {removed} removed.',
@@ -1876,9 +1880,12 @@ const en: TranslationMap = {
   'mcp.json.parseError.missingRoot': 'No `mcpServers` key — every server lives under it.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` maps a server name to its settings.',
   'mcp.json.parseError.emptyName': "A server needs a name — one entry's key is empty.",
-  'mcp.json.parseError.entryNotObject': '`{name}` holds an object, e.g. { "command": "npx", "args": ["-y", "…"] } or { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` needs a `url` (hosted) or a `command` (run locally).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` names both a `url` and a `command`; a server is dialled one way.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` holds an object, e.g. { "command": "npx", "args": ["-y", "…"] } or { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` needs a `url` (hosted) or a `command` (run locally).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` names both a `url` and a `command`; a server is dialled one way.',
   'mcp.tab.aria.viewDetails': 'View details for {name}',
   'mcp.detail.connect': 'Connect',
   'mcp.detail.connecting': 'Connecting...',

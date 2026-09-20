@@ -228,10 +228,7 @@ const McpServersTab = ({ initialTab = 'servers' }: McpServersTabProps) => {
     );
   }, [servers, searchQuery]);
 
-  const installedNames = useMemo(
-    () => new Set(servers.map(s => s.qualified_name)),
-    [servers]
-  );
+  const installedNames = useMemo(() => new Set(servers.map(s => s.qualified_name)), [servers]);
 
   const statusMap = new Map(statuses.map(s => [s.server_id, s]));
 

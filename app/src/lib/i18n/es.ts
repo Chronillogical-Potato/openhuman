@@ -1701,12 +1701,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Abrir la página de {name}',
   'mcp.installed.emptyAddInJson': 'Añadir uno en mcp.json',
   'mcp.installed.emptyBrowseRegistry': 'Explorar el registro',
-  'mcp.registry.intro': 'Un directorio de servidores MCP. Abrir un servidor te lleva a su propia página, donde están las instrucciones de instalación; añádelo en la pestaña mcp.json.',
+  'mcp.registry.intro':
+    'Un directorio de servidores MCP. Abrir un servidor te lleva a su propia página, donde están las instrucciones de instalación; añádelo en la pestaña mcp.json.',
   'mcp.json.loading': 'Cargando mcp.json…',
   'mcp.json.loadFailedTitle': 'No se pudo leer mcp.json',
-  'mcp.json.loadFailedBody': 'El núcleo no respondió, así que el documento no se muestra: un editor vacío invitaría a guardar y borrar tus servidores.',
-  'mcp.json.intro': 'Tus servidores MCP como un solo documento, con la forma que usan otros clientes MCP. Pega el bloque de un servidor desde su página de instalación y guarda.',
-  'mcp.json.credentialsNote': 'Las credenciales son de solo escritura: los valores de env y headers se guardan al guardar y no se vuelven a mostrar. Una entrada guardada sin ellos conserva lo almacenado; pon una clave en "" para eliminarla.',
+  'mcp.json.loadFailedBody':
+    'El núcleo no respondió, así que el documento no se muestra: un editor vacío invitaría a guardar y borrar tus servidores.',
+  'mcp.json.intro':
+    'Tus servidores MCP como un solo documento, con la forma que usan otros clientes MCP. Pega el bloque de un servidor desde su página de instalación y guarda.',
+  'mcp.json.credentialsNote':
+    'Las credenciales son de solo escritura: los valores de env y headers se guardan al guardar y no se vuelven a mostrar. Una entrada guardada sin ellos conserva lo almacenado; pon una clave en "" para eliminarla.',
   'mcp.json.editorAria': 'Documento mcp.json',
   'mcp.json.refusedTitle': 'El núcleo rechazó este documento',
   'mcp.json.saved': 'Guardado: {added} añadidos, {updated} actualizados, {removed} eliminados.',
@@ -1718,12 +1722,18 @@ const messages: TranslationMap = {
   'mcp.json.parseError.empty': 'El documento está vacío. Sin servidores es { "mcpServers": {} }.',
   'mcp.json.parseError.invalidJson': 'JSON no válido — {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contiene un objeto con una clave `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Falta la clave `mcpServers`: todos los servidores van dentro.',
-  'mcp.json.parseError.rootNotMap': '`mcpServers` asocia el nombre de un servidor con su configuración.',
-  'mcp.json.parseError.emptyName': 'Un servidor necesita un nombre: la clave de una entrada está vacía.',
-  'mcp.json.parseError.entryNotObject': '`{name}` contiene un objeto, p. ej. { "command": "npx", "args": ["-y", "…"] } o { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` necesita una `url` (alojado) o un `command` (ejecución local).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` indica tanto `url` como `command`; un servidor se conecta de una sola forma.',
+  'mcp.json.parseError.missingRoot':
+    'Falta la clave `mcpServers`: todos los servidores van dentro.',
+  'mcp.json.parseError.rootNotMap':
+    '`mcpServers` asocia el nombre de un servidor con su configuración.',
+  'mcp.json.parseError.emptyName':
+    'Un servidor necesita un nombre: la clave de una entrada está vacía.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` contiene un objeto, p. ej. { "command": "npx", "args": ["-y", "…"] } o { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` necesita una `url` (alojado) o un `command` (ejecución local).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` indica tanto `url` como `command`; un servidor se conecta de una sola forma.',
   'mcp.tab.aria.viewDetails': 'Ver detalles de {name}',
   'mcp.detail.connect': 'Conectar',
   'mcp.detail.connecting': 'Conectando...',

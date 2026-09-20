@@ -1685,12 +1685,16 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Открыть страницу {name}',
   'mcp.installed.emptyAddInJson': 'Добавить в mcp.json',
   'mcp.installed.emptyBrowseRegistry': 'Открыть реестр',
-  'mcp.registry.intro': 'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
+  'mcp.registry.intro':
+    'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
   'mcp.json.loading': 'Загрузка mcp.json…',
   'mcp.json.loadFailedTitle': 'Не удалось прочитать mcp.json',
-  'mcp.json.loadFailedBody': 'Ядро не ответило, поэтому документ не показан — пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
-  'mcp.json.intro': 'Ваши MCP-серверы одним документом, в том виде, который используют другие MCP-клиенты. Вставьте блок сервера со страницы его установки и сохраните.',
-  'mcp.json.credentialsNote': 'Учётные данные доступны только для записи: значения env и headers сохраняются при сохранении и больше не показываются. Запись, сохранённая без них, сохраняет уже записанное; задайте ключу "", чтобы удалить его.',
+  'mcp.json.loadFailedBody':
+    'Ядро не ответило, поэтому документ не показан — пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
+  'mcp.json.intro':
+    'Ваши MCP-серверы одним документом, в том виде, который используют другие MCP-клиенты. Вставьте блок сервера со страницы его установки и сохраните.',
+  'mcp.json.credentialsNote':
+    'Учётные данные доступны только для записи: значения env и headers сохраняются при сохранении и больше не показываются. Запись, сохранённая без них, сохраняет уже записанное; задайте ключу "", чтобы удалить его.',
   'mcp.json.editorAria': 'Документ mcp.json',
   'mcp.json.refusedTitle': 'Ядро отклонило этот документ',
   'mcp.json.saved': 'Сохранено: добавлено {added}, обновлено {updated}, удалено {removed}.',
@@ -1705,9 +1709,12 @@ const messages: TranslationMap = {
   'mcp.json.parseError.missingRoot': 'Нет ключа `mcpServers` — все серверы находятся под ним.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` сопоставляет имя сервера с его настройками.',
   'mcp.json.parseError.emptyName': 'Серверу нужно имя — ключ одной из записей пуст.',
-  'mcp.json.parseError.entryNotObject': '`{name}` содержит объект, например { "command": "npx", "args": ["-y", "…"] } или { "url": "https://…" }.',
-  'mcp.json.parseError.needsUrlOrCommand': '`{name}` требует `url` (размещённый) или `command` (запуск локально).',
-  'mcp.json.parseError.bothUrlAndCommand': '`{name}` указывает и `url`, и `command`; сервер подключается только одним способом.',
+  'mcp.json.parseError.entryNotObject':
+    '`{name}` содержит объект, например { "command": "npx", "args": ["-y", "…"] } или { "url": "https://…" }.',
+  'mcp.json.parseError.needsUrlOrCommand':
+    '`{name}` требует `url` (размещённый) или `command` (запуск локально).',
+  'mcp.json.parseError.bothUrlAndCommand':
+    '`{name}` указывает и `url`, и `command`; сервер подключается только одним способом.',
   'mcp.tab.aria.viewDetails': 'Просмотреть детали {name}',
   'mcp.detail.connect': 'Подключитесь',
   'mcp.detail.connecting': 'Подключение...',

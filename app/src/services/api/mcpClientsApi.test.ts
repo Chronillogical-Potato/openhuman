@@ -246,7 +246,9 @@ describe('mcpClientsApi', () => {
     });
 
     it("throws the host's refusal verbatim", async () => {
-      mockCallCoreRpc.mockRejectedValueOnce(new Error('`bad` needs a `url` (hosted) or a `command` (run locally)'));
+      mockCallCoreRpc.mockRejectedValueOnce(
+        new Error('`bad` needs a `url` (hosted) or a `command` (run locally)')
+      );
       const { mcpClientsApi } = await import('./mcpClientsApi');
       await expect(mcpClientsApi.configSet({ mcpServers: { bad: {} } })).rejects.toThrow(
         '`bad` needs a `url`'
