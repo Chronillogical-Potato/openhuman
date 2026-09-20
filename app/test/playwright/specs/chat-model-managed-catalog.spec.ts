@@ -158,8 +158,6 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
       'before #6201 the managed pane rendered prose and no model control at all'
     ).toBeVisible({ timeout: 20_000 });
     await expect(managedOption(page, FREE_ID)).toBeVisible();
-    // "Automatic" is always present so a pin is reversible.
-    await expect(managedAutomatic(page)).toBeVisible();
 
     // Labelled by display name + charged price, not the bare slug. Asserting
     // the price text matters: the id alone would satisfy a label that ignored
@@ -233,29 +231,7 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     });
   });
 
-  test('a pinned model can be cleared back to automatic', async ({ page }) => {
-    await openChat(page);
-    await openManagedPane(page);
-    await expect(managedOption(page, PLAIN_ID)).toBeVisible({ timeout: 20_000 });
-    await managedOption(page, PLAIN_ID).click();
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
-    const pinned = (await modelChip(page).textContent())?.trim() ?? '';
-    expect(pinned).toMatch(/nex-n2\.5-mini/);
-
-    await openManagedPane(page);
-    await expect(managedOption(page, PLAIN_ID)).toHaveAttribute('aria-selected', 'true', {
-      timeout: 20_000,
-    });
-    await managedAutomatic(page).click();
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
-
-    // Back to automatic routing: the chip no longer names the pinned model.
-    await expect(modelChip(page)).not.toHaveText(/nex-n2\.5-mini/, { timeout: 10_000 });
-  });
-
-  test('an empty catalog renders only the automatic row', async ({ page }) => {
+  test('an empty catalog renders no model rows and cannot be submitted', async ({ page }) => {
     // Models the real backend with OPENROUTER_PASSTHROUGH_ENABLED off: it
     // returns an empty set with HTTP 200, not an error. The managed pane must
     // degrade to its pre-#6201 appearance rather than surfacing a failure.
@@ -264,10 +240,8 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     await openManagedPane(page);
 
     await expect(page.getByTestId('model-picker-managed-pane')).toBeVisible();
-    await expect(managedAutomatic(page)).toBeVisible();
     await expect(page.locator('[data-testid^="model-picker-managed-option-"]')).toHaveCount(0);
-    // Managed is still selectable with no model id — the original contract.
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
+    // Nothing to pick means nothing to submit.
+    await expect(page.getByRole('button', { name: 'Use this model' })).toBeDisabled();
   });
 });

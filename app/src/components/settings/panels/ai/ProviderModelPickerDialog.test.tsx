@@ -57,9 +57,7 @@ describe('ProviderModelPickerDialog', () => {
    * specific model was a one-way door: nothing in the UI routed back to the
    * product's own model selection.
    */
-  it('offers managed first and selects it without requiring a model id', async () => {
-    const onSelect = vi.fn();
-
+  it('offers managed first and waits for a model to be picked', () => {
     render(
       <ProviderModelPickerDialog
         cloudProviders={[]}
@@ -68,31 +66,21 @@ describe('ProviderModelPickerDialog', () => {
         claudeCodeEnabled={false}
         initial={null}
         onClose={() => {}}
-        onSelect={onSelect}
+        onSelect={() => {}}
       />
     );
 
-    // Preselected, and its pane explains the choice rather than asking for one.
+    // Preselected; there is no "automatic" row any more, so nothing can be
+    // submitted until a catalog model is chosen.
     expect(screen.getByTestId('model-picker-managed-pane')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Model' })).toBeNull();
-
-    const submit = screen.getByRole('button', { name: 'Use this model' });
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
-
-    await waitFor(() =>
-      expect(onSelect).toHaveBeenCalledWith({
-        source: { kind: 'managed' },
-        model: '',
-        contextWindow: null,
-      })
-    );
+    expect(screen.getByRole('button', { name: 'Use this model' })).toBeDisabled();
   });
 
   /**
    * The managed backend's OpenRouter passthrough catalog is offered under
    * "OpenRouter — Managed by TinyHumans" so a specific model can be pinned while still
-   * billing through managed credits. Automatic stays the default.
+   * billing through managed credits.
    */
   it('lists the managed catalog and forwards a pinned model', async () => {
     vi.mocked(listProviderModels).mockResolvedValue([
@@ -129,10 +117,6 @@ describe('ProviderModelPickerDialog', () => {
     );
     expect(row).toHaveTextContent('DeepSeek V4 Flash');
     expect(row).toHaveTextContent('per 1M');
-    expect(screen.getByTestId('model-picker-managed-automatic')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
 
     fireEvent.click(row);
     expect(row).toHaveAttribute('aria-selected', 'true');
@@ -143,42 +127,6 @@ describe('ProviderModelPickerDialog', () => {
         source: { kind: 'managed' },
         model: 'openrouter/deepseek/deepseek-v4-flash',
         contextWindow: 1_000_000,
-      })
-    );
-  });
-
-  /**
-   * Pinning must be reversible: an "Automatic" option is always present, unlike
-   * ModelEntryField's empty option which disappears once a model is chosen.
-   */
-  it('can clear a pinned managed model back to automatic', async () => {
-    vi.mocked(listProviderModels).mockResolvedValue([
-      { id: 'openrouter/a/b', owned_by: 'openrouter', context_window: 1000 },
-    ]);
-    const onSelect = vi.fn();
-
-    render(
-      <ProviderModelPickerDialog
-        cloudProviders={[]}
-        localModels={[]}
-        ollamaRunning={false}
-        claudeCodeEnabled={false}
-        initial={{ source: { kind: 'managed' }, model: 'openrouter/a/b' }}
-        onClose={() => {}}
-        onSelect={onSelect}
-      />
-    );
-
-    const pinned = await screen.findByTestId('model-picker-managed-option-openrouter/a/b');
-    expect(pinned).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(screen.getByTestId('model-picker-managed-automatic'));
-    fireEvent.click(screen.getByRole('button', { name: 'Use this model' }));
-
-    await waitFor(() =>
-      expect(onSelect).toHaveBeenCalledWith({
-        source: { kind: 'managed' },
-        model: '',
-        contextWindow: null,
       })
     );
   });
@@ -262,11 +210,36 @@ describe('ProviderModelPickerDialog', () => {
 
     expect(screen.queryByTestId('model-picker-managed-option-openrouter/a/alpha')).toBeNull();
     expect(screen.getByTestId('model-picker-managed-option-openrouter/b/beta')).toBeInTheDocument();
-    // "Automatic" is not a model; it steps aside while a query is active.
-    expect(screen.queryByTestId('model-picker-managed-automatic')).toBeNull();
     // Providers are untouched by the query.
     expect(screen.getByText('OpenAI')).toBeInTheDocument();
     expect(screen.getByText('OpenRouter')).toBeInTheDocument();
+  });
+
+  it('lists the managed catalog alphabetically by display name', async () => {
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'openrouter/z/zeta', owned_by: 'openrouter', display_name: 'Zeta' },
+      { id: 'openrouter/a/no-name', owned_by: 'openrouter' },
+      { id: 'openrouter/b/beta', owned_by: 'openrouter', display_name: 'beta' },
+    ]);
+
+    render(
+      <ProviderModelPickerDialog
+        cloudProviders={[]}
+        localModels={[]}
+        ollamaRunning={false}
+        claudeCodeEnabled={false}
+        initial={null}
+        onClose={() => {}}
+        onSelect={() => {}}
+      />
+    );
+    await screen.findByTestId('model-picker-managed-option-openrouter/z/zeta');
+
+    const order = screen
+      .getAllByRole('option')
+      .map(option => option.getAttribute('data-testid')?.replace('model-picker-managed-option-', ''));
+    // Case-insensitive, and an unnamed entry sorts by its id.
+    expect(order).toEqual(['openrouter/b/beta', 'openrouter/a/no-name', 'openrouter/z/zeta']);
   });
 
   it('omits managed when the host opts out', () => {
