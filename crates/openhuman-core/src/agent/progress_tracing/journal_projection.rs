@@ -520,6 +520,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         | AgentEvent::BudgetReconciled { .. }
         | AgentEvent::BudgetExceeded { .. }
         | AgentEvent::LimitReached { .. } => Vec::new(),
+        // `AgentEvent` is `#[non_exhaustive]`: a variant added upstream after
+        // this projection was written carries no span this replay models.
+        _ => Vec::new(),
     }
 }
 
