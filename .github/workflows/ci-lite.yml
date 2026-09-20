@@ -705,12 +705,9 @@ jobs:
           EXPECTED=$(cat <<'EOF'
           agent/harness/builtin_definitions_tests.rs
           agent/harness/definition_tests.rs
-          agent/harness/mod.rs
-          agent/harness/session/builder/factory.rs
-          agent/harness/session/session_builder_and_listener_tests.rs
-          agent/harness/session/session_tests.rs
-          agent/harness/session/turn/tools.rs
-          agent/harness/subagent_runner/tool_prep_tests.rs
+          agent/session_host/builder/factory.rs
+          agent/session_host/turn/tools.rs
+          agent/subagent_host/tool_prep_tests.rs
           agent/registry/agents/loader.rs
           agent/registry/agents/loader_tests_builtin_registration_tests.rs
           agent/registry/agents/loader_tests_orchestrator_tier_tests.rs
