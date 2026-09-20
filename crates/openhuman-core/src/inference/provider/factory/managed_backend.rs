@@ -35,11 +35,13 @@ pub(crate) fn make_openhuman_backend_model_for_thread(
     std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>>,
     String,
 )> {
-    let (backend, resolved_model) = resolve_managed_backend(role, config)?;
+    // `model` may be a role alias (`hint:reasoning`) the registry keys the
+    // route by; the backend only ever sees the concrete id it resolves to.
+    let (backend, resolved_model) =
+        resolve_managed_backend_with_model_override(role, config, Some(model))?;
     Ok((
         std::sync::Arc::new(
             backend
-                .with_default_model(model)
                 .with_native_tool_calling(native_tool_calling)
                 .with_thread_id(thread_id),
         ),
