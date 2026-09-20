@@ -321,10 +321,10 @@ async function navigateToMcpTab(page: Page) {
   await page.getByTestId('mcp-page-tab-servers').waitFor({ state: 'visible', timeout: 10_000 });
 }
 
-/** A row in the Servers tab's table, by display name. */
+/** A row in the Servers tab, by display name. */
 function installedRow(page: Page, name: string) {
-  return page.locator('table tbody tr[data-testid="mcp-installed-row"]', {
-    has: page.locator(`td:first-child:has-text("${name}")`),
+  return page.locator('[data-testid="mcp-installed-row"]', {
+    has: page.getByRole('button', { name: `Open ${name}` }),
   });
 }
 
@@ -342,19 +342,25 @@ test.describe('MCP page — Servers tab', () => {
     await navigateToMcpTab(page);
   });
 
-  test('renders the three notations as tabs and opens on the rows', async ({ page }) => {
-    await expect(page.getByRole('tab', { name: /Servers \(1\)/ })).toBeVisible();
+  test('renders the three notations as tabs in the page header and opens on the rows', async ({
+    page,
+  }) => {
+    await expect(page.getByRole('heading', { level: 1, name: 'MCP Servers' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Servers' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'mcp.json' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Registry' })).toBeVisible();
     await expect(page.getByTestId('mcp-servers-section')).toBeVisible();
-    await expect(page.locator('input[type="search"]')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Installed servers' })).toBeVisible();
   });
 
-  test('displays declared servers with their dial and a Manage action', async ({ page }) => {
+  test('displays declared servers with their dial, status and icon controls', async ({ page }) => {
     const row = installedRow(page, 'Memory Server');
     await expect(row).toBeVisible();
     await expect(row).toContainText('npx -y @modelcontextprotocol/server-memory');
-    await expect(row.locator('text=Manage')).toBeVisible();
+    await expect(row.getByTestId('mcp-row-status')).toContainText('Connected');
+    await expect(row.getByRole('button', { name: 'Disconnect Memory Server' })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Disable Memory Server' })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Remove Memory Server' })).toBeVisible();
   });
 
   test('the rows hold nothing from the directory, and nothing installs', async ({ page }) => {
@@ -362,11 +368,13 @@ test.describe('MCP page — Servers tab', () => {
     await expect(page.locator('text=GitHub Tools')).toHaveCount(0);
   });
 
-  test('search filters the rows', async ({ page }) => {
-    await page.locator('input[type="search"]').fill('nomatch');
-    await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 5_000 });
-    await page.locator('input[type="search"]').fill('memory');
-    await expect(installedRow(page, 'Memory Server')).toBeVisible({ timeout: 5_000 });
+  test('a row control acts on the server and the row follows', async ({ page }) => {
+    await installedRow(page, 'Memory Server')
+      .getByRole('button', { name: 'Disconnect Memory Server' })
+      .click();
+    await expect(
+      installedRow(page, 'Memory Server').getByRole('button', { name: 'Connect Memory Server' })
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test('no Smithery branding visible anywhere', async ({ page }) => {
@@ -429,7 +437,7 @@ test.describe('MCP page — mcp.json tab', () => {
     expect(text).toContain('"GITHUB_TOKEN"');
     expect(text).not.toContain('ghp_test_token_123');
 
-    await page.getByRole('tab', { name: /Servers \(2\)/ }).click();
+    await page.getByRole('tab', { name: 'Servers' }).click();
     await expect(installedRow(page, 'github')).toBeVisible({ timeout: 5_000 });
   });
 
@@ -472,7 +480,7 @@ test.describe('MCP page — Registry tab', () => {
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {
-      await expect(rows.nth(i)).toContainText('Open page');
+      await expect(rows.nth(i).getByRole('button', { name: /^Open the page for/ })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: /^Install$/ })).toHaveCount(0);
   });
@@ -524,8 +532,8 @@ test.describe('MCP page — Manage & Uninstall Lifecycle', () => {
     await navigateToMcpTab(page);
   });
 
-  test('click a server row → detail view shows server info and the name', async ({ page }) => {
-    await installedRow(page, 'Memory Server').click();
+  test('a row\'s name → detail view shows server info and the name', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Memory Server' }).click();
     await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
       timeout: 5_000,
     });
@@ -533,8 +541,18 @@ test.describe('MCP page — Manage & Uninstall Lifecycle', () => {
     await expect(page.locator('text=io.github.test/memory-server')).toBeVisible();
   });
 
-  test('uninstall flow: detail → confirm uninstall → returns to the rows', async ({ page }) => {
-    await installedRow(page, 'Memory Server').click();
+  test('remove flow: row control → confirm → the row is gone', async ({ page }) => {
+    await page.getByRole('button', { name: 'Remove Memory Server' }).click();
+    const dialog = page.getByTestId('mcp-remove-dialog');
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await dialog.getByTestId('confirm-dialog-confirm').click();
+
+    await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 10_000 });
+    await expect(installedRow(page, 'Memory Server')).toHaveCount(0, { timeout: 5_000 });
+  });
+
+  test('uninstall from the detail view also returns to the rows', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Memory Server' }).click();
     await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
       timeout: 5_000,
     });
@@ -548,11 +566,10 @@ test.describe('MCP page — Manage & Uninstall Lifecycle', () => {
     await confirmBtn.first().click();
 
     await expect(page.getByTestId('mcp-installed-empty')).toBeVisible({ timeout: 10_000 });
-    await expect(installedRow(page, 'Memory Server')).toHaveCount(0, { timeout: 5_000 });
   });
 
   test('back button from detail returns to the rows', async ({ page }) => {
-    await installedRow(page, 'Memory Server').click();
+    await page.getByRole('button', { name: 'Open Memory Server' }).click();
     await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
       timeout: 5_000,
     });
@@ -586,7 +603,7 @@ test.describe('MCP page — Connect & Tool Execution', () => {
   });
 
   test('connect a server, then run one of its tools and see the result', async ({ page }) => {
-    await installedRow(page, 'Memory Server').click();
+    await page.getByRole('button', { name: 'Open Memory Server' }).click();
     await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
       timeout: 5_000,
     });
@@ -620,7 +637,7 @@ test.describe('MCP page — Connect & Tool Execution', () => {
 });
 
 test.describe('MCP page — Empty & Edge States', () => {
-  test('an empty list routes to the document and the directory', async ({ page }) => {
+  test('an empty list routes to the document', async ({ page }) => {
     const state: MockState = { installed: [], statuses: [] };
     await seedLocalStorage(page);
     await setupMockRpc(page, state);
