@@ -26,8 +26,9 @@ import {
   Server,
   Trash2,
   Unplug,
+  Wrench,
 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
@@ -38,7 +39,8 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import ConnectAuthModal from './ConnectAuthModal';
 import McpIconButton from './McpIconButton';
 import McpServerForm from './McpServerForm';
-import type { ConnStatus, InstalledServer, ServerStatus } from './types';
+import McpToolPlayground from './McpToolPlayground';
+import type { ConnStatus, InstalledServer, McpTool, ServerStatus } from './types';
 
 interface McpServerRowsProps {
   servers: InstalledServer[];
@@ -79,6 +81,84 @@ const statusTone = (
   }
 };
 
+type ToolsState =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; tools: McpTool[] };
+
+/**
+ * The tools one connected server advertises, listed under its row, each with
+ * a Try button that opens the execution playground. Read on demand — the row
+ * carries a tool *count* from the status poll; the names and schemas are
+ * fetched when the user asks for them.
+ */
+const McpRowTools = ({
+  server,
+  onTry,
+}: {
+  server: InstalledServer;
+  onTry: (tool: McpTool) => void;
+}) => {
+  const { t } = useT();
+  const [state, setState] = useState<ToolsState>({ kind: 'loading' });
+
+  useEffect(() => {
+    let live = true;
+    mcpClientsApi
+      .listTools(server.server_id)
+      .then(tools => {
+        if (live) setState({ kind: 'ready', tools });
+      })
+      .catch((err: unknown) => {
+        if (live) {
+          setState({
+            kind: 'error',
+            message: err instanceof Error ? err.message : t('mcp.rows.toolsFailed'),
+          });
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [server.server_id, t]);
+
+  if (state.kind === 'loading') {
+    return (
+      <p className="text-xs text-content-muted" data-testid="mcp-row-tools-loading">
+        {t('mcp.rows.toolsLoading')}
+      </p>
+    );
+  }
+  if (state.kind === 'error') {
+    return <p className="text-xs text-coral-600 dark:text-coral-300">{state.message}</p>;
+  }
+  if (state.tools.length === 0) {
+    return <p className="text-xs text-content-muted">{t('mcp.toolList.noTools')}</p>;
+  }
+  return (
+    <ul className="space-y-1 rounded-md bg-surface-muted p-2" data-testid="mcp-row-tools">
+      {state.tools.map(tool => (
+        <li key={tool.name} className="flex items-start justify-between gap-2 text-xs">
+          <span className="min-w-0">
+            <span className="font-mono font-medium text-content">{tool.name}</span>
+            {tool.description ? (
+              <span className="text-content-muted"> — {tool.description}</span>
+            ) : null}
+          </span>
+          <Button
+            variant="tertiary"
+            size="xs"
+            onClick={() => onTry(tool)}
+            aria-label={t('mcp.toolList.tryToolAria').replace('{name}', tool.name)}
+            className="h-auto shrink-0 p-0 font-medium text-primary-600 hover:underline dark:text-primary-400">
+            {t('mcp.toolList.tryTool')}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const McpServerRows = ({
   servers,
   statuses,
@@ -97,6 +177,18 @@ const McpServerRows = ({
   const [removeFor, setRemoveFor] = useState<InstalledServer | null>(null);
   // `null` closed, `undefined` adding, a server editing.
   const [form, setForm] = useState<InstalledServer | null | undefined>(null);
+  // The rows whose tool lists are open, and the tool staged in the playground.
+  const [toolsOpen, setToolsOpen] = useState<Set<string>>(() => new Set());
+  const [playground, setPlayground] = useState<{ server: InstalledServer; tool: McpTool } | null>(
+    null
+  );
+  const toggleTools = (serverId: string) =>
+    setToolsOpen(prev => {
+      const next = new Set(prev);
+      if (next.has(serverId)) next.delete(serverId);
+      else next.add(serverId);
+      return next;
+    });
 
   // The form wrote the document; the rows re-read it. A server saved with
   // browser sign-in is then opened straight into the connect dialog, which
@@ -272,6 +364,19 @@ const McpServerRows = ({
                           }}
                         />
                       )}
+                      {connected && (
+                        <McpIconButton
+                          label={t(
+                            toolsOpen.has(server.server_id)
+                              ? 'mcp.rows.hideTools'
+                              : 'mcp.rows.showTools'
+                          ).replace('{name}', server.display_name)}
+                          icon={Wrench}
+                          testId="mcp-tools"
+                          disabled={busy !== null}
+                          onClick={() => toggleTools(server.server_id)}
+                        />
+                      )}
                       <McpIconButton
                         label={t(server.enabled ? 'mcp.rows.disable' : 'mcp.rows.enable').replace(
                           '{name}',
@@ -307,12 +412,23 @@ const McpServerRows = ({
                   {conn?.last_error && status !== 'connected' && (
                     <p className="text-xs text-content-muted">{conn.last_error}</p>
                   )}
+                  {connected && toolsOpen.has(server.server_id) && (
+                    <McpRowTools server={server} onTry={tool => setPlayground({ server, tool })} />
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
       </Card>
+
+      {playground && (
+        <McpToolPlayground
+          serverId={playground.server.server_id}
+          tool={playground.tool}
+          onClose={() => setPlayground(null)}
+        />
+      )}
 
       {form !== null && (
         <McpServerForm

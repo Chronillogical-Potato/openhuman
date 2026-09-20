@@ -3,7 +3,7 @@
  * Shows header, status, env key names (never values), tool list, and action buttons.
  */
 import debug from 'debug';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
@@ -76,6 +76,25 @@ const InstalledServerDetail = ({
       setPlaygroundTool(null);
     }
   }
+
+  // A server that connected before this view opened (at boot, or in the
+  // background after it was declared) has a tool list the core knows and this
+  // view does not: read it, rather than waiting for a reconnect from here.
+  useEffect(() => {
+    if (status !== 'connected') return;
+    let live = true;
+    mcpClientsApi
+      .listTools(server.server_id)
+      .then(fetched => {
+        if (live && fetched.length > 0) setTools(fetched);
+      })
+      .catch((err: unknown) => {
+        log('list_tools failed (non-fatal): %s', err instanceof Error ? err.message : err);
+      });
+    return () => {
+      live = false;
+    };
+  }, [server.server_id, status]);
 
   const runBusy = useCallback(async (task: () => Promise<void>) => {
     setBusy(true);

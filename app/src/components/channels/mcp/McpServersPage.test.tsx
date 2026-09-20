@@ -11,6 +11,8 @@ const mockConfigSet = vi.fn();
 const mockDisconnect = vi.fn();
 const mockSetEnabled = vi.fn();
 const mockUninstall = vi.fn();
+const mockListTools = vi.fn();
+const mockToolCall = vi.fn();
 
 vi.mock('../../../services/api/mcpClientsApi', () => ({
   mcpClientsApi: {
@@ -23,6 +25,8 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     disconnect: (...args: unknown[]) => mockDisconnect(...args),
     uninstall: (...args: unknown[]) => mockUninstall(...args),
     setEnabled: (...args: unknown[]) => mockSetEnabled(...args),
+    listTools: (...args: unknown[]) => mockListTools(...args),
+    toolCall: (...args: unknown[]) => mockToolCall(...args),
     updateEnv: vi.fn(),
     detectAuth: vi.fn().mockResolvedValue({ kind: 'none', grant_types: [] }),
     registryGet: vi.fn().mockResolvedValue({ connections: [], required_env_keys: [] }),
@@ -73,6 +77,27 @@ describe('McpServersPage', () => {
     mockDisconnect.mockResolvedValue({ status: 'disconnected' });
     mockSetEnabled.mockResolvedValue({ enabled: true });
     mockUninstall.mockResolvedValue({ removed: true });
+    mockListTools.mockReset();
+    mockListTools.mockResolvedValue([
+      { name: 'echo', description: 'Echoes the input', input_schema: {} },
+    ]);
+    mockToolCall.mockReset();
+    mockToolCall.mockResolvedValue({ result: 'echoed: hi', is_error: false });
+  });
+
+  it("lists a connected server's tools under its row and opens the playground", async () => {
+    render(<McpServersPage />);
+    await screen.findByTestId('mcp-servers-section');
+    // Only the connected row offers its tools.
+    expect(screen.queryByRole('button', { name: "Show hosted's tools" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: "Show echo's tools" }));
+    const list = await screen.findByTestId('mcp-row-tools');
+    expect(mockListTools).toHaveBeenCalledWith('srv-local');
+    expect(list).toHaveTextContent('echo');
+    expect(list).toHaveTextContent('Echoes the input');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open execution playground for echo' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Run echo');
   });
 
   it('puts the three notations in the page header and opens on the rows', async () => {

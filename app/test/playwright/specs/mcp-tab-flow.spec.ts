@@ -322,6 +322,9 @@ async function setupMockRpc(page: Page, state: MockState) {
         state.statuses = state.statuses.filter(s => s.server_id !== params.server_id);
         return route.fulfill(rpcOk(id, { success: true }));
 
+      case 'openhuman.mcp_clients_list_tools':
+        return route.fulfill(rpcOk(id, { server_id: params.server_id, tools: MOCK_TOOLS }));
+
       case 'openhuman.mcp_clients_tools':
         return route.fulfill(
           rpcOk(id, {
@@ -400,6 +403,22 @@ test.describe('MCP page — Servers tab', () => {
   test('the rows hold nothing from the directory, and nothing installs', async ({ page }) => {
     await expect(page.getByRole('button', { name: /^Install$/ })).toHaveCount(0);
     await expect(page.locator('text=GitHub Tools')).toHaveCount(0);
+  });
+
+  test('a connected row lists its tools and runs one from the playground', async ({ page }) => {
+    await page.getByRole('button', { name: "Show Memory Server's tools" }).click();
+    const tools = page.getByTestId('mcp-row-tools');
+    await expect(tools).toBeVisible({ timeout: 5_000 });
+    await expect(tools).toContainText('create_memory');
+    await tools
+      .getByRole('button', { name: 'Open execution playground for create_memory' })
+      .click();
+    const playground = page.getByRole('dialog');
+    await expect(playground.getByText('Run create_memory')).toBeVisible({ timeout: 5_000 });
+    await playground.getByRole('button', { name: 'Run tool' }).click();
+    await expect(page.getByTestId('mcp-playground-result')).toContainText('memory created id=42', {
+      timeout: 10_000,
+    });
   });
 
   test('a row control acts on the server and the row follows', async ({ page }) => {
