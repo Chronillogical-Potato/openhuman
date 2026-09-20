@@ -20,7 +20,6 @@ import {
 } from '../../../services/api/aiSettingsApi';
 import { connectOpenRouterViaOAuth } from '../../../utils/openrouterOAuth';
 import PanelPage from '../../layout/PanelPage';
-import Alert from '../../ui/Alert';
 import Button from '../../ui/Button';
 import Card from '../../ui/Card';
 import { ModalShell } from '../../ui/ModalShell';
