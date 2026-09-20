@@ -88,11 +88,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
     async fn execute(
         &self,
         _state: &(),
+        _call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let tool_context = ToolExecutionContext::from_run_context(parent);
+        let tool_context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
         let child = parent.data.child();
         match &self.kind {
             DelegationDispatchKind::Collapsed { targets } => {

@@ -1,5 +1,5 @@
 use super::*;
-use tinytools::{Tool, ToolSpec};
+use tinytools::Tool;
 
 /// Answers two tool rounds, then rejects the third request with a 400 (which the
 /// harness does not retry).

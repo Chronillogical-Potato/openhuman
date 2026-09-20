@@ -39,6 +39,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for U
     async fn execute(
         &self,
         _state: &(),
+        _call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,

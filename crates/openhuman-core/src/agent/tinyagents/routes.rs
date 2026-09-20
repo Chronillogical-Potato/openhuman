@@ -7,7 +7,7 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::middleware::{MiddlewareModelOutcome, ModelHandler, ModelMiddleware};
 use tinyagents_harness::retry::FallbackPolicy;
-use tinyagents_registry::{ModelRouter, WorkloadRoute};
+use tinyagents_registry::{WorkloadRoute, WorkloadRouter};
 use tinyinference_llm::model::{CapabilitySet, ModelRequest};
 
 use crate::config::{
@@ -34,7 +34,7 @@ pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
 ];
 
 /// The OpenHuman workload-tier routing table as a crate
-/// [`ModelRouter`](tinyagents_registry::ModelRouter) — the single declarative
+/// [`WorkloadRouter`](tinyagents_registry::WorkloadRouter) — the single declarative
 /// source for cross-route **fallback chains** and per-tier **required-capability
 /// gates** (issue #4249, Phase 3 routing consolidation).
 ///
@@ -50,12 +50,12 @@ pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
 /// - `summarization-v1 → chat-v1` (summarization rides a general chat model);
 /// - `vision-v1` is `image_in`-gated and primary-only — a text fallback cannot
 ///   satisfy the gate — and its `hint:vision` form carries the same gate.
-static OH_WORKLOAD_ROUTER: LazyLock<ModelRouter> = LazyLock::new(|| {
+static OH_WORKLOAD_ROUTER: LazyLock<WorkloadRouter> = LazyLock::new(|| {
     let vision_gate = CapabilitySet {
         image_in: true,
         ..CapabilitySet::default()
     };
-    ModelRouter::new()
+    WorkloadRouter::new()
         .with_route(
             WorkloadRoute::new(MODEL_CHAT_V1, MODEL_CHAT_V1).with_fallbacks([MODEL_BURST_V1]),
         )

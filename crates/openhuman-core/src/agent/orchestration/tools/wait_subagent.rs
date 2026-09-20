@@ -65,11 +65,12 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     async fn execute(
         &self,
         _state: &(),
+        _call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let context = ToolExecutionContext::from_run_context(parent);
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
         WaitSubagentTool::new()
             .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
             .await

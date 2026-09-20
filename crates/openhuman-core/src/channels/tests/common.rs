@@ -39,6 +39,7 @@ fn tool_call_response(step: Option<usize>) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new("mock-price-call", "mock_price", arguments)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

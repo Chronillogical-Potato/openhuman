@@ -16,9 +16,7 @@ mod scan;
 // `Path`, `Workflow`, `WorkflowScope`, and `precedence` exactly as it did
 // before this module was split into submodules.
 #[cfg(test)]
-use super::ops_types::{Workflow, WorkflowScope};
 #[cfg(test)]
-use collision::precedence;
 #[cfg(test)]
 use std::path::Path;
 

@@ -12,7 +12,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::json;
 
 use super::*;
 use crate::agent::harness::definition::AgentDefinitionRegistry;

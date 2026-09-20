@@ -6,8 +6,8 @@ use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tinyinference_llm::tool::ToolCall;
+use tinytools::Tool;
 use tinytools::ToolResult;
-use tinytools::{Tool, ToolSpec};
 
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {
@@ -27,6 +27,7 @@ fn tool_response(id: &str, name: &str, arguments: serde_json::Value) -> ModelRes
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(id, name, arguments)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
