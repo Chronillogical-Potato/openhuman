@@ -360,7 +360,7 @@ const InstalledServerDetail = ({
                     />
                     <Button
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() => setShowReconfig(prev => ({ ...prev, [key]: !prev[key] }))}
                       disabled={busy}
                       className="shrink-0">

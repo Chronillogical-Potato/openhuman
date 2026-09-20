@@ -540,23 +540,22 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             the provider host up front (from the registry's deployment_url) so
             the user isn't sent on a 401 round-trip just to discover where the
             token comes from, and offers the per-server config assistant. */}
-        {authKind !== 'oauth' && (
-          <div className="space-y-1 rounded-lg border border-line bg-surface-muted px-3 py-2">
-            {endpointHost && (
-              <p className="text-[11px] text-content-secondary">
-                {t('mcp.connectAuth.tokenProvider')}{' '}
-                <Button
-                  variant="tertiary"
-                  size="xs"
-                  onClick={() => void openUrl(providerUrlFromHost(endpointHost))}
-                  title={providerUrlFromHost(endpointHost)}
-                  className="h-auto p-0 align-baseline font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 break-all">
-                  {endpointHost}
-                  <span aria-hidden="true"> ↗</span>
-                </Button>
-              </p>
-            )}
-          </div>
+        {/* Where the token comes from, when the server's endpoint says so.
+            Nothing is rendered otherwise — an empty box reads as something
+            still loading. */}
+        {authKind !== 'oauth' && endpointHost && (
+          <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-[11px] text-content-secondary">
+            {t('mcp.connectAuth.tokenProvider')}{' '}
+            <Button
+              variant="tertiary"
+              size="xs"
+              onClick={() => void openUrl(providerUrlFromHost(endpointHost))}
+              title={providerUrlFromHost(endpointHost)}
+              className="h-auto p-0 align-baseline font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 break-all">
+              {endpointHost}
+              <span aria-hidden="true"> ↗</span>
+            </Button>
+          </p>
         )}
 
         {/* Declared fields — one labelled input per key the server asks for. */}
@@ -624,7 +623,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                   {field.secret && (
                     <Button
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() =>
                         setReveal(prev => ({ ...prev, [field.name]: !prev[field.name] }))
                       }
@@ -688,7 +687,8 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                 </NativeSelect>
                 <Button
                   variant="secondary"
-                  size="xs"
+                  size="sm"
+                  iconOnly
                   onClick={() => removeCustomHeader(h.id)}
                   disabled={busy}
                   aria-label={t('mcp.connectAuth.removeHeader')}
