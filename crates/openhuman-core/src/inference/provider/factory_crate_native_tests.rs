@@ -280,10 +280,10 @@ fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(deepseek_entry("p_ds"));
-    config.chat_provider = Some("deepseek:chat-v1".to_string());
+    config.chat_provider = Some("deepseek:hint:chat".to_string());
 
     let (_model, provider, resolved_model) =
-        create_turn_chat_model_with_native_tools_and_route("chat", &config, "chat-v1", 0.7, true)
+        create_turn_chat_model_with_native_tools_and_route("chat", &config, "hint:chat", 0.7, true)
             .expect("abstract BYOK tier must build");
 
     assert_eq!(provider, "deepseek");
