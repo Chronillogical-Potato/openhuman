@@ -176,7 +176,7 @@ impl ChatModel<()> for ScriptedModel {
             ModelStreamItem::Started,
             ModelStreamItem::Completed(self.pop()),
         ];
-        Ok(Box::pin(futures::stream::iter(items)))
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(items))))
     }
 }
 
@@ -216,6 +216,7 @@ impl Tool for EchoTool {
             }],
             is_error: false,
             markdown_formatted: None,
+            ..ToolResult::default()
         })
     }
 }

@@ -163,8 +163,10 @@ fn no_descriptor_leaves_the_policy_untouched() {
     assert_eq!(scoped.trusted_roots, base.trusted_roots);
 
     // ... and an all-default context with no workspace behaves the same.
-    let ctx: ToolExecutionContext =
-        ToolExecutionContext::from_run_context(&RunContext::new(RunConfig::new("test-run"), ()));
+    let ctx: ToolExecutionContext = ToolExecutionContext::from_run_context(
+        &RunContext::new(RunConfig::new("test-run"), ()),
+        tinyagents_harness::ids::CallId::new("test-call"),
+    );
     let scoped = security_for_tool_context(&base, Some(&ctx), "file_read");
     assert_eq!(scoped.action_dir, base.action_dir);
     assert_eq!(scoped.trusted_roots, base.trusted_roots);
