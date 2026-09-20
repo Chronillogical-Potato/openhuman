@@ -212,6 +212,13 @@ async function setupMockRpc(page: Page, state: MockState) {
               rpcError(id, `\`${name}\` needs a \`url\` (hosted) or a \`command\` (run locally)`)
             );
           }
+          // The store cannot carry a working directory; the real core refuses
+          // the field by name so the user can find it in the text.
+          if ('cwd' in entry) {
+            return route.fulfill(
+              rpcError(id, `\`${name}\` has a \`cwd\` field this host doesn't understand`)
+            );
+          }
           state.installed.push(
             makeInstalledServer({
               server_id: `srv_${name}`,
@@ -351,7 +358,7 @@ test.describe('MCP page — Servers tab', () => {
   });
 
   test('the rows hold nothing from the directory, and nothing installs', async ({ page }) => {
-    await expect(page.locator('text=Install')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Install$/ })).toHaveCount(0);
     await expect(page.locator('text=GitHub Tools')).toHaveCount(0);
   });
 
@@ -427,10 +434,12 @@ test.describe('MCP page — mcp.json tab', () => {
   });
 
   test('a document the core refuses shows its reason and keeps the text', async ({ page }) => {
-    const text = JSON.stringify({ mcpServers: { bad: { args: ['x'] } } });
+    // Passes the editor's own shape check; only the core knows it cannot
+    // carry a `cwd`.
+    const text = JSON.stringify({ mcpServers: { bad: { command: 'x', cwd: '/tmp' } } });
     await page.getByTestId('mcp-json-textarea').fill(text);
     await page.getByTestId('mcp-json-save').click();
-    await expect(page.getByTestId('mcp-json-refusal')).toContainText('`bad` needs a `url`', {
+    await expect(page.getByTestId('mcp-json-refusal')).toContainText('`bad` has a `cwd`', {
       timeout: 5_000,
     });
     expect(await page.getByTestId('mcp-json-textarea').inputValue()).toBe(text);
@@ -465,7 +474,7 @@ test.describe('MCP page — Registry tab', () => {
     for (let i = 0; i < count; i++) {
       await expect(rows.nth(i)).toContainText('Open page');
     }
-    await expect(page.locator('text=Install')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Install$/ })).toHaveCount(0);
   });
 
   test('already-declared servers are excluded from the directory', async ({ page }) => {
