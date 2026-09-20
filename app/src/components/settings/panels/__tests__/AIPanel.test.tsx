@@ -323,23 +323,18 @@ describe('AIPanel', () => {
     expect(screen.getByText(/choose a routing mode below/i)).toBeInTheDocument();
   });
 
-  it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
+  it('shows the per-workload routing tables directly, with no mode selector', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Managed/i })).toBeInTheDocument()
-    );
-    expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
+    expect(screen.queryByRole('radio', { name: /Managed/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Use Your Own Models/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Advanced/i })).toBeNull();
   });
 
   it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
       'Chat',
@@ -769,9 +764,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
 
     renderWithProviders(<AIPanel />);
-    // Per-workload rows live behind the advanced routing mode.
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
@@ -832,7 +825,6 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
@@ -855,54 +847,6 @@ describe('AIPanel', () => {
     await waitFor(() =>
       expect(screen.queryByRole('textbox', { name: /^Model$/i })).not.toBeInTheDocument()
     );
-  });
-
-  it('flags a custom BYOK model as vision-capable via the Own-model selector', async () => {
-    vi.mocked(loadAISettings).mockResolvedValue({
-      ...baseSettings,
-      cloudProviders: [
-        ...baseSettings.cloudProviders,
-        {
-          id: 'p_custom_openai',
-          slug: 'openai',
-          label: 'OpenAI',
-          endpoint: 'https://api.openai.com/v1',
-          auth_style: 'bearer' as const,
-          has_api_key: true,
-        },
-      ],
-    });
-    renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
-
-    // Enter a model id → the per-model "Supports vision" checkbox appears.
-    await openGlobalModelPicker();
-    await selectPickerProvider(/OpenAI/i);
-    const modelInput = await screen.findByPlaceholderText('Enter a model ID');
-    fireEvent.change(modelInput, { target: { value: 'gpt-4o' } });
-    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
-
-    const visionCheckbox = await screen.findByRole('checkbox', { name: /Supports vision/i });
-    expect(visionCheckbox).not.toBeChecked();
-    fireEvent.click(visionCheckbox);
-    expect(visionCheckbox).toBeChecked();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-
-    // The vision flag is threaded through to the registry upsert + persisted.
-    await waitFor(() =>
-      expect(vi.mocked(upsertModelRegistryVision)).toHaveBeenCalledWith(
-        expect.anything(),
-        'openai',
-        'gpt-4o',
-        true
-      )
-    );
-    expect(saveAISettings).toHaveBeenCalled();
   });
 
   // ─── auth_style preservation ────────────────────────────────────────────────
@@ -2050,7 +1994,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2110,7 +2053,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2159,7 +2101,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2201,7 +2142,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
