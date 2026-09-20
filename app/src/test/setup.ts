@@ -96,6 +96,15 @@ function ensureStorage(name: 'localStorage' | 'sessionStorage') {
 ensureStorage('localStorage');
 ensureStorage('sessionStorage');
 
+// Node 24 provides an `Event` constructor on the process global. Radix's
+// deferred focus restoration uses that constructor, but jsdom DOM nodes only
+// accept events created by their own window realm. Keep the global constructor
+// aligned with jsdom so delayed focus-scope cleanup cannot throw after a test
+// has otherwise passed.
+if (typeof window !== 'undefined' && globalThis.Event !== window.Event) {
+  globalThis.Event = window.Event;
+}
+
 // Polyfill window.matchMedia — used by Rive (@rive-app/react-webgl2) and
 // some media-query hooks; not implemented in jsdom.
 if (typeof window.matchMedia === 'undefined') {
