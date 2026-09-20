@@ -4418,8 +4418,8 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Jajak pendapat pekerja memori',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Terkelola',
-  'settings.ai.managedSourceLabel': 'Dikelola oleh OpenHuman',
-  'settings.ai.managedSourceDetail': 'Pemilihan model otomatis',
+  'settings.ai.managedSourceLabel': 'OpenRouter',
+  'settings.ai.managedSourceDetail': 'Dikelola oleh TinyHumans',
   'settings.ai.routing.managedAlwaysOn': 'Selalu aktif',
   'settings.ai.routing.managedHint':
     'Terkelola selalu tersedia sebagai cadangan. Untuk menggunakan model Anda sendiri, pilih mode perutean di bawah.',
@@ -6559,7 +6559,7 @@ const messages: TranslationMap = {
   'settings.ai.picker.subtitle':
     'Cari di antara penyedia yang dikonfigurasi dan model yang tersedia.',
   'settings.ai.picker.useThisModel': 'Gunakan model ini',
-  'settings.ai.picker.searchPlaceholder': 'Cari penyedia dan model',
+  'settings.ai.picker.searchPlaceholder': 'Cari model',
   'settings.ai.picker.providersLabel': 'Penyedia',
   'settings.ai.picker.modelIdPlaceholder': 'Masukkan ID model',
   'settings.ai.picker.managedAutomatic': 'Otomatis (disarankan)',

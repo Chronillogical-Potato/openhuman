@@ -4461,8 +4461,8 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Pesquisas de trabalho de memória',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gerenciadas',
-  'settings.ai.managedSourceLabel': 'Gerenciado pela OpenHuman',
-  'settings.ai.managedSourceDetail': 'Seleção automática de modelo',
+  'settings.ai.managedSourceLabel': 'OpenRouter',
+  'settings.ai.managedSourceDetail': 'Gerenciado pela TinyHumans',
   'settings.ai.routing.managedAlwaysOn': 'Sempre ligado',
   'settings.ai.routing.managedHint':
     'Gerenciado está sempre disponível como alternativa. Para usar seu próprio modelo, escolha um modo de roteamento abaixo.',
@@ -6634,7 +6634,7 @@ const messages: TranslationMap = {
   'settings.ai.picker.subtitle':
     'Pesquise entre os provedores configurados e os modelos disponíveis.',
   'settings.ai.picker.useThisModel': 'Usar este modelo',
-  'settings.ai.picker.searchPlaceholder': 'Pesquisar provedores e modelos',
+  'settings.ai.picker.searchPlaceholder': 'Pesquisar modelos',
   'settings.ai.picker.providersLabel': 'Provedores',
   'settings.ai.picker.modelIdPlaceholder': 'Digite o ID do modelo',
   'settings.ai.picker.managedAutomatic': 'Automático (recomendado)',
