@@ -21,6 +21,7 @@ description = "OpenHuman core business logic and RPC server"
 license.workspace = true
 repository.workspace = true
 readme = "README.md"
+publish = false
 autobins = false
 # build.rs globs tests/raw_coverage/*.rs into the single `raw_coverage_all`
 # integration target (see tests/raw_coverage_all.rs). Those files used to be ~76
