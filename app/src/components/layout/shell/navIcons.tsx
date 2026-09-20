@@ -2,7 +2,6 @@ import type { IconType } from 'react-icons';
 import {
   LuActivity,
   LuBrain,
-  LuGift,
   LuHouse,
   LuKeyboard,
   LuMegaphone,
