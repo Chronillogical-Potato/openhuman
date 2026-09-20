@@ -35,7 +35,7 @@ for one `echo` tool over newline-delimited JSON-RPC on stdin/stdout, exiting
 when stdin closes. `initialize` reports `PROTOCOL_VERSION` (`2025-11-25`).
 Dependency-free beyond `serde_json`. Tests spawn it through
 `env!("CARGO_BIN_EXE_test-mcp-stub")`: `tests/mcp_registry_e2e.rs`,
-`tests/mcp_registry_multi_server.rs`, `tests/mcp_setup_e2e.rs`,
+`tests/mcp_registry_multi_server.rs`,
 `tests/json_rpc_e2e.rs` and
 `tests/raw_coverage/tool_registry_approval_raw_coverage_e2e.rs`.
 

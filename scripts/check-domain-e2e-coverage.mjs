@@ -42,7 +42,7 @@ if (!Number.isFinite(THRESHOLD) || THRESHOLD < 0 || THRESHOLD > 100) {
 //
 // It used to be the scope, and that was the bug. Fifty-odd namespaces —
 // `flows`, `skills`, `skill_runtime`, `webhooks`, `cron`, `subagent`,
-// `mcp_setup`, `workflow_run`, `voice`, `billing`, `team`, … — were never
+// `workflow_run`, `voice`, `billing`, `team`, … — were never
 // measured at any threshold simply because nobody added a line here, and
 // nothing made that visible. A list you must remember to extend is a list that
 // silently stops covering things.

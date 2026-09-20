@@ -240,7 +240,6 @@ context_scout:11076:7349
 skill_executor:9594:7511
 scheduler_agent:9615:7047
 agent_memory:10422:6836
-mcp_setup:10361:5078
 skill_setup:7253:7604
 trigger_reactor:8877:7382
 mcp_agent:8920:4472

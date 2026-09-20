@@ -226,10 +226,6 @@ name = "mcp_registry_multi_server"
 path = "../../tests/mcp_registry_multi_server.rs"
 
 [[test]]
-name = "mcp_setup_e2e"
-path = "../../tests/mcp_setup_e2e.rs"
-
-[[test]]
 name = "mcp_stdio_integration"
 path = "../../tests/mcp_stdio_integration.rs"
 
