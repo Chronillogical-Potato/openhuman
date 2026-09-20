@@ -921,14 +921,17 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn finalize_after_durable_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
-        self.flush_user_autosave().await;
+        if self.flush_user_autosave().await {
+            self.flush_assistant_autosave(receipt.outcome.output.as_deref())
+                .await;
+        }
         self.mirror_transcript_after_commit(receipt);
         self.spawn_transcript_ingestion_after_commit(receipt);
         self.spawn_session_memory_extraction_after_commit(receipt)
             .await;
     }
 
-    async fn flush_user_autosave(&self) {
+    async fn flush_user_autosave(&self) -> bool {
         let message = self
             .mutable
             .lock()
@@ -936,9 +939,20 @@ impl OpenHumanTurnPrelude {
             .pending_user_autosave
             .take();
         let Some(message) = message else {
+            return false;
+        };
+        self.store_autosave_message("user_msg", &message).await
+    }
+
+    async fn flush_assistant_autosave(&self, message: Option<&str>) {
+        let Some(message) = message.filter(|message| !message.trim().is_empty()) else {
             return;
         };
-        let key = format!("user_msg:{}", uuid::Uuid::new_v4());
+        self.store_autosave_message("assistant_msg", message).await;
+    }
+
+    async fn store_autosave_message(&self, kind: &str, message: &str) -> bool {
+        let key = format!("{kind}:{}", uuid::Uuid::new_v4());
         if let Err(error) = self
             .memory
             .store(
@@ -950,9 +964,10 @@ impl OpenHumanTurnPrelude {
             )
             .await
         {
-            log::warn!(
-                "[agent_autosave] durable user-message autosave failed key={key} err={error}"
-            );
+            log::warn!("[agent_autosave] durable message autosave failed kind={kind} key={key} err={error}");
+            false
+        } else {
+            true
         }
     }
 
@@ -1408,6 +1423,7 @@ impl OpenHumanSessionHost {
             self.model_name.clone(),
             self.temperature,
             self.config.max_tool_iterations,
+            self.config.max_history_messages,
             self.model_vision,
             self.run_queue.clone(),
             self.workspace_descriptor.clone(),

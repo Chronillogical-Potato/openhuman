@@ -150,7 +150,16 @@ impl Tool for CanonicalSharedToolAdapter {
             tracing::warn!(tool = %self.name, "[tinyagents] shared tool not found");
             return Ok(ToolResult::error(format!("unknown tool '{}'", self.name)));
         };
-        let result = tool.execute_with_context(args, options, context).await?;
+        // A callable tool's operational failure is input to the agent loop, not
+        // a failure of the harness itself.  Preserve it as an error result so
+        // the model can recover (or explain the failure) on its next round.
+        let result = match tool.execute_with_context(args, options, context).await {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::warn!(tool = %self.name, %error, "[tinyagents] shared tool execution failed");
+                ToolResult::error(format!("{} failed: {error}", self.name))
+            }
+        };
         if !result.is_error {
             if let Some(hook) = &self.early_exit {
                 hook.trigger(&self.name, result.output_for_llm(true));
