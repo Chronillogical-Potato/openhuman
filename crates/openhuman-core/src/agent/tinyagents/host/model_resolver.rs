@@ -113,23 +113,17 @@ const LEAD_DEFAULT_ROLE: &str = "chat";
 
 /// The role a non-lead agent takes when the caller supplied none.
 ///
-/// `chat` is the core's own default workload (`DEFAULT_MODEL` is `chat-v1`), so
+/// `chat` is the core's own default workload, so
 /// an unannotated delegate lands exactly where an unconfigured OpenHuman turn
 /// already lands.
 const SUBAGENT_DEFAULT_ROLE: &str = "chat";
 
-/// Whether `lowered` is a model-tier spelling `role_for_model_tier` recognises,
-/// rather than merely something that ends in `-v1`.
-///
-/// Checks the stem against [`CHAT_WORKLOAD_ROLES`] instead of restating the
-/// factory's tier table, so the two cannot drift. `reasoning-quick-v1` is the
-/// one tier whose stem is not itself a workload role (it rides the chat model),
-/// so it is named explicitly.
+/// Whether `lowered` is a retired tier slug (`reasoning-v1`, …) that
+/// `role_for_model_tier` still recognises as its role, rather than merely
+/// something that ends in `-v1`. Delegates to the config's own legacy table so
+/// this adapter never restates it.
 fn is_known_model_tier(lowered: &str) -> bool {
-    let Some(stem) = lowered.strip_suffix("-v1") else {
-        return false;
-    };
-    stem == "reasoning-quick" || CHAT_WORKLOAD_ROLES.contains(&stem)
+    crate::config::is_legacy_tier_model(lowered)
 }
 
 /// Maps one [`ModelResolveRequest`] onto an OpenHuman workload role.

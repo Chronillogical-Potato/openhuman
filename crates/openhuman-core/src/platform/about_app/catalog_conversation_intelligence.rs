@@ -154,7 +154,7 @@ Capability {
         name: "Vision Sub-agent",
         domain: "agent",
         category: CapabilityCategory::Intelligence,
-        description: "Delegate image / screenshot understanding to a dedicated vision sub-agent — describe, OCR, read charts/diagrams, compare images, or locate UI elements. Rides the multimodal `vision-v1` tier so attached images are always analyzed.",
+        description: "Delegate image / screenshot understanding to a dedicated vision sub-agent — describe, OCR, read charts/diagrams, compare images, or locate UI elements. Rides the vision workload route so attached images are always analyzed.",
         how_to: "Attach an image in chat, or ask the assistant to look at a screenshot / image file",
         status: CapabilityStatus::Beta,
         privacy: IMAGE_TO_BACKEND,

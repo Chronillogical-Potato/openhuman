@@ -47,7 +47,7 @@ const VOICE_AGENT_NAME: &str = "voice";
 /// model pin in `agent/session_host/turn/core.rs`), so tool turns keep working
 /// while spoken replies start in ~1s instead of ~6s. Reasoning models are the
 /// wrong tool for a latency-capped realtime channel.
-const VOICE_MODEL: &str = "chat-v1";
+const VOICE_MODEL: &str = "hint:chat";
 
 /// Spoken-output directive appended to the orchestrator profile so replies read
 /// naturally through TTS instead of as markdown.
