@@ -64,7 +64,7 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
     expect(screen.getByRole('tab', { name: 'Registry' })).toBeInTheDocument();
   });
 
-  it('shows the table header columns on the MCP Servers tab', async () => {
+  it('renders the page header with the rows section beneath it', async () => {
     renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
 
     fireEvent.click(screen.getByTestId('two-pane-nav-mcp'));
@@ -74,9 +74,8 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
       expect(screen.queryByText('Loading MCP servers...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Author')).toBeInTheDocument();
-    expect(screen.getByText('Action')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'MCP Servers' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Installed servers' })).toBeInTheDocument();
   });
 
   it('shows the empty state with a route to mcp.json when nothing is declared', async () => {
