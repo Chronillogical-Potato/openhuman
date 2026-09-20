@@ -206,10 +206,26 @@ fn format_async_subagent_accepted(
     payload_json: &str,
     fleet: &FleetToolSet,
 ) -> String {
-    let guidance = if fleet.can_wait() {
-        "Use the structured reference below to send more input, wait for completion, or perform a          short timeout tick to check status. If the user does not need the result now, continue          without blocking."
-    } else {
-        "Its result is delivered to you automatically on a later turn — you cannot and need not          wait or poll for it (no shell/sleep, no fake status checks). Reply to the user now with          what you know, say the result is on its way, and continue. The structured reference          below lists the only follow-up tools you have for this worker."
+    // Steering and waiting are independent fleet capabilities: a parent can
+    // have `wait_subagent` without `steer_subagent` (or vice versa), so the
+    // guidance text is built from each independently rather than gated
+    // entirely on `can_wait()` — otherwise a wait-only parent is told to
+    // "send more input" through a tool it does not have.
+    let can_send = fleet.has("steer_subagent");
+    let can_wait = fleet.can_wait();
+    let guidance = match (can_send, can_wait) {
+        (true, true) => {
+            "Use the structured reference below to send more input, wait for completion, or perform a          short timeout tick to check status. If the user does not need the result now, continue          without blocking."
+        }
+        (true, false) => {
+            "Use the structured reference below to send more input if needed. You cannot and need not          wait or poll for it (no shell/sleep, no fake status checks); its result is delivered to          you automatically on a later turn. If the user does not need the result now, continue          without blocking."
+        }
+        (false, true) => {
+            "Use the structured reference below to wait for completion or perform a short timeout tick          to check status. If the user does not need the result now, continue without blocking."
+        }
+        (false, false) => {
+            "Its result is delivered to you automatically on a later turn — you cannot and need not          wait or poll for it (no shell/sleep, no fake status checks). Reply to the user now with          what you know, say the result is on its way, and continue. The structured reference          below lists the only follow-up tools you have for this worker."
+        }
     };
     format!(
         "Accepted async sub-agent `{agent_id}`. {guidance}
