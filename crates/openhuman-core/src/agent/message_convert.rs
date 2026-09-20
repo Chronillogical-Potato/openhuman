@@ -400,6 +400,7 @@ pub(crate) fn message_to_chat_message(msg: &Message) -> ChatMessage {
             cm.id = Some(t.tool_call_id.clone());
             cm
         }
+        Message::Custom(_) => ChatMessage::system(msg.text()),
     }
 }
 
@@ -488,6 +489,7 @@ pub(crate) fn message_to_native_chat_message(msg: &Message) -> ChatMessage {
             cm.id = Some(t.tool_call_id.clone());
             cm
         }
+        Message::Custom(_) => ChatMessage::system(msg.text()),
     }
 }
 
@@ -541,6 +543,7 @@ pub(crate) fn messages_to_conversation(messages: &[Message]) -> Vec<Conversation
                     });
                 }
             }
+            Message::Custom(_) => {}
         }
     }
     flush(&mut out, &mut pending);

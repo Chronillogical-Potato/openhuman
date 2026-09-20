@@ -103,7 +103,8 @@ fn git_resolves_cwd_from_workspace_descriptor() {
     let ws =
         WorkspaceDescriptor::new(worktree_tmp.path().to_path_buf()).with_policy_id("test-worktree");
     let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
-    let tool_ctx = ToolExecutionContext::from_run_context(&ctx);
+    let tool_ctx =
+        ToolExecutionContext::from_run_context(&ctx, tinyagents_harness::ids::CallId::new("test"));
     assert_eq!(
         tool.effective_action_dir_for_context(Some(&tool_ctx)),
         worktree_tmp.path().to_path_buf(),

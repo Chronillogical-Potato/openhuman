@@ -62,6 +62,7 @@ async fn close_for_thread(
     CloseSubagentDispatch::new(Arc::new(CloseSubagentTool::new()))
         .execute(
             &(),
+            tinyagents_harness::ids::CallId::new("close-subagent-test"),
             json!({ "subagent_session_id": subagent_session_id }),
             tinytools::ToolCallOptions::default(),
             &run,

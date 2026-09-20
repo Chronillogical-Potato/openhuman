@@ -46,6 +46,7 @@ pub fn tool_result_from_mcp(result: tinymcp_bus::McpToolResult) -> ToolResult {
             .collect(),
         is_error: result.is_error,
         markdown_formatted: result.markdown_formatted,
+        ..ToolResult::default()
     }
 }
 

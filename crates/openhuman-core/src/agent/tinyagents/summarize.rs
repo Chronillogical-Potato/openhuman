@@ -79,6 +79,7 @@ fn role_label(msg: &TaMessage) -> &'static str {
         TaMessage::User(_) => "user",
         TaMessage::Assistant(_) => "assistant",
         TaMessage::Tool(_) => "tool",
+        TaMessage::Custom(_) => "custom",
     }
 }
 

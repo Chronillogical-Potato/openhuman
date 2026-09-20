@@ -477,6 +477,7 @@ impl ChatModel<()> for ParallelHarnessProvider {
                     Message::User(_) => "user",
                     Message::Assistant(_) => "assistant",
                     Message::Tool(_) => "tool",
+                    Message::Custom(_) => "custom",
                 };
                 format!("{role}:{}", message.text())
             })

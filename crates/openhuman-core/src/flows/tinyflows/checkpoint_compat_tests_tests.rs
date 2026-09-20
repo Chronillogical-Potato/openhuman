@@ -38,6 +38,8 @@ async fn reads_a_database_written_by_the_previous_backend() {
 
     let old = tinyagents_graph::SqliteCheckpointer::<serde_json::Value>::open(&db).unwrap();
     let written = tinyagents_graph::Checkpoint {
+        version: 1,
+        created_at: 0,
         thread_id: "flow:f1:run-a".to_string(),
         checkpoint_id: "cp-1".to_string(),
         run_id: Some("run-1".to_string()),
@@ -50,7 +52,13 @@ async fn reads_a_database_written_by_the_previous_backend() {
         interrupts: Vec::new(),
         pending_activations: None,
         barrier_arrivals: Vec::new(),
+        tasks: Vec::new(),
+        completed: Vec::new(),
+        channel_versions: std::collections::BTreeMap::new(),
+        versions_seen: std::collections::BTreeMap::new(),
+        channel_deltas: std::collections::BTreeMap::new(),
         metadata: json!({ "source": "loop", "step": 3 }),
+        completed_routes: Vec::new(),
     };
     LegacyCheckpointer::put(&old, written).await.unwrap();
     drop(old);

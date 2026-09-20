@@ -148,6 +148,7 @@ async fn spawn_from_thread(workspace: &std::path::Path, thread_id: &str) -> tiny
     SpawnWorkerThreadDispatch::new(Arc::new(SpawnWorkerThreadTool::new()))
         .execute(
             &(),
+            tinyagents_harness::ids::CallId::new("spawn-worker-thread-test"),
             json!({
                 "agent_id": "researcher",
                 "prompt": "do it",

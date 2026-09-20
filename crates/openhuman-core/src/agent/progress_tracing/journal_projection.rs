@@ -519,7 +519,8 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         | AgentEvent::BudgetReserved { .. }
         | AgentEvent::BudgetReconciled { .. }
         | AgentEvent::BudgetExceeded { .. }
-        | AgentEvent::LimitReached { .. } => Vec::new(),
+        | AgentEvent::LimitReached { .. }
+        | _ => Vec::new(),
     }
 }
 

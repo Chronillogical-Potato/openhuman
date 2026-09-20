@@ -28,6 +28,7 @@ fn tool_completed(call: &str, name: &str, error: Option<&str>) -> AgentEvent {
         duration_ms: Some(30),
         output_bytes: Some(12),
         error: error.map(str::to_string),
+        metadata: None,
     }
 }
 
