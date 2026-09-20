@@ -349,6 +349,17 @@ export const mcpClientsApi = {
     return Array.isArray(result.servers) ? result.servers : [];
   },
 
+  /** The tools a connected server advertises. Errors when it is not connected. */
+  listTools: async (server_id: string): Promise<McpTool[]> => {
+    log('list_tools server_id=%s', server_id);
+    const result = await callCoreRpc<{ server_id: string; tools: McpTool[] }>({
+      method: 'openhuman.mcp_clients_list_tools',
+      params: { server_id },
+    });
+    log('list_tools returned %d tools', Array.isArray(result.tools) ? result.tools.length : 0);
+    return Array.isArray(result.tools) ? result.tools : [];
+  },
+
   /** Invoke a tool on a connected server. */
   toolCall: async (params: {
     server_id: string;
