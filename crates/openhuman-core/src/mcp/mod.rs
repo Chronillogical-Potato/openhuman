@@ -10,7 +10,7 @@
 //!
 //! - [`host`] — the one `tinymcp` service this process holds, and the
 //!   conversion from this application's configuration into what it takes.
-//! - [`registry`] — the `mcp_clients` and `mcp_setup` RPC surface, the
+//! - [`registry`] — the `mcp_clients` RPC surface, the
 //!   agent-facing tools, and the prompt-injection scan over remote tool
 //!   definitions.
 //! - [`audit`] — the RPC surface over the write-audit log.

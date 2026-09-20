@@ -18,7 +18,7 @@ use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 ///
 /// **What stays out of the module is host policy**, and the split is the same
 /// one the contract's own documentation draws: the prompt-injection scan over
-/// remote tool definitions, the `mcp_clients` / `mcp_setup` RPC surface, the
+/// remote tool definitions, the `mcp_clients` RPC surface, the
 /// agent-facing tools, and the proxy *scoping* decision all belong to this
 /// application's threat model, not to a protocol client. `tinymcp-bus` carries
 /// the vocabulary; this table says which bytes may speak it.
