@@ -4480,6 +4480,10 @@ const messages: TranslationMap = {
     'Wybierz różne modele dla różnych zadań. To najlepsza opcja dla ścisłej optymalizacji kosztów i największej kontroli.',
   'settings.ai.routing.customDesc':
     'Precyzyjny routing zapewnia najlepszą optymalizację kosztów i największą kontrolę. Użyj poniższych wierszy, aby zdecydować, które obciążenia pozostają zarządzane, które używają wspólnej domyślnej ścieżki, a które są przypięte do konkretnego modelu.',
+  'settings.ai.routing.defaultModel': 'Model domyślny',
+  'settings.ai.routing.defaultModelDesc':
+    'Model, na którym działa zarządzana tura czatu. Poniższe obciążenia pozostające w trybie zarządzanym z niego korzystają.',
+  'settings.ai.routing.defaultModelUnset': 'Nie ustawiono',
   'settings.ai.routing.chatAndConversations': 'Czat i rozmowy',
   'settings.ai.routing.chatDesc':
     'Modele używane podczas bezpośredniej interakcji z użytkownikiem, odpowiedzi, rozumowania, pętli agentów i pomocy w kodowaniu.',

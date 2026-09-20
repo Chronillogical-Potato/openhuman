@@ -4435,6 +4435,10 @@ const messages: TranslationMap = {
     'Pilih model yang berbeda untuk tugas yang berbeda. Ini adalah pilihan terbaik untuk optimasi biaya ketat dan kontrol yang paling.',
   'settings.ai.routing.customDesc':
     'Routing halus memberikan optimasi biaya terbaik dan kontrol yang paling. Gunakan baris di bawah ini untuk memutuskan loading kerja mana yang tetap Managed, yang menggunakan nilai baku yang sama, dan pin yang digunakan untuk model tertentu.',
+  'settings.ai.routing.defaultModel': 'Model default',
+  'settings.ai.routing.defaultModelDesc':
+    'Model yang menjalankan giliran obrolan terkelola. Beban kerja di bawah yang tetap terkelola menggunakannya.',
+  'settings.ai.routing.defaultModelUnset': 'Belum diatur',
   'settings.ai.routing.chatAndConversations': 'Obrolan dan Percakapan',
   'settings.ai.routing.chatDesc':
     'Model digunakan selama interaksi pengguna langsung, membalas, penalaran, loop agen, dan bantuan coding.',

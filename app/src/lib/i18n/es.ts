@@ -4489,6 +4489,10 @@ const messages: TranslationMap = {
     'Elige diferentes modelos para diferentes tareas. Esta es la mejor opción para una optimización estricta de costos y el mayor control.',
   'settings.ai.routing.customDesc':
     'El enrutamiento detallado te ofrece la mejor optimización de costos y el mayor control. Usa las filas a continuación para decidir qué cargas de trabajo permanecen gestionadas, cuáles usan tu valor predeterminado compartido y cuáles se asignan a un modelo específico.',
+  'settings.ai.routing.defaultModel': 'Modelo predeterminado',
+  'settings.ai.routing.defaultModelDesc':
+    'El modelo en el que se ejecuta un turno de chat gestionado. Las cargas de trabajo de abajo que sigan gestionadas lo usan.',
+  'settings.ai.routing.defaultModelUnset': 'Sin definir',
   'settings.ai.routing.chatAndConversations': 'Chat y conversaciones',
   'settings.ai.routing.chatDesc':
     'Modelos utilizados durante la interacción directa con el usuario, respuestas, razonamiento, bucles de agentes y ayuda en programación.',

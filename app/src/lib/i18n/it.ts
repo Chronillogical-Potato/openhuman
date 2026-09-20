@@ -4481,6 +4481,10 @@ const messages: TranslationMap = {
     "Scegli modelli diversi per compiti diversi. Questa è l'opzione migliore per un'ottimizzazione dei costi stretta e per avere il massimo controllo.",
   'settings.ai.routing.customDesc':
     'Il routing dettagliato ti offre la migliore ottimizzazione dei costi e il massimo controllo. Usa le righe qui sotto per decidere quali carichi di lavoro rimangono gestiti, quali utilizzano il tuo predefinito condiviso e quali vengono assegnati a un modello specifico.',
+  'settings.ai.routing.defaultModel': 'Modello predefinito',
+  'settings.ai.routing.defaultModelDesc':
+    'Il modello su cui gira un turno di chat gestito. I carichi di lavoro qui sotto che restano gestiti lo usano.',
+  'settings.ai.routing.defaultModelUnset': 'Non impostato',
   'settings.ai.routing.chatAndConversations': 'Chat e conversazioni',
   'settings.ai.routing.chatDesc':
     "Modelli utilizzati durante l'interazione diretta con l'utente, risposte, ragionamento, cicli dell'agente e assistenza alla codifica.",

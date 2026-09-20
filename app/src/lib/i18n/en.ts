@@ -5132,6 +5132,10 @@ const en: TranslationMap = {
     'Pick different models for different tasks. This is the best option for tight cost optimization and the most control.',
   'settings.ai.routing.customDesc':
     'Fine-grained routing gives you the best cost optimization and the most control. Use the rows below to decide which workloads stay Managed, which use your shared default, and which pin to a specific model.',
+  'settings.ai.routing.defaultModel': 'Default model',
+  'settings.ai.routing.defaultModelDesc':
+    'The model a managed chat turn runs on. Workloads below that stay on Managed use it.',
+  'settings.ai.routing.defaultModelUnset': 'Not set',
   'settings.ai.routing.chatAndConversations': 'Chat and Conversations',
   'settings.ai.routing.chatDesc':
     'Models used during direct user interaction, replies, reasoning, agent loops, and coding help.',

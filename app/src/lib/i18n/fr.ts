@@ -4516,6 +4516,10 @@ const messages: TranslationMap = {
     "Choisissez différents modèles pour différentes tâches. C'est la meilleure option pour une optimisation stricte des coûts et le plus de contrôle.",
   'settings.ai.routing.customDesc':
     'Le routage granulaire vous offre la meilleure optimisation des coûts et le plus de contrôle. Utilisez les lignes ci-dessous pour décider quelles charges de travail restent gérées, lesquelles utilisent votre valeur par défaut partagée, et lesquelles sont attribuées à un modèle spécifique.',
+  'settings.ai.routing.defaultModel': 'Modèle par défaut',
+  'settings.ai.routing.defaultModelDesc':
+    "Le modèle sur lequel s'exécute un tour de chat géré. Les charges de travail ci-dessous restées gérées l'utilisent.",
+  'settings.ai.routing.defaultModelUnset': 'Non défini',
   'settings.ai.routing.chatAndConversations': 'Chat et conversations',
   'settings.ai.routing.chatDesc':
     "Modèles utilisés lors de l'interaction directe avec l'utilisateur, des réponses, du raisonnement, des boucles d'agents et de l'aide à la programmation.",

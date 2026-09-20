@@ -4538,6 +4538,10 @@ const messages: TranslationMap = {
     'Wählen Sie verschiedene Modelle für verschiedene Aufgaben. Dies ist die beste Option für eine enge Kostenoptimierung und die beste Kontrolle.',
   'settings.ai.routing.customDesc':
     'Feinkörniges Routing gibt Ihnen die beste Kostenoptimierung und die meiste Kontrolle. Verwenden Sie die folgenden Zeilen, um zu entscheiden, welche Workloads verwaltet bleiben, welche Ihren freigegebenen Standard verwenden und welche an ein bestimmtes Modell angeheftet sind.',
+  'settings.ai.routing.defaultModel': 'Standardmodell',
+  'settings.ai.routing.defaultModelDesc':
+    'Das Modell, auf dem ein verwalteter Chat-Turn läuft. Unten stehende Workloads, die verwaltet bleiben, nutzen es.',
+  'settings.ai.routing.defaultModelUnset': 'Nicht gesetzt',
   'settings.ai.routing.chatAndConversations': 'Chat und Gespräche',
   'settings.ai.routing.chatDesc':
     'Modelle, die während der direkten Benutzerinteraktion verwendet werden, Antworten, Argumentation, Agentenschleifen und Codierungshilfe.',

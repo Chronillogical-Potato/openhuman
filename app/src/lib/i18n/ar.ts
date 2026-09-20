@@ -4309,6 +4309,10 @@ const messages: TranslationMap = {
     'اختر نماذج مختلفة لمهام مختلفة وهذا هو أفضل خيار لتحقيق أقصى قدر من التكاليف والتحكم فيها.',
   'settings.ai.routing.customDesc':
     'التمرين الجيد يعطيك أفضل تكلفة و التحكم استخدم الصفوف الواردة أدناه لتحديد حجم العمل الذي يبقى جاهزاً والذي يستخدم عجزك المشترك والذي يلصق بنموذج محدد',
+  'settings.ai.routing.defaultModel': 'النموذج الافتراضي',
+  'settings.ai.routing.defaultModelDesc':
+    'النموذج الذي تعمل عليه محادثة مُدارة. أعباء العمل أدناه التي تبقى مُدارة تستخدمه.',
+  'settings.ai.routing.defaultModelUnset': 'غير محدد',
   'settings.ai.routing.chatAndConversations': 'الدردشة والمحادثات',
   'settings.ai.routing.chatDesc':
     'النماذج المستخدمة أثناء التفاعل المباشر للمستعملين، والردود، والتفسير، وحلقات العملاء، والمساعدة في التدوين.',

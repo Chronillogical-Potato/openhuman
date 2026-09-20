@@ -39,6 +39,7 @@ import {
 import { BackgroundLoopControls } from './ai/BackgroundLoopControls';
 import { CloudProviderEditor } from './ai/CloudProviderEditor';
 import { CustomRoutingDialog } from './ai/CustomRoutingDialog';
+import { DefaultModelRow } from './ai/DefaultModelRow';
 import { ProviderAuthSection } from './ai/ProviderAuthSection';
 import { ProviderKeyDialog } from './ai/ProviderConnectControls';
 import { SaveBar } from './ai/SaveBar';
@@ -260,6 +261,10 @@ const AIPanel = ({
                   <WorkloadTable
                     title={t('settings.ai.routing.chatAndConversations')}
                     description={t('settings.ai.routing.chatDesc')}>
+                    <DefaultModelRow
+                      value={draft.defaultModel}
+                      onChange={model => persist({ ...draft, defaultModel: model })}
+                    />
                     {chatRows.map(w => (
                       <WorkloadRow
                         key={w.id}

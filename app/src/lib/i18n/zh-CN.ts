@@ -4158,6 +4158,10 @@ const messages: TranslationMap = {
     '为不同任务选择不同模型。这是严格成本优化和最大控制力的最佳选项。',
   'settings.ai.routing.customDesc':
     '细粒度路由可提供最佳成本优化和最高控制力。使用下方各行决定哪些工作负载保持托管、哪些使用共享默认值、哪些固定到特定模型。',
+  'settings.ai.routing.defaultModel': '默认模型',
+  'settings.ai.routing.defaultModelDesc':
+    '托管聊天回合所使用的模型。下方保持托管的工作负载会使用它。',
+  'settings.ai.routing.defaultModelUnset': '未设置',
   'settings.ai.routing.chatAndConversations': '聊天和对话',
   'settings.ai.routing.chatDesc': '用于直接用户交互、回复、推理、智能体循环和编码帮助的模型。',
   'settings.ai.routing.backgroundTasks': '后台任务',

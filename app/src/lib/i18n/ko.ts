@@ -4367,6 +4367,10 @@ const messages: TranslationMap = {
     '작업별로 다른 모델을 선택합니다. 세밀한 비용 최적화와 최대 제어에 가장 적합한 옵션입니다.',
   'settings.ai.routing.customDesc':
     '세분화된 라우팅은 최고의 비용 최적화와 가장 많은 제어권을 제공합니다. 아래 행에서 관리형으로 유지할 워크로드, 공유 기본값을 사용할 워크로드, 특정 모델에 고정할 워크로드를 결정하세요.',
+  'settings.ai.routing.defaultModel': '기본 모델',
+  'settings.ai.routing.defaultModelDesc':
+    '관리형 채팅 턴이 실행되는 모델입니다. 아래에서 관리형으로 유지되는 워크로드가 이를 사용합니다.',
+  'settings.ai.routing.defaultModelUnset': '설정 안 됨',
   'settings.ai.routing.chatAndConversations': '채팅 및 대화',
   'settings.ai.routing.chatDesc':
     '직접 사용자 상호작용, 답변, 추론, 에이전트 루프 및 코딩 도움에 사용되는 모델입니다.',

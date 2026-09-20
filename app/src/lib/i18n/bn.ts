@@ -4416,6 +4416,10 @@ const messages: TranslationMap = {
     'ভিন্ন কাজের জন্য বিভিন্ন মডেল নির্বাচন করুন। এটা হচ্ছে সবচেয়ে ভালো উপায় যে, খরচ কমানোর জন্য সব থেকে বেশী খরচ করা যায়।',
   'settings.ai.routing.customDesc':
     'ফাইন-গ্রান্টিং আপনার জন্য সবচেয়ে ভাল দাম এবং সর্বোচ্চ ক্ষমতা দেয়. নীচে যে সারি ব্যবহার করা হবে তা নির্ধারণ করুন ।',
+  'settings.ai.routing.defaultModel': 'ডিফল্ট মডেল',
+  'settings.ai.routing.defaultModelDesc':
+    'পরিচালিত চ্যাট টার্ন যে মডেলে চলে। নিচের যেসব কাজ পরিচালিত থাকে সেগুলো এটি ব্যবহার করে।',
+  'settings.ai.routing.defaultModelUnset': 'সেট করা নেই',
   'settings.ai.routing.chatAndConversations': 'চ্যাট এবং কথোপকথন',
   'settings.ai.routing.chatDesc':
     'সরাসরি ব্যবহারকারী যোগাযোগ, উত্তর, যুক্তি, এজেন্ট লুপ এবং কোড সাহায্য করার সময় ব্যবহার করা হয়েছে।',
