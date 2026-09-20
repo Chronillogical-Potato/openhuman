@@ -16,7 +16,6 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import Button from '../../ui/Button';
 import InstalledServerDetail from './InstalledServerDetail';
-import McpConnectionHealthToolbar from './McpConnectionHealthToolbar';
 import McpJsonEditor from './McpJsonEditor';
 import McpRegistryBrowser from './McpRegistryBrowser';
 import McpServerRows from './McpServerRows';
@@ -148,34 +147,6 @@ const McpServersTab = ({ tab, onTabChange }: McpServersTabProps) => {
     await fetchStatuses();
   }, [loadInstalled, fetchStatuses]);
 
-  // Bulk lifecycle actions for the health toolbar. One failure doesn't abort the
-  // batch (allSettled), and we always refresh status so the dots reflect reality
-  // — but if any call rejected we then throw so the toolbar can surface the
-  // failure (otherwise a partial/total failure would look like success).
-  const handleReconnectAll = useCallback(
-    async (serverIds: string[]) => {
-      log('reconnect all: %o', serverIds);
-      const results = await Promise.allSettled(serverIds.map(id => mcpClientsApi.connect(id)));
-      await fetchStatuses();
-      if (results.some(r => r.status === 'rejected')) {
-        throw new Error(t('mcp.health.opErrorGeneric'));
-      }
-    },
-    [fetchStatuses, t]
-  );
-
-  const handleDisconnectAll = useCallback(
-    async (serverIds: string[]) => {
-      log('disconnect all: %o', serverIds);
-      const results = await Promise.allSettled(serverIds.map(id => mcpClientsApi.disconnect(id)));
-      await fetchStatuses();
-      if (results.some(r => r.status === 'rejected')) {
-        throw new Error(t('mcp.health.opErrorGeneric'));
-      }
-    },
-    [fetchStatuses, t]
-  );
-
   const selectedServer =
     view.mode === 'detail' ? (servers.find(s => s.server_id === view.serverId) ?? null) : null;
   const selectedConnStatus =
@@ -244,16 +215,6 @@ const McpServersTab = ({ tab, onTabChange }: McpServersTabProps) => {
           className="rounded-md border border-coral-500/30 bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
           {loadError}
         </p>
-      )}
-
-      {/* Connection health + bulk lifecycle actions. Reads the polled statuses
-          — no extra fetches. */}
-      {statuses.length > 0 && (
-        <McpConnectionHealthToolbar
-          statuses={statuses}
-          onReconnect={handleReconnectAll}
-          onDisconnect={handleDisconnectAll}
-        />
       )}
 
       <McpServerRows
