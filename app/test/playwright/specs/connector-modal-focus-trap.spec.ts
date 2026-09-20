@@ -36,12 +36,7 @@ const SERVER_NAME = 'pw-focus-trap';
  */
 async function declareVehicleServer(keyName: string): Promise<void> {
   await callCoreRpc('openhuman.mcp_clients_config_set', {
-    mcpServers: {
-      [SERVER_NAME]: {
-        command: '/bin/false',
-        env: { [keyName]: 'seed' },
-      },
-    },
+    mcpServers: { [SERVER_NAME]: { command: '/bin/false', env: { [keyName]: 'seed' } } },
   });
 }
 
