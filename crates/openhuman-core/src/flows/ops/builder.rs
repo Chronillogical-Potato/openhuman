@@ -43,6 +43,26 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
     req.validate()?;
 
     let prompt = render_prompt(&req);
+    if matches!(
+        req.mode,
+        crate::flows::agents::workflow_builder::builder_prompt::BuildMode::Repair
+    ) {
+        if let Some(assistant_text) = req.error.as_deref().and_then(backend_repair_message) {
+            if let Some(target) = &stream {
+                finalize_flow_stream(target, &Ok(assistant_text.clone()), &prompt).await;
+            }
+            return Ok(RpcOutcome::single_log(
+                json!({
+                    "proposal": Value::Null,
+                    "assistant_text": assistant_text,
+                    "error": Value::Null,
+                    "capped": false,
+                    "trail_off": false,
+                }),
+                "workflow repair skipped because the run failed in an external service",
+            ));
+        }
+    }
     tracing::info!(
         target: "flows",
         mode = ?req.mode,
@@ -472,4 +492,62 @@ pub(crate) fn start_builder_turn_clean(agent: &mut crate::agent::OpenHumanSessio
         suppress_transcript_autoload: true,
         ..Default::default()
     });
+}
+
+fn is_backend_or_infrastructure_failure(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    [
+        "backend returned",
+        "internal server error",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+        "connection refused",
+        "connection reset",
+        "connection timed out",
+        "timed out",
+        "timeout",
+        "transport error",
+        "bucket does not exist",
+        "http 5",
+        "status 5",
+        "5xx",
+    ]
+    .iter()
+    .any(|marker| error.contains(marker))
+}
+
+fn backend_repair_message(error: &str) -> Option<String> {
+    is_backend_or_infrastructure_failure(error).then(|| {
+        format!(
+            "The workflow was not changed because this run failed in an external service.\n\n{error}"
+        )
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{backend_repair_message, is_backend_or_infrastructure_failure};
+
+    #[test]
+    fn classifies_backend_failure_without_classifying_graph_errors() {
+        assert!(is_backend_or_infrastructure_failure(
+            "File upload failed: Backend returned 500 Internal Server Error"
+        ));
+        assert!(is_backend_or_infrastructure_failure(
+            "connection timed out while calling file storage"
+        ));
+        assert!(!is_backend_or_infrastructure_failure(
+            "required argument resolved null: nodes.get_link.item.json.url"
+        ));
+    }
+
+    #[test]
+    fn backend_repair_message_explains_why_the_graph_was_preserved() {
+        let message = backend_repair_message("HTTP 503 from file storage").unwrap();
+
+        assert!(message.contains("workflow was not changed"));
+        assert!(message.contains("HTTP 503 from file storage"));
+        assert!(backend_repair_message("required argument resolved null").is_none());
+    }
 }
