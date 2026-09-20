@@ -18,7 +18,9 @@ import {
   Check,
   ChevronRight,
   Info,
+  Pencil,
   Plug,
+  Plus,
   Power,
   PowerOff,
   Server,
@@ -35,6 +37,7 @@ import Card from '../../ui/Card';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import ConnectAuthModal from './ConnectAuthModal';
 import McpIconButton from './McpIconButton';
+import McpServerForm from './McpServerForm';
 import type { ConnStatus, InstalledServer, ServerStatus } from './types';
 
 interface McpServerRowsProps {
@@ -92,6 +95,23 @@ const McpServerRows = ({
   const [error, setError] = useState<string | null>(null);
   const [connectFor, setConnectFor] = useState<InstalledServer | null>(null);
   const [removeFor, setRemoveFor] = useState<InstalledServer | null>(null);
+  // `null` closed, `undefined` adding, a server editing.
+  const [form, setForm] = useState<InstalledServer | null | undefined>(null);
+
+  // The form wrote the document; the rows re-read it. A server saved with
+  // browser sign-in is then opened straight into the connect dialog, which
+  // runs the sign-in — the form cannot, because it needs the server's id.
+  const handleFormSaved = useCallback(
+    async (name: string, { signIn }: { signIn: boolean }) => {
+      setForm(null);
+      await onChanged();
+      if (!signIn) return;
+      const fresh = await mcpClientsApi.installedList();
+      const saved = fresh.find(s => s.qualified_name === name);
+      if (saved) setConnectFor(saved);
+    },
+    [onChanged]
+  );
 
   const run = useCallback(
     async (serverId: string, task: () => Promise<void>) => {
@@ -114,9 +134,19 @@ const McpServerRows = ({
 
   return (
     <section className="space-y-3" data-testid="mcp-servers-section">
-      <h2 className="text-xs font-medium uppercase tracking-wide text-content-muted">
-        {t('mcp.rows.title')}
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-content-muted">
+          {t('mcp.rows.title')}
+        </h2>
+        <Button
+          variant="primary"
+          size="sm"
+          leadingIcon={<Plus className="size-4" aria-hidden="true" />}
+          onClick={() => setForm(undefined)}
+          data-testid="mcp-add-server">
+          {t('mcp.rows.add')}
+        </Button>
+      </div>
       <p className="text-sm text-content-muted">{t('mcp.rows.intro')}</p>
 
       {error && (
@@ -131,9 +161,18 @@ const McpServerRows = ({
         {servers.length === 0 ? (
           <div className="space-y-2" data-testid="mcp-installed-empty">
             <p className="text-sm text-content-muted">{t('mcp.installed.empty')}</p>
-            <Button variant="tertiary" size="xs" onClick={onAddInJson} className="h-auto p-0">
-              {t('mcp.installed.emptyAddInJson')}
-            </Button>
+            <p className="flex items-center gap-3">
+              <Button
+                variant="tertiary"
+                size="xs"
+                onClick={() => setForm(undefined)}
+                className="h-auto p-0">
+                {t('mcp.rows.add')}
+              </Button>
+              <Button variant="tertiary" size="xs" onClick={onAddInJson} className="h-auto p-0">
+                {t('mcp.installed.emptyAddInJson')}
+              </Button>
+            </p>
           </div>
         ) : (
           <ul className="divide-y divide-line-subtle">
@@ -249,6 +288,13 @@ const McpServerRows = ({
                         }
                       />
                       <McpIconButton
+                        label={t('mcp.rows.edit').replace('{name}', server.display_name)}
+                        icon={Pencil}
+                        testId="mcp-edit"
+                        disabled={busy !== null}
+                        onClick={() => setForm(server)}
+                      />
+                      <McpIconButton
                         label={t('mcp.rows.remove').replace('{name}', server.display_name)}
                         icon={Trash2}
                         tone="destructive"
@@ -267,6 +313,14 @@ const McpServerRows = ({
           </ul>
         )}
       </Card>
+
+      {form !== null && (
+        <McpServerForm
+          existing={form ?? undefined}
+          onClose={() => setForm(null)}
+          onSaved={(name, opts) => void handleFormSaved(name, opts)}
+        />
+      )}
 
       {connectFor && (
         <ConnectAuthModal

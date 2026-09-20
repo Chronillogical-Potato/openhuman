@@ -257,7 +257,7 @@ const McpServerForm = ({ existing, onClose, onSaved }: McpServerFormProps) => {
           <Label htmlFor={`${titleId}-transport`}>{t('mcp.form.transport')}</Label>
           <NativeSelect
             id={`${titleId}-transport`}
-            selectSize="sm"
+            inputSize="sm"
             value={transport}
             onChange={e => setTransport(e.target.value as Transport)}
             data-testid="mcp-form-transport">
@@ -361,7 +361,7 @@ const McpServerForm = ({ existing, onClose, onSaved }: McpServerFormProps) => {
               <Label htmlFor={`${titleId}-auth`}>{t('mcp.form.auth')}</Label>
               <NativeSelect
                 id={`${titleId}-auth`}
-                selectSize="sm"
+                inputSize="sm"
                 value={authMode}
                 onChange={e => setAuthMode(e.target.value as AuthMode)}
                 data-testid="mcp-form-auth">
