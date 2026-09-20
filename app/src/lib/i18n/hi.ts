@@ -1668,7 +1668,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'यह फ़ाइल अभी सेव नहीं की जा सकती',
   'mcp.json.unsaved': 'असहेजे बदलाव',
   'mcp.registry.title': 'MCP निर्देशिका',
-  'mcp.tab.section.servers': 'सर्वर ({count})',
+  'mcp.tab.section.servers': 'सर्वर',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'रजिस्ट्री',
   'mcp.tab.back': 'सर्वर पर वापस जाएँ',

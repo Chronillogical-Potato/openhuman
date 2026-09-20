@@ -1723,7 +1723,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'Diese Datei kann noch nicht gespeichert werden',
   'mcp.json.unsaved': 'Ungespeicherte Änderungen',
   'mcp.registry.title': 'MCP-Verzeichnis',
-  'mcp.tab.section.servers': 'Server ({count})',
+  'mcp.tab.section.servers': 'Server',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'Verzeichnis',
   'mcp.tab.back': 'Zurück zu den Servern',

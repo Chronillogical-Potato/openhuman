@@ -1860,7 +1860,7 @@ const en: TranslationMap = {
   'mcp.json.invalidTitle': "This file can't be saved yet",
   'mcp.json.unsaved': 'Unsaved changes',
   'mcp.registry.title': 'MCP directory',
-  'mcp.tab.section.servers': 'Servers ({count})',
+  'mcp.tab.section.servers': 'Servers',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'Registry',
   'mcp.tab.back': 'Back to servers',

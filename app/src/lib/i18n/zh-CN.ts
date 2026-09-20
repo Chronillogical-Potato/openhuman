@@ -1570,7 +1570,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': '此文件尚无法保存',
   'mcp.json.unsaved': '有未保存的更改',
   'mcp.registry.title': 'MCP 目录',
-  'mcp.tab.section.servers': '服务器 ({count})',
+  'mcp.tab.section.servers': '服务器',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': '注册表',
   'mcp.tab.back': '返回服务器列表',

@@ -1668,7 +1668,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'এই ফাইলটি এখনো সেভ করা যাবে না',
   'mcp.json.unsaved': 'অসংরক্ষিত পরিবর্তন',
   'mcp.registry.title': 'MCP ডিরেক্টরি',
-  'mcp.tab.section.servers': 'সার্ভার ({count})',
+  'mcp.tab.section.servers': 'সার্ভার',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'রেজিস্ট্রি',
   'mcp.tab.back': 'সার্ভারে ফিরে যান',

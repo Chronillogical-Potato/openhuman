@@ -1632,7 +1632,7 @@ const messages: TranslationMap = {
   'mcp.json.invalidTitle': 'لا يمكن حفظ هذا الملف بعد',
   'mcp.json.unsaved': 'تغييرات غير محفوظة',
   'mcp.registry.title': 'دليل MCP',
-  'mcp.tab.section.servers': 'الخوادم ({count})',
+  'mcp.tab.section.servers': 'الخوادم',
   'mcp.tab.section.json': 'mcp.json',
   'mcp.tab.section.registry': 'السجل',
   'mcp.tab.back': 'العودة إلى الخوادم',
