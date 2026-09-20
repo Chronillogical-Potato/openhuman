@@ -410,7 +410,7 @@ export function ProviderModelPickerDialog({
               mode={modelEntryMode}
               model={model}
               onModelChange={setModel}
-              catalog={catalog}
+              catalog={visibleCatalog}
               catalogLoading={loading}
               catalogError={catalogError}
               onRetry={() => setCatalogRequest(request => request + 1)}
