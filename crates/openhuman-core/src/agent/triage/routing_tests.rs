@@ -24,7 +24,7 @@ fn build_remote_provider_managed_uses_backend_id_and_chat_tier() {
     let config = test_config();
     let resolved = build_remote_provider(&config).expect("remote provider should build");
     assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
-    assert_eq!(resolved.model, crate::config::MODEL_CHAT_V1);
+    assert_eq!(resolved.model, crate::config::MODEL_MANAGED_DEFAULT);
     assert!(!resolved.used_local, "used_local is always false");
 }
 

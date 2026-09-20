@@ -548,7 +548,7 @@ fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
             .expect("configured OpenhumanJwt slug should be recognized")
             .expect("managed model should build");
 
-    assert_eq!(model_id, crate::config::MODEL_SUMMARIZATION_V1);
+    assert_eq!(model_id, crate::config::MODEL_MANAGED_DEFAULT);
 }
 
 #[test]
