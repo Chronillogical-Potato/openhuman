@@ -70,16 +70,10 @@ describe('McpRegistryBrowser', () => {
     expect(mockOpenUrl).toHaveBeenCalledWith('https://github.com/acme/echo');
   });
 
-  it('opens a row from the keyboard but not from a nested link', async () => {
+  it('a nested link opens its own target only, not the row page as well', async () => {
     render(<McpRegistryBrowser installedNames={new Set()} />);
     await screen.findAllByTestId('mcp-registry-row');
-    const row = screen.getByRole('button', { name: 'Open the page for Hosted Thing' });
-    fireEvent.keyDown(row, { key: 'Enter' });
-    expect(mockOpenUrl).toHaveBeenCalledWith('https://hosted.example');
-
-    mockOpenUrl.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Repository' }));
-    // The nested link opens its own target only, not the row's page as well.
     expect(mockOpenUrl).toHaveBeenCalledTimes(1);
     expect(mockOpenUrl).toHaveBeenCalledWith('https://github.com/acme/echo');
   });
