@@ -12,7 +12,7 @@ import ChannelConfigPanel from '../ChannelConfigPanel';
 
 // McpServersTab is a heavy async component — mock it so ChannelConfigPanel
 // tests stay focused on the routing logic (line 16 branch).
-vi.mock('../mcp/McpServersTab', () => ({
+vi.mock('../mcp/McpServersPage', () => ({
   default: () => <div data-testid="mcp-servers-tab">MCP Servers Tab</div>,
 }));
 
