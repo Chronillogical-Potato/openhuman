@@ -769,10 +769,10 @@ export function handleLlmCompletions(ctx) {
  * Two deliberately different shapes behind one path, because that distinction
  * is the whole point of the feature:
  *
- *   * **no `catalog` param** → only the curated tier list (`chat-v1`,
- *     `reasoning-v1`, …), bare OpenAI-compatible entries with no display name
- *     and no pricing. This is the legacy payload the client saw before the
- *     OpenRouter passthrough existed.
+ *   * **no `catalog` param** → only the managed default model as a bare
+ *     OpenAI-compatible entry with no display name and no pricing. This is
+ *     the legacy-shaped payload the client saw before the OpenRouter
+ *     passthrough existed (it used to list the retired `chat-v1`-style tiers).
  *   * **`?catalog=openrouter`** → the passthrough catalog: `openrouter/<author>/<slug>`
  *     ids, each with `name` and `pricing.{inputPer1M,outputPer1M}` so the picker
  *     can label by name and charged price rather than a bare slug.
@@ -783,11 +783,19 @@ export function handleLlmCompletions(ctx) {
  * pre-feature behaviour (no select) rather than showing an error.
  */
 const MANAGED_TIER_MODELS = [
-  { id: "chat-v1", object: "model", owned_by: "openhuman" },
-  { id: "reasoning-v1", object: "model", owned_by: "openhuman" },
+  { id: "openrouter/deepseek/deepseek-v4-flash", object: "model", owned_by: "openhuman" },
 ];
 
 const MANAGED_OPENROUTER_CATALOG = [
+  {
+    // The managed default model, so a picker that opens on it finds its row.
+    id: "openrouter/deepseek/deepseek-v4-flash",
+    object: "model",
+    owned_by: "openrouter",
+    name: "DeepSeek V4 Flash",
+    context_window: 1000000,
+    pricing: { inputPer1M: 0.0886, outputPer1M: 0.1772 },
+  },
   {
     id: "openrouter/nex-agi/nex-n2.5-mini",
     object: "model",
