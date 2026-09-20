@@ -1605,7 +1605,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'تعديل {name}',
   'mcp.form.addTitle': 'إضافة خادم MCP',
   'mcp.form.editTitle': 'تعديل {name}',
-  'mcp.form.subtitle': 'أمر محلي أو نقطة نهاية بعيدة، مع ما يلزمه للمصادقة. يُكتب في ملف mcp.json الخاص بك.',
+  'mcp.form.subtitle':
+    'أمر محلي أو نقطة نهاية بعيدة، مع ما يلزمه للمصادقة. يُكتب في ملف mcp.json الخاص بك.',
   'mcp.form.name': 'الاسم',
   'mcp.form.nameHint': 'أحرف وأرقام ونقاط وشرطات. هذا هو المفتاح في mcp.json.',
   'mcp.form.transport': 'النقل',

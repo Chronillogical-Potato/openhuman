@@ -48,9 +48,7 @@ describe('McpServerForm', () => {
     fireEvent.change(screen.getByTestId('mcp-form-args'), {
       target: { value: '-y @modelcontextprotocol/server-github' },
     });
-    fireEvent.change(screen.getByLabelText('Variable name'), {
-      target: { value: 'GITHUB_TOKEN' },
-    });
+    fireEvent.change(screen.getByLabelText('Variable name'), { target: { value: 'GITHUB_TOKEN' } });
     fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'ghp_x' } });
     expect(screen.getByTestId('mcp-form-save')).toBeEnabled();
     fireEvent.click(screen.getByTestId('mcp-form-save'));

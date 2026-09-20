@@ -1833,7 +1833,8 @@ const en: TranslationMap = {
   'mcp.rows.edit': 'Edit {name}',
   'mcp.form.addTitle': 'Add MCP server',
   'mcp.form.editTitle': 'Edit {name}',
-  'mcp.form.subtitle': 'A local command or a remote endpoint, with what it needs to authenticate. Written to your mcp.json.',
+  'mcp.form.subtitle':
+    'A local command or a remote endpoint, with what it needs to authenticate. Written to your mcp.json.',
   'mcp.form.name': 'Name',
   'mcp.form.nameHint': 'Letters, digits, dots, dashes. This is the key in mcp.json.',
   'mcp.form.transport': 'Transport',
@@ -1860,7 +1861,8 @@ const en: TranslationMap = {
   'mcp.form.tokenHint': 'Sent as Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Header name',
   'mcp.form.headerValue': 'Header value',
-  'mcp.form.oauthHint': 'After saving, your browser opens the server’s sign-in page; the connection completes when you return.',
+  'mcp.form.oauthHint':
+    'After saving, your browser opens the server’s sign-in page; the connection completes when you return.',
   'mcp.form.add': 'Add server',
   'mcp.form.save': 'Save',
   'mcp.form.saveAndSignIn': 'Save & sign in',

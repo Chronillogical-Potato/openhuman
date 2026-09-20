@@ -1677,7 +1677,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Editar {name}',
   'mcp.form.addTitle': 'Añadir servidor MCP',
   'mcp.form.editTitle': 'Editar {name}',
-  'mcp.form.subtitle': 'Un comando local o un endpoint remoto, con lo que necesita para autenticarse. Se escribe en tu mcp.json.',
+  'mcp.form.subtitle':
+    'Un comando local o un endpoint remoto, con lo que necesita para autenticarse. Se escribe en tu mcp.json.',
   'mcp.form.name': 'Nombre',
   'mcp.form.nameHint': 'Letras, dígitos, puntos, guiones. Es la clave en mcp.json.',
   'mcp.form.transport': 'Transporte',
@@ -1687,7 +1688,8 @@ const messages: TranslationMap = {
   'mcp.form.args': 'Argumentos',
   'mcp.form.argsHint': 'Separados por espacios; entrecomilla un argumento que contenga espacios.',
   'mcp.form.env': 'Variables de entorno',
-  'mcp.form.envHint': 'Se pasan al comando. Los valores se guardan cifrados y no se vuelven a mostrar.',
+  'mcp.form.envHint':
+    'Se pasan al comando. Los valores se guardan cifrados y no se vuelven a mostrar.',
   'mcp.form.envKey': 'Nombre de la variable',
   'mcp.form.envValue': 'Valor',
   'mcp.form.value': 'Valor',
@@ -1704,7 +1706,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Se envía como Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Nombre de la cabecera',
   'mcp.form.headerValue': 'Valor de la cabecera',
-  'mcp.form.oauthHint': 'Tras guardar, el navegador abre la página de inicio de sesión del servidor; la conexión se completa al volver.',
+  'mcp.form.oauthHint':
+    'Tras guardar, el navegador abre la página de inicio de sesión del servidor; la conexión se completa al volver.',
   'mcp.form.add': 'Añadir servidor',
   'mcp.form.save': 'Guardar',
   'mcp.form.saveAndSignIn': 'Guardar e iniciar sesión',

@@ -1695,7 +1695,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Modifier {name}',
   'mcp.form.addTitle': 'Ajouter un serveur MCP',
   'mcp.form.editTitle': 'Modifier {name}',
-  'mcp.form.subtitle': 'Une commande locale ou un point de terminaison distant, avec ce qu’il lui faut pour s’authentifier. Écrit dans votre mcp.json.',
+  'mcp.form.subtitle':
+    'Une commande locale ou un point de terminaison distant, avec ce qu’il lui faut pour s’authentifier. Écrit dans votre mcp.json.',
   'mcp.form.name': 'Nom',
   'mcp.form.nameHint': 'Lettres, chiffres, points, tirets. C’est la clé dans mcp.json.',
   'mcp.form.transport': 'Transport',
@@ -1703,9 +1704,11 @@ const messages: TranslationMap = {
   'mcp.form.transportHttp': 'URL distante (HTTP)',
   'mcp.form.command': 'Commande',
   'mcp.form.args': 'Arguments',
-  'mcp.form.argsHint': 'Séparés par des espaces ; mettez entre guillemets un argument contenant des espaces.',
+  'mcp.form.argsHint':
+    'Séparés par des espaces ; mettez entre guillemets un argument contenant des espaces.',
   'mcp.form.env': 'Variables d’environnement',
-  'mcp.form.envHint': 'Transmises à la commande. Les valeurs sont stockées chiffrées et ne sont plus jamais affichées.',
+  'mcp.form.envHint':
+    'Transmises à la commande. Les valeurs sont stockées chiffrées et ne sont plus jamais affichées.',
   'mcp.form.envKey': 'Nom de la variable',
   'mcp.form.envValue': 'Valeur',
   'mcp.form.value': 'Valeur',
@@ -1722,7 +1725,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Envoyé en Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Nom de l’en-tête',
   'mcp.form.headerValue': 'Valeur de l’en-tête',
-  'mcp.form.oauthHint': 'Après l’enregistrement, votre navigateur ouvre la page de connexion du serveur ; la connexion se termine à votre retour.',
+  'mcp.form.oauthHint':
+    'Après l’enregistrement, votre navigateur ouvre la page de connexion du serveur ; la connexion se termine à votre retour.',
   'mcp.form.add': 'Ajouter le serveur',
   'mcp.form.save': 'Enregistrer',
   'mcp.form.saveAndSignIn': 'Enregistrer et se connecter',

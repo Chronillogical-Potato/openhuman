@@ -1654,7 +1654,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Sunting {name}',
   'mcp.form.addTitle': 'Tambah server MCP',
   'mcp.form.editTitle': 'Sunting {name}',
-  'mcp.form.subtitle': 'Perintah lokal atau endpoint jarak jauh, beserta yang dibutuhkan untuk autentikasi. Ditulis ke mcp.json Anda.',
+  'mcp.form.subtitle':
+    'Perintah lokal atau endpoint jarak jauh, beserta yang dibutuhkan untuk autentikasi. Ditulis ke mcp.json Anda.',
   'mcp.form.name': 'Nama',
   'mcp.form.nameHint': 'Huruf, angka, titik, tanda hubung. Ini kunci di mcp.json.',
   'mcp.form.transport': 'Transport',
@@ -1664,7 +1665,8 @@ const messages: TranslationMap = {
   'mcp.form.args': 'Argumen',
   'mcp.form.argsHint': 'Dipisahkan spasi; beri tanda kutip pada argumen yang mengandung spasi.',
   'mcp.form.env': 'Variabel lingkungan',
-  'mcp.form.envHint': 'Diteruskan ke perintah. Nilai disimpan terenkripsi dan tidak pernah ditampilkan lagi.',
+  'mcp.form.envHint':
+    'Diteruskan ke perintah. Nilai disimpan terenkripsi dan tidak pernah ditampilkan lagi.',
   'mcp.form.envKey': 'Nama variabel',
   'mcp.form.envValue': 'Nilai',
   'mcp.form.value': 'Nilai',
@@ -1681,7 +1683,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Dikirim sebagai Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Nama header',
   'mcp.form.headerValue': 'Nilai header',
-  'mcp.form.oauthHint': 'Setelah disimpan, browser Anda membuka halaman masuk server; koneksi selesai saat Anda kembali.',
+  'mcp.form.oauthHint':
+    'Setelah disimpan, browser Anda membuka halaman masuk server; koneksi selesai saat Anda kembali.',
   'mcp.form.add': 'Tambah server',
   'mcp.form.save': 'Simpan',
   'mcp.form.saveAndSignIn': 'Simpan & masuk',

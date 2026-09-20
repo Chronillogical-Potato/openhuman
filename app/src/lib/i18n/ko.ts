@@ -1627,7 +1627,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': '{name} 편집',
   'mcp.form.addTitle': 'MCP 서버 추가',
   'mcp.form.editTitle': '{name} 편집',
-  'mcp.form.subtitle': '로컬 명령 또는 원격 엔드포인트와 인증에 필요한 정보입니다. mcp.json에 기록됩니다.',
+  'mcp.form.subtitle':
+    '로컬 명령 또는 원격 엔드포인트와 인증에 필요한 정보입니다. mcp.json에 기록됩니다.',
   'mcp.form.name': '이름',
   'mcp.form.nameHint': '문자, 숫자, 점, 대시. mcp.json의 키입니다.',
   'mcp.form.transport': '전송 방식',
@@ -1654,7 +1655,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Authorization: Bearer <token> 형식으로 전송됩니다.',
   'mcp.form.headerName': '헤더 이름',
   'mcp.form.headerValue': '헤더 값',
-  'mcp.form.oauthHint': '저장 후 브라우저에서 서버의 로그인 페이지가 열리며, 돌아오면 연결이 완료됩니다.',
+  'mcp.form.oauthHint':
+    '저장 후 브라우저에서 서버의 로그인 페이지가 열리며, 돌아오면 연결이 완료됩니다.',
   'mcp.form.add': '서버 추가',
   'mcp.form.save': '저장',
   'mcp.form.saveAndSignIn': '저장 후 로그인',

@@ -1662,7 +1662,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Изменить {name}',
   'mcp.form.addTitle': 'Добавить MCP-сервер',
   'mcp.form.editTitle': 'Изменить {name}',
-  'mcp.form.subtitle': 'Локальная команда или удалённая конечная точка и то, что нужно для аутентификации. Записывается в ваш mcp.json.',
+  'mcp.form.subtitle':
+    'Локальная команда или удалённая конечная точка и то, что нужно для аутентификации. Записывается в ваш mcp.json.',
   'mcp.form.name': 'Имя',
   'mcp.form.nameHint': 'Буквы, цифры, точки, дефисы. Это ключ в mcp.json.',
   'mcp.form.transport': 'Транспорт',
@@ -1672,7 +1673,8 @@ const messages: TranslationMap = {
   'mcp.form.args': 'Аргументы',
   'mcp.form.argsHint': 'Через пробел; аргумент с пробелами возьмите в кавычки.',
   'mcp.form.env': 'Переменные окружения',
-  'mcp.form.envHint': 'Передаются команде. Значения хранятся в зашифрованном виде и больше не показываются.',
+  'mcp.form.envHint':
+    'Передаются команде. Значения хранятся в зашифрованном виде и больше не показываются.',
   'mcp.form.envKey': 'Имя переменной',
   'mcp.form.envValue': 'Значение',
   'mcp.form.value': 'Значение',
@@ -1689,7 +1691,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Отправляется как Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Имя заголовка',
   'mcp.form.headerValue': 'Значение заголовка',
-  'mcp.form.oauthHint': 'После сохранения браузер откроет страницу входа сервера; подключение завершится, когда вы вернётесь.',
+  'mcp.form.oauthHint':
+    'После сохранения браузер откроет страницу входа сервера; подключение завершится, когда вы вернётесь.',
   'mcp.form.add': 'Добавить сервер',
   'mcp.form.save': 'Сохранить',
   'mcp.form.saveAndSignIn': 'Сохранить и войти',

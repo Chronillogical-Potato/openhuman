@@ -1695,17 +1695,21 @@ const messages: TranslationMap = {
   'mcp.rows.edit': '{name} bearbeiten',
   'mcp.form.addTitle': 'MCP-Server hinzufügen',
   'mcp.form.editTitle': '{name} bearbeiten',
-  'mcp.form.subtitle': 'Ein lokaler Befehl oder ein entfernter Endpunkt, mit dem, was er zur Authentifizierung braucht. Wird in deine mcp.json geschrieben.',
+  'mcp.form.subtitle':
+    'Ein lokaler Befehl oder ein entfernter Endpunkt, mit dem, was er zur Authentifizierung braucht. Wird in deine mcp.json geschrieben.',
   'mcp.form.name': 'Name',
-  'mcp.form.nameHint': 'Buchstaben, Ziffern, Punkte, Bindestriche. Das ist der Schlüssel in mcp.json.',
+  'mcp.form.nameHint':
+    'Buchstaben, Ziffern, Punkte, Bindestriche. Das ist der Schlüssel in mcp.json.',
   'mcp.form.transport': 'Transport',
   'mcp.form.transportStdio': 'Lokaler Befehl (stdio)',
   'mcp.form.transportHttp': 'Entfernte URL (HTTP)',
   'mcp.form.command': 'Befehl',
   'mcp.form.args': 'Argumente',
-  'mcp.form.argsHint': 'Durch Leerzeichen getrennt; ein Argument mit Leerzeichen in Anführungszeichen setzen.',
+  'mcp.form.argsHint':
+    'Durch Leerzeichen getrennt; ein Argument mit Leerzeichen in Anführungszeichen setzen.',
   'mcp.form.env': 'Umgebungsvariablen',
-  'mcp.form.envHint': 'Werden an den Befehl übergeben. Werte werden verschlüsselt gespeichert und nie wieder angezeigt.',
+  'mcp.form.envHint':
+    'Werden an den Befehl übergeben. Werte werden verschlüsselt gespeichert und nie wieder angezeigt.',
   'mcp.form.envKey': 'Variablenname',
   'mcp.form.envValue': 'Wert',
   'mcp.form.value': 'Wert',
@@ -1722,7 +1726,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Wird als Authorization: Bearer <token> gesendet.',
   'mcp.form.headerName': 'Header-Name',
   'mcp.form.headerValue': 'Header-Wert',
-  'mcp.form.oauthHint': 'Nach dem Speichern öffnet dein Browser die Anmeldeseite des Servers; die Verbindung wird hergestellt, sobald du zurückkehrst.',
+  'mcp.form.oauthHint':
+    'Nach dem Speichern öffnet dein Browser die Anmeldeseite des Servers; die Verbindung wird hergestellt, sobald du zurückkehrst.',
   'mcp.form.add': 'Server hinzufügen',
   'mcp.form.save': 'Speichern',
   'mcp.form.saveAndSignIn': 'Speichern & anmelden',

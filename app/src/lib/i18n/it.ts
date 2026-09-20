@@ -1679,7 +1679,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Modifica {name}',
   'mcp.form.addTitle': 'Aggiungi server MCP',
   'mcp.form.editTitle': 'Modifica {name}',
-  'mcp.form.subtitle': 'Un comando locale o un endpoint remoto, con ciò che serve per autenticarsi. Scritto nel tuo mcp.json.',
+  'mcp.form.subtitle':
+    'Un comando locale o un endpoint remoto, con ciò che serve per autenticarsi. Scritto nel tuo mcp.json.',
   'mcp.form.name': 'Nome',
   'mcp.form.nameHint': 'Lettere, cifre, punti, trattini. È la chiave in mcp.json.',
   'mcp.form.transport': 'Trasporto',
@@ -1687,9 +1688,11 @@ const messages: TranslationMap = {
   'mcp.form.transportHttp': 'URL remoto (HTTP)',
   'mcp.form.command': 'Comando',
   'mcp.form.args': 'Argomenti',
-  'mcp.form.argsHint': 'Separati da spazi; racchiudi tra virgolette un argomento che contiene spazi.',
+  'mcp.form.argsHint':
+    'Separati da spazi; racchiudi tra virgolette un argomento che contiene spazi.',
   'mcp.form.env': 'Variabili d’ambiente',
-  'mcp.form.envHint': 'Passate al comando. I valori sono memorizzati cifrati e non vengono più mostrati.',
+  'mcp.form.envHint':
+    'Passate al comando. I valori sono memorizzati cifrati e non vengono più mostrati.',
   'mcp.form.envKey': 'Nome della variabile',
   'mcp.form.envValue': 'Valore',
   'mcp.form.value': 'Valore',
@@ -1706,7 +1709,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Inviato come Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Nome dell’header',
   'mcp.form.headerValue': 'Valore dell’header',
-  'mcp.form.oauthHint': 'Dopo il salvataggio il browser apre la pagina di accesso del server; la connessione si completa al tuo ritorno.',
+  'mcp.form.oauthHint':
+    'Dopo il salvataggio il browser apre la pagina di accesso del server; la connessione si completa al tuo ritorno.',
   'mcp.form.add': 'Aggiungi server',
   'mcp.form.save': 'Salva',
   'mcp.form.saveAndSignIn': 'Salva e accedi',

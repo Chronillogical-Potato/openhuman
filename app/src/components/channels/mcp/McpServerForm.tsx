@@ -206,7 +206,11 @@ const McpServerForm = ({ existing, onClose, onSaved }: McpServerFormProps) => {
     <ModalShell
       onClose={onClose}
       titleId={titleId}
-      title={editing ? t('mcp.form.editTitle').replace('{name}', existing.display_name) : t('mcp.form.addTitle')}
+      title={
+        editing
+          ? t('mcp.form.editTitle').replace('{name}', existing.display_name)
+          : t('mcp.form.addTitle')
+      }
       subtitle={t('mcp.form.subtitle')}
       maxWidthClassName="max-w-lg"
       contentClassName="space-y-4 p-5"

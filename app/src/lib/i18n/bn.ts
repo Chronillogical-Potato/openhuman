@@ -1641,7 +1641,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': '{name} সম্পাদনা করুন',
   'mcp.form.addTitle': 'MCP সার্ভার যোগ করুন',
   'mcp.form.editTitle': '{name} সম্পাদনা করুন',
-  'mcp.form.subtitle': 'একটি স্থানীয় কমান্ড বা দূরবর্তী এন্ডপয়েন্ট, এবং প্রমাণীকরণের জন্য যা দরকার। আপনার mcp.json-এ লেখা হয়।',
+  'mcp.form.subtitle':
+    'একটি স্থানীয় কমান্ড বা দূরবর্তী এন্ডপয়েন্ট, এবং প্রমাণীকরণের জন্য যা দরকার। আপনার mcp.json-এ লেখা হয়।',
   'mcp.form.name': 'নাম',
   'mcp.form.nameHint': 'অক্ষর, সংখ্যা, বিন্দু, ড্যাশ। এটি mcp.json-এর কী।',
   'mcp.form.transport': 'ট্রান্সপোর্ট',
@@ -1651,7 +1652,8 @@ const messages: TranslationMap = {
   'mcp.form.args': 'আর্গুমেন্ট',
   'mcp.form.argsHint': 'স্পেস দিয়ে আলাদা করুন; স্পেসযুক্ত আর্গুমেন্ট উদ্ধৃতি চিহ্নে রাখুন।',
   'mcp.form.env': 'এনভায়রনমেন্ট ভেরিয়েবল',
-  'mcp.form.envHint': 'কমান্ডে পাঠানো হয়। মান এনক্রিপ্ট করে সংরক্ষিত হয় এবং আর কখনো দেখানো হয় না।',
+  'mcp.form.envHint':
+    'কমান্ডে পাঠানো হয়। মান এনক্রিপ্ট করে সংরক্ষিত হয় এবং আর কখনো দেখানো হয় না।',
   'mcp.form.envKey': 'ভেরিয়েবলের নাম',
   'mcp.form.envValue': 'মান',
   'mcp.form.value': 'মান',
@@ -1668,7 +1670,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Authorization: Bearer <token> হিসেবে পাঠানো হয়।',
   'mcp.form.headerName': 'হেডারের নাম',
   'mcp.form.headerValue': 'হেডারের মান',
-  'mcp.form.oauthHint': 'সেভ করার পর আপনার ব্রাউজারে সার্ভারের সাইন-ইন পেজ খুলবে; ফিরে এলে সংযোগ সম্পূর্ণ হবে।',
+  'mcp.form.oauthHint':
+    'সেভ করার পর আপনার ব্রাউজারে সার্ভারের সাইন-ইন পেজ খুলবে; ফিরে এলে সংযোগ সম্পূর্ণ হবে।',
   'mcp.form.add': 'সার্ভার যোগ করুন',
   'mcp.form.save': 'সেভ করুন',
   'mcp.form.saveAndSignIn': 'সেভ করে সাইন ইন করুন',

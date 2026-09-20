@@ -1669,7 +1669,8 @@ const messages: TranslationMap = {
   'mcp.rows.edit': 'Edytuj {name}',
   'mcp.form.addTitle': 'Dodaj serwer MCP',
   'mcp.form.editTitle': 'Edytuj {name}',
-  'mcp.form.subtitle': 'Lokalne polecenie lub zdalny punkt końcowy wraz z tym, czego potrzebuje do uwierzytelnienia. Zapisywane w twoim mcp.json.',
+  'mcp.form.subtitle':
+    'Lokalne polecenie lub zdalny punkt końcowy wraz z tym, czego potrzebuje do uwierzytelnienia. Zapisywane w twoim mcp.json.',
   'mcp.form.name': 'Nazwa',
   'mcp.form.nameHint': 'Litery, cyfry, kropki, myślniki. To klucz w mcp.json.',
   'mcp.form.transport': 'Transport',
@@ -1679,7 +1680,8 @@ const messages: TranslationMap = {
   'mcp.form.args': 'Argumenty',
   'mcp.form.argsHint': 'Rozdzielone spacjami; argument zawierający spacje ujmij w cudzysłów.',
   'mcp.form.env': 'Zmienne środowiskowe',
-  'mcp.form.envHint': 'Przekazywane do polecenia. Wartości są zapisywane zaszyfrowane i nigdy nie są ponownie wyświetlane.',
+  'mcp.form.envHint':
+    'Przekazywane do polecenia. Wartości są zapisywane zaszyfrowane i nigdy nie są ponownie wyświetlane.',
   'mcp.form.envKey': 'Nazwa zmiennej',
   'mcp.form.envValue': 'Wartość',
   'mcp.form.value': 'Wartość',
@@ -1696,7 +1698,8 @@ const messages: TranslationMap = {
   'mcp.form.tokenHint': 'Wysyłany jako Authorization: Bearer <token>.',
   'mcp.form.headerName': 'Nazwa nagłówka',
   'mcp.form.headerValue': 'Wartość nagłówka',
-  'mcp.form.oauthHint': 'Po zapisaniu przeglądarka otworzy stronę logowania serwera; połączenie zostanie nawiązane po powrocie.',
+  'mcp.form.oauthHint':
+    'Po zapisaniu przeglądarka otworzy stronę logowania serwera; połączenie zostanie nawiązane po powrocie.',
   'mcp.form.add': 'Dodaj serwer',
   'mcp.form.save': 'Zapisz',
   'mcp.form.saveAndSignIn': 'Zapisz i zaloguj',
