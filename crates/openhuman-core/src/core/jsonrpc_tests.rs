@@ -594,7 +594,6 @@ fn http_schema_dump_includes_openhuman_and_core_methods() {
             .any(|m| m.method == "openhuman.health_snapshot"),
         "schema dump should include migrated openhuman methods"
     );
-
 }
 
 // --- helper coverage -----------------------------------------------------

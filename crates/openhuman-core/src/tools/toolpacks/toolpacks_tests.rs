@@ -591,10 +591,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "storage_get_link",
             ],
         ),
-        (
-            "scheduling",
-            &["schedule_task", "cron"],
-        ),
+        ("scheduling", &["schedule_task", "cron"]),
         (
             "profile",
             &[
