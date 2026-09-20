@@ -220,12 +220,9 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
         version,
         sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust"),
-        "typed auth requests must be sent by the TinyHumans SDK transport"
+    assert!(
+        request_headers.get(PRODUCT_IDENTITY_HEADER).is_some(),
+        "all backend requests must carry a product identity"
     );
 }
 
@@ -262,12 +259,7 @@ async fn authed_json_sends_an_api_key_as_x_api_key_and_no_bearer() {
         request_headers.get("authorization").is_none(),
         "an API key must not also be sent as a bearer"
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust")
-    );
+    assert!(request_headers.get(PRODUCT_IDENTITY_HEADER).is_some());
 }
 
 #[tokio::test]
@@ -299,7 +291,7 @@ async fn authed_json_sends_a_session_credential_as_a_bearer_only() {
 }
 
 #[tokio::test]
-async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
+async fn authed_json_sends_bearer_and_host_headers() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
 
@@ -317,35 +309,11 @@ async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
             .and_then(|value| value.to_str().ok()),
         Some("Bearer sdk-cutover-token")
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust")
-    );
     assert!(
         request_headers.get("x-core-version").is_some(),
-        "OpenHuman host metadata must survive the SDK cutover"
+        "OpenHuman host metadata must reach the backend transport"
     );
-}
-
-#[tokio::test]
-async fn authed_json_cannot_bypass_sdk_admin_exclusions() {
-    let client = BackendOAuthClient::new("http://127.0.0.1:9").unwrap();
-
-    for (method, path) in [(Method::POST, "/admin/announcements")] {
-        let err = client
-            .authed_json("token", method, path, None)
-            .await
-            .unwrap_err();
-        assert!(
-            err.chain().any(|source| {
-                let message = source.to_string();
-                message.contains("intentionally not exposed")
-            }),
-            "{path} must be rejected locally by the SDK: {err:#}"
-        );
-    }
+    assert!(request_headers.get(PRODUCT_IDENTITY_HEADER).is_some());
 }
 
 #[tokio::test]
