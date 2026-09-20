@@ -114,8 +114,6 @@ const modelChip = (page: Page): Locator =>
 const pickerTitle = (page: Page): Locator => page.getByText('Choose provider and model');
 const managedOption = (page: Page, id: string): Locator =>
   page.getByTestId(`model-picker-managed-option-${id}`);
-const managedAutomatic = (page: Page): Locator =>
-  page.getByTestId('model-picker-managed-automatic');
 
 /**
  * Open the picker and land on the managed source's pane.
@@ -198,7 +196,7 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
 
     // The round trip: reopen and the list still marks the pinned id.
     // `selectionFromValue` decoded a bare id (no `:`) to null, so the selection
-    // was silently dropped here and the pane reopened on "Automatic".
+    // was silently dropped here and the pane reopened with nothing selected.
     await openManagedPane(page);
     await expect(
       managedOption(page, PLAIN_ID),

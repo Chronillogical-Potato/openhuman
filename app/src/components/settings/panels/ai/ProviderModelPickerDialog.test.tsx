@@ -237,7 +237,9 @@ describe('ProviderModelPickerDialog', () => {
 
     const order = screen
       .getAllByRole('option')
-      .map(option => option.getAttribute('data-testid')?.replace('model-picker-managed-option-', ''));
+      .map(option =>
+        option.getAttribute('data-testid')?.replace('model-picker-managed-option-', '')
+      );
     // Case-insensitive, and an unnamed entry sorts by its id.
     expect(order).toEqual(['openrouter/b/beta', 'openrouter/a/no-name', 'openrouter/z/zeta']);
   });
