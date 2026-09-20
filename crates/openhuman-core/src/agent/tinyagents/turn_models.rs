@@ -596,3 +596,7 @@ impl TurnModelSource {
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 }
+
+#[cfg(test)]
+#[path = "turn_models_tests.rs"]
+mod tests;
