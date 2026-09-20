@@ -70,7 +70,11 @@ pub fn run(config: &mut Config) -> anyhow::Result<MigrationStats> {
         );
     }
     for (id, delegate) in config.agents.iter_mut() {
-        rewrite(&format!("agents.{id}.model"), &mut delegate.model, &mut stats);
+        rewrite(
+            &format!("agents.{id}.model"),
+            &mut delegate.model,
+            &mut stats,
+        );
     }
     for route in config.model_routes.iter_mut() {
         rewrite(

@@ -57,9 +57,7 @@ fn leaves_concrete_ids_hints_and_empty_values_alone() {
     let mut config = Config::default();
     config.default_model = Some("openrouter/deepseek/deepseek-v4-pro".to_string());
     config.orchestrator.model = Some("hint:reasoning".to_string());
-    config
-        .agents
-        .insert("byok".to_string(), delegate("gpt-4o"));
+    config.agents.insert("byok".to_string(), delegate("gpt-4o"));
 
     let stats = run(&mut config).expect("migration runs");
 

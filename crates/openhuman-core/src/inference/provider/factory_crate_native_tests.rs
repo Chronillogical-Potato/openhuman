@@ -144,8 +144,7 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         .await
         .expect("explicit-temperature invoke");
 
-    let turn_model =
-        create_turn_chat_model("chat", &config, "hint:chat", 0.2).expect("turn model");
+    let turn_model = create_turn_chat_model("chat", &config, "hint:chat", 0.2).expect("turn model");
     turn_model
         .invoke(&(), ModelRequest::new(vec![Message::user("turn default")]))
         .await

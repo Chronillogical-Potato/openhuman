@@ -191,7 +191,10 @@ fn route_fallback_policy_matches_legacy_chains() {
         (ROUTE_REASONING, Some(&[ROUTE_REASONING, ROUTE_AGENTIC])),
         (ROUTE_AGENTIC, Some(&[ROUTE_AGENTIC, ROUTE_REASONING])),
         (ROUTE_CODING, Some(&[ROUTE_CODING, ROUTE_AGENTIC])),
-        (ROUTE_SUMMARIZATION, Some(&[ROUTE_SUMMARIZATION, ROUTE_CHAT])),
+        (
+            ROUTE_SUMMARIZATION,
+            Some(&[ROUTE_SUMMARIZATION, ROUTE_CHAT]),
+        ),
         // Vision is primary-only (an image_in gate no text route can satisfy).
         (ROUTE_VISION, None),
         // A concrete model id installs no chain — including the managed

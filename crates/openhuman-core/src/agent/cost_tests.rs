@@ -25,7 +25,13 @@ fn lookup_pricing_maps_role_aliases_and_retired_tiers_onto_the_default() {
     // Old cost records and `hint:*` routes ran on the managed default; they
     // must price from its row, not via the $3/$15 fallback, which would inflate
     // cost and could trip budget gates.
-    for model in ["hint:chat", "hint:burst", "burst-v1", "vision-v1", "reasoning-v1"] {
+    for model in [
+        "hint:chat",
+        "hint:burst",
+        "burst-v1",
+        "vision-v1",
+        "reasoning-v1",
+    ] {
         let p = lookup_pricing(model);
         assert_eq!(p.model, FLASH, "{model} must price as the managed default");
     }

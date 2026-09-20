@@ -83,9 +83,9 @@ fn model_spec_resolve_vision_hint_yields_the_vision_alias() {
     // alias — which `oh_tier_supports_vision` reports as image-capable.
     let spec = ModelSpec::Hint("vision".into());
     assert_eq!(spec.resolve("parent-model"), "hint:vision");
-    assert!(crate::inference::provider::factory::oh_tier_supports_vision(
-        &spec.resolve("parent-model")
-    ));
+    assert!(
+        crate::inference::provider::factory::oh_tier_supports_vision(&spec.resolve("parent-model"))
+    );
 }
 
 #[test]

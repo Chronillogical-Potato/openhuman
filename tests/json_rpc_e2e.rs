@@ -4230,7 +4230,10 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
         ("hint:agentic", "openrouter/deepseek/deepseek-v4-flash"),
         ("hint:coding", "openrouter/deepseek/deepseek-v4-flash"),
         ("reasoning-v1", "openrouter/deepseek/deepseek-v4-flash"),
-        ("openrouter/deepseek/deepseek-v4-pro", "openrouter/deepseek/deepseek-v4-pro"),
+        (
+            "openrouter/deepseek/deepseek-v4-pro",
+            "openrouter/deepseek/deepseek-v4-pro",
+        ),
         // Web chat forwards lightweight hint overrides as-is for this path,
         // so the upstream model receives the original hint string.
         ("hint:reaction", "hint:reaction"),

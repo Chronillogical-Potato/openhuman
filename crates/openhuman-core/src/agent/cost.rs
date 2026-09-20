@@ -76,7 +76,8 @@ const LEGACY_TIER_ROWS: &[&str] = &crate::config::LEGACY_TIER_MODELS;
 /// local model names — is a custom/BYO-provider model. Used by trace exporters
 /// to stamp model provenance (`gen_ai.provider` = "managed" | "custom").
 pub(crate) fn is_managed_tier(model: &str) -> bool {
-    crate::platform::cost::route::route_for_model(model) == crate::platform::cost::route::CostRoute::Managed
+    crate::platform::cost::route::route_for_model(model)
+        == crate::platform::cost::route::CostRoute::Managed
         || model.trim().starts_with("hint:")
 }
 

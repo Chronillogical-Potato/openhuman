@@ -43,7 +43,10 @@ fn resolver() -> TurnModelResolver {
     let primary: Arc<dyn ChatModel<()>> =
         Arc::new(NamedModel("openrouter/deepseek/deepseek-v4.1-flash"));
     let mut routes: HashMap<String, Arc<dyn ChatModel<()>>> = HashMap::new();
-    routes.insert("hint:coding".to_string(), Arc::new(NamedModel("hint:coding")));
+    routes.insert(
+        "hint:coding".to_string(),
+        Arc::new(NamedModel("hint:coding")),
+    );
     routes.insert("hint:burst".to_string(), Arc::new(NamedModel("hint:burst")));
     TurnModelResolver::new(primary, routes)
 }
