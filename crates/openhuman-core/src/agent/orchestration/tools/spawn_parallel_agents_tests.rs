@@ -648,6 +648,43 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
                     }
                 }
             }
+            ConversationMessage::Chat(message) if message.role == "assistant" => {
+                if message.content.contains("spawn_parallel_agents") {
+                    saw_parallel_call = true;
+                }
+            }
+            ConversationMessage::Chat(message) if message.role == "tool" => {
+                let content = serde_json::from_str::<serde_json::Value>(&message.content)
+                    .ok()
+                    .and_then(|envelope| {
+                        envelope
+                            .get("content")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_else(|| message.content.clone());
+                if !content.contains("\"parallel_agents\"") {
+                    continue;
+                }
+                saw_parallel_result = true;
+                let payload: serde_json::Value =
+                    serde_json::from_str(&content).expect("parallel tool result json");
+                assert_eq!(payload["parallel_agents"]["succeeded"], 2);
+                assert_eq!(payload["parallel_agents"]["failed"], 0);
+
+                let results = payload["parallel_agents"]["results"]
+                    .as_array()
+                    .expect("parallel results array");
+                assert_eq!(results.len(), 2);
+                for item in results {
+                    assert_eq!(item["success"], true);
+                    iterations.push(
+                        item["iterations"]
+                            .as_u64()
+                            .expect("parallel result iterations"),
+                    );
+                }
+            }
             _ => {}
         }
     }
