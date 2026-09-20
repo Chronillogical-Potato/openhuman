@@ -9,6 +9,7 @@
 # off so a stray file beside this manifest can never become a target here.
 [package]
 name = "openhuman"
+publish = false
 version.workspace = true
 edition.workspace = true
 description = "OpenHuman core business logic and RPC server"
