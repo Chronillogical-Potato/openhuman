@@ -5,22 +5,49 @@ use tinyflows::graph::Checkpointer;
 use tinyflows_sqlite::checkpoint::SqliteCheckpointer;
 
 /// The reason this file exists. The port is a retarget of the backend
-/// `tinyagents` shipped, and the two must agree on the bytes on disk: an
-/// existing `<workspace>/flows/checkpoints.db` is read and written by this
-/// code after the upgrade, and a divergence would surface as an interrupted
-/// flow that cannot resume — at the worst possible moment, on a user's
-/// machine, with the run already half-done.
+/// `tinyagents` shipped, and an existing `<workspace>/flows/checkpoints.db`
+/// written by that backend is read and written by this code after the
+/// upgrade; a divergence would surface as an interrupted flow that cannot
+/// resume — at the worst possible moment, on a user's machine, with the run
+/// already half-done.
 ///
-/// Comparing the DDL is the cheapest total statement of that: same tables,
-/// same columns, same primary keys, same indexes.
+/// The two schemas were byte-identical at the port. `tinyagents-graph` has
+/// since grown its own copy (a `format_version` / `created_at` column pair and
+/// a `thread_leases` table for its execution leases), so byte-equality is no
+/// longer the contract. What still must hold is that every table and index
+/// the ported schema creates is also created, with the same name, by the
+/// backend it replaced — the ported reader only ever touches those.
 #[test]
-fn schema_is_identical_to_the_backend_it_replaced() {
-    assert_eq!(
-        SqliteCheckpointer::<serde_json::Value>::schema_sql(),
-        tinyagents_graph::SqliteCheckpointer::<serde_json::Value>::schema_sql(),
-        "the ported schema drifted from the tinyagents backend that wrote every \
-     checkpoints.db in the field — an existing database would stop resuming"
+fn ported_schema_objects_all_exist_in_the_backend_it_replaced() {
+    let ported = SqliteCheckpointer::<serde_json::Value>::schema_sql();
+    let backend = tinyagents_graph::SqliteCheckpointer::<serde_json::Value>::schema_sql();
+    let objects = |ddl: &str| -> Vec<String> {
+        ddl.lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("CREATE "))
+            .map(|line| {
+                line.split_whitespace()
+                    .skip_while(|word| *word != "EXISTS")
+                    .nth(1)
+                    .unwrap_or_default()
+                    .to_string()
+            })
+            .collect()
+    };
+    let ported_objects = objects(&ported);
+    let backend_objects = objects(&backend);
+    assert!(
+        !ported_objects.is_empty(),
+        "no CREATE statements parsed from:\n{ported}"
     );
+    for object in &ported_objects {
+        assert!(
+            backend_objects.contains(object),
+            "the ported schema creates `{object}`, which the tinyagents backend that \
+             wrote every checkpoints.db in the field does not — an existing database \
+             would stop resuming"
+        );
+    }
 }
 
 /// A database written by the backend this replaced must be readable here, and
