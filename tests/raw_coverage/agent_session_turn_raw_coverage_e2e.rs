@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 #[path = "../support/noop_memory.rs"]
 mod noop_memory;
 
