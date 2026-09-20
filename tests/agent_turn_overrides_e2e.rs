@@ -231,7 +231,7 @@ fn agent_with(
     model: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     workspace_path: PathBuf,
-    dispatcher: Box<dyn openhuman_core::tinytools_agent::dialect::ToolDialect>,
+    dispatcher: Box<dyn tinytools_agent::dialect::ToolDialect>,
 ) -> OpenHumanSessionHost {
     OpenHumanSessionHost::builder()
         .chat_model(model)

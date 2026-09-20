@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::OpenHumanSessionHost;
-use openhuman_core::tinytools_agent::dialect::NativeDialect;
+use tinytools_agent::dialect::NativeDialect;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use parking_lot::Mutex;
