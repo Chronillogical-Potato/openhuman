@@ -416,7 +416,10 @@ pub(crate) fn message_to_chat_message(msg: &Message) -> Option<ChatMessage> {
 ///
 /// [`Message::Custom`] records are dropped; see [`message_to_chat_message`].
 pub(crate) fn messages_to_history(messages: &[Message]) -> Vec<ChatMessage> {
-    messages.iter().filter_map(message_to_chat_message).collect()
+    messages
+        .iter()
+        .filter_map(message_to_chat_message)
+        .collect()
 }
 
 /// Serialize a user [`Message`]'s content blocks back into a single string for a
