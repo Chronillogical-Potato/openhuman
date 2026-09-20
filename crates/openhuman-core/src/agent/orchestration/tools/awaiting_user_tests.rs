@@ -4,14 +4,14 @@ use super::*;
 fn envelope_carries_resume_handles_and_question() {
     let env = awaiting_user_envelope(
         "sub-abc123",
-        "mcp_setup",
+        "crypto_agent",
         None,
         "Which MCP server would you like to install?",
         true,
     );
     // The orchestrator needs task_id + agent_id to call continue_subagent.
     assert!(env.contains("task_id: sub-abc123"), "envelope: {env}");
-    assert!(env.contains("agent_id: mcp_setup"), "envelope: {env}");
+    assert!(env.contains("agent_id: crypto_agent"), "envelope: {env}");
     // The question must be surfaced verbatim.
     assert!(
         env.contains("Which MCP server would you like to install?"),
