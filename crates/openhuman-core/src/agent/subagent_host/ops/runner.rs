@@ -22,7 +22,10 @@ use crate::agent::harness::definition::{
     PromptSource, SandboxMode as AgentSandboxMode,
 };
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};
+use crate::agent::harness::{
+    spawn_depth_context::current_spawn_depth, with_current_sandbox_mode, with_spawn_depth,
+    MAX_SPAWN_DEPTH,
+};
 use crate::agent::prompts::{
     render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -481,7 +484,13 @@ pub(crate) async fn run_subagent_direct(
             .clone()
             .ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
-        let attempted_depth = options.run_context.spawn_depth;
+        // Typed callers carry their depth in the run context. Direct callers
+        // are scoped by `with_spawn_depth`; honor both authorities and count
+        // this child spawn exactly once.
+        let attempted_depth = options
+            .run_context
+            .spawn_depth
+            .max(current_spawn_depth().saturating_add(1));
 
         // Synchronous pre-dispatch projection of the single depth authority
         // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
