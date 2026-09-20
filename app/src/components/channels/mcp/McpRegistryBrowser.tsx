@@ -14,14 +14,16 @@
  * tabs go on rendering. A dead directory is not a broken page.
  */
 import debug from 'debug';
+import { ExternalLink as ExternalLinkIcon, Loader2, Search } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import { openUrl } from '../../../utils/openUrl';
+import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/Table';
+import Card from '../../ui/Card';
 import TextField from '../../ui/TextField';
 import { mcpRegistryErrorMessage } from './mcpRegistryErrorMessage';
 import { deriveAuthor } from './McpServerCard';
@@ -98,23 +100,6 @@ const dedupeByQualifiedName = (servers: SmitheryServer[]): SmitheryServer[] => {
   return out;
 };
 
-/** Transport pill (Stdio vs Hosted) — the catalog's primary classification. */
-const TransportBadge = ({ transport }: { transport: Transport }) => {
-  const { t } = useT();
-  const hosted = transport === 'hosted';
-  return (
-    <span
-      title={t(hosted ? 'mcp.tab.transport.hostedHint' : 'mcp.tab.transport.localHint')}
-      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-        hosted
-          ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
-          : 'bg-surface-strong text-content-muted'
-      }`}>
-      {t(hosted ? 'mcp.tab.transport.hosted' : 'mcp.tab.transport.local')}
-    </span>
-  );
-};
-
 /**
  * External link that opens in the system browser. Stops propagation so clicking
  * a server's website/repo never also triggers the row's own open action.
@@ -127,21 +112,9 @@ const ExternalLink = ({ href, label }: { href: string; label: string }) => (
       e.stopPropagation();
       void openUrl(href).catch(() => {});
     }}
-    className="h-auto gap-0.5 p-0 text-[11px] font-normal text-primary-600 hover:underline dark:text-primary-400">
+    trailingIcon={<ExternalLinkIcon className="size-3" aria-hidden="true" />}
+    className="h-auto gap-1 p-0 text-[11px] font-normal text-primary-600 hover:underline dark:text-primary-400">
     {label}
-    <svg
-      className="w-2.5 h-2.5"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-      aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-      />
-    </svg>
   </Button>
 );
 
@@ -154,82 +127,58 @@ const CatalogRow = memo(
   ({ server, onOpen }: { server: SmitheryServer; onOpen: (server: SmitheryServer) => void }) => {
     const { t } = useT();
     const repoUrl = deriveRepoUrl(server.qualified_name);
-    const author = deriveAuthor(server.qualified_name);
+    const hosted = transportOf(server) === 'hosted';
     return (
-      <TableRow
-        className="cursor-pointer"
-        tabIndex={0}
-        role="button"
-        data-testid="mcp-registry-row"
-        aria-label={t('mcp.tab.aria.openServerPage').replace('{name}', server.display_name)}
-        onClick={() => onOpen(server)}
-        onKeyDown={e => {
-          // Only act on keys aimed at the row itself — Enter/Space bubble up
-          // from the nested Website/Repository buttons.
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onOpen(server);
-          }
-        }}>
-        <TableCell>
-          <div className="flex items-center gap-2.5">
+      <li className="space-y-2 py-3 first:pt-0 last:pb-0" data-testid="mcp-registry-row">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-line bg-surface-muted text-xs font-semibold text-content-muted">
             {server.icon_url ? (
-              <img
-                src={server.icon_url}
-                alt=""
-                className="w-5 h-5 rounded shrink-0 object-contain"
-              />
+              <img src={server.icon_url} alt="" className="size-full object-contain" />
             ) : (
-              <span className="w-5 h-5 rounded shrink-0 bg-primary-100 dark:bg-primary-500/20 flex items-center justify-center text-[10px]">
-                🔌
-              </span>
+              server.display_name.charAt(0).toUpperCase()
             )}
-            <div className="min-w-0">
-              <span className="flex items-center gap-1.5">
-                <span className="font-medium text-content truncate">{server.display_name}</span>
-                {server.official && (
-                  <span
-                    title={t('mcp.tab.officialHint')}
-                    className="inline-flex items-center gap-0.5 rounded-full bg-sage-100 px-1.5 py-0.5 text-[10px] font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
-                    ✓ {t('mcp.tab.officialBadge')}
-                  </span>
-                )}
-              </span>
-              {/* The registry is full of look-alike names (a dozen "gmail"
-                  servers); the slug is the unique identifier that tells them
-                  apart. */}
-              <span className="text-[11px] font-mono text-content-faint truncate block">
-                {server.qualified_name}
-              </span>
-              {server.description && (
-                <span className="text-xs text-content-faint line-clamp-3 block">
-                  {server.description}
-                </span>
-              )}
-              {(server.website_url || repoUrl) && (
-                <span className="flex items-center gap-3 mt-1">
-                  {server.website_url && (
-                    <ExternalLink href={server.website_url} label={t('mcp.tab.link.website')} />
-                  )}
-                  {repoUrl && <ExternalLink href={repoUrl} label={t('mcp.tab.link.repo')} />}
-                </span>
-              )}
-            </div>
-          </div>
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          <TransportBadge transport={transportOf(server)} />
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          <span className="text-xs text-content-muted truncate block">{author ?? '—'}</span>
-        </TableCell>
-        <TableCell className="text-right">
-          <span className="text-xs text-primary-600 dark:text-primary-400 font-medium">
-            {t('mcp.tab.action.openPage')} ↗
           </span>
-        </TableCell>
-      </TableRow>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-content">{server.display_name}</span>
+              {server.official && (
+                <Badge variant="success" title={t('mcp.tab.officialHint')}>
+                  {t('mcp.tab.officialBadge')}
+                </Badge>
+              )}
+              <Badge
+                variant="neutral"
+                title={t(hosted ? 'mcp.tab.transport.hostedHint' : 'mcp.tab.transport.localHint')}>
+                {t(hosted ? 'mcp.tab.transport.hosted' : 'mcp.tab.transport.local')}
+              </Badge>
+            </div>
+            {/* The registry is full of look-alike names (a dozen "gmail"
+                servers); the slug is the unique identifier that tells them
+                apart. */}
+            <p className="truncate font-mono text-xs text-content-muted">{server.qualified_name}</p>
+            {server.description && (
+              <p className="line-clamp-3 text-xs text-content-muted">{server.description}</p>
+            )}
+            {(server.website_url || repoUrl) && (
+              <p className="flex items-center gap-3">
+                {server.website_url && (
+                  <ExternalLink href={server.website_url} label={t('mcp.tab.link.website')} />
+                )}
+                {repoUrl && <ExternalLink href={repoUrl} label={t('mcp.tab.link.repo')} />}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={t('mcp.tab.aria.openServerPage').replace('{name}', server.display_name)}
+            onClick={() => onOpen(server)}
+            trailingIcon={<ExternalLinkIcon className="size-3.5" aria-hidden="true" />}
+            className="shrink-0">
+            {t('mcp.tab.action.openPage')}
+          </Button>
+        </div>
+      </li>
     );
   }
 );
@@ -317,21 +266,21 @@ const McpRegistryBrowser = ({ installedNames }: McpRegistryBrowserProps) => {
   );
 
   return (
-    <div className="space-y-3" data-testid="mcp-registry-browser">
-      <p className="text-xs text-content-muted">{t('mcp.registry.intro')}</p>
+    <section className="space-y-3" data-testid="mcp-registry-browser">
+      <h2 className="text-xs font-medium uppercase tracking-wide text-content-muted">
+        {t('mcp.registry.title')}
+      </h2>
+      <p className="text-sm text-content-muted">{t('mcp.registry.intro')}</p>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <TextField
           type="search"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={t('mcp.catalog.searchPlaceholder')}
           aria-label={t('mcp.catalog.searchAria')}
-          className="flex-1 min-w-48"
+          className="min-w-48 flex-1"
         />
-        <span className="text-xs font-medium text-content-muted">
-          {t('mcp.tab.transportFilter.label')}
-        </span>
         <div
           className="flex flex-wrap items-center gap-2"
           role="group"
@@ -353,71 +302,67 @@ const McpRegistryBrowser = ({ installedNames }: McpRegistryBrowserProps) => {
         </div>
       </div>
 
-      <Table className="min-w-[640px] rounded-lg border border-line">
-        <TableHeader>
-          <TableRow className="bg-surface-muted">
-            <TableHead>{t('mcp.tab.column.name')}</TableHead>
-            <TableHead className="hidden w-28 sm:table-cell">{t('mcp.tab.column.type')}</TableHead>
-            <TableHead className="hidden w-36 sm:table-cell">
-              {t('mcp.tab.column.author')}
-            </TableHead>
-            <TableHead className="w-28 text-right">{t('mcp.tab.column.action')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>{catalogRows}</TableBody>
-      </Table>
-
-      <div className="rounded-b-lg border border-t-0 border-line">
-        {catalogError && !catalogLoading && (
-          <div
-            data-testid="mcp-catalog-error"
-            className="py-8 text-center text-sm text-coral-700 dark:text-coral-300 space-y-2">
-            <p>{catalogError}</p>
-            <Button
-              variant="tertiary"
-              size="xs"
-              onClick={() =>
-                void fetchCatalog(debouncedFilters.query, debouncedFilters.transport, 1, false)
-              }
-              className="text-primary-600 dark:text-primary-400 hover:underline">
-              {t('common.retry')}
-            </Button>
-          </div>
-        )}
-
-        {availableCatalog.length === 0 && !catalogLoading && !catalogError && (
-          <div
-            data-testid="mcp-catalog-empty"
-            className="py-8 text-center text-sm text-content-faint">
-            {searchQuery
-              ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
-              : t('mcp.catalog.noResults')}
-          </div>
-        )}
-
-        {catalogLoading && (
-          <div className="py-4 text-center text-xs text-content-faint">{t('common.loading')}</div>
-        )}
-        {!catalogLoading && catalogPage < catalogTotalPages && (
-          <div className="py-3 text-center border-t border-line-subtle">
-            <Button
-              variant="tertiary"
-              size="xs"
-              onClick={() =>
-                void fetchCatalog(
-                  debouncedFilters.query,
-                  debouncedFilters.transport,
-                  catalogPage + 1,
-                  true
-                )
-              }
-              className="text-primary-600 dark:text-primary-400 hover:underline">
-              {t('mcp.catalog.loadMore')}
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+      {catalogError && !catalogLoading ? (
+        <div
+          data-testid="mcp-catalog-error"
+          className="space-y-2 rounded-md border border-coral-500/30 bg-coral-500/10 px-3 py-3 text-sm text-coral-700 dark:text-coral-300">
+          <p>{catalogError}</p>
+          <Button
+            variant="tertiary"
+            size="xs"
+            onClick={() =>
+              void fetchCatalog(debouncedFilters.query, debouncedFilters.transport, 1, false)
+            }
+            className="h-auto p-0 text-primary-600 hover:underline dark:text-primary-400">
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : (
+        <Card padded divided={false}>
+          {catalogLoading && availableCatalog.length === 0 ? (
+            <p className="flex items-center gap-1.5 text-xs text-content-muted">
+              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+              {t('common.loading')}
+            </p>
+          ) : availableCatalog.length === 0 ? (
+            <p className="text-sm text-content-muted" data-testid="mcp-catalog-empty">
+              {searchQuery
+                ? t('mcp.catalog.noResultsFor').replace('{query}', searchQuery)
+                : t('mcp.catalog.noResults')}
+            </p>
+          ) : (
+            <>
+              <ul className="divide-y divide-line-subtle">{catalogRows}</ul>
+              {!catalogLoading && catalogPage < catalogTotalPages && (
+                <div className="mt-3 border-t border-line-subtle pt-3 text-center">
+                  <Button
+                    variant="tertiary"
+                    size="xs"
+                    onClick={() =>
+                      void fetchCatalog(
+                        debouncedFilters.query,
+                        debouncedFilters.transport,
+                        catalogPage + 1,
+                        true
+                      )
+                    }
+                    leadingIcon={<Search className="size-3" aria-hidden="true" />}
+                    className="text-primary-600 hover:underline dark:text-primary-400">
+                    {t('mcp.catalog.loadMore')}
+                  </Button>
+                </div>
+              )}
+              {catalogLoading && (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-content-muted">
+                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                  {t('common.loading')}
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+      )}
+    </section>
   );
 };
 
