@@ -3918,7 +3918,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     "Exécuter ce nœud comme un agent enregistré : ses outils et garde-fous s'appliquent.",
   'flows.nodeConfig.agent.agentRefInherit': 'Par défaut (constructeur de workflow)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Niveaux gérés',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Rôles de charge de travail',
   'flows.nodeConfig.agent.modelHints': 'Indications de modèle',
   'flows.nodeConfig.agent.modelCustom': 'Modèle personnalisé…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'p. ex. gpt-4o-mini',

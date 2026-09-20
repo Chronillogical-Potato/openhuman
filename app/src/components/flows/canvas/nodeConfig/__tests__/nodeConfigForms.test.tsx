@@ -90,12 +90,12 @@ describe('TransformForm', () => {
 });
 
 describe('AgentForm', () => {
-  it('offers managed tiers and patches config.model with the chosen tier', () => {
+  it('offers workload role hints and patches config.model with the chosen one', () => {
     const { onChange } = renderForm('agent', {});
     fireEvent.change(screen.getByTestId('node-config-agent-model'), {
-      target: { value: 'reasoning-v1' },
+      target: { value: 'hint:reasoning' },
     });
-    expect(onChange).toHaveBeenLastCalledWith({ model: 'reasoning-v1' });
+    expect(onChange).toHaveBeenLastCalledWith({ model: 'hint:reasoning' });
   });
 
   it('reveals a custom model input when Custom is selected', () => {

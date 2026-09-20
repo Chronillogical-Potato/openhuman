@@ -3888,7 +3888,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'Esegui questo nodo come agente registrato: si applicano i suoi strumenti e le sue protezioni.',
   'flows.nodeConfig.agent.agentRefInherit': 'Predefinito (costruttore di flussi)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Livelli gestiti',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Ruoli del carico di lavoro',
   'flows.nodeConfig.agent.modelHints': 'Suggerimenti modello',
   'flows.nodeConfig.agent.modelCustom': 'Modello personalizzato…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'es. gpt-4o-mini',

@@ -3832,7 +3832,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'এই নোডটি একটি নিবন্ধিত এজেন্ট হিসেবে চালান: এর সরঞ্জাম ও সুরক্ষা প্রযোজ্য।',
   'flows.nodeConfig.agent.agentRefInherit': 'ডিফল্ট (ওয়ার্কফ্লো বিল্ডার)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'পরিচালিত স্তর',
+  'flows.nodeConfig.agent.modelManagedTiers': 'ওয়ার্কলোড ভূমিকা',
   'flows.nodeConfig.agent.modelHints': 'মডেল ইঙ্গিত',
   'flows.nodeConfig.agent.modelCustom': 'কাস্টম মডেল…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'যেমন gpt-4o-mini',

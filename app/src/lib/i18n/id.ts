@@ -3846,7 +3846,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'Jalankan node ini sebagai agen terdaftar: alat dan pengamannya berlaku.',
   'flows.nodeConfig.agent.agentRefInherit': 'Bawaan (pembuat alur kerja)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Tingkat terkelola',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Peran beban kerja',
   'flows.nodeConfig.agent.modelHints': 'Petunjuk model',
   'flows.nodeConfig.agent.modelCustom': 'Model kustom…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'mis. gpt-4o-mini',

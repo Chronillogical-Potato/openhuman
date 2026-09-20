@@ -3867,7 +3867,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'Запускать этот узел как зарегистрированного агента: применяются его инструменты и ограничения.',
   'flows.nodeConfig.agent.agentRefInherit': 'По умолчанию (конструктор рабочих процессов)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Управляемые уровни',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Роли рабочих нагрузок',
   'flows.nodeConfig.agent.modelHints': 'Подсказки модели',
   'flows.nodeConfig.agent.modelCustom': 'Пользовательская модель…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'например, gpt-4o-mini',

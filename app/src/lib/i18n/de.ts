@@ -3938,7 +3938,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'Diesen Knoten als registrierten Agenten ausführen: dessen Tools und Schutzmechanismen gelten.',
   'flows.nodeConfig.agent.agentRefInherit': 'Standard (Workflow-Builder)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Verwaltete Stufen',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Workload-Rollen',
   'flows.nodeConfig.agent.modelHints': 'Modellhinweise',
   'flows.nodeConfig.agent.modelCustom': 'Benutzerdefiniertes Modell…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'z. B. gpt-4o-mini',

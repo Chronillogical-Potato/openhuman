@@ -4508,7 +4508,7 @@ const en: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': 'Pick a capability tier: the workspace resolves the model.',
   'flows.nodeConfig.agent.modelInherit': 'Default (inherit)',
   'flows.nodeConfig.agent.modelHints': 'Model hints',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Managed tiers',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Workload roles',
   'flows.nodeConfig.agent.modelCustom': 'Custom model…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'e.g. gpt-4o-mini',
   'flows.nodeConfig.tool.slugLabel': 'Action',

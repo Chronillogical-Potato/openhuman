@@ -3830,7 +3830,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'इस नोड को एक पंजीकृत एजेंट के रूप में चलाएँ: इसके उपकरण और सुरक्षा उपाय लागू होते हैं।',
   'flows.nodeConfig.agent.agentRefInherit': 'डिफ़ॉल्ट (वर्कफ़्लो बिल्डर)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'प्रबंधित स्तर',
+  'flows.nodeConfig.agent.modelManagedTiers': 'वर्कलोड भूमिकाएँ',
   'flows.nodeConfig.agent.modelHints': 'मॉडल संकेत',
   'flows.nodeConfig.agent.modelCustom': 'कस्टम मॉडल…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'जैसे gpt-4o-mini',

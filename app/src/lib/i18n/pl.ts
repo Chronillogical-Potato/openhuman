@@ -3879,7 +3879,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefHint':
     'Uruchom ten węzeł jako zarejestrowanego agenta: obowiązują jego narzędzia i zabezpieczenia.',
   'flows.nodeConfig.agent.agentRefInherit': 'Domyślny (kreator przepływów)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'Zarządzane poziomy',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Role obciążeń',
   'flows.nodeConfig.agent.modelHints': 'Wskazówki modelu',
   'flows.nodeConfig.agent.modelCustom': 'Model niestandardowy…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'np. gpt-4o-mini',

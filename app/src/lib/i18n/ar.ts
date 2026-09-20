@@ -3735,7 +3735,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefLabel': 'الوكيل',
   'flows.nodeConfig.agent.agentRefHint': 'شغّل هذه العقدة كوكيل مُسجَّل: تُطبَّق أدواته وضوابطه.',
   'flows.nodeConfig.agent.agentRefInherit': 'افتراضي (مُنشئ سير العمل)',
-  'flows.nodeConfig.agent.modelManagedTiers': 'المستويات المُدارة',
+  'flows.nodeConfig.agent.modelManagedTiers': 'أدوار أعباء العمل',
   'flows.nodeConfig.agent.modelHints': 'تلميحات النموذج',
   'flows.nodeConfig.agent.modelCustom': 'نموذج مخصص…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'مثل gpt-4o-mini',

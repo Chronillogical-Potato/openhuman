@@ -3608,7 +3608,7 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.agentRefLabel': '智能体',
   'flows.nodeConfig.agent.agentRefHint': '将此节点作为已注册的智能体运行：其工具和防护措施将生效。',
   'flows.nodeConfig.agent.agentRefInherit': '默认（工作流构建器）',
-  'flows.nodeConfig.agent.modelManagedTiers': '托管层级',
+  'flows.nodeConfig.agent.modelManagedTiers': '工作负载角色',
   'flows.nodeConfig.agent.modelHints': '模型提示',
   'flows.nodeConfig.agent.modelCustom': '自定义模型…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': '例如 gpt-4o-mini',
