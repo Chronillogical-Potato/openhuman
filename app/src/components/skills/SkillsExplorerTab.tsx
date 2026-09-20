@@ -181,7 +181,17 @@ function InstalledSkillRow({ skill, onUninstall, onClick, onRun, onEdit }: Skill
   return (
     <li
       data-testid={`skill-explorer-tile-${skill.id}`}
-      className="space-y-2 py-3 first:pt-0 last:pb-0">
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={event => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="cursor-pointer space-y-2 py-3 first:pt-0 last:pb-0">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted">
           <Sparkles className="size-4 text-content-muted" aria-hidden="true" />
@@ -192,7 +202,10 @@ function InstalledSkillRow({ skill, onUninstall, onClick, onRun, onEdit }: Skill
               type="button"
               data-testid={`skill-open-${skill.id}`}
               aria-label={t('skills.rows.open').replace('{name}', skill.name)}
-              onClick={onClick}
+              onClick={event => {
+                event.stopPropagation();
+                onClick();
+              }}
               className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-sm font-medium text-content transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
               {skill.name}
               <ChevronRight className="size-3.5 text-content-muted" aria-hidden="true" />
@@ -274,7 +287,19 @@ interface SkillDetailDialogProps {
 function CatalogRow({ entry, installed, installing, onInstall, onClick }: CatalogTileProps) {
   const { t } = useT();
   return (
-    <li data-testid={`registry-tile-${entry.id}`} className="space-y-2 py-3 first:pt-0 last:pb-0">
+    <li
+      data-testid={`registry-tile-${entry.id}`}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={event => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="cursor-pointer space-y-2 py-3 first:pt-0 last:pb-0">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-xs font-semibold text-content-muted">
           {entry.name.charAt(0).toUpperCase()}
@@ -285,7 +310,10 @@ function CatalogRow({ entry, installed, installing, onInstall, onClick }: Catalo
               type="button"
               data-testid={`registry-open-${entry.id}`}
               aria-label={t('skills.rows.open').replace('{name}', entry.name)}
-              onClick={onClick}
+              onClick={event => {
+                event.stopPropagation();
+                onClick();
+              }}
               className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-sm font-medium text-content transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
               {entry.name}
               <ChevronRight className="size-3.5 text-content-muted" aria-hidden="true" />
@@ -310,7 +338,10 @@ function CatalogRow({ entry, installed, installing, onInstall, onClick }: Catalo
               data-testid={`registry-install-${entry.id}`}
               disabled={installing}
               leadingIcon={<Download className="size-3.5" aria-hidden="true" />}
-              onClick={onInstall}>
+              onClick={event => {
+                event.stopPropagation();
+                onInstall();
+              }}>
               {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
             </Button>
           )}
