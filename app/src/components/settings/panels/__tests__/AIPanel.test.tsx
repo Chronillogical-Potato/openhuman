@@ -156,6 +156,14 @@ const openGlobalModelPicker = async () => {
   fireEvent.click(button!);
 };
 
+/** Open the per-workload custom routing dialog for the row labelled `label`. */
+const openWorkloadDialog = async (label: string) => {
+  const rowEl = (await screen.findByText(label)).closest('[data-slot="workload-row"]');
+  expect(rowEl).not.toBeNull();
+  fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
+  await screen.findByRole('dialog', { name: /Custom routing/i });
+};
+
 const selectPickerProvider = async (name: RegExp) => {
   fireEvent.click(await screen.findByRole('button', { name }));
 };
@@ -385,10 +393,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -417,10 +422,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -449,10 +451,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/OpenAI/i);
 
@@ -491,10 +490,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
 
     expect(
@@ -516,10 +512,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
 
     expect(await screen.findByText(/This is not the model ID/i)).toBeInTheDocument();
@@ -539,10 +532,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -891,7 +881,8 @@ describe('AIPanel', () => {
     await waitFor(() => expect(screen.getAllByText(/Anthropic/i).length).toBeGreaterThan(0));
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(screen.getByRole('radio', { name: /Managed/i }));
+    await openWorkloadDialog('Chat');
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
