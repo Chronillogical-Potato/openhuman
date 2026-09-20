@@ -92,7 +92,7 @@ fn trigger_reactor_has_agentic_hint_and_narrow_tools() {
 
 #[test]
 fn orchestrator_can_resume_paused_subagents_via_continue_subagent() {
-    // #4291: when a delegated sub-agent (e.g. mcp_setup) pauses on
+    // #4291: when a delegated sub-agent (e.g. crypto_agent) pauses on
     // ask_user_clarification, the orchestrator gets a
     // [SUBAGENT_AWAITING_USER] envelope and must resume that exact
     // checkpoint with `continue_subagent`. Without the tool in scope the
