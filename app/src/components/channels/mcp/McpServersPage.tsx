@@ -12,7 +12,7 @@ import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsTabbedPage from '../../settings/layout/SettingsTabbedPage';
-import { BetaIndicator } from '../../ui/BetaIndicator';
+import BetaIndicator from '../../ui/BetaIndicator';
 import McpServersTab, { type McpPageTab } from './McpServersTab';
 
 interface McpServersPageProps {
