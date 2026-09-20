@@ -508,7 +508,7 @@ components/
 ├── BootCheckGate/, daemon/  # Boot + service gates in the provider chain
 ├── commands/                # CommandProvider (command palette)
 ├── Announcement/, upsell/, userErrors/, walkthrough/  # Shell-level overlays
-├── keyring/, mcp-setup/, InitProgressScreen/          # Consent + init overlays
+├── keyring/, InitProgressScreen/                     # Consent + init overlays
 └── intelligence/            # Memory/vault surfaces (ObsidianVaultSection, VaultHealthChecklist, WorkflowsTab, …)
 ```
 
