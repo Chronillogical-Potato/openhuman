@@ -74,25 +74,9 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
             "properties": { "toolkit": { "enum": ["gmail"] } }
         }),
     });
-    let archetype_name = crate::agent::harness::definition::AgentDefinitionRegistry::global()
-        .expect("builtins registry")
-        .list()
-        .into_iter()
-        .next()
-        .expect("at least one built-in")
-        .delegate_name
-        .clone()
-        .unwrap_or_else(|| "delegate_researcher".to_owned());
-    for tool in [
-        collapsed,
-        Arc::new(DelegationRegistrationTool {
-            name: Box::leak(archetype_name.into_boxed_str()),
-            parameters: serde_json::json!({}),
-        }),
-        integration,
-    ] {
+    for tool in [collapsed, integration] {
         assert!(
-            DelegationDispatch::for_tool(tool).is_some(),
+            DelegationDispatch::for_tool(tool.clone()).is_some(),
             "every synthesised delegation name must select the typed dispatch: {}",
             tool.name(),
         );

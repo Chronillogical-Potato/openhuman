@@ -136,7 +136,8 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
             None,
             parent_run.data.child(),
             Some(&parent_run),
-        ).await
+        )
+        .await
     })
     .await
     .expect("tool execution");
@@ -261,11 +262,9 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     ctx.session_id = "tools-e2e-continue-session".into();
     let mut parent_data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     parent_data.thread_id = Some("thread-continue-parent".into());
-    let parent_run = parent_data
-        .with_parent(ctx.clone())
-        .into_tinyagents(
-            RunConfig::new("continue-async-e2e").with_thread("thread-continue-parent"),
-        );
+    let parent_run = parent_data.with_parent(ctx.clone()).into_tinyagents(
+        RunConfig::new("continue-async-e2e").with_thread("thread-continue-parent"),
+    );
     let session_id = session.subagent_session_id.clone();
     let result = with_parent_context(ctx, async {
         ContinueSubagentTool::new()

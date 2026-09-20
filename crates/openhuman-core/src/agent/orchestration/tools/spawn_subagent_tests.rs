@@ -243,7 +243,9 @@ async fn legacy_archetype_alias_is_normalized_to_agent_id() {
         result.output()
     );
     assert!(
-        result.output().contains("requires a live harness run context"),
+        result
+            .output()
+            .contains("requires a live harness run context"),
         "{}",
         result.output()
     );
