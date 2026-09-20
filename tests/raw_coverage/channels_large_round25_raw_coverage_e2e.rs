@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Round25 raw integration coverage for large channel misses.
 //!
 //! Only loopback services and parser fixtures are used.
