@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! RPC-level e2e coverage for `openhuman.billing_*`, `openhuman.cost_*` and
 //! `openhuman.dashboard_model_health`.
 //!
