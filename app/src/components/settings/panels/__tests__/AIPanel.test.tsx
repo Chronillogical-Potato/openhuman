@@ -339,6 +339,37 @@ describe('AIPanel', () => {
     expect(screen.queryByRole('radio', { name: /Advanced/i })).toBeNull();
   });
 
+  it('pins a managed default model from the routing page', async () => {
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'openrouter/deepseek/deepseek-v4-flash', display_name: 'DeepSeek V4 Flash' },
+      { id: 'openrouter/z/other', display_name: 'Other' },
+    ]);
+    vi.mocked(saveAISettings).mockResolvedValue(undefined);
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+
+    // Nothing pinned yet: the row says so rather than naming a tier.
+    const row = await screen.findByTestId('default-model-row');
+    expect(row).toHaveTextContent('Not set');
+    fireEvent.click(within(row).getByTestId('default-model-change'));
+
+    // The picker is the managed catalog only, opened on the recommended model.
+    await waitFor(() => expect(listProviderModels).toHaveBeenCalledWith('openhuman'));
+    const recommended = await screen.findByTestId(
+      'model-picker-managed-option-openrouter/deepseek/deepseek-v4-flash'
+    );
+    expect(recommended).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByTestId('model-picker-managed-option-openrouter/z/other'));
+    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
+
+    await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
+    const [, nextSettings] = vi.mocked(saveAISettings).mock.calls.at(-1) ?? [];
+    expect(nextSettings?.defaultModel).toBe('openrouter/z/other');
+    await waitFor(() =>
+      expect(screen.getByTestId('default-model-row')).toHaveTextContent('openrouter/z/other')
+    );
+  });
+
   it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
