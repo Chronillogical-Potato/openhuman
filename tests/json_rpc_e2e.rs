@@ -8874,7 +8874,7 @@ async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_ser
 }
 
 /// The `server_id` the store gave a server declared under `name`.
-async fn installed_server_id(rpc_base: &str, id: u64, name: &str) -> String {
+async fn installed_server_id(rpc_base: &str, id: i64, name: &str) -> String {
     let listed = post_json_rpc(
         rpc_base,
         id,
