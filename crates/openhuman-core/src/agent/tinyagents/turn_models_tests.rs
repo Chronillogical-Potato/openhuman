@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
+use tinyinference_llm::message::ContentBlock;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 use super::TurnModelResolver;
@@ -23,12 +24,19 @@ impl ChatModel<()> for NamedModel {
 }
 
 async fn name_of(model: &Arc<dyn ChatModel<()>>) -> String {
-    model
+    let response = model
         .invoke(&(), ModelRequest::default())
         .await
-        .expect("stub model never fails")
-        .text()
-        .unwrap_or_default()
+        .expect("stub model never fails");
+    response
+        .message
+        .content
+        .iter()
+        .filter_map(|block| match block {
+            ContentBlock::Text(text) => Some(text.as_str()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn resolver() -> TurnModelResolver {
