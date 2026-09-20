@@ -37,7 +37,7 @@ fn rewrites_deprecated_reasoning_quick_v1_alias_to_chat_v1() {
 }
 
 #[test]
-fn leaves_chat_v1_unchanged() {
+fn leaves_the_managed_default_unchanged() {
     let mut config = Config::default();
     config.default_model = Some(MODEL_MANAGED_DEFAULT.to_string());
 
@@ -62,7 +62,7 @@ fn leaves_arbitrary_custom_value_unchanged() {
 
 #[test]
 fn leaves_other_known_tier_unchanged() {
-    // An explicit non-reasoning tier (e.g. agentic) is a deliberate value.
+    // An explicit non-reasoning tier (e.g. agentic) is left for migration 12 → 13.
     let mut config = Config::default();
     config.default_model = Some("agentic-v1".to_string());
 
