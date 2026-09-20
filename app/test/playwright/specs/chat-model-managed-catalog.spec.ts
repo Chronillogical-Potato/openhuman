@@ -114,7 +114,8 @@ const modelChip = (page: Page): Locator =>
 const pickerTitle = (page: Page): Locator => page.getByText('Choose provider and model');
 const managedOption = (page: Page, id: string): Locator =>
   page.getByTestId(`model-picker-managed-option-${id}`);
-const managedAutomatic = (page: Page): Locator => page.getByTestId('model-picker-managed-automatic');
+const managedAutomatic = (page: Page): Locator =>
+  page.getByTestId('model-picker-managed-automatic');
 
 /**
  * Open the picker and land on the managed source's pane.

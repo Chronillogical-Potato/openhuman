@@ -239,7 +239,14 @@ describe('ProviderModelPickerDialog', () => {
     render(
       <ProviderModelPickerDialog
         cloudProviders={[
-          { id: 'p1', slug: 'openai', label: 'OpenAI', maskedKey: '', endpoint: '' } as never,
+          {
+            id: 'openai',
+            slug: 'openai',
+            label: 'OpenAI',
+            endpoint: 'https://api.openai.com/v1',
+            authStyle: 'bearer',
+            maskedKey: '••••',
+          },
         ]}
         localModels={[]}
         ollamaRunning={false}
