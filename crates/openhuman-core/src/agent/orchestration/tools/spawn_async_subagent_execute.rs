@@ -93,8 +93,16 @@ impl SpawnAsyncSubagentTool {
         };
 
         // The follow-up vocabulary offered back to the parent is limited to
-        // the fleet tools its own definition exposes (see `fleet_tools`).
-        let fleet = FleetToolSet::for_parent(&parent.agent_definition_id);
+        // the fleet tools visible on *this turn* (see `fleet_tools`), not
+        // just the parent definition's static scope: a hide or named
+        // restriction can narrow the turn's real tool surface below what the
+        // definition alone would suggest, and offering a control the parent
+        // cannot currently call invites a denied tool call.
+        let fleet = if parent.visible_tool_names.is_empty() {
+            FleetToolSet::for_parent(&parent.agent_definition_id)
+        } else {
+            FleetToolSet::from_visible_tool_names(&parent.visible_tool_names)
+        };
 
         if !parent.allowed_subagent_ids.contains(&definition.id) {
             log::warn!(
