@@ -681,7 +681,7 @@ The remaining store cutover runs on **shadow scaffolding** (product behavior unc
 
 ## Workload routes and the burst tier
 
-`tinyagents/routes.rs` is the declarative TinyAgents `ModelRouter` for the OpenHuman tiers `chat`, `reasoning`, `agentic`, `coding`, `burst`, `summarization`, and `vision`. It owns fallback chains and capability gates; `inference::provider::factory` resolves each selected tier to its configured native `ChatModel`. The **`burst-v1`** tier serves low-context, high-fanout workers on a fast/cheap model.
+`tinyagents/routes.rs` is the declarative TinyAgents `ModelRouter` for the OpenHuman workload roles `chat`, `reasoning`, `agentic`, `coding`, `burst`, `summarization`, and `vision`, keyed by their `hint:*` aliases. It owns fallback chains and capability gates; `inference::provider::factory` resolves each selected role to its configured native `ChatModel` — on the managed backend, the pinned default model (`openrouter/deepseek/deepseek-v4-flash` unless changed under Settings → Routing → Default model); there are no per-role tier endpoints any more. The **`burst`** role serves low-context, high-fanout workers.
 
 ## See also
 
