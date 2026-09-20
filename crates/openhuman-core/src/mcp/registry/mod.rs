@@ -1,9 +1,10 @@
 //! MCP Registry — the host half of the user-installed server surface.
 //!
 //! The registry itself moved to `tinymcp`: the Smithery and official catalogs,
-//! the SQLite store, the live connection map, the subprocess supervisor, the
-//! browser sign-in flow, and the setup secret vault all live there now. What is
-//! left here is what belongs to *this* application.
+//! the SQLite store, the live connection map, the subprocess supervisor and the
+//! browser sign-in flow all live there now. What is left here is what belongs
+//! to *this* application. The catalogs are browse-only: a server is declared
+//! in the user's `mcp.json` ([`config_doc`]), never installed from a listing.
 //!
 //! # Modules
 //!
@@ -12,7 +13,8 @@
 //!   the extraction: an end-to-end test seeding the upstream response cache.
 //! - [`ops`] — the `mcp_clients` RPC handlers, delegating to the service
 //!   [`super::host`] holds and publishing this application's own events.
-//! - [`setup_ops`] — the `mcp_setup` handlers, likewise.
+//! - [`config_doc`] — the `mcp.json` document: how the store renders as one,
+//!   what a written one may say, and how the two are reconciled.
 //! - `schemas` — the controller schemas and dispatch.
 //! - [`supervisor_events`] — what the reconnect supervisor observed each
 //!   tick, as this domain's events; the Event Log and the notification bridge
@@ -35,13 +37,13 @@
 #[cfg(feature = "mcp")]
 pub mod bus;
 #[cfg(feature = "mcp")]
+pub mod config_doc;
+#[cfg(feature = "mcp")]
 pub(crate) mod helpers;
 #[cfg(feature = "mcp")]
 pub mod ops;
 #[cfg(feature = "mcp")]
 mod schemas;
-#[cfg(feature = "mcp")]
-pub mod setup_ops;
 #[cfg(feature = "mcp")]
 pub mod supervisor_events;
 #[cfg(feature = "mcp")]
@@ -60,7 +62,7 @@ pub use schemas::{
 /// keep their spelling.
 pub mod types {
     pub use tinymcp_bus::{
-        ChatTurn, CommandKind, ConnStatus, ConnectedServerOverview, InstalledServer, McpTool,
+        CommandKind, ConnStatus, ConnectedServerOverview, InstalledServer, McpTool,
         RegistryConnection as SmitheryConnection, RegistryServerDetail as SmitheryServerDetail,
         RegistryServerSummary as SmitheryServerSummary, ServerStatus, Transport,
     };
