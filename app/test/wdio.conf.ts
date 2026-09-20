@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { captureFailureArtifacts } from './e2e/helpers/artifacts';
+import { startMockServer } from './e2e/mock-server';
 
 /**
  * WDIO config — a single `tauri-driver` (WebDriver) session against the
@@ -158,7 +159,11 @@ export const config: Options.Testrunner & Record<string, unknown> = {
   },
   beforeSuite: async function (suite: { file?: string }) {
     // Fires once per Mocha suite. The per-file guard makes the reset run only
-    // for the first suite encountered in each spec file.
+    // for the first suite encountered in each spec file. Start the in-process
+    // mock first: some specs rely on the runner for it rather than owning a
+    // `before` hook, and resetting an unopened backend leaves their first
+    // core request pointed at a refused connection.
+    await startMockServer(Number(process.env.E2E_MOCK_PORT || 18473));
     await resetMockBackendOncePerSpecFile(suite?.file);
   },
   afterTest: async function (
