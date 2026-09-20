@@ -32,8 +32,8 @@ use openhuman_core::platform::proc_metrics::{
     self, BenchReport, ProcSample, RosterResult, REPORT_SCHEMA_VERSION, RSS_BUDGET_KIB,
     RSS_HARD_CAP_KIB,
 };
-use openhuman_core::tinytools_agent::dialect::NativeDialect;
 use tinytools::{Tool, ToolResult};
+use tinytools_agent::dialect::NativeDialect;
 
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -160,9 +160,15 @@ struct Roster {
 /// Build `n` bare agents, each with its own temp workspace, mock model,
 /// `"none"` memory backend, and a single host-supplied tool.
 fn build_roster(n: usize) -> Result<Roster> {
+    // Root turns now go through the hosted TinyAgents path, which requires a
+    // definition registry to supply durable host authority. This fixture has
+    // no workspace-specific definitions, so the built-in catalogue is the
+    // smallest representative setup.
+    openhuman_core::agent::harness::AgentDefinitionRegistry::init_global_builtins()?;
+
     let mut agents = Vec::with_capacity(n);
     let mut workspaces = Vec::with_capacity(n);
-    for i in 0..n {
+    for _ in 0..n {
         let workspace = TempDir::new().context("create temp workspace")?;
         let path = workspace.path().to_path_buf();
 
@@ -174,7 +180,9 @@ fn build_roster(n: usize) -> Result<Roster> {
             .memory(memory)
             .tool_dispatcher(Box::new(NativeDialect))
             .model_name("bench-mock".into())
-            .agent_definition_name(format!("bench-{i}"))
+            // Use a real built-in id because the hosted invocation resolves
+            // root authority through the definition registry.
+            .agent_definition_name("orchestrator")
             .workspace_dir(path.clone())
             .action_dir(path)
             .auto_save(false)

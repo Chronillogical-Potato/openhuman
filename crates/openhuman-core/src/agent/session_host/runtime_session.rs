@@ -31,9 +31,6 @@ use super::types::OpenHumanSessionHost;
 /// resume cache, or persistence handle. Those are exclusively `Session` state.
 #[derive(Default)]
 pub(super) struct OpenHumanSessionState {
-    /// Host-selected transcript destination. The runtime binds and owns the
-    /// resulting history handle, raw rows and append/reconcile state.
-    resume_target: Option<TranscriptTarget>,
     last_commit: Option<CommitReceipt<OpenHumanRunContext>>,
     terminals: Vec<SessionTerminal>,
     pub(super) last_turn_hit_cap: bool,
@@ -137,6 +134,7 @@ struct OpenHumanTurnPreludeMutable {
 }
 
 impl OpenHumanTurnPrelude {
+    #[allow(clippy::type_complexity)]
     fn current_tool_source(
         &self,
     ) -> (
@@ -366,7 +364,6 @@ impl OpenHumanTurnPrelude {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .build_system_prompt(&context)
-            .map_err(Into::into)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -815,6 +812,17 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (workflows, memory_context, connected_integrations) = {
+            let mutable = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (
+                mutable.workflows.clone(),
+                mutable.last_memory_context.clone(),
+                mutable.connected_integrations.clone(),
+            )
+        };
         crate::agent::harness::ParentExecutionContext {
             agent_definition_id: self.agent_definition_id.clone(),
             allowed_subagent_ids: self.allowed_subagent_ids.clone(),
@@ -832,28 +840,11 @@ impl OpenHumanTurnPrelude {
                 .or_else(|| self.workspace_descriptor.clone()),
             memory: self.memory.clone(),
             agent_config: self.config.clone(),
-            workflows: Arc::new(
-                self.mutable
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .workflows
-                    .clone(),
-            ),
-            memory_context: Arc::new(
-                self.mutable
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .last_memory_context
-                    .clone(),
-            ),
+            workflows: Arc::new(workflows),
+            memory_context: Arc::new(memory_context),
             session_id: self.event_session_id.clone(),
             channel: self.event_channel.clone(),
-            connected_integrations: self
-                .mutable
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .connected_integrations
-                .clone(),
+            connected_integrations,
             tool_call_format: crate::agent::prompts::tool_call_format_from_dialect(
                 self.tool_dispatcher.tool_call_format(),
             ),
@@ -1381,32 +1372,33 @@ impl OpenHumanSessionHost {
         if self.runtime_session.is_some() {
             return Ok(());
         }
-        let context_mw = TurnContextMiddleware {
-            tool_result_budget_bytes: self
+        let (
+            tool_result_budget_bytes,
+            tokenjuice_compaction_enabled,
+            microcompact_keep_recent,
+            autocompact_enabled,
+        ) = {
+            let context = self
                 .context
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .tool_result_budget_bytes(),
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (
+                context.tool_result_budget_bytes(),
+                context.compaction_enabled(),
+                context.microcompact_keep_recent(),
+                context.autocompact_enabled(),
+            )
+        };
+        let context_mw = TurnContextMiddleware {
+            tool_result_budget_bytes,
             payload_summarizer: self.payload_summarizer.clone(),
             task_hint: None,
             artifact_store: None,
-            tokenjuice_compaction_enabled: self
-                .context
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .compaction_enabled(),
+            tokenjuice_compaction_enabled,
             tokenjuice_compression: self.tokenjuice_compression,
             runtime_config: self.runtime_config.clone(),
-            microcompact_keep_recent: self
-                .context
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .microcompact_keep_recent(),
-            autocompact_enabled: self
-                .context
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .autocompact_enabled(),
+            microcompact_keep_recent,
+            autocompact_enabled,
             handoff: None,
             transcript_snapshot: None,
         };
@@ -1425,7 +1417,6 @@ impl OpenHumanSessionHost {
             self.hosted_base.clone(),
             self.agent_definition_id.clone(),
         ));
-        let shared = self.runtime_state.clone();
         let resume_target = TranscriptTarget::new(
             self.session_locator(),
             self.runtime_transcript_stem(),
@@ -1437,7 +1428,6 @@ impl OpenHumanSessionHost {
                 .runtime_state
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
-            state.resume_target = Some(resume_target);
             state.context_middleware = Some(context_mw.clone());
             state.required_output = self
                 .config
@@ -1532,17 +1522,16 @@ impl OpenHumanSessionHost {
             });
         }
         let hooks = Arc::new(OpenHumanSessionHooks::new(
-            move |_, _, _| {
-                let shared = shared.clone();
-                Box::pin(async move {
-                    Ok(ResumePreparation {
-                        transcript: shared
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .resume_target
-                            .clone(),
+            {
+                let resume_target = resume_target.clone();
+                move |_, _, _| {
+                    let resume_target = resume_target.clone();
+                    Box::pin(async move {
+                        Ok(ResumePreparation {
+                            transcript: Some(resume_target),
+                        })
                     })
-                })
+                }
             },
             {
                 let state = self.runtime_state.clone();
@@ -1569,7 +1558,7 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .prelude
                             .clone();
-                        let prelude = prelude.ok_or_else(|| {
+                        let prelude = prelude.ok_or({
                             tinyagents_runtime::RuntimeError::MissingDependency(
                                 "OpenHumanTurnPrelude",
                             )
@@ -1643,7 +1632,7 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .context_middleware
                             .clone()
-                            .ok_or_else(|| {
+                            .ok_or({
                                 tinyagents_runtime::RuntimeError::MissingDependency(
                                     "TurnContextMiddleware",
                                 )

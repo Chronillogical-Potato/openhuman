@@ -689,7 +689,9 @@ jobs:
         # 271 -> 275 on 2026-09-18: the inference migration replaces the
         # monolithic `tinyinference` package with four additional resolved
         # packages in the flows profile; native build count remains 2.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 275
+        # 275 -> 279 on 2026-09-20: the required TinyAgents runtime/session/
+        # graph split adds four unique crate names without native dependencies.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 279
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
@@ -703,12 +705,9 @@ jobs:
           EXPECTED=$(cat <<'EOF'
           agent/harness/builtin_definitions_tests.rs
           agent/harness/definition_tests.rs
-          agent/harness/mod.rs
-          agent/harness/session/builder/factory.rs
-          agent/harness/session/session_builder_and_listener_tests.rs
-          agent/harness/session/session_tests.rs
-          agent/harness/session/turn/tools.rs
-          agent/harness/subagent_runner/tool_prep_tests.rs
+          agent/session_host/builder/factory.rs
+          agent/session_host/turn/tools.rs
+          agent/subagent_host/tool_prep_tests.rs
           agent/registry/agents/loader.rs
           agent/registry/agents/loader_tests_builtin_registration_tests.rs
           agent/registry/agents/loader_tests_orchestrator_tier_tests.rs

@@ -260,7 +260,7 @@ test("source changes compile the aggregate raw coverage target", () => {
   assert.equal(res.status, 0, res.output);
   assert.match(
     res.output,
-    /BASH_ARGS <scripts\/ci-cancel-aware\.sh> <cargo> <test> <--features> <voice web3> <--test> <raw_coverage_all> <--no-run>/,
+    /BASH_ARGS <scripts\/ci-cancel-aware\.sh> <cargo> <test> <--features> <voice web3> <-p> <openhuman-cli> <--test> <raw_coverage_all> <--no-run>/,
   );
 });
 

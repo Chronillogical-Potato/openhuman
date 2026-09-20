@@ -76,6 +76,25 @@ fn resume_history_keeps_the_durable_transcript_and_appends_user_answer_once() {
 }
 
 #[tokio::test]
+async fn persistence_hashes_an_oversized_scoped_key_for_filesystem_safety() {
+    let directory = tempfile::tempdir().unwrap();
+    let persistence = OpenHumanPersistence::new(directory.path().to_path_buf());
+    let key = SubagentTaskKey {
+        root_run_id: "root".repeat(100),
+        parent_run_id: "parent".repeat(100),
+        thread_id: Some("thread".repeat(100)),
+        task_id: "task".repeat(100),
+    };
+
+    persistence
+        .save_pause(persisted_pause(key.clone(), "question", None))
+        .await
+        .unwrap();
+
+    assert!(persistence.load_pause(&key).await.unwrap().is_some());
+}
+
+#[tokio::test]
 async fn persistence_commits_one_scoped_pause_and_recovers_its_original_key() {
     let directory = tempfile::tempdir().unwrap();
     let persistence = OpenHumanPersistence::new(directory.path().to_path_buf());

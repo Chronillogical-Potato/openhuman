@@ -591,18 +591,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "storage_get_link",
             ],
         ),
-        (
-            "scheduling",
-            &[
-                "schedule_task",
-                "cron_add",
-                "cron_list",
-                "cron_remove",
-                "cron_update",
-                "cron_run",
-                "cron_runs",
-            ],
-        ),
+        ("scheduling", &["schedule_task", "cron"]),
         (
             "profile",
             &[

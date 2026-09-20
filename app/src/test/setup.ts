@@ -96,6 +96,19 @@ function ensureStorage(name: 'localStorage' | 'sessionStorage') {
 ensureStorage('localStorage');
 ensureStorage('sessionStorage');
 
+// Node 24 provides an `Event` constructor on the process global. Radix's
+// deferred focus restoration uses that constructor, but jsdom DOM nodes only
+// accept events created by their own window realm. Keep the global constructor
+// aligned with jsdom so delayed focus-scope cleanup cannot throw after a test
+// has otherwise passed.
+function alignGlobalEventWithDom() {
+  if (typeof window !== 'undefined' && globalThis.Event !== window.Event) {
+    globalThis.Event = window.Event;
+  }
+}
+
+alignGlobalEventWithDom();
+
 // Polyfill window.matchMedia — used by Rive (@rive-app/react-webgl2) and
 // some media-query hooks; not implemented in jsdom.
 if (typeof window.matchMedia === 'undefined') {
@@ -375,9 +388,19 @@ if (!process.env.DEBUG_TESTS) {
 }
 
 // Shared mock API server lifecycle for unit tests (default)
-afterEach(() => {
+afterEach(async () => {
   clearRequestLog();
+  // Radix schedules focus restoration with setTimeout(0) during unmount.
+  // Keep its Event constructor in the jsdom realm and let that task drain
+  // before Vitest tears the environment down.
+  alignGlobalEventWithDom();
   cleanup();
+  // Fake-timer suites own their clock. Awaiting a synthetic timer there would
+  // wait until Vitest's per-test timeout, rather than draining anything.
+  if (!vi.isFakeTimers()) {
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+  }
+  alignGlobalEventWithDom();
   // Re-seed the IPC handle after any test that may have deleted it
   // (e.g. tests exercising the CEF-gap branch of `isTauri()`). Without
   // this, sibling tests in the same jsdom worker would silently regress

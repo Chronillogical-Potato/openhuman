@@ -122,6 +122,16 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "settings.persona_pack",
+        name: "Choose Assistant Mascot",
+        domain: "settings",
+        category: CapabilityCategory::Settings,
+        description: "Browse the published mascot library, choose an assistant face, and configure its visual appearance and voice.",
+        how_to: "Settings > Personality > Face",
+        status: CapabilityStatus::Stable,
+        privacy: GITHUB_MASCOT_MANIFEST,
+    },
+Capability {
         id: "settings.core_connection",
         name: "Run the Core Somewhere Else",
         domain: "settings",

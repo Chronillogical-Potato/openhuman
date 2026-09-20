@@ -734,10 +734,19 @@ async fn try_invoke_registered_rpc_returns_some_for_known_method() {
 
 #[tokio::test]
 async fn try_invoke_registered_rpc_routes_security_policy_info() {
-    let out = try_invoke_registered_rpc("openhuman.security_policy_info", Map::new())
-        .await
-        .expect("security policy info should be registered")
-        .expect("security policy info should succeed");
+    let workspace = tempfile::TempDir::new().expect("security policy workspace");
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+    config.action_dir = workspace.path().to_path_buf();
+    config.config_path = workspace.path().join("config.toml");
+    let ctx = CoreContext::for_test_with_config(DomainSet::full(), config);
+    let out = CoreContext::scope(
+        ctx,
+        try_invoke_registered_rpc("openhuman.security_policy_info", Map::new()),
+    )
+    .await
+    .expect("security policy info should be registered")
+    .expect("security policy info should succeed");
 
     assert!(
         out.get("result").is_some() || out.get("autonomy").is_some(),
@@ -817,7 +826,7 @@ fn full_registration_is_byte_identical() {
         .iter()
         .map(|c| c.rpc_method_name())
         .collect();
-    let raw_methods: Vec<String> = registry()
+    let raw_methods: Vec<String> = registry_view()
         .iter()
         .map(|g| g.controller.rpc_method_name())
         .collect();
@@ -1884,15 +1893,17 @@ fn capability_allowed_defaults_open_with_no_context() {
 
 #[test]
 fn unbound_registration_is_byte_identical() {
-    // Companion to `full_registration_is_byte_identical`: with no ambient
-    // context the capability filter must be an order-preserving identity, so
-    // adding the axis changed neither membership nor ordering of the unbound
-    // surface.
+    // This is specifically a pre-boot invariant. Once another test has
+    // initialized a process default context, the surface is intentionally no
+    // longer unbound and is covered by `full_registration_is_byte_identical`.
+    if crate::core::runtime::context::CoreContext::default_context().is_some() {
+        return;
+    }
     let filtered: Vec<String> = all_registered_controllers()
         .iter()
         .map(|c| c.rpc_method_name())
         .collect();
-    let raw: Vec<String> = registry()
+    let raw: Vec<String> = registry_view()
         .iter()
         .map(|g| g.controller.rpc_method_name())
         .collect();

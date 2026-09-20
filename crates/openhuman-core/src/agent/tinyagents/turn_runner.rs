@@ -4,24 +4,14 @@
 //! sub-agent routes use; [`run_turn_via_tinyagents`] is a thin test-only
 //! variant with no middleware stack.
 
-#[cfg(test)]
-use crate::agent::tinyagents::model::ProfileOverrideModel;
-#[cfg(test)]
-use crate::agent::tinyagents::model::TurnChatModel;
-#[cfg(test)]
-use crate::agent::tinyagents::turn_policy::run_policy_for;
 use std::collections::HashSet;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use futures::StreamExt;
 use tinyagents_harness::agent_loop::AgentStreamItem;
 use tinyagents_harness::events::EventSink;
-use tinyagents_harness::host::{ContextComposer, TurnContextRequest};
-use tinyagents_harness::runtime::{
-    AgentHarness, AgentInvocation, AgentTurnRequest, InvocationRuntime,
-};
+use tinyagents_harness::runtime::{AgentInvocation, AgentTurnRequest, InvocationRuntime};
 use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
 
@@ -49,163 +39,18 @@ use super::ToolPolicyEnforcement;
 /// are attached through an [`InvocationRuntime`] and [`AgentInvocation`] for
 /// each root.  That prevents concurrent sessions from replacing one another's
 /// security or workspace state on a shared harness.
-static ROOT_HOSTED_HARNESS: LazyLock<AgentHarness<(), OpenHumanRunContext>> =
-    LazyLock::new(AgentHarness::new);
-
-fn root_hosted_harness() -> &'static AgentHarness<(), OpenHumanRunContext> {
-    &ROOT_HOSTED_HARNESS
-}
+#[path = "turn_runner_hosted.rs"]
+mod turn_runner_hosted;
+use turn_runner_hosted::{root_hosted_harness, PrecomposedRootContext};
 
 #[cfg(test)]
 #[path = "turn_runner_tests.rs"]
 mod tests;
-
-/// Keeps the session's already-built system/context ladder authoritative while
-/// still entering TinyAgents through its hosted invocation boundary.  The
-/// session request contains the frozen system prompt, prompt policy boundary,
-/// context additions and provider-ready history; composing another prompt here
-/// would duplicate it and move the cache prefix.
-struct PrecomposedRootContext;
-
-#[async_trait]
-impl ContextComposer for PrecomposedRootContext {
-    async fn compose_system_prompt(
-        &self,
-        _request: &TurnContextRequest,
-    ) -> tinyagents_harness::Result<String> {
-        Ok(String::new())
-    }
-
-    async fn preamble(
-        &self,
-        _request: &TurnContextRequest,
-    ) -> tinyagents_harness::Result<Vec<tinyinference_llm::message::Message>> {
-        Ok(Vec::new())
-    }
-}
-
-/// Drive an agent turn through the `tinyagents` agent-loop harness.
-///
-/// Registers `provider` as the default model and every entry in `resolved_tools`
-/// as a harness tool, seeds the loop with `history`, and runs the loop bounded
-/// by `max_iterations` model calls. Returns the final text plus the resulting
-/// transcript translated back to openhuman [`ChatMessage`]s.
 #[cfg(test)]
-pub(crate) async fn run_turn_via_tinyagents(
-    chat_model: TurnChatModel,
-    model: &str,
-    temperature: f64,
-    history: Vec<ChatMessage>,
-    resolved_tools: Vec<Arc<dyn tinytools::Tool>>,
-    max_iterations: usize,
-) -> Result<TinyagentsTurnOutcome> {
-    // `0` means "unset" → the legacy default; otherwise the harness cap would be
-    // zero and the run would abort before the first model call.
-    let max_iterations = effective_max_iterations(max_iterations);
-    let mut harness: tinyagents_harness::runtime::AgentHarness<()> =
-        tinyagents_harness::runtime::AgentHarness::new();
-    // Thin test variant: no response cache (chat-safe default).
-    harness.with_policy(run_policy_for(max_iterations, false));
-    let profile = chat_model.profile().cloned().unwrap_or_default();
-    let chat_model: TurnChatModel = Arc::new(
-        ProfileOverrideModel::new(chat_model, profile)
-            .with_request_model(model)
-            .with_request_temperature(temperature),
-    );
-    let error_slot = Arc::new(std::sync::Mutex::new(None));
-    harness
-        .register_model(model, chat_model)
-        .set_default_model(model);
-    let tool_count = resolved_tools.len();
-    for tool in resolved_tools {
-        harness.register_tool(tool);
-    }
-
-    // Bound the run: one model call per legacy "iteration", and allow generous
-    // tool calls (the loop also stops when the model stops requesting tools).
-    let config = crate::agent::tinyagents::host::run_context::fresh_root_run_config("agent-turn")
-        .with_max_model_calls(max_iterations)
-        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
-        .with_max_depth(MAX_SPAWN_DEPTH)
-        .with_tag("openhuman")
-        .with_tag("scope:root")
-        .with_tag("unobserved");
-
-    tracing::info!(
-        model,
-        max_iterations,
-        tools = tool_count,
-        "[tinyagents] routing agent turn through tinyagents harness"
-    );
-
-    let input = crate::agent::message_convert::history_to_messages(&history);
-    // Explicit persistence boundary (issue #4455): the request transcript length,
-    // captured *before* the run consumes `input`. Everything the harness appends
-    // after this index — assistant/tool rounds plus any mid-turn steer messages —
-    // is this turn's persisted `conversation`. Anchoring on this index instead of
-    // the last-user-message suffix keeps injected steers (which move that
-    // boundary) from truncating persisted history.
-    let request_base_len = input.len();
-    // Box the (large) harness drive future — see `run_turn_via_tinyagents_shared`.
-    let run = match Box::pin(harness.invoke(&(), (), config, input)).await {
-        Ok(run) => run,
-        Err(e) => {
-            // #4469 item 3: recover from a poisoned slot instead of panicking.
-            // A thread that panicked mid-run while holding this mutex would
-            // otherwise turn every subsequent error-recovery read into a second
-            // panic, masking the original provider failure. `into_inner` yields
-            // the guarded value regardless of poison so we still re-surface the
-            // typed error.
-            if let Some(original) = error_slot
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .take()
-            {
-                return Err(original);
-            }
-            return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
-        }
-    };
-
-    let text = run.text().unwrap_or_default();
-    let out_history = crate::agent::message_convert::messages_to_history(&run.messages);
-    let conversation = crate::agent::message_convert::messages_to_conversation(
-        crate::agent::message_convert::messages_since_request(&run.messages, request_base_len),
-    );
-    tracing::debug!(
-        request_base_len,
-        transcript_len = run.messages.len(),
-        persisted_messages = run.messages.len().saturating_sub(request_base_len),
-        "[tinyagents] persisting post-request transcript (thin path; steer-safe boundary)"
-    );
-
-    Ok(TinyagentsTurnOutcome {
-        text,
-        resolved_route: None,
-        history: out_history,
-        conversation,
-        model_calls: run.model_calls,
-        tool_calls: run.tool_calls,
-        input_tokens: run.usage.usage.input_tokens,
-        output_tokens: run.usage.usage.output_tokens,
-        cached_input_tokens: run.usage.usage.cache_read_tokens,
-        charged_amount_usd: crate::platform::cost::catalog::estimate_cost_usd(
-            model,
-            run.usage.usage.input_tokens,
-            run.usage.usage.output_tokens,
-            run.usage.usage.cache_read_tokens,
-        ),
-        early_exit_tool: None,
-        hit_cap: false,
-        // The thin (test-only) variant installs no middleware, so nothing could
-        // have injected a conclusion.
-        wrap_up_injected: false,
-        // This thin (test-only) variant does not install the breaker middleware.
-        breaker_halt: None,
-        // This thin variant carries no per-call outcome capture middleware.
-        tool_outcomes: Vec::new(),
-    })
-}
+#[path = "turn_runner_thin.rs"]
+mod thin;
+#[cfg(test)]
+pub(crate) use thin::run_turn_via_tinyagents;
 
 /// Drive a turn through the tinyagents harness over the routes' **shared**,
 /// `Arc`-owned tool registry sets (`Arc<Vec<Box<dyn Tool>>>`), advertising
@@ -671,7 +516,7 @@ async fn run_turn_via_tinyagents_inner(
             ..
         }) = run_context.origin.as_ref()
         {
-            journal::register_request_journal_run(&request_id, journal_run_id.as_str());
+            journal::register_request_journal_run(request_id, journal_run_id.as_str());
         }
     }
 

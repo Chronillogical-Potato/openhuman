@@ -1,6 +1,7 @@
 use super::*;
 use crate::agent::tinyagents::TurnModelSource;
 use std::sync::Arc;
+use tinyagents_harness::host::{ContextComposer, TurnContextRequest};
 
 fn hosted_base() -> Arc<crate::agent::tinyagents::host::OpenHumanHostBase> {
     Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
@@ -137,8 +138,18 @@ async fn concurrent_hosted_roots_keep_models_progress_workspace_and_origin_isola
 
     assert_eq!(left.text, "left");
     assert_eq!(right.text, "right");
+    let left_history: Vec<_> = left
+        .history
+        .iter()
+        .map(|message| (&message.role, &message.content))
+        .collect();
+    let right_history: Vec<_> = right
+        .history
+        .iter()
+        .map(|message| (&message.role, &message.content))
+        .collect();
     assert_ne!(
-        left.history, right.history,
+        left_history, right_history,
         "each overlay kept its transcript"
     );
     assert!(

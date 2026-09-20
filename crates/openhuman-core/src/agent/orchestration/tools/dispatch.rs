@@ -12,6 +12,9 @@ use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
 use tinytools::{ToolCallOptions, ToolResult};
 
+mod dispatch_outcomes;
+pub(crate) use dispatch_outcomes::*;
+
 /// Typed dispatch for the delegation tools synthesised from the active agent.
 ///
 /// These tools are dynamic, so their common registration resolves the admitted
@@ -670,144 +673,6 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                 tool_name, &message,
             )))
         }
-    }
-}
-
-/// Map a paused (`AwaitingUser`) sub-agent outcome to the tool result handed
-/// back to the orchestrator: a successful `ToolResult` carrying the
-/// `[SUBAGENT_AWAITING_USER]` envelope (task_id/agent_id/question + the
-/// instruction to resume via `continue_subagent`). Kept as a standalone,
-/// side-effect-free fn so the paused-path mapping is unit-testable without a
-/// registry or a real model — the #4291 regression guard. Synchronous delegate
-/// dispatch has no worker sub-thread, so `worker_thread_id` is always `None`.
-///
-/// **An unpersisted pause is a failure on this path, not a caveat.** The
-/// envelope's "resuming may fail" wording is calibrated for the async path,
-/// where a child that lost its checkpoint is still reachable through the
-/// durable `subagent_sessions` store. This function serves the *synchronous*
-/// delegation, which returns above before any durable session is registered
-/// and has no worker thread by construction — so with no checkpoint there is
-/// no resume route at all, and `continue_subagent` will find neither. Handing
-/// back a success envelope would have the orchestrator put a question to the
-/// user whose answer has nowhere to go, and the loss would only surface after
-/// they answered. Report it as a failure instead, while the parent can still
-/// act on it.
-fn awaiting_outcome_to_tool_result(
-    outcome: &crate::agent::subagent_host::SubagentRunOutcome,
-    question: &str,
-    checkpointed: bool,
-) -> ToolResult {
-    if !checkpointed {
-        // `question` is sub-agent-authored free text and this string is read by
-        // the orchestrator, so it gets the same treatment as the envelope's:
-        // JSON-encoded, not wrapped in quotes. Bare quoting is not containment —
-        // the question can close the quote and continue with instructions of its
-        // own. This is the hole `awaiting_user_envelope` exists to close, and an
-        // error path is not exempt from it.
-        let question_json = serde_json::to_string(question)
-            .unwrap_or_else(|_| "\"<unserializable question>\"".into());
-        return ToolResult::error(format!(
-            "The sub-agent `{}` paused to ask a question, but its state could not be saved \
-             and this delegation has no durable session to fall back on, so it cannot be \
-             resumed. Its progress is lost. Tell the user what it was asking — {} — and \
-             that the delegation has to be started again; do NOT call continue_subagent \
-             with task_id `{}`, there is nothing for it to resume.",
-            outcome.agent_id, question_json, outcome.task_id
-        ));
-    }
-    ToolResult::success(super::awaiting_user::awaiting_user_envelope(
-        &outcome.task_id,
-        &outcome.agent_id,
-        None,
-        question,
-        checkpointed,
-    ))
-}
-
-/// Format a subagent-delegation failure so the orchestrator cannot mistake it
-/// for success. Kept as a standalone, side-effect-free fn so the exact wording
-/// is unit-testable without standing up a registry + failing model (#3193).
-fn format_subagent_failure(tool_name: &str, message: &str) -> String {
-    format!(
-        "{tool_name} failed and did not complete — no work was performed and no \
-         results were produced. Do NOT treat this as success or fabricate an \
-         output; report the failure to the user. Error: {message}"
-    )
-}
-
-/// Whether a "completed" sub-agent output is only an unexecuted tool call.
-///
-/// The marker vocabulary lives in
-/// [`crate::agent::harness::archivist::helpers::looks_like_unexecuted_tool_call`];
-/// this adds the second half of the question — that stripping the markup
-/// leaves no prose behind. A reply that merely *mentions* a tool call still
-/// carries an answer and passes through untouched.
-pub(crate) fn is_unexecuted_tool_call_stub(output: &str) -> bool {
-    use crate::agent::harness::archivist::helpers::{
-        contains_tool_call_payload, strip_tool_calls_from_response,
-    };
-    if !contains_tool_call_payload(output) {
-        // Prose merely naming a protocol field is not a stub.
-        return false;
-    }
-    // A whole-text JSON payload carrying `tool_calls` is a stub however it
-    // is formatted — line-based stripping cannot see that the object's
-    // inner members belong to the call rather than to an answer.
-    if let Ok(serde_json::Value::Object(map)) =
-        serde_json::from_str::<serde_json::Value>(output.trim())
-    {
-        if map.contains_key("tool_calls") {
-            return true;
-        }
-    }
-    // Otherwise (XML spans, mixed prose): a stub is what leaves no words
-    // behind once the markup is stripped. Structural punctuation is not an
-    // answer.
-    !strip_tool_calls_from_response(output)
-        .chars()
-        .any(char::is_alphanumeric)
-}
-
-/// The sentence appended to a blocking delegation's result.
-///
-/// Integration delegations run [`DispatchMode::Blocking`] and register no
-/// durable worker, but the orchestrator's `[active_subagents]` guidance
-/// tells it to collect completed work with `wait_subagent`. Saying so on
-/// the result itself stops it hunting for a worker that never existed
-/// (#6033).
-const INLINE_RESULT_NOTE: &str = "\n\n[INLINE_RESULT] This delegation ran inline and is complete as returned — there is no sub-agent worker for it. Do NOT call wait_subagent, list_subagents or continue_subagent for this delegation.";
-
-/// The same disclosure for a run that did **not** finish. It must not claim
-/// the result is complete — that would contradict the
-/// `[SUBAGENT_INCOMPLETE]` guardrail it is appended to — so it says only
-/// that there is no worker, and what to do instead.
-const NO_WORKER_NOTE: &str = "\n\n[INLINE_RESULT] This delegation ran inline and registered no sub-agent worker, so there is nothing to collect: do NOT call wait_subagent, list_subagents or continue_subagent for it. Re-delegate with a corrected prompt instead.";
-
-/// Append [`INLINE_RESULT_NOTE`] when the dispatch was blocking.
-pub(crate) fn with_inline_result_note(output: String, mode: DispatchMode) -> String {
-    if mode == DispatchMode::Blocking {
-        format!("{output}{INLINE_RESULT_NOTE}")
-    } else {
-        output
-    }
-}
-
-/// The partial-progress envelope shared by every non-finishing outcome.
-pub(crate) fn incomplete_envelope(
-    tool_name: &str,
-    reason: &str,
-    output: &str,
-    mode: DispatchMode,
-) -> String {
-    let envelope = format!(
-        "[SUBAGENT_INCOMPLETE] the {tool_name} sub-agent {reason} and did not \
-         finish. Below is partial progress only — do NOT report it as done or \
-         re-run the identical delegation unchanged.\n\nPartial progress:\n{output}"
-    );
-    if mode == DispatchMode::Blocking {
-        format!("{envelope}{NO_WORKER_NOTE}")
-    } else {
-        envelope
     }
 }
 

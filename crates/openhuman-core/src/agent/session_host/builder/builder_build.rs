@@ -230,6 +230,35 @@ impl SessionHostBuilder {
             .workspace_dir
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
+        let memory = self
+            .memory
+            .ok_or_else(|| anyhow::anyhow!("memory is required"))?;
+
+        // Direct builder callers (notably embedding fixtures) do not pass
+        // through `build_session_agent_inner`, which normally creates the
+        // durable host authority for a root TinyAgents invocation. When the
+        // caller has initialized the registry, provide an equivalent minimal
+        // base from the builder's isolated workspace and supplied memory.
+        // Leave it absent when no registry exists so custom-runtime callers
+        // still receive the explicit hosted-authority error at turn time.
+        let mut hosted_config = crate::config::Config::default();
+        hosted_config.workspace_dir = workspace_dir.clone();
+        hosted_config.action_dir = action_dir.clone();
+        let hosted_config = Arc::new(hosted_config);
+        let hosted_base =
+            crate::agent::harness::AgentDefinitionRegistry::global_arc().map(|definitions| {
+                Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
+                    security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
+                        &hosted_config.autonomy,
+                        &workspace_dir,
+                        &action_dir,
+                    )),
+                    config: Arc::clone(&hosted_config),
+                    definitions,
+                    memory: Arc::clone(&memory),
+                    post_turn_hooks: self.post_turn_hooks.clone(),
+                })
+            });
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);
@@ -255,9 +284,7 @@ impl SessionHostBuilder {
             visible_tool_names: visible_names,
             subagent_tool_ceiling_names,
             tool_policy_session,
-            memory: self
-                .memory
-                .ok_or_else(|| anyhow::anyhow!("memory is required"))?,
+            memory,
             auto_recall: self.auto_recall,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher
@@ -311,7 +338,7 @@ impl SessionHostBuilder {
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
             runtime_config: None,
-            hosted_base: None,
+            hosted_base,
             definition: None,
             // Default to `true` (omit) so legacy / custom agents built
             // without a definition stay lean. Opt-in agents thread their

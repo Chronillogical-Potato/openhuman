@@ -14,6 +14,7 @@ use std::{
 
 use async_trait::async_trait;
 use fs2::FileExt;
+use sha2::{Digest, Sha256};
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_orchestration::subagent::{
     ArtifactReference, PreparedSubagent, SubagentCapabilities, SubagentDriver, SubagentError,
@@ -592,13 +593,24 @@ impl OpenHumanPersistence {
                 .map(|byte| format!("{byte:02x}"))
                 .collect()
         }
-        format!(
+        let encoded = format!(
             "{}-{}-{}-{}",
             hex(&key.root_run_id),
             hex(&key.parent_run_id),
             hex(key.thread_id.as_deref().unwrap_or("")),
             hex(&key.task_id),
-        )
+        );
+        // A task key normally contains short UUID-like identifiers, for which
+        // the reversible encoding preserves existing checkpoint paths. A
+        // background child may inherit a rendered parent identifier, however;
+        // hex-encoding that value can exceed the filesystem filename limit.
+        // Hash only that exceptional form while keeping all key fields in the
+        // digest input so distinct lifecycle scopes cannot alias.
+        if encoded.len() <= 180 {
+            encoded
+        } else {
+            format!("sha256-{:x}", Sha256::digest(encoded.as_bytes()))
+        }
     }
 
     fn pause_path(&self, key: &SubagentTaskKey) -> std::path::PathBuf {
@@ -614,14 +626,9 @@ impl OpenHumanPersistence {
     }
 
     fn index_path(&self, task_id: &str) -> std::path::PathBuf {
-        self.checkpoint_dir.join("lifecycle").join(format!(
-            "task-{}.index.json",
-            task_id
-                .as_bytes()
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>()
-        ))
+        self.checkpoint_dir
+            .join("lifecycle")
+            .join(format!("task-{}.index.json", Self::task_component(task_id)))
     }
 
     fn lock_path(&self, key: &SubagentTaskKey) -> std::path::PathBuf {
@@ -631,14 +638,22 @@ impl OpenHumanPersistence {
     }
 
     fn index_lock_path(&self, task_id: &str) -> std::path::PathBuf {
-        self.checkpoint_dir.join("lifecycle").join(format!(
-            "task-{}.index.lock",
-            task_id
-                .as_bytes()
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>()
-        ))
+        self.checkpoint_dir
+            .join("lifecycle")
+            .join(format!("task-{}.index.lock", Self::task_component(task_id)))
+    }
+
+    fn task_component(task_id: &str) -> String {
+        let encoded = task_id
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        if encoded.len() <= 180 {
+            encoded
+        } else {
+            format!("sha256-{:x}", Sha256::digest(encoded.as_bytes()))
+        }
     }
 
     fn lock_file(path: &std::path::Path) -> Result<std::fs::File, SubagentError> {
@@ -647,6 +662,7 @@ impl OpenHumanPersistence {
             .map_err(|error| SubagentError::Persistence(error.to_string()))?;
         let file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(path)

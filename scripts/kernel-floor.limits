@@ -564,4 +564,8 @@
 #                      crates, which add four resolved packages and four unique
 #                      crate names to the flows profile. No native dependency
 #                      was added.
-flows:293:275:2
+# 298/279/2 2026-09-20 TinyAgents runtime/session/graph orchestration moved
+#                      into the required host runtime. The migration adds five
+#                      resolved packages and four unique crate names; it does
+#                      not add a native build dependency.
+flows:298:279:2
