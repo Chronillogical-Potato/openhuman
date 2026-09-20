@@ -20,7 +20,6 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     registryGet: (...args: unknown[]) => mockRegistryGet(...args),
     oauthBegin: (...args: unknown[]) => mockOauthBegin(...args),
     status: (...args: unknown[]) => mockStatus(...args),
-    configAssist: vi.fn(),
   },
 }));
 
@@ -267,21 +266,6 @@ describe('ConnectAuthModal', () => {
     // element (which is now the Content, not the old full-screen backdrop div).
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('opens the config-help modal from the "Help & configure" link', async () => {
-    mockDetectAuth.mockResolvedValue({ kind: 'none', grant_types: [] });
-    render(<ConnectAuthModal server={BASE_SERVER} onClose={() => {}} onConnected={() => {}} />);
-    await screen.findByRole('dialog');
-    // The link in the modal header (not the stacked modal's heading) opens the
-    // ConfigHelpModal, which renders its own dialog with the same label.
-    fireEvent.click(screen.getByRole('button', { name: 'Help & configure' }));
-    await waitFor(() => {
-      // Two dialogs now: the connect modal + the stacked help modal. Query
-      // with `{ hidden: true }` — Radix correctly marks the lower dialog
-      // `aria-hidden` while the stacked one is on top of it.
-      expect(screen.getAllByRole('dialog', { hidden: true }).length).toBeGreaterThan(1);
-    });
   });
 
   it('falls back to token fields when detectAuth throws', async () => {
