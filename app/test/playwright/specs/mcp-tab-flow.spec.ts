@@ -532,7 +532,7 @@ test.describe('MCP page — Manage & Uninstall Lifecycle', () => {
     await navigateToMcpTab(page);
   });
 
-  test('a row\'s name → detail view shows server info and the name', async ({ page }) => {
+  test("a row's name → detail view shows server info and the name", async ({ page }) => {
     await page.getByRole('button', { name: 'Open Memory Server' }).click();
     await expect(page.locator('button:has-text("Back to servers")')).toBeVisible({
       timeout: 5_000,
