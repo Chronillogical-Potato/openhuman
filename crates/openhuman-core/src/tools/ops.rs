@@ -605,8 +605,9 @@ pub fn all_tools_with_runtime(
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
         // MCP registry and workspace persona. Observe/connect/call tools
-        // default-ON; MCP install/uninstall (mcp_manage), and persona/workspace writers
-        // (workspace_manage) ship default-OFF via `tools::user_filter`.
+        // default-ON; MCP uninstall (mcp_manage), and persona/workspace writers
+        // (workspace_manage) ship default-OFF via `tools::user_filter`. There
+        // is no install tool: servers are declared by the user in mcp.json.
         //
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
@@ -627,10 +628,6 @@ pub fn all_tools_with_runtime(
         Box::new(McpRegistryDisconnectTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryToolCallTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryConfigAssistTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryInstallTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryUninstallTool::new(config.clone())),
         Box::new(WorkspaceReadPersonaTool::new(config.clone())),
@@ -789,22 +786,6 @@ pub fn all_tools_with_runtime(
                 tracing::warn!("[gitbooks] tools not registered: {error}");
             }
         }
-    }
-
-    // MCP setup-agent tool surface (search/get/request_secret/test/install).
-    // Registered unconditionally — the `mcp_setup` sub-agent filters to just
-    // these via its `[tools] named = [...]` allowlist, and the host agent's
-    // own tool list is wide enough that the extra five entries are negligible.
-    // Compiled out entirely with the `mcp` feature.
-    #[cfg(feature = "mcp")]
-    {
-        let cfg = Arc::new(root_config.clone());
-        tools.push(Box::new(McpSetupSearchTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupGetTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupRequestSecretTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupTestConnectionTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupInstallAndConnectTool::new(cfg)));
-        tracing::debug!("[mcp_setup] registered 5 setup-agent tools");
     }
 
     // Generic remote MCP bridge tools. These let the agent enumerate
