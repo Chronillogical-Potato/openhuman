@@ -217,8 +217,12 @@
 #               removes another 838 B of wildcard schemas (and 25 B of prompt)
 #               from morning_briefing and tools_agent; those savings are
 #               ratcheted here rather than left as stale headroom.
+#
+#   2026-09-20  Re-measured after the fresh-turn and cost-routing changes merged
+#               without their generated budget update. The morning briefing's
+#               fixed prefix is 3 B larger; all other recorded ceilings stay put.
 
-morning_briefing:14962:67291
+morning_briefing:14965:67291
 trigger_triage:9207:0
 workflow_builder:79097:30400
 summarizer:9021:0

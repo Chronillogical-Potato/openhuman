@@ -25,7 +25,7 @@ pub async fn transcribe_cloud(
         .map_err(|error| error.to_string())?;
     let http = client
         .raw_client()
-        .map_err(|error| crate::api::flatten_authed_error(error))?;
+        .map_err(crate::api::flatten_authed_error)?;
     let result =
         tinyinference_voice::cloud::transcribe(&http, url, &token, audio_base64, options).await?;
     Ok(RpcOutcome::single_log(
