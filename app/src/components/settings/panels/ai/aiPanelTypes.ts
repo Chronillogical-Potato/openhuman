@@ -75,6 +75,8 @@ export type AISettings = {
   cloudProviders: CloudProvider[];
   routing: RoutingMap;
   modelRegistry: ModelRegistryEntry[];
+  /** Raw `config.default_model`; a managed catalog id when the user pinned one. */
+  defaultModel?: string;
 };
 
 /** Local-runtime chip slugs (Ollama / LM Studio / OMLX) that aren't actual

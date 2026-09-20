@@ -56,7 +56,14 @@ function toPanelRoutingFromApi(api: ApiAISettings): { panel: AISettings } {
     learning: liftRef(api.routing.learning),
     subconscious: liftRef(api.routing.subconscious),
   };
-  return { panel: { cloudProviders, routing, modelRegistry: api.modelRegistry } };
+  return {
+    panel: {
+      cloudProviders,
+      routing,
+      modelRegistry: api.modelRegistry,
+      defaultModel: api.defaultModel ?? '',
+    },
+  };
 }
 
 function toApiSettings(panel: AISettings): ApiAISettings {
@@ -81,6 +88,7 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       subconscious: panel.routing.subconscious,
     },
     modelRegistry: panel.modelRegistry,
+    defaultModel: panel.defaultModel ?? '',
   };
 }
 
