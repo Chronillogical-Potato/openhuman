@@ -51,6 +51,8 @@ async fn spawn_mock(app: Router) -> String {
 }
 
 fn config_with_backend(tmp: &TempDir, base: String) -> Config {
+    crate::install(crate::InstallOptions::default().hosted_controllers(false))
+        .expect("install SDK backend transport for referral mock");
     let mut c = test_config(tmp);
     c.api_url = Some(base);
     store_session_token(&c, "test-session-token");
