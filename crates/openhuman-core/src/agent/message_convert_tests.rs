@@ -70,11 +70,9 @@ fn native_image_round_trip_preserves_literal_private_marker_text() {
     );
     let line: serde_json::Value = serde_json::from_slice(&stdin).unwrap();
     let content = line["message"]["content"].as_array().unwrap();
-    assert_eq!(
-        content[0]["text"],
-        "literal [OH_IMAGE:data:image/png;base64,QUJD]"
-    );
-    assert_eq!(content[1]["type"], "image");
+    assert_eq!(content[0]["text"], "literal ");
+    assert_eq!(content[1]["text"], "[OH_IMAGE:data:image/png;base64,QUJD]");
+    assert_eq!(content[2]["type"], "image");
 }
 
 // An image-only turn must not emit an empty text block (some providers 400
