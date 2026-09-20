@@ -56,9 +56,10 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
   // Only the newest read may write its answer.
   const generation = useRef(0);
 
+  // The initial state is already `loading`; a retry sets it again before
+  // calling this, so the read itself never has to.
   const refresh = useCallback(async () => {
     const mine = ++generation.current;
-    setLoad('loading');
     try {
       const doc = await mcpClientsApi.configGet();
       if (generation.current !== mine) return;
@@ -126,7 +127,13 @@ const McpJsonEditor = ({ onSaved }: McpJsonEditorProps) => {
         <AlertTitle>{t('mcp.json.loadFailedTitle')}</AlertTitle>
         <AlertDescription>
           {t('mcp.json.loadFailedBody')}{' '}
-          <Button variant="tertiary" size="xs" onClick={() => void refresh()}>
+          <Button
+            variant="tertiary"
+            size="xs"
+            onClick={() => {
+              setLoad('loading');
+              void refresh();
+            }}>
             {t('common.retry')}
           </Button>
         </AlertDescription>
