@@ -855,6 +855,119 @@ describe('SkillsExplorerTab', () => {
     });
   });
 
+  it('shows legacy scope badge for legacy skills', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([MOCK_LEGACY_SKILL]);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+    await switchToInstalled();
+
+    await waitFor(() => {
+      expect(screen.getByText('Legacy Skill')).toBeInTheDocument();
+    });
+    // legacy scope badge should show
+    expect(screen.getAllByText('Legacy').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('displays SkillFormatBadge with fallback label for unknown format', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const unknownFormatSkill = {
+      ...MOCK_SKILL,
+      id: 'unk-skill',
+      name: 'Unknown Format Skill',
+      sourceFormat: 'unknown-format',
+    };
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([unknownFormatSkill]);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+    await switchToInstalled();
+
+    await waitFor(() => {
+      expect(screen.getByText('Unknown Format Skill')).toBeInTheDocument();
+    });
+    // The badge renders the raw format string for unknown formats
+    expect(screen.getByText('unknown-format')).toBeInTheDocument();
+  });
+
+  it('shows empty registry state when catalog returns no results', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse).mockResolvedValue([]);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      // Empty registry state shows its title (i18n key: skills.explorer.registryEmptyTitle)
+      expect(screen.getByText('No registry entries')).toBeInTheDocument();
+    });
+  });
+
+  it('retry button on error retriggers catalog fetch', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
+    vi.mocked(skillsApi.listWorkflows).mockResolvedValue([]);
+    vi.mocked(skillRegistryApi.browse)
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValue([MOCK_CATALOG_ENTRY]);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('timeout')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Registry Skill')).toBeInTheDocument();
+    });
+  });
+
+  it('retry button on installed view error retriggers skills fetch', async () => {
+    const { skillsApi } = await import('../../../services/api/skillsApi');
+    vi.mocked(skillsApi.listWorkflows)
+      .mockRejectedValueOnce(new Error('skills fetch failed'))
+      .mockResolvedValue([MOCK_SKILL]);
+
+    render(
+      <MemoryRouter>
+        <SkillsPage initialTab="registry" />
+      </MemoryRouter>
+    );
+    await switchToInstalled();
+
+    await waitFor(() => {
+      expect(screen.getByText('skills fetch failed')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Skill')).toBeInTheDocument();
+    });
+  });
+
   it('refresh button triggers force-refresh catalog fetch', async () => {
     const { skillsApi } = await import('../../../services/api/skillsApi');
     const { skillRegistryApi } = await import('../../../services/api/skillRegistryApi');
