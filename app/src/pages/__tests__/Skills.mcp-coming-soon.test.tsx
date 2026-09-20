@@ -58,7 +58,7 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
     // The MCP page is three notations: the server rows, the document, the
     // directory.
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /Servers/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Servers' })).toBeInTheDocument();
     });
     expect(screen.getByRole('tab', { name: 'mcp.json' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Registry' })).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe('Skills page — MCP Servers tab (MCP + Meeting bots)', () => {
 
     expect(screen.getByTestId('two-pane-nav-mcp')).toHaveAttribute('aria-current', 'page');
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /Servers/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Servers' })).toBeInTheDocument();
     });
   });
 });
