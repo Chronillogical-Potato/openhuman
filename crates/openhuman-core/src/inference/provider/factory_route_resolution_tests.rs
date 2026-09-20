@@ -266,6 +266,36 @@ fn resolve_model_for_hint_maps_known_hints_to_tiers() {
     );
 }
 
+/// Routing → "Default model": a catalog id in `default_model` is what a managed
+/// `hint:chat` turn runs on. Tier names and hints stored there are not pins,
+/// and a BYOK chat route is untouched by the managed default.
+#[test]
+fn resolve_model_for_hint_uses_pinned_managed_default_for_chat() {
+    let mut config = Config::default();
+    config.default_model = Some("openrouter/deepseek/deepseek-v4-flash".to_string());
+    assert_eq!(
+        resolve_model_for_hint("hint:chat", &config),
+        "openrouter/deepseek/deepseek-v4-flash"
+    );
+    // Only the chat tier is pinned; other managed tiers keep their names.
+    assert_eq!(
+        resolve_model_for_hint("hint:reasoning", &config),
+        "reasoning-v1"
+    );
+    assert_eq!(resolve_model_for_hint("hint:coding", &config), "coding-v1");
+
+    // A tier or hint in `default_model` is the old "backend picks" contract.
+    config.default_model = Some("chat-v1".to_string());
+    assert_eq!(resolve_model_for_hint("hint:chat", &config), "chat-v1");
+    config.default_model = Some("hint:reasoning".to_string());
+    assert_eq!(resolve_model_for_hint("hint:chat", &config), "chat-v1");
+
+    // A BYOK chat route carries its own model and ignores the managed pin.
+    config.default_model = Some("openrouter/deepseek/deepseek-v4-flash".to_string());
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+    assert_eq!(resolve_model_for_hint("hint:chat", &config), "gpt-4o");
+}
+
 #[test]
 fn resolve_model_for_hint_passes_through_tier_names() {
     let config = Config::default();
