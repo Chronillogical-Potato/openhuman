@@ -302,6 +302,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': '마스코트 표시',
   'assistant.faceMode.turnOff': '마스코트 숨기기',
   'nav.connections': '연결',
+  'nav.discord': 'Discord 참여하기',
   'nav.memory': '인텔리전스',
   'nav.alerts': '알림',
   'nav.rewards': '보상',

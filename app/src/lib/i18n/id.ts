@@ -312,6 +312,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': 'Tampilkan maskot',
   'assistant.faceMode.turnOff': 'Sembunyikan maskot',
   'nav.connections': 'Koneksi',
+  'nav.discord': 'Gabung Discord kami',
   'nav.memory': 'Memori',
   'nav.alerts': 'Peringatan',
   'nav.rewards': 'Hadiah',

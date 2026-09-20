@@ -315,6 +315,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': 'Mostra mascotte',
   'assistant.faceMode.turnOff': 'Nascondi mascotte',
   'nav.connections': 'Connessioni',
+  'nav.discord': 'Unisciti al nostro Discord',
   'nav.memory': 'Intelligenza',
   'nav.alerts': 'Avvisi',
   'nav.rewards': 'Premi',

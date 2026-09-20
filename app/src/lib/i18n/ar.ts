@@ -294,6 +294,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': 'عرض الوجه',
   'assistant.faceMode.turnOff': 'إخفاء الوجه',
   'nav.connections': 'الاتصالات',
+  'nav.discord': 'انضم إلى Discord الخاص بنا',
   'nav.memory': 'الذكاء',
   'nav.alerts': 'التنبيهات',
   'nav.rewards': 'المكافآت',

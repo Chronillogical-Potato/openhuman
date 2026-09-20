@@ -279,6 +279,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': '显示形象',
   'assistant.faceMode.turnOff': '隐藏形象',
   'nav.connections': '连接',
+  'nav.discord': '加入我们的 Discord',
   'nav.memory': '记忆',
   'nav.alerts': '通知',
   'nav.rewards': '奖励',

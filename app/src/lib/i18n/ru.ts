@@ -312,6 +312,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': 'Показать маскота',
   'assistant.faceMode.turnOff': 'Скрыть маскота',
   'nav.connections': 'Подключения',
+  'nav.discord': 'Присоединиться к нашему Discord',
   'nav.memory': 'Интеллект',
   'nav.alerts': 'Оповещения',
   'nav.rewards': 'Награды',

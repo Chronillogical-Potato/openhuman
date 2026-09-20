@@ -19,9 +19,9 @@ vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) 
 describe('SidebarHeader', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Keyboard Shortcuts, Search, Settings, and Collapse buttons', () => {
+  it('renders Discord, Search, Settings, and Collapse buttons', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'nav.discord' })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'shortcuts.action.commandPalette' })
     ).toBeInTheDocument();
@@ -33,19 +33,17 @@ describe('SidebarHeader', () => {
     expect(screen.queryByRole('button', { name: 'nav.home' })).not.toBeInTheDocument();
   });
 
-  it('shortcuts button opens the keyboard-shortcuts help directory', () => {
-    const runAction = vi.spyOn(registry, 'runAction').mockReturnValue(true);
+  it('Discord button opens the community invite in the browser', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.title' }));
-    expect(runAction).toHaveBeenCalledWith('meta.keyboard-shortcuts');
-    runAction.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'nav.discord' }));
+    expect(openUrl).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
   });
 
-  it('shortcuts button has correct data-analytics-id', () => {
+  it('Discord button has correct data-analytics-id', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'nav.discord' })).toHaveAttribute(
       'data-analytics-id',
-      'sidebar-header-shortcuts'
+      'sidebar-header-discord'
     );
   });
 

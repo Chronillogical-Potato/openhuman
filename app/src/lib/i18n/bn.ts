@@ -306,6 +306,7 @@ const messages: TranslationMap = {
   'assistant.faceMode.turnOn': 'মাসকট দেখান',
   'assistant.faceMode.turnOff': 'মাসকট লুকান',
   'nav.connections': 'সংযোগ',
+  'nav.discord': 'আমাদের Discord-এ যোগ দিন',
   'nav.memory': 'ইন্টেলিজেন্স',
   'nav.alerts': 'সতর্কতা',
   'nav.rewards': 'পুরস্কার',

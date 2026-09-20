@@ -15,6 +15,7 @@ const en: TranslationMap = {
   'assistant.faceMode.turnOn': 'Show mascot face',
   'assistant.faceMode.turnOff': 'Hide mascot face',
   'nav.connections': 'Connections',
+  'nav.discord': 'Join our Discord',
   'nav.memory': 'Intelligence',
   'nav.alerts': 'Alerts',
   'nav.rewards': 'Rewards',
