@@ -219,6 +219,87 @@ describe('chatRuntimeSlice', () => {
     expect(next.toolTimelineByThread['thread-i']).toEqual([]);
   });
 
+  /**
+   * A detached `spawn_async_subagent` child outlives the turn that spawned it.
+   * Settling it on the parent's `completed` snapshot made the Background tasks
+   * panel report "none running" — and the row read "Cancelled" — while the
+   * sub-agent was still making tool calls. Its own `subagent_completed` event
+   * is what settles it.
+   */
+  it('keeps a detached async subagent running when its parent turn completes', () => {
+    const asyncRow = {
+      id: 'subagent:sub-async',
+      name: 'subagent:researcher',
+      round: 1,
+      status: 'running' as const,
+      subagent: {
+        taskId: 'sub-async',
+        agentId: 'researcher',
+        status: 'running' as const,
+        mode: 'async',
+        toolCalls: [],
+      },
+    };
+    const snapshot: PersistedTurnState = {
+      threadId: 'thread-async',
+      requestId: 'req-async',
+      lifecycle: 'completed',
+      iteration: 1,
+      maxIterations: 25,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [asyncRow],
+      startedAt: '2026-09-22T00:00:00Z',
+      updatedAt: '2026-09-22T00:00:09Z',
+    };
+
+    const next = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
+    const row = next.toolTimelineByThread['thread-async'][0];
+
+    expect(row.status).toBe('running');
+    expect(row.subagent?.status).toBe('running');
+  });
+
+  /**
+   * The counterpart: an `interrupted` snapshot means the core process driving
+   * the child is gone, so even a detached child has no driver left and must
+   * settle rather than pulse forever.
+   */
+  it('settles a detached async subagent when the turn was interrupted', () => {
+    const snapshot: PersistedTurnState = {
+      threadId: 'thread-async-int',
+      requestId: 'req-async-int',
+      lifecycle: 'interrupted',
+      iteration: 1,
+      maxIterations: 25,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [
+        {
+          id: 'subagent:sub-async-int',
+          name: 'subagent:researcher',
+          round: 1,
+          status: 'running' as const,
+          subagent: {
+            taskId: 'sub-async-int',
+            agentId: 'researcher',
+            status: 'running' as const,
+            mode: 'async',
+            toolCalls: [],
+          },
+        },
+      ],
+      startedAt: '2026-09-22T00:00:00Z',
+      updatedAt: '2026-09-22T00:00:09Z',
+    };
+
+    const next = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
+    const row = next.toolTimelineByThread['thread-async-int'][0];
+
+    expect(row.status).toBe('cancelled');
+    expect(row.subagent?.status).toBe('cancelled');
+  });
+
   it('rehydrates historical subagent rows without live streamed prose', () => {
     const snapshot: PersistedTurnState = {
       threadId: 'thread-subagent',

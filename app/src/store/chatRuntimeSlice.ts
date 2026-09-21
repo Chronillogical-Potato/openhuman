@@ -1031,9 +1031,23 @@ function toolTimelineFromPersisted(
  * still `running`; leaving `awaiting_user` (and any other non-running child)
  * intact preserves the truthful "was waiting for the user" history — and the
  * pulse is already stopped by the row-level `cancelled` above.
+ *
+ * `turnStillOwnsDetachedChildren` is the one case where a `running` row is not
+ * orphaned: a detached sub-agent (`spawn_async_subagent`, `mode === 'async'`)
+ * is a fire-and-forget task that deliberately outlives the turn that spawned
+ * it, and the core is still driving it. Settling those on the parent's
+ * `completed` snapshot is what made the Background tasks panel report
+ * "none running" — and the row read "Cancelled" — while the sub-agent was
+ * visibly still making tool calls. Its `subagent_completed` event settles it
+ * for real. An `interrupted` snapshot passes `false`: there the core process
+ * itself is gone, so even a detached child has no driver left.
  */
-function settleOrphanedTimelineEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
+function settleOrphanedTimelineEntry(
+  entry: ToolTimelineEntry,
+  turnStillOwnsDetachedChildren = false
+): ToolTimelineEntry {
   if (entry.status !== 'running') return entry;
+  if (turnStillOwnsDetachedChildren && entry.subagent?.mode === 'async') return entry;
   return {
     ...entry,
     status: 'cancelled',
@@ -2258,7 +2272,7 @@ const chatRuntimeSlice = createSlice({
             state.toolTimelineByThread[threadId],
             snapshot.toolTimeline
               .map((e, seq) => toolTimelineFromPersisted(e, seq))
-              .map(settleOrphanedTimelineEntry)
+              .map(e => settleOrphanedTimelineEntry(e, snapshot.lifecycle === 'completed'))
           );
           // Persisted order is issue order — seed the live counter with the
           // row count so events arriving after this hydration keep counting
