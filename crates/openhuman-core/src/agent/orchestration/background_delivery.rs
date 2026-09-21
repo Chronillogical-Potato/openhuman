@@ -7,9 +7,10 @@
 //!   * **batched** — every result ready at delivery time goes in one turn,
 //!     each tagged by its sub-agent process id.
 //!
-//! The delivery turn is host-owned here rather than sharing the removed
-//! task-board dispatcher. It persists its reply before announcing `chat_done`,
-//! so a reconnect cannot lose a completed delegated result.
+//! The delivery turn runs on the originating thread's own chat session
+//! (`web_chat::run_system_turn_on_thread`) so it sees the conversation and
+//! appends to the thread's transcript. It persists its reply before announcing
+//! `chat_done`, so a reconnect cannot lose a completed delegated result.
 
 use std::collections::HashSet;
 use std::future::Future;
@@ -19,7 +20,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::agent::session_host::OpenHumanSessionHost;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use tinybus::EventHandler;
@@ -213,32 +213,25 @@ where
 /// Run one system-authored delivery turn on an existing conversation thread.
 /// This is intentionally separate from task-board execution: it only delivers
 /// a detached sub-agent result already produced by `background_completions`.
+///
+/// The turn runs on the thread's own session (`web_chat::run_system_turn_on_thread`),
+/// never on a throwaway host: the model presents the result in the context of
+/// what the user asked, the warm session learns the result was delivered, and
+/// the turn lands in the thread's transcript instead of a competing one that a
+/// later cold-boot resume would prefer — which is how a restart used to drop
+/// every turn before the delivery notice.
 async fn run_system_turn_on_thread(thread_id: String, prompt: String) -> Result<String, String> {
     let config = crate::config::Config::load_or_init()
         .await
         .map_err(|error| format!("load config: {error:#}"))?;
     let run_id = format!("bgdeliver-{}", uuid::Uuid::new_v4());
-    let mut host = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
-        .map_err(|error| format!("build delivery host: {error:#}"))?;
-    host.set_event_context(run_id.clone(), "background_delivery");
-    host.set_thread_id(Some(&thread_id));
-    // The hosted harness only retains streamed terminal text for an observed
-    // turn. Background delivery has no UI progress consumer, so drain a local
-    // sink solely to preserve the generated reply; otherwise a successful
-    // provider response is replaced with the empty-turn fallback.
-    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(128);
-    host.set_on_progress(Some(progress_tx));
-    let progress_drain = tokio::spawn(async move { while progress_rx.recv().await.is_some() {} });
-    let result = crate::agent::turn_origin::with_origin(
+    let result = crate::web_chat::run_system_turn_on_thread(
+        &thread_id,
+        &run_id,
+        &prompt,
         crate::agent::turn_origin::AgentTurnOrigin::Cli,
-        host.run_single(&prompt),
     )
-    .await
-    .map_err(|error| format!("{error:#}"));
-    // The runtime session owns a cloned sender for the lifetime of `host`, so
-    // explicitly end the local drain rather than waiting for channel closure.
-    drop(host);
-    progress_drain.abort();
+    .await;
 
     persist_then_announce(
         result,

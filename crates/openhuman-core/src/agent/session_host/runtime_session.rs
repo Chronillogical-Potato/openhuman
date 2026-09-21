@@ -23,6 +23,10 @@ use crate::agent::{
     tinyagents::{host::OpenHumanRunContext, TurnContextMiddleware},
 };
 
+use super::announcement_notes::{
+    integration_announcement_note, mcp_announcement_note, skill_announcement_note,
+    skill_retraction_note,
+};
 use super::types::OpenHumanSessionHost;
 
 /// Mutable product state observed by the runtime hooks.
@@ -1229,38 +1233,6 @@ fn render_agent_context_status_note(
          general context preparation. Use the prepared context below, and call only specific \
          follow-up tools if a concrete missing detail is required."
     )
-}
-
-fn integration_announcement_note(slugs: &[String]) -> Option<String> {
-    (!slugs.is_empty()).then(|| format!(
-        "[integration update] These integration(s) connected during this conversation and are available right now: {}. \
-Use delegate_to_integrations_agent with the matching toolkit slug to act on them immediately — do not tell the user to reconnect or restart.",
-        slugs.join(", ")
-    ))
-}
-
-fn mcp_announcement_note(servers: &[String]) -> Option<String> {
-    (!servers.is_empty()).then(|| format!(
-        "[MCP update] These MCP server(s) connected during this conversation and are available right now: {}. \
-Use the use_mcp_server delegate to act on them immediately — do not tell the user to reconnect or restart.",
-        servers.join(", ")
-    ))
-}
-
-fn skill_announcement_note(skill_ids: &[String]) -> Option<String> {
-    (!skill_ids.is_empty()).then(|| format!(
-        "[skills update] These skill(s) were installed during this conversation and are available right now: {}. \
-They are in your `## Installed Skills` list — run one with `run_skill` immediately; do not tell the user to reinstall or restart.",
-        skill_ids.join(", ")
-    ))
-}
-
-fn skill_retraction_note(skill_ids: &[String]) -> Option<String> {
-    (!skill_ids.is_empty()).then(|| format!(
-        "[skills retracted] These skill(s) were uninstalled during this conversation and are no longer available: {}. \
-Do not attempt to run them with `run_skill` — they have been removed. Tell the user to reinstall if they want to use them again.",
-        skill_ids.join(", ")
-    ))
 }
 
 async fn collect_prelude_tree_roots(
