@@ -59,7 +59,7 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
         block.chars().take(120).collect::<String>()
     );
     assert!(
-        block.contains("skill `documents`, tool `make_presentation`"),
+        block.contains("`documents` / `make_presentation`:"),
         "a packed delegate must render with its route:\n{block}"
     );
 }
@@ -80,9 +80,17 @@ fn a_row_is_not_cut_at_an_abbreviation() {
         first_sentence("Builds decks from evidence. Use for pitch-deck requests."),
         "Builds decks from evidence.",
     );
-    // No boundary at all: capped, not truncated mid-word by accident.
-    let long = "a ".repeat(200);
-    assert!(first_sentence(&long).ends_with('…'));
+    // No boundary at all: capped at a word boundary, never mid-word.
+    let long = "alpha ".repeat(200);
+    let capped = first_sentence(&long);
+    assert!(capped.ends_with("..."), "{capped}");
+    assert!(capped.len() <= 90 + 3, "{capped}");
+    assert!(!capped.contains("alph..."), "cut must land on a word boundary: {capped}");
+    // A first sentence longer than the cap is capped the same way.
+    let long_sentence = format!("{} end. Second sentence.", "word ".repeat(40));
+    let capped = first_sentence(&long_sentence);
+    assert!(capped.ends_with("..."), "{capped}");
+    assert!(!capped.contains("Second"));
     // Short and unterminated: returned whole.
     assert_eq!(
         first_sentence("Runs installed agent skills"),
@@ -117,16 +125,12 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
     // The gate is the fix; this pins the prompt so the model is told the route
     // before it discovers the wall.
     assert!(
-        ARCHETYPE.contains("Workflow rule of thumb"),
+        ARCHETYPE.contains("## Scheduling and workflows"),
         "orchestrator prompt must carry the workflow routing rule"
     );
     assert!(
-        ARCHETYPE.contains("`build_workflow`"),
+        ARCHETYPE.contains("skill `workflows` (`build_workflow` to author, `discover_workflows` to find)"),
         "the rule must name the delegate to call"
-    );
-    assert!(
-        ARCHETYPE.contains("use_skill"),
-        "the rule must name the path it is steering away from"
     );
 
     // The rule is only true because these are the real names. Asserting the
