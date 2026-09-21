@@ -237,10 +237,7 @@ impl PromptSection for IdentitySection {
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        let mut prompt = String::from("## Project Context\n\n");
-        prompt.push_str(
-            "The following workspace files define your identity, behavior, and context.\n\n",
-        );
+        let mut prompt = String::new();
         // ROLE.md is the user-facing agent's own role brief (#5701) — the
         // `# Master Agent` / `## Core Responsibilities` preamble that used to
         // be compiled into `orchestrator/prompt.md`. It is synced for every
@@ -492,14 +489,10 @@ impl PromptSection for WorkspaceSection {
         // its real working directory at runtime and keep writes/reads there.
         let mut out = String::from(
             "## Workspace\n\n\
-             Run `pwd` to confirm your working directory — that is where commands run and \
-             where every file tool resolves a relative path. Create files in that \
-             directory and read them back from the same place (use the relative path, or \
-             confirm the absolute path with `pwd`). Writes and reads outside your granted \
-             locations (your working directory plus the scratch directory below) are blocked \
-             by the security sandbox.\n\n\
-             Prefer printing results to stdout. Only when output is too large for stdout, \
-             write it to a file in your working directory and read that file back.\n\n",
+             `pwd` is your working directory: commands run there and every file tool resolves \
+             relative paths against it. Read and write there; anything outside it and the \
+             scratch space below is blocked by the sandbox. Prefer stdout, and write a file \
+             only when output is too large for it.\n\n",
         );
         // Only advertise a concrete scratch path when the dir is actually present
         // and safe (real dir, not a symlink) — matching the policy grant in
@@ -513,14 +506,13 @@ impl PromptSection for WorkspaceSection {
         if scratch_granted {
             let _ = write!(
                 out,
-                "For scratch or temporary files, use the directory `{}` (a granted scratch \
-                 space) or your `$TMPDIR` / `%TEMP%` — never a hardcoded `/tmp/<name>` path.",
+                "Scratch files go in `{}` or `$TMPDIR`, never a hardcoded `/tmp/<name>`.",
                 scratch.display()
             );
         } else {
             out.push_str(
-                "For scratch or temporary files, use `$TMPDIR` / `%TEMP%`, or create them in \
-                 your working directory — never a hardcoded `/tmp/<name>` path, which is blocked.",
+                "Scratch files go in `$TMPDIR` or your working directory, never a hardcoded \
+                 `/tmp/<name>` (blocked).",
             );
         }
         Ok(out)
@@ -667,12 +659,10 @@ impl PromptSection for DateTimeSection {
         // treats the time line as passive reference and defaults to a
         // learned "good morning" regardless of the actual hour (#3602).
         let mut out = String::from(
-            "## Current Date & Time\n\n> The current local date and time is provided on a \
-             `Current Date & Time:` line with the latest message (local time, IANA timezone, \
-             UTC offset, weekday). Before any time-relative wording in your reply — greetings \
-             like \"good morning\"/\"good evening\", or \"today\"/\"tonight\"/\"tomorrow\" — read \
-             that line and match the actual local hour. Never assume it is morning. The time is \
-             already in context; no tool call is needed to greet or to reason about the current day.",
+            "## Current Date & Time\n\nThe `Current Date & Time:` line on the latest message \
+             (local time, zone, weekday) is authoritative. Read it before any time-relative \
+             wording such as a greeting or \"today\"; never assume it is morning, and never \
+             call a tool just to know the time.",
         );
         // Tool-argument discipline, gated on the agent actually having the
         // `resolve_time` tool. LLMs are unreliable at epoch arithmetic — a
@@ -683,12 +673,8 @@ impl PromptSection for DateTimeSection {
         // tool never see the rule.
         if ctx.tools.iter().any(|t| t.name == "resolve_time") {
             out.push_str(
-                "\n\n> For any date/time you pass as a tool argument \
-                 (`oldest`/`latest`/`since`/`after`, cron times, etc.), call \
-                 `resolve_time` and use its exact value — never hand-compute \
-                 epoch/Unix seconds. For \"recent / last N\" lookups, prefer \
-                 newest-first (omit `oldest`) so a wrong floor can't bury the \
-                 latest data.",
+                " Any date or time you pass as a tool argument comes from `resolve_time`, \
+                 never hand-computed; for \"recent / last N\" lookups prefer newest-first.",
             );
         }
         Ok(out)
