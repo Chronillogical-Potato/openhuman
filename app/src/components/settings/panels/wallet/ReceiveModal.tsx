@@ -22,7 +22,7 @@ interface ReceiveModalProps {
 const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
   const { t } = useT();
   const baseLabel = balanceNetworkLabel(balance);
-  const networkLabel = balance.chain === 'tron' ? 'TRX' : baseLabel;
+  const networkLabel = baseLabel;
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -6478,6 +6478,9 @@ const messages: TranslationMap = {
   'invites.redeemHeading': 'هل لديك رمز إحالة؟',
   'invites.redeemPlaceholder': 'رمز الإحالة',
   'invites.redeemSubmit': 'استخدام الرمز',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
 };
 
 export default messages;

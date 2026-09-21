@@ -2003,6 +2003,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     "Cela remplacera définitivement ton portefeuille actuel. Assure-toi d'avoir sauvegardé ta phrase de récupération avant de continuer.",
   'mnemonic.replaceWalletConfirm': 'Je comprends, remplacer mon portefeuille',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
   'mnemonic.loadingWalletStatus': 'Vérification du statut du portefeuille...',
   'mnemonic.viewAccounts': 'Voir les comptes du portefeuille',
   'mnemonic.revealRecoveryPhrase': 'Révéler la phrase de récupération',

@@ -114,8 +114,8 @@ describe('RecoveryPhrasePanel — trust-surface polish', () => {
 
   it('renders import-mode intro copy when switching modes', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
@@ -144,7 +144,7 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     await waitFor(() => screen.getByText(/can never be recovered if lost/i));
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
@@ -156,21 +156,21 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     expect(screen.queryByRole('checkbox')).toBeNull();
 
-    fireEvent.click(screen.getByText(/I want to generate a new wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
     const regeneratedCheckbox = screen.getByRole('checkbox');
     expect(regeneratedCheckbox).not.toBeChecked();
   });
 
   it('shows generate-mode UI again after switching back from import', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/I want to generate a new wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
   });
 });
@@ -563,9 +563,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers lines 633-634 (onChange on word inputs updates importWords).
   it('typing into a word input updates the value (onChange coverage)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -576,9 +576,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 638 (onKeyDown on word inputs — Backspace on empty field).
   it('pressing Backspace on an empty word input (onKeyDown coverage)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -591,9 +591,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers lines 640 (importValid===false invalid border), 638, and 707 (error alert).
   it('clicking Save with an invalid phrase shows the error alert (line 707)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     // Fill all 12 slots with an invalid word so the phrase is structurally complete but invalid.
@@ -615,9 +615,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 650 (importValid===true banner), line 640 (sage border on valid inputs).
   it('filling a valid BIP39 phrase and saving shows the valid-phrase banner then persists', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -643,9 +643,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 608 (handleWordCountChange via the word-count toggle buttons).
   it('switching from 12 to 15 word slots adjusts the import grid', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     // Initially 12 slots.

@@ -2007,6 +2007,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Dies wird deine aktuelle Wallet dauerhaft ersetzen. Stelle sicher, dass du deine Recovery-Phrase gesichert hast, bevor du fortfährst.',
   'mnemonic.replaceWalletConfirm': 'Ich verstehe, meine Wallet ersetzen',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
   'mnemonic.loadingWalletStatus': 'Wallet-Status wird geprüft...',
   'mnemonic.viewAccounts': 'Wallet-Konten',
   'mnemonic.revealRecoveryPhrase': 'Wiederherstellungsphrase anzeigen',

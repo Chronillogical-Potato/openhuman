@@ -23,6 +23,11 @@ import {
   balanceNetworkLabel,
   formatDisplayBalance,
 } from '../../../features/wallet/walletDisplay';
+// ---------------------------------------------------------------------------
+// WalletBalancesPanel — main panel
+// ---------------------------------------------------------------------------
+
+import { useUser } from '../../../hooks/useUser';
 import { cn } from '../../../lib/cn';
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -83,16 +88,7 @@ export const TOKEN_ICONS: Record<string, string> = {
   TRX: tokenTronIcon,
 };
 
-// ---------------------------------------------------------------------------
-// Chain badge colours — each chain gets a distinct palette token combination
-// that maps to the project's sage / amber / coral / ocean (primary) design
-// language.  Tailwind class strings are kept literal so the build can detect
-// them via static analysis.
-// ---------------------------------------------------------------------------
-
-// The rows rendered as placeholders before the wallet is set up, mirroring the
-// configured layout (one EVM row per displayed network + BTC/Solana/Tron) so
-// the preview matches what appears once a recovery phrase exists.
+// Chain badge colours
 const PLACEHOLDER_ROWS: Array<{
   chain: WalletChain;
   evmNetwork?: EvmNetwork;
@@ -380,23 +376,29 @@ const ChainPlaceholderRow = ({
 // WalletBalancesPanel — main panel
 // ---------------------------------------------------------------------------
 
-// Keep balances cached when switching tabs
-let cachedBalances: BalanceInfo[] | null = null;
-let cachedWalletConfigured: boolean | null = null;
+// Keep balances cached when switching tabs (keyed by user ID to prevent cross-user leakage)
+const cachedBalances: Record<string, BalanceInfo[] | null> = {};
+const cachedWalletConfigured: Record<string, boolean | null> = {};
 
 const WalletBalancesPanel = () => {
   const { t } = useT();
   const { navigateToSettings } = useSettingsNavigation();
+  const { user } = useUser();
+  const userId = user?._id || 'anonymous';
 
-  const [balances, setBalances] = useState<BalanceInfo[] | null>(cachedBalances);
-  const [loading, setLoading] = useState(cachedBalances === null);
+  const [balances, setBalances] = useState<BalanceInfo[] | null>(cachedBalances[userId] ?? null);
+  const [loading, setLoading] = useState(
+    cachedBalances[userId] === undefined || cachedBalances[userId] === null
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   // null = unknown (not yet loaded); false = wallet has no recovery phrase set
   // up yet, in which case we show a hint + placeholder rows instead of erroring.
-  const [walletConfigured, setWalletConfigured] = useState<boolean | null>(cachedWalletConfigured);
+  const [walletConfigured, setWalletConfigured] = useState<boolean | null>(
+    cachedWalletConfigured[userId] ?? null
+  );
   // The balance row a Send / Receive modal is currently open for (null = none).
   const [sendTarget, setSendTarget] = useState<BalanceInfo | null>(null);
   const [receiveTarget, setReceiveTarget] = useState<BalanceInfo | null>(null);
@@ -415,7 +417,7 @@ const WalletBalancesPanel = () => {
 
   const loadBalances = useCallback(async () => {
     const requestId = ++latestRequestIdRef.current;
-    if (!cachedBalances) {
+    if (!cachedBalances[userId]) {
       setLoading(true);
     } else {
       setIsRefreshing(true);
@@ -429,17 +431,17 @@ const WalletBalancesPanel = () => {
       const status = await fetchWalletStatus();
       if (requestId !== latestRequestIdRef.current) return;
       if (!status.configured) {
-        cachedWalletConfigured = false;
-        cachedBalances = [];
+        cachedWalletConfigured[userId] = false;
+        cachedBalances[userId] = [];
         setWalletConfigured(false);
         setBalances([]);
         return;
       }
-      cachedWalletConfigured = true;
+      cachedWalletConfigured[userId] = true;
       setWalletConfigured(true);
       const rows = await fetchWalletBalances();
       if (requestId !== latestRequestIdRef.current) return;
-      cachedBalances = rows;
+      cachedBalances[userId] = rows;
       setBalances(rows);
     } catch (err) {
       if (requestId !== latestRequestIdRef.current) return;
@@ -538,9 +540,9 @@ const WalletBalancesPanel = () => {
           <div className="px-4 pt-4 pb-3">
             <div
               role="status"
-              className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 border-0">
               <svg
-                className="w-4 h-4 text-amber-500 shrink-0 mt-0.5"
+                className="w-4 h-4 text-destructive shrink-0 mt-0.5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -552,14 +554,14 @@ const WalletBalancesPanel = () => {
                 />
               </svg>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                <p className="text-sm text-destructive leading-relaxed">
                   {t('walletBalances.setupHint')}
                 </p>
                 <Button
                   type="button"
                   variant="tertiary"
                   onClick={() => navigateToSettings('recovery-phrase')}
-                  className="mt-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
+                  className="mt-2 text-sm font-medium text-primary-800 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 px-0 h-auto">
                   {t('walletBalances.setupCta')}
                 </Button>
               </div>

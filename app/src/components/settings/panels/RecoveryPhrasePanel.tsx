@@ -334,22 +334,24 @@ const RecoveryPhrasePanel = () => {
 
             {(mode === 'generate' || mode === 'import') && (
               <>
-                <button
-                  onClick={() => {
-                    setMode('view');
-                    setError(null);
-                  }}
-                  className="flex w-8 h-8 items-center justify-center rounded-full text-content-muted hover:bg-surface-hover hover:text-content transition-colors mb-4 -ml-2"
-                  aria-label="Back">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                {walletStatus?.configured && (
+                  <button
+                    onClick={() => {
+                      setMode('view');
+                      setError(null);
+                    }}
+                    className="flex w-8 h-8 items-center justify-center rounded-full text-content-muted hover:bg-surface-hover hover:text-content transition-colors mb-4 -ml-2"
+                    aria-label="Back">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
                 {mode === 'generate' ? (
                   <RecoveryPhraseGenerateMode
                     words={words}
@@ -391,11 +393,43 @@ const RecoveryPhrasePanel = () => {
                       <span>{t('mnemonic.securingData')}</span>
                     </>
                   ) : mode === 'import' ? (
-                    'Import Wallet'
+                    t('mnemonic.importWallet')
                   ) : (
                     t('mnemonic.saveRecoveryPhrase')
                   )}
                 </Button>
+
+                {mode === 'generate' && (
+                  <p className="text-center mt-3 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMode('import');
+                      }}
+                      className="text-primary-500 hover:text-primary-400 font-medium transition-colors">
+                      {t('mnemonic.importAnExistingWallet')}
+                    </button>
+                  </p>
+                )}
+
+                {mode === 'import' && (
+                  <p className="text-center mt-3 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const phrase = generateMnemonicPhrase();
+                        setMnemonic(phrase);
+                        setConfirmed(false);
+                        setRevealed(false);
+                        setError(null);
+                        setMode('generate');
+                      }}
+                      className="text-primary-500 hover:text-primary-400 font-medium transition-colors">
+                      {t('mnemonic.createANewWallet')}
+                    </button>
+                  </p>
+                )}
               </>
             )}
           </>

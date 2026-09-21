@@ -101,7 +101,9 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                 </div>
 
                 {!revealed && (
-                  <div
+                  <button
+                    type="button"
+                    aria-label="Reveal recovery phrase"
                     className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-black/40 hover:bg-black/30 transition-colors"
                     onClick={() => setRevealed(true)}>
                     <svg
@@ -122,7 +124,7 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                     <span className="text-[12px] font-medium text-white/80">
                       Make sure no one is watching your screen.
                     </span>
-                  </div>
+                  </button>
                 )}
               </div>
             ) : null}

@@ -200,7 +200,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                         </span>
                         <button
                           type="button"
-                          onClick={() => setAmount(formatDisplayBalance(balance.formatted))}
+                          onClick={() => setAmount(balance.formatted)}
                           className="text-primary-500 font-medium hover:text-primary-600 transition-colors">
                           Max
                         </button>

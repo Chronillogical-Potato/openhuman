@@ -1984,6 +1984,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Isso substituirá permanentemente sua carteira atual. Certifique-se de ter feito backup da sua frase de recuperação antes de prosseguir.',
   'mnemonic.replaceWalletConfirm': 'Entendo, substituir minha carteira',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
   'mnemonic.loadingWalletStatus': 'Verificando status da carteira...',
   'mnemonic.viewAccounts': 'Contas da carteira',
   'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperação',

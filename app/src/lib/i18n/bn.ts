@@ -1945,6 +1945,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'এটি আপনার বর্তমান ওয়ালেটকে স্থায়ীভাবে প্রতিস্থাপন করবে। এগিয়ে যাওয়ার আগে নিশ্চিত করুন যে আপনি আপনার রিকভারি ফ্রেজ ব্যাকআপ করেছেন।',
   'mnemonic.replaceWalletConfirm': 'আমি বুঝতে পারছি, আমার ওয়ালেট প্রতিস্থাপন করুন',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
   'mnemonic.loadingWalletStatus': 'ওয়ালেটের স্থিতি পরীক্ষা করা হচ্ছে...',
   'mnemonic.viewAccounts': 'ওয়ালেট অ্যাকাউন্ট',
   'mnemonic.revealRecoveryPhrase': 'পুনরুদ্ধার বাক্যাংশ প্রকাশ করুন',

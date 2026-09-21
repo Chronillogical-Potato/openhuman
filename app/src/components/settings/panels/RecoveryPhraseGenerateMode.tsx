@@ -54,7 +54,9 @@ const RecoveryPhraseGenerateMode = ({
           ))}
         </div>
         {!revealed && (
-          <div
+          <button
+            type="button"
+            aria-label="Reveal recovery phrase"
             className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-black/40 hover:bg-black/30 transition-colors"
             onClick={onReveal}>
             <svg
@@ -72,7 +74,7 @@ const RecoveryPhraseGenerateMode = ({
             <span className="text-[15px] font-semibold text-white tracking-tight">
               Tap to reveal
             </span>
-          </div>
+          </button>
         )}
       </div>
 

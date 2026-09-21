@@ -1985,6 +1985,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Questo sostituirà definitivamente il tuo portafoglio attuale. Assicurati di aver salvato la tua frase di recupero prima di procedere.',
   'mnemonic.replaceWalletConfirm': 'Capisco, sostituisci il mio portafoglio',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
   'mnemonic.loadingWalletStatus': 'Verifica dello stato del portafoglio...',
   'mnemonic.viewAccounts': 'Conti del portafoglio',
   'mnemonic.revealRecoveryPhrase': 'Rivela la frase di recupero',

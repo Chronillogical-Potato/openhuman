@@ -2171,6 +2171,9 @@ const en: TranslationMap = {
   'mnemonic.viewAccounts': 'Wallet accounts',
   'mnemonic.revealRecoveryPhrase': 'Reveal recovery phrase',
   'mnemonic.hidePhrase': 'Hide phrase',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
 
   // Team
   'team.failedToCreate': 'Failed to create team',
