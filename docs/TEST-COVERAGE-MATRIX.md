@@ -521,27 +521,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 ## 12. Rewards & Progression
 
-> Frontend-only domain — no Rust core counterpart. Confirmed during #970
-> investigation: there is no `crates/openhuman-core/src/rewards/` module and no Redux
-> `rewardsSlice`; snapshot is fetched per-mount via
-> `app/src/services/api/rewardsApi.ts` and held in `Rewards.tsx` component
-> state. Backend ownership lives in `tinyhumansai/backend` (`/rewards/me`).
-
-### 12.1 Role Unlocking
-
-| ID     | Feature                  | Layer | Test path(s)                                                                                     | Status | Notes                                                |
-| ------ | ------------------------ | ----- | ------------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------- |
-| 12.1.1 | Activity-Based Unlock    | VU+WD | `app/src/store/__tests__/rewardsSlice.test.ts`, `app/test/e2e/specs/rewards-unlock-flow.spec.ts` | ✅     | Was ❌ — streak/feature-driven unlock branch         |
-| 12.1.2 | Integration-Based Unlock | VU+WD | same                                                                                             | ✅     | Was ❌ — Discord membership → role assignment branch |
-| 12.1.3 | Plan-Based Unlock        | VU+WD | same                                                                                             | ✅     | Was ❌ — plan tier + active subscription branch      |
-
-### 12.2 Progress Tracking
-
-| ID     | Feature                | Layer | Test path(s)                                                      | Status | Notes                                                                                               |
-| ------ | ---------------------- | ----- | ----------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
-| 12.2.1 | Message Count Tracking | VU+WD | `rewardsSlice.test.ts`, `rewards-progression-persistence.spec.ts` | ✅     | Was ❌ — message-driven progress proxied by `metrics.featuresUsedCount` (no literal field)          |
-| 12.2.2 | Usage Metrics          | VU+WD | same                                                              | ✅     | Was ❌ — current streak + cumulative tokens                                                         |
-| 12.2.3 | State Persistence      | VU+WD | same                                                              | ✅     | Was ❌ — restart-equivalent (page unmount + remount + re-fetch); admin request log asserts re-fetch |
+> Removed. The Rewards page, its API client, slice and Playwright specs were deleted; the section id is kept so later numbering is stable.
 
 ---
 
@@ -576,6 +556,11 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 13.3.5 | OpenRouter sign-in (PKCE) in AI settings | RU+VU | `crates/openhuman-app/src/loopback_oauth_tests.rs`, `app/src/utils/__tests__/openrouterOAuth.test.ts`, `app/src/utils/__tests__/loopbackOauthListener.test.ts`, `app/src/components/settings/panels/__tests__/AIPanel.test.tsx` | ✅ | A pending sign-in stays dismissable (Cancel/Esc/click-outside abort the flow and free the loopback port); Deny, `error=` and missing-code callbacks get a "Sign-in was not completed." page and a dialog error instead of "You're signed in."; cancel clears the listener timeout so a retry is not stopped; the key exchange honours the abort signal (#6263). Live Authorize remains a release smoke check. |
 | 13.3.6 | Skill registry search→install→agent runs the skill | RI | `tests/agent_harness_e2e.rs` (`agent_installs_a_registry_skill_then_runs_it`), `tests/skill_registry_e2e.rs`, `tests/skills_mcp_registry_live.rs` (manual, `#[ignore]`) | ✅ | Agent finds a loopback-catalog skill via `use_skill(skills/setup_skills)`, installs it behind the approval gate, the SKILL.md lands on disk, then `run_skill` → `describe_workflow` returns its body to the model. The live smoke reports, per catalog source, how many listed skills have a download URL and installs one sample each. |
 | 13.3.7 | Skill registry install sources + unique entry ids | RU+VU | `crates/openhuman-core/src/skills/catalog/ops_tests.rs`, `crates/openhuman-core/src/skills/catalog/download_tests.rs`, `crates/openhuman-core/src/skills/ops_create_and_url_tests.rs`, `app/src/components/skills/__tests__/SkillsExplorerTab.test.tsx` | 🟡 | ClawHub entries download through ClawHub's file API by slug; skills.sh entries map to their GitHub repo, with the conventional skill directories and the tree match unit-tested; LobeHub agents (no `SKILL.md`) rank last in search and show "Not installable" instead of Install; ids are the source-qualified Hermes identifier, an ambiguous display name is refused with the real ids, and a missing id suggests the closest ones (#6285, #6287). The live skills.sh probe and ClawHub fetch are network calls and remain a manual check. |
+
+| 13.3.8 | Managed default model (one OpenRouter model for every managed workload) | RU+RI | `crates/openhuman-core/src/inference/provider/factory_route_resolution_tests.rs` (`resolve_model_for_hint_maps_every_managed_hint_to_the_default_model`, `resolve_model_for_hint_uses_the_pinned_managed_default`, `resolve_model_for_hint_treats_retired_tier_slugs_as_role_aliases`), `crates/openhuman-core/src/inference/provider/factory_crate_native_tests.rs`, `crates/openhuman-core/src/agent/triage/routing_tests.rs`, `crates/openhuman-core/src/agent/cost_tests.rs`, `crates/openhuman-core/src/platform/cost/route_tests.rs`, `crates/openhuman-core/src/config/migrations/retire_managed_tier_slugs_tests.rs`, `crates/openhuman-core/src/config/migrations/mod_tests.rs` (`run_pending_v12_to_v13_*`), `tests/json_rpc_e2e.rs` (routing cases, flows arc) | ✅ | The `chat-v1`/`agentic-v1`/… tier endpoints are retired: every managed workload role resolves to `config.default_model` when it names a catalog model, else `openrouter/deepseek/deepseek-v4-flash`; `hint:*` and retired slugs stay role aliases; migration 12→13 rewrites persisted slugs; cost classification and the flash price row |
+| 13.3.9 | Routing page: Default model row + per-workload tables always shown; providers header action | VU | `app/src/components/settings/panels/__tests__/AIPanel.test.tsx` (`shows the per-workload routing tables directly, with no mode selector`, `pins a managed default model from the routing page`), `app/src/services/api/__tests__/aiSettingsApi.test.ts` (`sends default_model only when the pinned default model changed`), `app/src/components/settings/panels/ai/ProviderModelPickerDialog.test.tsx` | ✅ | No Managed / Own / Advanced selector; the Default model row opens the managed catalog picker (list, alphabetical, search filters models) and persists `default_model`; "Add provider" lives in the page header |
+| 13.3.10 | Composer model pick is the global default | WD | `app/test/playwright/specs/chat-model-managed-catalog.spec.ts` (`a composer pick is the global default and survives a fresh page`) | ✅ | The chat pill writes `default_model` through the core; a fresh page resolves and shows the pinned model |
+| 13.3.11 | Skills page (Installed → Registry) with run/edit/remove controls | VU | `app/src/components/skills/__tests__/SkillsExplorerTab.test.tsx` | ✅ | Page-owned header + tabs in the MCP page's shape: installed rows with Run / Edit / Remove icon controls, Install from URL and New skill; registry rows with search, source filter and Install |
 
 ### 13.4 Developer Options
 
