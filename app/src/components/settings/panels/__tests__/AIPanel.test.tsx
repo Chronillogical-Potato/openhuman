@@ -442,6 +442,7 @@ describe('AIPanel', () => {
       kind: 'cloud',
       providerSlug: 'azure-foundry',
       model: 'gpt-5.6-terra',
+      temperature: null,
     });
     expect(JSON.stringify(nextSettings)).not.toContain('gpt-5.6-terra-2026-07-09');
   });

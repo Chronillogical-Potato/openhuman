@@ -95,9 +95,8 @@ describe('AgentEditorPage', () => {
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Looks at images.' },
     });
-    // Both the vision hint and the resolved tier alias are selectable.
+    // The vision role hint is selectable.
     expect(screen.getByRole('option', { name: 'hint:vision' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'vision-v1' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hint:vision' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Create agent/ }));

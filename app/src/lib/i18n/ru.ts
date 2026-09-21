@@ -1693,7 +1693,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Имя переменной',
   'mcp.form.envValue': 'Значение',
   'mcp.form.value': 'Значение',
-  'mcp.form.keepStored': 'Сохранено — оставьте пустым, чтобы сохранить',
+  'mcp.form.keepStored': 'Сохранено - оставьте пустым, чтобы сохранить',
   'mcp.form.removeRow': 'Удалить строку',
   'mcp.form.addEnv': 'Добавить переменную',
   'mcp.form.url': 'URL',
@@ -1740,7 +1740,7 @@ const messages: TranslationMap = {
     'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
   'mcp.json.loadFailedTitle': 'Не удалось прочитать mcp.json',
   'mcp.json.loadFailedBody':
-    'Ядро не ответило, поэтому документ не показан — пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
+    'Ядро не ответило, поэтому документ не показан - пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
   'mcp.json.intro':
     'Ваши MCP-серверы одним документом, в том виде, который используют другие MCP-клиенты. Вставьте блок сервера со страницы его установки и сохраните.',
   'mcp.json.credentialsNote':
@@ -1753,12 +1753,12 @@ const messages: TranslationMap = {
   'mcp.json.revert': 'Отменить изменения',
   'mcp.json.exampleTitle': 'Пример',
   'mcp.json.saveFailed': 'Не удалось сохранить mcp.json.',
-  'mcp.json.parseError.empty': 'Документ пуст. Отсутствие серверов — это { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Недопустимый JSON — {detail}',
+  'mcp.json.parseError.empty': 'Документ пуст. Отсутствие серверов - это { "mcpServers": {} }.',
+  'mcp.json.parseError.invalidJson': 'Недопустимый JSON - {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json содержит объект с ключом `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Нет ключа `mcpServers` — все серверы находятся под ним.',
+  'mcp.json.parseError.missingRoot': 'Нет ключа `mcpServers` - все серверы находятся под ним.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` сопоставляет имя сервера с его настройками.',
-  'mcp.json.parseError.emptyName': 'Серверу нужно имя — ключ одной из записей пуст.',
+  'mcp.json.parseError.emptyName': 'Серверу нужно имя - ключ одной из записей пуст.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` содержит объект, например { "command": "npx", "args": ["-y", "…"] } или { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

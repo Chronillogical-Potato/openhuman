@@ -1728,7 +1728,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Variablenname',
   'mcp.form.envValue': 'Wert',
   'mcp.form.value': 'Wert',
-  'mcp.form.keepStored': 'Gespeichert — leer lassen, um zu behalten',
+  'mcp.form.keepStored': 'Gespeichert - leer lassen, um zu behalten',
   'mcp.form.removeRow': 'Zeile entfernen',
   'mcp.form.addEnv': 'Variable hinzufügen',
   'mcp.form.url': 'URL',
@@ -1775,7 +1775,7 @@ const messages: TranslationMap = {
     'Ein Verzeichnis von MCP-Servern. Ein Server öffnet seine eigene Seite mit der Installationsanleitung; füge ihn im Tab mcp.json hinzu.',
   'mcp.json.loadFailedTitle': 'mcp.json konnte nicht gelesen werden',
   'mcp.json.loadFailedBody':
-    'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt — ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
+    'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt - ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
   'mcp.json.intro':
     'Deine MCP-Server als ein Dokument, in der Form, die andere MCP-Clients verwenden. Füge einen Serverblock von seiner Installationsseite ein und speichere.',
   'mcp.json.credentialsNote':
@@ -1789,13 +1789,13 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Beispiel',
   'mcp.json.saveFailed': 'mcp.json konnte nicht gespeichert werden.',
   'mcp.json.parseError.empty': 'Das Dokument ist leer. Keine Server bedeutet { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Kein gültiges JSON — {detail}',
+  'mcp.json.parseError.invalidJson': 'Kein gültiges JSON - {detail}',
   'mcp.json.parseError.rootNotObject':
     'mcp.json enthält ein Objekt mit einem Schlüssel `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Kein Schlüssel `mcpServers` — jeder Server steht darunter.',
+  'mcp.json.parseError.missingRoot': 'Kein Schlüssel `mcpServers` - jeder Server steht darunter.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` ordnet einem Servernamen seine Einstellungen zu.',
   'mcp.json.parseError.emptyName':
-    'Ein Server braucht einen Namen — der Schlüssel eines Eintrags ist leer.',
+    'Ein Server braucht einen Namen - der Schlüssel eines Eintrags ist leer.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` enthält ein Objekt, z. B. { "command": "npx", "args": ["-y", "…"] } oder { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

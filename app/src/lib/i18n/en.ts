@@ -936,7 +936,7 @@ const en: TranslationMap = {
   'memoryTree.status.statusError': 'Error',
   'memoryTree.status.statusIdle': 'Idle',
   'memoryTree.status.statusDegraded': 'Degraded',
-  // #5324: a spent embedding budget is a distinct state from a generic error —
+  // #5324: a spent embedding budget is a distinct state from a generic error -
   // memory is paused, not broken, and the fix is the user's to make.
   'memoryTree.status.statusBudgetExhausted': 'Paused: embedding budget reached',
   'memoryTree.status.never': 'Never',
@@ -1479,7 +1479,7 @@ const en: TranslationMap = {
   'settings.core.save': 'Save & restart',
   'settings.core.applyRestartNote': 'Saving restarts OpenHuman to reconnect.',
 
-  // Gateways — cores this app provisions and runs elsewhere.
+  // Gateways - cores this app provisions and runs elsewhere.
   'devOptions.gateway': 'Gateway',
   'devOptions.provisionedCore': 'Core provisioned by this app',
   'devOptions.gatewayId': 'Gateway',
@@ -1863,7 +1863,7 @@ const en: TranslationMap = {
   'mcp.form.envKey': 'Variable name',
   'mcp.form.envValue': 'Value',
   'mcp.form.value': 'Value',
-  'mcp.form.keepStored': 'Stored — leave blank to keep',
+  'mcp.form.keepStored': 'Stored - leave blank to keep',
   'mcp.form.removeRow': 'Remove row',
   'mcp.form.addEnv': 'Add variable',
   'mcp.form.url': 'URL',
@@ -1910,7 +1910,7 @@ const en: TranslationMap = {
     'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
   'mcp.json.loadFailedTitle': "Couldn't read mcp.json",
   'mcp.json.loadFailedBody':
-    'The core did not answer, so the document is not shown — an empty editor would invite a save that wipes your servers.',
+    'The core did not answer, so the document is not shown - an empty editor would invite a save that wipes your servers.',
   'mcp.json.intro':
     'Your MCP servers as one document, in the shape other MCP clients use. Paste a server block from its install page and save.',
   'mcp.json.credentialsNote':
@@ -1924,11 +1924,11 @@ const en: TranslationMap = {
   'mcp.json.exampleTitle': 'Example',
   'mcp.json.saveFailed': "Couldn't save mcp.json.",
   'mcp.json.parseError.empty': 'The document is empty. No servers is { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Not valid JSON — {detail}',
+  'mcp.json.parseError.invalidJson': 'Not valid JSON - {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json holds an object with an `mcpServers` key.',
-  'mcp.json.parseError.missingRoot': 'No `mcpServers` key — every server lives under it.',
+  'mcp.json.parseError.missingRoot': 'No `mcpServers` key - every server lives under it.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` maps a server name to its settings.',
-  'mcp.json.parseError.emptyName': "A server needs a name — one entry's key is empty.",
+  'mcp.json.parseError.emptyName': "A server needs a name - one entry's key is empty.",
   'mcp.json.parseError.entryNotObject':
     '`{name}` holds an object, e.g. { "command": "npx", "args": ["-y", "…"] } or { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -2927,7 +2927,7 @@ const en: TranslationMap = {
   'sync.failedToLoad': 'Failed to load sync status',
   'sync.noContent': 'No content has been synced into memory yet. Connect an integration to start.',
 
-  // Data Sync layered pipeline status (GH-4690) — raw sync ≠ retrieval-ready
+  // Data Sync layered pipeline status (GH-4690) - raw sync ≠ retrieval-ready
   'sync.pipeline.ingestedOnly': 'Ingested only',
   'sync.pipeline.storedWithoutVectors': 'Stored without vectors. Semantic search unavailable.',
   'sync.pipeline.vectorsPending':

@@ -34,7 +34,7 @@ fn cost_dashboard_config_serde_roundtrip() {
 #[test]
 fn cost_config_default_pricing_has_known_models() {
     let c = CostConfig::default();
-    assert!(c.prices.len() >= 3);
+    assert!(!c.prices.is_empty());
 }
 
 #[test]

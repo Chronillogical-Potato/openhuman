@@ -228,7 +228,7 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
     // Pricing basis is auditable.
     assert_eq!(
         a["gen_ai.pricing.input_per_mtok_usd"],
-        serde_json::json!(0.435)
+        serde_json::json!(0.0886)
     );
     assert!(a.get("gen_ai.pricing.output_per_mtok_usd").is_some());
     // Zero reasoning / cache-write tokens are omitted on the generation.
