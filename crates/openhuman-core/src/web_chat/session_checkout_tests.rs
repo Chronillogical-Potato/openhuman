@@ -37,7 +37,9 @@ fn unique_thread(tag: &str) -> String {
 /// A root transcript for `thread_id` with the given prose rows, as the
 /// session persistence writes one.
 fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, rows: &[&str]) {
-    let path = workspace_dir.join("session_raw").join(format!("{stem}.jsonl"));
+    let path = workspace_dir
+        .join("session_raw")
+        .join(format!("{stem}.jsonl"));
     let messages: Vec<_> = rows
         .iter()
         .enumerate()
@@ -134,7 +136,10 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     checkin_session_agent(&thread_id, agent, fingerprint).await;
-    assert!(THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+    assert!(THREAD_SESSIONS
+        .lock()
+        .await
+        .contains_key(&key_for(&thread_id)));
 
     // The next checkout — a user turn — reuses the warm agent with that history.
     let CheckedOutSession { agent, .. } = checkout_session_agent(
@@ -156,7 +161,10 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         "warm checkout must carry the same history"
     );
     // Checked out means removed: nobody else can drive this agent meanwhile.
-    assert!(!THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+    assert!(!THREAD_SESSIONS
+        .lock()
+        .await
+        .contains_key(&key_for(&thread_id)));
     evict(&thread_id).await;
 }
 
@@ -165,9 +173,8 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
     let thread_id = unique_thread("vacant");
-    let fingerprint = |c: &Config| {
-        super::build_session_fingerprint(c, None, None, "orchestrator".into(), "chat")
-    };
+    let fingerprint =
+        |c: &Config| super::build_session_fingerprint(c, None, None, "orchestrator".into(), "chat");
 
     // A user turn finished while the system turn was running and cached its
     // agent unconditionally.
@@ -177,41 +184,23 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     // The system turn must not clobber it.
     let system_turn_agent = host_seeded_with(&config, "system-turn-history");
     assert!(
-        !checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config))
-            .await
+        !checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config)).await
     );
-    let CheckedOutSession { agent, .. } = checkout_session_agent(
-        &config,
-        "client-1",
-        &thread_id,
-        None,
-        None,
-        None,
-        false,
-        "",
-    )
-    .await
-    .unwrap();
+    let CheckedOutSession { agent, .. } =
+        checkout_session_agent(&config, "client-1", &thread_id, None, None, None, false, "")
+            .await
+            .unwrap();
     assert_eq!(prose(&agent.history()), vec!["user-turn-history", "ok"]);
 
     // Into a vacant slot it goes in.
     let system_turn_agent = host_seeded_with(&config, "system-turn-history");
     assert!(
-        checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config))
-            .await
+        checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config)).await
     );
-    let CheckedOutSession { agent, .. } = checkout_session_agent(
-        &config,
-        "client-1",
-        &thread_id,
-        None,
-        None,
-        None,
-        false,
-        "",
-    )
-    .await
-    .unwrap();
+    let CheckedOutSession { agent, .. } =
+        checkout_session_agent(&config, "client-1", &thread_id, None, None, None, false, "")
+            .await
+            .unwrap();
     assert_eq!(prose(&agent.history()), vec!["system-turn-history", "ok"]);
     evict(&thread_id).await;
 }
@@ -231,20 +220,16 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
     .await;
 
     let CheckedOutSession { agent, .. } = checkout_session_agent(
-        &config,
-        "client-1",
-        &thread_id,
-        None,
-        None,
-        None,
-        /* fork */ true,
-        "",
+        &config, "client-1", &thread_id, None, None, None, /* fork */ true, "",
     )
     .await
     .unwrap();
     // Built fresh: no transcript on disk for this thread, so an empty history.
     assert!(prose(&agent.history()).is_empty());
     // The primary's cached agent was left in place.
-    assert!(THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+    assert!(THREAD_SESSIONS
+        .lock()
+        .await
+        .contains_key(&key_for(&thread_id)));
     evict(&thread_id).await;
 }

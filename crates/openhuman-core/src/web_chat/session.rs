@@ -322,7 +322,10 @@ pub(crate) async fn checkin_session_agent(
     fingerprint: SessionCacheFingerprint,
 ) {
     let mut sessions = super::ops::THREAD_SESSIONS.lock().await;
-    sessions.insert(super::ops::key_for(thread_id), SessionEntry { agent, fingerprint });
+    sessions.insert(
+        super::ops::key_for(thread_id),
+        SessionEntry { agent, fingerprint },
+    );
 }
 
 /// Return a checked-out agent to the thread cache only when the slot is still
