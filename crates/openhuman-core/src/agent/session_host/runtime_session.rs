@@ -1231,26 +1231,33 @@ fn render_agent_context_status_note(
     )
 }
 
+// Availability notes prepended to the next user message when something was
+// connected or installed mid-conversation. They are *status*, not a task:
+// the earlier "act on them immediately" phrasing read as an instruction and
+// sent the orchestrator off to the integrations agent in the middle of an
+// unrelated exchange ("so lets do 20-30 days then?" → "What are we doing with
+// the inbox?"). The user's message that follows is the only thing to act on.
+const ANNOUNCEMENT_TRAILER: &str = "This is a capability update, not a request: \
+respond to the user's message below and only use these if that message needs them. \
+Do not tell the user to reconnect or restart.";
+
 fn integration_announcement_note(slugs: &[String]) -> Option<String> {
     (!slugs.is_empty()).then(|| format!(
-        "[integration update] These integration(s) connected during this conversation and are available right now: {}. \
-Use delegate_to_integrations_agent with the matching toolkit slug to act on them immediately — do not tell the user to reconnect or restart.",
+        "[integration update] These integration(s) connected during this conversation and are available now via delegate_to_integrations_agent with the matching toolkit slug: {}. {ANNOUNCEMENT_TRAILER}",
         slugs.join(", ")
     ))
 }
 
 fn mcp_announcement_note(servers: &[String]) -> Option<String> {
     (!servers.is_empty()).then(|| format!(
-        "[MCP update] These MCP server(s) connected during this conversation and are available right now: {}. \
-Use the use_mcp_server delegate to act on them immediately — do not tell the user to reconnect or restart.",
+        "[MCP update] These MCP server(s) connected during this conversation and are available now via the use_mcp_server delegate: {}. {ANNOUNCEMENT_TRAILER}",
         servers.join(", ")
     ))
 }
 
 fn skill_announcement_note(skill_ids: &[String]) -> Option<String> {
     (!skill_ids.is_empty()).then(|| format!(
-        "[skills update] These skill(s) were installed during this conversation and are available right now: {}. \
-They are in your `## Installed Skills` list — run one with `run_skill` immediately; do not tell the user to reinstall or restart.",
+        "[skills update] These skill(s) were installed during this conversation and are available now in your `## Installed Skills` list via `run_skill`: {}. {ANNOUNCEMENT_TRAILER}",
         skill_ids.join(", ")
     ))
 }
