@@ -1571,7 +1571,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': '变量名',
   'mcp.form.envValue': '值',
   'mcp.form.value': '值',
-  'mcp.form.keepStored': '已存储——留空以保留',
+  'mcp.form.keepStored': '已存储（留空以保留）',
   'mcp.form.removeRow': '删除行',
   'mcp.form.addEnv': '添加变量',
   'mcp.form.url': 'URL',
@@ -1615,7 +1615,7 @@ const messages: TranslationMap = {
   'mcp.registry.intro':
     'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
   'mcp.json.loadFailedTitle': '无法读取 mcp.json',
-  'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档——空编辑器会诱使保存并清空你的服务器。',
+  'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档。空编辑器会诱使保存并清空你的服务器。',
   'mcp.json.intro':
     '你的 MCP 服务器以单个文档呈现，采用其他 MCP 客户端使用的格式。从安装页面粘贴服务器块并保存。',
   'mcp.json.credentialsNote':
@@ -1629,11 +1629,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': '示例',
   'mcp.json.saveFailed': '无法保存 mcp.json。',
   'mcp.json.parseError.empty': '文档为空。没有服务器时应为 { "mcpServers": {} }。',
-  'mcp.json.parseError.invalidJson': 'JSON 无效 — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON 无效：{detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json 应为包含 `mcpServers` 键的对象。',
-  'mcp.json.parseError.missingRoot': '缺少 `mcpServers` 键——所有服务器都位于其下。',
+  'mcp.json.parseError.missingRoot': '缺少 `mcpServers` 键。所有服务器都位于其下。',
   'mcp.json.parseError.rootNotMap': '`mcpServers` 将服务器名称映射到其设置。',
-  'mcp.json.parseError.emptyName': '服务器需要一个名称——某个条目的键为空。',
+  'mcp.json.parseError.emptyName': '服务器需要一个名称。某个条目的键为空。',
   'mcp.json.parseError.entryNotObject':
     '`{name}` 应为对象，例如 { "command": "npx", "args": ["-y", "…"] } 或 { "url": "https://…" }。',
   'mcp.json.parseError.needsUrlOrCommand': '`{name}` 需要 `url`（托管）或 `command`（本地运行）。',
