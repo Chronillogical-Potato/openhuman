@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  bootRuntimeReadyGuestPage,
+  bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
-  signInViaBypassUser,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
@@ -53,15 +52,10 @@ async function openSkillsTab(page: import('@playwright/test').Page, userId: stri
     }
     await route.continue();
   });
-  await bootRuntimeReadyGuestPage(page);
-  await signInViaBypassUser(page, userId);
-  await page.evaluate(() => {
-    try {
-      localStorage.setItem('openhuman:walkthrough_completed', 'true');
-      localStorage.removeItem('openhuman:walkthrough_pending');
-    } catch {}
-    window.location.hash = '/connections?tab=skills';
-  });
+  // `signInViaBypassUser` intentionally settles on the chat landing route.
+  // Use the authenticated-route helper so its post-auth shell restoration
+  // cannot overwrite this spec's Connections deep link.
+  await bootAuthenticatedPage(page, userId, '/connections?tab=skills');
   await expect
     .poll(() => page.evaluate(() => window.location.hash), { timeout: 15_000 })
     .toContain('tab=skills');
