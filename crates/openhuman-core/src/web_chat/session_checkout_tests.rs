@@ -59,7 +59,7 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
         model: None,
         created: "2026-09-20T15:33:42Z".into(),
         updated: "2026-09-20T15:36:32Z".into(),
-        turn_count: (rows.len() / 2) as u32,
+        turn_count: rows.len() / 2,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,
