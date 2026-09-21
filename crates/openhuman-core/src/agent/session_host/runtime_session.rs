@@ -331,14 +331,6 @@ impl OpenHumanTurnPrelude {
         }
     }
 
-    #[cfg(test)]
-    fn build_system_prompt(
-        &self,
-        learned: crate::agent::prompts::LearnedContextData,
-    ) -> Result<String> {
-        Ok(self.build_system_prompt_tiered(learned)?.text)
-    }
-
     fn build_system_prompt_tiered(
         &self,
         learned: crate::agent::prompts::LearnedContextData,
