@@ -343,23 +343,16 @@ named = [
     # arithmetic to the leaf (which once computed "24h ago" ~10 months off and
     # missed the latest data). Never hand-compute Unix seconds.
     "resolve_time",
-    # Coding-harness coordination primitives from #1208. `todo` is the
-    # registered unified thread task-board tool (`TodoTool::name() == "todo"`);
-    # it gives the orchestrator a shared todo store to track multi-step work
-    # across delegations and is what the interactive plan-review gate hooks
-    # (WebChat turns stamp new cards `approval_mode = Required` → parked for
-    # user review). The named scope matches tool names exactly, so the
-    # orchestrator must list `todo` (not the legacy `todowrite` alias, which
-    # resolves to no registered tool) to be able to call it. `plan_exit` is the
-    # stable marker that the (forthcoming) plan→build mode runner consumes when
-    # a planner subagent hands a plan back up. The Master Agent now owns the
-    # normal inspect/edit/verify loop directly; specialised workers remain
-    # available for parallel or independent work.
+    # `todo` is the registered unified thread task-board tool
+    # (`TodoTool::name() == "todo"`; the legacy `todowrite` alias resolves to no
+    # registered tool). It tracks multi-step work across delegations. The
+    # chat orchestrator does not hold `request_plan_review`: a research or
+    # lookup question must never park the turn behind an approval card, and
+    # destructive actions are already gated by the shell/file approval layer.
+    # Planner and cron agents keep the plan-review tool. `plan_exit` and
+    # `update_task` left this belt with it: nothing consumes the plan-exit
+    # marker, and `update_task` was `todo` with a different default board.
     "todo",
-    # Interactive plan-review gate (Codex/Claude plan mode). After laying out a
-    # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE
-    # the turn until the user approves / rejects / sends feedback — nothing
-    # executes until they approve. Auto-approves on non-interactive turns.
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);
@@ -372,11 +365,6 @@ named = [
     "goal_set",
     "goal_get",
     "goal_complete",
-    # `update_task` moves/updates a specific task card by id on a target board
-    # (defaults to the proactive `task-sources` board) — so the orchestrator can
-    # advance the task it's working: → in_progress when it starts, → done with
-    # evidence when finished, or → blocked with a reason when stuck. Complements
-    # `todowrite`, which only touches the current thread's board.
     # Workflow composition. `run_workflow` runs another workflow as a
     # subagent and (by default) waits on its result like a function call;
     # `await_workflow` re-attaches to a run that outlived its inline wait.
