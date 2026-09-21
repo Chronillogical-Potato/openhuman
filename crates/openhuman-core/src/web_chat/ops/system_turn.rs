@@ -22,7 +22,7 @@ use crate::config::rpc as config_rpc;
 
 use super::super::run_task::turn_error_poisons_session;
 use super::super::session::{
-    checkin_session_agent_if_vacant, checkout_session_agent, CheckedOutSession,
+    checkin_session_agent_if_vacant, checkout_session_agent, CheckedOutSession, CheckoutPolicy,
 };
 
 /// Client id stamped on host-authored turns. Never a real socket, so it never
@@ -61,7 +61,7 @@ pub async fn run_system_turn_on_thread(
         None,
         None,
         None,
-        /* fork */ false,
+        CheckoutPolicy::AdoptCached,
         "",
     )
     .await

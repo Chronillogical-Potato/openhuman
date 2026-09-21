@@ -14,6 +14,7 @@ use super::ops::BudgetCorrelation;
 use super::progress_bridge::spawn_progress_bridge;
 use super::session::{
     checkin_session_agent, checkout_session_agent, normalize_model_override, CheckedOutSession,
+    CheckoutPolicy,
 };
 use super::types::{ChatRequestMetadata, WebChatTaskResult};
 use super::web_errors::{
@@ -108,7 +109,11 @@ pub(crate) async fn run_chat_task(
         model_override,
         temperature,
         locale.as_deref(),
-        fork,
+        if fork {
+            CheckoutPolicy::Fork
+        } else {
+            CheckoutPolicy::Exact
+        },
         message,
     )
     .await?;

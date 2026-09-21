@@ -139,6 +139,23 @@ pub(super) fn build_session_fingerprint(
     }
 }
 
+/// How `checkout_session_agent` treats the thread's cached entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CheckoutPolicy {
+    /// A user turn: reuse the cached agent only when its
+    /// `SessionCacheFingerprint` matches this turn's model/temperature/agent,
+    /// otherwise rebuild (and cold-boot resume) with the new settings.
+    Exact,
+    /// A host-authored turn: reuse whatever agent the thread has, under the
+    /// settings the user's last turn chose, and hand it back with that same
+    /// fingerprint. The turn has no settings of its own, and rebuilding on a
+    /// mismatch would evict the warm session for nothing.
+    AdoptCached,
+    /// A parallel fork: never take or return the cached agent; build fresh from
+    /// the thread's durable history.
+    Fork,
+}
+
 /// A session agent checked out of the per-thread cache for exactly one turn.
 ///
 /// Every turn that runs on a conversation thread — a user turn, a
@@ -158,8 +175,7 @@ pub(crate) struct CheckedOutSession {
 ///
 /// The entry is *removed* from the cache for the duration of the turn so two
 /// turns can never drive one agent; `checkin_session_agent` /
-/// `checkin_session_agent_if_vacant` put it back. A `fork` (parallel turn)
-/// never touches the cache and always builds fresh from the history snapshot.
+/// `checkin_session_agent_if_vacant` put it back.
 pub(crate) async fn checkout_session_agent(
     config: &Config,
     client_id: &str,
@@ -167,7 +183,7 @@ pub(crate) async fn checkout_session_agent(
     model_override: Option<String>,
     temperature: Option<f64>,
     locale: Option<&str>,
-    fork: bool,
+    policy: CheckoutPolicy,
     // The message this turn is about to send, so a cold-boot seed from the
     // conversation log can drop it when the client already stored it. Empty for
     // a host-authored turn, whose notice is never in the store.
@@ -186,22 +202,24 @@ pub(crate) async fn checkout_session_agent(
 
     // A forked (parallel) turn never reuses or evicts the shared cached agent —
     // it always builds fresh from the history snapshot below.
-    let prior = if fork {
+    let prior = if policy == CheckoutPolicy::Fork {
         None
     } else {
         let mut sessions = super::ops::THREAD_SESSIONS.lock().await;
         sessions.remove(&map_key)
     };
 
-    let (mut agent, was_built_fresh) = match prior {
-        Some(entry) if entry.fingerprint == fingerprint => {
+    let (mut agent, fingerprint, was_built_fresh) = match prior {
+        Some(entry)
+            if entry.fingerprint == fingerprint || policy == CheckoutPolicy::AdoptCached =>
+        {
             log::info!(
                 "[web-channel] reusing cached session agent id={} for client={} thread={}",
-                target_agent_id,
+                entry.fingerprint.target_agent_id,
                 client_id,
                 thread_id
             );
-            (entry.agent, false)
+            (entry.agent, entry.fingerprint, false)
         }
         Some(prior_entry) => {
             log::info!(
@@ -225,6 +243,7 @@ pub(crate) async fn checkout_session_agent(
                     temperature,
                     locale,
                 )?,
+                fingerprint,
                 true,
             )
         }
@@ -238,6 +257,7 @@ pub(crate) async fn checkout_session_agent(
                 temperature,
                 locale,
             )?,
+            fingerprint,
             true,
         ),
     };

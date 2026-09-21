@@ -12,7 +12,7 @@ use tinyagents_session::transcript::{write_transcript, TranscriptMeta};
 
 use super::{
     checkin_session_agent, checkin_session_agent_if_vacant, checkout_session_agent,
-    CheckedOutSession,
+    CheckedOutSession, CheckoutPolicy,
 };
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::OpenHumanSessionHost;
@@ -122,7 +122,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         None,
-        false,
+        CheckoutPolicy::AdoptCached,
         "",
     )
     .await
@@ -149,7 +149,7 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         None,
-        false,
+        CheckoutPolicy::Exact,
         "so lets do 20-30 days then?",
     )
     .await
