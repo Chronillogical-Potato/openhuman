@@ -139,7 +139,11 @@ test.describe('Skills explorer — typing narrows what is on screen', () => {
     };
     await page.route('**/rpc', async (route, request) => {
       const body = JSON.parse(request.postData() || '{}');
-      if (!['openhuman.skill_registry_browse', 'openhuman.skill_registry_search'].includes(body.method)) {
+      if (
+        !['openhuman.skill_registry_browse', 'openhuman.skill_registry_search'].includes(
+          body.method
+        )
+      ) {
         await route.continue();
         return;
       }
