@@ -222,7 +222,7 @@
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
 
-morning_briefing:14875:64011
+morning_briefing:14878:64011
 trigger_triage:9207:0
 workflow_builder:79097:30400
 summarizer:9021:0
