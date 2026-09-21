@@ -61,8 +61,11 @@ and the progress bridge but go through the **same** session checkout, so the
 model sees the conversation and the turn lands in the thread's transcript. A
 turn run on a throwaway host bound to the thread wrote a competing root
 transcript that the next cold-boot resume preferred, dropping every earlier
-turn. Such a turn checks in with `checkin_session_agent_if_vacant`: a user
-turn that started meanwhile and re-cached its own agent wins.
+turn. Such a turn checks out with `CheckoutPolicy::AdoptCached` (reuse the
+thread's agent under whatever settings the user's last turn chose, rather than
+rebuilding on a fingerprint miss) and checks in with
+`checkin_session_agent_if_vacant`: a user turn that started meanwhile and
+re-cached its own agent wins.
 
 ## Public surface
 
