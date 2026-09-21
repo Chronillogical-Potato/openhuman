@@ -59,6 +59,7 @@ fn the_three_spec_views_share_their_leaf_schemas() {
     // exclusion-only test.
     let use_skill = crate::tools::toolpacks::USE_SKILL;
     let mut saw_scoped_use_skill = false;
+    let mut saw_scoped_spawn = false;
 
     for spec in visible.iter() {
         let shared = all
@@ -73,6 +74,29 @@ fn the_three_spec_views_share_their_leaf_schemas() {
             saw_scoped_use_skill = true;
             continue;
         }
+        // Same exception, same reason: the spawn enum is narrowed to this
+        // agent's `[subagents]` allowlist, so it is a per-session copy.
+        if spec.name == "spawn_async_subagent" {
+            assert!(
+                !shared,
+                "`spawn_async_subagent` must be scoped into its own allocation"
+            );
+            let ids = spec
+                .parameters
+                .pointer("/properties/agent_id/enum")
+                .and_then(|v| v.as_array())
+                .expect("agent_id enum");
+            assert!(
+                ids.iter().all(|id| id.as_str() != Some("orchestrator")),
+                "the orchestrator cannot spawn itself: {ids:?}"
+            );
+            assert!(
+                ids.iter().any(|id| id.as_str() == Some("researcher")),
+                "an allowlisted id survives: {ids:?}"
+            );
+            saw_scoped_spawn = true;
+            continue;
+        }
         assert!(
             shared,
             "visible spec `{}` must point at the full view's allocation, not a deep copy",
@@ -84,6 +108,10 @@ fn the_three_spec_views_share_their_leaf_schemas() {
         saw_scoped_use_skill,
         "the orchestrator advertises `{use_skill}`, so the scoped-copy exception above \
          must actually have been exercised rather than vacuously skipped"
+    );
+    assert!(
+        saw_scoped_spawn,
+        "the orchestrator advertises `spawn_async_subagent`, so its enum must have been narrowed"
     );
 }
 
