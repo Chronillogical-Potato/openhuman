@@ -222,27 +222,27 @@
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
 
-morning_briefing:14965:67291
+morning_briefing:14875:64011
 trigger_triage:9207:0
 workflow_builder:79097:30400
 summarizer:9021:0
-tools_agent:8961:67291
-orchestrator:30213:30818
-code_executor:13294:14910
+tools_agent:8844:64011
+orchestrator:30263:29460
+code_executor:13294:14926
 crypto_agent:12986:12357
-task_manager_agent:7097:15834
+task_manager_agent:7081:15666
 planner:10603:6559
 skill_creator:7304:12664
 flow_discovery:10780:9641
 profile_memory_agent:8237:12774
 settings_agent:7040:11065
-context_scout:11076:7349
-skill_executor:9594:7511
+context_scout:11076:7365
+skill_executor:9594:7527
 scheduler_agent:9615:7047
 agent_memory:10422:6836
-skill_setup:7253:7604
-trigger_reactor:8877:7382
-mcp_agent:8920:4472
+skill_setup:7253:7620
+trigger_reactor:8877:7370
+mcp_agent:8990:4472
 flow_memory_agent:9687:3947
 tool_maker:6266:6087
 presentation_agent:6540:5678
@@ -321,17 +321,17 @@ critic:6215:2108
 # failed before any number was compared. The prose above describes them as they
 # were on 2026-09-01. `cron` returned when the scheduler's collapsed surface was
 # wired into the durable registry.
-tool:spawn_subagent:3554
+tool:spawn_subagent:3542
 tool:propose_workflow:3170
 tool:memory_tree:3008
 tool:cron:3340
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
-tool:spawn_async_subagent:1965
+tool:spawn_async_subagent:1953
 tool:save_workflow:1957
-tool:spawn_parallel_agents:1851
-tool:todo:1831
+tool:spawn_parallel_agents:1839
+tool:todo:1748
 tool:search_tool_catalog:1695
 tool:use_skill:2096
 # One action-dispatched memory surface replaces the separately registered

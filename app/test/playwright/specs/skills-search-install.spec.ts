@@ -61,6 +61,7 @@ async function openSkillsTab(page: import('@playwright/test').Page, userId: stri
     .toContain('tab=skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
+  await page.getByTestId('skill-explorer-tab-registry').click();
   await expect(page.getByTestId(SEARCH)).toBeVisible({ timeout: 20_000 });
 }
 
