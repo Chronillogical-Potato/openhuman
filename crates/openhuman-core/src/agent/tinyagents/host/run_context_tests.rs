@@ -279,6 +279,32 @@ fn attach_parent_binds_the_runs_live_progress_sink_over_a_stale_snapshot() {
     );
 }
 
+/// The returned reference is the bound context, not the caller's snapshot.
+///
+/// `enrich_request` launches the triggered memory sub-agent *before* the rest
+/// of the turn is assembled, so it has to hand that spawn a parent context.
+/// Taking it from this return value is what stops it passing the stale
+/// snapshot it started from — the same `on_progress = None` that kept
+/// `subagent_spawned` out of the Background tasks panel. If this method ever
+/// stops returning the installed parent, that call site silently regresses.
+#[test]
+fn attach_parent_returns_the_bound_parent_not_the_caller_snapshot() {
+    let (tx, _rx) = tokio::sync::mpsc::channel(4);
+    let mut context = OpenHumanRunContext::new();
+    context.progress = Some(tx);
+    let snapshot = stale_parent_snapshot();
+    assert!(snapshot.on_progress.is_none(), "snapshot starts stale");
+
+    let bound = context.attach_parent(snapshot);
+
+    assert!(
+        bound.on_progress.is_some(),
+        "the context returned by attach_parent must already carry the run's \
+         live sink; a caller that spawns a sub-agent before the turn is \
+         assembled uses this value, and a stale one drops SubagentSpawned"
+    );
+}
+
 /// The bind must not blank a sink the snapshot did carry: a turn with no
 /// progress subscriber of its own (CLI, cron) leaves the snapshot intact.
 #[test]

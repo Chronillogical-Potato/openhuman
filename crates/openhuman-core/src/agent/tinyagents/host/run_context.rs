@@ -378,9 +378,17 @@ impl OpenHumanRunContext {
     /// reads "none running" while sub-agents are working. The run context's own
     /// sink is the live one (it is what `driver.rs` hands the turn graph), so
     /// prefer it and keep the snapshot as the fallback.
-    pub(crate) fn attach_parent(&mut self, mut parent: ParentExecutionContext) {
+    ///
+    /// Returns the installed parent so a caller that must launch a sub-agent
+    /// *before* the rest of the turn is assembled — `inject_triggered_memory_agent_context`
+    /// is the one such caller — hands it the bound context rather than the
+    /// stale snapshot it started from.
+    pub(crate) fn attach_parent(
+        &mut self,
+        mut parent: ParentExecutionContext,
+    ) -> &ParentExecutionContext {
         parent.on_progress = self.progress.clone().or(parent.on_progress);
-        self.parent = Some(parent);
+        self.parent.insert(parent)
     }
 
     /// Sets the same cancellation token on this context and its TinyAgents run.
