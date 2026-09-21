@@ -232,7 +232,7 @@ pub(crate) fn node_request_to_prompt(request: &Value) -> String {
 
 /// Model precedence for an agent node, returning the raw model string as
 /// written:
-/// 1. node `config.model` — a managed tier (`reasoning-v1`, `chat-v1`, …) or a
+/// 1. node `config.model` — a managed tier (`hint:reasoning`, `hint:chat`, …) or a
 ///    `hint:*` alias;
 /// 2. the registry `entry_model` (custom agents);
 /// 3. `None` — no override, so the harness definition's / role default stands.
@@ -259,12 +259,12 @@ pub(crate) fn resolve_node_model(request: &Value, entry_model: Option<&str>) -> 
 /// value that routes a freshly-built harness [`Agent`](crate::agent::OpenHumanSessionHost)
 /// to the workload serving that tier. The session builder's `provider_role_for`
 /// only routes the `hint:<role>` form to a specialised workload, so a bare tier
-/// name (`reasoning-v1`) must be normalised to `hint:reasoning` here — otherwise
+/// name (`hint:reasoning`) must be normalised to `hint:reasoning` here — otherwise
 /// it would silently fall through to the chat workload.
 ///
 /// A **raw/BYOK** model id (e.g. `claude-opus-4`) is instead forwarded verbatim:
 /// wrapping it in `hint:chat` would collapse the user's explicit per-node model
-/// onto the managed `chat-v1` tier (issue #4598). Left verbatim, it flows through
+/// onto the managed `hint:chat` tier (issue #4598). Left verbatim, it flows through
 /// the session builder's generic `chat` role — which inherits
 /// `config.default_model` — to `make_openhuman_backend`, which forwards non-tier
 /// ids to the backend unchanged. Mirrors the per-node routing

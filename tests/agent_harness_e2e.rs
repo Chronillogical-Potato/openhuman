@@ -3266,12 +3266,13 @@ async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner()
 
 // ─── Skills + MCP servers: installed from a registry, then used by the agent ─
 //
-// The registry suites (`skill_registry_e2e`, `mcp_registry_e2e`,
-// `raw_coverage/mcp_setup_clients_e2e`) stop at "installed" or "connected".
-// These go one step further: the item comes from a loopback registry through
-// the real install path, then a scripted turn reaches it through the same
-// delegation tools the orchestrator uses in production (`setup_skills`,
-// `run_skill`, `use_mcp_server`).
+// The registry suites (`skill_registry_e2e`, `mcp_registry_e2e`) stop at
+// "installed" or "connected". These go one step further: the skill comes from a
+// loopback registry through the real install path, the MCP server is found in a
+// loopback registry and then declared in `mcp.json` the way a user would, and a
+// scripted turn reaches each through the same delegation tools the
+// orchestrator uses in production (`setup_skills`, `run_skill`,
+// `use_mcp_server`).
 //
 // The proof is the tool result the model receives, never the scripted reply:
 // every scripted completion below is canary-free, so a canary inside a tool
@@ -3528,8 +3529,8 @@ async fn agent_installs_a_registry_skill_then_runs_it_inner() {
 
 // ─── #6302: the orchestrator hands MCP and skill work to its specialists ─────
 //
-// The four hand-offs (`setup_skills`, `run_skill`, `setup_mcp_server`,
-// `use_mcp_server`) are direct tools on the orchestrator's belt, and the packs
+// The three hand-offs (`setup_skills`, `run_skill`, `use_mcp_server`) are
+// direct tools on the orchestrator's belt, and the packs
 // holding the raw `skill_registry_*` / `mcp_registry_*` tools are closed to it.
 // These tests pin both halves against a real session.
 
@@ -3862,9 +3863,9 @@ fn peel_logs_envelope(v: &Value) -> &Value {
     }
 }
 
-/// A server found in the MCP registry is installed and connected through the
-/// same RPCs the settings UI uses, then the agent calls its tool through
-/// `use_mcp_server` and the server's answer reaches the model.
+/// A server found in the MCP registry is declared in `mcp.json` and connected
+/// through the same RPCs the settings UI uses, then the agent calls its tool
+/// through `use_mcp_server` and the server's answer reaches the model.
 #[cfg(feature = "mcp")]
 #[test]
 #[ignore = "TODO(#6370): delegated registry specialists are unavailable in the TinyAgents hosted runtime"]
@@ -3903,37 +3904,8 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
         "registry search must list the fixture server: {search}"
     );
 
-    // Installed and connected.
-    let install = post_json_rpc(
-        &stack.rpc_base,
-        801,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": REGISTRY_MCP_SERVER, "env": {} }),
-    )
-    .await;
-    let install = peel_logs_envelope(assert_no_jsonrpc_error(&install, "mcp_clients_install"));
-    let server_id = install
-        .pointer("/server/server_id")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("install returned no server.server_id: {install}"))
-        .to_string();
-    let connect = post_json_rpc(
-        &stack.rpc_base,
-        802,
-        "openhuman.mcp_clients_connect",
-        json!({ "server_id": server_id }),
-    )
-    .await;
-    let connect = peel_logs_envelope(assert_no_jsonrpc_error(&connect, "mcp_clients_connect"));
-    assert_eq!(
-        connect.get("status").and_then(Value::as_str),
-        Some("connected"),
-        "the installed server must connect: {connect}"
-    );
-    assert!(
-        connect.to_string().contains("\"echo\""),
-        "the connected server must list its echo tool: {connect}"
-    );
+    // Declared in mcp.json (the registry is browse-only) and connected.
+    let server_id = declare_and_connect_registry_echo_server(&stack.rpc_base, 801).await;
 
     // Used: orchestrator → use_mcp_server (a direct hand-off, #6302) → mcp_agent,
     // which owns the pack and calls mcp_registry_tool_call directly.
@@ -3992,26 +3964,63 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
     stack.shutdown();
 }
 
-/// Install the registry's echo server through the settings RPCs and connect it,
-/// returning its server id.
+/// Declare the registry's echo server in `mcp.json` the way a user who found
+/// it in the registry tab would — by its command, pointed at the stub — through
+/// the settings RPCs, connect it, and return its server id.
 #[cfg(feature = "mcp")]
-async fn install_and_connect_registry_echo_server(rpc_base: &str, first_rpc_id: i64) -> String {
-    let install = post_json_rpc(
+async fn declare_and_connect_registry_echo_server(rpc_base: &str, first_rpc_id: i64) -> String {
+    let declared = post_json_rpc(
         rpc_base,
         first_rpc_id,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": REGISTRY_MCP_SERVER, "env": {} }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { REGISTRY_MCP_SERVER: {
+            "command": env!("CARGO_BIN_EXE_test-mcp-stub"),
+            // Off until the explicit connect below, so the background connect
+            // config_set would otherwise start cannot race it.
+            "enabled": false
+        } } }),
     )
     .await;
-    let install = peel_logs_envelope(assert_no_jsonrpc_error(&install, "mcp_clients_install"));
-    let server_id = install
-        .pointer("/server/server_id")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("install returned no server.server_id: {install}"))
-        .to_string();
-    let connect = post_json_rpc(
+    let declared = peel_logs_envelope(assert_no_jsonrpc_error(&declared, "mcp_clients_config_set"));
+    assert_eq!(
+        declared.get("added"),
+        Some(&json!([REGISTRY_MCP_SERVER])),
+        "config_set must report the declared server as added: {declared}"
+    );
+    let listed = post_json_rpc(
         rpc_base,
         first_rpc_id + 1,
+        "openhuman.mcp_clients_installed_list",
+        json!({}),
+    )
+    .await;
+    let listed = peel_logs_envelope(assert_no_jsonrpc_error(
+        &listed,
+        "mcp_clients_installed_list",
+    ));
+    let server_id = listed
+        .get("installed")
+        .and_then(Value::as_array)
+        .and_then(|rows| {
+            rows.iter().find(|row| {
+                row.get("qualified_name").and_then(Value::as_str) == Some(REGISTRY_MCP_SERVER)
+            })
+        })
+        .and_then(|row| row.get("server_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("the declared server is not installed: {listed}"))
+        .to_string();
+    let enabled = post_json_rpc(
+        rpc_base,
+        first_rpc_id + 2,
+        "openhuman.mcp_clients_set_enabled",
+        json!({ "server_id": server_id, "enabled": true }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&enabled, "mcp_clients_set_enabled");
+    let connect = post_json_rpc(
+        rpc_base,
+        first_rpc_id + 3,
         "openhuman.mcp_clients_connect",
         json!({ "server_id": server_id }),
     )
@@ -4020,13 +4029,16 @@ async fn install_and_connect_registry_echo_server(rpc_base: &str, first_rpc_id: 
     assert_eq!(
         connect.get("status").and_then(Value::as_str),
         Some("connected"),
-        "the installed server must connect: {connect}"
+        "the declared server must connect: {connect}"
+    );
+    assert!(
+        connect.to_string().contains("\"echo\""),
+        "the connected server must list its echo tool: {connect}"
     );
     server_id
 }
 
-/// MCP requests reach `mcp_setup` and `mcp_agent` through their hand-offs,
-/// called directly.
+/// MCP requests reach `mcp_agent` through its hand-off, called directly.
 #[cfg(feature = "mcp")]
 #[test]
 fn orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly() {
@@ -4045,15 +4057,6 @@ async fn orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly_inner()
         "{}/events?client_id=harness-mcp-handoff",
         stack.rpc_base
     ));
-    assert_hand_off_reaches_specialist(
-        &stack,
-        &mut events,
-        930,
-        "harness-mcp-handoff",
-        "setup_mcp_server",
-        &["mcp_setup_install_and_connect", "mcp_setup_request_secret"],
-    )
-    .await;
     assert_hand_off_reaches_specialist(
         &stack,
         &mut events,
@@ -4091,7 +4094,7 @@ async fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_
     );
     reset_script(Vec::new());
     let stack = boot_stack().await;
-    let server_id = install_and_connect_registry_echo_server(&stack.rpc_base, 940).await;
+    let server_id = declare_and_connect_registry_echo_server(&stack.rpc_base, 940).await;
 
     reset_script(vec![
         packed_tool_call_completion(

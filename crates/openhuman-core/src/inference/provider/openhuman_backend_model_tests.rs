@@ -43,8 +43,8 @@ fn managed_model_advertises_tool_and_vision_capabilities() {
 
 #[test]
 fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
-    assert_eq!(resolve_model(""), crate::config::MODEL_REASONING_V1);
-    assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_REASONING_V1);
+    assert_eq!(resolve_model(""), crate::config::MODEL_MANAGED_DEFAULT);
+    assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_MANAGED_DEFAULT);
     assert_eq!(resolve_model("  reasoning-v1  "), "reasoning-v1");
     assert_eq!(resolve_model("hint:reasoning"), "hint:reasoning");
 }

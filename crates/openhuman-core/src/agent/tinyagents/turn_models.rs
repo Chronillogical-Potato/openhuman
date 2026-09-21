@@ -96,14 +96,14 @@ impl TurnModels {
 /// the turn's lead (the depth-0 agent, `is_team_lead`) it always wins. The
 /// harness forwards the definition's `[model] hint`/`model` as `model_pin`
 /// on every resolve; honouring it for the lead let the orchestrator's
-/// `hint = "coding"` silently reroute every chat turn onto `coding-v1`
+/// `hint = "coding"` silently reroute every chat turn onto `hint:coding`
 /// (DeepSeek V4 Pro) no matter which model the user picked in the UI, since
-/// `coding-v1` is always a registered tier route. A pin is advisory
+/// `hint:coding` is always a registered tier route. A pin is advisory
 /// (`ModelResolveRequest::model_pin` docs) and the lead's selection is the
 /// stronger, more explicit signal.
 ///
 /// Sub-agents (depth > 0) keep resolving their pin against the tier routes —
-/// that is how `integrations_agent`'s `hint = "burst"` reaches `burst-v1` —
+/// that is how `integrations_agent`'s `hint = "burst"` reaches `hint:burst` —
 /// and fall back to the primary when the pin names no built route.
 pub(crate) struct TurnModelResolver {
     primary: TurnChatModel,

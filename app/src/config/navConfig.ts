@@ -26,7 +26,7 @@ export interface NavTab {
 
 /**
  * Ordered list of sidebar nav entries:
- *   chat → brain → flows → connections → rewards
+ *   chat → brain → flows → connections
  *
  * Human has no primary tab: `/human` is reached from the chat composer, whose
  * primary button becomes the mascot when there is nothing to send (see
@@ -54,16 +54,6 @@ export const NAV_TABS: NavTab[] = [
     labelKey: 'nav.connections',
     path: '/connections',
     walkthroughAttr: 'tab-connections',
-  },
-  // Rewards was a footer row beside Feedback; it is a primary destination now,
-  // directly below Connections. The cloud gate travelled with it — a local
-  // session still never sees it, because the page has nothing to show one.
-  {
-    id: 'rewards',
-    labelKey: 'nav.rewards',
-    path: '/rewards',
-    walkthroughAttr: 'tab-rewards',
-    cloudOnly: true,
   },
   // Settings is reached via the gear icon in the sidebar header, so it no
   // longer has its own primary nav tab. Feedback lives in a slim footer row

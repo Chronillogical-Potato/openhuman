@@ -16,7 +16,6 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     uninstall: (...args: unknown[]) => mockUninstall(...args),
     updateEnv: (...args: unknown[]) => mockUpdateEnv(...args),
     setEnabled: (...args: unknown[]) => mockSetEnabled(...args),
-    configAssist: vi.fn(),
   },
 }));
 

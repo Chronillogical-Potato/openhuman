@@ -33,11 +33,12 @@ mod remove_write_auto_approve;
 mod repair_http_request_limits;
 mod retire_chat_v1_model;
 mod retire_local_whisper_stt;
+mod retire_managed_tier_slugs;
 mod retire_subconscious_medulla;
 mod unify_ai_provider_settings;
 
 /// Current target schema version. Bumped alongside every new migration.
-pub const CURRENT_SCHEMA_VERSION: u32 = 12;
+pub const CURRENT_SCHEMA_VERSION: u32 = 13;
 
 /// Give a brand-new [`Config`] the managed `openhuman` cloud-provider entry.
 ///
@@ -629,6 +630,41 @@ pub async fn run_pending(config: &mut Config) {
             Err(err) => {
                 log::warn!(
                     "[migrations] retire_subconscious_medulla failed: {err:#} — \
+                     will retry on next launch"
+                );
+            }
+        }
+    }
+
+    // 12 -> 13: retire the managed tier slugs (`chat-v1`, `agentic-v1`, …).
+    // The managed backend serves OpenRouter model ids only, so every persisted
+    // tier slug — `default_model`, orchestrator/team/delegate pins, model
+    // routes — is rewritten to the managed default model. Guard on `== 12` so
+    // an earlier failed step isn't skipped.
+    if config.schema_version == 12 {
+        let snapshot = config.clone();
+        match retire_managed_tier_slugs::run(config) {
+            Ok(stats) => {
+                let previous_version = config.schema_version;
+                config.schema_version = 13;
+                if let Err(err) = config.save().await {
+                    *config = snapshot;
+                    log::warn!(
+                        "[migrations] retire_managed_tier_slugs ran but config.save failed: \
+                         {err:#} — rolled in-memory schema_version back to {previous_version}, \
+                         will retry on next launch"
+                    );
+                    return;
+                }
+                log::info!(
+                    "[migrations] schema_version bumped to 13 (retire_managed_tier_slugs \
+                     rewritten={})",
+                    stats.rewritten
+                );
+            }
+            Err(err) => {
+                log::warn!(
+                    "[migrations] retire_managed_tier_slugs failed: {err:#} — \
                      will retry on next launch"
                 );
             }

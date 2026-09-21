@@ -75,6 +75,8 @@ export type AISettings = {
   cloudProviders: CloudProvider[];
   routing: RoutingMap;
   modelRegistry: ModelRegistryEntry[];
+  /** Raw `config.default_model`; a managed catalog id when the user pinned one. */
+  defaultModel?: string;
 };
 
 /** Local-runtime chip slugs (Ollama / LM Studio / OMLX) that aren't actual
@@ -380,32 +382,6 @@ export function inferRoutingMode(routing: RoutingMap): RoutingMode {
     return 'own';
   }
   return 'custom';
-}
-
-export function inferSharedModelRef(routing: RoutingMap): ProviderRef | null {
-  const refs = ROUTING_WORKLOAD_IDS.map(id => routing[id]);
-  const first = refs[0];
-  if (!first) return null;
-  if (refs.every(ref => providerRefSignature(ref) === providerRefSignature(first))) {
-    return first.kind === 'openhuman' ? null : first;
-  }
-  return (
-    refs.find(ref => ref.kind === 'cloud' || ref.kind === 'local' || ref.kind === 'default') ?? null
-  );
-}
-
-export function routingWithAllWorkloads(next: ProviderRef): RoutingMap {
-  return {
-    chat: next,
-    reasoning: next,
-    agentic: next,
-    coding: next,
-    vision: next,
-    memory: next,
-    heartbeat: next,
-    learning: next,
-    subconscious: next,
-  };
 }
 
 export function defaultEndpointFor(slug: string): string {

@@ -470,7 +470,7 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                 // orchestrator must relay the question and resume via
                 // `continue_subagent` — NOT re-spawn a fresh, stateless
                 // sub-agent. Dropping this status was the #4291 infinite re-spawn
-                // loop: a paused mcp_setup was reported as a plain success, the
+                // loop: a paused sub-agent was reported as a plain success, the
                 // orchestrator's only continuation was to re-delegate, and the new
                 // run paused again. Mirrors the `spawn_subagent` AwaitingUser path.
                 SubagentRunStatus::AwaitingUser {

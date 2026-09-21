@@ -22,16 +22,16 @@ impl ModelSpec {
     /// Resolve this spec into the model name string the provider expects.
     /// `parent_model` is the model the parent agent is using right now.
     ///
-    /// Hints are resolved to `{hint}-v1` (e.g. `"agentic"` → `"agentic-v1"`)
-    /// which matches the backend's standard model naming convention. When
-    /// a `RouterProvider` is present its route table takes priority over
-    /// this default; when no router is configured (empty `model_routes`)
-    /// the resolved name goes directly to the backend.
+    /// Hints are resolved to the `hint:{hint}` role alias (e.g. `"agentic"` →
+    /// `"hint:agentic"`), which the inference factory translates to the role's
+    /// configured route — the managed default model, or the BYOK/local model
+    /// routed to that workload. When a `RouterProvider` is present its route
+    /// table takes priority over this default.
     pub fn resolve(&self, parent_model: &str) -> String {
         match self {
             Self::Inherit => parent_model.to_string(),
             Self::Exact(name) => name.clone(),
-            Self::Hint(hint) => format!("{hint}-v1"),
+            Self::Hint(hint) => format!("hint:{hint}"),
         }
     }
 }

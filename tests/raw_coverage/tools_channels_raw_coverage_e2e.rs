@@ -353,8 +353,6 @@ fn tool_registries_schemas_and_local_helpers_cover_safe_branches() {
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
-        "mcp_setup_search",
-        "mcp_setup_install_and_connect",
     ] {
         assert!(names.contains(expected), "missing tool {expected}");
     }

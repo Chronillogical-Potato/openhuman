@@ -116,6 +116,7 @@ export {
   default as DataTable,
   type DataTableColumn,
   type DataTableFilter,
+  DataTableFilterMenu,
   type DataTableProps,
   type DataTableSearch,
 } from './DataTable';

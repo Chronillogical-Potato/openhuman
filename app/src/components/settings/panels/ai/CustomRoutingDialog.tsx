@@ -110,7 +110,7 @@ export const CustomRoutingDialog = ({
           ? 'claude-code'
           : null;
 
-  // The Vision workload always feeds the multimodal `vision-v1` path, so any
+  // The Vision workload always feeds the multimodal vision route, so any
   // model routed here is treated as image-capable regardless of the per-model
   // registry flag. Force the flag on and lock the checkbox for this workload.
   const visionLocked = workload.id === 'vision';

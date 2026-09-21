@@ -34,11 +34,9 @@ fn unprefixed_delegate_name_overrides_are_treated_as_spawn_tools() {
         "archive_session",
         // `use_mcp_server` is `mcp_agent`'s `delegate_name`; the agent —
         // and therefore this delegate tool — is compiled out with the
-        // `mcp` feature (#4799). `setup_mcp_server` belongs to
-        // `mcp_setup`, which stays registered in both builds.
+        // `mcp` feature (#4799).
         #[cfg(feature = "mcp")]
         "use_mcp_server",
-        "setup_mcp_server",
     ] {
         assert!(
             is_subagent_spawn_tool(delegate),

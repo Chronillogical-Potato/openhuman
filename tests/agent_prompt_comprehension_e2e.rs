@@ -805,7 +805,7 @@ fn news_digest_graph() -> Value {
             { "id": "trigger", "kind": "trigger", "name": "Run manually",
               "config": { "trigger_kind": "manual" } },
             { "id": "digest", "kind": "agent", "name": "Summarise today's sports news",
-              "config": { "model": "chat-v1",
+              "config": { "model": "hint:chat",
                           "prompt": "Summarise today's top sports news in five bullets." } }
         ],
         "edges": [

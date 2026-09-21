@@ -45,7 +45,6 @@ ALL_E2E_SUITES=(
   linux_cef_deb_runtime_e2e
   live_routing_e2e
   mcp_registry_e2e
-  mcp_setup_e2e
   memory_roundtrip_e2e
   memory_sources_e2e
   observability_wallet_expected_e2e

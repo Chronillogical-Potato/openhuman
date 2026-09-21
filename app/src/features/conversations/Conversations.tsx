@@ -462,8 +462,11 @@ const Conversations = ({
     onCancel: () => {},
   });
   const [resolvedModel, setResolvedModel] = useState<string | null>(null);
-  // A picker choice belongs to this composer session. It overrides the model
-  // route for subsequent sends without mutating shared configuration.
+  // The composer's picker choice. It overrides the model route for subsequent
+  // sends immediately, and is also written to the core's `default_model` so
+  // the pick survives an app restart and is what every managed turn runs on
+  // (the same field Settings → Routing → "Default model" edits). `null` clears
+  // the pin back to the managed default.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
@@ -471,6 +474,24 @@ const Conversations = ({
   const [composerModelContextWindow, setComposerModelContextWindow] = useState<
     number | null | undefined
   >(undefined);
+  const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
+    setComposerModelOverride(value);
+    setComposerModelContextWindow(contextWindow ?? null);
+    void callCoreRpc({
+      method: 'openhuman.inference_update_model_settings',
+      params: { default_model: value ?? '' },
+    })
+      .then(() => {
+        console.debug('[chat][composer-model] persisted default_model', { pinned: value !== null });
+      })
+      .catch((err: unknown) => {
+        // The in-session override still applies; only persistence failed.
+        console.warn('[chat][composer-model] failed to persist default_model', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, []);
+
   // Whether the resolved model accepts image input.
   // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
   // the composer's image-attachment affordance (docs flow regardless). Resolved
@@ -480,7 +501,7 @@ const Conversations = ({
   // When it is, an image may be attached and routed to that sub-agent even if
   // the active orchestrator model is non-vision — the orchestrator sees a text
   // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload tier (vision-v1 on the managed backend, or the BYOK
+  // the `vision` workload route (the managed default on the managed backend, or the BYOK
   // model routed to the Vision workload).
   const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
 
@@ -2386,10 +2407,7 @@ const Conversations = ({
               ]}
               mascotDock={mascotDock}
               modelOverride={composerModelOverride ?? resolvedModel}
-              onModelOverrideChange={(value, contextWindow) => {
-                setComposerModelOverride(value);
-                setComposerModelContextWindow(contextWindow ?? null);
-              }}
+              onModelOverrideChange={applyComposerModel}
             />
           </>
         ) : (
@@ -2556,10 +2574,7 @@ const Conversations = ({
         // The settled turn's one-line footer opens the process rail on THAT
         // turn's trail, which the footer carries with the click.
         onOpenTurnProcess={setTurnProcessTrail}
-        onModelChange={(value, contextWindow) => {
-          setComposerModelOverride(value);
-          setComposerModelContextWindow(contextWindow ?? null);
-        }}
+        onModelChange={applyComposerModel}
       />
       {/* The three transcript-local modals. `ChatThreadView` hosts an identical
           trio, but it is the legacy panel's transcript and is not mounted here,

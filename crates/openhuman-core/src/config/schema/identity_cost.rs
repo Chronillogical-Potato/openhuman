@@ -154,60 +154,22 @@ impl Default for CostConfig {
     }
 }
 
-/// Default pricing for popular models (USD per 1M tokens)
+/// Default pricing for the managed default model (USD per 1M tokens).
+///
+/// DeepSeek V4 Flash through the managed OpenRouter passthrough. Other catalog
+/// models the user pins are priced from the catalog the backend serves
+/// (`inference_list_models`), not from here.
 fn get_default_pricing() -> HashMap<String, ModelPricing> {
-    use super::types::{
-        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-        MODEL_REASONING_V1,
-    };
+    use super::types::MODEL_MANAGED_DEFAULT;
 
     let mut prices = HashMap::new();
-
     prices.insert(
-        MODEL_REASONING_V1.into(),
+        MODEL_MANAGED_DEFAULT.into(),
         ModelPricing {
-            input: 0.84,
-            output: 2.52,
+            input: 0.0886,
+            output: 0.1772,
         },
     );
-    // Kimi K2.6 Turbo on Fireworks — see backend PR #760.
-    prices.insert(
-        MODEL_CHAT_V1.into(),
-        ModelPricing {
-            input: 0.60,
-            output: 2.50,
-        },
-    );
-    prices.insert(
-        MODEL_REASONING_QUICK_V1.into(),
-        ModelPricing {
-            input: 0.60,
-            output: 2.50,
-        },
-    );
-    prices.insert(
-        MODEL_AGENTIC_V1.into(),
-        ModelPricing {
-            input: 0.45,
-            output: 1.80,
-        },
-    );
-    prices.insert(
-        MODEL_CODING_V1.into(),
-        ModelPricing {
-            input: 0.90,
-            output: 3.30,
-        },
-    );
-    // Burst tier — high-throughput, low-cost model; flat rate both directions.
-    prices.insert(
-        MODEL_BURST_V1.into(),
-        ModelPricing {
-            input: 0.208,
-            output: 0.208,
-        },
-    );
-
     prices
 }
 

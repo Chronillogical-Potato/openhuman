@@ -144,14 +144,14 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         .await
         .expect("explicit-temperature invoke");
 
-    let turn_model = create_turn_chat_model("chat", &config, "chat-v1", 0.2).expect("turn model");
+    let turn_model = create_turn_chat_model("chat", &config, "hint:chat", 0.2).expect("turn model");
     turn_model
         .invoke(&(), ModelRequest::new(vec![Message::user("turn default")]))
         .await
         .expect("turn default-temperature invoke");
 
     let explicit_turn_model =
-        create_turn_chat_model_from_string("chat", "openhuman", &config, "chat-v1", 0.4)
+        create_turn_chat_model_from_string("chat", "openhuman", &config, "hint:chat", 0.4)
             .expect("explicit turn model");
     explicit_turn_model
         .invoke(
@@ -279,10 +279,10 @@ fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(deepseek_entry("p_ds"));
-    config.chat_provider = Some("deepseek:chat-v1".to_string());
+    config.chat_provider = Some("deepseek:hint:chat".to_string());
 
     let (_model, provider, resolved_model) =
-        create_turn_chat_model_with_native_tools_and_route("chat", &config, "chat-v1", 0.7, true)
+        create_turn_chat_model_with_native_tools_and_route("chat", &config, "hint:chat", 0.7, true)
             .expect("abstract BYOK tier must build");
 
     assert_eq!(provider, "deepseek");
@@ -374,13 +374,22 @@ fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     let _guard = crate::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(oh_entry("p_oh"));
+    // A retired tier slug after the managed slug is a role alias: it runs on
+    // the managed default, never reaches the backend verbatim.
     config.chat_provider = Some("openhuman:reasoning-v1".to_string());
 
     let (model, model_id) = try_create_cloud_slug_chat_model("chat", &config)
         .expect("configured OpenhumanJwt slug should be recognized")
         .expect("managed model should build");
 
-    assert_eq!(model_id, "reasoning-v1");
+    assert_eq!(model_id, crate::config::MODEL_MANAGED_DEFAULT);
+
+    // A concrete catalog id is forwarded verbatim.
+    config.chat_provider = Some("openhuman:openrouter/deepseek/deepseek-v4-pro".to_string());
+    let (_, pinned_id) = try_create_cloud_slug_chat_model("chat", &config)
+        .expect("configured OpenhumanJwt slug should be recognized")
+        .expect("managed model should build");
+    assert_eq!(pinned_id, "openrouter/deepseek/deepseek-v4-pro");
     assert_eq!(
         model
             .profile()
@@ -548,7 +557,7 @@ fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
             .expect("configured OpenhumanJwt slug should be recognized")
             .expect("managed model should build");
 
-    assert_eq!(model_id, crate::config::MODEL_SUMMARIZATION_V1);
+    assert_eq!(model_id, crate::config::MODEL_MANAGED_DEFAULT);
 }
 
 #[test]

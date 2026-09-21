@@ -203,10 +203,10 @@ fn model_spec_maps_inherit_to_no_preference() {
         Some("neocortex-mk1".to_string())
     );
     // Hints go through `ModelSpec::resolve`, which is the one place the
-    // `{hint}-v1` convention lives.
+    // `hint:{hint}` alias spelling lives.
     assert_eq!(
         model_for(&ModelSpec::Hint("reasoning".into())),
-        Some("reasoning-v1".to_string())
+        Some("hint:reasoning".to_string())
     );
 }
 
@@ -367,7 +367,7 @@ async fn an_enabled_custom_config_agent_resolves_and_lists() {
         .expect("resolve")
         .expect("an enabled custom agent is in the catalogue");
     assert_eq!(def.name, "Finance Analyst");
-    assert_eq!(def.model.as_deref(), Some("reasoning-v1"));
+    assert_eq!(def.model.as_deref(), Some("hint:reasoning"));
     assert_eq!(def.tools, vec!["memory_recall".to_string()]);
 
     let listed = registry.list().await.expect("list");

@@ -158,7 +158,7 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     },
     ToolFamily {
         id: "mcp_manage",
-        rust_names: &["mcp_registry_install", "mcp_registry_uninstall"],
+        rust_names: &["mcp_registry_uninstall"],
         default_enabled: false,
     },
     ToolFamily {

@@ -18,10 +18,10 @@ pub(super) fn configured_route_for_role<'a>(role: &str, config: &'a Config) -> O
         "coding" => config.coding_provider.as_deref(),
         // Burst uses the existing Agentic workload route for BYOK/local parity.
         // If unset, it falls through to the managed backend and is pinned to
-        // `burst-v1` by `managed_tier_for_role`.
+        // `hint:burst` by `managed_tier_for_role`.
         "burst" => config.agentic_provider.as_deref(),
         // Tier-specific multimodal model; when unset it falls through to
-        // `primary_cloud` (→ managed `vision-v1`), as every unset route now does.
+        // `primary_cloud` (→ managed `hint:vision`), as every unset route now does.
         "vision" => config.vision_provider.as_deref(),
         // `memory_provider` covers both the memory-tree extract path and
         // the summarizer sub-agent (whose definition declares

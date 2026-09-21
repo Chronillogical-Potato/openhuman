@@ -1648,7 +1648,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "id": "researcher",
             "name": "Research Specialist",
             "description": "Workspace-specific research specialist.",
-            "model": "reasoning-v1",
+            "model": "hint:reasoning",
             "tool_allowlist": ["tools.web_search", "memory.search"],
             "tool_denylist": ["wallet.execute_prepared"],
             "tags": ["research", "workspace"],
@@ -1820,7 +1820,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "id": "custom_writer",
             "name": "Custom Writer",
             "description": "Drafts polished workspace updates.",
-            "model": "reasoning-v1",
+            "model": "hint:reasoning",
             "system_prompt": "Write concise, accurate updates.",
             "tool_allowlist": ["memory.search", "tools.web_search"],
             "tool_denylist": ["wallet.execute_prepared"],
@@ -1874,7 +1874,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
             "name": "Custom Writer v2",
             "description": "Drafts polished workspace updates and summaries.",
             "enabled": false,
-            "model": "coding-v1",
+            "model": "hint:coding",
             "system_prompt": "Write concise updates with citations when available.",
             "tool_allowlist": ["memory.search"],
             "tool_denylist": ["shell"],
@@ -1932,7 +1932,7 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
                 "description": "Reviews agent plans before execution.",
                 "source": "default",
                 "enabled": false,
-                "model": "reasoning-v1",
+                "model": "hint:reasoning",
                 "system_prompt": "Review plans for missing validation.",
                 "tool_allowlist": ["memory.search"],
                 "tool_denylist": ["shell", "file_write"],
@@ -4230,11 +4230,17 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
     .await;
     assert_no_jsonrpc_error(&store, "store_session");
 
+    // Every managed role — and a retired tier slug — runs on the managed
+    // default model; a concrete catalog id is forwarded verbatim.
     let routing_cases = [
-        ("hint:reasoning", "reasoning-v1"),
-        ("hint:agentic", "agentic-v1"),
-        ("hint:coding", "coding-v1"),
-        ("reasoning-v1", "reasoning-v1"),
+        ("hint:reasoning", "openrouter/deepseek/deepseek-v4-flash"),
+        ("hint:agentic", "openrouter/deepseek/deepseek-v4-flash"),
+        ("hint:coding", "openrouter/deepseek/deepseek-v4-flash"),
+        ("reasoning-v1", "openrouter/deepseek/deepseek-v4-flash"),
+        (
+            "openrouter/deepseek/deepseek-v4-pro",
+            "openrouter/deepseek/deepseek-v4-pro",
+        ),
         // Web chat forwards lightweight hint overrides as-is for this path,
         // so the upstream model receives the original hint string.
         ("hint:reaction", "hint:reaction"),
@@ -4532,7 +4538,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     );
     assert_eq!(
         agentic_request.get("model").and_then(Value::as_str),
-        Some("agentic-v1")
+        Some("openrouter/deepseek/deepseek-v4-flash")
     );
 
     mock_join.abort();
@@ -8485,23 +8491,15 @@ async fn mcp_clients_lifecycle() {
     rpc_join.abort();
 }
 
-/// MCP clients **happy path** over real JSON-RPC: install → connect → tool_call
-/// → update_env (reconnect) → disconnect against a real stdio MCP subprocess
-/// (the `test-mcp-stub` binary), with the registry lookup served hermetically
-/// from the SQLite detail cache (issue #3039 acceptance: "JSON-RPC E2E —
-/// happy-path install/connect/tool_call against stub server over HTTP RPC").
+/// MCP clients **happy path** over real JSON-RPC: declare in `mcp.json` →
+/// connect → tool_call → update_env (reconnect) → disconnect against a real
+/// stdio MCP subprocess (the `test-mcp-stub` binary).
 ///
-/// No npx, no network: we pre-seed `smithery:detail:<name>` with a detail whose
-/// stdio `exampleConfig.command` points at the stub binary, so
-/// `mcp_clients_install` resolves the launch command to the stub.
-///
-/// Smithery is now opt-in (only enabled when an API key is set), so we install
-/// with the explicit `smithery::` source prefix. `registry_get` routes a
-/// prefixed name straight to that adapter via `registry_for_source`, which
-/// resolves Smithery regardless of the key gate — the same path used for detail
-/// lookups of an already-installed Smithery server.
+/// No npx, no network, no catalog: the server is declared through
+/// `mcp_clients_config_set` with a `command` pointing at the stub binary, which
+/// is how a user adds any server now — the registry is browse-only.
 #[tokio::test]
-async fn mcp_clients_install_connect_tool_call_happy_path() {
+async fn mcp_clients_declare_connect_tool_call_happy_path() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -8518,52 +8516,35 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the registry detail cache so `registry_get` resolves offline to a
-    // stdio connection whose command is the hermetic stub binary. The config we
-    // load here resolves the same workspace dir the RPC handlers use, so the
-    // cache row lands in the DB the install path reads.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo",
-        "description": "Stub MCP server for the json_rpc_e2e happy path.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install resolves the stub command from the seeded detail ──────────
-    let install = post_json_rpc(
+    // ── 1. declaring the stub in mcp.json installs it ────────────────────────
+    let declared = post_json_rpc(
         &rpc_base,
         9920,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo": { "command": stub_path } } }),
     )
     .await;
-    let install_result = assert_no_jsonrpc_error(&install, "mcp_clients_install (happy path)");
-    let install_body = peel_logs_envelope(install_result);
-    let server_id = install_body
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("install returns a server.server_id")
-        .to_string();
+    let declared_body = peel_logs_envelope(assert_no_jsonrpc_error(
+        &declared,
+        "mcp_clients_config_set (declare)",
+    ));
+    assert_eq!(
+        declared_body.get("added"),
+        Some(&json!(["echo"])),
+        "config_set should report the new server as added: {declared_body}"
+    );
+    assert_eq!(
+        declared_body["mcpServers"]["echo"]["command"],
+        json!(stub_path),
+        "config_set should render the declared command back: {declared_body}"
+    );
+    let server_id = installed_server_id(&rpc_base, 9926, "echo").await;
 
     // ── 2. connect spawns the stub and lists its one `echo` tool ─────────────
     let connect = post_json_rpc(
@@ -8686,7 +8667,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
     rpc_join.abort();
 }
 
-/// `mcp_clients_set_enabled` smoke: installs a server, disables it via RPC,
+/// `mcp_clients_set_enabled` smoke: declares a server, disables it via RPC,
 /// and asserts the response carries `enabled=false` (issue #3196).
 #[tokio::test]
 async fn mcp_clients_set_enabled_smoke() {
@@ -8706,53 +8687,22 @@ async fn mcp_clients_set_enabled_smoke() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the registry detail cache so install resolves offline to the stub.
-    // Smithery is opt-in (gated on an API key), so install routes via the
-    // explicit `smithery::` source prefix below — `registry_for_source` resolves
-    // the adapter regardless of the key gate.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo-set-enabled";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo SetEnabled",
-        "description": "Stub for set_enabled smoke.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install ───────────────────────────────────────────────────────────
-    let install = post_json_rpc(
+    // ── 1. declare ───────────────────────────────────────────────────────────
+    let declared = post_json_rpc(
         &rpc_base,
         9940,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-set-enabled": { "command": stub_path } } }),
     )
     .await;
-    let install_result =
-        assert_no_jsonrpc_error(&install, "mcp_clients_install (set_enabled smoke)");
-    let install_body = peel_logs_envelope(install_result);
-    let server_id = install_body
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("install returns server.server_id")
-        .to_string();
+    assert_no_jsonrpc_error(&declared, "mcp_clients_config_set (set_enabled smoke)");
+    let server_id = installed_server_id(&rpc_base, 9943, "echo-set-enabled").await;
 
     // ── 2. set_enabled=false ─────────────────────────────────────────────────
     let set_enabled = post_json_rpc(
@@ -8796,14 +8746,15 @@ async fn mcp_clients_set_enabled_smoke() {
     rpc_join.abort();
 }
 
-/// `mcp_clients_install` idempotency (issue #4120 review): a re-install of the
-/// same service (a) collapses to ONE row and returns `already_installed:true`
-/// even when the first install used a source-prefixed name and the second used
-/// the bare name (canonical dedup), and (b) MERGES new env onto the existing row
-/// so re-running the dialog to replace an expired token doesn't drop the user's
-/// other stored keys.
+/// The `mcp.json` round trip: a document is a *replace* of the install store,
+/// except for credentials, which are write-only.
+///
+/// (a) a second save that names one credential merges it over the stored set
+/// and keeps the row (same `server_id`); (b) saving exactly what `config_get`
+/// returned — which carries no values — changes nothing; (c) a key set to `""`
+/// removes that one value; (d) dropping the entry uninstalls the server.
 #[tokio::test]
-async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
+async fn mcp_clients_config_round_trip_merges_credentials_and_removes_absent_servers() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -8820,125 +8771,165 @@ async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
     let user_scoped_dir = openhuman_home.join("users").join("local");
     write_min_config(&user_scoped_dir, &mock_origin);
 
-    // Seed the smithery detail cache so the FIRST (prefixed) install resolves
-    // offline. The second install hits the idempotency branch before registry_get,
-    // so it needs no cache.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
-    let qualified_name = "@openhuman-test/echo-reinstall";
-    let detail = serde_json::json!({
-        "qualifiedName": qualified_name,
-        "displayName": "Test Echo Reinstall",
-        "description": "Stub for install idempotency.",
-        "connections": [{
-            "type": "stdio",
-            "published": true,
-            "exampleConfig": { "command": stub_path, "args": [] }
-        }]
-    });
-    let seed_config = openhuman_core::config::load_config_with_timeout()
-        .await
-        .expect("load config for cache seed");
-    openhuman_core::mcp::registry::store::set_cached(
-        &seed_config,
-        &format!("smithery:detail:{qualified_name}"),
-        &detail.to_string(),
-    )
-    .expect("seed smithery detail cache");
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // ── 1. install via the source-prefixed name with two env keys ────────────
-    let install1 = post_json_rpc(
+    // ── 1. declare with two credentials; disabled so nothing is dialled ──────
+    let first = post_json_rpc(
         &rpc_base,
         9960,
-        "openhuman.mcp_clients_install",
-        json!({
-            "qualified_name": format!("smithery::{qualified_name}"),
-            "env": { "TOKEN": "old", "KEEP": "v1" }
-        }),
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "TOKEN": "old", "KEEP": "v1" },
+            "enabled": false
+        } } }),
     )
     .await;
-    let r1 = assert_no_jsonrpc_error(&install1, "mcp_clients_install (first)");
-    let b1 = peel_logs_envelope(r1);
-    let server_id = b1
-        .get("server")
-        .and_then(|s| s.get("server_id"))
-        .and_then(Value::as_str)
-        .expect("first install returns server_id")
-        .to_string();
-    // Stored qualified_name is the bare (canonical) name, not the prefixed one.
+    let b1 = peel_logs_envelope(assert_no_jsonrpc_error(&first, "config_set (first)"));
+    assert_eq!(b1.get("added"), Some(&json!(["echo-rt"])), "{b1}");
+    // The read carries names and a flag, never a value.
+    assert_eq!(b1["mcpServers"]["echo-rt"]["authConfigured"], json!(true));
     assert_eq!(
-        b1.get("server")
-            .and_then(|s| s.get("qualified_name"))
-            .and_then(Value::as_str),
-        Some(qualified_name),
-        "install should store the canonical (bare) qualified_name: {b1}"
+        b1["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"])
     );
-
-    // ── 2. re-install via the BARE name with a rotated token ─────────────────
-    let install2 = post_json_rpc(
-        &rpc_base,
-        9961,
-        "openhuman.mcp_clients_install",
-        json!({ "qualified_name": qualified_name, "env": { "TOKEN": "new" } }),
-    )
-    .await;
-    let r2 = assert_no_jsonrpc_error(&install2, "mcp_clients_install (re-install)");
-    let b2 = peel_logs_envelope(r2);
-    assert_eq!(
-        b2.get("already_installed"),
-        Some(&json!(true)),
-        "re-install should be flagged already_installed: {b2}"
-    );
-    assert_eq!(
-        b2.get("server")
-            .and_then(|s| s.get("server_id"))
-            .and_then(Value::as_str),
-        Some(server_id.as_str()),
-        "re-install should return the same server_id: {b2}"
-    );
-    // Env merged: the rotated key AND the untouched first-install key survive.
-    let env_keys: Vec<String> = b2
-        .get("server")
-        .and_then(|s| s.get("env_keys"))
-        .and_then(Value::as_array)
-        .expect("re-install returns env_keys")
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
+    assert_eq!(b1["mcpServers"]["echo-rt"]["enabled"], json!(false));
     assert!(
-        env_keys.contains(&"TOKEN".to_string()) && env_keys.contains(&"KEEP".to_string()),
-        "re-install should merge env (KEEP preserved, TOKEN present): {env_keys:?}"
+        b1["mcpServers"]["echo-rt"].get("env").is_none(),
+        "a read must not echo credential values: {b1}"
     );
+    let server_id = installed_server_id(&rpc_base, 9961, "echo-rt").await;
 
-    // ── 3. exactly one installed row for this service (no duplicate) ─────────
-    let listed = post_json_rpc(
+    // ── 2. a save naming one key merges it and keeps the row ─────────────────
+    let second = post_json_rpc(
         &rpc_base,
         9962,
-        "openhuman.mcp_clients_installed_list",
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "TOKEN": "new" },
+            "enabled": false
+        } } }),
+    )
+    .await;
+    let b2 = peel_logs_envelope(assert_no_jsonrpc_error(&second, "config_set (rotate)"));
+    assert_eq!(b2.get("updated"), Some(&json!(["echo-rt"])), "{b2}");
+    assert_eq!(b2.get("added"), Some(&json!([])), "{b2}");
+    assert_eq!(
+        b2["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"]),
+        "rotating one key must keep the other: {b2}"
+    );
+    assert_eq!(
+        installed_server_id(&rpc_base, 9963, "echo-rt").await,
+        server_id,
+        "a credential change must not replace the row"
+    );
+
+    // ── 3. saving the read back verbatim changes nothing ─────────────────────
+    let read = post_json_rpc(
+        &rpc_base,
+        9964,
+        "openhuman.mcp_clients_config_get",
         json!({}),
     )
     .await;
-    let lb = peel_logs_envelope(assert_no_jsonrpc_error(
-        &listed,
-        "mcp_clients_installed_list",
-    ));
-    let count = lb
-        .get("installed")
-        .and_then(Value::as_array)
-        .expect("installed list")
-        .iter()
-        .filter(|s| s.get("qualified_name").and_then(Value::as_str) == Some(qualified_name))
-        .count();
+    let read_body = peel_logs_envelope(assert_no_jsonrpc_error(&read, "config_get"));
+    let resave = post_json_rpc(
+        &rpc_base,
+        9965,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": read_body["mcpServers"].clone() }),
+    )
+    .await;
+    let b3 = peel_logs_envelope(assert_no_jsonrpc_error(&resave, "config_set (re-save)"));
     assert_eq!(
-        count, 1,
-        "prefixed + bare install must collapse to one row: {lb}"
+        b3.get("updated"),
+        Some(&json!([])),
+        "a re-save is not an edit: {b3}"
+    );
+    assert_eq!(
+        b3["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["KEEP", "TOKEN"])
+    );
+
+    // ── 4. an empty value removes that one credential ────────────────────────
+    let clear = post_json_rpc(
+        &rpc_base,
+        9966,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "echo-rt": {
+            "command": stub_path,
+            "env": { "KEEP": "" },
+            "enabled": false
+        } } }),
+    )
+    .await;
+    let b4 = peel_logs_envelope(assert_no_jsonrpc_error(&clear, "config_set (clear one)"));
+    assert_eq!(
+        b4["mcpServers"]["echo-rt"]["envKeys"],
+        json!(["TOKEN"]),
+        "{b4}"
+    );
+
+    // ── 5. a document without the entry uninstalls it ────────────────────────
+    let drop = post_json_rpc(
+        &rpc_base,
+        9967,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": {} }),
+    )
+    .await;
+    let b5 = peel_logs_envelope(assert_no_jsonrpc_error(&drop, "config_set (remove)"));
+    assert_eq!(b5.get("removed"), Some(&json!(["echo-rt"])), "{b5}");
+    assert_eq!(b5["mcpServers"], json!({}), "{b5}");
+
+    // ── 6. a refused document names the entry and the field ──────────────────
+    let refused = post_json_rpc(
+        &rpc_base,
+        9968,
+        "openhuman.mcp_clients_config_set",
+        json!({ "mcpServers": { "bad": { "url": "https://x.test", "command": "npx" } } }),
+    )
+    .await;
+    let message = refused["error"]["message"]
+        .as_str()
+        .expect("a refusal is a JSON-RPC error");
+    assert!(
+        message.contains("`bad`") && message.contains("both"),
+        "refusal should name the entry and the problem: {message}"
     );
 
     mock_join.abort();
     rpc_join.abort();
+}
+
+/// The `server_id` the store gave a server declared under `name`.
+async fn installed_server_id(rpc_base: &str, id: i64, name: &str) -> String {
+    let listed = post_json_rpc(
+        rpc_base,
+        id,
+        "openhuman.mcp_clients_installed_list",
+        json!({}),
+    )
+    .await;
+    let body = peel_logs_envelope(assert_no_jsonrpc_error(
+        &listed,
+        "mcp_clients_installed_list",
+    ));
+    body.get("installed")
+        .and_then(Value::as_array)
+        .expect("installed list")
+        .iter()
+        .find(|s| s.get("qualified_name").and_then(Value::as_str) == Some(name))
+        .and_then(|s| s.get("server_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("`{name}` should be installed: {body}"))
+        .to_string()
 }
 
 /// Registry settings RPC: the getter reports `*_set` booleans without ever
@@ -10771,15 +10762,14 @@ async fn json_rpc_flows_suggestion_lifecycle_methods_are_wired() {
 }
 
 /// Minimal config for the agent-backed flows arc: like `write_min_config` but
-/// pins `default_model = "chat-v1"` so an agent node on the **chat** tier
-/// resolves to `chat-v1` on the managed backend while a **reasoning**-tier node
-/// resolves to `reasoning-v1` — letting the full-arc test assert the two nodes
-/// routed to distinct managed tiers.
+/// pins `default_model` to a concrete catalog model so both agent nodes — the
+/// **chat**-role drafter and the **reasoning**-role planner — resolve to that
+/// pinned managed model, letting the full-arc test assert the pin took.
 #[cfg(feature = "flows")]
 fn write_flows_tier_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
-default_model = "chat-v1"
+default_model = "openrouter/deepseek/deepseek-v4-pro"
 default_temperature = 0.7
 chat_onboarding_completed = true
 
@@ -10833,7 +10823,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Plan the brief (reasoning tier)",
                 "config": {
-                    "model": "reasoning-v1",
+                    "model": "hint:reasoning",
                     "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
                     "output_parser": {
                         "schema": {
@@ -10852,7 +10842,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Draft the brief (chat tier)",
                 "config": {
-                    "model": "chat-v1",
+                    "model": "hint:chat",
                     "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
                 }
             },
@@ -10887,7 +10877,7 @@ fn opus_sonnet_demo_graph() -> Value {
 ///    plain completions (planner structured JSON, then drafter text). We assert
 ///    the run completed, the planner's structured plan flowed into the drafter's
 ///    prompt (data passing), and the two agent nodes routed to the expected
-///    managed tiers (`reasoning-v1` / `chat-v1`).
+///    pinned managed model.
 ///
 /// Runs on the agent-sized worker stack because the builder/scout turns and the
 /// agent-node run drive the full harness (deep async stacks).
@@ -11116,8 +11106,8 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
         .expect("planner completion should have been captured");
     assert_eq!(
         planner_req.get("model").and_then(Value::as_str),
-        Some("reasoning-v1"),
-        "planner node (reasoning tier) must resolve to reasoning-v1"
+        Some("openrouter/deepseek/deepseek-v4-pro"),
+        "planner node (reasoning role) must resolve to the pinned managed model"
     );
     let drafter_req = requests
         .iter()
@@ -11126,8 +11116,8 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
         .expect("drafter completion should have been captured");
     assert_eq!(
         drafter_req.get("model").and_then(Value::as_str),
-        Some("chat-v1"),
-        "drafter node (chat tier) must resolve to chat-v1"
+        Some("openrouter/deepseek/deepseek-v4-pro"),
+        "drafter node (chat role) must resolve to the pinned managed model"
     );
     assert!(
         body_of(&drafter_req).contains("PLAN_MARKER"),
@@ -13019,14 +13009,15 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(data["cached_input_tokens"], 600);
     // Cost is RE-AUDITED at current pricing, NOT the stale persisted charge.
     // The coder sub-agent has no model, so it's priced at the thread's model
-    // (reasoning-v1 = "Pro"), NOT $0.
-    // orchestrator: (4200-600)*0.435 + 600*0.003625 + 900*0.87 = 0.002351175
-    // coder:        1000*0.435 + 0 + 200*0.87                  = 0.000609
-    // total                                                     = 0.002960175
+    // (`reasoning-v1`, a retired tier slug that prices as the managed default,
+    // DeepSeek V4 Flash), NOT $0.
+    // orchestrator: (4200-600)*0.0886 + 600*0.0886 + 900*0.1772 = 0.0005316
+    // coder:        1000*0.0886 + 0 + 200*0.1772                = 0.00012404
+    // total                                                      = 0.00065564
     let cost = data["cost_usd"].as_f64().expect("cost_usd");
     assert!(
-        (cost - 0.002_960_175).abs() < 1e-9,
-        "re-audited total cost should be ~0.00296, got {cost}"
+        (cost - 0.000_655_64).abs() < 1e-9,
+        "re-audited total cost should be ~0.000656, got {cost}"
     );
     assert_eq!(data["turn_count"], 2);
     assert_eq!(data["last_turn_input_tokens"], 350);

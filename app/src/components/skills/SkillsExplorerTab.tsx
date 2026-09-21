@@ -1,6 +1,17 @@
 import debug from 'debug';
+import {
+  ChevronRight,
+  Download,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LuLibrary, LuRefreshCw, LuSparkles } from 'react-icons/lu';
+import { LuLibrary, LuSparkles } from 'react-icons/lu';
+import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { type CatalogEntry, skillRegistryApi } from '../../services/api/skillRegistryApi';
@@ -9,11 +20,13 @@ import {
   skillsApi,
   type WorkflowSummary,
 } from '../../services/api/skillsApi';
+import McpIconButton from '../channels/mcp/McpIconButton';
 import EmptyStateCard from '../EmptyStateCard';
-import ChipTabs from '../layout/ChipTabs';
-import { Badge, DataTable, type DataTableColumn, ModalShell } from '../ui';
+import { Badge, DataTableFilterMenu, ModalShell } from '../ui';
 import Button from '../ui/Button';
-import { TableCell, TableRow } from '../ui/Table';
+import Card from '../ui/Card';
+import TextField from '../ui/TextField';
+import CreateSkillModal from './CreateSkillModal';
 import InstallSkillDialog from './InstallSkillDialog';
 import UninstallSkillConfirmDialog from './UninstallSkillConfirmDialog';
 
@@ -153,80 +166,104 @@ interface SkillTileProps {
   skill: WorkflowSummary;
   onUninstall: () => void;
   onClick: () => void;
+  onRun: () => void;
+  onEdit: () => void;
 }
 
-function InstalledSkillRow({ skill, onUninstall, onClick }: SkillTileProps) {
+/**
+ * One installed skill: an identity on the left (name, format, scope, version,
+ * description, tags) and its controls as icons on the right — run, edit,
+ * remove — the same row the MCP page uses. The name opens the detail dialog.
+ */
+function InstalledSkillRow({ skill, onUninstall, onClick, onRun, onEdit }: SkillTileProps) {
   const { t } = useT();
+  const editable = skill.scope === 'user';
   return (
-    <TableRow
+    <li
       data-testid={`skill-explorer-tile-${skill.id}`}
       role="button"
       tabIndex={0}
       onClick={onClick}
       onKeyDown={event => {
-        if (event.key === 'Enter') onClick();
-        if (event.key === ' ' || event.key === 'Space') {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space') {
           event.preventDefault();
           onClick();
         }
       }}
-      className="cursor-pointer">
-      <TableCell className="min-w-48">
-        <Button
-          type="button"
-          variant="tertiary"
-          size="xs"
-          onClick={onClick}
-          className="h-auto max-w-full p-0 text-left font-medium hover:bg-transparent">
-          <span className="truncate">{skill.name}</span>
-        </Button>
-      </TableCell>
-      <TableCell className="min-w-[18rem] max-w-xl text-xs text-content-muted">
-        <span className="line-clamp-1">
-          {skill.description || t('skills.explorer.noDescription')}
+      className="cursor-pointer space-y-2 py-3 first:pt-0 last:pb-0">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted">
+          <Sparkles className="size-4 text-content-muted" aria-hidden="true" />
         </span>
-        {(skill.tags.length > 0 || skill.warnings.length > 0) && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            {skill.tags.map(tag => (
-              <Badge key={tag} variant="neutral">
-                {tag}
-              </Badge>
-            ))}
-            {skill.warnings.map(warning => (
-              <span key={warning} className="text-[10px] text-amber-700 dark:text-amber-300">
-                {warning}
-              </span>
-            ))}
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid={`skill-open-${skill.id}`}
+              aria-label={t('skills.rows.open').replace('{name}', skill.name)}
+              onClick={event => {
+                event.stopPropagation();
+                onClick();
+              }}
+              className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-sm font-medium text-content transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {skill.name}
+              <ChevronRight className="size-3.5 text-content-muted" aria-hidden="true" />
+            </button>
+            <SkillFormatBadge format={skill.sourceFormat} />
+            <SkillScopeBadge scope={skill.scope} />
+            {skill.version && (
+              <span className="text-[10px] font-mono text-content-faint">v{skill.version}</span>
+            )}
           </div>
-        )}
-      </TableCell>
-      <TableCell className="whitespace-nowrap">
-        <div className="flex flex-wrap items-center gap-1">
-          <SkillFormatBadge format={skill.sourceFormat} />
-          <SkillScopeBadge scope={skill.scope} />
-          {skill.version && (
-            <span className="text-[10px] font-mono text-content-faint">v{skill.version}</span>
+          <p className="line-clamp-2 text-xs text-content-muted">
+            {skill.description || t('skills.explorer.noDescription')}
+          </p>
+          {(skill.tags.length > 0 || skill.warnings.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1">
+              {skill.tags.map(tag => (
+                <Badge key={tag} variant="neutral">
+                  {tag}
+                </Badge>
+              ))}
+              {skill.warnings.map(warning => (
+                <span key={warning} className="text-[10px] text-amber-700 dark:text-amber-300">
+                  {warning}
+                </span>
+              ))}
+            </div>
           )}
         </div>
-      </TableCell>
-      <TableCell className="w-px whitespace-nowrap text-right">
-        {skill.scope === 'user' ? (
-          <Button
-            variant="secondary"
-            tone="danger"
-            size="xs"
-            data-testid={`skill-uninstall-${skill.id}`}
-            onClick={event => {
-              event.stopPropagation();
-              onUninstall();
-            }}>
-            {t('skills.disconnect')}
-          </Button>
-        ) : (
-          <Badge variant="neutral">{t('skills.explorer.installed')}</Badge>
-        )}
-      </TableCell>
-    </TableRow>
+        <span className="flex shrink-0 items-center gap-0.5">
+          <McpIconButton
+            label={t('skills.rows.run').replace('{name}', skill.name)}
+            icon={Play}
+            tone="primary"
+            testId={`skill-run-${skill.id}`}
+            onClick={onRun}
+          />
+          {editable && (
+            <McpIconButton
+              label={t('skills.rows.edit').replace('{name}', skill.name)}
+              icon={Pencil}
+              testId={`skill-edit-${skill.id}`}
+              onClick={onEdit}
+            />
+          )}
+          {editable ? (
+            <McpIconButton
+              label={t('skills.rows.remove').replace('{name}', skill.name)}
+              icon={Trash2}
+              tone="destructive"
+              testId={`skill-uninstall-${skill.id}`}
+              onClick={onUninstall}
+            />
+          ) : (
+            <Badge variant="neutral">{t('skills.explorer.installed')}</Badge>
+          )}
+        </span>
+      </div>
+    </li>
   );
 }
 
@@ -250,60 +287,67 @@ interface SkillDetailDialogProps {
 function CatalogRow({ entry, installed, installing, onInstall, onClick }: CatalogTileProps) {
   const { t } = useT();
   return (
-    <TableRow
-      className="group cursor-pointer"
+    <li
       data-testid={`registry-tile-${entry.id}`}
       role="button"
       tabIndex={0}
       onClick={onClick}
       onKeyDown={event => {
-        if (event.key === 'Enter') onClick();
-        if (event.key === ' ' || event.key === 'Space') {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space') {
           event.preventDefault();
           onClick();
         }
-      }}>
-      <TableCell className="min-w-48">
-        <Button
-          type="button"
-          variant="tertiary"
-          size="xs"
-          onClick={onClick}
-          className="h-auto max-w-full p-0 text-left font-medium hover:bg-transparent">
-          <span className="truncate">{entry.name}</span>
-        </Button>
-      </TableCell>
-      <TableCell className="min-w-[18rem] max-w-xl text-xs text-content-muted">
-        <span className="line-clamp-1">{entry.description}</span>
-      </TableCell>
-      <TableCell className="whitespace-nowrap">
-        <SourceBadge source={entry.source} />
-      </TableCell>
-      <TableCell className="w-px whitespace-nowrap text-right">
-        {installed ? (
-          <Badge variant="success">{t('skills.explorer.installed')}</Badge>
-        ) : !entry.download_url ? (
-          <Badge
-            variant="neutral"
-            title={t('skills.explorer.notInstallableHint')}
-            data-testid={`registry-not-installable-${entry.id}`}>
-            {t('skills.explorer.notInstallable')}
-          </Badge>
-        ) : (
-          <Button
-            variant="secondary"
-            size="xs"
-            data-testid={`registry-install-${entry.id}`}
-            disabled={installing}
-            onClick={event => {
-              event.stopPropagation();
-              onInstall();
-            }}>
-            {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
-          </Button>
-        )}
-      </TableCell>
-    </TableRow>
+      }}
+      className="cursor-pointer space-y-2 py-3 first:pt-0 last:pb-0">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-xs font-semibold text-content-muted">
+          {entry.name.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid={`registry-open-${entry.id}`}
+              aria-label={t('skills.rows.open').replace('{name}', entry.name)}
+              onClick={event => {
+                event.stopPropagation();
+                onClick();
+              }}
+              className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-sm font-medium text-content transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {entry.name}
+              <ChevronRight className="size-3.5 text-content-muted" aria-hidden="true" />
+            </button>
+            <SourceBadge source={entry.source} />
+            {installed && <Badge variant="success">{t('skills.explorer.installed')}</Badge>}
+          </div>
+          <p className="line-clamp-2 text-xs text-content-muted">{entry.description}</p>
+        </div>
+        <span className="flex shrink-0 items-center">
+          {installed ? null : !entry.download_url ? (
+            <Badge
+              variant="neutral"
+              title={t('skills.explorer.notInstallableHint')}
+              data-testid={`registry-not-installable-${entry.id}`}>
+              {t('skills.explorer.notInstallable')}
+            </Badge>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid={`registry-install-${entry.id}`}
+              disabled={installing}
+              leadingIcon={<Download className="size-3.5" aria-hidden="true" />}
+              onClick={event => {
+                event.stopPropagation();
+                onInstall();
+              }}>
+              {installing ? t('skills.explorer.installing') : t('skills.explorer.install')}
+            </Button>
+          )}
+        </span>
+      </div>
+    </li>
   );
 }
 
@@ -436,22 +480,23 @@ function SkillDetailDialog({
   );
 }
 
-type ExplorerView = 'installed' | 'registry';
+export type ExplorerView = 'installed' | 'registry';
 
 interface SkillsExplorerTabProps {
   onToast?: (toast: { type: 'success' | 'error'; title: string; message?: string }) => void;
+  /** Which notation the page header picked. */
+  view: ExplorerView;
 }
 
-export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
+export default function SkillsExplorerTab({ onToast, view }: SkillsExplorerTabProps) {
   const { t } = useT();
-  const [view, setView] = useState<ExplorerView>('registry');
+  const navigate = useNavigate();
 
   const [skills, setSkills] = useState<WorkflowSummary[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
 
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([]);
-  const [catalogTotal, setCatalogTotal] = useState(0);
   // How many catalog entries are currently revealed. We fetch the whole list
   // up front, then page through it client-side via the "Show more" control.
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
@@ -473,6 +518,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  // `null` closed, `undefined` creating, a skill editing.
+  const [createOpen, setCreateOpen] = useState<WorkflowSummary | null | undefined>(null);
   const [uninstallTarget, setUninstallTarget] = useState<WorkflowSummary | null>(null);
   const [detailEntry, setDetailEntry] = useState<CatalogEntry | null>(null);
   const [detailSkill, setDetailSkill] = useState<WorkflowSummary | null>(null);
@@ -535,7 +582,6 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           entries = await skillRegistryApi.search(query || '', sourceFilter);
         }
         log('fetchCatalog: total=%d', entries.length);
-        setCatalogTotal(entries.length);
         // Keep the full list so "Show more" can page through it without another
         // RPC; only a window of it is rendered (see displayedCatalog).
         setCatalogEntries(entries);
@@ -687,89 +733,8 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
   const loading = view === 'installed' ? skillsLoading : catalogLoading;
   const error = view === 'installed' ? skillsError : catalogError;
 
-  const columns: DataTableColumn<never>[] = [
-    { id: 'name', header: t('skills.explorer.colSkill'), className: 'min-w-48' },
-    { id: 'description', header: t('skills.explorer.colDescription'), className: 'min-w-[18rem]' },
-    { id: 'provider', header: t('skills.explorer.colProvider') },
-    { id: 'action', header: t('skills.explorer.colAction'), align: 'right' },
-  ];
-
-  // The two views share one toolbar so the tab chips, the search box and the
-  // row of actions do not jump between them. Registry-only affordances (source
-  // filter, catalog refresh) render conditionally rather than in a second bar.
-  const toolbarStart = (
-    <>
-      <ChipTabs<ExplorerView>
-        ariaLabel={t('skills.explorer.title')}
-        className="flex flex-wrap gap-1.5"
-        testIdPrefix="skill-explorer-tab"
-        value={view}
-        onChange={setView}
-        items={[
-          {
-            id: 'registry',
-            label: (
-              <>
-                {t('skills.explorer.registryTab')}
-                {catalogTotal > 0 && (
-                  <span className="tabular-nums opacity-70">{catalogTotal.toLocaleString()}</span>
-                )}
-              </>
-            ),
-          },
-          {
-            id: 'installed',
-            label: (
-              <>
-                {t('skills.explorer.installedTab')}
-                {skills.length > 0 && (
-                  <span className="tabular-nums opacity-70">{skills.length}</span>
-                )}
-              </>
-            ),
-          },
-        ]}
-      />
-      <Button
-        variant="secondary"
-        size="sm"
-        data-testid="skill-install-from-url-btn"
-        onClick={() => setInstallDialogOpen(true)}
-        className="shrink-0">
-        {t('skills.explorer.installFromUrl')}
-      </Button>
-    </>
-  );
-
-  const toolbarEnd =
-    view === 'registry' ? (
-      <Button
-        iconOnly
-        variant="secondary"
-        size="md"
-        onClick={() => void fetchCatalog(debouncedQuery, activeSourceFilter, true)}
-        disabled={catalogLoading}
-        title={t('skills.explorer.refreshRegistry')}
-        aria-label={t('skills.explorer.refreshRegistry')}
-        className="shrink-0 text-content-muted shadow-xs">
-        <LuRefreshCw className={`h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
-      </Button>
-    ) : null;
-
-  const filters =
-    view === 'registry' && sources.length > 0
-      ? [
-          {
-            id: 'source',
-            label: t('common.filter'),
-            ariaLabel: t('skills.explorer.sourceFilterAria'),
-            testId: 'skill-source-filter',
-            options: sources.map(source => ({ value: source })),
-            selected: activeSources,
-            onChange: setActiveSources,
-          },
-        ]
-      : undefined;
+  const runSkill = (skill: WorkflowSummary) =>
+    navigate(`/workflows/run?workflow=${encodeURIComponent(skill.id)}&lock=1`);
 
   const errorNode =
     !loading && error ? (
@@ -790,14 +755,26 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
       </div>
     ) : null;
 
+  const search = (
+    <TextField
+      type="search"
+      value={searchQuery}
+      onChange={e => setSearchQuery(e.target.value)}
+      placeholder={t('skills.explorer.searchPlaceholder')}
+      aria-label={t('skills.explorer.title')}
+      data-testid="skill-search-input"
+      className="min-w-48 flex-1"
+    />
+  );
+
   const installedEmpty =
     // A search that matched nothing is not the same as having no skills — the
     // second offers an install CTA, the first would be nonsense.
     skills.length > 0 ? (
-      <p className="px-1 py-8 text-center text-xs text-content-faint">{t('skills.noResults')}</p>
+      <p className="py-4 text-center text-xs text-content-faint">{t('skills.noResults')}</p>
     ) : (
       <EmptyStateCard
-        className="mx-1 mb-3 py-10"
+        className="py-6"
         icon={<LuSparkles className="h-7 w-7 text-primary-500" strokeWidth={1.5} />}
         title={t('skills.explorer.emptyTitle')}
         description={t('skills.explorer.emptyDescription')}
@@ -808,7 +785,7 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
 
   const registryEmpty = catalogInitialized ? (
     <EmptyStateCard
-      className="mx-1 mb-3 py-10"
+      className="py-6"
       icon={<LuLibrary className="h-7 w-7 text-primary-500" strokeWidth={1.5} />}
       title={debouncedQuery ? t('skills.noResults') : t('skills.explorer.registryEmptyTitle')}
       description={debouncedQuery ? '' : t('skills.explorer.registryEmptyDescription')}
@@ -817,82 +794,23 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
     />
   ) : null;
 
-  const registryFooter =
-    filteredCatalog.length > displayedCatalog.length ? (
-      <div className="mt-3 flex flex-col items-center gap-1">
-        <Button
-          variant="secondary"
-          size="sm"
-          data-testid="registry-show-more"
-          onClick={() => setVisibleCount(c => c + CATALOG_PAGE_SIZE)}
-          className="h-auto border-line px-4 py-2 text-xs font-medium text-content-secondary shadow-soft">
-          {t('common.showMore')}
-        </Button>
-        <p className="text-[11px] text-content-faint">
-          {displayedCatalog.length.toLocaleString()} / {filteredCatalog.length.toLocaleString()}
-        </p>
-      </div>
-    ) : null;
-
-  const shared = {
-    columns,
-    search: {
-      value: searchQuery,
-      onChange: setSearchQuery,
-      placeholder: t('skills.explorer.searchPlaceholder'),
-      testId: 'skill-search-input',
-    },
-    toolbarStart,
-    toolbarEnd,
-    filters,
-    loading,
-    error: errorNode,
-    ariaLabel: t('skills.explorer.title'),
-  };
-
-  return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden animate-fade-up">
-      {view === 'installed' ? (
-        <DataTable<WorkflowSummary>
-          {...shared}
-          columns={columns as DataTableColumn<WorkflowSummary>[]}
-          rows={sortedSkills}
-          rowKey={skill => skill.id}
-          empty={installedEmpty}
-          renderRow={skill => (
-            <InstalledSkillRow
-              key={skill.id}
-              skill={skill}
-              onClick={() => setDetailSkill(skill)}
-              onUninstall={() => setUninstallTarget(skill)}
-            />
-          )}
-        />
-      ) : (
-        <DataTable<CatalogEntry>
-          {...shared}
-          columns={columns as DataTableColumn<CatalogEntry>[]}
-          rows={displayedCatalog}
-          rowKey={entry => `${entry.source}-${entry.id}`}
-          empty={registryEmpty}
-          footer={registryFooter}
-          renderRow={entry => (
-            <CatalogRow
-              key={`${entry.source}-${entry.id}`}
-              entry={entry}
-              installed={entryInstalled(entry)}
-              installing={installingId === entry.id}
-              onClick={() => setDetailEntry(entry)}
-              onInstall={() => void handleRegistryInstall(entry)}
-            />
-          )}
-        />
-      )}
-
+  const dialogs = (
+    <>
       {installDialogOpen && (
         <InstallSkillDialog
           onClose={() => setInstallDialogOpen(false)}
           onInstalled={handleInstalled}
+        />
+      )}
+
+      {createOpen !== null && (
+        <CreateSkillModal
+          editing={createOpen ?? undefined}
+          onClose={() => setCreateOpen(null)}
+          onCreated={() => {
+            setCreateOpen(null);
+            void fetchSkills();
+          }}
         />
       )}
 
@@ -924,6 +842,136 @@ export default function SkillsExplorerTab({ onToast }: SkillsExplorerTabProps) {
           installing={detailEntry ? installingId === detailEntry.id : false}
         />
       )}
-    </div>
+    </>
+  );
+
+  if (view === 'installed') {
+    return (
+      <section className="space-y-3 animate-fade-up" data-testid="skills-installed-section">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-content-muted">
+            {t('skills.rows.installedTitle')}
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid="skill-install-from-url-btn"
+              onClick={() => setInstallDialogOpen(true)}
+              leadingIcon={<Download className="size-4" aria-hidden="true" />}>
+              {t('skills.explorer.installFromUrl')}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              data-testid="skill-new-btn"
+              onClick={() => setCreateOpen(undefined)}
+              leadingIcon={<Plus className="size-4" aria-hidden="true" />}>
+              {t('skills.explorer.newSkill')}
+            </Button>
+          </div>
+        </div>
+        <p className="text-sm text-content-muted">{t('skills.rows.installedIntro')}</p>
+        {search}
+        {errorNode}
+        <Card padded divided={false}>
+          {loading ? (
+            <p className="text-xs text-content-muted">{t('common.loading')}</p>
+          ) : sortedSkills.length === 0 ? (
+            installedEmpty
+          ) : (
+            <ul className="divide-y divide-line-subtle">
+              {sortedSkills.map(skill => (
+                <InstalledSkillRow
+                  key={skill.id}
+                  skill={skill}
+                  onClick={() => setDetailSkill(skill)}
+                  onRun={() => runSkill(skill)}
+                  onEdit={() => setCreateOpen(skill)}
+                  onUninstall={() => setUninstallTarget(skill)}
+                />
+              ))}
+            </ul>
+          )}
+        </Card>
+        {dialogs}
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-3 animate-fade-up" data-testid="skills-registry-section">
+      <h2 className="text-xs font-medium uppercase tracking-wide text-content-muted">
+        {t('skills.rows.registryTitle')}
+      </h2>
+      <p className="text-sm text-content-muted">{t('skills.rows.registryIntro')}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {search}
+        {sources.length > 0 && (
+          <DataTableFilterMenu
+            filter={{
+              id: 'source',
+              label: t('common.filter'),
+              ariaLabel: t('skills.explorer.sourceFilterAria'),
+              testId: 'skill-source-filter',
+              options: sources.map(source => ({ value: source })),
+              selected: activeSources,
+              onChange: setActiveSources,
+            }}
+          />
+        )}
+        <Button
+          iconOnly
+          variant="secondary"
+          size="md"
+          onClick={() => void fetchCatalog(debouncedQuery, activeSourceFilter, true)}
+          disabled={catalogLoading}
+          title={t('skills.explorer.refreshRegistry')}
+          aria-label={t('skills.explorer.refreshRegistry')}
+          className="shrink-0 text-content-muted">
+          <RefreshCw className={`size-4 ${catalogLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+      {errorNode}
+      <Card padded divided={false}>
+        {loading && displayedCatalog.length === 0 ? (
+          <p className="text-xs text-content-muted">{t('common.loading')}</p>
+        ) : displayedCatalog.length === 0 ? (
+          registryEmpty
+        ) : (
+          <>
+            <ul className="divide-y divide-line-subtle">
+              {displayedCatalog.map(entry => (
+                <CatalogRow
+                  key={`${entry.source}-${entry.id}`}
+                  entry={entry}
+                  installed={entryInstalled(entry)}
+                  installing={installingId === entry.id}
+                  onClick={() => setDetailEntry(entry)}
+                  onInstall={() => void handleRegistryInstall(entry)}
+                />
+              ))}
+            </ul>
+            {filteredCatalog.length > displayedCatalog.length && (
+              <div className="mt-3 flex flex-col items-center gap-1 border-t border-line-subtle pt-3">
+                <Button
+                  variant="tertiary"
+                  size="xs"
+                  data-testid="registry-show-more"
+                  onClick={() => setVisibleCount(c => c + CATALOG_PAGE_SIZE)}
+                  className="text-primary-600 hover:underline dark:text-primary-400">
+                  {t('common.showMore')}
+                </Button>
+                <p className="text-[11px] text-content-faint">
+                  {displayedCatalog.length.toLocaleString()} /{' '}
+                  {filteredCatalog.length.toLocaleString()}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+      {dialogs}
+    </section>
   );
 }

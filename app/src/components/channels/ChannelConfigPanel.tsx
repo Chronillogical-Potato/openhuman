@@ -3,7 +3,7 @@ import type { ChannelDefinition, ChannelType } from '../../types/channels';
 import ChannelCapabilities from './ChannelCapabilities';
 import CredentialChannelConfig from './CredentialChannelConfig';
 import DiscordConfig from './DiscordConfig';
-import McpServersTab from './mcp/McpServersTab';
+import McpServersPage from './mcp/McpServersPage';
 import TelegramConfig from './TelegramConfig';
 import WebChannelConfig from './WebChannelConfig';
 
@@ -16,16 +16,11 @@ const ChannelConfigPanel = ({ selectedChannel, definitions }: ChannelConfigPanel
   const { t } = useT();
 
   // MCP is a virtual tab — not backed by a ChannelDefinition from the core.
+  // The page carries its own header and tab strip.
   if (selectedChannel === 'mcp') {
     return (
-      <div className="space-y-4">
-        <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
-          <div>
-            <h3 className="text-base font-semibold text-content">{t('channels.mcp.title')}</h3>
-            <p className="text-xs text-content-muted mt-1">{t('channels.mcp.description')}</p>
-          </div>
-          <McpServersTab />
-        </section>
+      <div className="h-full p-4">
+        <McpServersPage />
       </div>
     );
   }

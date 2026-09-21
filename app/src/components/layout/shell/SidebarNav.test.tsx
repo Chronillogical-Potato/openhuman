@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
 import { AGENT_ACCOUNT_ID } from '../../../utils/accountsFullscreen';
@@ -8,14 +8,10 @@ import SidebarNav from './SidebarNav';
 // Analytics is fire-and-forget; stub it so the nav renders without a transport.
 vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
 
-// Mutable so each test can pick the session kind. `isReady` sits alongside
-// `snapshot` on the core-state value (not inside the snapshot). Must be
-// `mock`-prefixed so the hoisted vi.mock factory below may close over it.
-let mockCoreState: { snapshot: { sessionToken: string | null }; isReady: boolean } = {
-  snapshot: { sessionToken: 'cloud.session.token' },
-  isReady: true,
-};
-vi.mock('../../../providers/CoreStateProvider', () => ({ useCoreState: () => mockCoreState }));
+// A resolved cloud session, so nothing the nav renders waits on bootstrap.
+vi.mock('../../../providers/CoreStateProvider', () => ({
+  useCoreState: () => ({ snapshot: { sessionToken: 'cloud.session.token' }, isReady: true }),
+}));
 
 /**
  * `bg-white` spelled indirectly. `lint:ui-tokens` scans this directory now and
@@ -101,49 +97,5 @@ describe('SidebarNav active matching', () => {
     fireEvent.click(tabButton('Connections'));
 
     expect(store.getState().accounts.activeAccountId).toBe(AGENT_ACCOUNT_ID);
-  });
-});
-
-/**
- * Rewards is the one `cloudOnly` nav entry. These moved here from
- * `AppSidebar.test.tsx` when Rewards stopped being a sidebar footer row and
- * became a primary destination: the gate lives in `useCloudNavGate` and is
- * applied by this component (and `CollapsedNavRail`), so this is where it is
- * observable.
- */
-describe('SidebarNav — cloud-gated Rewards entry', () => {
-  beforeEach(() => {
-    mockCoreState = { snapshot: { sessionToken: 'cloud.session.token' }, isReady: true };
-  });
-
-  it('shows Rewards for a resolved cloud session', () => {
-    renderWithProviders(<SidebarNav />, { initialEntries: ['/chat'] });
-
-    expect(tabButton('Rewards')).toBeInTheDocument();
-  });
-
-  it('hides Rewards for a local session', () => {
-    mockCoreState = { snapshot: { sessionToken: 'header.payload.local' }, isReady: true };
-    renderWithProviders(<SidebarNav />, { initialEntries: ['/chat'] });
-
-    expect(screen.queryByRole('button', { name: /Rewards/ })).not.toBeInTheDocument();
-    // The ungated entries are unaffected.
-    expect(tabButton('Chat')).toBeInTheDocument();
-  });
-
-  it('hides Rewards until core state has bootstrapped (no flash)', () => {
-    // Initial snapshot before the first refresh: not ready, null token.
-    // isLocalSessionToken(null) is false, so gating on the token alone would
-    // briefly show Rewards here — the isReady guard prevents that flash.
-    mockCoreState = { snapshot: { sessionToken: null }, isReady: false };
-    renderWithProviders(<SidebarNav />, { initialEntries: ['/chat'] });
-
-    expect(screen.queryByRole('button', { name: /Rewards/ })).not.toBeInTheDocument();
-  });
-
-  it('marks Rewards active on the /rewards route', () => {
-    renderWithProviders(<SidebarNav />, { initialEntries: ['/rewards'] });
-
-    expect(tabButton('Rewards')).toHaveAttribute('aria-current', 'page');
   });
 });

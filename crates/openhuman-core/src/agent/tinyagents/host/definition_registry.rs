@@ -414,7 +414,7 @@ fn declared_subagent_ids(def: &HostAgentDefinition) -> Vec<String> {
 /// [`ModelSpec::Inherit`] becomes `None`, which is precisely the crate's "no
 /// preference, the session default applies". `Hint` is resolved through
 /// [`ModelSpec::resolve`] (whose `parent_model` argument is unused for the hint
-/// arm) so the `{hint}-v1` naming convention has one implementation.
+/// arm) so the `hint:{hint}` alias spelling has one implementation.
 fn model_for(spec: &ModelSpec) -> Option<String> {
     match spec {
         ModelSpec::Inherit => None,

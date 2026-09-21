@@ -88,10 +88,11 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "integrations",
-        // The setup and use hand-offs (`setup_mcp_server`, `use_mcp_server`) are
-        // not members: they are the orchestrator's direct route into this family.
-        // See `DELIBERATELY_UNPACKED_HANDOFFS`.
-        summary: "MCP registry tools: search, inspect, install, connect and disconnect servers, check their status, and call a connected server's tools.",
+        // The use hand-off (`use_mcp_server`) is not a member: it is the
+        // orchestrator's direct route into this family. See
+        // `DELIBERATELY_UNPACKED_HANDOFFS`. There is no install tool — servers
+        // are declared by the user in mcp.json.
+        summary: "MCP registry tools: search and inspect the catalog, connect and disconnect installed servers, check their status, and call a connected server's tools.",
         tools: &[
             "mcp_registry_status",
             "mcp_registry_search",
@@ -101,11 +102,9 @@ pub const PACKS: &[ToolPack] = &[
             "mcp_registry_connect",
             "mcp_registry_disconnect",
             "mcp_registry_tool_call",
-            "mcp_registry_config_assist",
-            "mcp_registry_install",
             "mcp_registry_uninstall",
         ],
-        owners: &["mcp_agent", "mcp_setup", "planner"],
+        owners: &["mcp_agent", "planner"],
     },
     ToolPack {
         id: "composio",
@@ -373,10 +372,9 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
 
 /// The MCP and skill hand-offs are deliberately NOT packed either (#6302).
 ///
-/// `setup_mcp_server`, `use_mcp_server`, `setup_skills` and `run_skill` are the
-/// orchestrator's whole route into two families: it installs and uses MCP
-/// servers and skills only by handing the task to the specialist that owns
-/// that family. Packed, they sat in the same listing as the raw
+/// `use_mcp_server`, `setup_skills` and `run_skill` are the orchestrator's
+/// whole route into two families: it uses MCP servers and installs and uses
+/// skills only by handing the task to the specialist that owns that family. Packed, they sat in the same listing as the raw
 /// `mcp_registry_*` / `skill_registry_*` tools, one `use_skill` round trip
 /// away, and a live account showed the cost: across 11 turns the orchestrator
 /// called the raw tools itself, guessed at tool names, and never handed off.
@@ -391,12 +389,8 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
 /// token-cost decision, and the same closing rule takes effect for any of them
 /// as soon as it is unpacked and listed here.
 #[cfg(test)]
-pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] = &[
-    "setup_mcp_server",
-    "use_mcp_server",
-    "setup_skills",
-    "run_skill",
-];
+pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] =
+    &["use_mcp_server", "setup_skills", "run_skill"];
 
 pub fn pack(id: &str) -> Option<&'static ToolPack> {
     PACKS.iter().find(|p| p.id == id)

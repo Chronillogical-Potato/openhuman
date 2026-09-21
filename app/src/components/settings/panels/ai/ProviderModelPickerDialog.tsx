@@ -6,7 +6,6 @@ import { listProviderModels, type ModelInfo } from '../../../../services/api/aiS
 import Alert from '../../../ui/Alert';
 import Button from '../../../ui/Button';
 import { ModalShell } from '../../../ui/ModalShell';
-import NativeSelect from '../../../ui/NativeSelect';
 import TextField from '../../../ui/TextField';
 import {
   CLAUDE_CODE_DEFAULT_MODEL,
@@ -28,16 +27,54 @@ type TFn = (key: string, fallback?: string) => string;
  */
 const MANAGED_PROVIDER_SLUG = 'openhuman';
 
-/** `Display Name — $in/$out per 1M`, falling back to the bare id. */
-const managedOptionLabel = (m: ModelInfo): string => {
-  const name = m.display_name?.trim() || m.id;
+/** `$in/$out per 1M` for a managed catalog entry, or null when unpriced. */
+const managedPriceLabel = (m: ModelInfo): string | null => {
   const inPrice = m.input_per_1m;
   const outPrice = m.output_per_1m;
-  if (typeof inPrice !== 'number' || typeof outPrice !== 'number') return name;
+  if (typeof inPrice !== 'number' || typeof outPrice !== 'number') return null;
   const fmt = (n: number) =>
     n === 0 ? '$0' : `$${n < 1 ? n.toFixed(3).replace(/0+$/, '') : n.toFixed(2)}`;
-  return `${name} — ${fmt(inPrice)}/${fmt(outPrice)} per 1M`;
+  return `${fmt(inPrice)}/${fmt(outPrice)} per 1M`;
 };
+
+/** One row of the managed catalog list: name on top, price (or id) beneath. */
+const ManagedModelRow = ({
+  selected,
+  title,
+  detail,
+  onClick,
+  testId,
+}: {
+  selected: boolean;
+  title: string;
+  detail: string;
+  onClick: () => void;
+  testId: string;
+}) => (
+  <Button
+    type="button"
+    variant="tertiary"
+    size="sm"
+    role="option"
+    aria-selected={selected}
+    data-testid={testId}
+    onClick={onClick}
+    // Full-bleed rows separated by a bottom rule, not floating pills: the list
+    // is the pane, so it touches the pane's sides and squares its corners.
+    className={cn(
+      'h-auto w-full justify-start rounded-none border-b border-line-subtle px-4 py-2.5',
+      selected && 'bg-surface-muted'
+    )}>
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+      <span className="w-full text-left text-sm font-medium break-words whitespace-normal">
+        {title}
+      </span>
+      <span className="w-full text-left text-xs font-normal break-words whitespace-normal text-content-muted">
+        {detail}
+      </span>
+    </span>
+  </Button>
+);
 
 export interface ProviderModelSelection {
   source: CustomDialogSource;
@@ -48,7 +85,7 @@ export interface ProviderModelSelection {
 
 interface ProviderModelPickerDialogProps {
   /**
-   * Offer "Managed by OpenHuman" as the first source. Default `true`: managed
+   * Offer the managed OpenRouter source ("Managed by TinyHumans") first. Default `true`: managed
    * is the product's own routing and must stay reachable from anywhere a model
    * is chosen, or picking a specific model becomes a one-way door.
    *
@@ -69,7 +106,6 @@ interface ProviderModelPickerDialogProps {
 const sourceKey = (source: CustomDialogSource) =>
   source.kind === 'cloud' ? `cloud:${source.providerSlug}` : source.kind;
 
-/** Managed needs no model id — the product chooses one per workload. */
 const isManaged = (source: CustomDialogSource | null): boolean => source?.kind === 'managed';
 
 const sourceLabel = (source: CustomDialogSource, providers: CloudProvider[], t: TFn) =>
@@ -203,11 +239,17 @@ export function ProviderModelPickerDialog({
     };
   }, [catalogRequest, fetchSlug, isLocalSource]);
 
-  const filteredSources = sources.filter(candidate =>
-    sourceLabel(candidate, cloudProviders, t)
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase())
-  );
+  // The search box narrows the MODEL list of the selected source. Providers
+  // are a handful of fixed rows and stay put; a query only ever hides models.
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchesQuery = (candidate: ModelInfo) =>
+    normalizedQuery === '' ||
+    candidate.id.toLocaleLowerCase().includes(normalizedQuery) ||
+    (candidate.display_name ?? '').toLocaleLowerCase().includes(normalizedQuery);
+  const modelTitle = (candidate: ModelInfo) => candidate.display_name?.trim() || candidate.id;
+  const visibleCatalog = catalog
+    .filter(matchesQuery)
+    .sort((a, b) => modelTitle(a).localeCompare(modelTitle(b), undefined, { sensitivity: 'base' }));
   const selectSource = (nextSource: CustomDialogSource) => {
     setSource(nextSource);
     setModel(nextSource.kind === 'claude-code' ? CLAUDE_CODE_DEFAULT_MODEL : '');
@@ -235,29 +277,11 @@ export function ProviderModelPickerDialog({
             type="button"
             variant="primary"
             size="sm"
-            // Managed carries no model id, so requiring one would leave the
-            // only always-available option permanently unselectable.
-            disabled={!source || (!isManaged(source) && !model.trim())}
+            // Every source, managed included, needs a model id: the managed
+            // backend serves the exact catalog model that was picked.
+            disabled={!source || !model.trim()}
             onClick={() => {
               if (!source) return;
-              if (isManaged(source)) {
-                // An empty model keeps the original contract (product routes
-                // per workload). A pinned catalog id is forwarded like any
-                // other model so the managed backend serves that exact model.
-                const pinned = model.trim();
-                const pinnedEntry = pinned
-                  ? catalog.find(candidate => candidate.id === pinned)
-                  : undefined;
-                onSelect({
-                  source,
-                  model: pinned,
-                  contextWindow:
-                    pinnedEntry && (pinnedEntry.context_window ?? 0) > 0
-                      ? pinnedEntry.context_window
-                      : null,
-                });
-                return;
-              }
               const selectedModel = catalog.find(candidate => candidate.id === model.trim());
               onSelect({
                 source,
@@ -287,7 +311,7 @@ export function ProviderModelPickerDialog({
             {t('settings.ai.picker.providersLabel')}
           </p>
           <div className="space-y-1">
-            {filteredSources.map(candidate => {
+            {sources.map(candidate => {
               const selected = source && sourceKey(candidate) === sourceKey(source);
               return (
                 <Button
@@ -328,44 +352,34 @@ export function ProviderModelPickerDialog({
             })}
           </div>
         </div>
-        <div className="min-w-0 p-4">
+        <div className={cn('min-w-0', isManaged(source) ? 'p-0' : 'p-4')}>
           {isManaged(source) ? (
-            // Managed offers an OPTIONAL model pick. Leaving it on "Automatic"
-            // preserves the original contract (empty model id -> the product
-            // routes per workload); choosing a catalog entry pins that model,
-            // still billed through managed credits like any tier.
-            <div data-testid="model-picker-managed-pane" className="space-y-2">
-              <p className="text-sm font-medium text-content">
-                {t('settings.ai.managedSourceLabel')}
-              </p>
-              <p className="text-xs leading-relaxed text-content-muted">
-                {t('settings.ai.routing.managedDesc')}
-              </p>
+            // The managed catalog fills the pane, alphabetically. Picking a
+            // row pins that model; it is billed through managed credits like
+            // any tier.
+            <div
+              data-testid="model-picker-managed-pane"
+              role="listbox"
+              aria-label={t('settings.ai.modelLabel')}
+              className="max-h-96 overflow-y-auto">
               {loading ? (
-                <NativeSelect disabled className="mt-1 w-full cursor-wait opacity-60">
-                  <option>{t('settings.ai.loadingModels', 'Loading models…')}</option>
-                </NativeSelect>
-              ) : catalog.length > 0 ? (
-                <NativeSelect
-                  aria-label={t('settings.ai.modelLabel')}
-                  data-testid="model-picker-managed-select"
-                  value={model}
-                  onChange={event => setModel(event.target.value)}
-                  className="mt-1 w-full">
-                  {/* Always present, unlike ModelEntryField's empty option, so a
-                      pinned model can be cleared back to automatic routing. */}
-                  <option value="">
-                    {t('settings.ai.picker.managedAutomatic', 'Automatic (recommended)')}
-                  </option>
-                  {catalog.map(candidate => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {managedOptionLabel(candidate)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              ) : null}
+                <p className="px-4 py-3 text-xs text-content-muted">
+                  {t('settings.ai.loadingModels')}
+                </p>
+              ) : (
+                visibleCatalog.map(candidate => (
+                  <ManagedModelRow
+                    key={candidate.id}
+                    testId={`model-picker-managed-option-${candidate.id}`}
+                    selected={model === candidate.id}
+                    title={modelTitle(candidate)}
+                    detail={managedPriceLabel(candidate) ?? candidate.id}
+                    onClick={() => setModel(candidate.id)}
+                  />
+                ))
+              )}
               {catalogError ? (
-                <Alert variant="destructive" className="font-mono text-xs break-all">
+                <Alert variant="destructive" className="m-4 font-mono text-xs break-all">
                   {catalogError}
                 </Alert>
               ) : null}
@@ -375,7 +389,7 @@ export function ProviderModelPickerDialog({
               mode={modelEntryMode}
               model={model}
               onModelChange={setModel}
-              catalog={catalog}
+              catalog={visibleCatalog}
               catalogLoading={loading}
               catalogError={catalogError}
               onRetry={() => setCatalogRequest(request => request + 1)}
@@ -404,7 +418,7 @@ export function ProviderModelPickerDialog({
                   {t('settings.ai.picker.claudeCodeHint')}
                 </p>
               ) : (
-                catalog.map(candidate => (
+                visibleCatalog.map(candidate => (
                   <Button
                     key={candidate.id}
                     type="button"
