@@ -99,9 +99,7 @@ async function expectSelectedTab(page: import('@playwright/test').Page, tab: str
   await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(1);
 }
 
-test('Connections deep links preserve their selected pane and fragment', async ({
-  page,
-}) => {
+test('Connections deep links preserve their selected pane and fragment', async ({ page }) => {
   await openRoute(page, 'pw-connection-deeplinks', '/connections');
 
   const navigate = async (route: string, settlesOn = '/connections') => {
