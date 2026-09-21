@@ -153,6 +153,12 @@ jobs:
               - 'scripts/prompt-budget.limits'
               - 'scripts/check-prompt-budget.sh'
               - 'scripts/prompt-size-measure.sh'
+              # The feature-gate smoke owns the dependency-floor ratchet. Its
+              # limits and measurement logic must arm that lane themselves.
+              - 'scripts/kernel-floor.limits'
+              - 'scripts/check-kernel-floor.sh'
+              - 'scripts/kernel-floor.sh'
+              - 'scripts/dep-sim.py'
               # The coverage-presence gate and its allowlist decide whether this
               # lane FAILS, so they arm it for the same reason.
               - 'scripts/ci/assert-coverage-presence.sh'
@@ -691,7 +697,9 @@ jobs:
         # packages in the flows profile; native build count remains 2.
         # 275 -> 279 on 2026-09-20: the required TinyAgents runtime/session/
         # graph split adds four unique crate names without native dependencies.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 279
+        # 279 -> 277 on 2026-09-20: the merged fresh-turn and cost-routing
+        # dependency refresh sheds two of those resolved names again.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 277
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

@@ -13,6 +13,9 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   296/277/2  2026-09-20  the merged fresh-turn and cost-routing dependency
+#                      refresh sheds two resolved packages and two crate names
+#                      from the flows profile. Native builds stay unchanged.
 #   290/272/2  2026-09-18  portable skill parsing and filesystem primitives
 #                      moved into the required `tinyskills` crate. The `flows`
 #                      profile still compiles the shared skill metadata types,
@@ -568,4 +571,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:298:279:2
+flows:296:277:2
