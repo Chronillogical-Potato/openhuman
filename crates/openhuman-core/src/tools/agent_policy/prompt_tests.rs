@@ -59,7 +59,8 @@ fn render_prompt_boundary_lists_allowed_and_restricted_summary() {
 
     assert!(rendered.contains("## Tool Policy Boundary"));
     assert!(rendered.contains("Agent: orchestrator"));
-    assert!(rendered.contains("Allowed tools: read_notes"));
+    assert!(rendered.contains("Allowed tools: 1 (the tools in your list)"));
+    assert!(!rendered.contains("read_notes"), "names ride on the schemas, not here");
     assert!(rendered.contains("Restricted tools: 1 omitted by policy"));
     assert!(!rendered.contains("write_notes"));
 }

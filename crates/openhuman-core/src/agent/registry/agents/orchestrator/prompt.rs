@@ -333,7 +333,12 @@ fn first_sentence(text: &str) -> String {
         return text.to_string();
     }
     let cut: String = text.chars().take(WITHHELD_INTENT_MAX_CHARS).collect();
-    format!("{}...", cut.trim_end())
+    // Cut at the last word boundary so the row never ends mid-word.
+    let cut = match cut.rfind(' ') {
+        Some(idx) if idx > WITHHELD_INTENT_MAX_CHARS / 2 => &cut[..idx],
+        _ => cut.as_str(),
+    };
+    format!("{}...", cut.trim_end_matches([' ', ',', ';', ':', '-', '—']))
 }
 
 /// Render the `## Installed Skills` section listing locally installed
