@@ -62,21 +62,31 @@ impl SkillDelegationTool {
 }
 
 fn build_description(connected: &[(String, String)]) -> String {
-    // The slugs are already the `toolkit` enum; naming them again with their
-    // marketing blurb cost a line per connected service on every turn. One
-    // sentence of routing plus the slug list is what the model needs.
+    // One sentence of routing plus one short line per connected service. The
+    // catalogue blurbs are marketing copy ("Gmail is Google's email service,
+    // featuring spam protection, ...") and were costing a paragraph per
+    // service on every turn; a clause is enough to disambiguate a slug.
+    const DESCRIPTION_MAX_CHARS: usize = 80;
     let mut buf = String::from(
         "Act on a connected service (read or write its data) through the integrations \
-         agent, with `toolkit` set to one of the connected slugs and the user's task as \
-         `prompt`. Connected:",
+         agent: `toolkit` is one of the connected slugs below, `prompt` the user's task. \
+         Connected:",
     );
-    for (slug, _desc) in connected {
-        buf.push(' ');
+    for (slug, desc) in connected {
+        buf.push_str("\n - ");
         buf.push_str(slug);
-        buf.push(',');
-    }
-    if buf.ends_with(',') {
-        buf.pop();
+        let trimmed = desc.trim();
+        if !trimmed.is_empty() {
+            buf.push_str(": ");
+            if trimmed.chars().count() > DESCRIPTION_MAX_CHARS {
+                let cut: String = trimmed.chars().take(DESCRIPTION_MAX_CHARS).collect();
+                let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
+                buf.push_str(cut.trim_end_matches([',', ';', ':']));
+                buf.push_str("...");
+            } else {
+                buf.push_str(trimmed);
+            }
+        }
     }
     buf
 }
