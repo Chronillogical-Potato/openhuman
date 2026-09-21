@@ -82,7 +82,6 @@ test.describe('App shell — sidebar navigation', () => {
     await page.goto('/#/chat/some-thread-id');
     await expect.poll(() => activeRowId(page)).toBe('chat');
   });
-
 });
 
 test.describe('App shell — collapse and the icon-only rail (#5676)', () => {
