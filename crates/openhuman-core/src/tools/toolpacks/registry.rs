@@ -19,7 +19,7 @@ use super::types::ToolPack;
 pub const PACKS: &[ToolPack] = &[
     ToolPack {
         id: "workflows",
-        summary: "Build, discover, run and inspect saved automation workflows (flows) and their run logs.",
+        summary: "Saved automation workflows: build, discover, run, inspect runs.",
         tools: &[
             "build_workflow",
             "discover_workflows",
@@ -61,7 +61,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "crypto",
-        summary: "Crypto wallet and market actions: transfer quotes, swaps, bridges, contract calls and x402 paid requests.",
+        summary: "Crypto wallet and market actions: quotes, swaps, bridges, contract calls, x402.",
         // `wallet_balances`, `wallet_network_defaults`, `wallet_supported_assets`,
         // `wallet_encode_erc20_transfer` and `wallet_execute_prepared` are NOT
         // listed: they exist as `wallet.*` RPC methods but have no agent Tool
@@ -92,7 +92,7 @@ pub const PACKS: &[ToolPack] = &[
         // orchestrator's direct route into this family. See
         // `DELIBERATELY_UNPACKED_HANDOFFS`. There is no install tool — servers
         // are declared by the user in mcp.json.
-        summary: "MCP registry tools: search and inspect the catalog, connect and disconnect installed servers, check their status, and call a connected server's tools.",
+        summary: "MCP servers: search the catalog, connect, disconnect, check status, call tools.",
         tools: &[
             "mcp_registry_status",
             "mcp_registry_search",
@@ -108,7 +108,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "composio",
-        summary: "Connect and use third-party Composio toolkits: list connections and toolkits, list and execute a toolkit's actions.",
+        summary: "Composio toolkits: list connections and toolkits, list and execute actions.",
         // `composio_connect` is deliberately not a member: it is the
         // orchestrator's inline connect card. Packed, it sat in a pack that
         // `ops::closed_by_direct_handoff` closes to the orchestrator (the
@@ -129,8 +129,7 @@ pub const PACKS: &[ToolPack] = &[
         // The install and run hand-offs (`setup_skills`, `run_skill`) are not
         // members: they are the orchestrator's direct route into this family.
         // See `DELIBERATELY_UNPACKED_HANDOFFS`.
-        summary: "Skill registry and runtime tools: search installed skills, browse, install \
-                  and uninstall from community registries, and read a skill's resources.",
+        summary: "Skills: search installed, browse and install from registries, read resources.",
         tools: &[
             // In the pack, not outside it. A search tool advertised while the
             // tool it hands off to (`describe_workflow`) stays
@@ -197,7 +196,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "system",
-        summary: "OpenHuman's own health, diagnostics, cost dashboard, service lifecycle, proxy and read-only config.",
+        summary: "OpenHuman health, diagnostics, costs, services, proxy, read-only config.",
         tools: &[
             "config_snapshot",
             "config_get_client_config",
@@ -233,7 +232,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "files",
-        summary: "Direct file and repository access: read, write, search by content, match by glob, list a directory, and read git state.",
+        summary: "Files and repositories: read, write, grep, glob, list, git.",
         // `shell` covers every one of these for an agent that has it, so on a
         // belt that also carries `shell` the family is duplicate surface
         // charged on every turn. It stays one `use_skill` away, and the
@@ -266,7 +265,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "storage",
-        summary: "Workspace file storage: upload a file, download one, list what is stored, and mint a shareable link.",
+        summary: "Workspace file storage: upload, download, list, shareable link.",
         tools: &[
             "storage_upload_file",
             "storage_download_file",
@@ -280,7 +279,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "scheduling",
-        summary: "Reminders and scheduled jobs: create, list, update, remove, run and inspect one-shot and recurring jobs.",
+        summary: "Reminders and scheduled jobs: create, list, update, remove, run, inspect.",
         tools: &[
             "schedule_task",
             "cron",
@@ -289,7 +288,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "profile",
-        summary: "What OpenHuman durably knows about the user: record a preference (tone, defaults, working style), and edit the profile, persona or people-graph behind it.",
+        summary: "The user's profile: record preferences, edit persona and people graph.",
         // The delegate and the two raw tools belong together because they are
         // one question from the model's side — "remember this about the user" —
         // split only by how much editing it needs.
@@ -302,7 +301,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "media",
-        summary: "Anything centred on a picture or a clip: generate one, or read one (describe, OCR, charts, UI elements).",
+        summary: "Images and clips: generate, or read (describe, OCR, charts, UI elements).",
         tools: &[
             "create_image",
             "create_video",
@@ -318,7 +317,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "tasks",
-        summary: "The agent task board: create, edit, approve, clear and summarize agent tasks, task sources and their artifacts.",
+        summary: "Agent task board: create, edit, approve, clear, summarize tasks and sources.",
         tools: &["manage_tasks"],
         owners: &["task_manager_agent"],
     },
@@ -339,7 +338,7 @@ pub const PACKS: &[ToolPack] = &[
         // moment buys nothing: the alternative to a visible `goal_complete` is
         // an objective that silently stays open and keeps driving autonomous
         // continuation. Same reasoning as `DELIBERATELY_UNPACKED_FLEET_TOOLS`.
-        summary: "Read, add and edit the user's durable long-term objectives, plus the agent-owned objective this thread is working toward. Closing one is the separate, always-available `goal_complete`.",
+        summary: "Long-term goals and this thread's objective: read, add, edit.",
         tools: &["goals", "goal_get", "goal_set"],
         owners: &["goals_agent"],
     },
