@@ -108,11 +108,15 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "composio",
-        summary: "Connect and use third-party Composio toolkits: list connections and toolkits, raise a connect card, list and execute a toolkit's actions.",
+        summary: "Connect and use third-party Composio toolkits: list connections and toolkits, list and execute a toolkit's actions.",
+        // `composio_connect` is deliberately not a member: it is the
+        // orchestrator's inline connect card. Packed, it sat in a pack that
+        // `ops::closed_by_direct_handoff` closes to the orchestrator (the
+        // planner, one `plan` hand-off away, owns this pack), so the prompt's
+        // "raise a connect card" route was a tool the model could not reach.
         tools: &[
             "composio",
             "composio_authorize",
-            "composio_connect",
             "composio_execute",
             "composio_list_connections",
             "composio_list_toolkits",
