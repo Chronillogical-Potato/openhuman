@@ -745,7 +745,7 @@ impl OpenHumanTurnPrelude {
         }
         self.apply_pending_announcements(&mut enriched);
 
-        run_context.parent = Some(parent);
+        run_context.attach_parent(parent);
         run_context.prepared_context_sources = Arc::new(prepared_sources);
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),

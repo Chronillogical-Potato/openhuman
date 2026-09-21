@@ -218,3 +218,86 @@ fn children_inherit_attachment_placeholders() {
         ["[Image: x #att:1]"]
     );
 }
+
+/// A parent snapshot as a cached web-chat session produces one: the prelude
+/// captured `on_progress` before `set_on_progress` ran, so it carries `None`.
+fn stale_parent_snapshot() -> ParentExecutionContext {
+    ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: std::collections::HashSet::new(),
+        turn_model_source: crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["done"]),
+        )),
+        all_tools: Arc::new(Vec::new()),
+        all_tool_specs: Arc::new(Vec::new()),
+        visible_tool_specs: Arc::new(Vec::new()),
+        visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
+        model_name: "test-model".into(),
+        temperature: 0.0,
+        workspace_dir: std::path::PathBuf::from("/tmp/openhuman-attach-parent"),
+        workspace_descriptor: None,
+        memory: crate::memory::test_support::noop_memory(),
+        agent_config: crate::config::AgentConfig::default(),
+        workflows: Arc::new(Vec::new()),
+        memory_context: Arc::new(None),
+        session_id: "parent-session".into(),
+        channel: "test".into(),
+        connected_integrations: Vec::new(),
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
+        session_key: "parent-key".into(),
+        session_parent_prefix: None,
+        on_progress: None,
+        run_queue: None,
+    }
+}
+
+/// Sub-agent spawn/completion are the only progress events that ride the
+/// parent snapshot rather than the harness event projection. The snapshot's
+/// own sink is `None` for the whole life of a checked-out session, so binding
+/// the run's live sink here is what keeps `subagent_spawned` reaching the
+/// progress bridge — and with it the run-ledger row and the "Background tasks"
+/// panel. Without the bind the panel reads "none running" while sub-agents run.
+#[test]
+fn attach_parent_binds_the_runs_live_progress_sink_over_a_stale_snapshot() {
+    let (tx, _rx) = tokio::sync::mpsc::channel(4);
+    let mut context = OpenHumanRunContext::new();
+    context.progress = Some(tx);
+
+    context.attach_parent(stale_parent_snapshot());
+
+    assert!(
+        context
+            .parent
+            .as_ref()
+            .expect("parent installed")
+            .on_progress
+            .is_some(),
+        "the parent snapshot handed to tools must carry the turn's live \
+         progress sink; with `None` here spawn_async_subagent drops its \
+         SubagentSpawned event and the Background tasks panel stays empty"
+    );
+}
+
+/// The bind must not blank a sink the snapshot did carry: a turn with no
+/// progress subscriber of its own (CLI, cron) leaves the snapshot intact.
+#[test]
+fn attach_parent_keeps_the_snapshot_sink_when_the_run_has_none() {
+    let (tx, _rx) = tokio::sync::mpsc::channel(4);
+    let mut snapshot = stale_parent_snapshot();
+    snapshot.on_progress = Some(tx);
+    let mut context = OpenHumanRunContext::new();
+    assert!(context.progress.is_none(), "run has no sink of its own");
+
+    context.attach_parent(snapshot);
+
+    assert!(
+        context
+            .parent
+            .as_ref()
+            .expect("parent installed")
+            .on_progress
+            .is_some(),
+        "a run without its own sink must keep the snapshot's"
+    );
+}
