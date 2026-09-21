@@ -141,10 +141,10 @@ jobs:
           juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir"
           mkdir -p "$memory_dir" "$juice_dir"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" \
@@ -329,10 +329,10 @@ jobs:
           juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
           mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" | sha256sum --check
