@@ -7,7 +7,7 @@ use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use serde_json::json;
 
-use super::types::SessionCacheFingerprint;
+use super::types::{SessionCacheFingerprint, SessionEntry};
 
 pub(super) fn autonomy_signature(config: &Config) -> String {
     serde_json::to_string(&config.autonomy).unwrap_or_default()
@@ -136,5 +136,212 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
+    }
+}
+
+/// A session agent checked out of the per-thread cache for exactly one turn.
+///
+/// Every turn that runs on a conversation thread — a user turn, a
+/// background-delivery turn, a goal continuation — must go through the same
+/// checkout so it appends to the thread's live history and its transcript.
+/// A turn run on a throwaway `OpenHumanSessionHost` bound to the thread writes
+/// a *second* root transcript for that thread with a newer `created`, which the
+/// next cold-boot resume then prefers over the real one — dropping every turn
+/// the user had with the cached session (the "20–30 days" amnesia).
+pub(crate) struct CheckedOutSession {
+    pub(crate) agent: OpenHumanSessionHost,
+    pub(crate) fingerprint: SessionCacheFingerprint,
+}
+
+/// Take the thread's cached session agent, or build one and cold-boot resume
+/// it from the thread's durable history.
+///
+/// The entry is *removed* from the cache for the duration of the turn so two
+/// turns can never drive one agent; `checkin_session_agent` /
+/// `checkin_session_agent_if_vacant` put it back. A `fork` (parallel turn)
+/// never touches the cache and always builds fresh from the history snapshot.
+pub(crate) async fn checkout_session_agent(
+    config: &Config,
+    client_id: &str,
+    thread_id: &str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    locale: Option<&str>,
+    fork: bool,
+) -> Result<CheckedOutSession, String> {
+    let map_key = super::ops::key_for(thread_id);
+    let target_agent_id = pick_target_agent_id(config);
+    let provider_role = provider_role_for_model_override(model_override.as_deref());
+    let fingerprint = build_session_fingerprint(
+        config,
+        model_override.clone(),
+        temperature,
+        target_agent_id.clone(),
+        provider_role,
+    );
+
+    // A forked (parallel) turn never reuses or evicts the shared cached agent —
+    // it always builds fresh from the history snapshot below.
+    let prior = if fork {
+        None
+    } else {
+        let mut sessions = super::ops::THREAD_SESSIONS.lock().await;
+        sessions.remove(&map_key)
+    };
+
+    let (mut agent, was_built_fresh) = match prior {
+        Some(entry) if entry.fingerprint == fingerprint => {
+            log::info!(
+                "[web-channel] reusing cached session agent id={} for client={} thread={}",
+                target_agent_id,
+                client_id,
+                thread_id
+            );
+            (entry.agent, false)
+        }
+        Some(prior_entry) => {
+            log::info!(
+                "[web-channel] cache miss — rebuilding session agent \
+                 (was id={}, now id={}; prior_provider_binding={}, now={}) \
+                 for client={} thread={}",
+                prior_entry.fingerprint.target_agent_id,
+                target_agent_id,
+                prior_entry.fingerprint.provider_binding,
+                fingerprint.provider_binding,
+                client_id,
+                thread_id
+            );
+            (
+                build_session_agent(
+                    config,
+                    client_id,
+                    thread_id,
+                    &target_agent_id,
+                    model_override,
+                    temperature,
+                    locale,
+                )?,
+                true,
+            )
+        }
+        None => (
+            build_session_agent(
+                config,
+                client_id,
+                thread_id,
+                &target_agent_id,
+                model_override,
+                temperature,
+                locale,
+            )?,
+            true,
+        ),
+    };
+
+    // Cold-boot resume. Prefer the full-fidelity `session_raw/{stem}.jsonl`
+    // transcript (tool calls, tool-role results, reasoning) routed by thread
+    // id — the model must not "forget" its tool interactions across an app
+    // restart. Only fall back to the lossy conversation-log prose pairs when
+    // no root transcript exists for the thread or it fails to load; the two
+    // sources overlap (user prompts + final assistant text), so we take one
+    // or the other, never both, to avoid duplicated context.
+    if was_built_fresh {
+        seed_cold_session(&mut agent, config, thread_id).await;
+    }
+
+    Ok(CheckedOutSession { agent, fingerprint })
+}
+
+async fn seed_cold_session(agent: &mut OpenHumanSessionHost, config: &Config, thread_id: &str) {
+    if agent.seed_resume_from_thread_transcript(thread_id) {
+        log::info!(
+            "[web-channel] cold-boot resumed thread={} from full-fidelity session transcript",
+            thread_id
+        );
+        return;
+    }
+    log::debug!(
+        "[web-channel] no usable session transcript for thread={} — seeding resume \
+         from conversation-log prose",
+        thread_id
+    );
+    // Blocking pool: the store takes a process-global mutex and reads
+    // the thread's whole JSONL under it, so doing this inline parked an
+    // async worker on the chat hot path (#5156).
+    match crate::memory::conversations::blocking::get_messages(
+        config.workspace_dir.clone(),
+        thread_id.to_string(),
+    )
+    .await
+    {
+        Ok(prior_messages) if !prior_messages.is_empty() => {
+            let pairs: Vec<(String, String)> = prior_messages
+                .into_iter()
+                .map(|m| (m.sender, m.content))
+                .collect();
+            // The seed pops a trailing user row equal to the current message;
+            // a host-authored turn has no such row, and a user turn's own text
+            // is not in the store yet at this point either.
+            if let Err(err) = agent.seed_resume_from_messages(pairs, "") {
+                log::warn!(
+                    "[web-channel] failed to seed agent resume from conversation log \
+                     thread={} err={}",
+                    thread_id,
+                    err
+                );
+            }
+        }
+        Ok(_) => {
+            log::debug!(
+                "[web-channel] no prior messages to seed for thread={} — first turn",
+                thread_id
+            );
+        }
+        Err(err) => {
+            log::warn!(
+                "[web-channel] failed to read conversation log for resume thread={} err={}",
+                thread_id,
+                err
+            );
+        }
+    }
+}
+
+/// Return a checked-out agent to the thread cache, replacing whatever is there.
+/// The primary user-turn path: it owns the thread's `IN_FLIGHT` slot, so any
+/// entry it finds was left by a turn that ran concurrently and is now stale.
+pub(crate) async fn checkin_session_agent(
+    thread_id: &str,
+    agent: OpenHumanSessionHost,
+    fingerprint: SessionCacheFingerprint,
+) {
+    let mut sessions = super::ops::THREAD_SESSIONS.lock().await;
+    sessions.insert(super::ops::key_for(thread_id), SessionEntry { agent, fingerprint });
+}
+
+/// Return a checked-out agent to the thread cache only when the slot is still
+/// empty. Host-authored turns (background delivery, goal continuation) do not
+/// hold `IN_FLIGHT`, so a user turn that started while they ran built its own
+/// agent and cached it; that one carries the user's newer turn and must win.
+/// Both turns appended to the thread's durable transcript regardless.
+pub(crate) async fn checkin_session_agent_if_vacant(
+    thread_id: &str,
+    agent: OpenHumanSessionHost,
+    fingerprint: SessionCacheFingerprint,
+) -> bool {
+    let mut sessions = super::ops::THREAD_SESSIONS.lock().await;
+    match sessions.entry(super::ops::key_for(thread_id)) {
+        std::collections::hash_map::Entry::Occupied(_) => {
+            log::info!(
+                "[web-channel] system turn finished after a newer turn re-cached thread={} — \
+                 dropping the system turn's agent",
+                thread_id
+            );
+            false
+        }
+        std::collections::hash_map::Entry::Vacant(slot) => {
+            slot.insert(SessionEntry { agent, fingerprint });
+            true
+        }
     }
 }
