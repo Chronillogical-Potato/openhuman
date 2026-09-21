@@ -159,12 +159,14 @@ pub(super) fn visible_tool_specs_for_policy(
         .collect()
 }
 
-/// Ensure the CCR recovery tool (`retrieve_tool_output`) is a member of a
+/// Ensure the CCR recovery tool (`tinyjuice_retrieve`) is a member of a
 /// non-empty visibility allowlist. Compaction runs on every agent's tool
 /// output, so any agent with a curated `ToolScope::Named` list must still be
-/// able to act on a `retrieve_tool_output("…")` footer. An empty set already
-/// means "no filter" (all tools visible), so it is left untouched — including
-/// the deliberately tool-less `Named([])` case, which must stay tool-less.
+/// able to act on a `⟦tj:…⟧` marker. Only the live tool is added; the legacy
+/// aliases in `RECOVERY_TOOL_NAMES` stay registered for transcript replay but
+/// off the wire. An empty set already means "no filter" (all tools visible),
+/// so it is left untouched — including the deliberately tool-less
+/// `Named([])` case, which must stay tool-less.
 pub(super) fn ensure_recovery_tool_visible(visible: &mut std::collections::HashSet<String>) {
     // `is_empty_tool_scope`, not `is_empty`: a belt holding only
     // `NO_TOOLS_SENTINEL` is a deliberate zero-tool agent, and the compaction
@@ -172,7 +174,7 @@ pub(super) fn ensure_recovery_tool_visible(visible: &mut std::collections::HashS
     // to truncate. Adding it would turn "no tools" into "one tool" and put a
     // schema back on a turn whose whole point is that it stays flat.
     if !crate::agent::harness::definition::is_empty_tool_scope(visible) {
-        for name in crate::inference::tokenjuice::RECOVERY_TOOL_NAMES {
+        for name in crate::inference::tokenjuice::RECOVERY_TOOL_VISIBLE {
             visible.insert((*name).to_string());
         }
     }
