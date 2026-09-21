@@ -133,7 +133,7 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
               type="button"
               variant="secondary"
               size="lg"
-              className="w-full bg-white/10 hover:bg-white/15 text-white border-0"
+              className="w-full"
               disabled={!revealed || !mnemonic}
               onClick={handleCopy}>
               {copied ? (

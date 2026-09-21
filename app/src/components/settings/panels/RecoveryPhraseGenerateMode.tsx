@@ -80,7 +80,7 @@ const RecoveryPhraseGenerateMode = ({
         type="button"
         variant="secondary"
         size="lg"
-        className="w-full bg-white/10 hover:bg-white/15 text-white border-0 mb-3"
+        className="w-full mb-3"
         disabled={!revealed}
         onClick={onCopy}>
         {copied ? (

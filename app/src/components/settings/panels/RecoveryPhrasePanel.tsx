@@ -372,8 +372,6 @@ const RecoveryPhrasePanel = () => {
                   />
                 )}
 
-
-
                 {error && (
                   <Alert variant="destructive" className="border-0 bg-destructive/10 p-4 mb-3">
                     <p className="text-sm leading-relaxed text-destructive">{error}</p>

@@ -162,7 +162,9 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
             <div className="w-full">
               {error && (
                 <Alert variant="destructive" className="border-0 bg-destructive/10 p-4 mb-4">
-                  <AlertDescription className="text-sm leading-relaxed text-destructive opacity-100">{error}</AlertDescription>
+                  <AlertDescription className="text-sm leading-relaxed text-destructive opacity-100">
+                    {error}
+                  </AlertDescription>
                 </Alert>
               )}
 

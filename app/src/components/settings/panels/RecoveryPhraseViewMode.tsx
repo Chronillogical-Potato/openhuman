@@ -9,14 +9,14 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { revealRecoveryPhrase, type WalletStatus } from '../../../services/walletApi';
 import { Alert } from '../../ui/Alert';
 import Button from '../../ui/Button';
-import { CheckIcon, Spinner } from '../../ui/icons';
-import RevealRecoveryModal from './wallet/RevealRecoveryModal';
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import { CheckIcon, Spinner } from '../../ui/icons';
+import RevealRecoveryModal from './wallet/RevealRecoveryModal';
 
 const CHAIN_ICONS: Record<string, string> = {
   evm: evmIcon,
@@ -209,12 +209,8 @@ const RecoveryPhraseViewMode = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64" align="center">
-            <DropdownMenuItem onClick={onGenerateClick}>
-              Create a New Wallet
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onImportClick}>
-              Import an Existing Wallet
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onGenerateClick}>Create a New Wallet</DropdownMenuItem>
+            <DropdownMenuItem onClick={onImportClick}>Import an Existing Wallet</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenuRoot>
       </div>
