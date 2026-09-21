@@ -102,7 +102,9 @@ export function AgentInsightsSlot({
             <span className="text-[13px] font-medium text-content-muted">
               {t('conversations.agentTaskInsights.title')}
             </span>
-            <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">→</span>
+            <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+              →
+            </span>
           </button>
           <div className="px-1">
             <ProcessingTranscriptView transcript={transcript} entries={entries} live />
