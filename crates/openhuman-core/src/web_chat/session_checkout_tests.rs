@@ -186,10 +186,18 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     assert!(
         !checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config)).await
     );
-    let CheckedOutSession { agent, .. } =
-        checkout_session_agent(&config, "client-1", &thread_id, None, None, None, false, "")
-            .await
-            .unwrap();
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+        "",
+    )
+    .await
+    .unwrap();
     assert_eq!(prose(&agent.history()), vec!["user-turn-history", "ok"]);
 
     // Into a vacant slot it goes in.
@@ -197,10 +205,18 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
     assert!(
         checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config)).await
     );
-    let CheckedOutSession { agent, .. } =
-        checkout_session_agent(&config, "client-1", &thread_id, None, None, None, false, "")
-            .await
-            .unwrap();
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+        "",
+    )
+    .await
+    .unwrap();
     assert_eq!(prose(&agent.history()), vec!["system-turn-history", "ok"]);
     evict(&thread_id).await;
 }
@@ -220,7 +236,14 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
     .await;
 
     let CheckedOutSession { agent, .. } = checkout_session_agent(
-        &config, "client-1", &thread_id, None, None, None, /* fork */ true, "",
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Fork,
+        "",
     )
     .await
     .unwrap();
@@ -231,5 +254,54 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
         .lock()
         .await
         .contains_key(&key_for(&thread_id)));
+    evict(&thread_id).await;
+}
+
+#[tokio::test]
+async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("adopt");
+    // The user's last turn pinned a temperature; a system turn has none and
+    // would miss an exact fingerprint match.
+    let pinned =
+        super::build_session_fingerprint(&config, None, Some(0.2), "orchestrator".into(), "chat");
+    checkin_session_agent(
+        &thread_id,
+        host_seeded_with(&config, "pinned-history"),
+        pinned.clone(),
+    )
+    .await;
+
+    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+        &config,
+        super::super::SYSTEM_CLIENT_ID,
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::AdoptCached,
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(prose(&agent.history()), vec!["pinned-history", "ok"]);
+    assert_eq!(fingerprint, pinned, "handed back under the user's settings");
+
+    // An exact user checkout with the same settings then still hits warm.
+    checkin_session_agent_if_vacant(&thread_id, agent, fingerprint).await;
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        Some(0.2),
+        None,
+        CheckoutPolicy::Exact,
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(prose(&agent.history()), vec!["pinned-history", "ok"]);
     evict(&thread_id).await;
 }
