@@ -62,21 +62,21 @@ impl SkillDelegationTool {
 }
 
 fn build_description(connected: &[(String, String)]) -> String {
+    // The slugs are already the `toolkit` enum; naming them again with their
+    // marketing blurb cost a line per connected service on every turn. One
+    // sentence of routing plus the slug list is what the model needs.
     let mut buf = String::from(
-        "Use only when direct response/direct tools are insufficient and the task truly \
-         requires external integration actions. Routes the work to the integrations_agent \
-         with the named toolkit pre-selected. Required argument `toolkit` must be one of \
-         the currently-connected slugs below; pass the user's task verbatim as `prompt`. \
-         Connected toolkits:",
+        "Act on a connected service (read or write its data) through the integrations \
+         agent, with `toolkit` set to one of the connected slugs and the user's task as \
+         `prompt`. Connected:",
     );
-    for (slug, desc) in connected {
-        buf.push_str("\n - ");
+    for (slug, _desc) in connected {
+        buf.push(' ');
         buf.push_str(slug);
-        let trimmed = desc.trim();
-        if !trimmed.is_empty() {
-            buf.push_str(": ");
-            buf.push_str(trimmed);
-        }
+        buf.push(',');
+    }
+    if buf.ends_with(',') {
+        buf.pop();
     }
     buf
 }
