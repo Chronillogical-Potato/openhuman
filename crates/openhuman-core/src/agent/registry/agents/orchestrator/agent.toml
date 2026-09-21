@@ -219,7 +219,6 @@ named = [
     # schemas. The hosted runtime also enforces this definition as its dispatch
     # allowlist, so the proxy must be declared here as well as injected there.
     "use_skill",
-    "read_workspace_state",
     "ask_user_clarification",
 # Direct coding surface. The Master Agent owns the normal inspect → edit →
 # verify loop in the action sandbox. `apply_patch` is the one edit mechanism
@@ -361,7 +360,6 @@ named = [
     # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE
     # the turn until the user approves / rejects / sends feedback — nothing
     # executes until they approve. Auto-approves on non-interactive turns.
-    "request_plan_review",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);
@@ -379,8 +377,6 @@ named = [
     # advance the task it's working: → in_progress when it starts, → done with
     # evidence when finished, or → blocked with a reason when stuck. Complements
     # `todowrite`, which only touches the current thread's board.
-    "update_task",
-    "plan_exit",
     # Workflow composition. `run_workflow` runs another workflow as a
     # subagent and (by default) waits on its result like a function call;
     # `await_workflow` re-attaches to a run that outlived its inline wait.
