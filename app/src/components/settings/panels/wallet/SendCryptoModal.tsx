@@ -14,9 +14,9 @@ import {
   type PreparedTransaction,
   prepareTransfer,
 } from '../../../../services/walletApi';
+import { CheckIcon, Spinner } from '../../../ui';
 import { Alert, AlertDescription } from '../../../ui/Alert';
 import Button from '../../../ui/Button';
-import { CheckIcon, Spinner } from '../../../ui';
 import { InputGroupAddon, InputGroupInput, InputGroupRoot } from '../../../ui/InputGroup';
 import Label from '../../../ui/Label';
 import TextField from '../../../ui/TextField';

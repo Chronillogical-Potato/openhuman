@@ -1,7 +1,11 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { balanceAssetName, balanceKey, formatDisplayBalance } from '../../../../features/wallet/walletDisplay';
+import {
+  balanceAssetName,
+  balanceKey,
+  formatDisplayBalance,
+} from '../../../../features/wallet/walletDisplay';
 import { type EvmNetwork, type WalletChain } from '../../../../services/walletApi';
 import { type RootState } from '../../../../store';
 import { toggleTokenHidden } from '../../../../store/walletPreferencesSlice';

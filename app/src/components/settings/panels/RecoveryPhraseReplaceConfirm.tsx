@@ -1,7 +1,7 @@
 import { useT } from '../../../lib/i18n/I18nContext';
+import { WarningIcon } from '../../ui';
 import { Alert } from '../../ui/Alert';
 import Button from '../../ui/Button';
-import { WarningIcon } from '../../ui';
 
 export interface RecoveryPhraseReplaceConfirmProps {
   onConfirm: () => void;

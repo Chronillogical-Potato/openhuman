@@ -67,13 +67,7 @@ export const NETWORK_MODAL_ICONS: Record<string, string> = {
   tron: networkTronIcon,
 };
 
-export function ChainIcon({
-  chain,
-  evmNetwork,
-}: {
-  chain: WalletChain;
-  evmNetwork?: EvmNetwork;
-}) {
+export function ChainIcon({ chain, evmNetwork }: { chain: WalletChain; evmNetwork?: EvmNetwork }) {
   const key = evmNetwork || chain;
   const src = CHAIN_ICONS[key];
   if (!src) return null;
@@ -474,7 +468,11 @@ const WalletBalancesPanel = () => {
   const selectedNetworkLabel =
     NETWORK_FILTERS.find(f => f.id === selectedNetwork)?.label ?? 'All networks';
 
-  const filterRows = <T extends { chain: WalletChain; evmNetwork?: EvmNetwork; assetSymbol: string }>(rows: T[]) => {
+  const filterRows = <
+    T extends { chain: WalletChain; evmNetwork?: EvmNetwork; assetSymbol: string },
+  >(
+    rows: T[]
+  ) => {
     return rows.filter(row => {
       const networkId = row.chain === 'evm' ? row.evmNetwork : row.chain;
       const bKey = balanceKey(row);
@@ -632,7 +630,7 @@ const WalletBalancesPanel = () => {
 
     if (balances && balances.length > 0) {
       const visibleRows = filterRows(balances);
-      
+
       if (visibleRows.length === 0) {
         return (
           <div className="px-4 py-8 text-center">

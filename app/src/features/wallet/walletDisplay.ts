@@ -90,7 +90,7 @@ export function balanceAssetName(assetSymbol: string): string {
 export function toSmallestUnit(human: string | number, decimals: number): string {
   let humanStr = String(human).trim();
   if (humanStr === '' || humanStr === '.') throw new Error('invalid_amount');
-  
+
   // Convert scientific notation to plain decimal string to avoid BigInt parsing errors
   if (humanStr.includes('e') || humanStr.includes('E')) {
     const num = Number(humanStr);
@@ -120,7 +120,7 @@ export function toSmallestUnit(human: string | number, decimals: number): string
   if (frac.length > decimals) {
     throw new Error('too_many_decimals');
   }
-  
+
   try {
     const wholeBig = BigInt(whole || '0');
     const multiplier = 10n ** BigInt(decimals);
@@ -143,7 +143,10 @@ export function toSmallestUnit(human: string | number, decimals: number): string
 export function fromSmallestUnit(raw: string | number | bigint, decimals: number): string {
   let value: bigint;
   try {
-    if (typeof raw === 'number' || (typeof raw === 'string' && raw.toString().toLowerCase().includes('e'))) {
+    if (
+      typeof raw === 'number' ||
+      (typeof raw === 'string' && raw.toString().toLowerCase().includes('e'))
+    ) {
       value = BigInt(Math.floor(Number(raw)));
     } else {
       value = BigInt(raw);
@@ -151,15 +154,15 @@ export function fromSmallestUnit(raw: string | number | bigint, decimals: number
   } catch {
     return String(raw);
   }
-  
+
   if (decimals === 0) return value.toString();
-  
+
   const divisor = 10n ** BigInt(decimals);
   const whole = value / divisor;
   const frac = value % divisor;
-  
+
   if (frac === 0n) return whole.toString();
-  
+
   const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
   return `${whole.toString()}.${fracStr}`;
 }
@@ -186,11 +189,11 @@ export function formatDisplayBalance(formatted: string | number): string {
   if (normalized.startsWith('0.') && normalized !== '0.0') {
     const fracPart = normalized.split('.')[1] || '';
     if (fracPart.length >= 8 && /^0{7,}/.test(fracPart)) {
-       // if it's less than 0.00000001
-       const num = Number(normalized);
-       if (num > 0 && num < 0.00000001) {
-         return '<0.00000001';
-       }
+      // if it's less than 0.00000001
+      const num = Number(normalized);
+      if (num > 0 && num < 0.00000001) {
+        return '<0.00000001';
+      }
     }
   }
 
