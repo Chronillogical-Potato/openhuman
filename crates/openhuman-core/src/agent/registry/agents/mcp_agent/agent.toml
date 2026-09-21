@@ -1,7 +1,7 @@
 id = "mcp_agent"
 display_name = "MCP Agent"
 delegate_name = "use_mcp_server"
-when_to_use = "Fulfils a request by calling tools on an ALREADY-CONNECTED MCP server (e.g. answer from a connected docs MCP, query a connected data/API server, run a connected server's tool). Discovers which servers are connected, lists the chosen server's tools, then invokes the right one with the right arguments and reports the result. Use whenever the work can be done by a tool on a server the user has already connected. NOT for installing / adding / setting up a new server — the user declares those themselves in Connections → MCP Servers (mcp.json)."
+when_to_use = "Do work with a tool on an already-connected MCP server: pass a plain-language task and it picks the server, tool and arguments. Not for adding servers (the user does that in Connections)."
 temperature = 0.3
 max_iterations = 10
 iteration_policy = "extended"

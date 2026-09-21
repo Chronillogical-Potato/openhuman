@@ -1,7 +1,7 @@
 id = "agent_memory"
 display_name = "Memory Agent"
 delegate_name = "retrieve_memory"
-when_to_use = "Deep memory-retrieval specialist: walks the memory tree with vector, keyword and entity search. Use when the user asks to find, recall or look something up from their memory, conversations or documents."
+when_to_use = "Deep recall over the memory tree (vector, keyword, entity) when `memory_recall` is not enough: multi-hop questions over past conversations and documents."
 temperature = 0.2
 # Bounded backstop for fail-fast retrieval (#4655): a legitimate answer needs
 # only a few calls (walk → optional drill_down/fetch_leaves → answer). A large

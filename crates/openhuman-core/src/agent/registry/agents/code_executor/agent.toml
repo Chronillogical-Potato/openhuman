@@ -1,7 +1,7 @@
 id = "code_executor"
 display_name = "Code Executor"
 delegate_name = "run_code"
-when_to_use = "Code-repo worker owning a repo-scoped task end to end: locate, read, edit, build, test, and drive local `git`. Route ANY repo-scoped work here — investigating a bug or finding where to edit counts, not just writing code — and keep the whole flow in one call so it accumulates context."
+when_to_use = "Independent coding worker with its own context: parallel or long-running repo work (locate, edit, build, test, local git). Routine edits stay with you."
 temperature = 0.4
 max_iterations = 10
 iteration_policy = "extended"
