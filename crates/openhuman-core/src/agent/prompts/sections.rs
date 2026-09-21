@@ -391,7 +391,10 @@ impl PromptSection for ToolsSection {
                 }
             })
             .collect();
-        let mut out = render_pformat_catalogue(&visible);
+        let mut out = match ctx.tool_call_format.code_style() {
+            Some(style) => tinytools_agent::render::render_code_catalogue(&visible, style),
+            None => render_pformat_catalogue(&visible),
+        };
         if !ctx.dispatcher_instructions.is_empty() {
             out.push('\n');
             out.push_str(ctx.dispatcher_instructions);

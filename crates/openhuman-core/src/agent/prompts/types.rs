@@ -293,6 +293,21 @@ pub enum ToolCallFormat {
     /// Provider supplies structured tool calls — catalogue is
     /// informational. Renders in the same JSON-schema form as `Json`.
     Native,
+    /// Python `def` signatures; the model calls `name(arg="value")`.
+    Python,
+    /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
+    TypeScript,
+}
+
+impl ToolCallFormat {
+    /// The code style behind a code-call format, `None` for the others.
+    pub(crate) fn code_style(self) -> Option<tinytools_agent::dialect::CodeStyle> {
+        match self {
+            ToolCallFormat::Python => Some(tinytools_agent::dialect::CodeStyle::Python),
+            ToolCallFormat::TypeScript => Some(tinytools_agent::dialect::CodeStyle::TypeScript),
+            ToolCallFormat::PFormat | ToolCallFormat::Json | ToolCallFormat::Native => None,
+        }
+    }
 }
 
 /// Map the canonical dialect's catalogue spelling onto the host prompt wire
@@ -304,6 +319,8 @@ pub(crate) fn tool_call_format_from_dialect(
         tinytools_agent::dialect::ToolCallFormat::PFormat => ToolCallFormat::PFormat,
         tinytools_agent::dialect::ToolCallFormat::Json => ToolCallFormat::Json,
         tinytools_agent::dialect::ToolCallFormat::Native => ToolCallFormat::Native,
+        tinytools_agent::dialect::ToolCallFormat::Python => ToolCallFormat::Python,
+        tinytools_agent::dialect::ToolCallFormat::TypeScript => ToolCallFormat::TypeScript,
     }
 }
 
