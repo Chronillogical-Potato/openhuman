@@ -13,6 +13,7 @@ export interface RecoveryPhraseGenerateModeProps {
   onCopy: () => void;
   confirmed: boolean;
   onConfirmedChange: (next: boolean) => void;
+  onSwitchToImport: () => void;
 }
 
 // Generate-mode body: the newly generated word grid (blurred until revealed),
@@ -25,6 +26,7 @@ const RecoveryPhraseGenerateMode = ({
   onCopy,
   confirmed,
   onConfirmedChange,
+  onSwitchToImport,
 }: RecoveryPhraseGenerateModeProps) => {
   const { t } = useT();
 
@@ -108,6 +110,10 @@ const RecoveryPhraseGenerateMode = ({
           {t('mnemonic.consentSaved')}
         </span>
       </label>
+
+      <Button type="button" variant="tertiary" onClick={onSwitchToImport} className="w-full mb-3">
+        {t('mnemonic.alreadyHavePhrase')}
+      </Button>
     </>
   );
 };

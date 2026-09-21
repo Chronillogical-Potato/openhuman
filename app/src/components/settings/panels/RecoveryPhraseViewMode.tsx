@@ -79,10 +79,14 @@ const RecoveryPhraseViewMode = ({
     }
   }, [isModalOpen, mnemonic, resetInactivityTimer]);
 
-  const handleCopy = (chain: string, address: string) => {
-    navigator.clipboard.writeText(address).catch(() => {});
-    setCopiedChain(chain);
-    setTimeout(() => setCopiedChain(null), 2000);
+  const handleCopy = async (chain: string, address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedChain(chain);
+      setTimeout(() => setCopiedChain(null), 2000);
+    } catch {
+      // ignore
+    }
   };
 
   // Fetch seed phrase on reveal
@@ -238,7 +242,7 @@ const RecoveryPhraseViewMode = ({
               size="md"
               className="w-full bg-surface dark:bg-white/5 border border-line hover:bg-surface-hover dark:hover:bg-white/10 group transition-all duration-200">
               <span className="text-content-secondary group-hover:text-content font-semibold transition-colors flex items-center justify-center gap-2">
-                Replace Wallet
+                {t('mnemonic.replaceWallet')}
                 <LuChevronDown className="w-4 h-4" />
               </span>
             </Button>

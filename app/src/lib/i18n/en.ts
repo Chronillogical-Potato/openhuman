@@ -6512,7 +6512,13 @@ const en: TranslationMap = {
   'walletReceive.onlyChainWarning':
     'Only send {network} assets to this address. Sending assets from another network may result in permanent loss.',
   // Send modal
+  'walletSend.title': 'Send',
+  'walletSend.to': 'To',
+  'walletSend.addressPlaceholder': 'Enter or paste an address',
+  'walletSend.max': 'Max',
   'walletSend.available': 'Available',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} available',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.recipient': 'Recipient address',
   'walletSend.recipientPlaceholder': 'Paste the destination address',
   'walletSend.recipientRequired': 'Enter a recipient address',

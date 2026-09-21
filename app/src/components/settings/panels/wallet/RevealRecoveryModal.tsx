@@ -16,19 +16,28 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
 
   // Clear sensitive data on unmount/close
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     if (!open) {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         setRevealed(false);
       }, 300); // delay cleanup slightly for exit animation
     }
+    return () => clearTimeout(timer);
   }, [open]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (copied) {
+      timer = setTimeout(() => setCopied(false), 3000);
+    }
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   const handleCopy = useCallback(async () => {
     if (!mnemonic) return;
     try {
       await navigator.clipboard.writeText(mnemonic);
       setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
     } catch {
       const textarea = document.createElement('textarea');
       textarea.value = mnemonic;
@@ -38,10 +47,7 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
       textarea.select();
       const ok = document.execCommand('copy');
       document.body.removeChild(textarea);
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 3000);
-      }
+      if (ok) setCopied(true);
     }
   }, [mnemonic]);
 
@@ -87,7 +93,8 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
               <div className="relative bg-surface-muted rounded-2xl p-2 border border-line overflow-hidden">
                 <div
                   className={`grid grid-cols-3 gap-2 transition-all duration-300 ${!revealed ? 'blur-[8px] pointer-events-none select-none opacity-40 scale-[0.98]' : ''}`}
-                  onClick={() => revealed && setRevealed(false)}>
+                  onClick={() => revealed && setRevealed(false)}
+                  aria-hidden={!revealed}>
                   {words.map((word, index) => (
                     <div
                       key={index}

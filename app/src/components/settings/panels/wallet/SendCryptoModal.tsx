@@ -16,7 +16,7 @@ import {
 } from '../../../../services/walletApi';
 import { Alert, AlertDescription } from '../../../ui/Alert';
 import Button from '../../../ui/Button';
-import { CheckIcon, Spinner } from '../../../ui/icons';
+import { CheckIcon, Spinner } from '../../../ui';
 import { InputGroupAddon, InputGroupInput, InputGroupRoot } from '../../../ui/InputGroup';
 import Label from '../../../ui/Label';
 import TextField from '../../../ui/TextField';
@@ -134,7 +134,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
           <div className="flex items-center justify-between border-b border-line-subtle px-4 py-4">
             <div className="w-8" />
             <DialogPrimitive.Title className="text-sm font-semibold text-content m-0 p-0">
-              Send
+              {t('walletSend.title')}
             </DialogPrimitive.Title>
             <button
               onClick={onClose}
@@ -174,7 +174,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                     <Label
                       htmlFor="send-recipient-input"
                       className="text-content-muted font-normal ml-1">
-                      To
+                      {t('walletSend.to')}
                     </Label>
                     <TextField
                       id="send-recipient-input"
@@ -192,17 +192,19 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between ml-1 mb-0.5">
                       <Label htmlFor="send-amount-input" className="text-content-muted font-normal">
-                        Amount
+                        {t('walletSend.amount')}
                       </Label>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-content-muted">
-                          {formatDisplayBalance(balance.formatted)} {balance.assetSymbol} available
+                          {t('walletSend.availableBalance')
+                            .replace('{{amount}}', formatDisplayBalance(balance.formatted))
+                            .replace('{{symbol}}', balance.assetSymbol)}
                         </span>
                         <button
                           type="button"
                           onClick={() => setAmount(balance.formatted)}
                           className="text-primary-500 font-medium hover:text-primary-600 transition-colors">
-                          Max
+                          {t('walletSend.max')}
                         </button>
                       </div>
                     </div>

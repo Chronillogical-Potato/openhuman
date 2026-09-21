@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { balanceAssetName, formatDisplayBalance } from '../../../../features/wallet/walletDisplay';
+import { balanceAssetName, balanceKey, formatDisplayBalance } from '../../../../features/wallet/walletDisplay';
 import { type EvmNetwork, type WalletChain } from '../../../../services/walletApi';
 import { type RootState } from '../../../../store';
 import { toggleTokenHidden } from '../../../../store/walletPreferencesSlice';
@@ -24,10 +24,6 @@ export default function ManageTokensModal({ open, onClose, tokens }: ManageToken
   const hiddenTokenKeys = useSelector(
     (state: RootState) => state.walletPreferences?.hiddenTokenKeys || []
   );
-
-  const getTokenKey = (chain: WalletChain, evmNetwork?: EvmNetwork) => {
-    return chain === 'evm' ? evmNetwork! : chain;
-  };
 
   return (
     <DialogPrimitive.Root
@@ -62,7 +58,7 @@ export default function ManageTokensModal({ open, onClose, tokens }: ManageToken
 
           <div className="flex flex-col py-2 max-h-[60vh] overflow-y-auto">
             {tokens.map(token => {
-              const key = getTokenKey(token.chain, token.evmNetwork);
+              const key = balanceKey(token);
               const isHidden = hiddenTokenKeys.includes(key);
               const isVisible = !isHidden;
               const assetName = balanceAssetName(token.assetSymbol);

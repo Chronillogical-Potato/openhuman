@@ -67,18 +67,18 @@ export const NETWORK_MODAL_ICONS: Record<string, string> = {
   tron: networkTronIcon,
 };
 
-export const ChainIcon = ({
+export function ChainIcon({
   chain,
   evmNetwork,
 }: {
   chain: WalletChain;
   evmNetwork?: EvmNetwork;
-}) => {
+}) {
   const key = evmNetwork || chain;
   const src = CHAIN_ICONS[key];
   if (!src) return null;
   return <img src={src} alt="" aria-hidden className="w-10 h-10 shrink-0 object-contain" />;
-};
+}
 
 export const TOKEN_ICONS: Record<string, string> = {
   ETH: tokenEthIcon,
@@ -474,12 +474,13 @@ const WalletBalancesPanel = () => {
   const selectedNetworkLabel =
     NETWORK_FILTERS.find(f => f.id === selectedNetwork)?.label ?? 'All networks';
 
-  const filterRows = <T extends { chain: WalletChain; evmNetwork?: EvmNetwork }>(rows: T[]) => {
+  const filterRows = <T extends { chain: WalletChain; evmNetwork?: EvmNetwork; assetSymbol: string }>(rows: T[]) => {
     return rows.filter(row => {
-      const rowId = row.chain === 'evm' ? row.evmNetwork : row.chain;
-      if (rowId && hiddenTokenKeys.includes(rowId)) return false;
+      const networkId = row.chain === 'evm' ? row.evmNetwork : row.chain;
+      const bKey = balanceKey(row);
+      if (hiddenTokenKeys.includes(bKey)) return false;
       if (selectedNetwork === 'all') return true;
-      return rowId === selectedNetwork;
+      return networkId === selectedNetwork;
     });
   };
 
@@ -630,6 +631,16 @@ const WalletBalancesPanel = () => {
     }
 
     if (balances && balances.length > 0) {
+      const visibleRows = filterRows(balances);
+      
+      if (visibleRows.length === 0) {
+        return (
+          <div className="px-4 py-8 text-center">
+            <SettingsEmptyState label="No balances match your filters" />
+          </div>
+        );
+      }
+
       return (
         <Table containerClassName="w-full bg-transparent border border-line rounded-[24px] overflow-hidden">
           <TableHeader>
@@ -648,7 +659,7 @@ const WalletBalancesPanel = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filterRows(balances).map(balance => (
+            {visibleRows.map(balance => (
               <BalanceRow
                 key={balanceKey(balance)}
                 balance={balance}
