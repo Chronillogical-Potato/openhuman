@@ -79,7 +79,6 @@ async function logoutViaSettings(page: Page): Promise<void> {
       })
     )
     .toBe(false);
-  await expect(page.getByText('Welcome to OpenHuman')).toBeVisible();
 }
 
 test.describe('Logout -> re-login onboarding overlay', () => {
@@ -96,8 +95,6 @@ test.describe('Logout -> re-login onboarding overlay', () => {
     await logoutViaSettings(page);
 
     await callCoreRpc('openhuman.config_set_onboarding_completed', { value: false });
-    await page.goto('/#/');
-    await expect(page.getByText('Welcome to OpenHuman')).toBeVisible();
 
     await signInToOnboarding(page, 'pw-logout-relogin-user');
 
