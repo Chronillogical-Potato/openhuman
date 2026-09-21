@@ -96,7 +96,8 @@ async function getRewardsMetricValue(label: string): Promise<string | null> {
   }, label);
 }
 
-describe('Rewards progression & persistence', () => {
+// TODO(#6399): Rewards was retired; remove or replace this desktop suite.
+describe.skip('Rewards progression & persistence', () => {
   before(async function beforeSuite() {
     // resetApp bring-up can run ~25-30s and race the default 30s Mocha hook
     // budget; raise it.
