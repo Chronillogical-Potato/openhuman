@@ -457,14 +457,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 875,
+    "line": 874,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 1348,
+    "line": 1347,
     "text": "request_id: crate::agent::turn_origin::current_request_id(),",
     "occurrence": 1
   },
