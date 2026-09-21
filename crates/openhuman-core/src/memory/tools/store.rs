@@ -107,7 +107,9 @@ impl Tool for MemoryStoreTool {
     }
 
     fn description(&self) -> &str {
-        "Remember a fact, event, plan, or note the user asks you to keep — e.g. \"next scrum meeting on 10 September\". Call it BEFORE you confirm, whenever the user says remember, note, or keep in mind. NOT for preferences — those go to `save_preference`, which writes the store the assistant actually reads. `namespace` and `key` are optional: the default namespace is the assistant's own memory and the key is derived from the content. Check `memory_recall` for a near-duplicate first, and call `update_memory_md` afterwards, when you have those tools."
+        "Remember a fact, event, plan or note the user asks you to keep. Call it before you \
+         confirm. Not for preferences (those go through the profile skill). Check \
+         `memory_recall` for a near-duplicate first."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
