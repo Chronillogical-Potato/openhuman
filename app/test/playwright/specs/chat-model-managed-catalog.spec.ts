@@ -204,6 +204,25 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     ).toHaveAttribute('aria-selected', 'true', { timeout: 20_000 });
   });
 
+  test('a composer pick is the global default and survives a fresh page', async ({ page }) => {
+    // The picker writes `default_model` through the core, so a brand-new page
+    // (new composer state, same core) still resolves and shows the pinned
+    // model — the pick is not a per-session override.
+    await openChat(page);
+    await openManagedPane(page);
+    await expect(managedOption(page, PLAIN_ID)).toBeVisible({ timeout: 20_000 });
+    await managedOption(page, PLAIN_ID).click();
+    await page.getByRole('button', { name: 'Use this model' }).click();
+    await expect(pickerTitle(page)).toHaveCount(0);
+    await expect(modelChip(page)).toHaveText(/nex-n2\.5-mini/, { timeout: 10_000 });
+
+    await openChat(page);
+    await expect(
+      modelChip(page),
+      'the pinned model must come back from the core, not from composer state'
+    ).toHaveText(/nex-n2\.5-mini/, { timeout: 20_000 });
+  });
+
   test('a :free variant keeps its full name on the chip', async ({ page }) => {
     await openChat(page);
     await openManagedPane(page);
