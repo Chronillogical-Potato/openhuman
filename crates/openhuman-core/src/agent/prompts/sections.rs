@@ -660,9 +660,9 @@ impl PromptSection for DateTimeSection {
         // learned "good morning" regardless of the actual hour (#3602).
         let mut out = String::from(
             "## Current Date & Time\n\nThe `Current Date & Time:` line on the latest message \
-             (local time, zone, weekday) is authoritative. Read it before any time-relative \
-             wording such as a greeting or \"today\"; never assume it is morning, and never \
-             call a tool just to know the time.",
+             (local time, zone, weekday) is authoritative. Before a greeting like \"good \
+             morning\" or a word like \"today\", read it and match the actual local hour; \
+             never assume it is morning, and never call a tool just to know the time.",
         );
         // Tool-argument discipline, gated on the agent actually having the
         // `resolve_time` tool. LLMs are unreliable at epoch arithmetic — a
