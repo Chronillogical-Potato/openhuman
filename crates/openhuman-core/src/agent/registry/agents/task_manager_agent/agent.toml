@@ -26,7 +26,7 @@ named = [
     "todo_remove",
     "todo_replace",
     "todo_clear",
-    "todowrite",
+    "todo",
     "update_task",
     "task_source_list",
     "task_source_get",

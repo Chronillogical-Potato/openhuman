@@ -50,13 +50,13 @@ named = [
     # Read-only nav primitives from #1208. `edit`, `apply_patch`, `lsp`
     # are intentionally NOT included — sandbox_mode = "read_only" above
     # forbids workspace mutations, and downstream agents do the writing.
-    # `todowrite` + `plan_exit` let the planner emit a structured
-    # todo list and a stable [plan_exit] marker for the orchestrator.
+    # `todo` lets the planner emit a structured todo list. (`todowrite` was
+    # a legacy alias that resolved to no registered tool, and `plan_exit`'s
+    # marker had no consumer, so both left.)
     "grep",
     "glob",
     "list",
-    "todowrite",
-    "plan_exit",
+    "todo",
     "web_fetch",
     "web_search_tool",
     # Grounded research + market-data lookups so plans can be anchored in
