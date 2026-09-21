@@ -194,9 +194,21 @@ impl OpenHumanTurnPrelude {
         };
         let prefix = if cold {
             let learned = self.fetch_learned_context().await;
-            Some(PrefixSnapshot::new(vec![Message::system(
-                self.build_system_prompt(learned)?,
-            )]))
+            // One system message per cache tier (stable+context, then
+            // volatile): the harness gives each its own cacheable segment, so
+            // a rewritten memory file or a newly connected service changes the
+            // second segment and leaves the first byte-identical for the
+            // provider's prefix cache.
+            let tiered = self.build_system_prompt_tiered(learned)?;
+            let messages = tiered.system_messages();
+            tracing::debug!(
+                segments = messages.len(),
+                bytes = ?messages.iter().map(String::len).collect::<Vec<_>>(),
+                "[session] frozen system prompt as tiered segments"
+            );
+            Some(PrefixSnapshot::new(
+                messages.into_iter().map(Message::system).collect(),
+            ))
         } else {
             None
         };
@@ -319,10 +331,18 @@ impl OpenHumanTurnPrelude {
         }
     }
 
+    #[cfg(test)]
     fn build_system_prompt(
         &self,
         learned: crate::agent::prompts::LearnedContextData,
     ) -> Result<String> {
+        Ok(self.build_system_prompt_tiered(learned)?.text)
+    }
+
+    fn build_system_prompt_tiered(
+        &self,
+        learned: crate::agent::prompts::LearnedContextData,
+    ) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -376,7 +396,7 @@ impl OpenHumanTurnPrelude {
         self.context
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .build_system_prompt(&context)
+            .build_system_prompt_tiered(&context)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -1551,12 +1571,17 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
+                    // The frozen prefix is every leading system message, not
+                    // only the first: the prompt is sent as one message per
+                    // cache tier (see `prepare`).
                     let resumed_prefix = view.resumed.then(|| {
-                        view.history
-                            .first()
-                            .filter(|message| matches!(message, Message::System(_)))
+                        let leading: Vec<Message> = view
+                            .history
+                            .iter()
+                            .take_while(|message| matches!(message, Message::System(_)))
                             .cloned()
-                            .map(|message| PrefixSnapshot::new(vec![message]))
+                            .collect();
+                        (!leading.is_empty()).then(|| PrefixSnapshot::new(leading))
                     });
                     Box::pin(async move {
                         let transcript_snapshot =
