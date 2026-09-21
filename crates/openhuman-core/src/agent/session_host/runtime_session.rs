@@ -23,6 +23,10 @@ use crate::agent::{
     tinyagents::{host::OpenHumanRunContext, TurnContextMiddleware},
 };
 
+use super::announcement_notes::{
+    integration_announcement_note, mcp_announcement_note, skill_announcement_note,
+    skill_retraction_note,
+};
 use super::types::OpenHumanSessionHost;
 
 /// Mutable product state observed by the runtime hooks.
