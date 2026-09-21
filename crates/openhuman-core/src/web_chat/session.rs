@@ -168,6 +168,10 @@ pub(crate) async fn checkout_session_agent(
     temperature: Option<f64>,
     locale: Option<&str>,
     fork: bool,
+    // The message this turn is about to send, so a cold-boot seed from the
+    // conversation log can drop it when the client already stored it. Empty for
+    // a host-authored turn, whose notice is never in the store.
+    current_user_message: &str,
 ) -> Result<CheckedOutSession, String> {
     let map_key = super::ops::key_for(thread_id);
     let target_agent_id = pick_target_agent_id(config);
@@ -246,13 +250,18 @@ pub(crate) async fn checkout_session_agent(
     // sources overlap (user prompts + final assistant text), so we take one
     // or the other, never both, to avoid duplicated context.
     if was_built_fresh {
-        seed_cold_session(&mut agent, config, thread_id).await;
+        seed_cold_session(&mut agent, config, thread_id, current_user_message).await;
     }
 
     Ok(CheckedOutSession { agent, fingerprint })
 }
 
-async fn seed_cold_session(agent: &mut OpenHumanSessionHost, config: &Config, thread_id: &str) {
+async fn seed_cold_session(
+    agent: &mut OpenHumanSessionHost,
+    config: &Config,
+    thread_id: &str,
+    current_user_message: &str,
+) {
     if agent.seed_resume_from_thread_transcript(thread_id) {
         log::info!(
             "[web-channel] cold-boot resumed thread={} from full-fidelity session transcript",
@@ -279,10 +288,7 @@ async fn seed_cold_session(agent: &mut OpenHumanSessionHost, config: &Config, th
                 .into_iter()
                 .map(|m| (m.sender, m.content))
                 .collect();
-            // The seed pops a trailing user row equal to the current message;
-            // a host-authored turn has no such row, and a user turn's own text
-            // is not in the store yet at this point either.
-            if let Err(err) = agent.seed_resume_from_messages(pairs, "") {
+            if let Err(err) = agent.seed_resume_from_messages(pairs, current_user_message) {
                 log::warn!(
                     "[web-channel] failed to seed agent resume from conversation log \
                      thread={} err={}",
