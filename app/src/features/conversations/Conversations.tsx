@@ -482,9 +482,7 @@ const Conversations = ({
       params: { default_model: value ?? '' },
     })
       .then(() => {
-        console.debug('[chat][composer-model] persisted default_model', {
-          pinned: value !== null,
-        });
+        console.debug('[chat][composer-model] persisted default_model', { pinned: value !== null });
       })
       .catch((err: unknown) => {
         // The in-session override still applies; only persistence failed.
