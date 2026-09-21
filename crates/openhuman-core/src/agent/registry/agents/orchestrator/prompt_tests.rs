@@ -62,18 +62,19 @@ fn prompt_routes_result_gating_tasks_to_synchronous_delegation() {
     // finalized before the critique ran. The orchestrator prompt must
     // explicitly route result-gating work to a synchronous/awaited path.
     assert!(
-        ARCHETYPE.contains("Result-gating work runs synchronously"),
+        ARCHETYPE.contains("A result that must gate this reply goes through a `delegate_*` specialist with `blocking: true`"),
         "orchestrator prompt must carry the result-gating delegation rule"
     );
-    // It must steer such tasks to a primitive that returns inside the
-    // turn rather than to a fire-and-forget spawn. The awaited primitives
-    // it used to name (`spawn_parallel_agents` / `wait_subagent`) were
-    // retired in #5701; the two that remain are a blocking `delegate_*`
-    // specialist and `spawn_async_subagent` with `blocking: true`.
-    assert!(
-        ARCHETYPE.contains("`delegate_*`") && ARCHETYPE.contains("blocking: true"),
-        "the rule must name the alternatives that return within the turn"
-    );
+    // The only primitive that returns inside the turn is a blocking
+    // `delegate_*` specialist. `spawn_async_subagent` has no `blocking`
+    // parameter, and the prompt used to claim it did; make sure that claim
+    // never comes back.
+    for line in ARCHETYPE.lines() {
+        assert!(
+            !(line.contains("spawn_async_subagent") && line.contains("blocking: true")),
+            "spawn_async_subagent has no `blocking` argument: {line}"
+        );
+    }
 }
 
 #[test]
@@ -275,12 +276,11 @@ fn build_includes_datetime() {
 #[test]
 fn build_includes_direct_first_decision_tree() {
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(body.contains("## Delegation (direct-first)"));
-    assert!(body.contains(
-        "Default: **answer directly, or use a direct tool. Spawn a sub-agent only when the work needs a specialist.**"
-    ));
-    // Step 2 of the decision tree now explicitly routes live external-service
-    // requests to `delegate_to_integrations_agent` rather than `memory_tree`.
+    assert!(body.contains("## How you work"));
+    assert!(body.contains("Take the first branch that applies:"));
+    assert!(body.contains("**Answerable without tools**: reply."));
+    // Step 2 of the decision tree routes live external-service requests to
+    // `delegate_to_integrations_agent` rather than memory.
     assert!(body.contains("Needs a connected service's own data or actions"));
     assert!(body.contains("Use the live service even when memory could plausibly answer"));
 }
@@ -291,7 +291,8 @@ fn build_routes_live_facts_to_research_tool() {
     assert!(body.contains("via `research`"));
     assert!(body.contains("weather, forecasts, prices, recent news"));
     assert!(body.contains("\"use live data\""));
-    assert!(body.contains("Don't stop at \"on it\""));
+    // A lead-in line is welcome, but only in the same message as the call.
+    assert!(body.contains("Don't stop at a lead-in; make the tool call in the same message."));
     assert!(
         !body.contains("delegate_researcher"),
         "orchestrator prompt should name the synthesized researcher tool"
