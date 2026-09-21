@@ -493,7 +493,8 @@ fn every_pack_declares_the_tools_it_is_named_for() {
             &[
                 "composio",
                 "composio_authorize",
-                "composio_connect",
+                // `composio_connect` is the orchestrator's inline connect
+                // card and stays unpacked (see the registry note).
                 "composio_execute",
                 "composio_list_connections",
                 "composio_list_toolkits",
