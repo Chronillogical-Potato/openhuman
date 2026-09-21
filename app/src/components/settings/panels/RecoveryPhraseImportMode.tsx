@@ -88,6 +88,7 @@ const RecoveryPhraseImportMode = ({
               </span>
               <TextField
                 aria-label={`Recovery phrase word ${index + 1}`}
+                aria-invalid={importValid === false && word.trim().length > 0}
                 ref={el => {
                   inputRefs.current[index] = el;
                 }}

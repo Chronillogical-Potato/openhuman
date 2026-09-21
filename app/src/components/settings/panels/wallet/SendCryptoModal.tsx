@@ -243,7 +243,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                     <div className="flex items-center justify-between">
                       <dt className="text-content-muted">{t('walletSend.amount')}</dt>
                       <dd className="font-mono font-medium text-content">
-                        {formatDisplayBalance(prepared.amountFormatted)} {prepared.assetSymbol}
+                        {prepared.amountFormatted} {prepared.assetSymbol}
                       </dd>
                     </div>
                     <div className="flex items-center justify-between">
@@ -253,8 +253,7 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                     <div className="flex items-center justify-between">
                       <dt className="text-content-muted">{t('walletSend.estimatedFee')}</dt>
                       <dd className="font-mono text-content" data-testid="send-fee">
-                        {feeFormatted ? formatDisplayBalance(feeFormatted) : '0'}{' '}
-                        {balance.assetSymbol}
+                        {feeFormatted ? feeFormatted : '0'} {balance.assetSymbol}
                       </dd>
                     </div>
                   </dl>

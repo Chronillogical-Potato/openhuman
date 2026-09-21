@@ -415,6 +415,15 @@ const WalletBalancesPanel = () => {
   // longer matches the latest dispatched call.
   const latestRequestIdRef = useRef(0);
 
+  useEffect(() => {
+    setBalances(cachedBalances[userId] ?? null);
+    setWalletConfigured(cachedWalletConfigured[userId] ?? null);
+    setLoading(cachedBalances[userId] === undefined || cachedBalances[userId] === null);
+    setError(null);
+    setSendTarget(null);
+    setReceiveTarget(null);
+  }, [userId]);
+
   const loadBalances = useCallback(async () => {
     const requestId = ++latestRequestIdRef.current;
     if (!cachedBalances[userId]) {
@@ -456,7 +465,7 @@ const WalletBalancesPanel = () => {
         setIsRefreshing(false);
       }
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void loadBalances();

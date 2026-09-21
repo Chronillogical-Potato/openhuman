@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { persistLocalWalletFromMnemonic } from '../../../features/wallet/setupLocalWalletFromMnemonic';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -37,6 +38,7 @@ const RecoveryPhrasePanel = () => {
   const { navigateBack } = useSettingsNavigation();
   const { snapshot, setEncryptionKey } = useCoreState();
   const user = snapshot.currentUser;
+  const navigate = useNavigate();
 
   const [mode, setMode] = useState<PanelMode>('loading');
   const [replaceTarget, setReplaceTarget] = useState<'generate' | 'import'>('generate');
@@ -140,11 +142,23 @@ const RecoveryPhrasePanel = () => {
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => {
-        navigateBack();
+        if (walletStatus && !walletStatus.onboardingCompleted) {
+          navigate('/onboarding/wallet');
+        } else {
+          navigateBack();
+        }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [success, navigateBack]);
+  }, [success, navigateBack, navigate, walletStatus]);
+
+  const handleBack = useCallback(() => {
+    if (walletStatus && !walletStatus.onboardingCompleted) {
+      navigate('/onboarding/wallet');
+    } else {
+      navigateBack();
+    }
+  }, [walletStatus, navigate, navigateBack]);
 
   const handleCopy = useCallback(async () => {
     if (!mnemonic) return;
@@ -281,6 +295,7 @@ const RecoveryPhrasePanel = () => {
 
   return (
     <SettingsPanel
+      onBack={handleBack}
       description={t('pages.settings.account.recoveryPhraseDesc')}
       testId="recovery-phrase-panel">
       <div className="w-full max-w-2xl mx-auto py-8">
@@ -319,16 +334,8 @@ const RecoveryPhrasePanel = () => {
                   replaceTarget === 'generate' ? handleConfirmReplace : handleImportReplace
                 }
                 onCancel={() => setMode('view')}
-                confirmText={
-                  replaceTarget === 'generate'
-                    ? 'I understand, create new wallet'
-                    : 'I understand, import wallet'
-                }
-                warningText={
-                  replaceTarget === 'generate'
-                    ? 'Creating a new wallet will replace the wallet currently on this device. Store your recovery phrase securely before continuing.'
-                    : 'This will replace your current wallet with the wallet you import. Make sure you’ve backed up your recovery phrase before continuing.'
-                }
+                confirmText={t('mnemonic.replaceWalletConfirm')}
+                warningText={t('mnemonic.replaceWalletWarning')}
               />
             )}
 

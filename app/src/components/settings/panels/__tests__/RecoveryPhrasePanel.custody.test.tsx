@@ -152,8 +152,8 @@ function installExecCommand(ok: boolean) {
 /** Drive generate mode to the point where the phrase is revealed. */
 async function revealGenerateModePhrase() {
   renderWithProviders(<RecoveryPhrasePanel />);
-  await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
-  fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
+  await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+  fireEvent.click(screen.getByText(/Secret Recovery Phrase/i));
 }
 
 const generateCopyButton = () => screen.getByText(/Copy to Clipboard/i).closest('button')!;
@@ -219,7 +219,7 @@ describe('RecoveryPhrasePanel — clipboard fallback when the async API fails', 
   it('does not touch the clipboard at all before the phrase is revealed', async () => {
     const writeText = installWorkingClipboard();
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
 
     expect(generateCopyButton()).toBeDisabled();
     expect(writeText).not.toHaveBeenCalled();
@@ -238,8 +238,8 @@ describe('RecoveryPhrasePanel — view-mode copy', () => {
    */
   async function revealViewModePhrase() {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+    fireEvent.click(screen.getByText(/Secret Recovery Phrase/i));
     await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText('word1')).toBeInTheDocument());
   }
@@ -270,7 +270,7 @@ describe('RecoveryPhrasePanel — view-mode copy', () => {
   it('offers no copy affordance at all until the phrase has been fetched', async () => {
     const writeText = installWorkingClipboard();
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
 
     // The copy button lives inside the `viewMnemonic` block (ViewMode :109),
     // so with no phrase in state there is nothing to click.
@@ -283,8 +283,8 @@ describe('RecoveryPhrasePanel — view-mode copy', () => {
 describe('RecoveryPhrasePanel — pasting a whole phrase into the import grid', () => {
   async function enterImportMode() {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
     return screen.getAllByLabelText(/Recovery phrase word/i) as HTMLInputElement[];
   }
@@ -393,8 +393,8 @@ describe('RecoveryPhrasePanel — the Copied indicator resets itself', () => {
     installWorkingClipboard();
 
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+    fireEvent.click(screen.getByText(/Secret Recovery Phrase/i));
     fireEvent.click(generateCopyButton());
 
     await waitFor(() => expect(screen.getByText(/Copied/i)).toBeInTheDocument());

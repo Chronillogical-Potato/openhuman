@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LuCheck, LuChevronDown, LuCopy } from 'react-icons/lu';
 
 import btcIcon from '../../../assets/icons/chains/bitcoin.svg';
@@ -45,14 +45,49 @@ const RecoveryPhraseViewMode = ({
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealError, setRevealError] = useState<string | null>(null);
   const [copiedChain, setCopiedChain] = useState<string | null>(null);
+
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      setMnemonic(null);
+    };
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (isModalOpen && mnemonic) {
+      inactivityTimerRef.current = setTimeout(() => {
+        setIsModalOpen(false);
+        setMnemonic(null);
+      }, 60000);
+    }
+  }, [isModalOpen, mnemonic]);
+
+  useEffect(() => {
+    if (isModalOpen && mnemonic) {
+      resetInactivityTimer();
+      const events = ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+      events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+      return () => {
+        events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      };
+    }
+  }, [isModalOpen, mnemonic, resetInactivityTimer]);
+
   const handleCopy = (chain: string, address: string) => {
-    navigator.clipboard.writeText(address);
+    navigator.clipboard.writeText(address).catch(() => {});
     setCopiedChain(chain);
     setTimeout(() => setCopiedChain(null), 2000);
   };
 
   // Fetch seed phrase on reveal
   const handleRevealClick = async () => {
+    if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
     setIsRevealing(true);
     setRevealError(null);
     try {
@@ -220,7 +255,8 @@ const RecoveryPhraseViewMode = ({
           open={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
-            setTimeout(() => setMnemonic(null), 300);
+            if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+            cleanupTimerRef.current = setTimeout(() => setMnemonic(null), 300);
           }}
           mnemonic={mnemonic}
         />
