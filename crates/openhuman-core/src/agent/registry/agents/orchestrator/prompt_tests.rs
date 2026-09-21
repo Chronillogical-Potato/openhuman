@@ -332,15 +332,9 @@ fn build_emits_delegation_guide_with_collapsed_tool() {
     assert!(!body.contains("spawn_subagent(agent_id=\"integrations_agent\""));
     // Delegator voice must NOT use the skill-executor wording.
     assert!(!body.contains("You have direct access"));
-    // Must contain the hardened delegation instruction.
+    // Must keep the always-delegate contract for real service asks.
     assert!(
-        body.contains("IMPORTANT"),
-        "delegation guide must contain the IMPORTANT instruction"
-    );
-    assert!(
-        body.contains(
-            "Never claim you cannot access a connected service without first attempting delegation"
-        ),
+        body.contains("Never claim you cannot access one without delegating first"),
         "delegation guide must instruct the model to always attempt delegation"
     );
 }
@@ -354,11 +348,11 @@ fn build_scope_gates_integrations_delegation() {
     // delegation-guide clause.
     let no_integrations = build(&ctx_with(&[])).unwrap();
     assert!(
-        no_integrations.contains("General knowledge, web/news lookups, headlines, date/time"),
+        no_integrations.contains("general knowledge, web/news lookups, headlines, date/time and math never delegate here"),
         "Step-2 scope gate must keep general/web/date asks off integrations delegation"
     );
     assert!(
-        no_integrations.contains("a request that references none"),
+        no_integrations.contains("A service being connected is not a reason to touch it"),
         "Step-2 scope gate must forbid reaching into an unreferenced service"
     );
 
@@ -378,18 +372,19 @@ fn build_scope_gates_integrations_delegation() {
         "delegation guide must carry the scoping clause when integrations are connected"
     );
     // The existing always-delegate contract for real service asks is preserved.
-    assert!(with_gmail.contains(
-        "Never claim you cannot access a connected service without first attempting delegation"
-    ));
+    assert!(with_gmail.contains("Never claim you cannot access one without delegating first"));
 }
 
 #[test]
 fn build_does_not_route_scope_errors_as_disconnected() {
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(body.contains("Don't confabulate \"unsupported\""));
-    assert!(body.contains("relay its message if the toolkit is genuinely unavailable"));
-    assert!(body.contains("That is the only honest refusal"));
-    assert!(body.contains("Connections"));
+    // A scope error from the connect call is relayed, never rewritten as
+    // "unsupported"; and the connected list is never treated as the
+    // connectable list.
+    assert!(body.contains("If the connect call reports the toolkit unavailable, relay its message"));
+    assert!(body.contains("that is the only honest refusal"));
+    assert!(body.contains("the list shows what is connected, not what is connectable"));
+    assert!(body.contains("`composio_connect`"));
 }
 
 #[test]
