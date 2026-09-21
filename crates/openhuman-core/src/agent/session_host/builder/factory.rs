@@ -784,11 +784,20 @@ impl OpenHumanSessionHost {
 
         // Memory prompt sections — the read side (#566) and the write side
         // (#6048); both gates live in `helpers::add_memory_prompt_sections`.
+        // Gated on the set the model will actually see: packs are stripped
+        // from `visible` later in the build, and gating on the pre-strip set
+        // told the orchestrator to call `save_preference` while the pack held
+        // it off the wire.
+        let visible_after_packs = {
+            let mut after = visible.clone();
+            crate::tools::toolpacks::strip_packed_from_visible(&mut after, agent_id);
+            after
+        };
         prompt_builder = super::helpers::add_memory_prompt_sections(
             prompt_builder,
             &tools,
             &delegation_tools,
-            &visible,
+            &visible_after_packs,
             agent_id,
         );
 
