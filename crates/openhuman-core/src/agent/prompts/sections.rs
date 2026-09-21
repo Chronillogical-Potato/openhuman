@@ -67,11 +67,27 @@ impl PromptSection for DynamicPromptSection {
     }
 
     fn tier(&self) -> PromptTier {
+        // A builder that declares no tiers is treated as all-volatile, the
+        // conservative reading: nothing stable is placed behind it by mistake.
         PromptTier::Volatile
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         (self.builder)(ctx)
+    }
+
+    fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
+        let body = (self.builder)(ctx)?;
+        let has_marker = body.contains(PROMPT_TIER_CONTEXT_MARKER)
+            || body.contains(PROMPT_TIER_VOLATILE_MARKER);
+        // A builder that marks its tiers starts in `Stable`; one that does not
+        // stays wholly in `Volatile` (see `tier`).
+        let default_tier = if has_marker {
+            PromptTier::Stable
+        } else {
+            PromptTier::Volatile
+        };
+        Ok(split_prompt_tiers(&body, default_tier))
     }
 }
 
