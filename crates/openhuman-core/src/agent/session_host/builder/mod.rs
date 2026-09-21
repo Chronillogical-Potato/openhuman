@@ -139,6 +139,18 @@ pub(super) fn visible_tool_specs_for_policy(
         })
         .cloned()
         .filter_map(|mut spec| {
+            if spec.name == "spawn_async_subagent" {
+                // Same narrowing for the spawn enum: advertise only the ids
+                // this agent's `[subagents]` allowlist lets `execute` dispatch.
+                let allowed = allowed_subagent_ids_for(&tool_policy.profile.agent_id);
+                if !allowed.is_empty() {
+                    crate::agent::orchestration::tools::scope_spawn_async_subagent_spec(
+                        Arc::make_mut(&mut spec),
+                        &allowed,
+                    );
+                }
+                return Some(spec);
+            }
             if spec.name == crate::tools::toolpacks::USE_SKILL {
                 // `false` means no pack has a callable tool: an empty index and
                 // an empty enum are not a tool, so drop it rather than ship one.
@@ -193,4 +205,45 @@ pub(super) fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool 
             )
         }),
     }
+}
+
+/// The sub-agent ids `agent_id`'s registry entry allows it to spawn.
+///
+/// Tolerates the web channel's `orchestrator_<thread>` rename the same way the
+/// orchestrator prompt does: exact match first, then the longest registry id
+/// the name extends at an `_` boundary. Empty when the registry is not up or
+/// the id resolves to nothing, which leaves the schema untouched.
+fn allowed_subagent_ids_for(agent_id: &str) -> Vec<String> {
+    use crate::agent::harness::definition::SubagentEntry;
+    let Some(registry) = crate::agent::harness::AgentDefinitionRegistry::global() else {
+        return Vec::new();
+    };
+    let definition = registry.get(agent_id).or_else(|| {
+        let best = registry
+            .list()
+            .iter()
+            .filter(|d| {
+                agent_id
+                    .strip_prefix(d.id.as_str())
+                    .is_some_and(|rest| rest.starts_with('_'))
+            })
+            .max_by_key(|d| d.id.len())?
+            .id
+            .clone();
+        registry.get(&best)
+    });
+    let Some(definition) = definition else {
+        return Vec::new();
+    };
+    definition
+        .subagents
+        .iter()
+        .filter_map(|entry| match entry {
+            SubagentEntry::AgentId(id) => Some(id.clone()),
+            SubagentEntry::Skills(wildcard) if wildcard.matches_all() => {
+                Some("integrations_agent".to_string())
+            }
+            SubagentEntry::Skills(_) => None,
+        })
+        .collect()
 }
