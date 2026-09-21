@@ -305,13 +305,15 @@ pub(crate) async fn run_chat_task(
 /// its warm session (no needless reseed), exactly like successes and transient
 /// failures (rate-limit, timeout, 5xx, session-expiry).
 fn turn_result_poisoned_session(result: &Result<WebChatTaskResult, String>) -> bool {
-    matches!(
-        result,
-        Err(err) if {
-            let classified = classify_inference_error(err);
-            classified.error_type == "provider_request_rejected" && classified.retryable
-        }
-    )
+    matches!(result, Err(err) if turn_error_poisons_session(err))
+}
+
+/// The error-string half of [`turn_result_poisoned_session`], shared with the
+/// host-authored turn path (`ops/system_turn.rs`) whose result carries no
+/// `WebChatTaskResult`.
+pub(super) fn turn_error_poisons_session(err: &str) -> bool {
+    let classified = classify_inference_error(err);
+    classified.error_type == "provider_request_rejected" && classified.retryable
 }
 
 #[cfg(test)]
