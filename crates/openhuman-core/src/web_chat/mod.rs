@@ -67,7 +67,8 @@ pub use ops::parallel_in_flight_entries_for_test;
 pub use ops::{
     cancel_chat, cancel_chat_scoped, cancel_should_target, channel_web_cancel, channel_web_chat,
     channel_web_queue_clear, channel_web_queue_status, in_flight_entries_for_test,
-    invalidate_thread_sessions, run_system_turn_on_thread, start_chat, SYSTEM_CLIENT_ID,
+    invalidate_thread_sessions, run_system_turn_on_thread, start_chat, SESSION_CHECKOUT_FAILURE,
+    SYSTEM_CLIENT_ID,
 };
 pub use types::ChatRequestMetadata;
 

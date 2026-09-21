@@ -29,6 +29,11 @@ use super::super::session::{
 /// collides with a user's cancel/interrupt routing.
 pub const SYSTEM_CLIENT_ID: &str = "system";
 
+/// Prefix on the error a system turn returns when the thread's session could
+/// not even be checked out (config load or agent build), as opposed to a turn
+/// that ran and failed. Callers that track "did a turn run" key off it.
+pub const SESSION_CHECKOUT_FAILURE: &str = "session checkout failed: ";
+
 /// Run one host-authored turn on `thread_id` through the thread's session and
 /// return the reply text. Best-effort: the caller decides how to surface the
 /// reply (background delivery persists and announces it; goal continuation
@@ -43,7 +48,9 @@ pub async fn run_system_turn_on_thread(
     prompt: &str,
     origin: AgentTurnOrigin,
 ) -> Result<String, String> {
-    let config = config_rpc::load_config_with_timeout().await?;
+    let config = config_rpc::load_config_with_timeout()
+        .await
+        .map_err(|error| format!("{SESSION_CHECKOUT_FAILURE}{error}"))?;
     let CheckedOutSession {
         mut agent,
         fingerprint,
@@ -57,7 +64,8 @@ pub async fn run_system_turn_on_thread(
         /* fork */ false,
         "",
     )
-    .await?;
+    .await
+    .map_err(|error| format!("{SESSION_CHECKOUT_FAILURE}{error}"))?;
 
     log::info!(
         "[web-channel] running system turn on thread={} run_id={} origin={} prompt_chars={}",

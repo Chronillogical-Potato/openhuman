@@ -24,7 +24,7 @@ pub use channel_ops::{
 };
 
 pub use start_chat::start_chat;
-pub use system_turn::{run_system_turn_on_thread, SYSTEM_CLIENT_ID};
+pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID};
 
 #[cfg(test)]
 pub use state::drain_queued_turns_for_test;
