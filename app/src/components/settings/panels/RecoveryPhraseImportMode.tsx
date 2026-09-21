@@ -1,7 +1,6 @@
 import { type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import Button from '../../ui/Button';
 import { CheckIcon } from '../../ui/icons';
 import TextField from '../../ui/TextField';
 import { ToggleGroupItem, ToggleGroupRoot } from '../../ui/ToggleGroup';
@@ -16,13 +15,10 @@ export interface RecoveryPhraseImportModeProps {
   onWordCountChange: (count: number) => void;
   onWordChange: (index: number, value: string) => void;
   onWordKeyDown: (index: number, e: KeyboardEvent<HTMLInputElement>) => void;
-  onSwitchToGenerate: () => void;
 }
 
-/**
- * Import-mode body: word-count selector, the labelled word-slot grid, the
- * valid-phrase banner, and the link back to generate mode.
- */
+// Import-mode body: word-count selector, the labelled word-slot grid, the
+// valid-phrase banner, and the link back to generate mode.
 const RecoveryPhraseImportMode = ({
   importWords,
   selectedWordCount,
@@ -31,7 +27,6 @@ const RecoveryPhraseImportMode = ({
   onWordCountChange,
   onWordChange,
   onWordKeyDown,
-  onSwitchToGenerate,
 }: RecoveryPhraseImportModeProps) => {
   const { t } = useT();
 
@@ -76,16 +71,22 @@ const RecoveryPhraseImportMode = ({
         </ToggleGroupRoot>
       </div>
 
-      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line">
+      <div className="relative bg-surface-muted rounded-2xl p-2 border border-line overflow-hidden mb-4">
         <div className="grid grid-cols-3 gap-2">
           {importWords.map((word, index) => (
-            <div key={index} className="flex items-center gap-1.5">
+            <div
+              key={index}
+              className={`flex items-center gap-2 bg-surface rounded-lg px-3 py-0.5 border border-line transition-shadow overflow-hidden ring-1 ring-transparent ${
+                importValid === false && word.trim().length > 0
+                  ? 'focus-within:ring-coral-500'
+                  : importValid === true
+                    ? 'focus-within:ring-sage-500'
+                    : 'focus-within:ring-primary-500'
+              }`}>
               <span className="text-content-muted font-mono text-xs w-5 text-right shrink-0">
                 {index + 1}.
               </span>
               <TextField
-                mono
-                inputSize="sm"
                 aria-label={`Recovery phrase word ${index + 1}`}
                 ref={el => {
                   inputRefs.current[index] = el;
@@ -96,12 +97,7 @@ const RecoveryPhraseImportMode = ({
                 onKeyDown={e => onWordKeyDown(index, e)}
                 autoComplete="off"
                 spellCheck={false}
-                invalid={importValid === false && word.trim().length > 0}
-                className={
-                  importValid === true
-                    ? 'border-sage-400! focus:border-sage-300! dark:border-sage-500/40!'
-                    : undefined
-                }
+                className="flex-1 bg-transparent border-0 focus:ring-0 px-0 shadow-none font-mono font-medium text-sm text-content h-8"
               />
             </div>
           ))}
@@ -114,10 +110,6 @@ const RecoveryPhraseImportMode = ({
           <span>{t('mnemonic.validPhrase')}</span>
         </div>
       )}
-
-      <Button type="button" variant="tertiary" onClick={onSwitchToGenerate} className="w-full mb-3">
-        {t('mnemonic.generateNewPhrase')}
-      </Button>
     </>
   );
 };

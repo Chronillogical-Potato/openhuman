@@ -13,13 +13,10 @@ export interface RecoveryPhraseGenerateModeProps {
   onCopy: () => void;
   confirmed: boolean;
   onConfirmedChange: (next: boolean) => void;
-  onSwitchToImport: () => void;
 }
 
-/**
- * Generate-mode body: the newly generated word grid (blurred until revealed),
- * the copy-to-clipboard action, and the consent checkbox that gates Save.
- */
+// Generate-mode body: the newly generated word grid (blurred until revealed),
+// the copy-to-clipboard action, and the consent checkbox that gates Save.
 const RecoveryPhraseGenerateMode = ({
   words,
   revealed,
@@ -28,7 +25,6 @@ const RecoveryPhraseGenerateMode = ({
   onCopy,
   confirmed,
   onConfirmedChange,
-  onSwitchToImport,
 }: RecoveryPhraseGenerateModeProps) => {
   const { t } = useT();
 
@@ -38,19 +34,14 @@ const RecoveryPhraseGenerateMode = ({
         <p className="text-sm text-content-secondary leading-relaxed">
           {t('mnemonic.writeDownWords')} {MNEMONIC_GENERATE_WORD_COUNT} {t('mnemonic.wordsInOrder')}
         </p>
-        <Alert variant="warning">
+        <Alert variant="info" className="border-none">
           <p className="text-xs leading-relaxed">{t('mnemonic.cannotRecover')}</p>
         </Alert>
       </div>
 
-      <div className="bg-surface-muted rounded-2xl p-4 mb-4 border border-line relative">
+      <div className="relative bg-surface-muted rounded-2xl p-2 border border-line overflow-hidden mb-4">
         <div
-          className="grid grid-cols-3 gap-2 transition-all duration-300"
-          style={{
-            filter: revealed ? 'none' : 'blur(8px)',
-            userSelect: revealed ? 'auto' : 'none',
-            pointerEvents: revealed ? 'auto' : 'none',
-          }}>
+          className={`grid grid-cols-3 gap-2 transition-all duration-300 ${!revealed ? 'blur-[8px] pointer-events-none select-none opacity-40 scale-[0.98]' : ''}`}>
           {words.map((word, index) => (
             <div
               key={index}
@@ -63,15 +54,11 @@ const RecoveryPhraseGenerateMode = ({
           ))}
         </div>
         {!revealed && (
-          <Button
-            type="button"
-            variant="tertiary"
-            iconOnly
-            onClick={onReveal}
-            aria-label={t('mnemonic.revealPhrase')}
-            className="absolute inset-0 h-auto w-auto rounded-none bg-transparent hover:bg-transparent focus-visible:ring-offset-0">
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-black/40 hover:bg-black/30 transition-colors"
+            onClick={onReveal}>
             <svg
-              className="w-7 h-7 text-content transition-opacity duration-200 hover:opacity-70"
+              className="w-7 h-7 text-white mb-2"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -79,56 +66,45 @@ const RecoveryPhraseGenerateMode = ({
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"
+                d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
               />
-              <line x1="1" y1="1" x2="23" y2="23" />
             </svg>
-          </Button>
+            <span className="text-[15px] font-semibold text-white tracking-tight">
+              Tap to reveal
+            </span>
+          </div>
         )}
       </div>
 
       <Button
         type="button"
         variant="secondary"
-        size="md"
-        onClick={onCopy}
+        size="lg"
+        className="w-full bg-white/10 hover:bg-white/15 text-white border-0 mb-3"
         disabled={!revealed}
-        className="w-full mb-3">
+        onClick={onCopy}>
         {copied ? (
           <>
             <CheckIcon className="w-4 h-4 text-sage-400" />
             <span className="text-sage-400">{t('common.copied')}</span>
           </>
         ) : (
-          <>
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-            <span>{t('mnemonic.copyToClipboard')}</span>
-          </>
+          t('mnemonic.copyToClipboard')
         )}
       </Button>
 
-      <Button type="button" variant="tertiary" onClick={onSwitchToImport} className="w-full mb-3">
-        {t('mnemonic.alreadyHavePhrase')}
-      </Button>
-
-      <label className="flex items-start gap-3 cursor-pointer mb-4">
+      <label
+        className={`flex items-start gap-3 mb-4 transition-all duration-200 ${
+          revealed ? 'cursor-pointer' : 'opacity-50 pointer-events-none'
+        }`}>
         <SettingsCheckbox
           id="mnemonic-confirm-checkbox"
           checked={confirmed}
           onCheckedChange={onConfirmedChange}
         />
-        <span className="text-sm text-content-secondary">{t('mnemonic.consentSaved')}</span>
+        <span className={`text-sm ${revealed ? 'text-content' : 'text-content-secondary'}`}>
+          {t('mnemonic.consentSaved')}
+        </span>
       </label>
     </>
   );

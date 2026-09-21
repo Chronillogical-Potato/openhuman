@@ -3,11 +3,7 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 're
 import { persistLocalWalletFromMnemonic } from '../../../features/wallet/setupLocalWalletFromMnemonic';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
-import {
-  fetchWalletStatus,
-  revealRecoveryPhrase,
-  type WalletStatus,
-} from '../../../services/walletApi';
+import { fetchWalletStatus, type WalletStatus } from '../../../services/walletApi';
 import {
   generateMnemonicPhrase,
   MNEMONIC_GENERATE_WORD_COUNT,
@@ -43,6 +39,7 @@ const RecoveryPhrasePanel = () => {
   const user = snapshot.currentUser;
 
   const [mode, setMode] = useState<PanelMode>('loading');
+  const [replaceTarget, setReplaceTarget] = useState<'generate' | 'import'>('generate');
   const [walletStatus, setWalletStatus] = useState<WalletStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
 
@@ -54,13 +51,6 @@ const RecoveryPhrasePanel = () => {
 
   // Replace-mode state: tracks that the user went through the replace flow
   const [isReplace, setIsReplace] = useState(false);
-
-  // View mode: reveal existing phrase
-  const [viewRevealed, setViewRevealed] = useState(false);
-  const [viewMnemonic, setViewMnemonic] = useState<string | null>(null);
-  const [viewRevealLoading, setViewRevealLoading] = useState(false);
-  const [viewRevealError, setViewRevealError] = useState<string | null>(null);
-  const [viewCopied, setViewCopied] = useState(false);
 
   // Import mode state
   const [selectedWordCount, setSelectedWordCount] = useState(IMPORT_SLOTS_INITIAL);
@@ -133,39 +123,6 @@ const RecoveryPhrasePanel = () => {
       return () => clearTimeout(timer);
     }
   }, [copied]);
-
-  useEffect(() => {
-    if (viewCopied) {
-      const timer = setTimeout(() => setViewCopied(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [viewCopied]);
-
-  // Security: clear plaintext phrase from state when unmounting.
-  useEffect(() => {
-    return () => {
-      setViewMnemonic(null);
-      setViewRevealed(false);
-    };
-  }, []);
-
-  // Clear phrase when navigating away from view mode.
-  useEffect(() => {
-    if (mode !== 'view') {
-      setViewMnemonic(null);
-      setViewRevealed(false);
-      setViewRevealError(null);
-    }
-  }, [mode]);
-
-  const switchMode = useCallback((nextMode: 'generate' | 'import') => {
-    setMode(nextMode);
-    setConfirmed(false);
-    setError(null);
-    setImportValid(null);
-    setSelectedWordCount(IMPORT_SLOTS_INITIAL);
-    setImportWords(Array(IMPORT_SLOTS_INITIAL).fill(''));
-  }, []);
 
   const handleWordCountChange = useCallback((count: number) => {
     setSelectedWordCount(count);
@@ -315,40 +272,6 @@ const RecoveryPhrasePanel = () => {
     }
   };
 
-  const handleViewCopy = useCallback(async () => {
-    if (!viewMnemonic) return;
-    try {
-      await navigator.clipboard.writeText(viewMnemonic);
-      setViewCopied(true);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = viewMnemonic;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (ok) setViewCopied(true);
-    }
-  }, [viewMnemonic]);
-
-  const handleRevealExistingPhrase = useCallback(async () => {
-    setViewRevealLoading(true);
-    setViewRevealError(null);
-    setViewMnemonic(null);
-    setViewRevealed(false);
-    try {
-      const result = await revealRecoveryPhrase();
-      setViewMnemonic(result.phrase);
-      setViewRevealed(true);
-    } catch (e) {
-      setViewRevealError(e instanceof Error ? e.message : t('mnemonic.somethingWentWrong'));
-    } finally {
-      setViewRevealLoading(false);
-    }
-  }, [t]);
-
   const words = mnemonic ? mnemonic.split(' ') : [];
   const importWordCount = importWords.filter(w => w.trim()).length;
   const isImportComplete =
@@ -360,100 +283,126 @@ const RecoveryPhrasePanel = () => {
     <SettingsPanel
       description={t('pages.settings.account.recoveryPhraseDesc')}
       testId="recovery-phrase-panel">
-      {success ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-12">
-          <div className="w-12 h-12 rounded-full bg-sage-500/20 flex items-center justify-center">
-            <CheckIcon className="w-6 h-6 text-sage-400" />
+      <div className="w-full max-w-2xl mx-auto py-8">
+        {success ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <div className="w-12 h-12 rounded-full bg-sage-500/20 flex items-center justify-center">
+              <CheckIcon className="w-6 h-6 text-sage-400" />
+            </div>
+            <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
+            <p className="text-xs text-content-muted">{t('mnemonic.walletReady')}</p>
           </div>
-          <p className="text-sm font-medium text-sage-500">{t('mnemonic.phraseSaved')}</p>
-          <p className="text-xs text-content-muted">{t('mnemonic.walletReady')}</p>
-        </div>
-      ) : (
-        <>
-          {mode === 'loading' && (
-            <CenteredLoadingState label={t('mnemonic.loadingWalletStatus')} className="py-12" />
-          )}
+        ) : (
+          <>
+            {mode === 'loading' && (
+              <CenteredLoadingState label={t('mnemonic.loadingWalletStatus')} className="py-12" />
+            )}
 
-          {mode === 'view' && (
-            <RecoveryPhraseViewMode
-              statusError={statusError}
-              walletStatus={walletStatus}
-              viewMnemonic={viewMnemonic}
-              viewRevealed={viewRevealed}
-              onRevealBlur={() => setViewRevealed(true)}
-              onHide={() => {
-                setViewMnemonic(null);
-                setViewRevealed(false);
-              }}
-              viewRevealLoading={viewRevealLoading}
-              viewRevealError={viewRevealError}
-              onReveal={() => void handleRevealExistingPhrase()}
-              viewCopied={viewCopied}
-              onCopy={() => void handleViewCopy()}
-              onReplaceClick={() => setMode('replace-confirm')}
-            />
-          )}
+            {mode === 'view' && (
+              <RecoveryPhraseViewMode
+                statusError={statusError}
+                walletStatus={walletStatus}
+                onGenerateClick={() => {
+                  setReplaceTarget('generate');
+                  setMode('replace-confirm');
+                }}
+                onImportClick={() => {
+                  setReplaceTarget('import');
+                  setMode('replace-confirm');
+                }}
+              />
+            )}
 
-          {mode === 'replace-confirm' && (
-            <RecoveryPhraseReplaceConfirm
-              onConfirmReplace={handleConfirmReplace}
-              onImportInstead={handleImportReplace}
-              onCancel={() => setMode('view')}
-            />
-          )}
+            {mode === 'replace-confirm' && (
+              <RecoveryPhraseReplaceConfirm
+                onConfirm={
+                  replaceTarget === 'generate' ? handleConfirmReplace : handleImportReplace
+                }
+                onCancel={() => setMode('view')}
+                confirmText={
+                  replaceTarget === 'generate'
+                    ? 'I understand, create new wallet'
+                    : 'I understand, import wallet'
+                }
+                warningText={
+                  replaceTarget === 'generate'
+                    ? 'Creating a new wallet will replace the wallet currently on this device. Store your recovery phrase securely before continuing.'
+                    : 'This will replace your current wallet with the wallet you import. Make sure you’ve backed up your recovery phrase before continuing.'
+                }
+              />
+            )}
 
-          {(mode === 'generate' || mode === 'import') && (
-            <>
-              {mode === 'generate' ? (
-                <RecoveryPhraseGenerateMode
-                  words={words}
-                  revealed={revealed}
-                  onReveal={() => setRevealed(true)}
-                  copied={copied}
-                  onCopy={() => void handleCopy()}
-                  confirmed={confirmed}
-                  onConfirmedChange={setConfirmed}
-                  onSwitchToImport={() => switchMode('import')}
-                />
-              ) : (
-                <RecoveryPhraseImportMode
-                  importWords={importWords}
-                  selectedWordCount={selectedWordCount}
-                  importValid={importValid}
-                  inputRefs={inputRefs}
-                  onWordCountChange={handleWordCountChange}
-                  onWordChange={handleImportWordChange}
-                  onWordKeyDown={handleImportKeyDown}
-                  onSwitchToGenerate={() => switchMode('generate')}
-                />
-              )}
-
-              {error && (
-                <Alert variant="destructive" className="mb-3">
-                  <p className="text-xs leading-relaxed">{error}</p>
-                </Alert>
-              )}
-
-              <Button
-                type="button"
-                variant="primary"
-                size="lg"
-                onClick={() => void handleSave()}
-                disabled={!canSave || loading}
-                className="w-full">
-                {loading ? (
-                  <>
-                    <Spinner className="w-4 h-4" />
-                    <span>{t('mnemonic.securingData')}</span>
-                  </>
+            {(mode === 'generate' || mode === 'import') && (
+              <>
+                <button
+                  onClick={() => {
+                    setMode('view');
+                    setError(null);
+                  }}
+                  className="flex w-8 h-8 items-center justify-center rounded-full text-content-muted hover:bg-surface-hover hover:text-content transition-colors mb-4 -ml-2"
+                  aria-label="Back">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                {mode === 'generate' ? (
+                  <RecoveryPhraseGenerateMode
+                    words={words}
+                    revealed={revealed}
+                    onReveal={() => setRevealed(true)}
+                    copied={copied}
+                    onCopy={() => void handleCopy()}
+                    confirmed={confirmed}
+                    onConfirmedChange={setConfirmed}
+                  />
                 ) : (
-                  t('mnemonic.saveRecoveryPhrase')
+                  <RecoveryPhraseImportMode
+                    importWords={importWords}
+                    selectedWordCount={selectedWordCount}
+                    importValid={importValid}
+                    inputRefs={inputRefs}
+                    onWordCountChange={handleWordCountChange}
+                    onWordChange={handleImportWordChange}
+                    onWordKeyDown={handleImportKeyDown}
+                  />
                 )}
-              </Button>
-            </>
-          )}
-        </>
-      )}
+
+
+
+                {error && (
+                  <Alert variant="destructive" className="border-0 bg-destructive/10 p-4 mb-3">
+                    <p className="text-sm leading-relaxed text-destructive">{error}</p>
+                  </Alert>
+                )}
+
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  onClick={() => void handleSave()}
+                  disabled={!canSave || loading}
+                  className="w-full">
+                  {loading ? (
+                    <>
+                      <Spinner className="w-4 h-4" />
+                      <span>{t('mnemonic.securingData')}</span>
+                    </>
+                  ) : mode === 'import' ? (
+                    'Import Wallet'
+                  ) : (
+                    t('mnemonic.saveRecoveryPhrase')
+                  )}
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </SettingsPanel>
   );
 };

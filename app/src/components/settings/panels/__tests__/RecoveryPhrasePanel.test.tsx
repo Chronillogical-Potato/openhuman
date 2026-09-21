@@ -106,16 +106,16 @@ describe('RecoveryPhrasePanel — trust-surface polish', () => {
     mockFetchWalletStatus.mockResolvedValue(noWalletStatus());
   });
 
-  it('renders the amber warning callout in generate mode', async () => {
+  it('renders the warning callout in generate mode', async () => {
     const { container } = renderWithProviders(<RecoveryPhrasePanel />);
     await waitFor(() => expect(screen.queryByText(/can never be recovered if lost/i)).toBeTruthy());
-    expect(container.querySelector('.bg-amber-50')).not.toBeNull();
+    expect(container.querySelector('[data-variant="info"]')).not.toBeNull();
   });
 
   it('renders import-mode intro copy when switching modes', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
@@ -144,7 +144,7 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     await waitFor(() => screen.getByText(/can never be recovered if lost/i));
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
   });
 
@@ -156,21 +156,21 @@ describe('RecoveryPhrasePanel — mode-switch state reset', () => {
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     expect(screen.queryByRole('checkbox')).toBeNull();
 
-    fireEvent.click(screen.getByText(/Generate a new recovery phrase instead/i));
+    fireEvent.click(screen.getByText(/I want to generate a new wallet/i));
     const regeneratedCheckbox = screen.getByRole('checkbox');
     expect(regeneratedCheckbox).not.toBeChecked();
   });
 
   it('shows generate-mode UI again after switching back from import', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     expect(screen.getByText(/Enter your recovery phrase below/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/Generate a new recovery phrase instead/i));
+    fireEvent.click(screen.getByText(/I want to generate a new wallet/i));
     expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
   });
 });
@@ -229,26 +229,26 @@ describe('RecoveryPhrasePanel — replace-wallet confirmation gate', () => {
   it('clicking Replace wallet shows confirmation dialog, not generate mode', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
     // Wait for view mode: "Replace wallet" button
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Create a New Wallet/i));
 
-    fireEvent.click(screen.getByText(/Replace wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
 
     // Warning text for replace
-    expect(screen.getByText(/permanently replace your current wallet/i)).toBeTruthy();
+    expect(screen.getByText(/replace the wallet currently on this device/i)).toBeTruthy();
     // Confirm button present
-    expect(screen.getByText(/I understand, replace my wallet/i)).toBeTruthy();
+    expect(screen.getByText(/I understand, create new wallet/i)).toBeTruthy();
     // Mnemonic grid not shown yet
     expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
   });
 
   it('confirming replace enters generate mode and generates a new phrase', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Create a New Wallet/i));
 
-    fireEvent.click(screen.getByText(/Replace wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
     expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByText(/I understand, replace my wallet/i));
+    fireEvent.click(screen.getByText(/I understand, create new wallet/i));
 
     expect(mockGenerateMnemonicPhrase).toHaveBeenCalledTimes(1);
     await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
@@ -256,9 +256,9 @@ describe('RecoveryPhrasePanel — replace-wallet confirmation gate', () => {
 
   it('cancel in replace-confirm returns to view mode', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Create a New Wallet/i));
 
-    fireEvent.click(screen.getByText(/Replace wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
     fireEvent.click(screen.getByText(/Cancel/i));
 
     await waitFor(() => screen.getByText(/Your wallet is already set up/i));
@@ -277,10 +277,10 @@ describe('RecoveryPhrasePanel — replace save calls persistLocalWalletFromMnemo
 
   it('after replace confirmation, save calls persistLocalWalletFromMnemonic with force=true', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Create a New Wallet/i));
 
-    fireEvent.click(screen.getByText(/Replace wallet/i));
-    fireEvent.click(screen.getByText(/I understand, replace my wallet/i));
+    fireEvent.click(screen.getByText(/Create a New Wallet/i));
+    fireEvent.click(screen.getByText(/I understand, create new wallet/i));
 
     await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
 
@@ -399,16 +399,18 @@ describe('RecoveryPhrasePanel — replace-confirm → import path (handleImportR
   });
 
   // Covers lines 106-111 (handleImportReplace sets isReplace=true and enters import mode).
-  it('clicking "I already have a recovery phrase" in replace-confirm enters import mode', async () => {
+  it('clicking Import an Existing Wallet enters import replace-confirm mode', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
     // Enter replace-confirm mode.
-    fireEvent.click(screen.getByText(/Replace wallet/i));
-    expect(screen.getByText(/permanently replace your current wallet/i)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
+    expect(
+      screen.getByText(/replace your current wallet with the wallet you import/i)
+    ).toBeTruthy();
 
-    // Click the "I already have a recovery phrase" link inside replace-confirm.
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    // Click the "I understand, import wallet" button inside replace-confirm.
+    fireEvent.click(screen.getByText(/I understand, import wallet/i));
 
     // Must arrive in import mode — the intro copy is the marker.
     await waitFor(() =>
@@ -421,10 +423,10 @@ describe('RecoveryPhrasePanel — replace-confirm → import path (handleImportR
   // Covers line 608 (word-count change buttons in import mode after handleImportReplace).
   it('changing word count in import mode (after replace flow) updates the word slots', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Replace wallet/i));
+    await waitFor(() => screen.getByText(/Import an Existing Wallet/i));
 
-    fireEvent.click(screen.getByText(/Replace wallet/i));
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/Import an Existing Wallet/i));
+    fireEvent.click(screen.getByText(/I understand, import wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     // Default is 12 word slots; switch to 24.
@@ -561,9 +563,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers lines 633-634 (onChange on word inputs updates importWords).
   it('typing into a word input updates the value (onChange coverage)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -574,9 +576,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 638 (onKeyDown on word inputs — Backspace on empty field).
   it('pressing Backspace on an empty word input (onKeyDown coverage)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -589,9 +591,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers lines 640 (importValid===false invalid border), 638, and 707 (error alert).
   it('clicking Save with an invalid phrase shows the error alert (line 707)', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     // Fill all 12 slots with an invalid word so the phrase is structurally complete but invalid.
@@ -613,9 +615,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 650 (importValid===true banner), line 640 (sage border on valid inputs).
   it('filling a valid BIP39 phrase and saving shows the valid-phrase banner then persists', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
@@ -641,9 +643,9 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
   // Covers line 608 (handleWordCountChange via the word-count toggle buttons).
   it('switching from 12 to 15 word slots adjusts the import grid', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/I want to import an existing wallet/i));
 
-    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    fireEvent.click(screen.getByText(/I want to import an existing wallet/i));
     await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
 
     // Initially 12 slots.
@@ -667,48 +669,36 @@ describe('RecoveryPhrasePanel — view mode: reveal existing recovery phrase', (
     });
   });
 
-  it('shows "Reveal recovery phrase" button in view mode', async () => {
+  it('shows "Secret Recovery Phrase" button in view mode', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
     await waitFor(() => screen.getByText(/Your wallet is already set up/i));
-    expect(screen.getByText(/Reveal recovery phrase/i)).toBeTruthy();
+    expect(screen.getByText(/Secret Recovery Phrase/i)).toBeTruthy();
   });
 
-  it('clicking reveal button calls revealRecoveryPhrase and shows word grid', async () => {
+  it('clicking reveal button calls revealRecoveryPhrase and opens modal', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+    fireEvent.click(screen.getByText(/Secret Recovery Phrase/i).closest('button')!);
     await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
-    // After reveal, the hide button appears
-    await waitFor(() => expect(screen.queryByText(/Hide phrase/i)).toBeTruthy());
-    // The amber warning is shown
-    expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
+    // The modal opens and shows the save instructions
+    await waitFor(() => expect(screen.queryByText(/Save Secret Recovery Phrase/i)).toBeTruthy());
   });
 
   it('shows error message when revealRecoveryPhrase rejects', async () => {
     mockRevealRecoveryPhrase.mockRejectedValue(new Error('No recovery phrase available'));
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+    fireEvent.click(screen.getByText(/Secret Recovery Phrase/i).closest('button')!);
     await waitFor(() => expect(screen.queryByRole('alert')).toBeTruthy());
     expect(screen.getByRole('alert').textContent).toContain('No recovery phrase available');
   });
 
   it('does NOT call generateMnemonicPhrase or persistLocalWalletFromMnemonic in view mode', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => screen.getByText(/Secret Recovery Phrase/i));
+    fireEvent.click(screen.getByText(/Secret Recovery Phrase/i).closest('button')!);
     await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
     expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
     expect(mockPersistLocalWalletFromMnemonic).not.toHaveBeenCalled();
-  });
-
-  it('clicking Hide phrase hides the word grid', async () => {
-    renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
-    await waitFor(() => screen.getByText(/Hide phrase/i));
-    fireEvent.click(screen.getByText(/Hide phrase/i));
-    await waitFor(() => expect(screen.queryByText(/Hide phrase/i)).toBeNull());
-    expect(screen.getByText(/Reveal recovery phrase/i)).toBeTruthy();
   });
 });

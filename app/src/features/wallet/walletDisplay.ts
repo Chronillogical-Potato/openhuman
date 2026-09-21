@@ -13,7 +13,7 @@ const EVM_NETWORK_LABEL: Record<EvmNetwork, string> = {
   arbitrum_one: 'Arbitrum',
   optimism_mainnet: 'Optimism',
   polygon_mainnet: 'Polygon',
-  bsc_mainnet: 'BNB Chain',
+  bsc_mainnet: 'BNB Smart Chain',
 };
 
 /** Short badge label per EVM network. */
@@ -30,7 +30,7 @@ const CHAIN_LABEL: Record<WalletChain, string> = {
   evm: 'EVM',
   btc: 'Bitcoin',
   solana: 'Solana',
-  tron: 'Tron',
+  tron: 'TRON',
 };
 
 /** Human network/chain label for a balance row (network name for EVM rows). */
@@ -54,6 +54,28 @@ export function balanceKey(
   balance: Pick<BalanceInfo, 'chain' | 'evmNetwork' | 'assetSymbol'>
 ): string {
   return `${balance.chain}-${balance.evmNetwork ?? 'native'}-${balance.assetSymbol}`;
+}
+
+const ASSET_NAME: Record<string, string> = {
+  ETH: 'Ethereum',
+  BTC: 'Bitcoin',
+  SOL: 'Solana',
+  TRX: 'TRON',
+  BNB: 'BNB',
+  POL: 'POL',
+  MON: 'MON',
+  ENS: 'Ethereum Name Service',
+  FRAX: 'Frax',
+  GRT: 'Graph Token',
+  ILV: 'Illuvium',
+  WOO: 'Wootrade Network',
+  OCEAN: 'Ocean Token',
+  CRV: 'Curve DAO Token',
+};
+
+// Display name for asset symbol (e.g. BTC -> Bitcoin).
+export function balanceAssetName(assetSymbol: string): string {
+  return ASSET_NAME[assetSymbol] ?? assetSymbol;
 }
 
 /**
@@ -90,4 +112,19 @@ export function fromSmallestUnit(raw: string, decimals: number): string {
   const whole = padded.slice(0, padded.length - decimals);
   const frac = padded.slice(padded.length - decimals).replace(/0+$/, '');
   return frac.length > 0 ? `${whole}.${frac}` : whole;
+}
+
+/**
+ * Formats balance to 8 decimal places e.g. 1.00000000.
+ * Balances below 0.00000001 display as <0.00000001.
+ */
+export function formatDisplayBalance(formatted: string): string {
+  const num = parseFloat(formatted);
+  if (isNaN(num) || num === 0) return '0';
+
+  if (num < 0.00000001) {
+    return '<0.00000001';
+  }
+
+  return num.toFixed(8);
 }
