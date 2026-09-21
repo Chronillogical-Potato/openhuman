@@ -814,7 +814,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/factory/managed_backend.rs",
-    "line": 126,
+    "line": 46,
     "text": ".with_thread_id(thread_id),",
     "occurrence": 1
   },
@@ -900,13 +900,6 @@
     "path": "crates/openhuman-core/src/integrations/task_sources/route.rs",
     "line": 236,
     "text": "with_origin(origin, apply_decision(run, &envelope))",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/mcp/registry/ops.rs",
-    "line": 665,
-    "text": "let reply_result = crate::agent::turn_origin::with_origin(",
     "occurrence": 1
   },
   {
