@@ -33,7 +33,7 @@ test("CI Lite runs the complete Rust suite for Rust-core changes", () => {
     "openhuman",
     "openhuman-embed",
     "openhuman-rpc",
-    "openhuman-session",
+    "openhuman-tinyhumans",
     "openhuman-tui",
   ]) {
     assert.match(

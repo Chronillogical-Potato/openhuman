@@ -125,7 +125,7 @@ llvm_cov --no-report --no-fail-fast -p openhuman --lib -- \
 # remaining crates do not expose that feature vocabulary.
 llvm_cov_embed --no-report --no-fail-fast -p openhuman-embed --all-targets
 llvm_cov_package --no-report --no-fail-fast -p openhuman-rpc --all-targets
-llvm_cov_package --no-report --no-fail-fast -p openhuman-session --all-targets
+llvm_cov_embed --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
 llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
 
 while IFS= read -r target; do
