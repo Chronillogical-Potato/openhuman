@@ -66,10 +66,16 @@ impl Tool for TodoTool {
     }
 
     fn description(&self) -> &str {
-        "Maintain the visible plan for this thread; cards persist across turns. Use for requests with 3+ steps. Keep one `in_progress`; mark finished cards `done` immediately and blocked cards with a `blocker`. The board binds automatically; do not pass a thread id. Orchestrator calls use the shared board."
+        "The thread's visible task list; cards persist across turns. Use for requests with \
+         3+ steps. Keep one `in_progress`; mark cards `done` as soon as they are, and \
+         `blocked` with a `blocker`. The board binds automatically; do not pass a thread id."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
+        // The parser still accepts `objective`, `plan`, `allowedTools`,
+        // `approvalMode` and `acceptanceCriteria` (dispatched boards set them
+        // through the task RPCs), but they are not advertised: a chat agent
+        // never filled them and each cost every turn a slice of schema.
         json!({
             "type": "object",
             "properties": {
@@ -77,8 +83,8 @@ impl Tool for TodoTool {
                     "type": "string",
                     "enum": ["add", "edit", "update_status", "decide_plan", "remove", "replace", "clear", "list"]
                 },
-                "id": { "type": "string", "description": "Card id (required for edit/update_status/remove)." },
-                "content": { "type": "string", "description": "Card title (required for add; optional for edit)." },
+                "id": { "type": "string", "description": "Card id (edit/update_status/remove)." },
+                "content": { "type": "string", "description": "Card title (add; optional for edit)." },
                 "status": {
                     "type": "string",
                     "enum": ["todo", "pending", "in_progress", "blocked", "done", "completed"]
@@ -87,31 +93,11 @@ impl Tool for TodoTool {
                 "blocker": { "type": "string" },
                 "approve": {
                     "type": "boolean",
-                    "description": "decide_plan: approve (true) or reject (false) a card awaiting plan approval."
-                },
-                "objective": { "type": "string", "description": "Desired outcome for this task." },
-                "plan": {
-                    "type": "array",
-                    "description": "Ordered lightweight execution steps.",
-                    "items": { "type": "string" }
-                },
-                "allowedTools": {
-                    "type": "array",
-                    "description": "Task-local tool names or toolkit slugs available while working this task.",
-                    "items": { "type": "string" }
-                },
-                "approvalMode": {
-                    "type": ["string", "null"],
-                    "enum": ["required", "not_required", null]
-                },
-                "acceptanceCriteria": {
-                    "type": "array",
-                    "description": "Checklist that must be true before the task is done.",
-                    "items": { "type": "string" }
+                    "description": "decide_plan: approve (true) or reject (false) a card awaiting approval."
                 },
                 "evidence": {
                     "type": "array",
-                    "description": "Verification output, links, files, or notes produced while executing the task.",
+                    "description": "Verification output, links or files produced for the card.",
                     "items": { "type": "string" }
                 },
                 "cards": {
