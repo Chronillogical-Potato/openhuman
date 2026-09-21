@@ -17,8 +17,9 @@
 //! - **No in-flight turn.** Skipped while the thread has a live turn.
 //! - **Per-tick cap.** Bounds how many goals continue in a single tick.
 //!
-//! The continuation turn runs the orchestrator on the thread (resuming its
-//! transcript) under a `TrustedAutomation { GoalContinuation }` origin, so the
+//! The continuation turn runs on the thread's own chat session (the cached
+//! agent, or one resumed from the thread's transcript) under a
+//! `TrustedAutomation { GoalContinuation }` origin, so the
 //! approval gate parks irreversible external actions (no present user to
 //! authorize) while read/compute work proceeds.
 
@@ -29,10 +30,10 @@ use tokio::sync::Semaphore;
 
 use super::store;
 use super::{ThreadGoal, ThreadGoalStatus};
-use crate::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
-use crate::agent::OpenHumanSessionHost;
+use crate::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use crate::config::Config;
 use crate::threads::turn_state::{TurnLifecycle, TurnStateStore};
+use crate::web_chat::SESSION_CHECKOUT_FAILURE;
 
 /// Serialise continuation dispatches so at most one autonomous goal turn runs at
 /// a time (Codex's `Semaphore(1)` guard).
@@ -157,13 +158,21 @@ fn continuation_prompt(objective: &str) -> String {
     )
 }
 
-/// Build and run a single continuation turn for `goal`. Best-effort: failures
-/// are logged, never propagated (the heartbeat must keep ticking).
+/// Run a single continuation turn for `goal` on the thread's own chat session.
+/// Best-effort: failures are logged, never propagated (the heartbeat must keep
+/// ticking).
 ///
-/// Returns `true` when a turn was actually attempted (agent built + run_single
-/// invoked), `false` when the agent couldn't even be built — the caller only
-/// suppresses further continuations when a turn actually ran.
-async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) -> bool {
+/// Returns `true` when a turn was attempted, `false` when the thread's session
+/// could not even be checked out (config or agent build failure) — the caller
+/// only suppresses further continuations when a turn actually ran.
+///
+/// Goes through `web_chat::run_system_turn_on_thread` rather than a throwaway
+/// orchestrator host: the continuation then resumes the thread's real history
+/// (a fresh host bound to the thread used to see nothing but its own prompt)
+/// and appends to the thread's transcript instead of writing a competing root
+/// transcript that the next cold-boot resume would prefer over the user's
+/// conversation.
+async fn dispatch_continuation(_config: &Config, goal: &ThreadGoal) -> bool {
     let thread_id = goal.thread_id.clone();
     tracing::info!(
         thread_id = %thread_id,
@@ -171,47 +180,41 @@ async fn dispatch_continuation(config: &Config, goal: &ThreadGoal) -> bool {
         "[thread_goals] dispatching continuation turn"
     );
 
-    let mut agent = match OpenHumanSessionHost::from_config_for_agent(config, "orchestrator") {
-        Ok(a) => a,
+    let prompt = continuation_prompt(&goal.objective);
+    let run_id = format!("goal:{thread_id}");
+    let origin = AgentTurnOrigin::TrustedAutomation {
+        job_id: run_id.clone(),
+        source: TrustedAutomationSource::GoalContinuation,
+    };
+
+    match crate::web_chat::run_system_turn_on_thread(&thread_id, &run_id, &prompt, origin).await {
+        Ok(text) => {
+            tracing::info!(
+                thread_id = %thread_id,
+                response_chars = text.chars().count(),
+                "[thread_goals] continuation turn complete"
+            );
+            true
+        }
+        Err(e) if e.starts_with(SESSION_CHECKOUT_FAILURE) => {
+            tracing::warn!(
+                thread_id = %thread_id,
+                error = %e,
+                "[thread_goals] continuation: failed to check out the thread session"
+            );
+            false
+        }
         Err(e) => {
             tracing::warn!(
                 thread_id = %thread_id,
                 error = %e,
-                "[thread_goals] continuation: failed to build orchestrator agent"
+                "[thread_goals] continuation turn failed"
             );
-            return false;
+            // A turn was attempted regardless of Ok/Err — suppress so we don't
+            // re-fire it every tick until the user re-engages.
+            true
         }
-    };
-    // Tag events so subscribers can correlate goal-continuation turns and filter
-    // them from user-driven flows.
-    agent.set_event_context(format!("goal:{thread_id}"), "goal_continuation");
-
-    let prompt = continuation_prompt(&goal.objective);
-    let origin = AgentTurnOrigin::TrustedAutomation {
-        job_id: format!("goal:{thread_id}"),
-        source: TrustedAutomationSource::GoalContinuation,
-    };
-
-    // The continuation owns its thread directly; child runs inherit it through
-    // `OpenHumanRunContext::child`.
-    agent.set_thread_id(Some(thread_id.as_str()));
-    let result = with_origin(origin, agent.run_single(&prompt)).await;
-
-    match result {
-        Ok(text) => tracing::info!(
-            thread_id = %thread_id,
-            response_chars = text.chars().count(),
-            "[thread_goals] continuation turn complete"
-        ),
-        Err(e) => tracing::warn!(
-            thread_id = %thread_id,
-            error = %e,
-            "[thread_goals] continuation turn failed"
-        ),
     }
-    // A turn was attempted (built + run) regardless of Ok/Err — suppress so we
-    // don't re-fire it every tick until the user re-engages.
-    true
 }
 
 #[cfg(test)]

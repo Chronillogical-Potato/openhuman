@@ -9,6 +9,9 @@ use tinyagents_runtime::{
 use tinyagents_session::transcript::{FileTranscriptLocator, TranscriptMeta};
 use tinyinference_llm::message::Message;
 
+use super::announcement_notes::{
+    integration_announcement_note, mcp_announcement_note, skill_announcement_note,
+};
 use super::runtime_session::{
     account_committed_turn_against_goal, begin_turn_resume, holistic_last_turn_usage,
     reconcile_synthesized_visibility, OpenHumanSessionState,
@@ -372,4 +375,35 @@ async fn runtime_adapter_passes_host_context_commits_before_finalize_and_emits_o
         "commit precedes finalization"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+/// Mid-conversation availability notes are prepended to the user's next
+/// message. They must read as status, never as a task: the old "act on them
+/// immediately" wording had the orchestrator delegate to the integrations
+/// agent in the middle of an unrelated exchange and answer "what are we doing
+/// with the inbox?" to "so lets do 20-30 days then?".
+#[test]
+fn availability_notes_are_status_not_instructions() {
+    let notes = [
+        integration_announcement_note(&["gmail".to_string()]).unwrap(),
+        mcp_announcement_note(&["filesystem".to_string(), "github".to_string()]).unwrap(),
+        skill_announcement_note(&["deploy".to_string()]).unwrap(),
+    ];
+    for note in &notes {
+        assert!(
+            !note.contains("immediately"),
+            "note must not order an action: {note}"
+        );
+        assert!(
+            note.contains("not a request") && note.contains("only use these if"),
+            "note must defer to the user's message: {note}"
+        );
+        assert!(note.contains("Do not tell the user to reconnect or restart"));
+    }
+    assert!(notes[0].contains("delegate_to_integrations_agent") && notes[0].contains("gmail"));
+    assert!(notes[1].contains("use_mcp_server") && notes[1].contains("filesystem, github"));
+    assert!(notes[2].contains("run_skill") && notes[2].contains("deploy"));
+    assert!(integration_announcement_note(&[]).is_none());
+    assert!(mcp_announcement_note(&[]).is_none());
+    assert!(skill_announcement_note(&[]).is_none());
 }

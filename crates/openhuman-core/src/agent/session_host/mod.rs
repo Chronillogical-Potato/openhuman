@@ -60,5 +60,7 @@ pub use types::{OpenHumanSessionHost, SessionHostBuilder, TurnOverrides};
 // share one tested implementation.
 pub(crate) use builder::dedup_visible_tool_specs;
 
+mod announcement_notes;
+
 #[cfg(test)]
 mod runtime_adapter_tests;

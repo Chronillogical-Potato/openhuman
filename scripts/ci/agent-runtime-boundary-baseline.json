@@ -92,20 +92,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/goals/continuation.rs",
-    "line": 32,
-    "text": "use crate::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/goals/continuation.rs",
-    "line": 198,
-    "text": "let result = with_origin(origin, agent.run_single(&prompt)).await;",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/goals/runtime.rs",
     "line": 150,
     "text": "crate::agent::turn_origin::current(),",
@@ -323,13 +309,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/agent/orchestration/background_delivery.rs",
-    "line": 232,
-    "text": "let result = crate::agent::turn_origin::with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
     "line": 169,
     "text": "let parent = current_parent().ok_or(OrchestrationError::NoParentContext)?;",
@@ -492,21 +471,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 219,
+    "line": 223,
     "text": "if self.auto_save && crate::agent::turn_origin::current_is_user_authored() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 871,
+    "line": 875,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 1391,
+    "line": 1363,
     "text": "request_id: crate::agent::turn_origin::current_request_id(),",
     "occurrence": 1
   },
@@ -1033,6 +1012,20 @@
     "path": "crates/openhuman-core/src/voice/realtime_harness/agent.rs",
     "line": 147,
     "text": "let fut = with_origin(",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/web_chat/ops/system_turn.rs",
+    "line": 20,
+    "text": "use crate::agent::turn_origin::{with_origin, AgentTurnOrigin};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/web_chat/ops/system_turn.rs",
+    "line": 88,
+    "text": "let result = with_origin(origin, agent.run_single(prompt))",
     "occurrence": 1
   },
   {
