@@ -1,0 +1,250 @@
+//! The per-thread session checkout every turn on a thread goes through — user
+//! turns and host-authored turns alike (`ops/system_turn.rs`).
+//!
+//! Regression context: background delivery used to run on a throwaway host
+//! bound to the thread, writing a competing root transcript that the next
+//! cold-boot resume preferred over the real conversation. Routing it through
+//! this checkout is what keeps one live history per thread.
+
+use std::path::Path;
+
+use tinyagents_session::transcript::{write_transcript, TranscriptMeta};
+
+use super::{
+    checkin_session_agent, checkin_session_agent_if_vacant, checkout_session_agent,
+    CheckedOutSession,
+};
+use crate::agent::messages::{ChatMessage, ConversationMessage};
+use crate::agent::OpenHumanSessionHost;
+use crate::config::Config;
+use crate::web_chat::ops::{key_for, THREAD_SESSIONS};
+
+fn test_config(tmp: &tempfile::TempDir) -> Config {
+    let config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    config
+}
+
+fn unique_thread(tag: &str) -> String {
+    format!("thread-checkout-{tag}-{}", uuid::Uuid::new_v4())
+}
+
+/// A root transcript for `thread_id` with the given prose rows, as the
+/// session persistence writes one.
+fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, rows: &[&str]) {
+    let path = workspace_dir.join("session_raw").join(format!("{stem}.jsonl"));
+    let messages: Vec<_> = rows
+        .iter()
+        .enumerate()
+        .map(|(index, text)| {
+            if index % 2 == 0 {
+                ChatMessage::user(*text)
+            } else {
+                ChatMessage::assistant(*text)
+            }
+        })
+        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
+        .collect();
+    let meta = TranscriptMeta {
+        agent_name: "orchestrator_thread".into(),
+        agent_id: Some("orchestrator".into()),
+        agent_type: Some("root".into()),
+        dispatcher: "native".into(),
+        provider: None,
+        model: None,
+        created: "2026-09-20T15:33:42Z".into(),
+        updated: "2026-09-20T15:36:32Z".into(),
+        turn_count: (rows.len() / 2) as u32,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
+        thread_id: Some(thread_id.to_string()),
+        task_id: None,
+    };
+    write_transcript(&path, &messages, &meta, None).unwrap();
+}
+
+fn prose(history: &[ConversationMessage]) -> Vec<String> {
+    history
+        .iter()
+        .filter_map(|message| match message {
+            ConversationMessage::Chat(chat) => Some(chat.content.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn host_seeded_with(config: &Config, marker: &str) -> OpenHumanSessionHost {
+    let mut host = OpenHumanSessionHost::from_config_for_agent(config, "orchestrator").unwrap();
+    host.seed_resume_from_messages(
+        vec![
+            ("user".to_string(), marker.to_string()),
+            ("agent".to_string(), "ok".to_string()),
+        ],
+        "",
+    )
+    .unwrap();
+    host
+}
+
+async fn evict(thread_id: &str) {
+    THREAD_SESSIONS.lock().await.remove(&key_for(thread_id));
+}
+
+#[tokio::test]
+async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_warm() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("cold");
+    write_thread_transcript(
+        &config.workspace_dir,
+        "1789918422_orchestrator_thread",
+        &thread_id,
+        &[
+            "help me plan a trip to north india",
+            "sure — how long, and who is going?",
+        ],
+    );
+
+    // A host-authored turn checks out with no overrides and no user text.
+    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+        &config,
+        super::super::SYSTEM_CLIENT_ID,
+        &thread_id,
+        None,
+        None,
+        None,
+        false,
+        "",
+    )
+    .await
+    .unwrap();
+    let history = prose(&agent.history());
+    assert!(
+        history
+            .iter()
+            .any(|row| row.contains("plan a trip to north india")),
+        "cold checkout must resume the thread's transcript, got {history:?}"
+    );
+
+    checkin_session_agent(&thread_id, agent, fingerprint).await;
+    assert!(THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+
+    // The next checkout — a user turn — reuses the warm agent with that history.
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        false,
+        "so lets do 20-30 days then?",
+    )
+    .await
+    .unwrap();
+    assert!(
+        prose(&agent.history())
+            .iter()
+            .any(|row| row.contains("plan a trip to north india")),
+        "warm checkout must carry the same history"
+    );
+    // Checked out means removed: nobody else can drive this agent meanwhile.
+    assert!(!THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+    evict(&thread_id).await;
+}
+
+#[tokio::test]
+async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("vacant");
+    let fingerprint = |c: &Config| {
+        super::build_session_fingerprint(c, None, None, "orchestrator".into(), "chat")
+    };
+
+    // A user turn finished while the system turn was running and cached its
+    // agent unconditionally.
+    let user_turn_agent = host_seeded_with(&config, "user-turn-history");
+    checkin_session_agent(&thread_id, user_turn_agent, fingerprint(&config)).await;
+
+    // The system turn must not clobber it.
+    let system_turn_agent = host_seeded_with(&config, "system-turn-history");
+    assert!(
+        !checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config))
+            .await
+    );
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        false,
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(prose(&agent.history()), vec!["user-turn-history", "ok"]);
+
+    // Into a vacant slot it goes in.
+    let system_turn_agent = host_seeded_with(&config, "system-turn-history");
+    assert!(
+        checkin_session_agent_if_vacant(&thread_id, system_turn_agent, fingerprint(&config))
+            .await
+    );
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        false,
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(prose(&agent.history()), vec!["system-turn-history", "ok"]);
+    evict(&thread_id).await;
+}
+
+#[tokio::test]
+async fn a_fork_never_takes_or_returns_the_cached_agent() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("fork");
+    let fingerprint =
+        super::build_session_fingerprint(&config, None, None, "orchestrator".into(), "chat");
+    checkin_session_agent(
+        &thread_id,
+        host_seeded_with(&config, "primary-history"),
+        fingerprint,
+    )
+    .await;
+
+    let CheckedOutSession { agent, .. } = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        /* fork */ true,
+        "",
+    )
+    .await
+    .unwrap();
+    // Built fresh: no transcript on disk for this thread, so an empty history.
+    assert!(prose(&agent.history()).is_empty());
+    // The primary's cached agent was left in place.
+    assert!(THREAD_SESSIONS.lock().await.contains_key(&key_for(&thread_id)));
+    evict(&thread_id).await;
+}

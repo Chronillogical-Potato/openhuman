@@ -351,3 +351,7 @@ pub(crate) async fn checkin_session_agent_if_vacant(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "session_checkout_tests.rs"]
+mod session_checkout_tests;
