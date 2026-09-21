@@ -1944,9 +1944,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'यह आपके मौजूदा वॉलेट को स्थायी रूप से बदल देगा। आगे बढ़ने से पहले सुनिश्चित करें कि आपने अपनी रिकवरी फ्रेज़ का बैकअप ले लिया है।',
   'mnemonic.replaceWalletConfirm': 'मैं समझता/समझती हूँ, मेरा वॉलेट बदलें',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': 'मौजूदा वॉलेट आयात करें',
+  'mnemonic.createANewWallet': 'नया वॉलेट बनाएं',
+  'mnemonic.importWallet': 'वॉलेट आयात करें',
   'mnemonic.loadingWalletStatus': 'वॉलेट की स्थिति जाँची जा रही है...',
   'mnemonic.viewAccounts': 'वॉलेट खाते',
   'mnemonic.revealRecoveryPhrase': 'रिकवरी वाक्यांश प्रकट करें',

@@ -1973,9 +1973,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Spowoduje to trwałe zastąpienie Twojego obecnego portfela. Upewnij się, że masz kopię zapasową frazy odzyskiwania przed kontynuowaniem.',
   'mnemonic.replaceWalletConfirm': 'Rozumiem, zastąp mój portfel',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': 'Importuj istniejący portfel',
+  'mnemonic.createANewWallet': 'Utwórz nowy portfel',
+  'mnemonic.importWallet': 'Importuj portfel',
   'mnemonic.loadingWalletStatus': 'Sprawdzanie statusu portfela...',
   'mnemonic.viewAccounts': 'Konta portfela',
   'mnemonic.revealRecoveryPhrase': 'Ujawnij frazę odzyskiwania',

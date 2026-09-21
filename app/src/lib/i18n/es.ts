@@ -1984,9 +1984,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Esto reemplazará permanentemente tu billetera actual. Asegúrate de haber guardado tu frase de recuperación antes de continuar.',
   'mnemonic.replaceWalletConfirm': 'Entiendo, reemplazar mi billetera',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': 'Importar una billetera existente',
+  'mnemonic.createANewWallet': 'Crear una nueva billetera',
+  'mnemonic.importWallet': 'Importar billetera',
   'mnemonic.loadingWalletStatus': 'Verificando estado de la billetera...',
   'mnemonic.viewAccounts': 'Cuentas de la billetera',
   'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperación',

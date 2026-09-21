@@ -1962,9 +1962,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Это навсегда заменит ваш текущий кошелёк. Убедитесь, что вы сделали резервную копию фразы восстановления, прежде чем продолжить.',
   'mnemonic.replaceWalletConfirm': 'Я понимаю, заменить мой кошелёк',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': 'Импортировать существующий кошелек',
+  'mnemonic.createANewWallet': 'Создать новый кошелек',
+  'mnemonic.importWallet': 'Импортировать кошелек',
   'mnemonic.loadingWalletStatus': 'Проверка статуса кошелька...',
   'mnemonic.viewAccounts': 'Счета кошелька',
   'mnemonic.revealRecoveryPhrase': 'Показать фразу восстановления',

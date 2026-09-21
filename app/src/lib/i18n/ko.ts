@@ -1922,9 +1922,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     '현재 지갑이 영구적으로 교체됩니다. 진행하기 전에 복구 구문을 백업했는지 확인하세요.',
   'mnemonic.replaceWalletConfirm': '이해합니다. 지갑을 교체합니다',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': '기존 지갑 가져오기',
+  'mnemonic.createANewWallet': '새 지갑 만들기',
+  'mnemonic.importWallet': '지갑 가져오기',
   'mnemonic.loadingWalletStatus': '지갑 상태 확인 중...',
   'mnemonic.viewAccounts': '지갑 계정',
   'mnemonic.revealRecoveryPhrase': '복구 구문 표시',

@@ -1957,9 +1957,9 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Ini akan mengganti dompetmu saat ini secara permanen. Pastikan kamu telah mencadangkan frasa pemulihan sebelum melanjutkan.',
   'mnemonic.replaceWalletConfirm': 'Saya mengerti, ganti dompet saya',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
+  'mnemonic.importAnExistingWallet': 'Impor Dompet yang Ada',
+  'mnemonic.createANewWallet': 'Buat Dompet Baru',
+  'mnemonic.importWallet': 'Impor Dompet',
   'mnemonic.loadingWalletStatus': 'Memeriksa status dompet...',
   'mnemonic.viewAccounts': 'Akun dompet',
   'mnemonic.revealRecoveryPhrase': 'Tampilkan frasa pemulihan',
