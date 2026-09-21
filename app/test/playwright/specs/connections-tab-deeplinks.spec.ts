@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  bootRuntimeReadyExistingSessionPage,
   bootRuntimeReadyGuestPage,
-  callCoreRpc,
   dismissWalkthroughIfPresent,
   signInViaBypassUser,
   waitForAppReady,
@@ -53,18 +51,13 @@ async function openRoute(
   route: string,
   settlesOn?: string
 ) {
-  const snapshot = await callCoreRpc<{
-    result?: { currentUser?: { _id?: string | null } | null };
-    currentUser?: { _id?: string | null } | null;
-  }>('openhuman.app_state_snapshot', {});
-  const currentUser = (snapshot.result ?? snapshot).currentUser;
-
-  if (currentUser?._id) {
-    await bootRuntimeReadyExistingSessionPage(page);
-  } else {
-    await bootRuntimeReadyGuestPage(page);
-    await signInViaBypassUser(page, userId);
-  }
+  // This spec follows another Connections test in the serial web lane. Reusing
+  // its authenticated core session made the first attempt depend on whether
+  // the previous browser had finished propagating its session snapshot. Start
+  // from the same deterministic guest-to-user transition used by the alias
+  // coverage instead.
+  await bootRuntimeReadyGuestPage(page);
+  await signInViaBypassUser(page, userId);
   await page.evaluate(
     ({ target }) => {
       try {
