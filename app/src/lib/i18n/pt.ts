@@ -5859,6 +5859,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Endereço de {network}',
   'walletReceive.onlyChainWarning':
     'Envie apenas ativos de {network} para este endereço. Enviar ativos de outra rede pode resultar em perda permanente.',
+  'walletSend.title': 'Enviar',
+  'walletSend.to': 'Para',
+  'walletSend.addressPlaceholder': 'Insira ou cole um endereço',
+  'walletSend.max': 'Máx',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} disponível',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponível',
   'walletSend.recipient': 'Endereço do destinatário',
   'walletSend.recipientPlaceholder': 'Cole o endereço de destino',

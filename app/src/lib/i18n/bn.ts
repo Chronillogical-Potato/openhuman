@@ -5770,6 +5770,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} ঠিকানা',
   'walletReceive.onlyChainWarning':
     'এই ঠিকানায় শুধুমাত্র {network} সম্পদ পাঠান। অন্য নেটওয়ার্কের সম্পদ পাঠালে স্থায়ীভাবে ক্ষতি হতে পারে।',
+  'walletSend.title': 'পাঠান',
+  'walletSend.to': 'প্রাপক',
+  'walletSend.addressPlaceholder': 'ঠিকানা লিখুন বা পেস্ট করুন',
+  'walletSend.max': 'সর্বোচ্চ',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} উপলব্ধ',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'উপলব্ধ',
   'walletSend.recipient': 'প্রাপকের ঠিকানা',
   'walletSend.recipientPlaceholder': 'গন্তব্য ঠিকানা পেস্ট করুন',

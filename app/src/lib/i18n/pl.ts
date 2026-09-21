@@ -5853,6 +5853,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Adres {network}',
   'walletReceive.onlyChainWarning':
     'Wysyłaj na ten adres wyłącznie aktywa {network}. Wysłanie aktywów z innej sieci może spowodować trwałą utratę.',
+  'walletSend.title': 'Wyślij',
+  'walletSend.to': 'Do',
+  'walletSend.addressPlaceholder': 'Wprowadź lub wklej adres',
+  'walletSend.max': 'Maks',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} dostępne',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Dostępne',
   'walletSend.recipient': 'Adres odbiorcy',
   'walletSend.recipientPlaceholder': 'Wklej adres docelowy',

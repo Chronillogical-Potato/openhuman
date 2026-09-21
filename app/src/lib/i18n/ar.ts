@@ -5631,6 +5631,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'عنوان {network}',
   'walletReceive.onlyChainWarning':
     'أرسل أصول {network} فقط إلى هذا العنوان. قد يؤدي إرسال أصول من شبكة أخرى إلى خسارة دائمة.',
+  'walletSend.title': 'إرسال',
+  'walletSend.to': 'إلى',
+  'walletSend.addressPlaceholder': 'أدخل العنوان أو الصقه',
+  'walletSend.max': 'الحد الأقصى',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} متاح',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'المتاح',
   'walletSend.recipient': 'عنوان المستلم',
   'walletSend.recipientPlaceholder': 'الصق عنوان الوجهة',

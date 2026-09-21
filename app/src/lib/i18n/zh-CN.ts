@@ -5434,6 +5434,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} 地址',
   'walletReceive.onlyChainWarning':
     '仅向此地址发送 {network} 资产。从其他网络发送资产可能导致永久损失。',
+  'walletSend.title': '发送',
+  'walletSend.to': '收款方',
+  'walletSend.addressPlaceholder': '输入或粘贴地址',
+  'walletSend.max': '最大',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} 可用',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': '可用',
   'walletSend.recipient': '收款地址',
   'walletSend.recipientPlaceholder': '粘贴目标地址',

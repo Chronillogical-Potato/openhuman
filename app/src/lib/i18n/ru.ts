@@ -5830,6 +5830,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Адрес {network}',
   'walletReceive.onlyChainWarning':
     'Отправляйте на этот адрес только активы сети {network}. Отправка активов из другой сети может привести к безвозвратной потере.',
+  'walletSend.title': 'Отправить',
+  'walletSend.to': 'Кому',
+  'walletSend.addressPlaceholder': 'Введите или вставьте адрес',
+  'walletSend.max': 'Макс',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} доступно',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Доступно',
   'walletSend.recipient': 'Адрес получателя',
   'walletSend.recipientPlaceholder': 'Вставьте адрес назначения',

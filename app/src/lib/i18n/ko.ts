@@ -5698,6 +5698,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} 주소',
   'walletReceive.onlyChainWarning':
     '이 주소로는 {network} 자산만 보내세요. 다른 네트워크의 자산을 보내면 영구적으로 손실될 수 있습니다.',
+  'walletSend.title': '보내기',
+  'walletSend.to': '받는 주소',
+  'walletSend.addressPlaceholder': '주소를 입력하거나 붙여넣기',
+  'walletSend.max': '최대',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} 사용 가능',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': '사용 가능',
   'walletSend.recipient': '받는 사람 주소',
   'walletSend.recipientPlaceholder': '대상 주소 붙여넣기',

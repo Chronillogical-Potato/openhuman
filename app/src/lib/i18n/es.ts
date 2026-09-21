@@ -5883,6 +5883,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Dirección de {network}',
   'walletReceive.onlyChainWarning':
     'Envía solo activos de {network} a esta dirección. Enviar activos de otra red puede provocar una pérdida permanente.',
+  'walletSend.title': 'Enviar',
+  'walletSend.to': 'Para',
+  'walletSend.addressPlaceholder': 'Ingresa o pega una dirección',
+  'walletSend.max': 'Máx',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} disponible',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponible',
   'walletSend.recipient': 'Dirección del destinatario',
   'walletSend.recipientPlaceholder': 'Pega la dirección de destino',

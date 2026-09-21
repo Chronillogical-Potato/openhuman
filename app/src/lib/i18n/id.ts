@@ -5799,6 +5799,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Alamat {network}',
   'walletReceive.onlyChainWarning':
     'Hanya kirim aset {network} ke alamat ini. Mengirim aset dari jaringan lain dapat mengakibatkan kehilangan permanen.',
+  'walletSend.title': 'Kirim',
+  'walletSend.to': 'Ke',
+  'walletSend.addressPlaceholder': 'Masukkan atau tempel alamat',
+  'walletSend.max': 'Maks',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} tersedia',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Tersedia',
   'walletSend.recipient': 'Alamat penerima',
   'walletSend.recipientPlaceholder': 'Tempel alamat tujuan',

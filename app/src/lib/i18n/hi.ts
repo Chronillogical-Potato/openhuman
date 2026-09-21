@@ -5769,6 +5769,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} पता',
   'walletReceive.onlyChainWarning':
     'इस पते पर केवल {network} एसेट भेजें। किसी अन्य नेटवर्क के एसेट भेजने से स्थायी हानि हो सकती है।',
+  'walletSend.title': 'भेजें',
+  'walletSend.to': 'प्रति',
+  'walletSend.addressPlaceholder': 'पता दर्ज करें या पेस्ट करें',
+  'walletSend.max': 'अधिकतम',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} उपलब्ध',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'उपलब्ध',
   'walletSend.recipient': 'प्राप्तकर्ता का पता',
   'walletSend.recipientPlaceholder': 'गंतव्य पता पेस्ट करें',

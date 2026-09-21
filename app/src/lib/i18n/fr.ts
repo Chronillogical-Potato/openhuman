@@ -5910,6 +5910,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Adresse {network}',
   'walletReceive.onlyChainWarning':
     'N’envoyez que des actifs {network} à cette adresse. Envoyer des actifs d’un autre réseau peut entraîner une perte définitive.',
+  'walletSend.title': 'Envoyer',
+  'walletSend.to': 'À',
+  'walletSend.addressPlaceholder': 'Entrez ou collez une adresse',
+  'walletSend.max': 'Max',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} disponible',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponible',
   'walletSend.recipient': 'Adresse du destinataire',
   'walletSend.recipientPlaceholder': 'Collez l’adresse de destination',

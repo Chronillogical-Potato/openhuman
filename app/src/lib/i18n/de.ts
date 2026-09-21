@@ -5926,6 +5926,12 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network}-Adresse',
   'walletReceive.onlyChainWarning':
     'Sende nur {network}-Assets an diese Adresse. Das Senden von Assets aus einem anderen Netzwerk kann zu einem dauerhaften Verlust führen.',
+  'walletSend.title': 'Senden',
+  'walletSend.to': 'An',
+  'walletSend.addressPlaceholder': 'Adresse eingeben oder einfügen',
+  'walletSend.max': 'Max',
+  'walletSend.availableBalance': '{{amount}} {{symbol}} verfügbar',
+  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Verfügbar',
   'walletSend.recipient': 'Empfängeradresse',
   'walletSend.recipientPlaceholder': 'Zieladresse einfügen',
