@@ -128,8 +128,8 @@ fn split_registries(
 ///
 /// It was not. `use_skill` was bound only to the durable registry, and no
 /// `delegate_*` tool is in it — so `do_crypto`, `run_skill`, `setup_skills`,
-/// `build_workflow`, `discover_workflows`, `use_mcp_server` and
-/// `setup_mcp_server` were all dropped from the wire and then unreachable
+/// `build_workflow`, `discover_workflows` and `use_mcp_server` were all
+/// dropped from the wire and then unreachable
 /// through the route that was supposed to replace them. Withholding a tool the
 /// model then cannot call is strictly worse than never packing it.
 #[tokio::test]
@@ -485,8 +485,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "mcp_registry_connect",
                 "mcp_registry_disconnect",
                 "mcp_registry_tool_call",
-                "mcp_registry_config_assist",
-                "mcp_registry_install",
                 "mcp_registry_uninstall",
             ],
         ),

@@ -133,9 +133,10 @@ fn vision_preflight_rejects_a_text_only_model_with_an_actionable_message() {
 }
 
 #[test]
-fn vision_preflight_allows_the_managed_vision_tier() {
-    // `vision-v1` is multimodal per `oh_tier_supports_vision`; the
-    // pre-flight must not fire for the managed vision sub-agent.
+fn vision_preflight_allows_the_managed_vision_route() {
+    // The vision route and the managed default are multimodal per
+    // `oh_tier_supports_vision`; the pre-flight must not fire for them.
     let config = crate::config::Config::default();
-    assert!(vision_preflight("vision-v1", &config).is_ok());
+    assert!(vision_preflight("hint:vision", &config).is_ok());
+    assert!(vision_preflight(crate::config::MODEL_MANAGED_DEFAULT, &config).is_ok());
 }

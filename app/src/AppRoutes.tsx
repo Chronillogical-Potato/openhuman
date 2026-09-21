@@ -19,7 +19,6 @@ import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
 import { PttOverlayPage } from './pages/PttOverlayPage';
-import Rewards from './pages/Rewards';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
@@ -214,15 +213,6 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
       {/* Back-compat: /routines was an orphaned dead page. Workflows is now a
           first-level module — redirect surviving deep links to /flows. */}
       <Route path="/routines" element={<Navigate to="/flows" replace />} />
-
-      <Route
-        path="/rewards"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Rewards />
-          </ProtectedRoute>
-        }
-      />
 
       {/* Installed SKILL.md workflows remain a separate runtime surface from
           visual Flows. Keep the legacy top-level hub reachable. */}

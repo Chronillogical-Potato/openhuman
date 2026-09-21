@@ -23,7 +23,6 @@ const ROUTES: RouteEntry[] = [
   { route: '/skills', expectedHash: '/connections' }, // back-compat redirect
   { route: '/activity', expectedHash: '/settings/notifications' }, // back-compat redirect
   { route: '/intelligence', expectedHash: '/settings/notifications' }, // back-compat redirect
-  { route: '/rewards' },
   // Desktop Settings is a modal overlay (the backgroundLocation pattern): the
   // /settings index redirects to the first panel and the modal renders on top
   // of the /chat fallback backdrop.

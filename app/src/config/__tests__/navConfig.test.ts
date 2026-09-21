@@ -3,22 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 5 entries', () => {
-    expect(NAV_TABS).toHaveLength(5);
+  it('has exactly 4 entries', () => {
+    expect(NAV_TABS).toHaveLength(4);
   });
 
   it('has the correct ids in order', () => {
-    expect(NAV_TABS.map(t => t.id)).toEqual(['chat', 'brain', 'flows', 'connections', 'rewards']);
+    expect(NAV_TABS.map(t => t.id)).toEqual(['chat', 'brain', 'flows', 'connections']);
   });
 
   it('has the correct paths', () => {
-    expect(NAV_TABS.map(t => t.path)).toEqual([
-      '/chat',
-      '/brain',
-      '/flows',
-      '/connections',
-      '/rewards',
-    ]);
+    expect(NAV_TABS.map(t => t.path)).toEqual(['/chat', '/brain', '/flows', '/connections']);
   });
 
   it('has the correct labelKeys', () => {
@@ -27,7 +21,6 @@ describe('NAV_TABS', () => {
       'nav.brain',
       'nav.flows',
       'nav.connections',
-      'nav.rewards',
     ]);
   });
 
@@ -37,12 +30,11 @@ describe('NAV_TABS', () => {
       'tab-brain',
       'tab-flows',
       'tab-connections',
-      'tab-rewards',
     ]);
   });
 
-  it('gates only rewards on a cloud session', () => {
-    expect(NAV_TABS.filter(t => t.cloudOnly).map(t => t.id)).toEqual(['rewards']);
+  it('gates nothing on a cloud session now that Rewards is gone', () => {
+    expect(NAV_TABS.filter(t => t.cloudOnly).map(t => t.id)).toEqual([]);
   });
 
   it('no longer contains a human tab (reached from the composer idle button)', () => {

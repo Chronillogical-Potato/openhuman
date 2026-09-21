@@ -71,12 +71,12 @@ fn required_env(name: &str) -> String {
 }
 
 /// Seed a config that routes agent-node/chat workloads to the live managed
-/// backend. `default_model = "chat-v1"` so the chat-tier `drafter` node resolves
-/// to `chat-v1` while the reasoning-tier `planner` node pins `reasoning-v1`.
+/// backend. Both the chat-role `drafter` and the reasoning-role `planner` run
+/// on the managed default model.
 fn write_live_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
-default_model = "chat-v1"
+default_model = "openrouter/deepseek/deepseek-v4-flash"
 default_temperature = 0.7
 chat_onboarding_completed = true
 
@@ -180,7 +180,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Plan the brief (reasoning tier)",
                 "config": {
-                    "model": "reasoning-v1",
+                    "model": "hint:reasoning",
                     "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
                     "output_parser": {
                         "schema": {
@@ -199,7 +199,7 @@ fn opus_sonnet_demo_graph() -> Value {
                 "kind": "agent",
                 "name": "Draft the brief (chat tier)",
                 "config": {
-                    "model": "chat-v1",
+                    "model": "hint:chat",
                     "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
                 }
             },
@@ -377,7 +377,7 @@ async fn live_flows_demo_discover_build_save_run() {
             );
         }
     }
-    println!("\nmodels used: planner→reasoning-v1, drafter→chat-v1 (per node config.model)");
+    println!("\nmodels used: planner→hint:reasoning, drafter→hint:chat (per node config.model)");
 
     // Pull the persisted run row for the recorded per-step models/status.
     let run_row = post_json_rpc(

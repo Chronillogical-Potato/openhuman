@@ -315,10 +315,6 @@ const DESKTOP_TOOLS: &[&str] = &[
     #[cfg(feature = "mcp")]
     "mcp_registry_tool_call",
     #[cfg(feature = "mcp")]
-    "mcp_registry_config_assist",
-    #[cfg(feature = "mcp")]
-    "mcp_registry_install",
-    #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
     "workspace_read_persona",
     "workspace_update_persona",
@@ -327,8 +323,6 @@ const DESKTOP_TOOLS: &[&str] = &[
 ];
 
 const DESKTOP_DEFAULT_OFF: &[&str] = &[
-    #[cfg(feature = "mcp")]
-    "mcp_registry_install",
     #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
     "workspace_update_persona",

@@ -256,7 +256,7 @@ impl OpenHumanSessionHost {
         // tuple — the resolved model wins over the legacy `default_model`
         // fallback so explicit picks like `anthropic:claude-sonnet-4-5`
         // actually use claude-sonnet-4-5 end to end (sending the abstract
-        // "reasoning-v1" tier name to Anthropic would 404).
+        // "hint:reasoning" tier name to Anthropic would 404).
         //
         // When `reasoning_provider` is unset or `"cloud"`, the factory
         // resolves to the primary cloud (OpenHuman by default), so the
@@ -274,7 +274,7 @@ impl OpenHumanSessionHost {
         // the configured chat default. Other specialised roles still select
         // their model in the sub-agent runner.
         // Only the explicit `hint:<role>` form routes to a specialised
-        // workload — legacy tier literals like `reasoning-v1` (which the
+        // workload — legacy tier literals like `hint:reasoning` (which the
         // bootstrap historically pinned as `default_model` for everyone)
         // fall through to `chat`. This preserves `config.chat_provider` for
         // legacy callers. A built-in Master OpenHumanSessionHost has an explicit

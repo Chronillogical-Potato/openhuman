@@ -132,7 +132,7 @@ fn is_local_cli_route(provider_string: &str) -> bool {
 /// "Subconscious" provider control governs triage classification.
 ///
 /// The managed model id comes from `make_openhuman_backend` →
-/// [`managed_tier_for_role`]`("subconscious")` (i.e. `chat-v1`), the same
+/// [`managed_tier_for_role`]`("subconscious")` (i.e. `hint:chat`), the same
 /// registry the subconscious tick and the agent harness use — NOT from
 /// `default_model`. So triage stays consistent with the tick: one place pins
 /// the managed model.

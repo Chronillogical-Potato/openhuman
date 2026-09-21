@@ -200,12 +200,7 @@ fn skill_and_mcp_sections_name_the_hand_off_this_session_can_call() {
 
     // The generated withheld block no longer lists the unpacked hand-offs.
     let block = render_withheld_specialists(&ctx);
-    for handoff in [
-        "setup_skills",
-        "run_skill",
-        "use_mcp_server",
-        "setup_mcp_server",
-    ] {
+    for handoff in ["setup_skills", "run_skill", "use_mcp_server"] {
         assert!(
             !block.contains(handoff),
             "`{handoff}` is a direct tool and must not be listed as withheld:\n{block}"

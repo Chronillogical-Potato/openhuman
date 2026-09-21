@@ -33,10 +33,14 @@ fn decorations_do_not_promote_a_byok_model_to_managed() {
     }
 }
 
-use crate::config::{
-    MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-    MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
-};
+use crate::config::{LEGACY_TIER_MODELS, MODEL_MANAGED_DEFAULT};
+
+/// The managed default is an `openrouter/...` passthrough id and bills as
+/// managed like every other catalog model the backend serves.
+#[test]
+fn managed_default_model_is_managed() {
+    assert_eq!(route_for_model(MODEL_MANAGED_DEFAULT), CostRoute::Managed);
+}
 
 #[test]
 fn managed_tier_slugs_are_managed() {
@@ -49,33 +53,17 @@ fn managed_tier_slugs_are_managed() {
     }
 }
 
-/// The local slug list must not drift from the backend tier constants. If a
-/// new tier is introduced upstream, this fails until it is classified here
-/// — otherwise managed spend on the new tier would silently stop counting
-/// toward the budget.
+/// The retired slug list is the config's own legacy table, so an old cost
+/// record carrying any of them still counts toward the managed budget.
 #[test]
 fn managed_tier_slugs_stay_in_sync() {
-    let upstream = [
-        MODEL_CHAT_V1,
-        MODEL_REASONING_V1,
-        MODEL_REASONING_QUICK_V1,
-        MODEL_AGENTIC_V1,
-        MODEL_BURST_V1,
-        MODEL_CODING_V1,
-        MODEL_VISION_V1,
-        MODEL_SUMMARIZATION_V1,
-    ];
-    for tier in upstream {
+    for tier in LEGACY_TIER_MODELS {
         assert!(
             MANAGED_MODEL_SLUGS.contains(&tier),
-            "backend tier {tier} is not classified as managed"
+            "retired tier {tier} is not classified as managed"
         );
     }
-    assert_eq!(
-        MANAGED_MODEL_SLUGS.len(),
-        upstream.len(),
-        "MANAGED_MODEL_SLUGS has an entry with no matching backend tier constant"
-    );
+    assert_eq!(MANAGED_MODEL_SLUGS.len(), LEGACY_TIER_MODELS.len());
 }
 
 #[test]

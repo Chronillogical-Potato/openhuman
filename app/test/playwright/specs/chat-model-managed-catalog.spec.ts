@@ -112,7 +112,8 @@ async function openChat(page: Page): Promise<void> {
 const modelChip = (page: Page): Locator =>
   page.locator('[data-analytics-id="chat-model-selector"]');
 const pickerTitle = (page: Page): Locator => page.getByText('Choose provider and model');
-const managedSelect = (page: Page): Locator => page.getByTestId('model-picker-managed-select');
+const managedOption = (page: Page, id: string): Locator =>
+  page.getByTestId(`model-picker-managed-option-${id}`);
 
 /**
  * Open the picker and land on the managed source's pane.
@@ -129,7 +130,7 @@ async function openManagedPane(page: Page): Promise<void> {
   await modelChip(page).click();
   await expect(pickerTitle(page)).toBeVisible({ timeout: 10_000 });
   if ((await page.getByTestId('model-picker-managed-pane').count()) === 0) {
-    await page.getByText('Managed by OpenHuman', { exact: true }).first().click();
+    await page.getByText('OpenRouter', { exact: true }).first().click();
   }
   await expect(page.getByTestId('model-picker-managed-pane')).toBeVisible();
 }
@@ -148,31 +149,29 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     await openChat(page);
     await openManagedPane(page);
 
-    const select = managedSelect(page);
+    // The catalog reached the browser through the real core fetch, not a stub,
+    // and is rendered as a list filling the pane rather than a dropdown.
     await expect(
-      select,
+      managedOption(page, PLAIN_ID),
       'before #6201 the managed pane rendered prose and no model control at all'
     ).toBeVisible({ timeout: 20_000 });
-
-    // The catalog reached the browser through the real core fetch, not a stub.
-    const optionValues = await select
-      .locator('option')
-      .evaluateAll(nodes => nodes.map(node => (node as HTMLOptionElement).value));
-    expect(optionValues).toContain(PLAIN_ID);
-    expect(optionValues).toContain(FREE_ID);
-    // "Automatic" is always present so a pin is reversible.
-    expect(optionValues).toContain('');
+    await expect(managedOption(page, FREE_ID)).toBeVisible();
 
     // Labelled by display name + charged price, not the bare slug. Asserting
     // the price text matters: the id alone would satisfy a label that ignored
     // `display_name` / `pricing` entirely.
-    const plainLabel = await select.locator(`option[value="${PLAIN_ID}"]`).textContent();
-    expect(plainLabel?.trim()).toBe('Nex N2.5 Mini — $0.15/$0.6 per 1M');
+    await expect(managedOption(page, PLAIN_ID)).toContainText('Nex N2.5 Mini');
+    await expect(managedOption(page, PLAIN_ID)).toContainText('$0.15/$0.6 per 1M');
 
     // A catalog entry with neither name nor pricing falls back to the bare id
-    // rather than rendering "undefined" or an empty option.
-    const plainestLabel = await select.locator(`option[value="${NO_METADATA_ID}"]`).textContent();
-    expect(plainestLabel?.trim()).toBe(NO_METADATA_ID);
+    // rather than rendering "undefined" or an empty row.
+    await expect(managedOption(page, NO_METADATA_ID)).toContainText(NO_METADATA_ID);
+
+    // The search box narrows this list, not the provider column.
+    await page.getByPlaceholder('Search models').fill('free');
+    await expect(managedOption(page, FREE_ID)).toBeVisible();
+    await expect(managedOption(page, PLAIN_ID)).toHaveCount(0);
+    await expect(page.getByText('OpenRouter', { exact: true }).first()).toBeVisible();
   });
 
   test('a pinned managed model survives closing and reopening the picker', async ({ page }) => {
@@ -185,8 +184,8 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     expect(before, 'the model chip must name the current model').not.toBe('');
 
     await openManagedPane(page);
-    await expect(managedSelect(page)).toBeVisible({ timeout: 20_000 });
-    await managedSelect(page).selectOption(PLAIN_ID);
+    await expect(managedOption(page, PLAIN_ID)).toBeVisible({ timeout: 20_000 });
+    await managedOption(page, PLAIN_ID).click();
     await page.getByRole('button', { name: 'Use this model' }).click();
     await expect(pickerTitle(page)).toHaveCount(0);
 
@@ -195,23 +194,41 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     await expect(chip).toHaveText(/nex-n2\.5-mini/, { timeout: 10_000 });
     expect((await chip.textContent())?.trim() ?? '').not.toBe(before);
 
-    // The round trip: reopen and the select still shows the pinned id.
+    // The round trip: reopen and the list still marks the pinned id.
     // `selectionFromValue` decoded a bare id (no `:`) to null, so the selection
-    // was silently dropped here and the pane reopened on "Automatic".
+    // was silently dropped here and the pane reopened with nothing selected.
     await openManagedPane(page);
-    await expect(managedSelect(page)).toBeVisible({ timeout: 20_000 });
     await expect(
-      managedSelect(page),
+      managedOption(page, PLAIN_ID),
       'a pinned managed id round-trips through selectionValue/selectionFromValue'
-    ).toHaveValue(PLAIN_ID);
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 20_000 });
+  });
+
+  test('a composer pick is the global default and survives a fresh page', async ({ page }) => {
+    // The picker writes `default_model` through the core, so a brand-new page
+    // (new composer state, same core) still resolves and shows the pinned
+    // model — the pick is not a per-session override.
+    await openChat(page);
+    await openManagedPane(page);
+    await expect(managedOption(page, PLAIN_ID)).toBeVisible({ timeout: 20_000 });
+    await managedOption(page, PLAIN_ID).click();
+    await page.getByRole('button', { name: 'Use this model' }).click();
+    await expect(pickerTitle(page)).toHaveCount(0);
+    await expect(modelChip(page)).toHaveText(/nex-n2\.5-mini/, { timeout: 10_000 });
+
+    await openChat(page);
+    await expect(
+      modelChip(page),
+      'the pinned model must come back from the core, not from composer state'
+    ).toHaveText(/nex-n2\.5-mini/, { timeout: 20_000 });
   });
 
   test('a :free variant keeps its full name on the chip', async ({ page }) => {
     await openChat(page);
     await openManagedPane(page);
-    await expect(managedSelect(page)).toBeVisible({ timeout: 20_000 });
+    await expect(managedOption(page, FREE_ID)).toBeVisible({ timeout: 20_000 });
 
-    await managedSelect(page).selectOption(FREE_ID);
+    await managedOption(page, FREE_ID).click();
     await page.getByRole('button', { name: 'Use this model' }).click();
     await expect(pickerTitle(page)).toHaveCount(0);
 
@@ -226,30 +243,12 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
 
     // And it round-trips: the variant suffix is not lost on reopen either.
     await openManagedPane(page);
-    await expect(managedSelect(page)).toHaveValue(FREE_ID, { timeout: 20_000 });
+    await expect(managedOption(page, FREE_ID)).toHaveAttribute('aria-selected', 'true', {
+      timeout: 20_000,
+    });
   });
 
-  test('a pinned model can be cleared back to automatic', async ({ page }) => {
-    await openChat(page);
-    await openManagedPane(page);
-    await expect(managedSelect(page)).toBeVisible({ timeout: 20_000 });
-    await managedSelect(page).selectOption(PLAIN_ID);
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
-    const pinned = (await modelChip(page).textContent())?.trim() ?? '';
-    expect(pinned).toMatch(/nex-n2\.5-mini/);
-
-    await openManagedPane(page);
-    await expect(managedSelect(page)).toHaveValue(PLAIN_ID, { timeout: 20_000 });
-    await managedSelect(page).selectOption('');
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
-
-    // Back to automatic routing: the chip no longer names the pinned model.
-    await expect(modelChip(page)).not.toHaveText(/nex-n2\.5-mini/, { timeout: 10_000 });
-  });
-
-  test('an empty catalog renders no select, exactly as before the feature', async ({ page }) => {
+  test('an empty catalog renders no model rows and cannot be submitted', async ({ page }) => {
     // Models the real backend with OPENROUTER_PASSTHROUGH_ENABLED off: it
     // returns an empty set with HTTP 200, not an error. The managed pane must
     // degrade to its pre-#6201 appearance rather than surfacing a failure.
@@ -258,9 +257,8 @@ test.describe('Managed OpenRouter catalog in the model picker', () => {
     await openManagedPane(page);
 
     await expect(page.getByTestId('model-picker-managed-pane')).toBeVisible();
-    await expect(managedSelect(page)).toHaveCount(0);
-    // Managed is still selectable with no model id — the original contract.
-    await page.getByRole('button', { name: 'Use this model' }).click();
-    await expect(pickerTitle(page)).toHaveCount(0);
+    await expect(page.locator('[data-testid^="model-picker-managed-option-"]')).toHaveCount(0);
+    // Nothing to pick means nothing to submit.
+    await expect(page.getByRole('button', { name: 'Use this model' })).toBeDisabled();
   });
 });

@@ -9,7 +9,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "inference",
             function: "resolve_model",
             description: "Resolve a model hint or tier name to the concrete model the provider router would use.",
-            inputs: vec![required_string("hint", "Model hint (e.g. hint:reasoning) or tier name (e.g. reasoning-v1).")],
+            inputs: vec![required_string("hint", "Model hint (e.g. hint:reasoning) or a concrete model id.")],
             outputs: vec![
                 json_output("model", "Resolved concrete model id."),
                 json_output(

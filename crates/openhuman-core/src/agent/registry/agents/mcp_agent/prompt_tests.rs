@@ -36,10 +36,12 @@ fn build_returns_nonempty_body() {
 #[test]
 fn archetype_documents_connected_only_invariant() {
     let body = build(&empty_ctx()).unwrap();
-    // Must steer away from install (that's mcp_setup's job) and toward
-    // the discover → list → call flow over already-connected servers.
+    // Must steer away from install (the user declares servers in mcp.json)
+    // and toward the discover → list → call flow over already-connected
+    // servers.
     assert!(body.contains("already connected") || body.contains("already-connected"));
-    assert!(body.contains("setup_mcp_server"));
+    assert!(body.contains("mcp.json"));
+    assert!(!body.contains("setup_mcp_server"));
 }
 
 #[test]

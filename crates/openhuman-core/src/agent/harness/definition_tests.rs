@@ -72,17 +72,20 @@ fn model_spec_resolve_exact_uses_name() {
 }
 
 #[test]
-fn model_spec_resolve_hint_appends_v1() {
+fn model_spec_resolve_hint_yields_the_role_alias() {
     let spec = ModelSpec::Hint("coding".into());
-    assert_eq!(spec.resolve("parent-model"), "coding-v1");
+    assert_eq!(spec.resolve("parent-model"), "hint:coding");
 }
 
 #[test]
-fn model_spec_resolve_vision_hint_yields_vision_v1() {
-    // The vision sub-agent's `hint = "vision"` must resolve to the `vision-v1`
-    // tier alias — which `oh_tier_supports_vision` reports as image-capable.
+fn model_spec_resolve_vision_hint_yields_the_vision_alias() {
+    // The vision sub-agent's `hint = "vision"` must resolve to the `hint:vision`
+    // alias — which `oh_tier_supports_vision` reports as image-capable.
     let spec = ModelSpec::Hint("vision".into());
-    assert_eq!(spec.resolve("parent-model"), "vision-v1");
+    assert_eq!(spec.resolve("parent-model"), "hint:vision");
+    assert!(
+        crate::inference::provider::factory::oh_tier_supports_vision(&spec.resolve("parent-model"))
+    );
 }
 
 #[test]
@@ -373,11 +376,8 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("flow_memory_agent", 50),
         ("integrations_agent", 50),
         // `mcp_agent` is compiled out with the `mcp` feature (#4799).
-        // `mcp_setup` is NOT — only its five tools are gated, so the agent
-        // definition still loads in both builds.
         #[cfg(feature = "mcp")]
         ("mcp_agent", 50),
-        ("mcp_setup", 50),
         ("planner", 50),
         ("researcher", 50),
         ("skill_creator", 50),

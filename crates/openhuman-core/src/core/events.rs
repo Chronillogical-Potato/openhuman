@@ -1074,16 +1074,6 @@ pub enum DomainEvent {
         success: bool,
         elapsed_ms: u64,
     },
-    /// The MCP setup agent asked the user for a secret value. The UI
-    /// subscribes to this and renders a native prompt; on submit it calls
-    /// `openhuman.mcp_setup_submit_secret`. `ref_id` is the opaque handle
-    /// returned to the agent; the raw secret value never traverses this
-    /// event.
-    McpSetupSecretRequested {
-        ref_id: String,
-        key_name: String,
-        prompt: String,
-    },
     /// A remote MCP server returned a tool whose `description` or
     /// `title` failed the input-validation scan and was dropped from
     /// the registry before reaching the agent LLM context. Surfaced for
@@ -1529,7 +1519,6 @@ impl DomainEvent {
             | Self::McpServerConnected { .. }
             | Self::McpServerDisconnected { .. }
             | Self::McpClientToolExecuted { .. }
-            | Self::McpSetupSecretRequested { .. }
             | Self::McpToolRejected { .. }
             | Self::McpServerProbeTimedOut { .. }
             | Self::McpServerTransportDropped { .. }
@@ -1654,7 +1643,6 @@ impl DomainEvent {
             Self::McpServerConnected { .. } => "McpServerConnected",
             Self::McpServerDisconnected { .. } => "McpServerDisconnected",
             Self::McpClientToolExecuted { .. } => "McpClientToolExecuted",
-            Self::McpSetupSecretRequested { .. } => "McpSetupSecretRequested",
             Self::McpToolRejected { .. } => "McpToolRejected",
             Self::McpServerProbeTimedOut { .. } => "McpServerProbeTimedOut",
             Self::McpServerTransportDropped { .. } => "McpServerTransportDropped",

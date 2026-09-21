@@ -28,8 +28,9 @@ pub use ops::*;
 pub use schema::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
-    default_projects_dir, default_root_openhuman_dir, pre_login_user_dir, read_active_user_id,
-    resolve_action_dir, user_openhuman_dir, write_active_user_id, PRE_LOGIN_USER_ID,
+    default_projects_dir, default_root_openhuman_dir, is_legacy_tier_model, legacy_tier_role,
+    pre_login_user_dir, read_active_user_id, resolve_action_dir, user_openhuman_dir,
+    write_active_user_id, PRE_LOGIN_USER_ID, WORKLOAD_ROLES,
 };
 pub use workspace_handle::workspace_handle;
 // Crate-internal: workspace→config-dir resolver reused by the cloud embedder.
@@ -56,9 +57,8 @@ pub use schema::{
     StorageProviderConfig, StorageProviderSection, StreamMode, SttEngine, TeamModelConfig,
     TelegramConfig, TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode,
     VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_CLOUD_LLM_MODEL,
-    DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
-    MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-    MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1, SEARCH_ENGINE_BRAVE,
+    DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, LEGACY_TIER_MODELS,
+    MEMORY_SYNC_INTERVAL_PRESETS_SECS, MODEL_MANAGED_DEFAULT, SEARCH_ENGINE_BRAVE,
     SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL,
     SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
 };

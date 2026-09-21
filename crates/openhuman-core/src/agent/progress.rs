@@ -328,7 +328,7 @@ pub enum AgentProgress {
         model: String,
         /// Provider that served this call (`"managed"`, `"openai"`,
         /// `"ollama"`, …). Trace exporters render the Langfuse model as
-        /// `{provider_id}.{model}` (e.g. `managed.chat-v1`).
+        /// `{provider_id}.{model}` (e.g. `managed.hint:chat`).
         provider_id: String,
         /// Owning subagent task id when this call ran inside a child run
         /// (`spawn_subagent` / Context Scout). `None` for parent-scope calls.

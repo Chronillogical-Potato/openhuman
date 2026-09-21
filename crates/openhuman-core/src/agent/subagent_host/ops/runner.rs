@@ -1221,10 +1221,10 @@ async fn run_typed_mode(
         //
         // When summarization routes to the **managed** backend, the parent
         // provider already speaks the managed tier names, so we reuse it with the
-        // fixed `summarization-v1` model — no redundant provider build, and (with
+        // fixed `hint:summarization` model — no redundant provider build, and (with
         // no live backend) no network dependency. Only when summarization routes
         // to a **concrete BYOK/local** provider — exactly where passing the
-        // parent agent's (agentic) provider the literal `summarization-v1` would
+        // parent agent's (agentic) provider the literal `hint:summarization` would
         // 400/404 — do we build the dedicated summarization provider so the call
         // lands on the right endpoint + model.
         //
@@ -1279,7 +1279,7 @@ async fn run_typed_mode(
                 tracing::warn!(
                     agent_id = %definition.id,
                     error = %e,
-                    "[subagent_host:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
+                    "[subagent_host:typed] config load failed for extract provider; falling back to parent provider + hint:summarization"
                 );
                 (parent.turn_model_source.clone(), summarization_tier.clone())
             }

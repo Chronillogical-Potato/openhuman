@@ -134,10 +134,10 @@ pub async fn apply_model_settings(
             Some(trimmed.to_string())
         };
         if let Some(ref m) = config.default_model {
-            if !crate::inference::provider::factory::is_known_openhuman_tier(m) {
+            if crate::inference::provider::factory::is_known_openhuman_tier(m) {
                 log::warn!(
-                    "[config][model-settings] default_model '{}' is not a recognized \
-                     OpenHuman backend tier — it will be replaced with the platform \
+                    "[config][model-settings] default_model '{}' is a retired tier slug or \
+                     role hint, not a catalog model — managed turns run on the platform \
                      default at inference time.",
                     m
                 );

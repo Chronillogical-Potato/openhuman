@@ -1,7 +1,7 @@
 id = "mcp_agent"
 display_name = "MCP Agent"
 delegate_name = "use_mcp_server"
-when_to_use = "Fulfils a request by calling tools on an ALREADY-CONNECTED MCP server (e.g. answer from a connected docs MCP, query a connected data/API server, run a connected server's tool). Discovers which servers are connected, lists the chosen server's tools, then invokes the right one with the right arguments and reports the result. Use whenever the work can be done by a tool on a server the user has already connected. NOT for installing / adding / setting up a new server — route that to setup_mcp_server instead."
+when_to_use = "Fulfils a request by calling tools on an ALREADY-CONNECTED MCP server (e.g. answer from a connected docs MCP, query a connected data/API server, run a connected server's tool). Discovers which servers are connected, lists the chosen server's tools, then invokes the right one with the right arguments and reports the result. Use whenever the work can be done by a tool on a server the user has already connected. NOT for installing / adding / setting up a new server — the user declares those themselves in Connections → MCP Servers (mcp.json)."
 temperature = 0.3
 max_iterations = 10
 iteration_policy = "extended"
@@ -18,7 +18,7 @@ hint = "agentic"
 [tools]
 # Connected-server execution surface only. Discovery (`status` /
 # `list_tools`) + ensure-live (`connect`) + execute (`tool_call`). No
-# install/uninstall (that is `mcp_setup`'s secret-handling job), no shell,
+# install/uninstall (servers are declared by the user in mcp.json), no shell,
 # file, or network — this agent only relays through already-connected MCP
 # servers. `resolve_time` so any time-window arguments are exact, and
 # `ask_user_clarification` for natural-language checkpoints.

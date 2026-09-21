@@ -63,7 +63,7 @@ export const ALL_WORKLOADS: WorkloadId[] = [...CHAT_WORKLOADS, ...BACKGROUND_WOR
 // Workloads that own a `<id>_provider` config field and must round-trip through
 // settings serialization. Includes the tier-specific `vision` workload, which
 // is deliberately NOT part of `CHAT_WORKLOADS`/`ALL_WORKLOADS`: it defaults to
-// the managed `vision-v1` tier and is a delegate (like agentic BYOK), so it does
+// the managed vision route and is a delegate (like agentic BYOK), so it does
 // not participate in the billing-suppression / "routed away from OpenHuman"
 // checks in `useUsageState`.
 const ROUTABLE_WORKLOADS: WorkloadId[] = [...ALL_WORKLOADS, 'vision'];
@@ -147,6 +147,12 @@ export interface AISettings {
    * image attachments for custom/BYOK models.
    */
   modelRegistry: ModelRegistryEntry[];
+  /**
+   * The managed "default model" (Routing → Default model): the catalog id a
+   * managed `chat` turn runs on. Raw `config.default_model` — a managed tier
+   * name (`chat-v1`) or empty means nothing is pinned and the managed default runs.
+   */
+  defaultModel?: string;
   /**
    * #3767: authoritative, core-side per-tier decision (mirrors the Rust factory's
    * real routing resolution). For each chat-mode tier (`chat` = Quick mode,
@@ -355,7 +361,9 @@ export async function loadAISettings(): Promise<AISettings> {
     reasoning: config.credits_bypass?.reasoning === true,
   };
 
-  return { cloudProviders, routing, modelRegistry, creditsBypass };
+  const defaultModel = (config.default_model ?? '').trim();
+
+  return { cloudProviders, routing, modelRegistry, defaultModel, creditsBypass };
 }
 // ─── Write path: diff + save ───────────────────────────────────────────────
 
@@ -399,6 +407,10 @@ export async function saveAISettings(prev: AISettings, next: AISettings): Promis
     if (a !== b) {
       patch[`${w}_provider` as keyof ModelSettingsUpdate] = b as never;
     }
+  }
+
+  if ((prev.defaultModel ?? '') !== (next.defaultModel ?? '')) {
+    patch.default_model = next.defaultModel ?? '';
   }
 
   // Per-model registry (vision flags): any change → send the full list.
