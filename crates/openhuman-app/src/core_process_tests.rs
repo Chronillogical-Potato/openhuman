@@ -22,6 +22,18 @@ fn env_lock() -> MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Builds the same worker runtime that the desktop host uses. Some core-process
+/// tests start an embedded agent server; Tokio's default 2 MiB worker stack is
+/// insufficient for its nested turn setup.
+fn core_test_runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .max_blocking_threads(openhuman_core::core::runtime::MAX_BLOCKING_THREADS)
+        .build()
+        .expect("build core test runtime")
+}
+
 struct EnvGuard {
     key: &'static str,
     old: Option<String>,
@@ -101,7 +113,7 @@ fn ensure_running_does_not_publish_token_to_env() {
     let _unset = EnvGuard::unset("OPENHUMAN_CORE_REUSE_EXISTING");
     // Force a clean slate so we can assert on the post-spawn value.
     let _wipe = EnvGuard::unset("OPENHUMAN_CORE_TOKEN");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     let (result, env_after, expected_token, env_during_spawn) = rt.block_on(async {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -147,7 +159,7 @@ fn ensure_running_does_not_publish_token_to_env() {
 fn ensure_running_falls_back_for_unknown_listener_on_port() {
     let _env_lock = env_lock();
     let _unset = EnvGuard::unset("OPENHUMAN_CORE_REUSE_EXISTING");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     let (result, chosen_port, notice) = rt.block_on(async {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -183,7 +195,7 @@ fn ensure_running_falls_back_for_unknown_listener_on_port() {
 fn ensure_running_falls_back_to_7789_when_7788_is_busy() {
     let _env_lock = env_lock();
     let _unset = EnvGuard::unset("OPENHUMAN_CORE_REUSE_EXISTING");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     rt.block_on(async {
         let listener = match tokio::net::TcpListener::bind("127.0.0.1:7788").await {
             Ok(listener) => listener,
@@ -233,7 +245,7 @@ fn ensure_running_falls_back_to_7789_when_7788_is_busy() {
 fn ensure_running_reuses_unknown_listener_when_override_set() {
     let _env_lock = env_lock();
     let _override = EnvGuard::set("OPENHUMAN_CORE_REUSE_EXISTING", "1");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     let result = rt.block_on(async {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -573,7 +585,7 @@ fn each_handle_has_unique_token() {
 
 #[test]
 fn send_terminate_signal_cancels_shutdown_token() {
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     rt.block_on(async {
         let handle = CoreProcessHandle::new(19005);
         assert!(!handle.shutdown_token_is_cancelled().await);
@@ -589,7 +601,7 @@ fn send_terminate_signal_cancels_shutdown_token() {
 
 #[test]
 fn startup_timeout_cleanup_aborts_task_and_clears_slot() {
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
     rt.block_on(async {
         let handle = CoreProcessHandle::new(19006);
         let task = tokio::spawn(async {
@@ -752,7 +764,7 @@ fn validate_kill_target_refuses_protected_pids() {
 fn recover_port_conflict_succeeds_when_port_is_free() {
     let _env_lock = env_lock();
     let _unset = EnvGuard::unset("OPENHUMAN_CORE_REUSE_EXISTING");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
 
     let outcome = rt.block_on(async {
         // Bind a port, then release it so it's free when recover_port_conflict runs.
@@ -785,7 +797,7 @@ fn recover_port_conflict_succeeds_when_port_is_free() {
 fn recover_port_conflict_handles_stale_listener() {
     let _env_lock = env_lock();
     let _unset = EnvGuard::unset("OPENHUMAN_CORE_REUSE_EXISTING");
-    let rt = tokio::runtime::Runtime::new().expect("runtime");
+    let rt = core_test_runtime();
 
     // Bind a port, attempt recovery — the recovery must still succeed because
     // ensure_running's fallback range kicks in when the preferred port is busy.
