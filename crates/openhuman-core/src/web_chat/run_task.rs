@@ -128,7 +128,7 @@ pub(crate) async fn run_chat_task(
     // Stamp the resolved agent onto the bridge metadata so the trace exporter
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
-    bridge_metadata.agent_id = Some(target_agent_id.clone());
+    bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
     spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
