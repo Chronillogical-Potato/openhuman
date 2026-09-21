@@ -63,7 +63,7 @@ test_target_required_features() {
       gsub(/[" ]/, "", line); req=line; next
     }
     END { if (name != "" && req != "") print name "\t" req }
-  ' crates/openhuman-core/Cargo.toml
+  ' crates/openhuman-cli/Cargo.toml
 }
 
 TEST_TARGET_REQS="$(test_target_required_features)"
@@ -93,15 +93,15 @@ run_integration_target() {
     while IFS= read -r module; do
       [ -n "${module}" ] || continue
       log "running raw coverage module: ${module}"
-      llvm_cov --no-report --no-fail-fast -p openhuman \
+      llvm_cov --no-report --no-fail-fast -p openhuman-cli \
         --test "${target}" -- "${module}::" --test-threads=1 || return
     done < <(raw_coverage_modules)
   elif [ "${target}" = "json_rpc_e2e" ]; then
     # JSON-RPC tests share runtime/config globals and must remain serial.
-    llvm_cov --no-report --no-fail-fast -p openhuman \
+    llvm_cov --no-report --no-fail-fast -p openhuman-cli \
       --test "${target}" -- --test-threads=1
   else
-    llvm_cov --no-report --no-fail-fast -p openhuman --test "${target}"
+    llvm_cov --no-report --no-fail-fast -p openhuman-cli --test "${target}"
   fi
 }
 
