@@ -60,18 +60,26 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         request: &mut ModelRequest,
     ) -> TaResult<()> {
         let mut segments: Vec<PromptSegment> = Vec::new();
-        // 1. System prompt — the cache-hottest stable prefix segment.
-        if let Some(sys) = request
+        // 1. System prompt — one segment per leading system message. The
+        //    session sends its prompt as tiers (stable+context, then volatile,
+        //    see `runtime_session::prepare`), so a rewritten volatile tier
+        //    shows up as a change to `system.1:…` while `system:…` keeps its
+        //    id and the layout guard can say which tier moved.
+        for (index, sys) in request
             .messages
             .iter()
-            .find(|m| matches!(m, TaMessage::System(_)))
+            .take_while(|m| matches!(m, TaMessage::System(_)))
+            .enumerate()
         {
             let fp = stable_prefix_fingerprint(&serde_json::json!({
                 "role": "system",
                 "messages": [sys],
             }));
             segments.push(PromptSegment {
-                id: format!("system:{fp}"),
+                id: format!(
+                    "{}:{fp}",
+                    tinyagents_harness::prompt::system_segment_id(index)
+                ),
                 role: SegmentRole::System,
                 cacheable: true,
             });
