@@ -56,13 +56,8 @@ test.describe('Skills registry flow', () => {
 
   test('MCP Servers tab renders the server table', async ({ page }) => {
     await page.getByTestId('two-pane-nav-mcp').click();
-    await expect(
-      page
-        .getByRole('searchbox')
-        .or(page.getByPlaceholder(/search/i))
-        .first()
-    ).toBeVisible();
-    await expect(page.getByText(/^All$|^Installed$|^Registry$/i).first()).toBeVisible();
+    await expect(page.getByTestId('mcp-servers-section')).toBeVisible();
+    await expect(page.getByTestId('mcp-add-server')).toBeVisible();
   });
 });
 

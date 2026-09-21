@@ -296,8 +296,8 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
 
     // ---- Phase A: nothing routed. Every hint resolves to its managed tier. --
 
-    // A managed tier with no BYOK route resolves to the tier name itself —
-    // the managed backend is what expands it.
+    // With no BYOK route, managed hints resolve through the current managed
+    // default model rather than to a retired tier alias.
     let reasoning = harness
         .rpc(
             71_001,
@@ -308,17 +308,13 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
     let reasoning = payload(&reasoning, "resolve_model hint:reasoning");
     assert_eq!(
         reasoning.get("model"),
-        Some(&json!("reasoning-v1")),
-        "an unrouted reasoning hint resolves to the managed tier: {reasoning}"
+        Some(&json!("e2e-model")),
+        "an unrouted reasoning hint resolves to the managed default: {reasoning}"
     );
     assert_eq!(
         reasoning.get("vision"),
-        Some(&json!(true)),
-        "the reasoning tier is one of the two vision-capable managed tiers \
-         (`oh_tier_supports_vision`); the RPC schema comment claiming the \
-         per-tier map is `currently all false` is stale — see \
-         ~/tinyhuman/bugs/e2e-wave-inference-stale-vision-and-workspace-docs.md: \
-         {reasoning}"
+        Some(&json!(false)),
+        "the managed default does not advertise vision support: {reasoning}"
     );
 
     // The bare tier name is accepted alongside the `hint:` alias and must
