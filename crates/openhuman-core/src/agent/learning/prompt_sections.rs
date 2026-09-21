@@ -34,6 +34,11 @@ impl LearnedContextSection {
 }
 
 impl PromptSection for LearnedContextSection {
+    fn tier(&self) -> PromptTier {
+        // Per-user learned observations: they change as the learner runs.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "learned_context"
     }
@@ -79,6 +84,11 @@ impl UserProfileSection {
 }
 
 impl PromptSection for UserProfileSection {
+    fn tier(&self) -> PromptTier {
+        // Standing preferences are the user's data, not the build's.
+        PromptTier::Volatile
+    }
+
     fn name(&self) -> &str {
         "user_profile"
     }
@@ -119,15 +129,10 @@ pub struct MemoryAccessSection;
 pub const MEMORY_ACCESS_INSTRUCTION: &str = "\
 ## Memory access\n\
 \n\
-Before answering questions involving named people, projects, threads, prior \
-decisions, recurring topics, or anything the user has mentioned in past sessions, \
-call `memory_recall` (or `memory_search` for keyword lookups) to retrieve \
-relevant context. Questions about the user themselves — favourites, idols, \
-people, plans, habits — always warrant a retrieval first. Never say something is \
-not stored or not remembered unless a retrieval you just ran returned nothing. \
-Surface what matters in your reply; don't stitch together continuity from prompt \
-history alone. Skip retrieval for purely procedural requests where prior context \
-isn't relevant.";
+Before answering about named people, projects, prior decisions or anything from \
+past sessions, and for any question about the user themselves, call `memory_recall` \
+(or `memory_search` for keywords). Never say something is not stored unless a \
+retrieval you just ran came back empty. Skip it for purely procedural requests.";
 
 impl PromptSection for MemoryAccessSection {
     fn name(&self) -> &str {
@@ -203,10 +208,9 @@ pub fn memory_write_instruction(preferences: bool, facts: bool, delegate: bool) 
     };
     format!(
         "## Remembering\n\n\
-         When the user asks you to remember, note, or keep something — a date, \
-         plan, person, decision, or preference — write it before you confirm \
-         {route}. Never say saved, noted, or remembered unless that write \
-         succeeded in this turn; if it failed or was refused, say so instead."
+         When the user asks you to remember, note or keep something, write it before \
+         you confirm {route}. Never say saved, noted or remembered unless that write \
+         succeeded in this turn; if it failed, say so."
     )
 }
 
