@@ -42,7 +42,46 @@ Ordered by severity.
 
 ---
 
-## 1. `main` does not build — three vendor gitlinks point at non-ancestor commits
+## 1. The iteration cap ends the turn with the work undone, and says so only to the model
+
+**Severity: high. The single biggest cause of failure in this suite.**
+
+The orchestrator runs with `max_iterations=15`, `iteration_policy=Strict`. Any
+task that both gathers information and then produces an artifact spends its
+budget on the gathering and never reaches the writing. The model knows, and
+says so — `baggage-policy`, 21 tool calls, $0.69, 147 s, no file:
+
+> Here's what I found from Delta's actual pages (**I haven't written the file
+> yet — running low on tool calls this turn**, so reporting findings first)
+
+`fact-check-publish` (14 calls, $0.13): *"Here's where things stand after this
+pass"*. `trip-itinerary` (14 calls, $0.78, 444 s): *"Here's where things
+stand"* — having correctly extracted every fact from the mail and the PDF,
+including that 14 October is a travel day, and then written nothing.
+
+Three things make this worse than a plain budget limit:
+
+1. **The full cost is spent and nothing is kept.** No partial artifact, no
+   resumable state. The next turn starts over.
+2. **The caller is not told.** `chat_done` arrives normally. Nothing in the
+   usage payload, the run-ledger row or the reply text is machine-readable as
+   "capped" — only prose the model chose to write. A UI shows a confident
+   answer; this suite had to read the reply to find out.
+3. **It converts the task into a status report.** Warned it is running out,
+   the model reprioritises toward summarising what it has over finishing.
+   Every scenario that failed this way failed *with a well-written summary*,
+   which is the failure mode hardest to notice.
+
+`turn_run_finalize.rs` already detects the cap ("the cap pauser stops the loop
+mid-work, `final_response` stays `None`"). That signal should reach the caller:
+a `capped: true` on the turn payload, a distinct event, or a ledger status —
+anything that lets a host retry or continue rather than present a partial
+answer as a complete one. A higher cap alone would not fix it; a research task
+can always outgrow any fixed number.
+
+---
+
+## 2. `main` does not build — three vendor gitlinks point at non-ancestor commits
 
 **Severity: critical. Nothing in Rust compiles on `main`.**
 
