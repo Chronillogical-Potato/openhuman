@@ -1,22 +1,36 @@
 #!/usr/bin/env node
 /**
- * Life-scenario harness benchmark.
+ * Life-scenario harness benchmark — headless, but shaped like the desktop app.
  *
- * Spawns an isolated `openhuman-core serve --jsonrpc-only`, seeds a sandbox
- * directory from `fixtures/`, drives one agent turn per scenario over
- * JSON-RPC, and reports tokens, prompt-cache hit rate, cost, latency and a
- * graded completion score.
+ * The point is to measure the harness the product actually ships, so the
+ * default path here is the one the desktop composer takes, with the UI removed
+ * and nothing else changed:
  *
- * It measures the *core*, not the desktop app: no Tauri, no frontend, and a
- * `HOME` of its own so it never reads or writes the operator's `~/.openhuman`
- * — installing a credential there would sign a running desktop app out. Every
- * external dependency is pinned: inference goes to OpenRouter on the caller's
- * key, and Composio is a local mock. Nothing hosted is required.
+ *   | desktop app                              | here                          |
+ *   | ---------------------------------------- | ----------------------------- |
+ *   | Tauri spawns the core as a tokio task     | spawn `openhuman-core serve`  |
+ *   | composer calls `openhuman.channel_web_chat`| same RPC, same params        |
+ *   | reply streams over Socket.IO              | same events over `GET /events`|
+ *   | orchestrator agent, packs withheld        | same — no custom definition   |
+ *   | approval gate ON, user clicks Approve     | gate ON, responder approves   |
+ *   | BYOK set in Settings → Models             | `config.update_model_settings`|
+ *   | signed-in session                         | offline local session         |
+ *
+ * What is deliberately NOT the app: it runs under a `HOME` of its own, so it
+ * never reads or writes the operator's `~/.openhuman` (installing a credential
+ * there would sign a running desktop app out), inference goes to OpenRouter on
+ * the caller's key rather than the hosted backend, and Composio is a local
+ * mock over the same fixtures. Those three make a run reproducible and cost
+ * what it says on the tin; everything else is the shipping path.
+ *
+ * `--driver rpc` switches to `openhuman.inference_agent_chat`, which is the
+ * only path that can scope a per-turn `cwd` and name an `agent_id` — used for
+ * the comparison arm against a custom agent definition.
  *
  * Usage:
- *   node scripts/life-scenarios/run.mjs                      # all scenarios
- *   node scripts/life-scenarios/run.mjs --only calendar-buffer,meal-plan
- *   node scripts/life-scenarios/run.mjs --model hint:agentic --repeat 2
+ *   node scripts/life-scenarios/run.mjs                       # all scenarios
+ *   node scripts/life-scenarios/run.mjs --only calendar-buffer
+ *   node scripts/life-scenarios/run.mjs --driver rpc --agent life_scenarios
  *   node scripts/life-scenarios/run.mjs --grade-only <run-dir>
  */
 
@@ -25,7 +39,6 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import net from "node:net";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,26 +56,32 @@ const FIXTURES = path.join(HERE, "fixtures");
 function parseArgs(argv) {
   const o = {
     only: [],
-    // Default route: OpenRouter, direct, via the per-turn ephemeral route.
-    // The managed TinyHumans backend is deliberately NOT the default here —
-    // a benchmark wants a route whose pricing and availability are its own,
-    // not one that fails the whole run when the hosted provider is down.
+    // `desktop` = channel_web_chat + SSE, exactly what the composer does.
+    // `rpc`     = inference_agent_chat, the only path with `cwd`/`agent_id`.
+    driver: "desktop",
+    // Empty = the orchestrator, which is what the app uses. A named agent only
+    // takes effect on the `rpc` driver.
+    agentId: "",
     model: process.env.LIFE_SCENARIO_MODEL || "deepseek/deepseek-v4.1-flash",
     inferenceUrl:
       process.env.LIFE_SCENARIO_INFERENCE_URL || "https://openrouter.ai/api/v1",
     apiKey: process.env.OPENROUTER_API_KEY || "",
     managed: false,
-    agentId: "life_scenarios",
     mockComposio: true,
     composioPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
-    keep: false,
-    coreBin: process.env.OPENHUMAN_CORE_BIN || path.join(REPO, "target", "debug", "openhuman-core"),
+    coreBin:
+      process.env.OPENHUMAN_CORE_BIN ||
+      path.join(REPO, "target", "debug", "openhuman-core"),
     runRoot: path.join(REPO, "target", "life-scenarios"),
     gradeOnly: "",
+    // The desktop app ships the approval gate ON and a human answers it. The
+    // headless equivalent is a responder, not a disabled gate — see
+    // `ApprovalResponder`. `--no-approvals` disables the gate instead, which
+    // is what most headless harnesses do and is worth being able to compare.
+    approvals: true,
     verbose: false,
-    approvalGate: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -71,26 +90,29 @@ function parseArgs(argv) {
       if (v === undefined) throw new Error(`missing value for ${a}`);
       return v;
     };
-    if (a === "--only") o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
+    if (a === "--only")
+      o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
+    else if (a === "--driver") o.driver = next();
+    else if (a === "--agent") o.agentId = next();
     else if (a === "--model") o.model = next();
     else if (a === "--inference-url") o.inferenceUrl = next();
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
-    else if (a === "--agent") o.agentId = next();
     else if (a === "--no-mock-composio") o.mockComposio = false;
+    else if (a === "--no-approvals") o.approvals = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
     else if (a === "--core-bin") o.coreBin = next();
     else if (a === "--run-root") o.runRoot = next();
     else if (a === "--grade-only") o.gradeOnly = next();
-    else if (a === "--keep") o.keep = true;
-    else if (a === "--approval-gate") o.approvalGate = true;
     else if (a === "--verbose" || a === "-v") o.verbose = true;
     else if (a === "-h" || a === "--help") {
       console.log(fs.readFileSync(path.join(HERE, "README.md"), "utf8"));
       process.exit(0);
     } else throw new Error(`unknown flag ${a}`);
   }
+  if (!["desktop", "rpc"].includes(o.driver))
+    throw new Error(`--driver must be 'desktop' or 'rpc', got '${o.driver}'`);
   return o;
 }
 
@@ -99,57 +121,6 @@ function parseArgs(argv) {
 // ---------------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/**
- * The per-turn inference route.
- *
- * `inference_agent_chat` builds an `EphemeralRoute` only when BOTH
- * `inference_url` and `api_key` arrive non-blank, and `apply()` bails unless a
- * model is already resolved — so the model override is not optional on this
- * path, it is part of the route. `--managed` drops all three and lets the
- * turn run on the account's own configured provider instead.
- */
-function routeParams(opts) {
-  if (opts.managed) return opts.model ? { model_override: opts.model } : {};
-  return {
-    model_override: opts.model,
-    inference_url: opts.inferenceUrl,
-    api_key: opts.apiKey,
-  };
-}
-
-/**
- * Mint the core's offline local session token.
- *
- * Custom (BYOK) providers sit behind `verify_session_active`
- * (crates/openhuman-core/src/inference/provider/factory/access_gates.rs), which
- * refuses a turn on a custom route unless the host installed a credential
- * first. A headless benchmark has no login flow, but the core has a documented
- * third credential kind for exactly this: a JWT-shaped token whose signature
- * segment is the literal `local` (`session_support::is_local_session_token`).
- *
- * This is the offline mode the core already ships, not a way around the gate:
- * it buys no access to the hosted backend, it only lets a local host say who
- * the turn belongs to. Every scenario run here reaches OpenRouter and a mock
- * Composio, so there is nothing hosted to authenticate against.
- */
-function mintLocalSessionToken(userId) {
-  const b64 = (o) =>
-    Buffer.from(JSON.stringify(o))
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64({ alg: "none", typ: "JWT" });
-  const payload = b64({
-    sub: userId,
-    iat: now,
-    exp: now + 24 * 60 * 60,
-    email: "life-scenarios@local.invalid",
-  });
-  return `${header}.${payload}.local`;
-}
 
 async function freePort() {
   return new Promise((resolve, reject) => {
@@ -188,7 +159,8 @@ async function snapshotTree(root) {
       if (e.isDirectory()) await walk(p);
       else {
         const st = await fsp.stat(p).catch(() => null);
-        if (st) out.push({ rel: path.relative(root, p), bytes: st.size, mtimeMs: st.mtimeMs });
+        if (st)
+          out.push({ rel: path.relative(root, p), bytes: st.size, mtimeMs: st.mtimeMs });
       }
     }
   }
@@ -196,16 +168,50 @@ async function snapshotTree(root) {
   return out;
 }
 
+/**
+ * Mint the core's offline local session token.
+ *
+ * The desktop app installs a real session JWT after login. A headless run has
+ * no login flow, but the core ships a third credential kind for exactly this:
+ * a JWT-shaped token whose signature segment is the literal `local`
+ * (`security::credentials::session_support::is_local_session_token`). It buys
+ * no access to the hosted backend — it only lets a local host say whose turn
+ * this is, which is all that is needed when inference is BYOK and Composio is
+ * mocked.
+ */
+function mintLocalSessionToken(userId) {
+  const b64 = (o) =>
+    Buffer.from(JSON.stringify(o))
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  const now = Math.floor(Date.now() / 1000);
+  return [
+    b64({ alg: "none", typ: "JWT" }),
+    b64({
+      sub: userId,
+      iat: now,
+      exp: now + 24 * 60 * 60,
+      email: "life-scenarios@local.invalid",
+    }),
+    "local",
+  ].join(".");
+}
+
+// ---------------------------------------------------------------------------
+// the throwaway HOME
+// ---------------------------------------------------------------------------
 
 /**
- * Build the throwaway HOME the benchmark core runs under.
+ * Write the config a freshly-onboarded desktop install would have.
  *
- * Config is written from scratch rather than copied from the operator's
- * install: a copied `config.toml` drags along whatever `api_url`, provider
- * pins and autonomy settings that machine happens to have, and a benchmark
- * that silently inherits those measures the machine, not the harness.
+ * Written from scratch rather than copied: a copied `config.toml` drags along
+ * whatever `api_url`, provider pins and autonomy settings that machine happens
+ * to have, and a benchmark that silently inherits those measures the machine
+ * rather than the harness.
  */
-async function prepareHome(runDir, opts) {
+async function prepareHome(runDir) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -219,11 +225,10 @@ async function prepareHome(runDir, opts) {
     "chat_onboarding_completed = true",
     "",
     "[autonomy]",
-    // The sandbox IS the action_dir and the whole point is to watch the agent
-    // work in it unattended. The Rust path checks, the always-forbidden list
-    // and the command classifier are untouched; this only says the permitted
-    // root is the action dir rather than the internal workspace.
-    'level = "autonomous"',
+    // The shipped desktop default. The gate stays installed and an approval
+    // responder answers it, rather than the usual headless shortcut of
+    // turning it off — a disabled gate measures a product nobody runs.
+    'level = "supervised"',
     "workspace_only = false",
     "",
     "[observability]",
@@ -231,8 +236,8 @@ async function prepareHome(runDir, opts) {
     "share_usage_data = false",
     "",
     // `create_composio_client` dispatches on this field alone; the
-    // `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*` env pair is only consulted in
-    // `direct` mode (and only in a debug build). Without it the core ignores
+    // `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*` env pair is consulted only in
+    // `direct` mode, and only in a debug build. Without it the core ignores
     // the mock and dials the hosted proxy.
     "[composio]",
     'mode = "direct"',
@@ -241,18 +246,12 @@ async function prepareHome(runDir, opts) {
     "",
   ].join("\n");
   await fsp.writeFile(path.join(oh, "config.toml"), config);
-  // The per-user config is read in preference to the root one once a user is
-  // active, so the composio block has to exist in both.
+  // Once a user is active the per-user config is read in preference to the
+  // root one, so the composio block has to exist in both.
   await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), config);
 
-  // The benchmark agent. A default orchestrator turn is built with every tool
-  // pack withheld, so `file_read`/`file_write`/`grep`/`glob`/`list` are not on
-  // the wire at all — see README.md. Naming them here is what a real embedder
-  // does with `AgentSpec`, and `--agent default` runs the unmodified
-  // orchestrator for comparison.
-  // The benchmark agent definition ships as a real TOML file next to this
-  // script so it is reviewable on its own; see its header for why a custom
-  // definition is needed at all.
+  // Only read by `--driver rpc --agent life_scenarios`; the desktop driver
+  // always runs the orchestrator, as the app does.
   await fsp.copyFile(
     path.join(HERE, "agent-life-scenarios.toml"),
     path.join(oh, "agents", "life_scenarios.toml"),
@@ -271,16 +270,15 @@ class Core {
     this.proc = null;
     this.port = 0;
     this.token = randomBytes(24).toString("hex");
-    this.logPath = "";
+    this.exited = null;
   }
 
   get url() {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, approvalGate, home, composioBase }) {
+  async start({ actionDir, logPath, home, composioBase, approvals }) {
     this.port = await freePort();
-    this.logPath = logPath;
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
     const env = {
@@ -293,24 +291,22 @@ class Core {
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
-      // The agent's read/write root for every turn in this run.
       OPENHUMAN_ACTION_DIR: actionDir,
-      // A headless benchmark has nobody to answer an approval prompt; without
-      // this every tool call that the policy parks would sit until the ten
-      // minute TTL expires it as DENIED. `--approval-gate` keeps it on so the
-      // stall itself can be observed.
-      ...(approvalGate ? {} : { OPENHUMAN_APPROVAL_GATE: "0" }),
       RUST_LOG: process.env.RUST_LOG || "info",
     };
+    if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
     if (composioBase) {
-      // Both are read by `integrations/composio/client/factory.rs`; setting
-      // them points the direct Composio client at the local mock.
+      // Both are read by `integrations/composio/client/factory.rs`; the match
+      // arm is `(Some, Some)`, so setting only one silently falls through to
+      // the production Composio URLs.
       env.OPENHUMAN_COMPOSIO_DIRECT_BASE_V3 = composioBase;
       env.OPENHUMAN_COMPOSIO_DIRECT_BASE_V2 = composioBase;
     }
 
-    this.proc = spawn(this.opts.coreBin, ["serve", "--jsonrpc-only"], {
+    // Plain `serve`, not `--jsonrpc-only`: the app boots the full service set,
+    // and the background services are part of what a turn costs.
+    this.proc = spawn(this.opts.coreBin, ["serve"], {
       env,
       stdio: ["ignore", "pipe", "pipe"],
       cwd: actionDir,
@@ -328,11 +324,10 @@ class Core {
           `core exited during boot (code=${this.exited.code} sig=${this.exited.sig}); see ${logPath}`,
         );
       try {
-        const r = await fetch(`${this.url}/health`, { signal: AbortSignal.timeout(3000) });
-        if (r.ok) {
-          const body = await r.json();
-          return body;
-        }
+        const r = await fetch(`${this.url}/health`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (r.ok) return await r.json();
       } catch {
         /* not up yet */
       }
@@ -352,7 +347,8 @@ class Core {
       signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`RPC ${method} HTTP ${res.status}: ${text.slice(0, 400)}`);
+    if (!res.ok)
+      throw new Error(`RPC ${method} HTTP ${res.status}: ${text.slice(0, 400)}`);
     let body;
     try {
       body = JSON.parse(text);
@@ -370,9 +366,147 @@ class Core {
   async stop() {
     if (!this.proc || this.exited) return;
     this.proc.kill("SIGTERM");
-    const deadline = Date.now() + 10_000;
+    const deadline = Date.now() + 15_000;
     while (!this.exited && Date.now() < deadline) await sleep(100);
     if (!this.exited) this.proc.kill("SIGKILL");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SSE — the composer's event stream
+// ---------------------------------------------------------------------------
+
+/**
+ * Subscribe to `GET /events?client_id=…`, the same stream the desktop
+ * frontend consumes. Events are delivered to `onEvent` as parsed objects.
+ */
+class EventStream {
+  constructor(core, clientId) {
+    this.core = core;
+    this.clientId = clientId;
+    this.handlers = new Set();
+    this.controller = new AbortController();
+    this.closed = false;
+  }
+
+  onEvent(fn) {
+    this.handlers.add(fn);
+    return () => this.handlers.delete(fn);
+  }
+
+  async connect() {
+    const url = `${this.core.url}/events?client_id=${encodeURIComponent(this.clientId)}`;
+    const res = await fetch(url, {
+      headers: { authorization: `Bearer ${this.core.token}`, accept: "text/event-stream" },
+      signal: this.controller.signal,
+    });
+    if (!res.ok || !res.body)
+      throw new Error(`events subscribe failed: HTTP ${res.status}`);
+    // Pump in the background; the caller awaits chat_done, not this.
+    this.pump = (async () => {
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        for await (const chunk of res.body) {
+          buffer += decoder.decode(chunk, { stream: true });
+          let idx;
+          while ((idx = buffer.indexOf("\n\n")) >= 0) {
+            const frame = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            for (const line of frame.split("\n")) {
+              if (!line.startsWith("data:")) continue;
+              const payload = line.slice(5).trim();
+              if (!payload) continue;
+              let event;
+              try {
+                event = JSON.parse(payload);
+              } catch {
+                continue;
+              }
+              for (const h of this.handlers) h(event);
+            }
+          }
+        }
+      } catch {
+        /* aborted or core stopped */
+      }
+      this.closed = true;
+    })();
+  }
+
+  close() {
+    this.controller.abort();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// approvals — what the human in front of the app does
+// ---------------------------------------------------------------------------
+
+/**
+ * Stand in for the person clicking "Approve" on the approval card.
+ *
+ * The gate stays installed exactly as it ships; this only supplies the
+ * decision it is waiting for. Without a responder, a headless turn parks on
+ * the first gated tool call and the request expires as DENIED after ten
+ * minutes — so a harness that simply disables the gate is not measuring the
+ * product, and one that leaves it unanswered is measuring the timeout.
+ *
+ * Every decision is recorded, because "how many approvals did this task need"
+ * is itself a result: a task that needs fourteen is not one a supervised user
+ * would enjoy.
+ */
+class ApprovalResponder {
+  constructor(core, { intervalMs = 400 } = {}) {
+    this.core = core;
+    this.intervalMs = intervalMs;
+    this.decisions = [];
+    this.running = false;
+    this.errors = [];
+  }
+
+  start() {
+    this.running = true;
+    this.loop = (async () => {
+      while (this.running) {
+        try {
+          const pending = await this.core.rpc("openhuman.approval_list_pending", {}, 15_000);
+          const rows = Array.isArray(pending)
+            ? pending
+            : (pending && (pending.requests || pending.pending || pending.items)) || [];
+          for (const row of rows) {
+            const id = row.id || row.request_id || row.requestId;
+            if (!id) continue;
+            await this.core.rpc(
+              "openhuman.approval_decide",
+              { id, decision: "approve_once" },
+              15_000,
+            );
+            this.decisions.push({
+              at: new Date().toISOString(),
+              id,
+              tool: row.tool_name || row.tool || row.toolName || "",
+              summary: (row.summary || row.description || "").slice(0, 200),
+            });
+          }
+        } catch (e) {
+          // A transient failure here must not kill the run; record it so a
+          // silent approval stall is still visible afterwards.
+          this.errors.push(String(e.message).slice(0, 200));
+        }
+        await sleep(this.intervalMs);
+      }
+    })();
+  }
+
+  async stop() {
+    this.running = false;
+    await this.loop?.catch(() => {});
+  }
+
+  /** Decisions made while `fn` ran. */
+  countSince(mark) {
+    return this.decisions.length - mark;
   }
 }
 
@@ -381,11 +515,10 @@ class Core {
 // ---------------------------------------------------------------------------
 
 /**
- * `openhuman.cost_get_usage_log` returns one row per provider call. There is no
- * per-turn usage on the `inference_agent_chat` path, so a turn's usage is the
- * set of rows that appeared while it was running. Rows are keyed by `id`, so
- * diffing id sets is exact — a timestamp window would double-count a
- * concurrently running desktop core.
+ * `openhuman.cost_get_usage_log` returns one row per provider call. Diffing
+ * row ids across a turn is exact where a timestamp window would not be: the
+ * background services (memory, learning, heartbeat) bill against the same log
+ * while a turn runs, and a window would sweep them in.
  */
 async function usageIds(core) {
   const log = await core.rpc("openhuman.cost_get_usage_log", { days: 1, limit: 1000 });
@@ -402,9 +535,9 @@ function foldUsage(rows) {
     cache_creation_tokens: 0,
     reasoning_tokens: 0,
     cost_usd: 0,
-    models: new Set(),
-    cost_sources: new Set(),
   };
+  const models = new Set();
+  const sources = new Set();
   for (const r of rows) {
     t.input_tokens += Number(r.input_tokens || 0);
     t.output_tokens += Number(r.output_tokens || 0);
@@ -412,15 +545,36 @@ function foldUsage(rows) {
     t.cache_creation_tokens += Number(r.cache_creation_tokens || 0);
     t.reasoning_tokens += Number(r.reasoning_tokens || 0);
     t.cost_usd += Number(r.cost_usd || 0);
-    if (r.model) t.models.add(r.model);
-    if (r.cost_source) t.cost_sources.add(r.cost_source);
+    if (r.model) models.add(r.model);
+    if (r.cost_source) sources.add(r.cost_source);
   }
   return {
     ...t,
-    models: [...t.models],
-    cost_sources: [...t.cost_sources],
-    cache_hit_pct:
-      t.input_tokens > 0 ? (t.cached_input_tokens / t.input_tokens) * 100 : 0,
+    models: [...models],
+    cost_sources: [...sources],
+    cache_hit_pct: t.input_tokens > 0 ? (t.cached_input_tokens / t.input_tokens) * 100 : 0,
+  };
+}
+
+/** Prefer the turn's own `chat_done.usage`; fall back to the cost-log diff. */
+function reconcileUsage(chatDoneUsage, loggedUsage) {
+  if (!chatDoneUsage) return { ...loggedUsage, source: "cost_log" };
+  const input = Number(chatDoneUsage.input_tokens || 0);
+  const cached = Number(chatDoneUsage.cached_input_tokens || 0);
+  return {
+    calls: loggedUsage.calls,
+    input_tokens: input,
+    output_tokens: Number(chatDoneUsage.output_tokens || 0),
+    cached_input_tokens: cached,
+    cache_creation_tokens: loggedUsage.cache_creation_tokens,
+    reasoning_tokens: loggedUsage.reasoning_tokens,
+    cost_usd: Number(chatDoneUsage.cost_usd || 0) || loggedUsage.cost_usd,
+    models: loggedUsage.models,
+    cost_sources: loggedUsage.cost_sources,
+    cache_hit_pct: input > 0 ? (cached / input) * 100 : 0,
+    context_window: Number(chatDoneUsage.context_window || 0),
+    subagents: chatDoneUsage.subagents || [],
+    source: "chat_done",
   };
 }
 
@@ -447,53 +601,159 @@ function gradeScenario(scenario, sandbox, transcript) {
   try {
     ({ checks } = scenario.grade(ctx));
   } catch (e) {
-    checks = [{ id: "grader_crashed", ok: false, detail: String(e.message).slice(0, 200) }];
+    checks = [
+      { id: "grader_crashed", ok: false, detail: String(e.message).slice(0, 200) },
+    ];
   }
   const passed = checks.filter((c) => c.ok).length;
-  return { checks, passed, total: checks.length, score: checks.length ? passed / checks.length : 0 };
+  return {
+    checks,
+    passed,
+    total: checks.length,
+    score: checks.length ? passed / checks.length : 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// the two drivers
+// ---------------------------------------------------------------------------
+
+/**
+ * The desktop path: `channel_web_chat` acks immediately and the answer arrives
+ * on the event stream as `chat_done`, carrying the turn's own usage payload.
+ */
+async function sendDesktopTurn({ core, events, clientId, threadId, message, opts }) {
+  const toolCalls = [];
+  let done = null;
+  let requestId = null;
+
+  const finished = new Promise((resolve) => {
+    const off = events.onEvent((ev) => {
+      if (ev.client_id && ev.client_id !== clientId) return;
+      if (ev.event === "tool_call")
+        toolCalls.push({
+          name: ev.tool_name || ev.tool || "",
+          label: ev.tool_display_label || "",
+        });
+      if (ev.event === "chat_done") {
+        // The ack may not have landed yet, so match loosely on thread when the
+        // request id is not yet known.
+        if (requestId && ev.request_id && ev.request_id !== requestId) return;
+        if (!requestId && ev.thread_id && ev.thread_id !== threadId) return;
+        done = ev;
+        off();
+        resolve(ev);
+      }
+    });
+  });
+
+  const ack = await core.rpc(
+    "openhuman.channel_web_chat",
+    {
+      client_id: clientId,
+      thread_id: threadId,
+      message,
+      source: "type",
+      queue_mode: "interrupt",
+      ...(opts.model ? { model_override: opts.model } : {}),
+    },
+    120_000,
+  );
+  requestId = (ack && (ack.request_id || ack.requestId)) || null;
+
+  const timeout = sleep(opts.turnTimeoutMs).then(() => "timeout");
+  const outcome = await Promise.race([finished, timeout]);
+  if (outcome === "timeout")
+    return { error: `turn did not emit chat_done within ${opts.turnTimeoutMs}ms`, requestId, toolCalls };
+
+  return {
+    reply: (done && (done.full_response || done.response)) || "",
+    usage: done && done.usage,
+    requestId: requestId || (done && done.request_id) || null,
+    toolCalls,
+  };
+}
+
+/** The RPC path: synchronous, and the only one that can scope `cwd`. */
+async function sendRpcTurn({ core, threadId, message, sandbox, opts }) {
+  const reply = await core.rpc(
+    "openhuman.inference_agent_chat",
+    {
+      message,
+      thread_id: threadId,
+      cwd: sandbox,
+      ...(opts.agentId ? { agent_id: opts.agentId } : {}),
+      ...(opts.managed
+        ? opts.model
+          ? { model_override: opts.model }
+          : {}
+        : {
+            model_override: opts.model,
+            inference_url: opts.inferenceUrl,
+            api_key: opts.apiKey,
+          }),
+    },
+    opts.turnTimeoutMs,
+  );
+  return { reply: typeof reply === "string" ? reply : "", usage: null, requestId: null, toolCalls: [] };
 }
 
 // ---------------------------------------------------------------------------
 // run one scenario
 // ---------------------------------------------------------------------------
 
-async function runScenario({ core, scenario, runDir, opts, attempt }) {
-  const sandbox = path.join(runDir, "sandbox", scenario.id);
+async function runScenario({ core, events, clientId, approvals, scenario, runDir, opts, attempt }) {
+  const sandboxRoot = path.join(runDir, "sandbox");
+  const sandbox = path.join(sandboxRoot, scenario.id);
   await fsp.rm(sandbox, { recursive: true, force: true });
   await copyDir(FIXTURES, sandbox);
   await fsp.mkdir(path.join(sandbox, "out"), { recursive: true });
   const before = await snapshotTree(sandbox);
 
   const usageBefore = await usageIds(core);
+  const approvalsMark = approvals ? approvals.decisions.length : 0;
   const threadId = `ls-${scenario.id}-${attempt}-${randomBytes(3).toString("hex")}`;
 
+  // The desktop driver has no per-turn `cwd`: the action dir is the whole
+  // sandbox root, so the task has to say which folder inside it is its own.
+  // The RPC driver scopes `cwd` to the folder itself and needs no preamble.
+  const message =
+    opts.driver === "desktop"
+      ? `All paths in this task are relative to the folder \`${scenario.id}/\` inside your action directory. Work only inside that folder.\n\n${scenario.prompt}`
+      : scenario.prompt;
+
   const t0 = Date.now();
-  let reply = null;
+  let turn;
   let error = null;
   try {
-    reply = await core.rpc(
-      "openhuman.inference_agent_chat",
-      {
-        message: scenario.prompt,
-        thread_id: threadId,
-        cwd: sandbox,
-        ...(opts.agentId && opts.agentId !== "default" ? { agent_id: opts.agentId } : {}),
-        ...routeParams(opts),
-      },
-      opts.turnTimeoutMs,
-    );
+    turn =
+      opts.driver === "desktop"
+        ? await sendDesktopTurn({ core, events, clientId, threadId, message, opts })
+        : await sendRpcTurn({ core, threadId, message, sandbox, opts });
+    if (turn.error) error = turn.error;
   } catch (e) {
     error = String(e.message).slice(0, 600);
+    turn = { reply: "", usage: null, requestId: null, toolCalls: [] };
   }
   const latencyMs = Date.now() - t0;
 
-  // Cost rows can land a beat after the RPC returns.
+  // Cost rows can land a beat after the turn reports done.
   await sleep(1500);
   const usageAfter = await usageIds(core);
   const newRows = [...usageAfter.entries()]
     .filter(([id]) => !usageBefore.has(id))
     .map(([, r]) => r);
-  const usage = foldUsage(newRows);
+  const usage = reconcileUsage(turn.usage, foldUsage(newRows));
+
+  // The run ledger is written only by the web-chat bridge, so it exists on the
+  // desktop driver and not the RPC one.
+  let ledger = null;
+  if (turn.requestId) {
+    ledger = await core
+      .rpc("openhuman.run_ledger_get", { id: turn.requestId })
+      .then((r) => (r && r.run) || null)
+      .catch(() => null);
+  }
 
   const after = await snapshotTree(sandbox);
   const beforeSet = new Map(before.map((f) => [f.rel, f]));
@@ -501,18 +761,27 @@ async function runScenario({ core, scenario, runDir, opts, attempt }) {
     (f) => !beforeSet.has(f.rel) || beforeSet.get(f.rel).mtimeMs !== f.mtimeMs,
   );
 
-  const grade = gradeScenario(scenario, sandbox, typeof reply === "string" ? reply : "");
+  const grade = gradeScenario(scenario, sandbox, turn.reply);
 
   return {
     scenario: scenario.id,
     title: scenario.title,
     attempt,
+    driver: opts.driver,
     thread_id: threadId,
+    request_id: turn.requestId,
     ok: !error,
     error,
     latency_ms: latencyMs,
-    reply_chars: typeof reply === "string" ? reply.length : 0,
-    reply: typeof reply === "string" ? reply.slice(0, 4000) : "",
+    ledger_elapsed_ms: ledger && ledger.telemetry ? ledger.telemetry.elapsedMs : null,
+    tool_calls: turn.toolCalls,
+    tool_call_count:
+      ledger && ledger.telemetry && ledger.telemetry.toolCount != null
+        ? ledger.telemetry.toolCount
+        : turn.toolCalls.length,
+    approvals_requested: approvals ? approvals.countSince(approvalsMark) : 0,
+    reply_chars: (turn.reply || "").length,
+    reply: (turn.reply || "").slice(0, 4000),
     files_written: written.map((f) => ({ rel: f.rel, bytes: f.bytes })),
     usage,
     grade,
@@ -528,44 +797,48 @@ const fmtUsd = (n) => `$${n.toFixed(4)}`;
 const fmtTok = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
 function printReport(results) {
-  const rows = results.map((r) => ({
-    scenario: r.scenario,
-    completion: `${r.grade.passed}/${r.grade.total}`,
-    pct: `${Math.round(r.grade.score * 100)}%`,
-    calls: r.usage.calls,
-    in: fmtTok(r.usage.input_tokens),
-    cached: fmtTok(r.usage.cached_input_tokens),
-    "cache%": `${r.usage.cache_hit_pct.toFixed(1)}%`,
-    out: fmtTok(r.usage.output_tokens),
-    cost: fmtUsd(r.usage.cost_usd),
-    latency: `${(r.latency_ms / 1000).toFixed(1)}s`,
-    status: r.ok ? "ok" : "ERROR",
-  }));
   console.log("");
-  console.table(rows);
+  console.table(
+    results.map((r) => ({
+      scenario: r.scenario,
+      done: `${r.grade.passed}/${r.grade.total}`,
+      pct: `${Math.round(r.grade.score * 100)}%`,
+      tools: r.tool_call_count,
+      appr: r.approvals_requested,
+      in: fmtTok(r.usage.input_tokens),
+      cached: `${r.usage.cache_hit_pct.toFixed(0)}%`,
+      out: fmtTok(r.usage.output_tokens),
+      cost: fmtUsd(r.usage.cost_usd),
+      latency: `${(r.latency_ms / 1000).toFixed(1)}s`,
+      status: r.ok ? "ok" : "ERROR",
+    })),
+  );
 
   const tot = results.reduce(
     (a, r) => {
-      a.calls += r.usage.calls;
       a.input += r.usage.input_tokens;
       a.cached += r.usage.cached_input_tokens;
       a.output += r.usage.output_tokens;
       a.cost += r.usage.cost_usd;
       a.latency += r.latency_ms;
+      a.tools += r.tool_call_count;
+      a.approvals += r.approvals_requested;
       a.passed += r.grade.passed;
       a.total += r.grade.total;
       return a;
     },
-    { calls: 0, input: 0, cached: 0, output: 0, cost: 0, latency: 0, passed: 0, total: 0 },
+    { input: 0, cached: 0, output: 0, cost: 0, latency: 0, tools: 0, approvals: 0, passed: 0, total: 0 },
   );
   console.log(
     `TOTAL  completion ${tot.passed}/${tot.total} (${Math.round(
       (tot.passed / Math.max(1, tot.total)) * 100,
-    )}%)  calls ${tot.calls}  in ${fmtTok(tot.input)}  cached ${fmtTok(
-      tot.cached,
-    )} (${((tot.cached / Math.max(1, tot.input)) * 100).toFixed(1)}%)  out ${fmtTok(
-      tot.output,
-    )}  cost ${fmtUsd(tot.cost)}  wall ${(tot.latency / 1000).toFixed(1)}s`,
+    )}%)  tools ${tot.tools}  approvals ${tot.approvals}  in ${fmtTok(
+      tot.input,
+    )}  cached ${((tot.cached / Math.max(1, tot.input)) * 100).toFixed(
+      1,
+    )}%  out ${fmtTok(tot.output)}  cost ${fmtUsd(tot.cost)}  wall ${(
+      tot.latency / 1000
+    ).toFixed(1)}s`,
   );
 
   for (const r of results) {
@@ -573,7 +846,8 @@ function printReport(results) {
     if (!failed.length && r.ok) continue;
     console.log(`\n  ${r.scenario}:`);
     if (r.error) console.log(`    ! turn error: ${r.error}`);
-    for (const f of failed) console.log(`    x ${f.id}${f.detail ? ` — ${f.detail}` : ""}`);
+    for (const f of failed)
+      console.log(`    x ${f.id}${f.detail ? ` — ${f.detail}` : ""}`);
   }
   console.log("");
 }
@@ -592,10 +866,11 @@ async function main() {
       if (!fs.existsSync(sandbox)) continue;
       results.push({
         scenario: s.id,
-        title: s.title,
         ok: true,
         error: null,
         latency_ms: 0,
+        tool_call_count: 0,
+        approvals_requested: 0,
         usage: foldUsage([]),
         grade: gradeScenario(s, sandbox, ""),
       });
@@ -607,16 +882,9 @@ async function main() {
   const selected = opts.only.length ? opts.only.map(scenarioById) : SCENARIOS;
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = path.join(opts.runRoot, runId);
-  await fsp.mkdir(runDir, { recursive: true });
-
-  // One shared action_dir parent so a single core covers every scenario; each
-  // scenario still gets its own subdirectory, passed per turn as `cwd`.
   const actionRoot = path.join(runDir, "sandbox");
   await fsp.mkdir(actionRoot, { recursive: true });
 
-  const core = new Core(opts);
-  console.log(`run dir : ${runDir}`);
-  console.log(`core bin: ${opts.coreBin}`);
   if (!fs.existsSync(opts.coreBin))
     throw new Error(
       `core binary not found at ${opts.coreBin}\n` +
@@ -627,7 +895,10 @@ async function main() {
       "no inference key: set OPENROUTER_API_KEY, pass --api-key, or use --managed",
     );
 
-  const home = await prepareHome(runDir, opts);
+  console.log(`run dir : ${runDir}`);
+  console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
+
+  const home = await prepareHome(runDir);
 
   let composio = null;
   if (opts.mockComposio) {
@@ -636,62 +907,79 @@ async function main() {
       outboxPath: path.join(runDir, "composio-outbox.json"),
       port: opts.composioPort,
     });
-    console.log(`composio: mock at ${composio.url} (${composio.ctx.mailbox.length} messages, ${composio.ctx.calendar.length} events)`);
+    console.log(
+      `composio: mock at ${composio.url} (${composio.ctx.mailbox.length} messages, ${composio.ctx.calendar.length} events)`,
+    );
   }
 
+  const core = new Core(opts);
   const health = await core.start({
     actionDir: actionRoot,
     logPath: path.join(runDir, "core.log"),
-    approvalGate: opts.approvalGate,
     home,
     composioBase: composio ? composio.url : "",
+    approvals: opts.approvals,
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
 
-  // Install the offline local credential before the first turn.
-  const localUserId = `life-scenarios-${runId.slice(0, 10).replace(/-/g, "")}`;
+  // Stand in for login.
+  const localUserId = "life-scenarios-local";
   await core.rpc("openhuman.auth_set_credential", {
     token: mintLocalSessionToken(localUserId),
     kind: "local",
     userId: localUserId,
-    user: { _id: localUserId, email: "life-scenarios@local.invalid", name: "Life Scenarios" },
+    user: {
+      _id: localUserId,
+      email: "life-scenarios@local.invalid",
+      name: "Life Scenarios",
+    },
   });
-  const authState = await core.rpc("openhuman.auth_get_state", {}).catch(() => null);
-  console.log(
-    `auth    : local session installed (${
-      authState ? JSON.stringify(authState).slice(0, 120) : "state unavailable"
-    })`,
-  );
+
+  // Point inference at OpenRouter the way the Settings → Models screen does.
+  // `channel_web_chat` carries no per-turn route, so on the desktop path this
+  // is the only way to run BYOK — which is also how a BYOK desktop user runs.
+  if (!opts.managed) {
+    await core.rpc("openhuman.config_update_model_settings", {
+      inference_url: opts.inferenceUrl,
+      api_key: opts.apiKey,
+      default_model: opts.model,
+    });
+  }
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
   );
 
+  const clientId = `life-scenarios-${runId.slice(0, 12)}`;
+  const events = new EventStream(core, clientId);
+  if (opts.driver === "desktop") await events.connect();
+
+  const approvals = opts.approvals ? new ApprovalResponder(core) : null;
+  approvals?.start();
+  console.log(
+    `approve : ${opts.approvals ? "gate ON, headless responder approving" : "gate DISABLED"}`,
+  );
+
   const results = [];
   try {
-    // A cheap smoke turn proves the credential and route work before we spend
-    // real money on six long scenarios, and warms the prompt cache.
-    const smokeStart = Date.now();
-    const smoke = await core.rpc(
-      "openhuman.inference_agent_chat",
-      {
-        message: "Reply with exactly: READY",
-        thread_id: `ls-smoke-${runId}`,
-        ...routeParams(opts),
-      },
-      120_000,
-    );
-    console.log(
-      `smoke   : ${(Date.now() - smokeStart) / 1000}s -> ${String(smoke).slice(0, 80)}`,
-    );
-
     for (let attempt = 1; attempt <= opts.repeat; attempt += 1) {
       for (const scenario of selected) {
         process.stdout.write(`running ${scenario.id} (attempt ${attempt}) ... `);
-        const r = await runScenario({ core, scenario, runDir, opts, attempt });
+        const r = await runScenario({
+          core,
+          events,
+          clientId,
+          approvals,
+          scenario,
+          runDir,
+          opts,
+          attempt,
+        });
         results.push(r);
         console.log(
           `${r.ok ? "ok" : "ERROR"} ${(r.latency_ms / 1000).toFixed(1)}s ` +
-            `${r.grade.passed}/${r.grade.total} ${fmtUsd(r.usage.cost_usd)}`,
+            `${r.grade.passed}/${r.grade.total} tools=${r.tool_call_count} ${fmtUsd(
+              r.usage.cost_usd,
+            )}`,
         );
         await fsp.writeFile(
           path.join(runDir, "results.json"),
@@ -700,11 +988,22 @@ async function main() {
       }
     }
   } finally {
+    await approvals?.stop();
+    events.close();
     await core.stop();
+    if (approvals)
+      await fsp.writeFile(
+        path.join(runDir, "approvals.json"),
+        JSON.stringify({ decisions: approvals.decisions, errors: approvals.errors }, null, 2),
+      );
     if (composio) {
       await fsp.writeFile(
         path.join(runDir, "composio-requests.json"),
-        JSON.stringify({ requests: composio.ctx.requests, outbox: composio.ctx.outbox }, null, 2),
+        JSON.stringify(
+          { requests: composio.ctx.requests, outbox: composio.ctx.outbox },
+          null,
+          2,
+        ),
       );
       await composio.close();
     }
