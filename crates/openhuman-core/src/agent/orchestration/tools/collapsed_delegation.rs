@@ -50,12 +50,9 @@
 //! builder's collision guard resolves a clash by dropping the *synthesised*
 //! tool. Naming this one `delegate` would therefore have removed the
 //! orchestrator's entire delegation surface for exactly those users, silently.
-//! It also puts this tool in the same family as its sibling
-//! `delegate_to_integrations_agent`.
 //!
 //! [`DelegateTool`]: crate::agent::tools::DelegateTool
 //! [`ArchetypeDelegationTool`]: super::ArchetypeDelegationTool
-//! [`SkillDelegationTool`]: super::SkillDelegationTool
 //! [`ToolExposure::Hidden`]: tinytools::ToolExposure::Hidden
 
 use async_trait::async_trait;
