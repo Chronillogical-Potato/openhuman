@@ -142,10 +142,10 @@ fn parse_input_value_enforces_bounded_u64_range() {
     assert_eq!(parse_input_value(&ty, "10").unwrap(), serde_json::json!(10));
 
     let err = parse_input_value(&ty, "11").expect_err("above max should fail");
-    assert_eq!(err, "expected unsigned integer in 1..=10, got '11'");
+    assert_eq!(err, "expected unsigned integer <= 10, got '11'");
 
     let err = parse_input_value(&ty, "0").expect_err("below min should fail");
-    assert_eq!(err, "expected unsigned integer in 1..=10, got '0'");
+    assert_eq!(err, "expected unsigned integer >= 1, got '0'");
 
     let err = parse_input_value(&ty, "-3").expect_err("negative should fail");
     assert!(
