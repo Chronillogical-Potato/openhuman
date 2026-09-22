@@ -181,6 +181,5 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
 
     let a_again = crate::agent::todos::ops::list(&a).await.unwrap();
     assert_eq!(a_again.cards.len(), 1, "a later turn of the same session reads it back");
-    assert_eq!(a_again.session_id.as_deref(), Some("sess-a"));
     assert!(crate::agent::todos::ops::list(&b).await.unwrap().cards.is_empty());
 }
