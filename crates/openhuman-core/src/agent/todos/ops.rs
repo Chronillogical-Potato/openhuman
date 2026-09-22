@@ -1,27 +1,19 @@
-//! OpenHuman host adapter over [`tinyagents_graph::todos`].
+//! OpenHuman host adapter over TinyAgents' `todos::session_list`.
 //!
 //! A todo list is scoped to one agent session ([`TodoScope::Session`]) or,
 //! when a tool runs with no session at all, to a scratch list
-//! ([`TodoScope::Scratch`]). Both live in the one in-process store; the
-//! normalisation and rendering are TinyAgents'. The whole-list `replace` is
-//! the only write the `todo` tool needs; `clear` is for tests and cleanup.
+//! ([`TodoScope::Scratch`]). Both live in the one in-process [`store`];
+//! validation, the whole-list write and rendering are TinyAgents'. This file
+//! only maps a scope onto a store key. `clear` is for tests and cleanup.
 
-use serde::{Deserialize, Serialize};
-use tinyagents_graph::todos::store as todos;
+use std::sync::Arc;
+
+use tinyagents_graph::todos::session_list;
+use tinyagents_harness::store::Store;
 
 use crate::agent::tinyagents::todos::{session_todos_store, SCRATCH_SESSION_ID};
-use crate::agent::todos::types::normalize_cards_for_wire;
 pub use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
-
-pub use tinyagents_graph::todos::{parse_status, render_markdown};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TodosSnapshot {
-    pub session_id: Option<String>,
-    pub cards: Vec<TaskBoardCard>,
-    pub markdown: String,
-}
+pub use tinyagents_graph::todos::TodosSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TodoScope {
@@ -37,43 +29,30 @@ impl TodoScope {
         }
     }
 
-    fn key(&self) -> &str {
+    /// The store key this scope's list lives under.
+    pub fn key(&self) -> &str {
         self.session_id().unwrap_or(SCRATCH_SESSION_ID)
     }
 }
 
-fn snapshot(scope: &TodoScope, value: tinyagents_graph::todos::TodosSnapshot) -> TodosSnapshot {
-    TodosSnapshot {
-        session_id: scope.session_id().map(str::to_owned),
-        cards: value.cards,
-        markdown: value.markdown,
-    }
-}
-
-fn finish(
-    scope: &TodoScope,
-    result: tinyagents_harness::error::Result<tinyagents_graph::todos::TodosSnapshot>,
-) -> Result<TodosSnapshot, String> {
-    let mut value = result.map_err(|error| error.to_string())?;
-    normalize_cards_for_wire(&mut value.cards);
-    Ok(snapshot(scope, value))
+/// The process-wide store every session's list lives in.
+pub fn store() -> Arc<dyn Store> {
+    session_todos_store()
 }
 
 pub async fn replace(scope: &TodoScope, cards: Vec<TaskBoardCard>) -> Result<TodosSnapshot, String> {
-    let store = session_todos_store();
-    finish(scope, todos::replace(&store, scope.key(), cards).await)
+    session_list::write(&store(), scope.key(), cards)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 pub async fn clear(scope: &TodoScope) -> Result<TodosSnapshot, String> {
-    let store = session_todos_store();
-    finish(scope, todos::clear(&store, scope.key()).await)
+    replace(scope, Vec::new()).await
 }
 
 pub async fn list(scope: &TodoScope) -> Result<TodosSnapshot, String> {
-    let store = session_todos_store();
-    todos::list(&store, scope.key())
+    session_list::read(&store(), scope.key())
         .await
-        .map(|value| snapshot(scope, value))
         .map_err(|error| error.to_string())
 }
 
