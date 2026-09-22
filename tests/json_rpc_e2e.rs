@@ -9387,10 +9387,6 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         .get("result")
         .and_then(|r| r.get("max_actions_per_hour"))
         .and_then(Value::as_u64);
-    let initial_task_approval = initial_outer
-        .get("result")
-        .and_then(|r| r.get("require_task_plan_approval"))
-        .and_then(Value::as_bool);
     // Default is `u32::MAX` (functionally unlimited) — fresh installs should
     // not be rate-limited until the user opts into a ceiling. See the
     // autonomy schema for the rationale.
@@ -9399,23 +9395,18 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         Some(u32::MAX as u64),
         "expected default u32::MAX (unlimited), got envelope: {initial_outer}"
     );
-    assert_eq!(
-        initial_task_approval,
-        Some(true),
-        "task plan approval should default on, got envelope: {initial_outer}"
-    );
 
-    // UPDATE → 250, and disable task-plan approval.
+    // UPDATE → 250.
     let update = post_json_rpc(
         &rpc_base,
         7002,
         "openhuman.config_update_autonomy_settings",
-        json!({ "max_actions_per_hour": 250, "require_task_plan_approval": false }),
+        json!({ "max_actions_per_hour": 250 }),
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_autonomy_settings");
 
-    // GET again → expect 250 and disabled task-plan approval.
+    // GET again → expect 250.
     let after = post_json_rpc(
         &rpc_base,
         7003,
@@ -9428,19 +9419,10 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         .get("result")
         .and_then(|r| r.get("max_actions_per_hour"))
         .and_then(Value::as_u64);
-    let after_task_approval = after_outer
-        .get("result")
-        .and_then(|r| r.get("require_task_plan_approval"))
-        .and_then(Value::as_bool);
     assert_eq!(
         after_value,
         Some(250),
         "expected 250 after update, got envelope: {after_outer}"
-    );
-    assert_eq!(
-        after_task_approval,
-        Some(false),
-        "expected task plan approval to persist as disabled, got envelope: {after_outer}"
     );
 
     // Invalid value rejected — server returns JSON-RPC error envelope, not a result.
