@@ -26,8 +26,9 @@ A green tier 1 is therefore not evidence of comprehension. Only tier 2 is.
 
 The six cases cover the agents where mis-routing has cost something:
 `workflow_builder` (must reach `propose_workflow`, never three consecutive
-catalog searches), `orchestrator` (hands integration work off, never holds the
-raw Composio or cron tools), `integrations_agent`, `scheduler_agent`, and the
+catalog searches), `orchestrator` (searches for and calls integration actions
+itself, never holds the raw Composio or cron tools), `integrations_agent`,
+`scheduler_agent`, and the
 two zero-belt agents `summarizer` and `trigger_triage` (advertise nothing).
 Fleet-wide static coverage of all agents lives in the prompt tests under
 `crates/openhuman-core/src/agent/registry/agents/`, not here.
