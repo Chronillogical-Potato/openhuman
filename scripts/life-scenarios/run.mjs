@@ -41,7 +41,17 @@ const FIXTURES = path.join(HERE, "fixtures");
 function parseArgs(argv) {
   const o = {
     only: [],
-    model: "",
+    // Default route: OpenRouter, direct, via the per-turn ephemeral route.
+    // The managed TinyHumans backend is deliberately NOT the default here —
+    // a benchmark wants a route whose pricing and availability are its own,
+    // not one that fails the whole run when the hosted provider is down.
+    model: process.env.LIFE_SCENARIO_MODEL || "deepseek/deepseek-v4.1-flash",
+    inferenceUrl:
+      process.env.LIFE_SCENARIO_INFERENCE_URL || "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY || "",
+    managed: false,
+    mockComposio: true,
+    composioPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
     keep: false,
