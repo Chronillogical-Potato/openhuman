@@ -4620,7 +4620,7 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
     )
     .unwrap();
     assert!(
-        last_turn.contains("\\"todos\\""),
+        last_turn.contains(r#"\"todos\""#),
         "the model is handed the JSON list back, not a bare acknowledgement: {last_turn}"
     );
 
