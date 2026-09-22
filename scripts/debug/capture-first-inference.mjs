@@ -303,8 +303,11 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(listenPort, listenHost, () => {
+  // Report the bound port, not the configured one: CAPTURE_PORT=0 asks the OS
+  // for a free port, which is how the self-test runs several proxies at once.
+  const boundPort = server.address().port;
   process.stdout.write(
-    `[capture] listening on http://${listenHost}:${listenPort}; forwarding to ${upstream.origin}` +
+    `[capture] listening on http://${listenHost}:${boundPort}; forwarding to ${upstream.origin}` +
       `; summaries → ${summaryLogPath}` +
       `${captureAll ? `; recording every request under ${captureAllDir}` : ''}\n`
   );
