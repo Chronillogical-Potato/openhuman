@@ -292,6 +292,14 @@ class Core {
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
       OPENHUMAN_ACTION_DIR: actionDir,
+      // Both, and the second one is not redundant. `action_dir` is only the
+      // base that relative tool paths are joined onto; the *permission* to
+      // write comes from a trusted root, and `security/policy/enforcement.rs`
+      // grants one for `default_projects_dir()` — which reads
+      // OPENHUMAN_PROJECTS_DIR and knows nothing about OPENHUMAN_ACTION_DIR.
+      // Set ACTION_DIR alone and every file-tool write into it is refused with
+      // "Resolved path escapes workspace". See FINDINGS.md #1.
+      OPENHUMAN_PROJECTS_DIR: actionDir,
       RUST_LOG: process.env.RUST_LOG || "info",
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
