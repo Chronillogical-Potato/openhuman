@@ -5716,9 +5716,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': '작업 소스',
   'settings.integrations.title': '통합',
   'settings.integrations.menuDesc': '작업 소스, Composio 라우팅 및 웹훅 트리거',
-  'settings.taskSources.subtitle': '도구의 작업을 에이전트 할 일 보드로 가져옵니다',
+  'settings.taskSources.subtitle': '도구의 작업을 에이전트로 가져옵니다',
   'settings.taskSources.description':
-    'GitHub, Notion, Linear, ClickUp에서 작업 항목을 수집하고 보강한 뒤 에이전트 할 일 보드로 라우팅합니다.',
+    'GitHub, Notion, Linear, ClickUp에서 작업 항목을 수집하고 보강한 뒤 에이전트가 분류하도록 전달합니다.',
   'settings.taskSources.connectHint':
     '작업 소스는 연결된 계정을 사용합니다. 먼저 통합에서 계정을 연결하세요.',
   'settings.taskSources.disabledBanner':

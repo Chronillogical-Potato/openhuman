@@ -5870,9 +5870,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Źródła zadań',
   'settings.integrations.title': 'Integracje',
   'settings.integrations.menuDesc': 'Źródła zadań, routing Composio i wyzwalacze webhooków',
-  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
+  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi do swojego agenta',
   'settings.taskSources.description':
-    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i kieruj na tablicę zadań agenta.',
+    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i przekazuj swojemu agentowi do przeglądu.',
   'settings.taskSources.connectHint':
     'Źródła zadań używają połączonych kont. Najpierw połącz je w Integracjach.',
   'settings.taskSources.disabledBanner':

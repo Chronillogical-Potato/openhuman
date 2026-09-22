@@ -5817,9 +5817,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Sumber Tugas',
   'settings.integrations.title': 'Integrasi',
   'settings.integrations.menuDesc': 'Sumber tugas, perutean Composio, dan pemicu webhook',
-  'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke papan todo agen',
+  'settings.taskSources.subtitle': 'Tarik tugas dari alat Anda ke agen Anda',
   'settings.taskSources.description':
-    'Kumpulkan item kerja dari GitHub, Notion, Linear, dan ClickUp, perkaya mereka, dan rute mereka ke agen papan todo.',
+    'Kumpulkan item kerja dari GitHub, Notion, Linear, dan ClickUp, perkaya, lalu serahkan ke agen Anda untuk ditriase.',
   'settings.taskSources.connectHint':
     'Sumber tugas menggunakan akun yang terhubung Anda. Hubungkan mereka dengan Integrations.',
   'settings.taskSources.disabledBanner':

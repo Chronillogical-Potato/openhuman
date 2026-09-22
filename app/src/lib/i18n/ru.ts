@@ -5849,9 +5849,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Источники задач',
   'settings.integrations.title': 'Интеграции',
   'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
-  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
+  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов агенту',
   'settings.taskSources.description':
-    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
+    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и передавайте агенту на разбор.',
   'settings.taskSources.connectHint':
     'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
   'settings.taskSources.disabledBanner':

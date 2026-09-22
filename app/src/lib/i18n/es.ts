@@ -5902,10 +5902,9 @@ const messages: TranslationMap = {
   'settings.integrations.title': 'Integraciones',
   'settings.integrations.menuDesc':
     'Fuentes de tareas, enrutamiento de Composio y disparadores de webhooks',
-  'settings.taskSources.subtitle':
-    'Extrae tareas de tus herramientas al tablero de tareas del agente',
+  'settings.taskSources.subtitle': 'Trae tareas de tus herramientas a tu agente',
   'settings.taskSources.description':
-    'Recopila elementos de trabajo de GitHub, Notion, Linear y ClickUp, enriquétalos y dirígelos al tablero de tareas del agente.',
+    'Recopila elementos de trabajo de GitHub, Notion, Linear y ClickUp, enriquécelos y entrégaselos a tu agente para que los clasifique.',
   'settings.taskSources.connectHint':
     'Las fuentes de tareas utilizan tus cuentas conectadas. Conéctalas primero en Integraciones.',
   'settings.taskSources.disabledBanner':

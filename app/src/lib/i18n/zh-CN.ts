@@ -5451,9 +5451,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': '任务来源',
   'settings.integrations.title': '集成',
   'settings.integrations.menuDesc': '任务来源、Composio 路由和 Webhook 触发器',
-  'settings.taskSources.subtitle': '从你的工具拉取任务到智能体待办板',
+  'settings.taskSources.subtitle': '从你的工具拉取任务给智能体',
   'settings.taskSources.description':
-    '从 GitHub、Notion、Linear 和 ClickUp 收集工作项，补充信息后路由到智能体待办板。',
+    '从 GitHub、Notion、Linear 和 ClickUp 收集工作项，补充信息后交给智能体分拣。',
   'settings.taskSources.connectHint': '任务来源会使用你已连接的账户。请先在集成中连接它们。',
   'settings.taskSources.disabledBanner': '任务来源已在设置中禁用。启用后可自动轮询。',
   'settings.taskSources.loadError': '加载任务来源失败',

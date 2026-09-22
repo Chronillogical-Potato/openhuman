@@ -5651,9 +5651,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'المصادر',
   'settings.integrations.title': 'التكاملات',
   'settings.integrations.menuDesc': 'مصادر المهام وتوجيه Composio ومشغلات الويب هوك',
-  'settings.taskSources.subtitle': 'سحب المهام من أدواتك على لوحة العميل (تود)',
+  'settings.taskSources.subtitle': 'اسحب المهام من أدواتك إلى وكيلك',
   'settings.taskSources.description':
-    'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرها، وقم بتوجيهها إلى لوحة مهام الوكيل.',
+    'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرِها، وسلّمها إلى وكيلك للفرز.',
   'settings.taskSources.connectHint': 'مصادر المهمة تستخدم حساباتك المرتبطة إربطهم تحت الدمج أولاً',
   'settings.taskSources.disabledBanner':
     'وتُعوق مصادر المهام في البيئات. تمكنهم من الاقتراع تلقائياً',

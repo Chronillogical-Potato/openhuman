@@ -5788,9 +5788,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.integrations.title': 'ইন্টিগ্রেশন',
   'settings.integrations.menuDesc': 'টাস্ক সোর্স, Composio রাউটিং এবং ওয়েবহুক ট্রিগার',
-  'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
+  'settings.taskSources.subtitle': 'আপনার টুল থেকে কাজ আপনার এজেন্টের কাছে আনুন',
   'settings.taskSources.description':
-    'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
+    'GitHub, Notion, Linear এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন এবং বাছাইয়ের জন্য আপনার এজেন্টকে দিন।',
   'settings.taskSources.connectHint':
     'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
   'settings.taskSources.disabledBanner':
