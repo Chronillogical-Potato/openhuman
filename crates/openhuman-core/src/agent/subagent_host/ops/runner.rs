@@ -33,9 +33,9 @@ use crate::agent::subagent_host::extract_tool::ExtractFromResultTool;
 use crate::agent::subagent_host::handoff::ResultHandoffCache;
 use crate::agent::subagent_host::subagent_iter_cap_with_autonomous_lift;
 use crate::agent::subagent_host::tool_prep::{
-    build_text_mode_tool_instructions, filter_tool_indices, is_subagent_spawn_tool,
-    load_prompt_source, select_actions_with_essentials, strip_spawn_tools_from_dynamic,
-    subagent_prompt_protocol, top_k_for_toolkit,
+    filter_tool_indices, is_subagent_spawn_tool, load_prompt_source,
+    select_actions_with_essentials, strip_spawn_tools_from_dynamic, subagent_prompt_protocol,
+    top_k_for_toolkit,
 };
 use crate::agent::subagent_host::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
@@ -1383,8 +1383,11 @@ async fn run_typed_mode(
         .collect();
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
-    let (prompt_tool_call_format, dispatcher_instructions) =
-        subagent_prompt_protocol(parent.tool_call_format, is_integrations_agent_with_toolkit);
+    let (prompt_tool_call_format, dispatcher_instructions) = subagent_prompt_protocol(
+        parent.tool_call_format,
+        is_integrations_agent_with_toolkit,
+        &filtered_specs,
+    );
     // Load AGENTS.md instruction layers once, at prompt-build time, when the
     // config gate is on. The global layer comes from the workspace dir; the
     // project layer comes from the sub-agent's `worktree_action_dir` override
@@ -1514,15 +1517,11 @@ async fn run_typed_mode(
     // rejected). Wrapping the provider clears `native_tool_calling`, which makes
     // the model adapter skip native advertisement and fall back to XML parsing.
     if is_integrations_agent_with_toolkit {
-        if let Some(sys) = history.iter_mut().find(|m| m.role == "system") {
-            sys.content.push_str("\n\n");
-            sys.content.push_str(&build_text_mode_tool_instructions());
-        }
         tracing::info!(
             agent_id = %definition.id,
             task_id = %task_id,
             tool_count = filtered_specs.len(),
-            "[subagent_host:text-mode] omitting native tool schemas; injected XML tool protocol into system prompt"
+            "[subagent_host:text-mode] omitting native tool schemas; TinyTools JSON dialect owns the prompt protocol"
         );
         subagent_source = subagent_source.with_text_mode();
     }

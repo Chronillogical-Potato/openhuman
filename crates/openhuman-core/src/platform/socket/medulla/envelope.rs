@@ -300,7 +300,7 @@ pub fn progress_to_event_kind(progress: &AgentProgress) -> Option<HarnessEventKi
             active_call_id: None,
         }),
         // Everything else (arg deltas, cost/usage rollups, per-call model
-        // accounting, subagent-internal frames, task-board writes, raw
+        // accounting, subagent-internal frames, todo writes, raw
         // TurnContent) carries no distinct stream frame in this vocabulary.
         _ => return None,
     };

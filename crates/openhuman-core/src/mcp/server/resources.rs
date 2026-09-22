@@ -196,7 +196,7 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
     PromptResource {
         uri: "openhuman://prompts/agents/task_manager_agent",
         name: "task_manager_agent",
-        description: "Specialist worker for task planning, status, and task-board changes.",
+        description: "Specialist worker for task-source feeds, workflow bundles, and artifacts.",
         content: include_str!("../../agent/registry/agents/task_manager_agent/prompt.md"),
     },
     PromptResource {

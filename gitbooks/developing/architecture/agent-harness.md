@@ -677,8 +677,8 @@ Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `S
 The remaining store cutover runs on **shadow scaffolding** (product behavior unchanged; divergences logged):
 
 - **Session dual-write / shadow read** (`session/turn/session_io.rs`): session messages dual-write into the TinyAgents store (default-ON flag `config.session_dual_write`); loads shadow-read for parity while the legacy file store stays authoritative.
-- **Task-board shadow** (`todos/graph_shadow.rs`): mirrors the board into the crate `graph.todos` `TaskBoard` and shadow-runs its `claim_card` CAS.
-- **Goals shadow** (`thread_goals/crate_adapter.rs`): faithful copy into the crate `graph.goals` KV store, keyed by thread id.
+
+Goals and todos are crate-backed outright, with no shadow: thread goals live in the crate `graph.goals` KV store (`agent/goals/store.rs`), and the session todo list lives in the in-process crate `graph.todos` store (`agent/todos/ops.rs`); see [Goals & Todos](../../features/goals-and-todos.md).
 
 ## Workload routes and the burst tier
 
@@ -689,4 +689,4 @@ The remaining store cutover runs on **shadow scaffolding** (product behavior unc
 - [Architecture overview](README.md) - where the harness sits in the bigger picture.
 - [Memory Tree](../../features/obsidian-wiki/memory-tree.md) - what the memory loader reads from and post-turn hooks write to.
 - [Automatic Model Routing](../../features/model-routing/) - how `model: "hint:reasoning"` resolves to a concrete provider+model.
-- [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo_write`.
+- [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo`.

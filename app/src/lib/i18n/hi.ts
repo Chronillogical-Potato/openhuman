@@ -3262,6 +3262,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'आउटपुट',
   'conversations.composer.context.cost': 'लागत',
   'conversations.composer.command.clear': 'बातचीत साफ़ करें',
+  'conversations.todos.title': 'कार्य सूची',
+  'conversations.todos.progress': '{total} में से {completed} पूरे',
+  'conversations.todos.allDone': 'सब पूरा',
+  'conversations.todos.status.pending': 'लंबित',
+  'conversations.todos.status.inProgress': 'प्रगति में',
+  'conversations.todos.status.completed': 'पूरा',
+  'conversations.goal.title': 'लक्ष्य',
+  'conversations.goal.status.active': 'सक्रिय',
+  'conversations.goal.status.paused': 'रुका हुआ',
+  'conversations.goal.status.budgetLimited': 'बजट पूरा',
+  'conversations.goal.status.complete': 'पूर्ण',
+  'conversations.goal.tokens': '{used} टोकन',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} टोकन',
   'conversations.planReview.title': 'योजना की समीक्षा करें',
   'conversations.planReview.subtitle':
     'इसे चलाने के लिए स्वीकृत करें, हटाने के लिए अस्वीकार करें, या संशोधित करने के लिए प्रतिक्रिया भेजें।',
@@ -3358,12 +3371,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'OpenHuman का नवीनतम जेनरेटेड आर्किटेक्चर डायग्राम',
   'intelligence.diagram.refreshesEvery': 'हर {seconds}s पर रीफ्रेश होता है',
   'intelligence.memoryText.entityTypePrefix': 'इकाई प्रकार',
-  'intelligence.workTask.sourceTaskHeading': 'स्रोत कार्य:',
-  'intelligence.workTask.repositoryLine': '- रिपॉज़िटरी: {repo}',
-  'intelligence.workTask.externalIdLine': '- बाहरी आईडी: {externalId}',
-  'intelligence.workTask.urlLine': '- यूआरएल: {url}',
-  'intelligence.workTask.closingInstruction':
-    'पहले ठोस कार्यान्वयन योजना को संक्षेप में दोहराएँ, फिर उसे निष्पादित करें। इस थ्रेड में प्रगति दिखती रहे और कार्य की स्थिति बदलने पर कार्य बोर्ड अपडेट करें।',
   'intelligence.agentWork.subtitle': 'हर पृष्ठभूमि एजेंट रन, जीवनचक्र स्थिति के अनुसार समूहित।',
   'intelligence.agentWork.loading': 'एजेंट कार्य लोड हो रहा है…',
   'intelligence.agentWork.failedToLoad': 'एजेंट कार्य लोड नहीं हो सका',
@@ -4819,9 +4826,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'हर 2 घंटे',
   'settings.devWorkflow.schedule.every6hours': '6 घंटे',
   'settings.devWorkflow.schedule.onceDaily': 'एक बार दैनिक (9 AM)',
-  'settings.developerMenu.tasks.title': 'कार्य',
-  'settings.developerMenu.tasks.desc':
-    'टास्क बोर्ड ब्राउज़ करें और प्रबंधित करें: आपके अपने काम और बातचीत के दौरान एजेंट द्वारा बनाए गए बोर्ड।',
   'settings.developerMenu.cronJobs.title': 'Cron जॉब्स',
   'settings.developerMenu.cronJobs.desc':
     'रनटाइम स्किल्स के लिए शेड्यूल किए गए जॉब देखें और कॉन्फ़िगर करें',
@@ -4923,9 +4927,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'वर्कस्पेस को कॉन्फ़िगर करें',
   'settings.agentAccess.confine.desc':
     'एजेंट को वर्कस्पेस डायरेक्टरी (साथ किसी भी स्वीकृत फ़ोल्डर) में प्रतिबंधित करें, जो भी एक्सेस मोड का चयन किया जाता है। जब बंद हो जाता है, तो यह कहीं भी आपके उपयोगकर्ता तक पहुंच सकता है - हमेशा अवरुद्ध क्रेडेंशियल और सिस्टम डायरेक्टरी को छोड़कर।',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'कार्य योजना अनुमोदन की आवश्यकता',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'एक निर्धारित एजेंट से पहले रोकें एक एजेंट-लेखित कार्य संक्षिप्त निष्पादित करता है।',
   'settings.agentAccess.autoApproveAll.label': 'सभी कार्रवाइयों को स्वतः स्वीकृत करें',
   'settings.agentAccess.autoApproveAll.desc':
     'सक्षम होने पर, एजेंट आपकी अनुमति मांगे बिना सभी कार्रवाइयां निष्पादित करेगा। इसमें फ़ाइल लेखन, शेल कमांड, नेटवर्क अनुरोध और अन्य कोई भी दुष्प्रभाव शामिल हैं। कठोर सुरक्षा अवरोध (क्रेडेंशियल डायरेक्टरी, वर्कस्पेस-आंतरिक पथ) अब भी लागू रहते हैं।',

@@ -3314,6 +3314,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Saída',
   'conversations.composer.context.cost': 'Custo',
   'conversations.composer.command.clear': 'Limpar a conversa',
+  'conversations.todos.title': 'Tarefas',
+  'conversations.todos.progress': '{completed} de {total} concluídas',
+  'conversations.todos.allDone': 'Tudo concluído',
+  'conversations.todos.status.pending': 'Pendente',
+  'conversations.todos.status.inProgress': 'Em andamento',
+  'conversations.todos.status.completed': 'Concluída',
+  'conversations.goal.title': 'Objetivo',
+  'conversations.goal.status.active': 'Ativo',
+  'conversations.goal.status.paused': 'Pausado',
+  'conversations.goal.status.budgetLimited': 'Orçamento atingido',
+  'conversations.goal.status.complete': 'Concluído',
+  'conversations.goal.tokens': '{used} tokens usados',
+  'conversations.goal.tokensWithBudget': '{used} de {budget} tokens',
   'conversations.planReview.title': 'Revisar plano',
   'conversations.planReview.subtitle':
     'Aprove para executá-lo, rejeite para descartá-lo ou envie comentários para revisá-lo.',
@@ -3410,12 +3423,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Último diagrama de arquitetura OpenHuman gerado',
   'intelligence.diagram.refreshesEvery': 'Atualiza a cada {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo de entidade',
-  'intelligence.workTask.sourceTaskHeading': 'Tarefa de origem:',
-  'intelligence.workTask.repositoryLine': '- Repositório: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
-  'intelligence.workTask.urlLine': '- Endereço: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Comece reformulando brevemente o plano de implementação concreto e depois execute-o. Mantenha o progresso visível neste tópico e atualize o quadro de tarefas quando o estado do trabalho mudar.',
   'intelligence.agentWork.subtitle':
     'Cada execução de agente em segundo plano, agrupada por estado do ciclo de vida.',
   'intelligence.agentWork.loading': 'Carregando trabalho do agente…',
@@ -4887,9 +4894,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'A cada 2 horas',
   'settings.devWorkflow.schedule.every6hours': 'A cada 6 horas',
   'settings.devWorkflow.schedule.onceDaily': 'Uma vez ao dia (9h)',
-  'settings.developerMenu.tasks.title': 'Tarefas',
-  'settings.developerMenu.tasks.desc':
-    'Navegue e gerencie os quadros de tarefas: suas próprias pendências e os quadros que os agentes criam nas conversas.',
   'settings.developerMenu.cronJobs.title': 'Tarefas cron',
   'settings.developerMenu.cronJobs.desc':
     'Veja e configure tarefas agendadas para habilidades em tempo de execução',
@@ -4994,9 +4998,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confinar ao espaço de trabalho',
   'settings.agentAccess.confine.desc':
     'Restrinja o agente ao diretório de trabalho (mais quaisquer pastas concedidas), qualquer que seja o modo de acesso selecionado. Quando desligado, ele pode acessar qualquer lugar que seu usuário possa, exceto os diretórios de credenciais e do sistema que sempre são bloqueados.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
   'settings.agentAccess.autoApproveAll.label': 'Aprovar automaticamente todas as ações',
   'settings.agentAccess.autoApproveAll.desc':
     'Quando ativado, o agente executará todas as ações sem pedir sua aprovação antes. Isso inclui gravação de arquivos, comandos de shell, solicitações de rede e qualquer outro efeito colateral. Os bloqueios de segurança rígidos (diretórios de credenciais, caminhos internos do espaço de trabalho) continuam em vigor.',

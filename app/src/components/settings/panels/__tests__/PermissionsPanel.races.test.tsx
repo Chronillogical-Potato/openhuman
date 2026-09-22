@@ -108,14 +108,13 @@ describe('PermissionsPanel — load-shape defaults', () => {
     mockGetPaths.mockResolvedValue({ result: agentPaths(), logs: [] });
   });
 
-  // `require_task_plan_approval ?? true` and `trusted_roots ?? []`
-  // (`PermissionsPanel.tsx:90-91`) exist because an older core omits both
-  // fields. The defaults matter: they are carried straight back into the next
-  // save, so getting them wrong silently rewrites the user's settings.
+  // `trusted_roots ?? []` (`PermissionsPanel.tsx`) exists because an older
+  // core omits the field. The default matters: it is carried straight back
+  // into the next save, so getting it wrong silently rewrites the user's
+  // settings.
   it('defaults the fields an older core omits, and carries them into a save', async () => {
     const partial = autonomy();
     delete (partial as Partial<AutonomySettings>).trusted_roots;
-    delete (partial as { require_task_plan_approval?: boolean }).require_task_plan_approval;
     mockGet.mockResolvedValue({ result: partial as AutonomySettings, logs: [] });
     mockUpdate.mockResolvedValue({ result: {} as never, logs: [] });
 
@@ -126,24 +125,7 @@ describe('PermissionsPanel — load-shape defaults', () => {
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     const sent = mockUpdate.mock.calls[0][0];
-    expect(sent.require_task_plan_approval).toBe(true);
     expect(sent.trusted_roots).toEqual([]);
-  });
-
-  it('preserves a false require_task_plan_approval rather than defaulting it on', async () => {
-    mockGet.mockResolvedValue({
-      result: autonomy({ require_task_plan_approval: false } as Partial<AutonomySettings>),
-      logs: [],
-    });
-    mockUpdate.mockResolvedValue({ result: {} as never, logs: [] });
-
-    renderWithProviders(<PermissionsPanel />);
-    await screen.findByText(/Full control/i);
-
-    fireEvent.click(preset(/Full control/i));
-
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    expect(mockUpdate.mock.calls[0][0].require_task_plan_approval).toBe(false);
   });
 
   it('reports an autonomy load failure but still renders the folder section', async () => {

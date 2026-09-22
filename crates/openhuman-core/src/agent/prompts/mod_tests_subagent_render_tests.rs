@@ -65,6 +65,46 @@ fn render_subagent_system_prompt_renders_workspace_tail() {
 }
 
 #[test]
+fn subagent_prompt_defaults_to_python_and_omits_protocol_without_tools() {
+    let workspace = std::env::temp_dir().join(format!(
+        "openhuman_prompt_default_dialect_{}",
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let default_rendered = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[0],
+        &tools,
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::default(),
+        &[],
+    );
+    assert!(default_rendered.contains("def test_tool() -> str"));
+    assert!(!default_rendered.contains("test_tool[]"));
+
+    let no_tools = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[],
+        &[],
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::Json,
+        &[],
+    );
+    assert!(!no_tools.contains("## Tools"));
+    assert!(!no_tools.contains("## Tool Use Protocol"));
+
+    let _ = std::fs::remove_dir_all(workspace);
+}
+
+#[test]
 fn subagent_render_options_invert_definition_flags() {
     // (omit_identity, omit_safety_preamble,
     //  omit_profile, omit_memory_md)

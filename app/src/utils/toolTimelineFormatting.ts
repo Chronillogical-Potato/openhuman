@@ -72,6 +72,13 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   composio_list_connections: 'Viewing your Connections',
   agent_prepare_context: 'Preparing context',
   propose_workflow: 'Proposing workflow',
+  // Harness work state: the session todo list and the thread goal. The pane
+  // renders both from these calls' results (`utils/harnessState.ts`), so the
+  // rows read as bookkeeping, not as work in their own right.
+  todo: 'Updating todo list',
+  goal_set: 'Setting goal',
+  goal_get: 'Checking goal',
+  goal_complete: 'Completing goal',
 };
 
 /**

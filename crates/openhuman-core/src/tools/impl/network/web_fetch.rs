@@ -79,9 +79,9 @@ impl Tool for WebFetchTool {
     }
 
     fn description(&self) -> &str {
-        "GET a URL and return its body as text (truncated). Use this for \
-         reading docs / READMEs / spec pages. For richer HTTP semantics \
-         (POST, custom headers, …) use `http_request`."
+        "GET a URL and read the page. HTML returns as Markdown (links kept, \
+         scripts dropped); `raw: true` for the body as sent. For POST or \
+         custom headers use `http_request`."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -93,6 +93,10 @@ impl Tool for WebFetchTool {
                     "type": "integer",
                     "description": "Truncate body at this many bytes (default 1_000_000).",
                     "minimum": 1
+                },
+                "raw": {
+                    "type": "boolean",
+                    "description": "Return the body as sent."
                 }
             },
             "required": ["url"]
@@ -110,13 +114,22 @@ impl Tool for WebFetchTool {
         true
     }
 
-    /// Cap web_fetch results at ~50k chars before they reach the
-    /// model. The tool itself already truncates byte-wise via
-    /// `max_bytes` (default 1MB), but a 1MB HTML page is still tens
-    /// of thousands of tokens — the agent rarely needs that much, and
-    /// when it does, `read_file` on a saved copy is the right tool.
+    /// How much of a page reaches the model in one result.
+    ///
+    /// Extraction does most of the work — after HTML→Markdown a long
+    /// documentation page is usually a few thousand chars — so this
+    /// bites only on genuinely large documents. What it no longer does
+    /// is throw the remainder away: `ToolOutputMiddleware` spills the
+    /// full extracted page to an artifact and returns the `file_read`
+    /// call that pages it, which is what this comment used to
+    /// recommend while the cap itself disabled the affordance.
+    ///
+    /// 24k rather than the old 50k because the point of reference
+    /// moved: 50k was a bound on raw markup, this is clean Markdown.
+    /// Hermes budgets 15,000 chars of extracted text for the same job;
+    /// Codex caps every tool result at ~10,000 tokens.
     fn max_result_size_chars(&self) -> Option<usize> {
-        Some(50_000)
+        Some(24_000)
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
@@ -129,6 +142,7 @@ impl Tool for WebFetchTool {
             .and_then(|v| v.as_u64())
             .map(|n| (n as usize).max(1))
             .unwrap_or(self.max_bytes);
+        let raw_requested = args.get("raw").and_then(|v| v.as_bool()).unwrap_or(false);
 
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
@@ -197,6 +211,11 @@ impl Tool for WebFetchTool {
             .get(reqwest::header::LOCATION)
             .and_then(|v| v.to_str().ok())
             .map(str::to_string);
+        let content_type = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
         let body = match resp.text().await {
             Ok(b) => b,
             Err(e) => return Ok(ToolResult::error(format!("Failed to read body: {e}"))),
@@ -212,21 +231,70 @@ impl Tool for WebFetchTool {
             }
         }
 
-        let (snippet, truncated) = if body.len() > max_bytes {
+        let downloaded = body.len();
+        let (body, byte_capped) = if downloaded > max_bytes {
             let cut = crate::util::floor_char_boundary(&body, max_bytes);
-            (&body[..cut], true)
+            (body[..cut].to_string(), true)
         } else {
-            (body.as_str(), false)
+            (body, false)
         };
 
-        let suffix = if truncated {
-            format!("\n[truncated at {max_bytes} bytes]")
+        // Markdown by default. A page's prose is a small fraction of its
+        // bytes; handing the raw document to the model (and to the payload
+        // summarizer behind it) is how one research turn came to cost
+        // 1,083,069 input tokens. `tinyjuice` owns content transforms — see
+        // the dependency note in Cargo.toml for why this is a direct call and
+        // not a trip through the module bus.
+        let converted = !raw_requested && is_html(&body, content_type.as_deref());
+        let content = if converted {
+            tinyjuice::compressors::html::html_to_markdown(&body)
         } else {
-            String::new()
+            body
         };
-        let header = format!("status={} url={}\n", status.as_u16(), final_url);
-        Ok(ToolResult::success(format!("{header}{snippet}{suffix}")))
+
+        let extracted = content.len();
+        let mut header = format!("status={} url={final_url}", status.as_u16());
+        if converted {
+            header.push_str(" content=markdown");
+        }
+        if byte_capped {
+            header.push_str(&format!(" download_capped_at={max_bytes}B"));
+        }
+        if converted && extracted < downloaded {
+            header.push_str(&format!(" extracted={extracted}B_of_{downloaded}B"));
+        }
+        header.push('\n');
+
+        // Full extracted content. Bounding it — the head/tail window, the
+        // spill to an artifact and the paging handle — belongs to
+        // `ToolOutputMiddleware`, which applies one rule to every tool.
+        // Codex enforces exactly this invariant at a single chokepoint
+        // (`context_manager/history.rs`), which is why a tool there cannot
+        // leak an unbounded payload however it misbehaves.
+        Ok(ToolResult::success(format!("{header}{content}")))
     }
+}
+
+/// Is this HTML? The server's own `Content-Type` is authoritative when it
+/// says so; otherwise fall back to TinyJuice's content detection, which
+/// already distinguishes HTML from JSON, diffs and code.
+fn is_html(body: &str, content_type: Option<&str>) -> bool {
+    if let Some(ct) = content_type {
+        let ct = ct.to_ascii_lowercase();
+        let mime = ct.split(';').next().unwrap_or("").trim().to_string();
+        // An explicit non-HTML type is a statement, not a guess: a JSON API
+        // that happens to embed markup must come back verbatim.
+        if !mime.is_empty() && mime != "text/html" && mime != "application/xhtml+xml" {
+            return false;
+        }
+        if !mime.is_empty() {
+            return true;
+        }
+    }
+    matches!(
+        tinyjuice::detect_content_kind(body, &tinyjuice::types::ContentHint::default()),
+        tinyjuice::types::ContentKind::Html
+    )
 }
 
 #[cfg(test)]

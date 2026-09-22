@@ -3354,6 +3354,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Ausgabe',
   'conversations.composer.context.cost': 'Kosten',
   'conversations.composer.command.clear': 'Unterhaltung leeren',
+  'conversations.todos.title': 'Aufgaben',
+  'conversations.todos.progress': '{completed} von {total} erledigt',
+  'conversations.todos.allDone': 'Alles erledigt',
+  'conversations.todos.status.pending': 'Ausstehend',
+  'conversations.todos.status.inProgress': 'In Arbeit',
+  'conversations.todos.status.completed': 'Erledigt',
+  'conversations.goal.title': 'Ziel',
+  'conversations.goal.status.active': 'Aktiv',
+  'conversations.goal.status.paused': 'Pausiert',
+  'conversations.goal.status.budgetLimited': 'Budget erreicht',
+  'conversations.goal.status.complete': 'Abgeschlossen',
+  'conversations.goal.tokens': '{used} Tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} Tokens',
   'conversations.planReview.title': 'Plan prüfen',
   'conversations.planReview.subtitle':
     'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
@@ -3452,12 +3465,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Zuletzt generiertes OpenHuman-Architekturdiagramm',
   'intelligence.diagram.refreshesEvery': 'Aktualisiert alle {seconds} s',
   'intelligence.memoryText.entityTypePrefix': 'Entitätstyp',
-  'intelligence.workTask.sourceTaskHeading': 'Quellaufgabe:',
-  'intelligence.workTask.repositoryLine': '- Repository (Repo): {repo}',
-  'intelligence.workTask.externalIdLine': '- Externe ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Adresse: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Beginne damit, den konkreten Umsetzungsplan kurz zu wiederholen, und führe ihn dann aus. Halte den Fortschritt in diesem Thread sichtbar und aktualisiere das Aufgabenboard, wenn sich der Arbeitsstand ändert.',
   'intelligence.agentWork.subtitle':
     'Jeder Hintergrund-Agentenlauf, gruppiert nach Lebenszyklusstatus.',
   'intelligence.agentWork.loading': 'Agentenarbeit wird geladen…',
@@ -4950,9 +4957,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Alle 2 Stunden',
   'settings.devWorkflow.schedule.every6hours': 'Alle 6 Stunden',
   'settings.devWorkflow.schedule.onceDaily': 'Einmal täglich (09:00 Uhr)',
-  'settings.developerMenu.tasks.title': 'Aufgaben',
-  'settings.developerMenu.tasks.desc':
-    'Aufgaben-Boards durchsuchen und verwalten: deine eigenen To-dos sowie die Boards, die Agenten über Unterhaltungen hinweg erstellen.',
   'settings.developerMenu.cronJobs.title': 'Cron-Jobs',
   'settings.developerMenu.cronJobs.desc':
     'Zeige geplante Jobs für Laufzeitfähigkeiten an und konfiguriere sie',
@@ -5058,10 +5062,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Auf Arbeitsbereich beschränken',
   'settings.agentAccess.confine.desc':
     'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn die Option ausgeschaltet ist, kann der Agent jeden Ort erreichen, auf den Ihr Benutzer zugreifen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
-  'settings.agentAccess.requireTaskPlanApproval.label':
-    'Erfordern Sie die Genehmigung des Aufgabenplans',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
   'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
   'settings.agentAccess.autoApproveAll.desc':
     'Wenn aktiviert, genehmigt der Agent automatisch alle zulässigen Aktionen, ohne vorher deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und andere Aktionen mit externen Auswirkungen. Feste Sicherheitssperren (Anmeldeinformationen und Systemverzeichnisse) gelten weiterhin, und Aktionen aus nicht vertrauenswürdigen oder unbekannten Quellen werden nie automatisch genehmigt.',

@@ -65,7 +65,7 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian-Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: deine Daten, komprimiert in bewertete Markdown-Bäume in SQLite auf deiner Maschine, gespiegelt als [Obsidian-Vault](https://x.com/karpathy/status/2039805659525644595), das du öffnen und editieren kannst. Keine Vektor-Suppen-Blackbox.
 - **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) füttert das Gehirn alle 20 Minuten. So hat es den Kontext von morgen schon heute Früh.
-- **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: Langzeitziele, dauerhafte Ziele pro Thread und ein geteiltes Kanban-Board pro Unterhaltung.
+- **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: Langzeitziele, dauerhafte Ziele pro Thread und die im Chat sichtbare Todo-Liste des Agenten.
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: Tool-Ausgaben werden komprimiert, bevor sie das Modell erreichen: dieselbe Information, bis zu 80% weniger Tokens. Ein so großes Gehirn wäre ohne es unbezahlbar.
 
 ### 🕸️ Der Orchestrator

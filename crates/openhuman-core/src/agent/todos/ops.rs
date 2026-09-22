@@ -1,4 +1,4 @@
-//! OpenHuman host adapter over TinyAgents' `todos::session_list`.
+//! OpenHuman host adapter over TinyAgents' `todos`.
 //!
 //! A todo list is scoped to one agent session ([`TodoScope::Session`]) or,
 //! when a tool runs with no session at all, to a scratch list
@@ -8,11 +8,11 @@
 
 use std::sync::Arc;
 
-use tinyagents_graph::todos::session_list;
+use tinyagents_graph::todos::store as todos;
 use tinyagents_harness::store::Store;
 
 use crate::agent::tinyagents::todos::{session_todos_store, SCRATCH_SESSION_ID};
-pub use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
+pub use crate::agent::todos::types::{TodoItem, TodoStatus};
 pub use tinyagents_graph::todos::TodosSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,21 +40,20 @@ pub fn store() -> Arc<dyn Store> {
     session_todos_store()
 }
 
-pub async fn replace(
-    scope: &TodoScope,
-    cards: Vec<TaskBoardCard>,
-) -> Result<TodosSnapshot, String> {
-    session_list::write(&store(), scope.key(), cards)
+pub async fn replace(scope: &TodoScope, items: Vec<TodoItem>) -> Result<TodosSnapshot, String> {
+    todos::replace(&store(), scope.key(), items)
         .await
         .map_err(|error| error.to_string())
 }
 
 pub async fn clear(scope: &TodoScope) -> Result<TodosSnapshot, String> {
-    replace(scope, Vec::new()).await
+    todos::clear(&store(), scope.key())
+        .await
+        .map_err(|error| error.to_string())
 }
 
 pub async fn list(scope: &TodoScope) -> Result<TodosSnapshot, String> {
-    session_list::read(&store(), scope.key())
+    todos::list(&store(), scope.key())
         .await
         .map_err(|error| error.to_string())
 }

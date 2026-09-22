@@ -3185,6 +3185,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'المخرجات',
   'conversations.composer.context.cost': 'التكلفة',
   'conversations.composer.command.clear': 'مسح المحادثة',
+  'conversations.todos.title': 'المهام',
+  'conversations.todos.progress': 'اكتمل {completed} من {total}',
+  'conversations.todos.allDone': 'اكتمل الكل',
+  'conversations.todos.status.pending': 'قيد الانتظار',
+  'conversations.todos.status.inProgress': 'قيد التنفيذ',
+  'conversations.todos.status.completed': 'مكتمل',
+  'conversations.goal.title': 'الهدف',
+  'conversations.goal.status.active': 'نشط',
+  'conversations.goal.status.paused': 'متوقف مؤقتًا',
+  'conversations.goal.status.budgetLimited': 'تم بلوغ الميزانية',
+  'conversations.goal.status.complete': 'مكتمل',
+  'conversations.goal.tokens': '{used} رمز',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} رمز',
   'conversations.planReview.title': 'مراجعة الخطة',
   'conversations.planReview.subtitle':
     'وافق لتشغيلها، أو ارفضها لتجاهلها، أو أرسل ملاحظات لتعديلها.',
@@ -3279,12 +3292,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'أحدث مخطط بنية OpenHuman المُولَّد',
   'intelligence.diagram.refreshesEvery': 'يتجدد كل {seconds} ثانية',
   'intelligence.memoryText.entityTypePrefix': 'نوع الكيان',
-  'intelligence.workTask.sourceTaskHeading': 'المهمة المصدر:',
-  'intelligence.workTask.repositoryLine': '- المستودع: {repo}',
-  'intelligence.workTask.externalIdLine': '- المعرّف الخارجي: {externalId}',
-  'intelligence.workTask.urlLine': '- الرابط: {url}',
-  'intelligence.workTask.closingInstruction':
-    'ابدأ بإعادة صياغة خطة التنفيذ الملموسة بإيجاز، ثم نفّذها. أبقِ التقدّم مرئيًا في هذا المحادثة وحدّث لوحة المهام عند تغيّر حالة العمل.',
   'intelligence.agentWork.subtitle': 'كل تشغيل وكيل في الخلفية، مُجمّع حسب حالة دورة الحياة.',
   'intelligence.agentWork.loading': 'جارٍ تحميل عمل الوكيل…',
   'intelligence.agentWork.failedToLoad': 'تعذّر تحميل عمل الوكيل',
@@ -4708,9 +4715,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'كل ساعتين',
   'settings.devWorkflow.schedule.every6hours': 'كل 6 ساعات',
   'settings.devWorkflow.schedule.onceDaily': 'يوم واحد (9 صباحا)',
-  'settings.developerMenu.tasks.title': 'المهام',
-  'settings.developerMenu.tasks.desc':
-    'تصفّح لوحات المهام وإدارتها: مهامك الخاصة إضافةً إلى اللوحات التي تنشئها الوكلاء عبر المحادثات.',
   'settings.developerMenu.cronJobs.title': 'مهام Cron',
   'settings.developerMenu.cronJobs.desc': 'عرض وتكوين المهام المجدولة لمهارات وقت التشغيل',
   'settings.developerMenu.webhooks.title': 'خطافات الويب',
@@ -4807,9 +4811,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'مقصورة على مكان العمل',
   'settings.agentAccess.confine.desc':
     'قيّد الوكيل بدليل مساحة العمل (بالإضافة إلى أي مجلدات ممنوحة)، بصرف النظر عن وضع الوصول المحدد. عند إيقاف التشغيل، يمكنه الوصول إلى أي مكان يمكن لمستخدمك الوصول إليه، باستثناء أدلة بيانات الاعتماد والنظام المحظورة دائمًا.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
   'settings.agentAccess.autoApproveAll.label': 'الموافقة التلقائية على جميع الإجراءات',
   'settings.agentAccess.autoApproveAll.desc':
     'عند التفعيل، سينفذ الوكيل جميع الإجراءات المؤهلة دون طلب موافقتك أولاً. يشمل ذلك كتابة الملفات وتنفيذ أوامر الطرفية وطلبات الشبكة وأي تأثيرات جانبية أخرى. تظل الحواجز الأمنية الصارمة، مثل أدلة بيانات الاعتماد والأدلة النظامية، سارية المفعول، ولا تتم الموافقة التلقائية أبداً على الإجراءات ذات المصدر غير الموثوق أو غير المعروف.',
