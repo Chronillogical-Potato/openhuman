@@ -233,24 +233,35 @@ pub struct ConnectedIntegrationTool {
 /// description)` tuples) all adapt to this.
 #[derive(Debug, Clone)]
 pub struct PromptTool<'a> {
-    pub name: &'a str,
-    pub description: &'a str,
+    pub name: std::borrow::Cow<'a, str>,
+    pub description: std::borrow::Cow<'a, str>,
     pub parameters_schema: Option<String>,
 }
 
 impl<'a> PromptTool<'a> {
     pub fn new(name: &'a str, description: &'a str) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: None,
+        }
+    }
+
+    /// An entry the catalogue owns rather than borrows: a tool that exists
+    /// only for this prompt build (the harness's `tool_search` / `tool_call`
+    /// bridge), with no registration to borrow a name from.
+    pub fn owned(name: String, description: String, parameters_schema: String) -> PromptTool<'static> {
+        PromptTool {
+            name: std::borrow::Cow::Owned(name),
+            description: std::borrow::Cow::Owned(description),
+            parameters_schema: Some(parameters_schema),
         }
     }
 
     pub fn with_schema(name: &'a str, description: &'a str, parameters_schema: String) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: Some(parameters_schema),
         }
     }
@@ -272,8 +283,8 @@ impl<'a> PromptTool<'a> {
         tools
             .into_iter()
             .map(|t| PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             })
             .collect()
