@@ -596,7 +596,7 @@ impl OpenHumanSessionHost {
         // This builder is synchronous and sits on the CLI / REPL /
         // Tauri-web code path. It still opportunistically reuses the
         // process-wide Composio cache when one is already warm, which
-        // lets the session start with the right `delegate_<toolkit>`
+        // lets the session start with the right integration action
         // surface and prompt block without paying a turn-1 fetch. On a
         // cold cache we still fall back to the empty slice and let the
         // first turn repair the session state if needed.
