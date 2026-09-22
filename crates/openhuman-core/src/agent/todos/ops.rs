@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 use tinyagents_graph::todos::store as todos;
 
 use crate::agent::tinyagents::todos::{session_todos_store, SCRATCH_SESSION_ID};
-use crate::agent::todos::types::normalize_cards_for_wire;
-pub use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
+pub use crate::agent::todos::types::{TodoItem, TodoStatus};
 
 pub use tinyagents_graph::todos::{parse_status, render_markdown};
 
@@ -19,7 +18,7 @@ pub use tinyagents_graph::todos::{parse_status, render_markdown};
 #[serde(rename_all = "camelCase")]
 pub struct TodosSnapshot {
     pub session_id: Option<String>,
-    pub cards: Vec<TaskBoardCard>,
+    pub items: Vec<TodoItem>,
     pub markdown: String,
 }
 
@@ -45,7 +44,7 @@ impl TodoScope {
 fn snapshot(scope: &TodoScope, value: tinyagents_graph::todos::TodosSnapshot) -> TodosSnapshot {
     TodosSnapshot {
         session_id: scope.session_id().map(str::to_owned),
-        cards: value.cards,
+        items: value.items,
         markdown: value.markdown,
     }
 }
@@ -54,14 +53,14 @@ fn finish(
     scope: &TodoScope,
     result: tinyagents_harness::error::Result<tinyagents_graph::todos::TodosSnapshot>,
 ) -> Result<TodosSnapshot, String> {
-    let mut value = result.map_err(|error| error.to_string())?;
-    normalize_cards_for_wire(&mut value.cards);
-    Ok(snapshot(scope, value))
+    result
+        .map(|value| snapshot(scope, value))
+        .map_err(|error| error.to_string())
 }
 
-pub async fn replace(scope: &TodoScope, cards: Vec<TaskBoardCard>) -> Result<TodosSnapshot, String> {
+pub async fn replace(scope: &TodoScope, items: Vec<TodoItem>) -> Result<TodosSnapshot, String> {
     let store = session_todos_store();
-    finish(scope, todos::replace(&store, scope.key(), cards).await)
+    finish(scope, todos::replace(&store, scope.key(), items).await)
 }
 
 pub async fn clear(scope: &TodoScope) -> Result<TodosSnapshot, String> {
@@ -71,10 +70,7 @@ pub async fn clear(scope: &TodoScope) -> Result<TodosSnapshot, String> {
 
 pub async fn list(scope: &TodoScope) -> Result<TodosSnapshot, String> {
     let store = session_todos_store();
-    todos::list(&store, scope.key())
-        .await
-        .map(|value| snapshot(scope, value))
-        .map_err(|error| error.to_string())
+    finish(scope, todos::list(&store, scope.key()).await)
 }
 
 #[cfg(test)]
