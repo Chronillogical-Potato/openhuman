@@ -347,6 +347,32 @@ impl OpenHumanSessionHost {
         self.thread_id.as_deref()
     }
 
+    /// Durable id of the session this host is bound to, or `None` when it has
+    /// no conversation identity (a sub-agent, or an unthreaded CLI turn).
+    ///
+    /// This is TinyAgents' identity, not a host-invented one: it is what
+    /// addresses the transcript, and it is stamped into `_meta.session_id`.
+    pub fn session_id(&self) -> Option<String> {
+        self.session.as_ref().map(|session| session.session_id())
+    }
+
+    /// Every generation of this conversation, oldest first.
+    ///
+    /// A compaction seals a generation and opens the next rather than
+    /// rewriting history, so a long conversation is a chain of transcripts.
+    /// The model sees only the head; this is how a host reads back the whole
+    /// thing. Empty when nothing has been persisted yet.
+    pub fn session_generations(&self) -> Vec<String> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        self.session_locator()
+            .session_chain(session)
+            .iter()
+            .map(|generation| generation.session_id())
+            .collect()
+    }
+
     /// Override the agent definition name used for session transcript
     /// file paths. Callers (e.g. the web channel) use this to scope
     /// transcripts per thread so each conversation thread gets its own
