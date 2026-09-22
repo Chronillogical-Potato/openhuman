@@ -179,16 +179,75 @@ async fn prompt_cache_segments_fingerprint_full_tool_schema() {
         .find(|segment| segment.role == SegmentRole::Tools)
         .expect("tool segment");
 
+    // Segment ids are the harness-layout constants, never content-suffixed:
+    // `refresh_prompt_cache_fingerprint` only recognises exactly `system` /
+    // `tools`, and any other id is fingerprinted over the whole request, which
+    // re-rolls the provider `prompt_cache_key` (OpenRouter's sticky-routing
+    // key) on every call.
+    assert_eq!(first_tool_segment.id, "tools");
+    assert_eq!(second_tool_segment.id, "tools");
+    assert!(first.cache_segments.iter().all(|s| s.cacheable));
+    assert_eq!(
+        first
+            .cache_segments
+            .iter()
+            .find(|s| s.role == SegmentRole::System)
+            .expect("system segment")
+            .id,
+        "system"
+    );
+    // The content difference is carried by the request fingerprint instead.
     assert_ne!(
-        first_tool_segment.id, second_tool_segment.id,
+        first.prompt_fingerprint, second.prompt_fingerprint,
         "same-name tools with different schemas must bust the stable prefix"
     );
-    assert_ne!(first.prompt_fingerprint, second.prompt_fingerprint);
     assert_eq!(
         first.prompt_fingerprint.as_deref().unwrap().len(),
         64,
         "request prompt fingerprints use TinyAgents' SHA-256 shape"
     );
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
+    // The whole point: two calls of one thread — same system prompt, same
+    // tools, longer conversation — must declare identical segments and an
+    // identical request fingerprint, so the provider routing key derived from
+    // them (`tap-<fingerprint>`) does not change turn to turn.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let mut turn_one = ModelRequest::new(vec![TaMessage::system("sys"), TaMessage::user("hi")])
+        .with_tools(tools.clone());
+    let mut turn_two = ModelRequest::new(vec![
+        TaMessage::system("sys"),
+        TaMessage::user("hi"),
+        TaMessage::assistant("hello"),
+        TaMessage::user("and again, later"),
+    ])
+    .with_tools(tools);
+    mw.before_model(&mut ctx(), &(), &mut turn_one).await.unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_two).await.unwrap();
+
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role, s.cacheable))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&turn_one), ids(&turn_two));
+    assert_eq!(
+        ids(&turn_one),
+        vec![
+            ("system".to_string(), SegmentRole::System, true),
+            ("tools".to_string(), SegmentRole::Tools, true),
+        ]
+    );
+    assert_eq!(turn_one.prompt_fingerprint, turn_two.prompt_fingerprint);
+    assert!(turn_one.prompt_fingerprint.is_some());
 }
 
 #[tokio::test]
