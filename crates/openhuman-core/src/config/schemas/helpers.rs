@@ -200,9 +200,7 @@ pub(super) struct AutonomySettingsUpdate {
     /// `{ "path": "/abs/dir", "access": "read" | "readwrite" }`.
     pub(super) trusted_roots: Option<Vec<crate::security::TrustedRoot>>,
     pub(super) allow_tool_install: Option<bool>,
-    // Accept u64 to match the published schema (`TypeSchema::U64`); clamped to the
-    // internal u32 at apply time. u32::MAX/hr is already effectively unlimited.
-    pub(super) max_actions_per_hour: Option<u64>,
+    pub(super) max_actions_per_hour: Option<u32>,
     /// Replaces the "Always allow" allowlist wholesale — tool names the agent
     /// may run without an approval prompt. Empty list clears it.
     pub(super) auto_approve: Option<Vec<String>>,

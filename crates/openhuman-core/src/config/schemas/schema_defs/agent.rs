@@ -41,8 +41,13 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                 optional_bool("allow_tool_install", "Allow the agent to install OS packages via install_tool (intended for Full mode)."),
                 FieldSchema {
                     name: "max_actions_per_hour",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Rate limit for side-effecting actions per hour.",
+                    // A non-zero `u32`: 0 is refused by the apply path, and
+                    // u32::MAX is the "unlimited" sentinel the UI saves.
+                    ty: TypeSchema::Option(Box::new(TypeSchema::BoundedU64 {
+                        min: 1,
+                        max: u32::MAX as u64,
+                    })),
+                    comment: "Rate limit for side-effecting actions per hour (1..=4294967295; 4294967295 = unlimited).",
                     required: false,
                 },
                 FieldSchema {

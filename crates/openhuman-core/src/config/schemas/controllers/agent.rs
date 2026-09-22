@@ -25,9 +25,7 @@ pub(crate) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
             forbidden_paths: update.forbidden_paths,
             trusted_roots: update.trusted_roots,
             allow_tool_install: update.allow_tool_install,
-            max_actions_per_hour: update
-                .max_actions_per_hour
-                .map(|v| u32::try_from(v).unwrap_or(u32::MAX)),
+            max_actions_per_hour: update.max_actions_per_hour,
             auto_approve: update.auto_approve,
             require_task_plan_approval: update.require_task_plan_approval,
             auto_approve_all: update.auto_approve_all,
