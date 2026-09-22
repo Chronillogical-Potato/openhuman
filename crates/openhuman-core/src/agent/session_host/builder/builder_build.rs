@@ -95,21 +95,32 @@ impl SessionHostBuilder {
         let discovery_opted_in =
             visible_names.remove(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
         let discovery_enabled = belt_is_wildcard || discovery_opted_in;
-        let deferred_names = if discovery_enabled {
+        // A wildcard belt was seeded from the whole registry, so its durable
+        // `Hidden` members (collapsed `memory_*` / `todo_*`) leave here too.
+        // A named belt never listed them.
+        let mut deferred_names = if belt_is_wildcard {
+            crate::tools::implementations::meta::strip_deferred_from_visible(
+                &mut visible_names,
+                tools.as_slice(),
+            )
+        } else {
+            std::collections::HashSet::new()
+        };
+        if discovery_enabled {
             // Durable AND synthesised: a per-action integration tool is
             // synthesised per session (`collect_orchestrator_tools`) and
             // declares `Deferred` too. The synthesised set's `Hidden` members
             // are left alone on purpose — see the comment above.
-            let mut deferred =
-                crate::tools::implementations::meta::deferred_tool_names(tools.as_slice());
-            deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+            deferred_names.extend(crate::tools::implementations::meta::deferred_tool_names(
+                tools.as_slice(),
+            ));
+            deferred_names.extend(crate::tools::implementations::meta::deferred_tool_names(
                 synthesized_tools.as_slice(),
             ));
-            visible_names.retain(|name| !deferred.contains(name));
-            deferred
+            visible_names.retain(|name| !deferred_names.contains(name));
         } else {
-            std::collections::HashSet::new()
-        };
+            deferred_names.clear();
+        }
         if !deferred_names.is_empty() {
             tracing::info!(
                 agent = %agent_definition_name,
