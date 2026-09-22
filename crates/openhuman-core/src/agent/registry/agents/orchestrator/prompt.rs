@@ -187,12 +187,20 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
         "[orchestrator-prompt] rendering withheld-specialist routing"
     );
 
+    // One line per pack, tools named without their blurbs: `use_skill`'s own
+    // description already carries a one-line summary of every pack, and the
+    // full `when_to_use` arrives with the schema once the pack is loaded.
+    let mut by_pack: std::collections::BTreeMap<&'static str, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for (tool, _intent, pack) in rows {
+        by_pack.entry(pack).or_default().push(format!("`{tool}`"));
+    }
     let mut out = String::from(
         "## Capabilities not in your tool list\n\nAvailable through `use_skill` (`skill` \
          alone lists arguments; add `tool` + `args` to run):\n\n",
     );
-    for (tool, intent, pack) in rows {
-        let _ = writeln!(out, "- `{pack}` / `{tool}`: {intent}");
+    for (pack, tools) in by_pack {
+        let _ = writeln!(out, "- skill `{pack}`: {}", tools.join(", "));
     }
     out
 }

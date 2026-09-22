@@ -59,7 +59,7 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
         block.chars().take(120).collect::<String>()
     );
     assert!(
-        block.contains("`documents` / `make_presentation`:"),
+        block.contains("- skill `documents`: `make_presentation`"),
         "a packed delegate must render with its route:\n{block}"
     );
 }
