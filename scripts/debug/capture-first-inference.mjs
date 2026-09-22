@@ -123,7 +123,7 @@ function upstreamPath(requestUrl) {
  * sticky-routing key — it must be identical across the turns of one thread, so
  * seeing it change call to call is a finding, not noise.
  */
-export function summarizeRequestBody(body) {
+function summarizeRequestBody(body) {
   try {
     const json = JSON.parse(body.toString('utf8'));
     return {
@@ -145,7 +145,7 @@ export function summarizeRequestBody(body) {
  * field), the final usage block, and any error object. Works on a partial body
  * too, so a stream cut off mid-way still reports what arrived.
  */
-export function summarizeResponseBody(text) {
+function summarizeResponseBody(text) {
   const out = { provider: null, prompt_tokens: null, cached_tokens: null, error: null };
   const absorb = json => {
     if (json && typeof json === 'object') {
