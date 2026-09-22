@@ -3056,8 +3056,6 @@ async fn json_rpc_run_ledger_lifecycle() {
             status: tinyagents_session::run_ledger::AgentRunStatus::AwaitingUser,
             prompt_ref: Some("thread:worker-1:message:seed".to_string()),
             worker_thread_id: Some("worker-1".to_string()),
-            task_board_id: Some("thread-run-1".to_string()),
-            task_card_id: Some("card-1".to_string()),
             checkpoint_path: Some("/tmp/sub-run-1.json".to_string()),
             checkpoint: Some(json!({
                 "resumeTool": "continue_subagent",
@@ -3176,8 +3174,6 @@ async fn json_rpc_agent_work_list_groups_runs_by_bucket() {
         status,
         prompt_ref: None,
         worker_thread_id: None,
-        task_board_id: None,
-        task_card_id: None,
         checkpoint_path: None,
         checkpoint: None,
         summary: None,
