@@ -81,7 +81,11 @@ impl CatalogueEntry {
         summary.push_str(&self.name.replace('_', " "));
         summary.push(' ');
         summary.push_str(&self.description);
-        if let Some(props) = self.parameters.get("properties").and_then(|v| v.as_object()) {
+        if let Some(props) = self
+            .parameters
+            .get("properties")
+            .and_then(|v| v.as_object())
+        {
             for key in props.keys() {
                 summary.push(' ');
                 summary.push_str(key);
@@ -482,12 +486,23 @@ async fn main() -> Result<()> {
             r.errors,
             r.percentile(0.5),
             r.percentile(0.95),
-            if r.input_tokens == 0 { "-".to_string() } else { r.input_tokens.to_string() },
-            if r.usd == 0.0 { "-".to_string() } else { format!("${:.5}", r.usd) },
+            if r.input_tokens == 0 {
+                "-".to_string()
+            } else {
+                r.input_tokens.to_string()
+            },
+            if r.usd == 0.0 {
+                "-".to_string()
+            } else {
+                format!("${:.5}", r.usd)
+            },
         );
     }
     for r in &reports {
-        println!("\n### {} — top-1 family confusion (expected → got)", r.ranker);
+        println!(
+            "\n### {} — top-1 family confusion (expected → got)",
+            r.ranker
+        );
         for (expected, gots) in &r.confusion {
             let line: Vec<String> = gots.iter().map(|(g, n)| format!("{g}:{n}")).collect();
             println!("- {expected}: {}", line.join(", "));

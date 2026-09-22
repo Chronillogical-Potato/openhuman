@@ -133,9 +133,7 @@ impl Tool for CanonicalSharedToolAdapter {
     /// indexes `Deferred` ones for its `tool_search` bridge. Without this
     /// every registered tool reported `Direct` and the bridge stayed inert.
     fn exposure(&self) -> tinytools::ToolExposure {
-        self.resolved_tool()
-            .map(Tool::exposure)
-            .unwrap_or_default()
+        self.resolved_tool().map(Tool::exposure).unwrap_or_default()
     }
 
     fn family(&self) -> Option<&str> {

@@ -18,9 +18,8 @@ use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
 /// process-global load); a test hands in a fixed one.
-pub type ConfigLoader = Arc<
-    dyn Fn() -> Pin<Box<dyn Future<Output = Result<Config, String>> + Send>> + Send + Sync,
->;
+pub type ConfigLoader =
+    Arc<dyn Fn() -> Pin<Box<dyn Future<Output = Result<Config, String>> + Send>> + Send + Sync>;
 
 /// A [`JevRanker`] bound to whichever credential and backend the process has
 /// at search time.
@@ -99,7 +98,10 @@ impl TinyHumansJevRanker {
             .cached
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(entry) = cached.as_ref().filter(|entry| entry.fingerprint == fingerprint) {
+        if let Some(entry) = cached
+            .as_ref()
+            .filter(|entry| entry.fingerprint == fingerprint)
+        {
             return Ok(entry.ranker.clone());
         }
         let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
