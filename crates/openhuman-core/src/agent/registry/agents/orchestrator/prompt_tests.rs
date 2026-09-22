@@ -287,7 +287,7 @@ fn build_includes_direct_first_decision_tree() {
     // The lead-in rule lives on the branch where the failure was observed: a
     // live run had the model answer "let me search for the right tool" and
     // end the turn without emitting the `tool_search` call.
-    assert!(body.contains("an announced search never happens"));
+    assert!(body.contains("an announced search never runs"));
     assert!(!body.contains("delegate_to_integrations_agent"));
 }
 
@@ -298,7 +298,7 @@ fn build_routes_live_facts_to_research_tool() {
     assert!(body.contains("weather, forecasts, prices, recent news"));
     assert!(body.contains("\"use live data\""));
     // A lead-in line is welcome, but only in the same message as the call.
-    assert!(body.contains("emit the call itself in that message"));
+    assert!(body.contains("an announced search never runs: emit it"));
     assert!(
         !body.contains("delegate_researcher"),
         "orchestrator prompt should name the synthesized researcher tool"
@@ -393,7 +393,7 @@ fn build_does_not_route_scope_errors_as_disconnected() {
     // connectable list.
     assert!(body.contains("If the connect call reports the toolkit unavailable, relay its message"));
     assert!(body.contains("that is the only honest refusal"));
-    assert!(body.contains("shows what is connected, not what is connectable"));
+    assert!(body.contains("the list shows what is connected, not what is connectable"));
     assert!(body.contains("`composio_connect`"));
 }
 
