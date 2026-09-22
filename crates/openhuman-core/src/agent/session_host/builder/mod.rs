@@ -223,7 +223,6 @@ pub(super) fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool 
 /// the name extends at an `_` boundary. Empty when the registry is not up or
 /// the id resolves to nothing, which leaves the schema untouched.
 fn allowed_subagent_ids_for(agent_id: &str) -> Vec<String> {
-    use crate::agent::harness::definition::SubagentEntry;
     let Some(registry) = crate::agent::harness::AgentDefinitionRegistry::global() else {
         return Vec::new();
     };
@@ -244,15 +243,5 @@ fn allowed_subagent_ids_for(agent_id: &str) -> Vec<String> {
     let Some(definition) = definition else {
         return Vec::new();
     };
-    definition
-        .subagents
-        .iter()
-        .filter_map(|entry| match entry {
-            SubagentEntry::AgentId(id) => Some(id.clone()),
-            SubagentEntry::Skills(wildcard) if wildcard.matches_all() => {
-                Some("integrations_agent".to_string())
-            }
-            SubagentEntry::Skills(_) => None,
-        })
-        .collect()
+    definition.allowed_subagent_ids()
 }

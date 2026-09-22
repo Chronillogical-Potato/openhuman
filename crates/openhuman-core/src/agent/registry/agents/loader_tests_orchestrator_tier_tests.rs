@@ -112,7 +112,6 @@ fn crypto_agent_has_narrow_wallet_market_tools_and_safety_on() {
                 "composio_list_tools",
                 "spawn_subagent",
                 "spawn_worker_thread",
-                "delegate_to_integrations_agent",
                 // Synthesised delegation tools use the unprefixed
                 // `delegate_name` overrides — forbid those names too.
                 "run_code",
@@ -504,9 +503,8 @@ fn rejects_worker_with_subagents() {
 
 #[test]
 fn allows_skill_wildcards_on_any_non_worker_tier() {
-    // Skills wildcards collapse to delegate_to_integrations_agent
-    // and must not be policed by the tier check (it'd be a false
-    // positive — they fan out to a worker anyway).
+    // Skills wildcards expand to searchable integration actions, not to
+    // an agent, so there is no tier pair for the check to police.
     let mut defs = load_builtins().unwrap();
     let planner = defs.iter_mut().find(|d| d.id == "planner").unwrap();
     planner.subagents.push(SubagentEntry::Skills(

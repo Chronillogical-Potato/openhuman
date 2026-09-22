@@ -67,13 +67,14 @@ fn tier_gate_allows_legal_descending_hops() {
 }
 
 #[test]
-fn tier_gate_allows_worker_parent_for_collapsed_integration() {
+fn tier_gate_allows_worker_parent() {
     use crate::agent::harness::definition::AgentTier;
-    // A worker only reaches the runtime spawn chokepoint via the documented
-    // collapsed `delegate_to_integrations_agent` path (→ `integrations_agent`,
-    // itself a worker). The gate must NOT re-deny that — the worker-leaf rule
-    // is a static boot-time authoring constraint, not a runtime one. Regression
-    // for the wildcard-integration case (CodeRabbit P2 on PR #4102).
+    // A worker's `subagents` list holds no agent id (the loader rejects
+    // one), so any spawn it reaches at runtime is one the host dispatched for
+    // it. The gate must NOT re-deny that — the worker-leaf rule is a static
+    // boot-time authoring constraint, not a runtime one; the per-parent
+    // allowlist gate blocks any other worker spawn. Regression for the
+    // wildcard-integration case (CodeRabbit P2 on PR #4102).
     let mut parent = make_def_named_tools(&[]);
     let child = make_def_named_tools(&[]); // worker by default
     parent.agent_tier = AgentTier::Worker;

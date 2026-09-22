@@ -13,7 +13,9 @@ answer.
 
 Before this work the orchestrator reached a Composio action only through
 `delegate_to_integrations_agent` → an `integrations_agent` sub-run whose
-toolkit was narrowed by `rank_tools_by_prompt` (the `overlap` row). Every
+toolkit was narrowed by `rank_tools_by_prompt` (the `overlap` row). That
+delegate has since been removed from the orchestrator: search-then-call is
+its only route to an integration action. Every
 `tool_search` row is one search followed by a direct call of the tool it
 returns; no sub-agent.
 

@@ -8,8 +8,7 @@
 //! - **Control**: `steer_subagent`, `continue_subagent`, `close_subagent`,
 //!   `wait_subagent`, `wait` / `wait_loop`, `list_subagents`.
 //! - **Delegation**: `DelegateGraphTool`, `ArchetypeDelegationTool`,
-//!   `SkillDelegationTool`, `CollapsedDelegationTool` (`delegate_to`), and
-//!   `agent_prepare_context`.
+//!   `CollapsedDelegationTool` (`delegate_to`), and `agent_prepare_context`.
 //!
 //! `dispatch.rs`, `awaiting_user.rs`, and `worker_thread.rs` are `pub(crate)`
 //! helpers shared by the tools above (the common spawn path, the awaiting-user
@@ -39,8 +38,6 @@ mod delegate_graph;
 mod dispatch;
 #[path = "tools/list_subagents.rs"]
 mod list_subagents;
-#[path = "tools/skill_delegation.rs"]
-mod skill_delegation;
 #[path = "tools/spawn_async_subagent.rs"]
 mod spawn_async_subagent;
 #[path = "tools/spawn_parallel_agents.rs"]
@@ -94,7 +91,6 @@ pub(crate) use delegate_graph::DelegateGraphDispatch;
 pub use delegate_graph::DelegateGraphTool;
 pub(crate) use list_subagents::ListSubagentsDispatch;
 pub use list_subagents::ListSubagentsTool;
-pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
 pub(crate) use spawn_async_subagent::SpawnAsyncSubagentDispatch;
 pub use spawn_async_subagent::{scope_spawn_async_subagent_spec, SpawnAsyncSubagentTool};
 pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;

@@ -79,18 +79,44 @@ fn integration(toolkit: &str, description: &str) -> ConnectedIntegration {
     }
 }
 
+fn integration_with_actions(
+    toolkit: &str,
+    description: &str,
+    actions: &[&str],
+) -> ConnectedIntegration {
+    let mut ci = integration(toolkit, description);
+    ci.tools = actions
+        .iter()
+        .map(|name| crate::agent::prompts::ConnectedIntegrationTool {
+            name: (*name).to_string(),
+            description: format!("{name} action"),
+            parameters: None,
+        })
+        .collect();
+    ci
+}
+
 /// Baseline: an orchestrator with 2 AgentId entries + a Skills
 /// wildcard, against a registry that knows both targets and a
 /// connected_integrations list with three toolkits, should produce
-/// 2 archetype tools + 1 collapsed integrations delegation tool
-/// (#1335) — independent of how many integrations are connected.
+/// 2 archetype tools plus one `Deferred` action tool per connected
+/// action — and no `delegate_to_integrations_agent`. One clear service
+/// action is a `tool_search` and a call, never a sub-agent spawn.
 #[test]
-fn collects_agentid_entries_and_collapses_skills_wildcard() {
+fn collects_agentid_entries_and_expands_skills_wildcard_to_deferred_actions() {
     let orch = sample_orchestrator();
     let reg = registry_with_targets();
     let integrations = vec![
-        integration("gmail", "Send and read email via Gmail."),
-        integration("github", "Manage repos, issues, and pull requests."),
+        integration_with_actions(
+            "gmail",
+            "Send and read email via Gmail.",
+            &["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"],
+        ),
+        integration_with_actions(
+            "github",
+            "Manage repos, issues, and pull requests.",
+            &["GITHUB_CREATE_ISSUE"],
+        ),
         integration("notion", "Read and write pages and databases."),
     ];
 
@@ -106,9 +132,16 @@ fn collects_agentid_entries_and_collapses_skills_wildcard() {
             // restored.
             "research",           // researcher's delegate_name override
             "delegate_archivist", // archivist has no delegate_name → default
-            "delegate_to_integrations_agent",
+            // Actions sorted by toolkit, then action name.
+            "GITHUB_CREATE_ISSUE",
+            "GMAIL_FETCH_EMAILS",
+            "GMAIL_SEND_EMAIL",
         ],
-        "skills wildcard must collapse to a single delegate_to_integrations_agent tool"
+        "skills wildcard must expand to the connected actions, not a delegation tool"
+    );
+    assert!(
+        !names.iter().any(|name| name.starts_with("delegate_to_")),
+        "no integrations delegation tool may be synthesised"
     );
 
     // Archetype tool descriptions come from `when_to_use`.
@@ -118,47 +151,58 @@ fn collects_agentid_entries_and_collapses_skills_wildcard() {
         "delegate description is the target's when_to_use"
     );
 
-    // The collapsed delegation tool enumerates every connected toolkit
-    // in its description so the orchestrator still discovers what's
-    // routable.
-    let delegate_tool = tools
-        .iter()
-        .find(|t| t.name() == "delegate_to_integrations_agent")
-        .unwrap();
-    let desc = delegate_tool.description();
-    assert!(desc.contains("gmail"));
-    assert!(desc.contains("github"));
-    assert!(desc.contains("notion"));
+    // Every action is `Deferred`: off the wire, reachable through
+    // `tool_search`. (The archetype delegates are `Hidden` — the collapsed
+    // `delegate_to` tool advertises them — so only the actions are checked.)
+    for tool in tools.iter().filter(|t| t.name().starts_with("G")) {
+        assert_eq!(
+            tool.exposure(),
+            tinytools::ToolExposure::Deferred,
+            "exposure of {}",
+            tool.name()
+        );
+    }
 }
 
-/// The collapsed delegation tool's count is constant in the
-/// integration dimension (#1335 primary acceptance criterion).
+/// The synthesised set scales only with the connected *actions*, never
+/// adds a per-toolkit or collapsed delegation handle.
 #[test]
-fn collapsed_delegation_tool_count_is_constant_across_integration_counts() {
+fn skills_wildcard_adds_no_delegation_tool_for_any_integration_count() {
     let orch = sample_orchestrator();
     let reg = registry_with_targets();
 
     for n in [1usize, 3, 7, 20] {
         let integrations: Vec<_> = (0..n)
-            .map(|i| integration(&format!("tool{i}"), &format!("Toolkit number {i}.")))
+            .map(|i| {
+                integration_with_actions(
+                    &format!("tool{i}"),
+                    &format!("Toolkit number {i}."),
+                    &[&format!("TOOL{i}_ACT")],
+                )
+            })
             .collect();
         let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
         let delegation_count = tools
             .iter()
-            .filter(|t| t.name() == "delegate_to_integrations_agent")
+            .filter(|t| t.name().starts_with("delegate_to_"))
             .count();
         assert_eq!(
-            delegation_count, 1,
-            "expected exactly one collapsed delegation tool for {n} integrations"
+            delegation_count, 0,
+            "no integrations delegate for {n} integrations"
         );
+        let action_count = tools
+            .iter()
+            .filter(|t| t.exposure() == tinytools::ToolExposure::Deferred)
+            .count();
+        assert_eq!(action_count, n, "one deferred action per connected action");
     }
 }
 
 /// An orchestrator with a Skills wildcard but no connected
-/// integrations should produce zero integrations delegation tools —
-/// the LLM must not be shown a routing handle for an empty set.
+/// integrations should produce zero integration tools — nothing to
+/// search for, nothing to advertise.
 #[test]
-fn skills_wildcard_with_no_integrations_produces_no_delegation_tool() {
+fn skills_wildcard_with_no_integrations_produces_no_integration_tools() {
     let orch = sample_orchestrator();
     let reg = registry_with_targets();
     let tools = collect_orchestrator_tools(&orch, &reg, &[]);
@@ -270,148 +314,81 @@ fn sanitise_slug_lowercases_and_replaces_invalid_chars() {
     assert_eq!(sanitise_slug("weird name!"), "weird_name_");
 }
 
-/// Unconnected integrations must be silently dropped from the
-/// collapsed delegation tool's enum. Otherwise the orchestrator
-/// could supply `toolkit = "<unconnected>"` and trigger a pre-flight
-/// rejection downstream that says "not connected".
+/// Unconnected integrations contribute no actions: the orchestrator
+/// must not find (and call) an action on a toolkit the user has not
+/// authorised and hit a "not connected" rejection downstream.
 #[test]
-fn unconnected_integrations_are_omitted_from_collapsed_tool() {
+fn unconnected_integrations_contribute_no_actions() {
     let orch = sample_orchestrator();
     let reg = registry_with_targets();
     let integrations = vec![
-        integration("gmail", "Send and read email."),
+        integration_with_actions("gmail", "Send and read email.", &["GMAIL_SEND_EMAIL"]),
         ConnectedIntegration {
             toolkit: "github".into(),
             description: "GitHub access.".into(),
-            tools: vec![],
+            tools: vec![crate::agent::prompts::ConnectedIntegrationTool {
+                name: "GITHUB_CREATE_ISSUE".into(),
+                description: "Create an issue".into(),
+                parameters: None,
+            }],
             gated_tools: vec![],
-            connected: false, // not connected — must not appear in the enum
+            connected: false, // not connected — its actions must not appear
             connections: Vec::new(),
             non_active_status: None,
         },
-        integration("notion", "Read and write pages."),
+        integration_with_actions("notion", "Read and write pages.", &["NOTION_CREATE_PAGE"]),
     ];
     let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
-    let delegate_tool = tools
-        .iter()
-        .find(|t| t.name() == "delegate_to_integrations_agent")
-        .expect("collapsed delegation tool must exist when at least one integration is connected");
-    let desc = delegate_tool.description();
-    assert!(desc.contains("gmail"));
-    assert!(desc.contains("notion"));
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert!(names.contains(&"GMAIL_SEND_EMAIL"));
+    assert!(names.contains(&"NOTION_CREATE_PAGE"));
     assert!(
-        !desc.contains("github"),
-        "unconnected github must not leak into the delegation tool description"
+        !names.contains(&"GITHUB_CREATE_ISSUE"),
+        "unconnected github must not leak an action into the catalogue"
     );
-
-    let schema = delegate_tool.parameters_schema();
-    let enum_vals = schema["properties"]["toolkit"]["enum"]
-        .as_array()
-        .expect("toolkit enum must be present");
-    let slugs: Vec<&str> = enum_vals.iter().map(|v| v.as_str().unwrap()).collect();
-    assert_eq!(slugs, vec!["gmail", "notion"]);
 }
 
-/// Quirky toolkit slugs (dashes, mixed case) must be canonicalised
-/// before they land in the collapsed tool's enum so the
-/// LLM-provided argument can be matched with `==` rather than a
-/// fuzzy comparison.
+/// Actions are advertised in a stable order — toolkit, then action —
+/// whatever order the backend listed the connections in, because the
+/// synthesised set feeds the tool specs a session freezes.
 #[test]
-fn collapsed_tool_enum_uses_sanitised_slugs() {
+fn deferred_actions_are_sorted_by_toolkit_then_action() {
     let mut orch = def("orchestrator", "t", None);
     orch.subagents = vec![SubagentEntry::Skills(SkillsWildcard { skills: "*".into() })];
     let reg = registry_with_targets();
     let integrations = vec![
-        integration("Google-Calendar", "Calendar."),
-        integration("Slack.Bot", "Chat."),
+        integration_with_actions(
+            "slack",
+            "Chat.",
+            &["SLACK_SEND_MESSAGE", "SLACK_LIST_CHANNELS"],
+        ),
+        integration_with_actions("gmail", "Email.", &["GMAIL_SEND_EMAIL"]),
     ];
     let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
-    let delegate_tool = tools
-        .iter()
-        .find(|t| t.name() == "delegate_to_integrations_agent")
-        .expect("collapsed tool present");
-    let schema = delegate_tool.parameters_schema();
-    let enum_vals = schema["properties"]["toolkit"]["enum"].as_array().unwrap();
-    let slugs: Vec<&str> = enum_vals.iter().map(|v| v.as_str().unwrap()).collect();
-    assert_eq!(slugs, vec!["google_calendar", "slack_bot"]);
-}
-
-/// An integration with an empty description must not render as a
-/// bare ` - slug` line in the collapsed tool description — the
-/// orchestrator LLM would have no signal about what the toolkit
-/// does. The synthesiser falls back to a generic descriptive
-/// phrase keyed on the raw toolkit name.
-#[test]
-fn empty_integration_description_falls_back_to_generic_label() {
-    let mut orch = def("orchestrator", "t", None);
-    orch.subagents = vec![SubagentEntry::Skills(SkillsWildcard { skills: "*".into() })];
-    let reg = registry_with_targets();
-    let integrations = vec![
-        ConnectedIntegration {
-            toolkit: "Brand.New".into(),
-            description: "   ".into(),
-            tools: vec![],
-            gated_tools: vec![],
-            connected: true,
-            connections: Vec::new(),
-            non_active_status: None,
-        },
-        integration("gmail", "Email."),
-    ];
-    let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
-    let delegate_tool = tools
-        .iter()
-        .find(|t| t.name() == "delegate_to_integrations_agent")
-        .expect("collapsed tool present");
-    let desc = delegate_tool.description();
-    assert!(
-        desc.contains("External integration via Brand.New"),
-        "expected fallback phrasing, got: {desc}"
-    );
-    assert!(desc.contains("Email."));
-}
-
-/// Two upstream toolkits whose names sanitise to the same slug
-/// must not silently both land in the collapsed enum — the second
-/// arrival is dropped (with a warn log) so the orchestrator's
-/// routing handle stays unambiguous. Without this guard,
-/// `Slack.Bot` and `Slack-Bot` would both render as `slack_bot`
-/// in the enum and the orchestrator could no longer distinguish
-/// them.
-#[test]
-fn duplicate_sanitised_slug_drops_later_collisions() {
-    let mut orch = def("orchestrator", "t", None);
-    orch.subagents = vec![SubagentEntry::Skills(SkillsWildcard { skills: "*".into() })];
-    let reg = registry_with_targets();
-    let integrations = vec![
-        integration("Slack.Bot", "First slack."),
-        integration("Slack-Bot", "Second slack — must be dropped."),
-        integration("Notion", "Pages."),
-    ];
-    let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
-    let delegate_tool = tools
-        .iter()
-        .find(|t| t.name() == "delegate_to_integrations_agent")
-        .expect("collapsed tool present");
-    let schema = delegate_tool.parameters_schema();
-    let enum_vals = schema["properties"]["toolkit"]["enum"].as_array().unwrap();
-    let slugs: Vec<&str> = enum_vals.iter().map(|v| v.as_str().unwrap()).collect();
-    // Sorted, not arrival order: the enum is advertised in a cached prefix, so
-    // its order is fixed by slug rather than by however the backend happened to
-    // list the connections (see `collect_orchestrator_tools`). The collision
-    // rule this test is actually about is unaffected — "first arrival keeps the
-    // slug" is decided before the sort, and the description assertions below
-    // are what pin which of the two Slacks won.
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert_eq!(
-        slugs,
-        vec!["notion", "slack_bot"],
-        "second slack_bot collision must be dropped, not silently shadowed, \
-         and the surviving slugs must be advertised in sorted order"
+        names,
+        vec![
+            "GMAIL_SEND_EMAIL",
+            "SLACK_LIST_CHANNELS",
+            "SLACK_SEND_MESSAGE"
+        ]
     );
-    // The dropped description must not appear in the tool description
-    // either — otherwise the orchestrator would think there's a route
-    // it can't actually distinguish.
-    let desc = delegate_tool.description();
-    assert!(desc.contains("First slack."));
-    assert!(!desc.contains("Second slack"));
+}
+
+/// The same action slug arriving from two toolkits keeps the first
+/// arrival (by sorted toolkit) so the catalogue never carries two tools
+/// under one name.
+#[test]
+fn duplicate_action_names_keep_the_first_arrival() {
+    let mut orch = def("orchestrator", "t", None);
+    orch.subagents = vec![SubagentEntry::Skills(SkillsWildcard { skills: "*".into() })];
+    let reg = registry_with_targets();
+    let integrations = vec![
+        integration_with_actions("slack", "Chat.", &["SHARED_ACTION"]),
+        integration_with_actions("gmail", "Email.", &["SHARED_ACTION", "GMAIL_SEND_EMAIL"]),
+    ];
+    let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert_eq!(names, vec!["GMAIL_SEND_EMAIL", "SHARED_ACTION"]);
 }

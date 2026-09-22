@@ -344,7 +344,7 @@ Each archetype lives under `agents/<name>/` with an `agent.toml` (metadata, tool
 | `archivist`          | Memory distillation - what to persist, what to forget.                                   |
 | `tool_maker`         | Self-healing - writes polyfills for missing shell commands.                              |
 | `tools_agent`        | Generic specialist for arbitrary tool-bound tasks.                                       |
-| `integrations_agent` | Bound to a specific Composio toolkit (Gmail, GitHub, Slack…) for that toolkit's actions. |
+| `integrations_agent` | Bound to a specific Composio toolkit (Gmail, GitHub, Slack…) for that toolkit's actions. Not reachable from chat: the orchestrator finds a connected action through `tool_search` and calls it directly. |
 | `trigger_triage`     | Classifies incoming external events into drop / notify / spawn-reactor / spawn-agent.    |
 | `trigger_reactor`    | Lightweight reaction to a triaged trigger that doesn't need a full orchestrator turn.    |
 | `morning_briefing`   | Curated daily digest run by cron.                                                        |
@@ -399,7 +399,7 @@ Each `AgentDefinition` carries an `agent_tier` field (`chat` / `reasoning` / `wo
 | `reasoning` | `worker`              | another `reasoning`, any `chat` | `planner` (today the canonical one)                                             |
 | `worker`    | nothing[^1]           | anything                        | researcher, code_executor, critic, archivist, tool_maker, integrations_agent, … |
 
-[^1]: Skill-wildcard entries (`{ skills = "*" }`) are exempt because they collapse to a single `delegate_to_integrations_agent` tool whose target is a worker; they're a fan-out delegation surface, not a recursive spawn.
+[^1]: Skill-wildcard entries (`{ skills = "*" }`) are exempt because they name no agent: they expand to the connected Composio actions as `Deferred` tools the agent reaches through `tool_search`, not to a spawn.
 
 **Why the rules.**
 

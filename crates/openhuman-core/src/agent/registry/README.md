@@ -97,7 +97,7 @@ The 29 archetypes in this directory:
 | `goals_agent` | Background: keeps `MEMORY_GOALS.md` fresh from session context |
 | `help` | Answers "how does OpenHuman work" questions from the bundled GitBook docs |
 | `image_agent` | Image generation/edit specialist |
-| `integrations_agent` | Drives a single Composio toolkit (gmail, notion, github, …) per spawn |
+| `integrations_agent` | Drives a single Composio toolkit (gmail, notion, github, …) per spawn; no chat agent delegates to it — the orchestrator searches for and calls connected actions itself |
 | `mcp_agent` (feature `mcp`) | Calls tools on an already-connected MCP server |
 | `morning_briefing` | Proactive scheduled daily summary (tasks, calendar, email, skills) |
 | `orchestrator` | Default user-facing `chat`-tier agent; direct-first, delegates only when it materially helps |

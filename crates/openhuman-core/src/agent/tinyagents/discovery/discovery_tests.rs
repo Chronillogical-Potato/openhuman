@@ -81,3 +81,50 @@ async fn overlap_ranker_ranks_by_token_overlap_and_names_its_kind() {
         .await
         .is_err());
 }
+
+/// A text dialect renders the prompt catalogue and the harness clears
+/// `request.tools`, so the bridge only reaches the model through the host's
+/// own catalogue. Without these entries the model reads a search result
+/// telling it to "invoke a match with `tool_call`" and has no signature for
+/// that name — observed live as a turn that narrates the call it is about to
+/// make and then stops.
+#[test]
+fn bridge_prompt_tools_advertise_search_and_call_when_something_is_deferred() {
+    let _g = guard();
+    apply_tool_search_config(&ToolSearchConfig::default());
+    let bridge = bridge_prompt_tools(12);
+    let names: Vec<&str> = bridge.iter().map(|t| t.name.as_ref()).collect();
+    assert_eq!(names, vec!["tool_search", "tool_call"]);
+    for tool in &bridge {
+        assert!(
+            tool.parameters_schema
+                .as_deref()
+                .is_some_and(|schema| schema.contains("\"type\":\"object\"")),
+            "{} must carry a callable schema, got {:?}",
+            tool.name,
+            tool.parameters_schema
+        );
+    }
+}
+
+/// The manifest is left out on purpose: naming every deferred tool in the
+/// prompt is the cost deferral exists to avoid.
+#[test]
+fn bridge_prompt_tools_do_not_enumerate_the_deferred_catalogue() {
+    let _g = guard();
+    apply_tool_search_config(&ToolSearchConfig::default());
+    let search = bridge_prompt_tools(3).into_iter().next().expect("bridge");
+    assert!(
+        search.description.len() < 1_000,
+        "the bridge description must stay a pointer to the search, not a catalogue: {} bytes",
+        search.description.len()
+    );
+}
+
+/// Nothing deferred, nothing to advertise: a belt that did not opt into
+/// discovery must not pay two schemas for a bridge it cannot use.
+#[test]
+fn bridge_prompt_tools_are_empty_without_a_deferred_catalogue() {
+    let _g = guard();
+    assert!(bridge_prompt_tools(0).is_empty());
+}

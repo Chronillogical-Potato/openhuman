@@ -1,7 +1,4 @@
-use super::{
-    ArchetypeDelegationTool, DelegationTarget, SkillDelegationTool, SpawnSubagentTool,
-    SpawnWorkerThreadTool,
-};
+use super::{ArchetypeDelegationTool, DelegationTarget, SpawnSubagentTool, SpawnWorkerThreadTool};
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::agent::messages::ChatMessage;
@@ -20,7 +17,6 @@ use tinytools::Tool;
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
-const SKILL_DELEGATION_CANARY: &str = "tool-e2e-skill-delegation-canary";
 const WORKER_THREAD_CANARY: &str = "tool-e2e-worker-thread-canary";
 
 #[tokio::test]
@@ -346,63 +342,6 @@ async fn continue_subagent_without_checkpoint_or_durable_session_names_the_roste
         out.contains("[active_subagents]"),
         "points the model at the roster: {out}"
     );
-}
-
-#[tokio::test]
-async fn skill_delegation_tool_runs_integrations_agent_e2e() {
-    let _ = AgentDefinitionRegistry::init_global_builtins();
-    let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedModel::new(vec![(
-        SKILL_DELEGATION_CANARY,
-        "skill-delegation-child-answer",
-    )]));
-    let tool = SkillDelegationTool::for_connected(vec![(
-        "gmail".to_string(),
-        "Email access.".to_string(),
-    )])
-    .expect("delegation tool");
-
-    let result = with_parent_context(
-        parent_context(
-            workspace.path(),
-            provider.clone(),
-            vec![ConnectedIntegration {
-                toolkit: "gmail".to_string(),
-                description: "Email access.".to_string(),
-                tools: Vec::new(),
-                gated_tools: Vec::new(),
-                connected: true,
-                connections: Vec::new(),
-                non_active_status: None,
-            }],
-        ),
-        async {
-            tool.execute(json!({
-                "toolkit": "gmail",
-                "prompt": format!("Summarize inbox state for {SKILL_DELEGATION_CANARY}"),
-                "model": "test-model"
-            }))
-            .await
-        },
-    )
-    .await
-    .expect("tool execution");
-
-    assert!(!result.is_error, "{}", result.output());
-    // The sub-agent's answer comes back verbatim, followed by the
-    // inline-result note: this delegation is blocking and registers no
-    // worker, so the orchestrator must not go hunting for one (#6033).
-    let output = result.output();
-    assert!(
-        output.starts_with("skill-delegation-child-answer"),
-        "the child's answer must lead the result: {output}"
-    );
-    assert!(
-        output.contains("[INLINE_RESULT]") && output.contains("no sub-agent worker"),
-        "a blocking delegation must say its result is inline: {output}"
-    );
-    assert!(provider.saw(SKILL_DELEGATION_CANARY));
-    assert!(provider.saw("gmail"));
 }
 
 #[tokio::test]

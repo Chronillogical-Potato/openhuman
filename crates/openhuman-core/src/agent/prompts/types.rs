@@ -233,24 +233,39 @@ pub struct ConnectedIntegrationTool {
 /// description)` tuples) all adapt to this.
 #[derive(Debug, Clone)]
 pub struct PromptTool<'a> {
-    pub name: &'a str,
-    pub description: &'a str,
+    pub name: std::borrow::Cow<'a, str>,
+    pub description: std::borrow::Cow<'a, str>,
     pub parameters_schema: Option<String>,
 }
 
 impl<'a> PromptTool<'a> {
     pub fn new(name: &'a str, description: &'a str) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: None,
+        }
+    }
+
+    /// An entry the catalogue owns rather than borrows: a tool that exists
+    /// only for this prompt build (the harness's `tool_search` / `tool_call`
+    /// bridge), with no registration to borrow a name from.
+    pub fn owned(
+        name: String,
+        description: String,
+        parameters_schema: String,
+    ) -> PromptTool<'static> {
+        PromptTool {
+            name: std::borrow::Cow::Owned(name),
+            description: std::borrow::Cow::Owned(description),
+            parameters_schema: Some(parameters_schema),
         }
     }
 
     pub fn with_schema(name: &'a str, description: &'a str, parameters_schema: String) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: Some(parameters_schema),
         }
     }
@@ -272,11 +287,52 @@ impl<'a> PromptTool<'a> {
         tools
             .into_iter()
             .map(|t| PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             })
             .collect()
+    }
+}
+
+/// Swap a prompt catalogue's `Deferred` entries for the discovery bridge.
+///
+/// On a TEXT dialect (P-Format / code) the catalogue this prompt renders IS
+/// the model's callable surface: the harness folds it into the system prompt
+/// and clears `request.tools`. Two things follow, and both were wrong before
+/// this helper existed:
+///
+/// * **Deferred tools must leave the catalogue.** The filter each prompt site
+///   used is the policy's allow-set, which deliberately admits deferred names
+///   so a found tool stays *callable* (`reachable_names` in the session
+///   builder). Filtering the prompt by it rendered every deferred schema into
+///   the prompt — measured live at 107 connected Composio actions for 55 KB of
+///   a 71 KB prompt, the exact cost deferral exists to avoid — and told the
+///   model to search for an action whose signature it could already read.
+///
+/// * **The bridge must take their place.** The harness mints `tool_search` /
+///   `tool_call` onto `request.tools`, which a text dialect drops, and with
+///   `host_renders_tool_catalogue` it appends nothing itself. Without these
+///   entries the model reads "invoke a match with `tool_call`" in a search
+///   result and has no signature for that name; observed live as a turn that
+///   narrates the call it is about to make and then stops.
+///
+/// A native-tool-calling provider is unaffected: it reads `request.tools`,
+/// where the harness already puts exactly this pair.
+pub fn swap_deferred_for_discovery_bridge<'a>(
+    prompt_tools: &mut Vec<PromptTool<'a>>,
+    visible_tool_names: &mut std::collections::HashSet<String>,
+    deferred_tool_names: &std::collections::HashSet<String>,
+) {
+    if deferred_tool_names.is_empty() {
+        return;
+    }
+    visible_tool_names.retain(|name| !deferred_tool_names.contains(name));
+    for bridge in
+        crate::agent::tinyagents::discovery::bridge_prompt_tools(deferred_tool_names.len())
+    {
+        visible_tool_names.insert(bridge.name.to_string());
+        prompt_tools.push(bridge);
     }
 }
 

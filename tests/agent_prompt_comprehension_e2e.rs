@@ -295,9 +295,9 @@ async fn current_user(_headers: HeaderMap) -> Json<Value> {
     Json(json!({ "success": true, "data": { "_id": "e2e-user-1", "username": "e2e" } }))
 }
 
-/// One connected Gmail toolkit, so the orchestrator is offered
-/// `delegate_to_integrations_agent` and the integrations agent has a toolkit to
-/// bind to. Shapes from `tools_approval_channels_raw_coverage_e2e.rs`.
+/// One connected Gmail toolkit, so the orchestrator gets its actions as a
+/// searchable catalogue and the integrations agent has a toolkit to bind to.
+/// Shapes from `tools_approval_channels_raw_coverage_e2e.rs`.
 async fn composio_toolkits() -> Json<Value> {
     Json(json!({ "success": true, "data": { "toolkits": ["gmail"] } }))
 }
@@ -857,38 +857,43 @@ fn workflow_builder_reaches_propose_workflow() {
     });
 }
 
-/// The orchestrator routes integration work through the hand-off, and never
-/// holds the raw Composio or cron tools its specialists own.
+/// The orchestrator reaches an integration action by searching for it and
+/// calling it directly — no integrations sub-agent — and never holds the raw
+/// Composio or cron tools its specialists own. The action itself is
+/// `Deferred`: off the advertised belt, found through `tool_search`.
 #[test]
-#[ignore = "TODO(#6376): hosted TinyAgents omits integration delegation tools"]
-fn orchestrator_hands_integration_work_to_the_specialist() {
+#[ignore = "TODO(#6376): hosted TinyAgents omits the deferred integration catalogue"]
+fn orchestrator_searches_for_and_calls_the_integration_action() {
     run_case(Case {
         agent: "orchestrator",
         agent_marker: "## How you work",
         entry: Entry::WebChat,
         user_message: "Check my Gmail for anything from my landlord.",
         scripted_completions: vec![
-            call(
-                "delegate_to_integrations_agent",
-                json!({ "toolkit": "gmail", "prompt": "Find emails from my landlord." }),
-            ),
-            text_completion("No emails from your landlord."),
+            call("tool_search", json!({ "query": "fetch gmail emails" })),
+            call("GMAIL_FETCH_EMAILS", json!({ "query": "from:landlord" })),
             text_completion("You have no emails from your landlord."),
         ],
-        must_call: &["delegate_to_integrations_agent"],
-        must_not_call: &["composio_execute"],
+        must_call: &["tool_search", "GMAIL_FETCH_EMAILS"],
+        must_not_call: &["composio_execute", "delegate_to_integrations_agent"],
         // Not `schedule_task`: it resolves when called (see the scheduler case)
         // but a named agent's up-front belt does not list synthesised delegates.
-        must_advertise: &["delegate_to_integrations_agent", "research"],
-        must_not_advertise: &["composio_execute", "composio_list_tools", "cron_add"],
+        must_advertise: &["tool_search", "research"],
+        must_not_advertise: &[
+            "delegate_to_integrations_agent",
+            "composio_execute",
+            "composio_list_tools",
+            "cron_add",
+        ],
         advertises_nothing: false,
         max_consecutive_calls_of: None,
         extra_config: "",
     });
 }
 
-/// The integrations specialist, reached through that hand-off, holds the
-/// Composio execution surface and none of the orchestrator's hand-offs.
+/// The integrations specialist (still spawnable by the runner with a toolkit,
+/// no longer reachable from chat) holds the Composio execution surface and
+/// none of the orchestrator's hand-offs.
 ///
 /// The toolkit-scoped integrations agent runs in text mode, so this also pins
 /// the text-mode `Call as: NAME[...]` catalogue rather than only native tool
@@ -902,10 +907,6 @@ fn integrations_agent_holds_the_composio_surface() {
         entry: Entry::WebChat,
         user_message: "Check my Gmail for anything from my landlord.",
         scripted_completions: vec![
-            call(
-                "delegate_to_integrations_agent",
-                json!({ "toolkit": "gmail", "prompt": "Find emails from my landlord." }),
-            ),
             // The child runs in text mode, so its own calls would be
             // `<tool_call>` text with parser-assigned ids; this case pins its
             // belt only.
@@ -915,7 +916,7 @@ fn integrations_agent_holds_the_composio_surface() {
         must_call: &[],
         must_not_call: &[],
         must_advertise: &["composio_execute", "composio_list_tools"],
-        must_not_advertise: &["delegate_to_integrations_agent", "schedule_task", "shell"],
+        must_not_advertise: &["research", "schedule_task", "shell"],
         advertises_nothing: false,
         max_consecutive_calls_of: None,
         extra_config: "",
