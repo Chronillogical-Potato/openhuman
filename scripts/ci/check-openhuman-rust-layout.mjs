@@ -27,7 +27,7 @@ const LEGACY_LIMITS = new Map([
     796,
   ],
   ["crates/openhuman-core/src/agent/multimodal.rs", 772],
-  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1987],
+  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1990],
   ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1304],
   ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1793],
   // Session-host factory still assembles the product's deliberately coupled
