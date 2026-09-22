@@ -1,24 +1,25 @@
 //! `todo` — the session's todo list, the way Claude Code and Codex have it.
 //!
-//! One call writes the whole list: `{"todos": [{"content", "status"}]}`.
-//! There is no per-item CRUD; the list is a progress checklist the model
-//! rewrites as it works. It is scoped to the agent session the turn runs in
-//! (in memory, for the life of the process) via [`crate::agent::todos::ops`];
-//! without a session (a bare `execute` in a test) it falls back to a scratch
-//! list. Calling with no `todos` returns the current list.
+//! The tool itself is TinyAgents' `todos::TodoTool` (schema, argument
+//! validation, the whole-list write, markdown). This file is only the host
+//! adapter: it decides **which** list a call is about — the agent session the
+//! turn runs in, in memory for the life of the process — and registers the
+//! harness dispatch. Nothing here may turn a bad argument into an `Err`: a
+//! dispatch `Err` is fatal to the run, and a turn died that way when a model
+//! sent the retired `{"cards": …}` shape to a previous host-side copy.
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, TodoScope};
-use crate::agent::todos::types::{TodoItem, TodoStatus};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde_json::json;
 use std::sync::Arc;
+use tinyagents_graph::todos as graph_todos;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
-pub struct TodoTool;
+pub struct TodoTool {
+    inner: graph_todos::TodoTool,
+}
 
 pub(crate) struct TodoToolDispatch {
     tool: Arc<dyn Tool>,
@@ -42,15 +43,24 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for T
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
-        TodoTool::new()
+        match TodoTool::new()
             .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
             .await
+        {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                tracing::warn!(%error, "[tool][todo] rejected call");
+                Ok(ToolResult::error(format!("todo failed: {error}")))
+            }
+        }
     }
 }
 
 impl TodoTool {
     pub fn new() -> Self {
-        Self
+        Self {
+            inner: graph_todos::TodoTool::new(ops::store()),
+        }
     }
 }
 
@@ -60,50 +70,31 @@ impl Default for TodoTool {
     }
 }
 
-/// One item as the model writes it. `status` accepts the Claude-style
-/// `pending` / `in_progress` / `completed` plus the older `todo` / `done`
-/// spellings the store already parses.
-#[derive(Deserialize)]
-struct TodoArg {
-    content: String,
-    #[serde(default)]
-    status: Option<String>,
+/// The scope's store key, handed to the crate tool the only way it accepts
+/// one: as the `thread_id` of a tool context. The crate keys a list by the
+/// caller's thread; OpenHuman keys it by the agent session the turn runs in
+/// (see [`current_scope`]), so the host substitutes its own key here rather
+/// than letting the crate read a thread id that would address the wrong list.
+struct ScopedKey<'a>(&'a str);
+
+impl ToolRunContext for ScopedKey<'_> {
+    fn thread_id(&self) -> Option<&str> {
+        Some(self.0)
+    }
 }
 
 #[async_trait]
 impl Tool for TodoTool {
     fn name(&self) -> &str {
-        "todo"
+        self.inner.name()
     }
 
     fn description(&self) -> &str {
-        "Your todo list for this conversation. Pass the complete list every time; it \
-         replaces what was there. Use it for work with 3+ steps: write the steps up front, \
-         keep exactly one `in_progress`, mark each `completed` the moment it is done. Omit \
-         `todos` to read the current list."
+        self.inner.description()
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "todos": {
-                    "type": "array",
-                    "description": "The full list, in order.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": { "type": "string" },
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "in_progress", "completed"]
-                            }
-                        },
-                        "required": ["content", "status"]
-                    }
-                }
-            }
-        })
+        self.inner.parameters_schema()
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -135,39 +126,10 @@ impl TodoTool {
     ) -> anyhow::Result<ToolResult> {
         let scope = current_scope(parent.as_ref(), tool_context);
         tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
-
-        let result = match args.get("todos") {
-            None | Some(serde_json::Value::Null) => ops::list(&scope).await,
-            Some(raw) => {
-                let items: Vec<TodoArg> = serde_json::from_value(raw.clone())
-                    .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
-                let mut todos = Vec::with_capacity(items.len());
-                for item in items {
-                    let content = item.content.trim();
-                    if content.is_empty() {
-                        anyhow::bail!("every todo needs non-empty `content`");
-                    }
-                    let status = match item.status.as_deref() {
-                        None => TodoStatus::Pending,
-                        Some(raw) => ops::parse_status(raw).map_err(anyhow::Error::msg)?,
-                    };
-                    todos.push(TodoItem::with_status(content, status));
-                }
-                ops::replace(&scope, todos).await
-            }
-        };
-
-        match result {
-            Ok(snap) => {
-                let payload = json!({
-                    "sessionId": snap.session_id,
-                    "todos": snap.items,
-                    "markdown": snap.markdown,
-                });
-                Ok(ToolResult::success(payload.to_string()))
-            }
-            Err(err) => Ok(ToolResult::error(err)),
-        }
+        let key = ScopedKey(scope.key());
+        self.inner
+            .execute_with_context(args, ToolCallOptions::default(), Some(&key))
+            .await
     }
 }
 

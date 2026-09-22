@@ -1,5 +1,6 @@
 use super::*;
-use serde_json::Value;
+use crate::agent::todos::ops::{TodoItem, TodoStatus};
+use serde_json::{json, Value};
 
 /// Serialize tests that share the process-global scratch store. Same lock
 /// as `todos::ops` — otherwise the two test modules race under `cargo test`'s
@@ -77,22 +78,46 @@ async fn two_in_progress_items_are_rejected() {
     reset_scratch().await;
 }
 
+/// Bad input is a tool error the model can correct, never an `Err`: a
+/// dispatch `Err` is fatal to the whole run in the harness, and a turn died
+/// exactly that way when a model sent the retired `{"cards": …}` shape.
 #[tokio::test]
-async fn empty_content_and_unknown_status_are_errors() {
+async fn bad_input_is_a_tool_error_not_a_harness_error() {
     let tool = TodoTool::new();
-    let err = tool
-        .execute(json!({ "todos": [{ "content": "  ", "status": "pending" }] }))
-        .await
-        .unwrap_err();
-    assert!(err.to_string().contains("content"), "{err}");
-
-    let err = tool
-        .execute(json!({ "todos": [{ "content": "x", "status": "someday" }] }))
-        .await
-        .unwrap_err();
-    assert!(err.to_string().contains("invalid status"), "{err}");
+    for (args, expect) in [
+        (
+            json!({ "todos": [{ "content": "  ", "status": "pending" }] }),
+            "content",
+        ),
+        (
+            // The exact phrasing belongs to TinyAgents; assert only that the
+            // rejection names the field the model got wrong.
+            json!({ "todos": [{ "content": "x", "status": "someday" }] }),
+            "status",
+        ),
+        (json!({ "todos": "not a list" }), "invalid `todos`"),
+        (
+            json!({ "cards": [{ "content": "x", "status": "todo" }] }),
+            "pass `todos`",
+        ),
+    ] {
+        let result = tool
+            .execute(args.clone())
+            .await
+            .expect("never an Err: {args}");
+        assert!(result.is_error, "{args}");
+        assert!(
+            result.output().contains(expect),
+            "{args}: {}",
+            result.output()
+        );
+    }
 }
 
+/// The schema is TinyAgents' (`todos::TodoTool`); this pins the parts the
+/// product depends on: one `todos` argument and no per-card `op`, and a
+/// `status` enum whose distinct states are exactly the Claude three — the
+/// other spellings it lists are aliases of those three, not extra states.
 #[test]
 fn schema_is_the_claude_shape() {
     let tool = TodoTool::new();
@@ -104,10 +129,22 @@ fn schema_is_the_claude_shape() {
         1,
         "no per-card ops: {props}"
     );
-    assert_eq!(
-        props["todos"]["items"]["properties"]["status"]["enum"],
-        json!(["pending", "in_progress", "completed"])
-    );
+    assert!(props.get("op").is_none(), "no op multiplexer: {props}");
+    let statuses: Vec<&str> = props["todos"]["items"]["properties"]["status"]["enum"]
+        .as_array()
+        .expect("status enum")
+        .iter()
+        .map(|value| value.as_str().expect("status spelling"))
+        .collect();
+    for required in ["pending", "in_progress", "completed"] {
+        assert!(statuses.contains(&required), "missing {required}: {statuses:?}");
+    }
+    for retired in ["blocked", "ready", "awaiting_approval", "rejected"] {
+        assert!(
+            !statuses.contains(&retired),
+            "board state {retired} is not a todo status: {statuses:?}"
+        );
+    }
     let desc = tool.description();
     assert!(desc.contains("3+ steps"), "missing when-to-use guidance");
     assert!(
@@ -195,7 +232,6 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
         1,
         "a later turn of the same session reads it back"
     );
-    assert_eq!(a_again.session_id.as_deref(), Some("sess-a"));
     assert!(crate::agent::todos::ops::list(&b)
         .await
         .unwrap()

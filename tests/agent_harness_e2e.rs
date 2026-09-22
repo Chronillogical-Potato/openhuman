@@ -4577,8 +4577,10 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
         "markdown mirrors the list: {first}"
     );
     assert!(
-        first["sessionId"].as_str().is_some_and(|s| !s.is_empty()),
-        "the list is bound to the orchestrator's session: {first}"
+        first["threadId"]
+            .as_str()
+            .is_some_and(|key| key.contains("thread-todo-five")),
+        "the list is keyed by the session of the thread the turn ran in: {first}"
     );
 
     // Turns 2-6: one more item completed each turn.

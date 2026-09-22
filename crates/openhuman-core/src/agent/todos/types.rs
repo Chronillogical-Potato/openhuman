@@ -1,3 +1,3 @@
-//! TinyAgents todo types, re-exported at the OpenHuman transcript boundary.
+//! TinyAgents todo types, re-exported for OpenHuman callers.
 
-pub use tinyagents_graph::todos::{TodoItem, TodoList, TodoStatus};
+pub use tinyagents_graph::todos::{TodoItem, TodoStatus};
