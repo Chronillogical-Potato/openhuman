@@ -4614,7 +4614,11 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
                 .to_string()
             })
             .collect();
-        assert_eq!(todo_statuses(&payload), expected, "after {completed} done: {payload}");
+        assert_eq!(
+            todo_statuses(&payload),
+            expected,
+            "after {completed} done: {payload}"
+        );
     }
 
     // The model was told what it wrote back: the tool message in the next
@@ -4638,10 +4642,17 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
     let turns = turn_state_history(&stack.rpc_base, 650, "thread-todo-five").await;
     assert_eq!(turns.len(), FIVE_STEPS.len() + 1, "one snapshot per turn");
     let rows = persisted_tool_rows(&turns, "todo");
-    assert_eq!(rows.len(), FIVE_STEPS.len() + 1, "one todo row per turn: {rows:?}");
+    assert_eq!(
+        rows.len(),
+        FIVE_STEPS.len() + 1,
+        "one todo row per turn: {rows:?}"
+    );
     for row in &rows {
         assert_eq!(row["status"].as_str(), Some("success"), "{row}");
-        assert!(row["output"].as_str().is_some(), "persisted row keeps the output: {row}");
+        assert!(
+            row["output"].as_str().is_some(),
+            "persisted row keeps the output: {row}"
+        );
     }
     let last: Value = serde_json::from_str(rows.last().unwrap()["output"].as_str().unwrap())
         .expect("persisted output is the JSON payload");
@@ -4711,7 +4722,11 @@ async fn todo_list_rejects_two_items_in_progress_inner() {
             .all(|frame| frame["tool_call_id"].as_str() == Some("call_todo")),
         "the todo tool is unpacked — every frame is a direct `todo` call: {todo_frames:?}"
     );
-    assert_eq!(todo_frames.len(), 3, "write, rejected write, read: {results:?}");
+    assert_eq!(
+        todo_frames.len(),
+        3,
+        "write, rejected write, read: {results:?}"
+    );
     assert_eq!(todo_frames[0]["success"], json!(true), "{}", todo_frames[0]);
     assert_eq!(
         todo_frames[1]["success"],
@@ -4764,10 +4779,8 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     ]);
     let stack = boot_stack().await;
 
-    let mut events = spawn_sse_collector(format!(
-        "{}/events?client_id=harness-goal",
-        stack.rpc_base
-    ));
+    let mut events =
+        spawn_sse_collector(format!("{}/events?client_id=harness-goal", stack.rpc_base));
 
     // Turn 1: goal_set.
     send_web_chat(
@@ -4781,10 +4794,16 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let set = tool_result_payload(&results, "goal_set");
-    assert_eq!(set["goal"]["objective"], "Ship the v2 release notes", "{set}");
+    assert_eq!(
+        set["goal"]["objective"], "Ship the v2 release notes",
+        "{set}"
+    );
     assert_eq!(set["goal"]["status"], "active", "{set}");
     assert_eq!(set["goal"]["tokenBudget"], 50000, "{set}");
-    assert_eq!(set["goal"]["threadId"], "thread-goal", "bound to the chat thread: {set}");
+    assert_eq!(
+        set["goal"]["threadId"], "thread-goal",
+        "bound to the chat thread: {set}"
+    );
     let goal_id = set["goal"]["goalId"]
         .as_str()
         .filter(|id| !id.is_empty())
@@ -4800,14 +4819,30 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     // scripted upstream returns no `usage`, so a turn charges nothing against
     // the budget. `agent::goals::runtime`'s unit tests cover the accounting
     // and the budget-limit transition directly.)
-    send_web_chat(&stack.rpc_base, 801, "harness-goal", "thread-goal", "status?").await;
+    send_web_chat(
+        &stack.rpc_base,
+        801,
+        "harness-goal",
+        "thread-goal",
+        "status?",
+    )
+    .await;
     let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let got = tool_result_payload(&results, "goal_get");
-    assert_eq!(got["goal"]["goalId"], goal_id, "same goal across turns: {got}");
+    assert_eq!(
+        got["goal"]["goalId"], goal_id,
+        "same goal across turns: {got}"
+    );
     assert_eq!(got["goal"]["status"], "active", "{got}");
-    assert_eq!(got["goal"]["objective"], "Ship the v2 release notes", "{got}");
-    assert_eq!(got["goal"]["tokenBudget"], 50000, "the budget persisted: {got}");
+    assert_eq!(
+        got["goal"]["objective"], "Ship the v2 release notes",
+        "{got}"
+    );
+    assert_eq!(
+        got["goal"]["tokenBudget"], 50000,
+        "the budget persisted: {got}"
+    );
 
     // Turn 3: goal_complete.
     send_web_chat(&stack.rpc_base, 802, "harness-goal", "thread-goal", "done?").await;
@@ -4817,7 +4852,10 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     assert_eq!(done["goal"]["goalId"], goal_id, "{done}");
     assert_eq!(done["goal"]["status"], "complete", "{done}");
     assert!(
-        done["text"].as_str().unwrap().starts_with("Goal marked complete."),
+        done["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("Goal marked complete."),
         "{done}"
     );
 
@@ -4836,7 +4874,10 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
             .expect("persisted goal_complete keeps its output"),
     )
     .unwrap();
-    assert_eq!(persisted_done["goal"]["status"], "complete", "{persisted_done}");
+    assert_eq!(
+        persisted_done["goal"]["status"], "complete",
+        "{persisted_done}"
+    );
 
     // A thread that never set a goal reads back none — the payload the pane
     // treats as "no banner".

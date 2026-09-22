@@ -12,7 +12,8 @@ impl ToolRunContext for ThreadContext {
 /// Every goal tool answers with `{ goal, text }`: the structured goal the UI
 /// reads and the rendered block the transcript shows.
 fn payload(res: &tinytools::ToolResult) -> serde_json::Value {
-    serde_json::from_str(&res.text()).unwrap_or_else(|e| panic!("goal payload is JSON: {e}: {}", res.text()))
+    serde_json::from_str(&res.text())
+        .unwrap_or_else(|e| panic!("goal payload is JSON: {e}: {}", res.text()))
 }
 
 #[tokio::test]
@@ -47,7 +48,10 @@ async fn set_get_complete_via_tools_in_thread_scope() {
     let get_payload = payload(&res);
     assert_eq!(get_payload["goal"]["status"], "active");
     assert_eq!(get_payload["goal"]["goalId"], set_payload["goal"]["goalId"]);
-    assert!(get_payload["text"].as_str().unwrap().contains("status: active"));
+    assert!(get_payload["text"]
+        .as_str()
+        .unwrap()
+        .contains("status: active"));
 
     let done = GoalCompleteTool::new(dir.clone());
     let res = done
@@ -56,7 +60,10 @@ async fn set_get_complete_via_tools_in_thread_scope() {
         .unwrap();
     let done_payload = payload(&res);
     assert_eq!(done_payload["goal"]["status"], "complete");
-    assert!(done_payload["text"].as_str().unwrap().starts_with("Goal marked complete."));
+    assert!(done_payload["text"]
+        .as_str()
+        .unwrap()
+        .starts_with("Goal marked complete."));
 }
 
 #[tokio::test]
