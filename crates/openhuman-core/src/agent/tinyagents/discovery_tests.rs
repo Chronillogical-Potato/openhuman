@@ -48,3 +48,22 @@ fn settings_select_the_mode_and_clamp_top_k() {
     clear_tool_ranker();
     apply_tool_search_config(&ToolSearchConfig::default());
 }
+
+#[tokio::test]
+async fn overlap_ranker_ranks_by_token_overlap_and_names_its_kind() {
+    let ranker = OverlapRanker;
+    assert_eq!(ranker.kind(), "overlap");
+    let candidates = vec![
+        tinytools::RankCandidate::new("SLACK_SEND_MESSAGE", "SLACK_SEND_MESSAGE send message to a channel"),
+        tinytools::RankCandidate::new("GMAIL_FETCH_EMAILS", "GMAIL_FETCH_EMAILS fetch emails from inbox"),
+    ];
+    let hits = ranker
+        .rank("send a message to the channel", &tinytools::RankContext::empty(), &candidates, 3)
+        .await
+        .unwrap();
+    assert_eq!(hits.first().map(|h| h.key.as_str()), Some("SLACK_SEND_MESSAGE"));
+    assert!(ranker
+        .rank(" ", &tinytools::RankContext::empty(), &candidates, 3)
+        .await
+        .is_err());
+}

@@ -271,36 +271,7 @@ fn load_intents(path: &PathBuf) -> Result<Vec<IntentRow>> {
     Ok(rows)
 }
 
-/// The token-overlap ranker the Composio sub-agent narrows with, behind the
-/// same trait so the loop below treats every ranker alike.
-struct OverlapRanker;
-
-#[async_trait::async_trait]
-impl ToolRanker for OverlapRanker {
-    fn kind(&self) -> &'static str {
-        "overlap"
-    }
-
-    async fn rank(
-        &self,
-        intent: &str,
-        _context: &RankContext,
-        candidates: &[RankCandidate],
-        limit: usize,
-    ) -> std::result::Result<Vec<RankHit>, tinytools::RankError> {
-        use tinyagents_harness::tool::select::{rank_tools_by_prompt, SelectableTool};
-        let selectable: Vec<SelectableTool<'_>> = candidates
-            .iter()
-            .map(|c| SelectableTool::new(&c.key, &c.summary))
-            .collect();
-        let hits = rank_tools_by_prompt(intent, &selectable, limit);
-        Ok(hits
-            .into_iter()
-            .enumerate()
-            .map(|(rank, i)| RankHit::new(candidates[i].key.clone(), 1.0 / (rank as f64 + 1.0)))
-            .collect())
-    }
-}
+use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
 #[cfg(feature = "jev")]
 fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {

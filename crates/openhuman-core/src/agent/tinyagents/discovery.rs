@@ -122,6 +122,52 @@ pub(crate) fn discovery_policy() -> ToolDiscoveryPolicy {
     policy
 }
 
+/// The verb-gated token-overlap ranker the Composio sub-agent narrows its
+/// toolkit with (`tinyagents_harness::tool::select::rank_tools_by_prompt`),
+/// behind the [`ToolRanker`] trait so it can be installed, compared, or
+/// benchmarked like any other. Not installed by default — it is the
+/// baseline the search was measured against, kept callable on purpose.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct OverlapRanker;
+
+impl OverlapRanker {
+    /// The stable [`ToolRanker::kind`] of this ranker.
+    pub const KIND: &'static str = "overlap";
+}
+
+#[async_trait::async_trait]
+impl ToolRanker for OverlapRanker {
+    fn kind(&self) -> &'static str {
+        Self::KIND
+    }
+
+    async fn rank(
+        &self,
+        intent: &str,
+        _context: &tinytools::RankContext,
+        candidates: &[tinytools::RankCandidate],
+        limit: usize,
+    ) -> Result<Vec<tinytools::RankHit>, tinytools::RankError> {
+        use tinyagents_harness::tool::{rank_tools_by_prompt, SelectableTool};
+        if intent.trim().is_empty() {
+            return Err(tinytools::RankError::InvalidInput {
+                reason: "intent is empty".to_owned(),
+            });
+        }
+        let selectable: Vec<SelectableTool<'_>> = candidates
+            .iter()
+            .map(|c| SelectableTool::new(&c.key, &c.summary))
+            .collect();
+        Ok(rank_tools_by_prompt(intent, &selectable, limit)
+            .into_iter()
+            .enumerate()
+            .map(|(rank, i)| {
+                tinytools::RankHit::new(candidates[i].key.clone(), 1.0 / (rank as f64 + 1.0))
+            })
+            .collect())
+    }
+}
+
 #[cfg(test)]
 #[path = "discovery_tests.rs"]
 mod tests;
