@@ -16,9 +16,9 @@ import AgentAccessPanel from '../AgentAccessPanel';
 // ──────────────────────────────────────────────────────────────────────────────
 // Note: Tier-selection and action-dir editing tests live in
 // PermissionsPanel.test.tsx (those controls moved to the layman panel).
-// This file covers the ADVANCED surface: workspace confinement,
-// approval, action timeout, granted folders, always-allowed tools, and the
-// approval-history link.
+// This file covers the ADVANCED surface: workspace confinement, action
+// timeout, granted folders, always-allowed tools, and the approval-history
+// link.
 // ──────────────────────────────────────────────────────────────────────────────
 
 const autonomy = (overrides: Partial<AutonomySettings> = {}): AutonomySettings => ({
