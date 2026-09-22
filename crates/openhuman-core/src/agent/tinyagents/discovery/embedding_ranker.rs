@@ -72,10 +72,11 @@ impl EmbeddingToolRanker {
     /// the provider's signature so a model change invalidates them. A
     /// missing or unreadable file is an empty cache, never an error.
     pub fn with_disk_cache(mut self, path: PathBuf) -> Self {
-        if let Ok(raw) = std::fs::read(&path)
-            && let Ok(disk) = serde_json::from_slice::<DiskCache>(&raw)
-            && disk.signature == self.provider.signature()
-        {
+        let loaded = std::fs::read(&path)
+            .ok()
+            .and_then(|raw| serde_json::from_slice::<DiskCache>(&raw).ok())
+            .filter(|disk| disk.signature == self.provider.signature());
+        if let Some(disk) = loaded {
             tracing::debug!(
                 entries = disk.entries.len(),
                 path = %path.display(),
