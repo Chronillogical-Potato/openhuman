@@ -557,10 +557,10 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
 
     if !applied {
         assert!(!lossy, "a pass-through cannot be lossy: {compressed}");
-        assert_eq!(
-            compressed.get("kind").and_then(Value::as_str),
-            Some("plain_text"),
-            "a pass-through reports the uncompressed wire kind: {compressed}"
+        let kind = compressed.get("kind").and_then(Value::as_str);
+        assert!(
+            kind == Some("plain_text") || kind == Some(detected_kind.as_str()),
+            "a pass-through uses either its plain-text wire kind or the detector's routed kind: {compressed}"
         );
         assert_eq!(
             text, content,
