@@ -24,9 +24,9 @@ returns; no sub-agent.
 | bm25 | 160 | 22.5% | 38.0% | 70.5% | 26 | 0 | 28 | 29 |
 | overlap (`rank_tools_by_prompt`, the sub-agent's narrowing today) | 160 | 35.7% | 52.7% | 69.0% | 27 | 0 | 25 | 27 |
 | Jev, BM25 top-20 then decide | 160 | 57.4% | 62.0% | 70.5% | 1 | 21† | 1542 | 3598 |
-| Jev, embedding top-20 then decide | 160 | 62.0% | 66.7% | 86.8% | 1 | 5 | 1527 | 2611 |
+| Jev, embedding top-20 then decide (**product default**) | 160 | 62.0% | 66.7% | 86.8% | 1 | 5 | 1527 | 2611 |
 | Jev only, family then decide (BM25 cut for >254) | 160 | 62.0–64.3% | 67.4–69.0% | 70.5% | 1 | 0–2 | 1275 | 2138 |
-| Jev, family then decide, embedding cut for >254 (**product default**) | 160 | 62.8% | 67.4% | 86.8% | 1 | 4 | 1287 | 2018 |
+| Jev, family then decide, embedding cut for >254 | 160 | 62.8% | 67.4% | 86.8% | 1 | 4 | 1287 | 2018 |
 
 † the 3 s per-evaluation deadline of an earlier build; raised to 6 s in the
 product and 20 s in the bench, after which errors are the residual proxy
@@ -58,12 +58,18 @@ What the rows say:
   (`NOTION_APPEND_TEXT_BLOCKS` for `NOTION_ADD_PAGE_CONTENT`,
   `INSTAGRAM_GET_IG_MEDIA_COMMENTS` for `INSTAGRAM_GET_POST_COMMENTS`) and
   GitHub actions the BM25 cut dropped.
-- **Embeddings replace the lexical cut** for a family larger than one choice
-  and lift recall@20 to 90.9%; that is the product default:
-  `FamilyThenDecide` with `EmbeddingToolRanker` as the retriever, BM25 only
-  when the process has no embedder. Catalogue embeddings are computed once
-  per process (batches of 64) and cached on disk under
-  `<workspace>/cache/tool_search_embeddings.json`.
+- **Embeddings lift recall@20 to 90.9%** on Composio, and that retriever
+  with one Jev decision is the product default: `RetrieveThenDecide` over
+  `EmbeddingToolRanker`, one proxy round trip. Family-then-decide scores a
+  few points higher on Composio at a second round trip and stays available
+  through `JevRankerConfig::with_strategy`. Catalogue embeddings are computed
+  once per process (19 batches of 64 for this catalogue) and cached on disk
+  under `<workspace>/cache/tool_search_embeddings.json`, keyed by the
+  provider's signature; every later search embeds only the intent.
+- **No embedder, no Jev search.** When the configured embedding provider is
+  `none`, `TinyHumansJevRanker` returns an error and the harness answers with
+  its own BM25 catalogue — a Jev decision over a lexical shortlist would only
+  add a round trip to the same recall.
 - **Needless calls collapse**: 26/31 tool-less requests got a BM25 hit; every
   Jev configuration answers at most one, because Jev's `none` option and
   `needs_tool` abstain.
