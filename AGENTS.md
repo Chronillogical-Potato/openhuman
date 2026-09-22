@@ -270,9 +270,35 @@ Additional rules:
 ## Tool, harness, and runtime boundaries
 
 `tinyagents` owns tool-call dialects, parsing, catalog rendering, transcript
-replay, and the agent loop. `tinytools` owns the shared `Tool` trait and tool
-types. OpenHuman owns execution policy, approvals, sandboxing, timeouts, and
-progress events.
+replay, session identity, and the agent loop. `tinytools` owns the shared
+`Tool` trait and tool types. OpenHuman owns execution policy, approvals,
+sandboxing, timeouts, and progress events.
+
+### Sessions
+
+A conversation's durable identity is `tinyagents_session::transcript::SessionRef`,
+derived from the thread id and the agent id. It maps to a transcript stem
+deterministically and **without a timestamp**, so one conversation resolves to
+one file in every process and on every launch. OpenHuman binds it in
+`set_thread_id` and resumes with `ResumeMode::Session`; it does not mint stems,
+seed history by hand, or pick a transcript by recency.
+
+- **The transcript is what the model sees.** Trimming it is legitimate.
+- **A compaction never erases.** It seals the current generation and opens the
+  next (`begin_generation`), which records the sealed one as its parent. The
+  sealed file stays on disk byte-for-byte, so the whole conversation is
+  recoverable by walking `session_chain` even though the model reads only the
+  head.
+- **A resumed session's prompt is frozen.** It reuses its persisted system
+  messages verbatim, which is what keeps the provider's prefix cache warm
+  across a restart. The accepted consequence is that prompt edits, new skills
+  and newly connected integrations do not reach an existing thread.
+- **Pre-identity conversations are adopted once**, on first resume, from the
+  timestamped stems they were written to (`adopt_legacy_session_transcripts`).
+  No legacy file is modified.
+- OpenHuman's session host keeps only the product surface over this: start a
+  session, read it back, list its generations
+  (`agent/session_host/session_api.rs`).
 
 - Use the `tinytools` copy vendored through `vendor/tinyagents/`; a second path
   creates incompatible Rust types.
