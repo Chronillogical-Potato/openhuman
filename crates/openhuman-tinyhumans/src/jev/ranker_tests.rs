@@ -25,8 +25,16 @@ fn fingerprint_changes_with_secret_or_base_url() {
 #[tokio::test]
 async fn no_credential_is_a_backend_error_naming_the_gap() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _guard = openhuman_core::config::test_support::EnvGuard::set_home(tmp.path());
-    let ranker = TinyHumansJevRanker::new();
+    let config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    let ranker = TinyHumansJevRanker::new().with_config_loader(Arc::new(move || {
+        let config = config.clone();
+        Box::pin(async move { Ok(config) })
+    }));
     let err = ranker
         .rank(
             "send a message",
@@ -38,10 +46,7 @@ async fn no_credential_is_a_backend_error_naming_the_gap() {
         .expect_err("no credential must fail");
     match err {
         RankError::Backend { reason } => {
-            assert!(
-                reason.contains("no TinyHumans credential") || reason.contains("config"),
-                "{reason}"
-            );
+            assert!(reason.contains("no TinyHumans credential"), "{reason}");
         }
         other => panic!("expected a backend error, got {other}"),
     }

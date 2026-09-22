@@ -7,16 +7,26 @@ use std::{
     sync::Mutex,
 };
 
+use std::{future::Future, pin::Pin, sync::Arc};
+
 use openhuman_core::api::config::effective_backend_api_url;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
 use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
 
+/// How the ranker reads the config a search runs under. The default is the
+/// core's own read path (the embedder's config when one is bound, else the
+/// process-global load); a test hands in a fixed one.
+pub type ConfigLoader = Arc<
+    dyn Fn() -> Pin<Box<dyn Future<Output = Result<Config, String>> + Send>> + Send + Sync,
+>;
+
 /// A [`JevRanker`] bound to whichever credential and backend the process has
 /// at search time.
 pub struct TinyHumansJevRanker {
     config: JevRankerConfig,
+    load_config: ConfigLoader,
     cached: Mutex<Option<Cached>>,
 }
 
@@ -50,8 +60,17 @@ impl TinyHumansJevRanker {
     pub fn with_config(config: JevRankerConfig) -> Self {
         Self {
             config,
+            load_config: Arc::new(|| {
+                Box::pin(openhuman_core::config::ops::load_config_with_timeout())
+            }),
             cached: Mutex::new(None),
         }
+    }
+
+    /// Reads the config through `loader` instead of the core's read path.
+    pub fn with_config_loader(mut self, loader: ConfigLoader) -> Self {
+        self.load_config = loader;
+        self
     }
 
     /// The `JevRanker` for the current credential and backend, built or
@@ -62,10 +81,10 @@ impl TinyHumansJevRanker {
     /// dwarfs, and the benefit is that sign-in, sign-out and a backend URL
     /// change are all honoured by the next search.
     async fn current(&self) -> Result<JevRanker, RankError> {
-        let config = Config::load_or_init()
+        let config = (self.load_config)()
             .await
             .map_err(|error| RankError::Backend {
-                reason: format!("config unavailable: {error:#}"),
+                reason: format!("config unavailable: {error}"),
             })?;
         let credential = resolve_backend_credential(&config).map_err(|reason| {
             // The message names what is missing, never a secret.
