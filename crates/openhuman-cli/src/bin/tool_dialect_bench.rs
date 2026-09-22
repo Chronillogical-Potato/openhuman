@@ -50,9 +50,11 @@ const BASE_SYSTEM_PROMPT: &str = "You are a helpful assistant with tools. When t
      needs a tool, call it; do not describe what you would do instead of doing it. \
      Do not ask clarifying questions for these tasks.";
 
-/// Per-call ceiling: the answer is one call, and a runaway 8B model can
-/// otherwise generate for minutes.
-const MAX_OUTPUT_TOKENS: u32 = 400;
+/// Default per-call ceiling: the answer is one call, but a thinking model
+/// (qwen3) spends most of its budget in the reasoning channel first, and a
+/// runaway 8B model can otherwise generate for minutes. `--max-output-tokens`
+/// overrides it.
+const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 1500;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Dialect {
@@ -370,6 +372,7 @@ struct Args {
     json: bool,
     verbose: bool,
     tasks: Option<Vec<usize>>,
+    max_output_tokens: u32,
 }
 
 fn parse_args() -> Result<Args> {
@@ -384,6 +387,7 @@ fn parse_args() -> Result<Args> {
     let mut json = false;
     let mut verbose = false;
     let mut tasks = None;
+    let mut max_output_tokens = DEFAULT_MAX_OUTPUT_TOKENS;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -420,12 +424,19 @@ fn parse_args() -> Result<Args> {
                         .collect::<Result<Vec<_>>>()?,
                 );
             }
+            "--max-output-tokens" => {
+                max_output_tokens = it
+                    .next()
+                    .context("--max-output-tokens needs a value")?
+                    .parse()
+                    .context("--max-output-tokens value")?;
+            }
             "--json" => json = true,
             "--verbose" | "-v" => verbose = true,
             "--help" | "-h" => {
                 eprintln!(
                     "tool-dialect-bench [--model m1,m2] [--dialects xml,pformat,python,typescript] \
-                     [--trials N] [--tasks 0,3,5] [--json] [--verbose]"
+                     [--trials N] [--tasks 0,3,5] [--max-output-tokens N] [--json] [--verbose]"
                 );
                 std::process::exit(0);
             }
@@ -439,6 +450,7 @@ fn parse_args() -> Result<Args> {
         json,
         verbose,
         tasks,
+        max_output_tokens,
     })
 }
 
@@ -526,7 +538,7 @@ async fn main() -> Result<()> {
                     ])
                     .with_model(model_id.clone())
                     .with_temperature(0.0)
-                    .with_max_tokens(MAX_OUTPUT_TOKENS);
+                    .with_max_tokens(args.max_output_tokens);
                     let started = Instant::now();
                     let outcome = tokio::time::timeout(
                         Duration::from_secs(180),
@@ -556,6 +568,18 @@ async fn main() -> Result<()> {
                     };
                     match outcome {
                         Err(_) => row.error = Some("timeout".into()),
+                        // An empty answer that used the whole budget is the
+                        // model thinking past the cap, not a dialect failure.
+                        Ok(Ok(response))
+                            if response.text().trim().is_empty()
+                                && response.usage.is_some_and(|u| {
+                                    u.output_tokens >= u64::from(args.max_output_tokens)
+                                }) =>
+                        {
+                            row.input_tokens = response.usage.map(|u| u.input_tokens);
+                            row.output_tokens = response.usage.map(|u| u.output_tokens);
+                            row.error = Some("output cap reached with no visible text".into());
+                        }
                         Ok(Err(error)) => row.error = Some(error.to_string()),
                         Ok(Ok(response)) => {
                             row.input_tokens = response.usage.map(|u| u.input_tokens);
