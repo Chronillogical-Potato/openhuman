@@ -373,6 +373,7 @@ impl SessionHostBuilder {
                 format!("{unix_ts}_{sanitized}")
             },
             session_parent_prefix: self.session_parent_prefix,
+            session: None,
             context: std::sync::Arc::new(std::sync::Mutex::new(context)),
             on_progress: None,
             run_queue: None,
