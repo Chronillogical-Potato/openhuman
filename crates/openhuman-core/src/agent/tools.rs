@@ -20,7 +20,7 @@
 //!   `crate::skills::runtime` workflow run and wait on its outcome. Compiled
 //!   in only with the `skills` feature, so builds without it omit both tools
 //!   from the catalog.
-//! - [`TodoTool`] — CRUD on the current thread's task board.
+//! - [`TodoTool`] — the session's todo list (whole-list write, thread-scoped).
 //!   [`UpdateTaskTool`] edits one card by id on a target board (default:
 //!   the proactive `task-sources` board).
 //!
@@ -38,7 +38,6 @@ pub mod remember_preference;
 mod run_workflow;
 pub mod save_preference;
 mod todo;
-mod update_task;
 
 pub use ask_clarification::AskClarificationTool;
 pub use delegate::DelegateTool;
@@ -52,5 +51,3 @@ pub use run_workflow::{
 pub use save_preference::SavePreferenceTool;
 pub use todo::TodoTool;
 pub(crate) use todo::TodoToolDispatch;
-pub(crate) use update_task::UpdateTaskDispatch;
-pub use update_task::UpdateTaskTool;

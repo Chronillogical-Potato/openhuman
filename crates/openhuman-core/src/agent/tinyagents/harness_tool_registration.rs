@@ -20,7 +20,7 @@ use crate::agent::orchestration::tools::{
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook};
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
-use crate::agent::tools::{DelegateToolDispatch, TodoToolDispatch, UpdateTaskDispatch};
+use crate::agent::tools::{DelegateToolDispatch, TodoToolDispatch};
 use crate::memory::agent::CallMemoryAgentDispatch;
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
