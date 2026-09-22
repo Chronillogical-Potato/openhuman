@@ -186,7 +186,10 @@ fn skills_wildcard_adds_no_delegation_tool_for_any_integration_count() {
             .iter()
             .filter(|t| t.name().starts_with("delegate_to_"))
             .count();
-        assert_eq!(delegation_count, 0, "no integrations delegate for {n} integrations");
+        assert_eq!(
+            delegation_count, 0,
+            "no integrations delegate for {n} integrations"
+        );
         let action_count = tools
             .iter()
             .filter(|t| t.exposure() == tinytools::ToolExposure::Deferred)
@@ -354,14 +357,22 @@ fn deferred_actions_are_sorted_by_toolkit_then_action() {
     orch.subagents = vec![SubagentEntry::Skills(SkillsWildcard { skills: "*".into() })];
     let reg = registry_with_targets();
     let integrations = vec![
-        integration_with_actions("slack", "Chat.", &["SLACK_SEND_MESSAGE", "SLACK_LIST_CHANNELS"]),
+        integration_with_actions(
+            "slack",
+            "Chat.",
+            &["SLACK_SEND_MESSAGE", "SLACK_LIST_CHANNELS"],
+        ),
         integration_with_actions("gmail", "Email.", &["GMAIL_SEND_EMAIL"]),
     ];
     let tools = collect_orchestrator_tools(&orch, &reg, &integrations);
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     assert_eq!(
         names,
-        vec!["GMAIL_SEND_EMAIL", "SLACK_LIST_CHANNELS", "SLACK_SEND_MESSAGE"]
+        vec![
+            "GMAIL_SEND_EMAIL",
+            "SLACK_LIST_CHANNELS",
+            "SLACK_SEND_MESSAGE"
+        ]
     );
 }
 

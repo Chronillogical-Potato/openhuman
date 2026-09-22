@@ -38,9 +38,9 @@ use crate::integrations::composio::ComposioActionTool;
 
 // SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
 // temporarily disabled (see tinyhumansai/openhuman#1624).
+use super::ArchetypeDelegationTool;
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
-use super::ArchetypeDelegationTool;
 use crate::agent::orchestration::tools::DelegationTarget;
 use tinytools::Tool;
 
