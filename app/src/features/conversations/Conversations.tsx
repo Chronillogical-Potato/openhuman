@@ -1748,7 +1748,7 @@ const Conversations = ({
   const memorySyncActive = useMemorySyncActive();
   // A plan the orchestrator parked for interactive review (request_plan_review
   // gate). When present, the PlanReviewCard renders above the composer and
-  // resolves the parked turn; the todo strip stays read-only progress.
+  // resolves the parked turn.
   const pendingPlanReview = selectedThreadId
     ? (pendingPlanReviewByThread[selectedThreadId] ?? null)
     : null;

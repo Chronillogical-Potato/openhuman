@@ -9,8 +9,7 @@
  * selectedThreadId !== null` alone, the palette listed a command that looked
  * available and silently did nothing.
  *
- * Root cause: something was
- * left pointing at the wrong half of the either/or.
+ * Root cause: something was left pointing at the wrong half of the either/or.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, render } from '@testing-library/react';
