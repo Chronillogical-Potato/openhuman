@@ -114,6 +114,39 @@ function routeParams(opts) {
   };
 }
 
+/**
+ * Mint the core's offline local session token.
+ *
+ * Custom (BYOK) providers sit behind `verify_session_active`
+ * (crates/openhuman-core/src/inference/provider/factory/access_gates.rs), which
+ * refuses a turn on a custom route unless the host installed a credential
+ * first. A headless benchmark has no login flow, but the core has a documented
+ * third credential kind for exactly this: a JWT-shaped token whose signature
+ * segment is the literal `local` (`session_support::is_local_session_token`).
+ *
+ * This is the offline mode the core already ships, not a way around the gate:
+ * it buys no access to the hosted backend, it only lets a local host say who
+ * the turn belongs to. Every scenario run here reaches OpenRouter and a mock
+ * Composio, so there is nothing hosted to authenticate against.
+ */
+function mintLocalSessionToken(userId) {
+  const b64 = (o) =>
+    Buffer.from(JSON.stringify(o))
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64({ alg: "none", typ: "JWT" });
+  const payload = b64({
+    sub: userId,
+    iat: now,
+    exp: now + 24 * 60 * 60,
+    email: "life-scenarios@local.invalid",
+  });
+  return `${header}.${payload}.local`;
+}
+
 async function freePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
