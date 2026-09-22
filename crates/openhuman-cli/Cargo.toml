@@ -366,6 +366,8 @@ wiremock = "0.6"
 # pass `--features "$(scripts/ci/product-features.sh)"`; every product gate
 # name resolves here so `cargo test --workspace --features ...` keeps working.
 default = ["openhuman-core/default", "openhuman-tinyhumans/default"]
+# The Jev-backed `tool_search` ranker; `openhuman-tinyhumans`'s own gate.
+jev = ["openhuman-tinyhumans/jev"]
 http-server = ["openhuman-core/http-server", "openhuman-tinyhumans/http-server"]
 inference = ["openhuman-core/inference", "openhuman-tinyhumans/inference"]
 documents = ["openhuman-core/documents", "openhuman-tinyhumans/documents"]
