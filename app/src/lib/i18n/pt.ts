@@ -3308,7 +3308,6 @@ const messages: TranslationMap = {
     'Sua sessão do OpenHuman expirou. Entre novamente para carregar os gatilhos.',
   'composio.triggers.needsConfiguration': 'Precisa de configuração',
   'composio.triggers.noneAvailable': 'Nenhum gatilho disponível no momento para',
-  'conversations.threadTodo.title': 'Plano',
   'conversations.composer.context.title': 'Janela de contexto',
   'conversations.composer.context.input': 'Entrada',
   'conversations.composer.context.cached': 'Entrada em cache',

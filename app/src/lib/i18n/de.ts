@@ -3348,7 +3348,6 @@ const messages: TranslationMap = {
     'Deine OpenHuman-Sitzung ist abgelaufen. Melde dich erneut an, um Trigger zu laden.',
   'composio.triggers.needsConfiguration': 'Muss konfiguriert werden',
   'composio.triggers.noneAvailable': 'Derzeit sind keine Auslöser verfügbar für',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Kontextfenster',
   'conversations.composer.context.input': 'Eingabe',
   'conversations.composer.context.cached': 'Zwischengespeicherte Eingabe',

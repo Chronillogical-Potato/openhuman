@@ -3179,7 +3179,6 @@ const messages: TranslationMap = {
     'انتهت صلاحية جلسة OpenHuman. سجّل الدخول مرة أخرى لتحميل المشغّلات.',
   'composio.triggers.needsConfiguration': 'يحتاج إلى إعداد',
   'composio.triggers.noneAvailable': 'لا توجد مشغّلات متاحة حاليًا لـ',
-  'conversations.threadTodo.title': 'الخطة',
   'conversations.composer.context.title': 'نافذة السياق',
   'conversations.composer.context.input': 'المدخلات',
   'conversations.composer.context.cached': 'مدخلات مخزّنة',

@@ -3678,7 +3678,6 @@ const en: TranslationMap = {
     'Your OpenHuman session expired. Sign in again to load triggers.',
   'composio.triggers.needsConfiguration': 'Needs configuration',
   'composio.triggers.noneAvailable': 'No triggers are currently available for',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Context window',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Cached input',

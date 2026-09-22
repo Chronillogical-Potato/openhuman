@@ -3294,7 +3294,6 @@ const messages: TranslationMap = {
     'Twoja sesja OpenHuman wygasła. Zaloguj się ponownie, aby wczytać wyzwalacze.',
   'composio.triggers.needsConfiguration': 'Wymaga konfiguracji',
   'composio.triggers.noneAvailable': 'Brak dostępnych wyzwalaczy dla',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Okno kontekstu',
   'conversations.composer.context.input': 'Wejście',
   'conversations.composer.context.cached': 'Wejście z pamięci podręcznej',

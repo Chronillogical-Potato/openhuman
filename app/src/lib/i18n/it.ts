@@ -3311,7 +3311,6 @@ const messages: TranslationMap = {
     'La tua sessione OpenHuman è scaduta. Accedi di nuovo per caricare i trigger.',
   'composio.triggers.needsConfiguration': 'Richiede configurazione',
   'composio.triggers.noneAvailable': 'Nessun trigger attualmente disponibile per',
-  'conversations.threadTodo.title': 'Piano',
   'conversations.composer.context.title': 'Finestra di contesto',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Input in cache',

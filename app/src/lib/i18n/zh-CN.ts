@@ -3063,7 +3063,6 @@ const messages: TranslationMap = {
   'composio.triggers.sessionExpired': '你的 OpenHuman 会话已过期。请重新登录以加载触发器。',
   'composio.triggers.needsConfiguration': '需要配置',
   'composio.triggers.noneAvailable': '当前没有可用的触发器：',
-  'conversations.threadTodo.title': '计划',
   'conversations.composer.context.title': '上下文窗口',
   'conversations.composer.context.input': '输入',
   'conversations.composer.context.cached': '缓存输入',

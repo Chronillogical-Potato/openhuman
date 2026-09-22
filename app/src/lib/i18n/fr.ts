@@ -3336,7 +3336,6 @@ const messages: TranslationMap = {
     'Votre session OpenHuman a expiré. Reconnectez-vous pour charger les déclencheurs.',
   'composio.triggers.needsConfiguration': 'Configuration requise',
   'composio.triggers.noneAvailable': "Aucun déclencheur n'est actuellement disponible pour",
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Fenêtre de contexte',
   'conversations.composer.context.input': 'Entrée',
   'conversations.composer.context.cached': 'Entrée en cache',

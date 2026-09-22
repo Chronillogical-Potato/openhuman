@@ -3283,7 +3283,6 @@ const messages: TranslationMap = {
     'Срок действия сессии OpenHuman истёк. Войдите снова, чтобы загрузить триггеры.',
   'composio.triggers.needsConfiguration': 'Требуется настройка',
   'composio.triggers.noneAvailable': 'Сейчас нет доступных триггеров для',
-  'conversations.threadTodo.title': 'План',
   'conversations.composer.context.title': 'Контекстное окно',
   'conversations.composer.context.input': 'Ввод',
   'conversations.composer.context.cached': 'Ввод из кэша',

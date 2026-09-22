@@ -3269,7 +3269,6 @@ const messages: TranslationMap = {
     'Sesi OpenHuman Anda telah berakhir. Masuk lagi untuk memuat trigger.',
   'composio.triggers.needsConfiguration': 'Perlu konfigurasi',
   'composio.triggers.noneAvailable': 'Tidak ada trigger yang tersedia saat ini untuk',
-  'conversations.threadTodo.title': 'Rencana',
   'conversations.composer.context.title': 'Jendela konteks',
   'conversations.composer.context.input': 'Masukan',
   'conversations.composer.context.cached': 'Masukan tersimpan',

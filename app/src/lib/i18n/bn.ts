@@ -3254,7 +3254,6 @@ const messages: TranslationMap = {
     'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়েছে। ট্রিগার লোড করতে আবার সাইন ইন করুন।',
   'composio.triggers.needsConfiguration': 'কনফিগারেশন প্রয়োজন',
   'composio.triggers.noneAvailable': 'বর্তমানে কোনো ট্রিগার উপলব্ধ নেই',
-  'conversations.threadTodo.title': 'পরিকল্পনা',
   'conversations.composer.context.title': 'কনটেক্সট উইন্ডো',
   'conversations.composer.context.input': 'ইনপুট',
   'conversations.composer.context.cached': 'ক্যাশ করা ইনপুট',

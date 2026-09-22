@@ -3256,7 +3256,6 @@ const messages: TranslationMap = {
     'आपका OpenHuman सत्र समाप्त हो गया है। ट्रिगर्स लोड करने के लिए फिर से साइन इन करें।',
   'composio.triggers.needsConfiguration': 'कॉन्फिगरेशन ज़रूरी है',
   'composio.triggers.noneAvailable': 'वर्तमान में कोई ट्रिगर उपलब्ध नहीं है',
-  'conversations.threadTodo.title': 'योजना',
   'conversations.composer.context.title': 'कॉन्टेक्स्ट विंडो',
   'conversations.composer.context.input': 'इनपुट',
   'conversations.composer.context.cached': 'कैश किया गया इनपुट',

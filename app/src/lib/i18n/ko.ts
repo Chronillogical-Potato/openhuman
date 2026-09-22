@@ -3221,7 +3221,6 @@ const messages: TranslationMap = {
     'OpenHuman 세션이 만료되었습니다. 트리거를 불러오려면 다시 로그인하세요.',
   'composio.triggers.needsConfiguration': '구성이 필요합니다',
   'composio.triggers.noneAvailable': '현재 사용할 수 있는 트리거가 없습니다:',
-  'conversations.threadTodo.title': '계획',
   'conversations.composer.context.title': '컨텍스트 창',
   'conversations.composer.context.input': '입력',
   'conversations.composer.context.cached': '캐시된 입력',
