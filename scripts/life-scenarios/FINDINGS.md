@@ -36,7 +36,7 @@ Read the two tables together. The cheap model never calls a tool at all — it
 narrates and stops, so it is not a measurement of the harness. The strong model
 *works*: 65 tool calls, sixteen minutes, $2.50. And **four of six scenarios
 produced no output file whatsoever**, after spending $0.69, $0.78 and $0.13 on
-three of them. Finding 1 is why.
+three of them. Findings 1 and 1b are why; [`DIAGNOSIS.md`](DIAGNOSIS.md) traces each one to its transcript.
 
 Ordered by severity.
 
@@ -139,9 +139,11 @@ its upstream default branch would have caught the cause.
 
 ---
 
-## 3. The model never sees its own tool calls in the replayed transcript
+## 3. The replayed transcript carries no assistant tool calls
 
-**Severity: high.**
+**Severity: medium — confirmed for the persisted transcript, inferred for the
+live request.** See [`DIAGNOSIS.md`](DIAGNOSIS.md) for what is measured and
+what is not.
 
 Every assistant turn that made a tool call is persisted with **empty content
 and no `tool_calls`**, and the tool result comes back as a plain `user`

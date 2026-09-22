@@ -149,4 +149,7 @@ target/life-scenarios/<run-id>/
 
 ## Known harness findings this suite surfaced
 
-See `FINDINGS.md` in this directory.
+- [`FINDINGS.md`](FINDINGS.md) — the defect list, ranked, with the fix each wants.
+- [`DIAGNOSIS.md`](DIAGNOSIS.md) — the causal trace behind the headline result
+  (four of six scenarios wrote nothing), tool call by tool call, including the
+  two claims from the first pass that did not survive checking.
