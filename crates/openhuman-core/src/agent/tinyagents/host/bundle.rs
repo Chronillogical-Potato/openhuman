@@ -92,7 +92,7 @@ impl OpenHumanHostBundleFactory {
     /// and this invocation's tool/security authority.
     pub fn build_for_invocation(
         inputs: OpenHumanHostInvocationInputs,
-        turn: &OpenHumanRunContext,
+        _turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
         let mut bundle = Self::build(
             OpenHumanHostBundleInputs {
@@ -120,7 +120,7 @@ impl OpenHumanHostBundleFactory {
     /// concrete progress seam without discovering state through a task-local.
     pub fn build(
         inputs: OpenHumanHostBundleInputs,
-        turn: &OpenHumanRunContext,
+        _turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
         let context = Arc::new(OpenHumanContextComposer::new(Arc::clone(&inputs.config)));
         let registered_tools = Arc::new(
