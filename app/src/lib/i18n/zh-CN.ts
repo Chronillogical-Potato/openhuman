@@ -3007,6 +3007,7 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian 子域名',
   'composio.connect.cancelConnection': '取消连接',
   'composio.connect.cancelFailed': '无法取消连接：{msg}',
+  'composio.connect.cancelNotConfirmed': 'Composio 未确认连接已删除。请重试。',
   'composio.connect.cancelling': '正在取消…',
   'composio.connect.connect': '连接',
   'composio.connect.connectedAccounts': '已连接账户',

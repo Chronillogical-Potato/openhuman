@@ -3120,6 +3120,7 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'تسمية النطاق الفرعي لـ Atlassian',
   'composio.connect.cancelConnection': 'إلغاء الاتصال',
   'composio.connect.cancelFailed': 'تعذّر إلغاء الاتصال: {msg}',
+  'composio.connect.cancelNotConfirmed': 'لم يؤكّد Composio إزالة الاتصال. حاول مرة أخرى.',
   'composio.connect.cancelling': 'جارٍ الإلغاء…',
   'composio.connect.connect': 'اتصال',
   'composio.connect.connectedAccounts': 'الحسابات المتصلة',

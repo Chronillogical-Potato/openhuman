@@ -3249,6 +3249,7 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Etichetta sottodominio Atlassian',
   'composio.connect.cancelConnection': 'Annulla connessione',
   'composio.connect.cancelFailed': 'Impossibile annullare la connessione: {msg}',
+  'composio.connect.cancelNotConfirmed': 'Composio non ha confermato la rimozione della connessione. Riprova.',
   'composio.connect.cancelling': 'Annullamento…',
   'composio.connect.connect': 'Connetti',
   'composio.connect.connectedAccounts': 'Account collegati',
