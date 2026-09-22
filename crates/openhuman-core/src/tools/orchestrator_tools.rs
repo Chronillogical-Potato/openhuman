@@ -8,18 +8,20 @@
 //! contains discoverable, well-named tools like `research`, `plan`,
 //! `run_code`, etc.
 //!
-//! For [`SubagentEntry::Skills`] wildcard expansions (#1335) we synthesise
-//! a single collapsed `delegate_to_integrations_agent` tool that takes the
-//! toolkit slug as an argument — keeping the orchestrator's schema cost
-//! constant in the integration dimension instead of scaling with the
-//! number of connected toolkits.
+//! For [`SubagentEntry::Skills`] wildcard expansions we synthesise one
+//! `ToolExposure::Deferred` [`ComposioActionTool`] per action of every
+//! connected Composio toolkit. Those never reach the wire: a belt that opted
+//! into discovery (`tool_search` in its `[tools] named`) finds them through
+//! the harness's `tool_search` bridge and calls them directly, so "send this
+//! email" is one search and one call. There is no `delegate_to_integrations_
+//! agent` any more — routing a single action through a sub-agent spawn cost a
+//! blocking agentic round-trip and a second prompt for work the parent could
+//! do in one call.
 //!
-//! Each synthesised tool's description is pulled live from the target
-//! agent's [`AgentDefinition::when_to_use`] (for
-//! [`SubagentEntry::AgentId`]) or from the connected Composio toolkit
-//! metadata (for [`SubagentEntry::Skills`] wildcard expansions) — so
-//! descriptions automatically stay in sync with the definitions and
-//! never drift from a hardcoded table.
+//! Each synthesised delegation tool's description is pulled live from the
+//! target agent's [`AgentDefinition::when_to_use`] — so descriptions
+//! automatically stay in sync with the definitions and never drift from a
+//! hardcoded table.
 //!
 //! Called from [`crate::agent::session_host::builder`] at
 //! agent-build time, with the orchestrator's own definition, the global
@@ -36,9 +38,9 @@ use crate::integrations::composio::ComposioActionTool;
 
 // SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
 // temporarily disabled (see tinyhumansai/openhuman#1624).
+use super::ArchetypeDelegationTool;
 #[allow(unused_imports)]
 use super::SpawnWorkerThreadTool;
-use super::{ArchetypeDelegationTool, SkillDelegationTool};
 use crate::agent::orchestration::tools::DelegationTarget;
 use tinytools::Tool;
 
@@ -52,23 +54,17 @@ use tinytools::Tool;
 /// `when_to_use` — so editing an agent's TOML description immediately
 /// updates the tool schema the orchestrator LLM sees, with zero drift.
 ///
-/// Each [`SubagentEntry::Skills`] wildcard expands to a single
-/// collapsed [`SkillDelegationTool`] named
-/// `delegate_to_integrations_agent` whose `toolkit` argument selects
-/// among the slugs of every connected Composio integration in
-/// `connected_integrations`. The tool routes to the generic
-/// `integrations_agent` with the chosen toolkit's slug passed as
-/// `skill_filter`. The collapsed form keeps the orchestrator's
-/// function-calling schema constant in the integration dimension
-/// (#1335).
+/// Each [`SubagentEntry::Skills`] wildcard expands to the connected
+/// integrations' actions as `Deferred` tools
+/// ([`collect_deferred_integration_actions`]): off the wire, reachable
+/// through the harness's `tool_search`, and callable directly by the agent
+/// that found them. No delegation tool is synthesised for the wildcard.
 ///
 /// Entries that reference unknown agent ids (not in the registry) are
 /// logged at `warn` and skipped — the orchestrator still builds, just
-/// without the broken delegation. Entries that reference Skills wildcards
-/// with an empty `connected_integrations` slice produce zero tools, which
-/// is the correct behaviour when the user has not yet connected any
-/// integrations (the LLM should not see a `delegate_to_integrations_agent`
-/// tool with an empty enum).
+/// without the broken delegation. A Skills wildcard with an empty
+/// `connected_integrations` slice produces zero tools, which is the correct
+/// behaviour when the user has not yet connected any integrations.
 ///
 /// Returns an empty Vec when `definition.subagents` is empty — callers
 /// (notably the builder) handle this by not extending the visible-tool
@@ -147,109 +143,17 @@ pub fn collect_orchestrator_tools(
                     );
                     continue;
                 }
-                // Collapsed delegation tool (#1335). Previously this loop
-                // emitted one `delegate_<toolkit>` tool per connected
-                // integration. Every one of those tools dispatched to the
-                // same `integrations_agent` with a different `skill_filter`,
-                // so the fan-out cost the orchestrator schema bytes without
-                // buying any new routing capability. We now emit at most
-                // one `delegate_to_integrations_agent` tool that takes the
-                // toolkit slug as an argument; the description enumerates
-                // the connected toolkits so the orchestrator still
-                // discovers which integrations are routable.
-                // `sanitise_slug` is lossy — `Slack.Bot` and `Slack-Bot`
-                // both collapse to `slack_bot`. Once the raw id is
-                // discarded, one upstream integration would silently
-                // shadow the other. Detect the collision here, drop
-                // every duplicate after the first, and warn so routing
-                // stays unambiguous (the first arrival keeps the slug;
-                // later arrivals are unreachable through this enum and
-                // safer to omit than silently re-target).
-                let mut connected: Vec<(String, String)> = Vec::new();
-                let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-                for integration in connected_integrations {
-                    if !integration.connected {
-                        log::debug!(
-                            "[orchestrator_tools] skipping unconnected integration: {}",
-                            integration.toolkit
-                        );
-                        continue;
-                    }
-                    // Slug the toolkit name into a tool-name-safe
-                    // (and argument-safe) form so the LLM-facing
-                    // enum stays predictable across odd toolkit
-                    // names (dashes, dots, spaces, mixed case).
-                    let slug = sanitise_slug(&integration.toolkit);
-                    if !seen.insert(slug.clone()) {
-                        log::warn!(
-                            "[orchestrator_tools] duplicate sanitised slug '{slug}' from raw \
-                             toolkit '{raw}' — dropping to keep collapsed delegation routing \
-                             unambiguous",
-                            raw = integration.toolkit
-                        );
-                        continue;
-                    }
-                    // Empty integration descriptions otherwise render as a
-                    // bare ` - slug` line in the collapsed tool description,
-                    // which gives the orchestrator LLM no hint about what
-                    // the toolkit actually does. Fall back to the
-                    // generic per-toolkit phrasing the old fan-out path
-                    // used so brand-new or under-populated toolkits stay
-                    // informative.
-                    let description = if integration.description.trim().is_empty() {
-                        format!(
-                            "External integration via {} — see the toolkit docs for available actions.",
-                            integration.toolkit
-                        )
-                    } else {
-                        integration.description.clone()
-                    };
-                    connected.push((slug, description));
-                }
-                // Order the enum by slug, because the order it arrives in is
-                // not a contract and the order it is *advertised* in is.
-                //
-                // This tool's schema and description both enumerate the
-                // toolkits, and the tool block is rendered ahead of the
-                // conversation in every provider's cached prefix — so a
-                // backend that returns the same integrations in a different
-                // order would otherwise re-write the schema, and with it
-                // invalidate the whole prefix including the system prompt the
-                // turn loop freezes for exactly that reason. The rest of the
-                // pipeline already treats order as meaningless:
-                // `connected_set_hash` sorts before hashing, which is what
-                // stops a reordering from reaching a reconcile at the turn
-                // boundary in the first place. Sorting here makes the
-                // advertised surface agree with that view instead of
-                // contradicting it a layer down.
-                //
-                // Sorting AFTER the dedup loop, never before: the collision
-                // rule above is "the first arrival keeps the slug", which is a
-                // statement about arrival order and would change meaning if the
-                // list were sorted first.
-                connected.sort_by(|(a, _), (b, _)| a.cmp(b));
-                match SkillDelegationTool::for_connected(connected) {
-                    Some(tool) => {
-                        log::debug!(
-                            "[orchestrator_tools] registering collapsed integrations delegation tool ({} toolkits)",
-                            tool.connected_toolkits.len()
-                        );
-                        tools.push(Box::new(tool));
-                    }
-                    None => {
-                        log::debug!(
-                            "[orchestrator_tools] no connected integrations — collapsed delegation tool omitted"
-                        );
-                    }
-                }
-                // The same toolkits' actions, one `Deferred` tool each. Never
-                // on the wire: a belt that opted into discovery reaches them
-                // through the harness's `tool_search`, so one clear action is
-                // a search and a call rather than an `integrations_agent`
-                // run. A belt that did not opt in never sees them — the
-                // session builder leaves them prompt-hidden, which the
-                // direct-call gate refuses. Approval and channel permission
-                // apply per call exactly as on the sub-agent path.
+                // The connected toolkits' actions, one `Deferred` tool each.
+                // Never on the wire: a belt that opted into discovery reaches
+                // them through the harness's `tool_search`, so one clear
+                // action is a search and a call. A belt that did not opt in
+                // never sees them — the session builder leaves them
+                // prompt-hidden, which the direct-call gate refuses. Approval
+                // and channel permission apply per call. This used to sit
+                // beside a collapsed `delegate_to_integrations_agent` tool
+                // that spawned `integrations_agent` per toolkit; with the
+                // actions searchable that spawn only added a blocking
+                // sub-agent round-trip, so the delegation tool is gone.
                 let actions = collect_deferred_integration_actions(connected_integrations);
                 if !actions.is_empty() {
                     log::debug!(
@@ -280,7 +184,7 @@ pub fn collect_orchestrator_tools(
 /// Gated actions are left out: the model cannot call them and the prompt's
 /// Connected Integrations section already explains how to unlock them.
 /// A collision on an action slug across two toolkits keeps the first
-/// arrival, like `sanitise_slug` collisions above.
+/// arrival.
 pub fn collect_deferred_integration_actions(
     connected_integrations: &[ConnectedIntegration],
 ) -> Vec<Box<dyn Tool>> {
@@ -315,9 +219,8 @@ pub fn collect_deferred_integration_actions(
 /// an underscore. OpenAI-style function names only accept
 /// `[a-zA-Z0-9_-]{1,64}`, so this is the conservative subset.
 ///
-/// Used both when synthesising `delegate_*` tools and when rendering the
-/// delegation guide in prompts — they must agree on slug canonicalisation
-/// so the prompt always references a tool name that actually exists.
+/// Used when rendering integration slugs in prompts so the prompt and any
+/// argument-facing enum agree on slug canonicalisation.
 pub(crate) fn sanitise_slug(raw: &str) -> String {
     raw.chars()
         .map(|c| {

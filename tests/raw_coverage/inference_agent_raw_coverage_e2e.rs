@@ -2593,7 +2593,7 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         AskClarificationTool, DelegateToPersonalityTool, DelegateTool, RUN_WORKFLOW_TOOL_NAME,
         RunWorkflowTool, TodoTool,
     };
-    use openhuman_core::tools::{ArchetypeDelegationTool, SkillDelegationTool};
+    use openhuman_core::tools::ArchetypeDelegationTool;
 
     let ask = AskClarificationTool::new();
     assert_eq!(ask.name(), "ask_user_clarification");
@@ -2659,29 +2659,6 @@ async fn agent_public_tools_cover_validation_and_metadata_paths() {
         .await
         .expect("missing archetype prompt");
     assert!(missing_prompt.is_error);
-
-    assert!(SkillDelegationTool::for_connected(vec![]).is_none());
-    let skill_delegate = SkillDelegationTool::for_connected(vec![
-        ("gmail".into(), "Email access.".into()),
-        ("notion".into(), "Docs.".into()),
-    ])
-    .expect("connected tool");
-    assert!(skill_delegate.description().contains("gmail"));
-    let unknown_toolkit = skill_delegate
-        .execute(json!({ "toolkit": "slack", "prompt": "search" }))
-        .await
-        .expect("unknown toolkit");
-    assert!(unknown_toolkit.is_error);
-    assert!(
-        unknown_toolkit
-            .output()
-            .contains("allowed: [gmail, notion]")
-    );
-    let blank_skill_prompt = skill_delegate
-        .execute(json!({ "toolkit": "gmail", "prompt": "   " }))
-        .await
-        .expect("blank prompt");
-    assert!(blank_skill_prompt.output().contains("`prompt` is required"));
 
     let todo = TodoTool::new();
     assert_eq!(todo.name(), "todo");

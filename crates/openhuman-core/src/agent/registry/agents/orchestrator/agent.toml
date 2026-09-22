@@ -49,9 +49,11 @@ omit_memory_md = false
 #     as the tool name, and the target's `when_to_use` as the
 #     LLM-visible tool description.
 #
-#   * `{ skills = "*" }` → one `SkillDelegationTool` per connected
-#     Composio toolkit, all routing to the generic `integrations_agent` with
-#     the toolkit slug pre-filled as `skill_filter`.
+#   * `{ skills = "*" }` → one `Deferred` action tool per action of every
+#     connected Composio toolkit. Off the wire, found through `tool_search`,
+#     called directly. This used to be a `delegate_to_integrations_agent`
+#     spawn; one clear service action is now a search and a call, and the
+#     wildcard admits no sub-agent id (`AgentDefinition::allowed_subagent_ids`).
 #
 # The orchestrator LLM sees these as first-class entries in its
 # function-calling schema, so routing decisions happen at the tool-
@@ -206,14 +208,14 @@ hint = "coding"
 # delegating.
 #
 # `composio_list_connections` lets the agent detect newly-authorised
-# integrations mid-session (the session-start fetch froze the Delegation
-# Guide's connected list). `composio_connect` lets it raise an inline
+# integrations mid-session (the session-start fetch froze the Connected
+# Integrations block). `composio_connect` lets it raise an inline
 # connect card for ANY toolkit the user asks to connect — including ones
 # not yet connected (#3993); the tool validates the slug against the
 # backend allowlist and the OAuth handoff itself runs inside the card.
-# Toolkit *action* listing and execution still live downstream in
-# `integrations_agent` — the orchestrator never calls composio_list_tools
-# / composio_execute directly.
+# Toolkit *actions* are the per-action `Deferred` tools synthesised from
+# `{ skills = "*" }` below and reached through `tool_search` — the
+# orchestrator never calls composio_list_tools / composio_execute directly.
 named = [
     # Tool packs add this proxy to the visible set when they withhold member
     # schemas. The hosted runtime also enforces this definition as its dispatch

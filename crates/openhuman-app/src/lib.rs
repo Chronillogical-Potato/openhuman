@@ -2370,8 +2370,9 @@ pub fn run() {
     // `core_process::CoreProcessHandle::ensure_running` via
     // `tokio::spawn(run_server_embedded(..))`) runs *on* that runtime, so
     // every JSON-RPC handler — including the deep tower
-    // `web channel chat → orchestrator turn → delegate_to_integrations_agent
-    // → sub-agent → composio_list_tools → load_config_with_timeout` —
+    // `web channel chat → orchestrator turn → integration action tool
+    // → composio execute → load_config_with_timeout` (and, at the time, the
+    // now-removed integrations sub-agent spawn in between) —
     // burns through the same 2 MB. In `crahs.log` (2026-05-17, build
     // 0.53.49) that tower plus the serde-monomorphised `Config` Visitor
     // frames pushed past the guard page and aborted with

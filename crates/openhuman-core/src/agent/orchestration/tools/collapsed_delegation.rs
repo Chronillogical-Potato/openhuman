@@ -15,12 +15,10 @@
 //! enum, with each target's `when_to_use` kept verbatim in the description —
 //! the routing information survives in full, the repetition does not.
 //!
-//! This is the same collapse [`SkillDelegationTool`] already applied to the
-//! *other* delegation axis (#1335): one `delegate_to_integrations_agent` with
-//! a `toolkit` argument, instead of one `delegate_<toolkit>` per connected
-//! Composio integration. That change made the schema constant in the
-//! integration dimension; this one makes it constant in the sub-agent
-//! dimension. The two are now consistent.
+//! The integration axis went a step further: connected Composio actions are
+//! `Deferred` tools reached through `tool_search` and called directly, so
+//! that axis has no delegation tool at all (`orchestrator_tools`). This one
+//! makes the sub-agent axis constant in the sub-agent dimension.
 //!
 //! # Why collapse rather than pack
 //!
@@ -52,12 +50,9 @@
 //! builder's collision guard resolves a clash by dropping the *synthesised*
 //! tool. Naming this one `delegate` would therefore have removed the
 //! orchestrator's entire delegation surface for exactly those users, silently.
-//! It also puts this tool in the same family as its sibling
-//! `delegate_to_integrations_agent`.
 //!
 //! [`DelegateTool`]: crate::agent::tools::DelegateTool
 //! [`ArchetypeDelegationTool`]: super::ArchetypeDelegationTool
-//! [`SkillDelegationTool`]: super::SkillDelegationTool
 //! [`ToolExposure::Hidden`]: tinytools::ToolExposure::Hidden
 
 use async_trait::async_trait;
@@ -102,11 +97,7 @@ impl CollapsedDelegationTool {
     /// Build the collapsed tool, or `None` when there is nothing to route to.
     ///
     /// `None` rather than an empty enum: a `delegate` tool whose `agent` has no
-    /// valid value is a schema the model can only call wrongly, and the
-    /// sibling [`SkillDelegationTool::for_connected`] already returns `None` on
-    /// an empty toolkit list for the same reason.
-    ///
-    /// [`SkillDelegationTool::for_connected`]: super::SkillDelegationTool::for_connected
+    /// valid value is a schema the model can only call wrongly.
     pub fn for_targets(targets: Vec<DelegateTarget>) -> Option<Self> {
         if targets.is_empty() {
             return None;

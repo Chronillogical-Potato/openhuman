@@ -15,7 +15,7 @@ Do not tell the user to reconnect or restart.";
 
 pub(super) fn integration_announcement_note(slugs: &[String]) -> Option<String> {
     (!slugs.is_empty()).then(|| format!(
-        "[integration update] These integration(s) connected during this conversation and are available now via delegate_to_integrations_agent with the matching toolkit slug: {}. {ANNOUNCEMENT_TRAILER}",
+        "[integration update] These integration(s) connected during this conversation and are available now; their actions are reachable through tool_search: {}. {ANNOUNCEMENT_TRAILER}",
         slugs.join(", ")
     ))
 }

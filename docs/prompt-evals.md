@@ -26,8 +26,9 @@ A green tier 1 is therefore not evidence of comprehension. Only tier 2 is.
 
 The six cases cover the agents where mis-routing has cost something:
 `workflow_builder` (must reach `propose_workflow`, never three consecutive
-catalog searches), `orchestrator` (hands integration work off, never holds the
-raw Composio or cron tools), `integrations_agent`, `scheduler_agent`, and the
+catalog searches), `orchestrator` (searches for and calls integration actions
+itself, never holds the raw Composio or cron tools), `integrations_agent`,
+`scheduler_agent`, and the
 two zero-belt agents `summarizer` and `trigger_triage` (advertise nothing).
 Fleet-wide static coverage of all agents lives in the prompt tests under
 `crates/openhuman-core/src/agent/registry/agents/`, not here.
@@ -130,7 +131,7 @@ scoring proves too coarse.
 | `orchestrator-reminder` | orchestration → scheduler | hands off through `schedule_task` | **a cron job**, remove it afterwards |
 | `orchestrator-direct-answer` | orchestration | answers a trivial question without spawning | nothing |
 | `orchestrator-research-trip` | orchestration | a research question goes straight to `web_search_tool` and streams an answer; never `request_plan_review`, `todo` or a spawn | nothing |
-| `composio-gmail-read` | composio | reads the latest Gmail subject via `delegate_to_integrations_agent`; never sends, deletes or reconnects | nothing |
+| `composio-gmail-read` | composio | reads the latest Gmail subject via `tool_search` and a direct `GMAIL_*` call; never sends, deletes or reconnects | nothing |
 | `skill-notion-read` | skills | lists Notion pages through `run_skill`; never installs a skill | nothing |
 | `mcp-none-configured` | MCP, **error path** | with no MCP server configured, says so; never installs one, never fabricates results | nothing |
 | `web-search-fact` | web search | one built-in `web_search_tool` lookup, not a `research` spawn | nothing |
@@ -149,10 +150,11 @@ MCP server to make MCP "testable"; that changes the baseline being measured.
 Cases run in file order, by increasing account risk. Cases that touch
 nothing run first, because they also validate the rig on real inference; the
 only writing case (`orchestrator-reminder`) runs last.
-**`composio-gmail-read` is disabled by default.** The toolkit-scoped `integrations_agent`
-runs in text mode, so its calls may not reach `calls` in the same shape as
-native tool calls. Until a real transcript has shown one landing in a form its
-`GMAIL_*` forbids match, those forbids are unproven. They would fail to notice
+**`composio-gmail-read` is disabled by default.** The orchestrator finds the
+`GMAIL_*` action through `tool_search` and calls it directly; that call may
+reach `calls` under the action name or through the harness's `tool_call`
+bridge. Until a real transcript has shown one landing in a form its `GMAIL_*`
+forbids match, those forbids are unproven. They would fail to notice
 a send, not prevent it. Run the earlier cases, inspect a real `calls` field,
 and only then run it. Do not repair the matcher mid-run. The runner skips this
 case unless `--allow-disabled` is explicitly supplied after matcher validation.

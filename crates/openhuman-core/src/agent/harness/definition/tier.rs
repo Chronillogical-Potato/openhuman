@@ -79,10 +79,9 @@ impl std::fmt::Display for AgentTier {
 /// pairs at boot (see
 /// [`crate::agent::registry::agents::validate_tier_hierarchy`]). The
 /// runtime spawn gate (`run_subagent`) reuses it as defense-in-depth, but
-/// deliberately exempts worker *parents* — at runtime a worker only reaches the
-/// spawn chokepoint via the documented collapsed `delegate_to_integrations_agent`
-/// path (→ `integrations_agent`, itself a worker), which the loader intentionally
-/// leaves untouched.
+/// deliberately exempts worker *parents* — a worker's `subagents` list holds
+/// no agent id (the loader rejects one), so the only runtime spawn a worker
+/// reaches is one the host dispatched for it, not one it chose.
 pub fn validate_tier_transition(parent: AgentTier, child: AgentTier) -> Result<(), String> {
     match (parent, child) {
         (AgentTier::Worker, _) => Err(format!(
