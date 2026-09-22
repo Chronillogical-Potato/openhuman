@@ -208,18 +208,16 @@ pub struct AgentDefinition {
     ///   agent's `delegate_name` override) and whose description is the
     ///   target agent's [`AgentDefinition::when_to_use`].
     ///
-    /// * [`SubagentEntry::Skills`] — a single collapsed
-    ///   [`SkillDelegationTool`] named `delegate_to_integrations_agent`
-    ///   that takes the toolkit slug as an argument and routes to the
-    ///   generic `integrations_agent` with the corresponding
-    ///   `skill_filter` pre-populated (#1335).
+    /// * [`SubagentEntry::Skills`] — no delegation tool. The connected
+    ///   Composio toolkits' actions join this agent's `Deferred` catalogue
+    ///   (reached through `tool_search`, called directly), and the entry
+    ///   admits no sub-agent id: see [`AgentDefinition::allowed_subagent_ids`].
     ///
     /// `subagents` is intentionally separate from [`AgentDefinition::tools`]
     /// so that reading a TOML makes the distinction obvious: `tools` is
     /// "what I execute directly", `subagents` is "what I can delegate to".
     ///
     /// [`ArchetypeDelegationTool`]: crate::agent::orchestration::tools::ArchetypeDelegationTool
-    /// [`SkillDelegationTool`]: crate::agent::orchestration::tools::SkillDelegationTool
     #[serde(default, deserialize_with = "deserialize_subagent_entries")]
     pub subagents: Vec<SubagentEntry>,
 
@@ -275,6 +273,24 @@ pub struct AgentDefinition {
 }
 
 impl AgentDefinition {
+    /// The agent ids this definition may spawn, derived from
+    /// [`AgentDefinition::subagents`]. Only [`SubagentEntry::AgentId`]
+    /// entries admit a target; the `{ skills = "*" }` wildcard used to map to
+    /// `integrations_agent` here, which is what let a chat agent spin up a
+    /// sub-agent for one integration action it can now search for and call
+    /// itself. The runner's spawn gate (`parent.allowed_subagent_ids`) reads
+    /// this, so a definition without a bare id for an agent cannot reach it
+    /// through `spawn_async_subagent` either.
+    pub fn allowed_subagent_ids(&self) -> Vec<String> {
+        self.subagents
+            .iter()
+            .filter_map(|entry| match entry {
+                SubagentEntry::AgentId(id) => Some(id.clone()),
+                SubagentEntry::Skills(_) => None,
+            })
+            .collect()
+    }
+
     /// Display name with fallback to id.
     pub fn display_name(&self) -> &str {
         self.display_name.as_deref().unwrap_or(&self.id)

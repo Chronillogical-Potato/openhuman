@@ -1538,23 +1538,7 @@ impl OpenHumanSessionHost {
                 run_queue: self.run_queue.clone(),
                 allowed_subagent_ids: self
                     .resolved_definition()
-                    .map(|definition| {
-                        definition
-                            .subagents
-                            .iter()
-                            .filter_map(|entry| match entry {
-                                crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                                    Some(id.clone())
-                                }
-                                crate::agent::harness::definition::SubagentEntry::Skills(
-                                    wildcard,
-                                ) if wildcard.matches_all() => {
-                                    Some("integrations_agent".to_string())
-                                }
-                                crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
-                            })
-                            .collect()
-                    })
+                    .map(|definition| definition.allowed_subagent_ids())
                     .unwrap_or_default(),
                 sandbox_mode: self
                     .resolved_definition()

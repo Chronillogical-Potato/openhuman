@@ -244,15 +244,5 @@ fn allowed_subagent_ids_for(agent_id: &str) -> Vec<String> {
     let Some(definition) = definition else {
         return Vec::new();
     };
-    definition
-        .subagents
-        .iter()
-        .filter_map(|entry| match entry {
-            SubagentEntry::AgentId(id) => Some(id.clone()),
-            SubagentEntry::Skills(wildcard) if wildcard.matches_all() => {
-                Some("integrations_agent".to_string())
-            }
-            SubagentEntry::Skills(_) => None,
-        })
-        .collect()
+    definition.allowed_subagent_ids()
 }
