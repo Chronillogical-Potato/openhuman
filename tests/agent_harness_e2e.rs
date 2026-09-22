@@ -4611,11 +4611,13 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
     // The model was told what it wrote back: the tool message in the next
     // upstream request is the same payload the socket carried.
     let requests = with_captured(|c| c.clone());
-    let echoed = tool_result_text(&requests, "todo").expect("todo result echoed to the model");
-    assert!(
-        echoed.contains("\"todos\""),
-        "the model sees the JSON list, not a bare acknowledgement: {echoed}"
-    );
+    let roles: Vec<String> = requests
+        .iter()
+        .filter_map(|r| r.pointer("/body/messages").and_then(Value::as_array))
+        .flatten()
+        .map(|m| format!("{}:{}", m.get("role").and_then(Value::as_str).unwrap_or("?"), m.get("tool_call_id").and_then(Value::as_str).unwrap_or("-")))
+        .collect();
+    panic!("ROLES {roles:?}");
 
     // What a reloaded pane sees: every write persisted in the turn state,
     // the newest with all five completed.
