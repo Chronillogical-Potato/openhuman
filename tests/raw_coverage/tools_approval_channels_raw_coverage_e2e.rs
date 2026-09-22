@@ -1637,8 +1637,12 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
         ],
     );
 
+    // No `delegate_to_integrations_agent`: the Skills wildcard expands to
+    // the connected actions as deferred tools, and these integrations carry
+    // no actions, so only the archetype delegate is synthesised. The
+    // disconnected and duplicate-slug entries contribute nothing either way.
     let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
-    assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
+    assert_eq!(names, vec!["research"]);
 
     let research = &tools[0];
     // The delegation tool's description is the target agent's `when_to_use`
@@ -1662,40 +1666,26 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     assert!(missing_prompt.is_error);
     assert!(missing_prompt.output().contains("prompt"));
 
-    let integrations = &tools[1];
-    let schema = integrations.parameters_schema();
-    assert_eq!(
-        schema.pointer("/properties/toolkit/enum"),
-        Some(&json!(["gmail_pro", "slack_bot"]))
-    );
-    let description = integrations.description();
-    assert!(description.contains("gmail_pro: Send and triage mail."));
-    assert!(description.contains("slack_bot: External integration via Slack-Bot"));
-    assert!(!description.contains("Slack.Bot"));
-    assert!(!description.contains("Disconnected"));
-
-    let missing_toolkit = integrations
-        .execute(json!({ "prompt": "send a message" }))
-        .await
-        .expect("missing toolkit returns tool error");
-    assert!(missing_toolkit.is_error);
-    assert!(missing_toolkit.output().contains("toolkit"));
-
-    let unknown_toolkit = integrations
-        .execute(json!({ "toolkit": "calendar", "prompt": "create an event" }))
-        .await
-        .expect("unknown toolkit returns tool error");
-    assert!(unknown_toolkit.is_error);
-    assert!(unknown_toolkit.output().contains("gmail_pro"));
-    assert!(unknown_toolkit.output().contains("slack_bot"));
-
-    let blank_prompt = integrations
-        .execute(json!({ "toolkit": "GMail-Pro", "prompt": "   " }))
-        .await
-        .expect("blank prompt returns tool error after slug normalization");
-    assert!(blank_prompt.is_error);
-    assert!(blank_prompt.output().contains("prompt"));
-
+    // With actions on a connected toolkit, each becomes a `Deferred` tool
+    // the orchestrator reaches through `tool_search`; an unconnected
+    // toolkit's actions stay out.
+    let mut gmail = coverage_connected_integration("GMail Pro", "Send and triage mail.", true);
+    gmail.tools = vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
+        name: "GMAIL_SEND_EMAIL".into(),
+        description: "Send an email.".into(),
+        parameters: None,
+    }];
+    let mut off = coverage_connected_integration("Disconnected", "Should be skipped.", false);
+    off.tools = vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
+        name: "OFF_ACTION".into(),
+        description: "Never advertised.".into(),
+        parameters: None,
+    }];
+    let tools = collect_orchestrator_tools(&orchestrator, &registry, &[gmail, off]);
+    let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(names, vec!["research", "GMAIL_SEND_EMAIL"]);
+    assert_eq!(tools[1].exposure(), tinytools::ToolExposure::Deferred);
+    assert_eq!(tools[1].description(), "Send an email.");
 }
 
 #[tokio::test]
