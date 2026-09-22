@@ -1,92 +1,53 @@
-//! [`SystemOneEvaluator`]: the `tinytools_jev::JevEvaluator` that carries a
-//! ranking decision over the wire to TypeSafe's System One endpoint through
-//! the TinyHumans backend proxy.
+//! [`TinyJevEvaluator`]: the `tinytools_jev::JevEvaluator` over
+//! `tinyjevclient`, reaching Jev through the TinyHumans System One proxy.
 //!
-//! `tinytools-jev` owns the *decision* (retrieve, shortlist, ask, decode) and
-//! hands the host one provider-neutral [`JevRequest`] per evaluation; this
-//! type owns the *transport*: the `tinyjevclient` HTTP client, the
-//! credential, the deadline and the retry policy. It translates the request
-//! into one System One evaluation — a `Choice` over the options and a `Noul`
-//! asking whether a tool is needed at all — and the answer back into a
-//! [`JevDecision`].
+//! `tinytools-jev` decides *what* to ask — the options, the intent, the
+//! family-stage wording — and this evaluator owns the wire: one `Choice`
+//! over the options plus a `needs_tool` `Noul`, the credential, the
+//! per-attempt timeout and retries the client applies, and a deadline of
+//! its own so a slow answer becomes a fallback rather than a stalled turn.
 
 use std::{collections::BTreeMap, time::Duration};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinyjevclient::{
-    Answer, Choice, Client, ClientConfig, Error as JevError, EvaluationFailure,
-    EvaluationRequest, Noul, NoulCriteria, Question,
+    Answer, Choice, Client, Error as JevError, EvaluationFailure, EvaluationRequest, Noul,
+    NoulCriteria, Question,
 };
 use tinytools::RankError;
 use tinytools_jev::{JevDecision, JevEvaluator, JevRequest};
 
-/// Question id of the option `Choice`.
+/// Question id of the tool `Choice`.
 const TOOL_QUESTION: &str = "tool";
 /// Question id of the needs-a-tool `Noul`.
 const NEEDS_TOOL_QUESTION: &str = "needs_tool";
-/// The default wording when the ranker does not set
-/// [`JevRequest::instructions`]: which *tool* accomplishes the request.
-const DEFAULT_INSTRUCTIONS: &str = "Which tool accomplishes the user's `request`? Judge by what \
-                                    each tool does, not by shared words. Pick `none` when no \
-                                    listed tool does it.";
+/// Default deadline for one evaluation, on top of the client's own
+/// per-attempt timeout and retries.
+const DEFAULT_DEADLINE: Duration = Duration::from_secs(3);
 
-/// A System One evaluator over one built `tinyjevclient` client.
-#[derive(Clone)]
-pub struct SystemOneEvaluator {
+/// Evaluates `tinytools_jev` requests against Jev through `tinyjevclient`.
+#[derive(Debug, Clone)]
+pub struct TinyJevEvaluator {
     client: Client,
-    /// Wall-clock cap on one evaluation, retries included. A tool search sits
-    /// inside a model's turn; a slow decision is worse than a BM25 fallback.
-    timeout: Duration,
+    deadline: Duration,
 }
 
-impl std::fmt::Debug for SystemOneEvaluator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SystemOneEvaluator")
-            .field("timeout", &self.timeout)
-            .finish_non_exhaustive()
-    }
-}
-
-impl SystemOneEvaluator {
-    /// The deadline every evaluation runs under unless
-    /// [`with_timeout`](Self::with_timeout) changes it.
-    pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
-
-    /// An evaluator over a client built from `client_config`.
-    ///
-    /// # Errors
-    ///
-    /// Returns the client's configuration error (empty key, bad base URL,
-    /// zero timeout) as [`RankError::InvalidInput`].
-    pub fn from_config(client_config: ClientConfig) -> Result<Self, RankError> {
-        let client = Client::new(client_config).map_err(|error| RankError::InvalidInput {
-            reason: error.to_string(),
-        })?;
-        Ok(Self {
+impl TinyJevEvaluator {
+    /// An evaluator over `client` with the default 3 s deadline.
+    pub fn new(client: Client) -> Self {
+        Self {
             client,
-            timeout: Self::DEFAULT_TIMEOUT,
-        })
+            deadline: DEFAULT_DEADLINE,
+        }
     }
 
-    /// Replace the per-evaluation deadline.
-    #[must_use]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
+    /// Sets the per-evaluation deadline.
+    pub fn with_deadline(mut self, deadline: Duration) -> Self {
+        self.deadline = deadline;
         self
     }
 
-    fn build_request(request: &JevRequest) -> Result<EvaluationRequest, RankError> {
-        let mut criteria: BTreeMap<String, Option<Value>> = BTreeMap::new();
-        for option in &request.options {
-            if criteria
-                .insert(option.key.clone(), Some(json!(option.description)))
-                .is_some()
-            {
-                return Err(RankError::InvalidInput {
-                    reason: format!("duplicate option key `{}`", option.key),
-                });
-            }
-        }
+    fn build(request: &JevRequest) -> EvaluationRequest {
         let mut state = json!({ "request": request.intent });
         if !request.recent_turns.is_empty() {
             if let Some(object) = state.as_object_mut() {
@@ -102,68 +63,87 @@ impl SystemOneEvaluator {
                 );
             }
         }
-        let instructions = request
-            .instructions
-            .as_deref()
-            .unwrap_or(DEFAULT_INSTRUCTIONS);
-        let questions = BTreeMap::from([
-            (
-                TOOL_QUESTION.to_owned(),
-                Question::Choice(Choice {
-                    instructions: json!(instructions),
-                    criteria,
-                }),
-            ),
-            (
-                NEEDS_TOOL_QUESTION.to_owned(),
-                Question::Noul(Noul {
-                    instructions: json!(
-                        "Does fulfilling the user's `request` require calling a tool \
-                         — an action or a lookup outside the assistant's own knowledge?"
-                    ),
-                    criteria: Some(NoulCriteria {
-                        r#true: json!(
-                            "The request asks for an action or for information that \
-                             must be fetched."
-                        ),
-                        r#false: json!("The request can be answered by replying, with no tool."),
-                    }),
-                }),
-            ),
-        ]);
-        Ok(EvaluationRequest {
+        let criteria: BTreeMap<String, Option<Value>> = request
+            .options
+            .iter()
+            .map(|option| (option.key.clone(), Some(json!(option.description))))
+            .collect();
+        let instructions = request.instructions.clone().unwrap_or_else(|| {
+            "Which tool accomplishes the user's `request`? Judge by what each tool does, \
+             not by shared words. Pick `none` when no listed tool does it."
+                .to_owned()
+        });
+        EvaluationRequest {
             state,
             model: request.model.clone(),
-            questions,
-        })
+            questions: BTreeMap::from([
+                (
+                    TOOL_QUESTION.to_owned(),
+                    Question::Choice(Choice {
+                        instructions: json!(instructions),
+                        criteria,
+                    }),
+                ),
+                (
+                    NEEDS_TOOL_QUESTION.to_owned(),
+                    Question::Noul(Noul {
+                        instructions: json!(
+                            "Does fulfilling the user's `request` require calling a tool \
+                             — an action or a lookup outside the assistant's own knowledge?"
+                        ),
+                        criteria: Some(NoulCriteria {
+                            r#true: json!(
+                                "The request asks for an action or for information that \
+                                 must be fetched."
+                            ),
+                            r#false: json!(
+                                "The request can be answered by replying, with no tool."
+                            ),
+                        }),
+                    }),
+                ),
+            ]),
+        }
+    }
+}
+
+fn map_failure(failure: EvaluationFailure) -> RankError {
+    match failure.error {
+        JevError::InvalidRequest { reason } | JevError::InvalidConfig { reason } => {
+            RankError::invalid_input(reason)
+        }
+        JevError::Timeout => RankError::Timeout,
+        // `Display` on every variant is credential-free by the client's
+        // contract; the transport source is dropped, not printed.
+        other => RankError::backend(format!("{other} after {} attempt(s)", failure.attempts)),
     }
 }
 
 #[async_trait::async_trait]
-impl JevEvaluator for SystemOneEvaluator {
+impl JevEvaluator for TinyJevEvaluator {
     async fn evaluate(&self, request: &JevRequest) -> Result<JevDecision, RankError> {
-        let wire = Self::build_request(request)?;
-        let evaluated = tokio::time::timeout(self.timeout, self.client.evaluate(&wire))
+        let wire = Self::build(request);
+        let result = tokio::time::timeout(self.deadline, self.client.evaluate(&wire))
             .await
-            .map_err(|_elapsed| RankError::Timeout)?;
-        let result = evaluated.map_err(map_failure)?;
+            .map_err(|_elapsed| RankError::Timeout)?
+            .map_err(map_failure)?;
         let Some(Answer::Choice(choice)) = result.response.answers.get(TOOL_QUESTION) else {
-            return Err(RankError::Backend {
-                reason: format!("response has no choice answer for `{TOOL_QUESTION}`"),
-            });
+            return Err(RankError::backend(
+                "response has no choice answer for `tool`",
+            ));
         };
         let needs_tool = match result.response.answers.get(NEEDS_TOOL_QUESTION) {
             Some(Answer::Noul(noul)) => Some(noul.noul),
             _ => None,
         };
         log::debug!(
-            "[tool-search] system one answered (options={} confidence={:.2} needs_tool={:?} attempts={} latency_ms={} request_id={:?})",
+            "[tool-search] jev evaluated {} option(s) (confidence={:.2} needs_tool={:?} latency_ms={} attempts={} input_tokens={:?})",
             request.options.len(),
             choice.confidence,
             needs_tool,
-            result.attempts,
             result.latency.as_millis(),
-            result.request_id,
+            result.attempts,
+            result.response.usage.input_tokens,
         );
         Ok(JevDecision {
             probabilities: choice.probabilities.clone(),
@@ -172,20 +152,6 @@ impl JevEvaluator for SystemOneEvaluator {
             input_tokens: result.response.usage.input_tokens,
             attempts: result.attempts,
         })
-    }
-}
-
-fn map_failure(failure: EvaluationFailure) -> RankError {
-    match failure.error {
-        JevError::InvalidRequest { reason } | JevError::InvalidConfig { reason } => {
-            RankError::InvalidInput { reason }
-        }
-        JevError::Timeout => RankError::Timeout,
-        other => RankError::Backend {
-            // `Display` on every variant is credential-free by the client's
-            // contract; the transport source is dropped, not printed.
-            reason: format!("{other} after {} attempt(s)", failure.attempts),
-        },
     }
 }
 
