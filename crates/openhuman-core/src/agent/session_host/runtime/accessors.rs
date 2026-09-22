@@ -129,6 +129,11 @@ impl OpenHumanSessionHost {
     }
 
     #[cfg(test)]
+    pub(crate) fn tool_policy_session_for_test(&self) -> &ToolPolicySession {
+        &self.tool_policy_session
+    }
+
+    #[cfg(test)]
     pub(crate) fn subagent_tool_ceiling_names_for_test(
         &self,
     ) -> &std::collections::HashSet<String> {
