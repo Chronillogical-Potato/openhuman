@@ -22,6 +22,9 @@ function entry(
   };
 }
 
+/** One turn's rows. The selectors take turns oldest-first. */
+const turn = (...entries: ToolTimelineEntry[]) => entries;
+
 const todoResult = (todos: Array<{ content: string; status?: string }>) => ({
   sessionId: 's1',
   todos,
@@ -33,7 +36,7 @@ const goalResult = (goal: Record<string, unknown> | null) => ({ goal, text: '' }
 describe('selectTodoList', () => {
   it('returns null when the agent never wrote a list', () => {
     expect(selectTodoList([])).toBeNull();
-    expect(selectTodoList([[entry('file_read', 'contents')])).toBeNull();
+    expect(selectTodoList([turn(entry('file_read', 'contents'))])).toBeNull();
   });
 
   it('reads the newest successful todo write, by issue order not array order', () => {
@@ -51,8 +54,9 @@ describe('selectTodoList', () => {
         { content: 'Build', status: 'in_progress' },
       ])
     );
-    // Delivered out of order: the later write landed first in the array.
-    const list = selectTodoList([second, first]);
+    // Delivered out of order within the turn: the later write landed first in
+    // the array, but its `seq` is higher.
+    const list = selectTodoList([turn(second, first)]);
     expect(list).toEqual({
       items: [
         { content: 'Plan', status: 'completed' },
@@ -64,30 +68,44 @@ describe('selectTodoList', () => {
     });
   });
 
+  it('prefers the newest turn: a later turn supersedes an earlier list', () => {
+    const earlier = turn(entry('todo', todoResult([{ content: 'Plan', status: 'in_progress' }])));
+    const later = turn(entry('todo', todoResult([{ content: 'Plan', status: 'completed' }])));
+    expect(selectTodoList([earlier, later])?.items[0].status).toBe('completed');
+  });
+
+  it('falls back to an earlier turn when the newest turn wrote no list', () => {
+    const wrote = turn(entry('todo', todoResult([{ content: 'Plan', status: 'in_progress' }])));
+    const quiet = turn(entry('file_read', 'contents'));
+    expect(selectTodoList([wrote, quiet])?.items[0].content).toBe('Plan');
+  });
+
   it('skips failed, running, and unparseable todo rows', () => {
     const good = entry('todo', todoResult([{ content: 'Only this', status: 'pending' }]));
     const failed = entry('todo', 'only one todo may be in_progress', { status: 'error' });
     const running = entry('todo', undefined, { status: 'running', result: undefined });
     const garbage = entry('todo', 'not json');
-    const list = selectTodoList([good, failed, running, garbage]);
+    const list = selectTodoList([turn(good, failed, running, garbage)]);
     expect(list?.items.map(i => i.content)).toEqual(['Only this']);
   });
 
   it('treats an empty write as a cleared list', () => {
     const wrote = entry('todo', todoResult([{ content: 'x', status: 'pending' }]));
     const cleared = entry('todo', todoResult([]));
-    expect(selectTodoList([wrote, cleared])).toBeNull();
+    expect(selectTodoList([turn(wrote, cleared)])).toBeNull();
   });
 
   it('defaults an unknown status to pending and drops blank content', () => {
     const list = selectTodoList([
-      entry(
-        'todo',
-        todoResult([
-          { content: '  spaced  ', status: 'blocked' },
-          { content: '   ' },
-          { content: 'done', status: 'completed' },
-        ])
+      turn(
+        entry(
+          'todo',
+          todoResult([
+            { content: '  spaced  ', status: 'blocked' },
+            { content: '   ' },
+            { content: 'done', status: 'completed' },
+          ])
+        )
       ),
     ]);
     expect(list).toEqual({
@@ -103,12 +121,14 @@ describe('selectTodoList', () => {
 
   it('reports done once every item is completed', () => {
     const list = selectTodoList([
-      entry(
-        'todo',
-        todoResult([
-          { content: 'a', status: 'completed' },
-          { content: 'b', status: 'completed' },
-        ])
+      turn(
+        entry(
+          'todo',
+          todoResult([
+            { content: 'a', status: 'completed' },
+            { content: 'b', status: 'completed' },
+          ])
+        )
       ),
     ]);
     expect(list?.done).toBe(true);
@@ -128,11 +148,11 @@ describe('selectThreadGoal', () => {
 
   it('returns null without a goal call', () => {
     expect(selectThreadGoal([])).toBeNull();
-    expect(selectThreadGoal([[entry('todo', todoResult([]))])).toBeNull();
+    expect(selectThreadGoal([turn(entry('todo', todoResult([])))])).toBeNull();
   });
 
   it('reads the goal a goal_set wrote', () => {
-    expect(selectThreadGoal([[entry('goal_set', goalResult(active))])).toEqual({
+    expect(selectThreadGoal([turn(entry('goal_set', goalResult(active)))])).toEqual({
       goalId: 'g1',
       objective: 'Ship the release',
       status: 'active',
@@ -141,15 +161,24 @@ describe('selectThreadGoal', () => {
     });
   });
 
+  // The reason the selectors scan every turn: a goal is set in the turn the
+  // work starts in and then goes untouched for turns on end.
+  it('keeps a goal set several turns ago', () => {
+    const set = turn(entry('goal_set', goalResult(active)));
+    const working = turn(entry('todo', todoResult([{ content: 'Plan', status: 'in_progress' }])));
+    const stillWorking = turn(entry('file_read', 'contents'));
+    expect(selectThreadGoal([set, working, stillWorking])?.goalId).toBe('g1');
+  });
+
   it('follows the newest call: goal_complete supersedes goal_set', () => {
-    const set = entry('goal_set', goalResult(active));
-    const done = entry('goal_complete', goalResult({ ...active, status: 'complete' }));
+    const set = turn(entry('goal_set', goalResult(active)));
+    const done = turn(entry('goal_complete', goalResult({ ...active, status: 'complete' })));
     expect(selectThreadGoal([set, done])?.status).toBe('complete');
   });
 
   it('clears the banner when goal_get reports no goal', () => {
-    const set = entry('goal_set', goalResult(active));
-    const absent = entry('goal_get', goalResult(null));
+    const set = turn(entry('goal_set', goalResult(active)));
+    const absent = turn(entry('goal_get', goalResult(null)));
     expect(selectThreadGoal([set, absent])).toBeNull();
   });
 
@@ -157,24 +186,26 @@ describe('selectThreadGoal', () => {
     const set = entry('goal_set', goalResult(active));
     const failed = entry('goal_set', 'Missing objective', { status: 'error' });
     const other = entry('goal_get', { text: 'legacy text-only shape' });
-    expect(selectThreadGoal([set, failed, other])?.goalId).toBe('g1');
+    expect(selectThreadGoal([turn(set, failed, other)])?.goalId).toBe('g1');
   });
 
   // `goal_set` / `goal_get` sit in the `goals` tool pack, so the model calls
   // them through `use_skill` and the row is named for the wrapper.
   it('reads a goal call made through the use_skill wrapper', () => {
-    expect(selectThreadGoal([[entry('use_skill', goalResult(active))])?.goalId).toBe('g1');
+    expect(selectThreadGoal([turn(entry('use_skill', goalResult(active)))])?.goalId).toBe('g1');
   });
 
   it('ignores an unrelated use_skill result', () => {
     const set = entry('goal_set', goalResult(active));
     const unrelated = entry('use_skill', { ok: true, goal: 'a bare string, not a goal' });
-    expect(selectThreadGoal([set, unrelated])?.goalId).toBe('g1');
+    expect(selectThreadGoal([turn(set, unrelated)])?.goalId).toBe('g1');
   });
 
   it('treats a missing budget as unbounded', () => {
     const goal = selectThreadGoal([
-      entry('goal_set', goalResult({ ...active, tokenBudget: undefined, tokensUsed: undefined })),
+      turn(
+        entry('goal_set', goalResult({ ...active, tokenBudget: undefined, tokensUsed: undefined }))
+      ),
     ]);
     expect(goal?.tokenBudget).toBeNull();
     expect(goal?.tokensUsed).toBe(0);
