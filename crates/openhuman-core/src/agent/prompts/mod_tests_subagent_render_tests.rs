@@ -610,10 +610,8 @@ fn render_subagent_system_prompt_skips_memory_md_when_disabled() {
 
 #[test]
 fn render_subagent_system_prompt_code_formats_list_signatures_and_protocol() {
-    let workspace = std::env::temp_dir().join(format!(
-        "openhuman_prompt_code_{}",
-        uuid::Uuid::new_v4()
-    ));
+    let workspace =
+        std::env::temp_dir().join(format!("openhuman_prompt_code_{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&workspace).unwrap();
 
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];

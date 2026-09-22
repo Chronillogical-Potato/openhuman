@@ -592,7 +592,10 @@ fn tools_section_code_formats_render_function_signatures() {
             "{format:?} expected {expected:?}, got:\n{rendered}"
         );
         assert!(!rendered.contains("Call as:"), "{format:?}:\n{rendered}");
-        assert!(!rendered.contains("\"properties\""), "{format:?}:\n{rendered}");
+        assert!(
+            !rendered.contains("\"properties\""),
+            "{format:?}:\n{rendered}"
+        );
         assert!(
             rendered.ends_with("## Tool Use Protocol\n\n(block)"),
             "{format:?} appends the dispatcher block, got:\n{rendered}"

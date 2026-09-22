@@ -1,6 +1,7 @@
 //! `OpenHumanSessionHost::from_config` factory methods and the internal
 //! `build_session_agent_inner` constructor.
 
+use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
@@ -17,8 +18,9 @@ use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool};
-use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
-use tinytools_agent::dialect::{CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+use tinytools_agent::dialect::{
+    CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+};
 
 impl OpenHumanSessionHost {
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
