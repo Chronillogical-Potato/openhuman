@@ -52,6 +52,7 @@ function parseArgs(argv) {
       process.env.LIFE_SCENARIO_INFERENCE_URL || "https://openrouter.ai/api/v1",
     apiKey: process.env.OPENROUTER_API_KEY || "",
     managed: false,
+    agentId: "life_scenarios",
     mockComposio: true,
     composioPort: 0,
     repeat: 1,
@@ -75,6 +76,7 @@ function parseArgs(argv) {
     else if (a === "--inference-url") o.inferenceUrl = next();
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
+    else if (a === "--agent") o.agentId = next();
     else if (a === "--no-mock-composio") o.mockComposio = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
@@ -203,10 +205,12 @@ async function snapshotTree(root) {
  * pins and autonomy settings that machine happens to have, and a benchmark
  * that silently inherits those measures the machine, not the harness.
  */
-async function prepareHome(runDir) {
+async function prepareHome(runDir, opts) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
-  await fsp.mkdir(oh, { recursive: true });
+  await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
+  await fsp.mkdir(path.join(oh, "users", "local"), { recursive: true });
+
   const config = [
     "schema_version = 13",
     'api_url = "https://api.tinyhumans.ai"',
@@ -215,11 +219,10 @@ async function prepareHome(runDir) {
     "chat_onboarding_completed = true",
     "",
     "[autonomy]",
-    // The sandbox IS the action_dir, and the whole point is to watch the agent
-    // read and write inside it unattended. `workspace_only = false` keeps the
-    // action_dir (not the internal workspace) as the permitted root; the Rust
-    // path checks, the forbidden-path list and the command classifier are all
-    // untouched.
+    // The sandbox IS the action_dir and the whole point is to watch the agent
+    // work in it unattended. The Rust path checks, the always-forbidden list
+    // and the command classifier are untouched; this only says the permitted
+    // root is the action dir rather than the internal workspace.
     'level = "autonomous"',
     "workspace_only = false",
     "",
@@ -227,8 +230,59 @@ async function prepareHome(runDir) {
     "analytics_enabled = false",
     "share_usage_data = false",
     "",
+    // `create_composio_client` dispatches on this field alone; the
+    // `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*` env pair is only consulted in
+    // `direct` mode (and only in a debug build). Without it the core ignores
+    // the mock and dials the hosted proxy.
+    "[composio]",
+    'mode = "direct"',
+    'api_key = "ck_life_scenarios_mock"',
+    'entity_id = "default"',
+    "",
   ].join("\n");
   await fsp.writeFile(path.join(oh, "config.toml"), config);
+  // The per-user config is read in preference to the root one once a user is
+  // active, so the composio block has to exist in both.
+  await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), config);
+
+  // The benchmark agent. A default orchestrator turn is built with every tool
+  // pack withheld, so `file_read`/`file_write`/`grep`/`glob`/`list` are not on
+  // the wire at all — see README.md. Naming them here is what a real embedder
+  // does with `AgentSpec`, and `--agent default` runs the unmodified
+  // orchestrator for comparison.
+  const definition = [
+    'id = "life_scenarios"',
+    'display_name = "Life Scenarios"',
+    'when_to_use = "Benchmark agent for the life-scenario suite."',
+    "max_iterations = 40",
+    'iteration_policy = "strict"',
+    "timeout_secs = 900",
+    "",
+    "[tools]",
+    'named = [',
+    ...[
+      "file_read",
+      "file_write",
+      "apply_patch",
+      "grep",
+      "glob",
+      "list",
+      "shell",
+      "web_search_tool",
+      "web_fetch",
+      "http_request",
+      "resolve_time",
+      "todo",
+      "use_skill",
+      "composio_execute",
+      "composio_list_connections",
+      "goal_complete",
+    ].map((t) => `  "${t}",`),
+    "]",
+    "",
+  ].join("\n");
+  await fsp.writeFile(path.join(oh, "agents", "life_scenarios.toml"), definition);
+
   return home;
 }
 
@@ -260,6 +314,7 @@ class Core {
       // resolves `<home>/.openhuman`, so config, keyring, auth profiles,
       // workspace and session db all land inside the run directory.
       HOME: home,
+      OPENHUMAN_HOME: path.join(home, ".openhuman"),
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
@@ -447,6 +502,7 @@ async function runScenario({ core, scenario, runDir, opts, attempt }) {
         message: scenario.prompt,
         thread_id: threadId,
         cwd: sandbox,
+        ...(opts.agentId && opts.agentId !== "default" ? { agent_id: opts.agentId } : {}),
         ...routeParams(opts),
       },
       opts.turnTimeoutMs,
@@ -481,6 +537,7 @@ async function runScenario({ core, scenario, runDir, opts, attempt }) {
     error,
     latency_ms: latencyMs,
     reply_chars: typeof reply === "string" ? reply.length : 0,
+    reply: typeof reply === "string" ? reply.slice(0, 4000) : "",
     files_written: written.map((f) => ({ rel: f.rel, bytes: f.bytes })),
     usage,
     grade,
@@ -595,7 +652,7 @@ async function main() {
       "no inference key: set OPENROUTER_API_KEY, pass --api-key, or use --managed",
     );
 
-  const home = await prepareHome(runDir);
+  const home = await prepareHome(runDir, opts);
 
   let composio = null;
   if (opts.mockComposio) {
