@@ -78,6 +78,15 @@ fn explicit_choices_are_honoured_including_opt_in_pformat() {
         resolve_dispatcher_kind("pformat", true, "chat"),
         DispatcherKind::PFormat
     );
+    // So are the code dialects.
+    assert_eq!(
+        resolve_dispatcher_kind("python", true, "chat"),
+        DispatcherKind::Code(tinytools_agent::dialect::CodeStyle::Python)
+    );
+    assert_eq!(
+        resolve_dispatcher_kind("typescript", false, "chat"),
+        DispatcherKind::Code(tinytools_agent::dialect::CodeStyle::TypeScript)
+    );
 }
 
 #[test]

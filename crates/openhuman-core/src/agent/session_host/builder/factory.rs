@@ -17,7 +17,9 @@ use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool};
-use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+use tinytools_agent::dialect::{
+    CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+};
 
 impl OpenHumanSessionHost {
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
@@ -837,6 +839,9 @@ impl OpenHumanSessionHost {
             DispatcherKind::Native => Box::new(NativeDialect),
             DispatcherKind::Xml => Box::new(XmlDialect),
             DispatcherKind::PFormat => Box::new(PFormatDialect::new(pformat_registry.clone())),
+            DispatcherKind::Code(style) => {
+                Box::new(CodeDialect::new(style, pformat_registry.clone()))
+            }
         };
 
         log::debug!(
@@ -1133,15 +1138,17 @@ enum DispatcherKind {
     Xml,
     /// Compact positional P-Format (`tool[a|b]`) — opt-in only.
     PFormat,
+    /// Code-style calls against Python or TypeScript signatures — opt-in only.
+    Code(CodeStyle),
 }
 
 /// Pick the tool-call dialect from the configured `agent.tool_dispatcher`
 /// choice, the provider's native-tool support, and the agent id.
 ///
 /// `"auto"` (and any unrecognized value) resolves to native when the provider
-/// supports it, otherwise JSON-in-tag — **never** P-Format, which is opt-in
-/// (`"pformat"`) because its compact positional syntax mis-parses on some
-/// models.
+/// supports it, otherwise JSON-in-tag — **never** P-Format or a code dialect,
+/// which are opt-in (`"pformat"`, `"python"`, `"typescript"`) because their
+/// compact syntaxes mis-parse on some models.
 ///
 /// `integrations_agent` is special-cased off native: provider-side grammar
 /// decoders (e.g. Fireworks) compile every JSON tool schema into a grammar
@@ -1158,6 +1165,8 @@ fn resolve_dispatcher_kind(
         "native" => DispatcherKind::Native,
         "xml" => DispatcherKind::Xml,
         "pformat" => DispatcherKind::PFormat,
+        "python" => DispatcherKind::Code(CodeStyle::Python),
+        "typescript" => DispatcherKind::Code(CodeStyle::TypeScript),
         _ if supports_native => DispatcherKind::Native,
         _ => DispatcherKind::Xml,
     };
