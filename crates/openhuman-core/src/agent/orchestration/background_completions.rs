@@ -376,6 +376,15 @@ pub(crate) fn build_batched_notice(completed: &[CompletedBackgroundAgent]) -> Op
          tagged with its sub-agent process id.]\n",
         if n == 1 { "" } else { "s" },
     ));
+    out.push_str(&render_results(completed));
+    Some(out)
+}
+
+/// Render each result with its outcome-specific tag. Shared by the normal
+/// delivery notice and by the undelivered fallback, so a result reads the same
+/// either way and a failure is never dressed up as a completion.
+fn render_results(completed: &[CompletedBackgroundAgent]) -> String {
+    let mut out = String::new();
     for c in completed {
         // Distinct tag per terminal outcome so a failure / awaiting-input result
         // is not presented as a normal completion (#4896).
@@ -402,6 +411,39 @@ pub(crate) fn build_batched_notice(completed: &[CompletedBackgroundAgent]) -> Op
             c.task_id, c.agent_id, summary,
         ));
     }
+    out
+}
+
+/// Build the notice written **straight into the thread** when the delivery turn
+/// has failed too many times to keep retrying.
+///
+/// Delivery normally runs a system turn so the agent can present a result in
+/// context. When that turn cannot succeed, the results still exist and the user
+/// is still owed them — so they are persisted verbatim instead, with an
+/// `[BACKGROUND_DELIVERY_FAILED]` envelope saying plainly that this is a failed
+/// delivery and why. The envelope follows the `[SUBAGENT_FAILED]` precedent
+/// (#4896): the user learns the delegated work finished and could not be
+/// delivered normally, rather than the result vanishing or arriving as an
+/// unexplained raw dump.
+pub(crate) fn build_undelivered_notice(
+    completed: &[CompletedBackgroundAgent],
+    attempts: u32,
+    error: &str,
+) -> Option<String> {
+    if completed.is_empty() {
+        return None;
+    }
+    let n = completed.len();
+    let mut out = format!(
+        "[BACKGROUND_DELIVERY_FAILED] {n} background sub-agent result{} finished, but \
+         could not be delivered into this conversation after {attempts} attempts. \
+         Last error: {error}\n\nThe {} shown verbatim below so nothing is lost — it has \
+         not been reviewed or summarised, because the turn that would have done so is \
+         the thing that failed.\n",
+        if n == 1 { "" } else { "s" },
+        if n == 1 { "result is" } else { "results are" },
+    );
+    out.push_str(&render_results(completed));
     Some(out)
 }
 
