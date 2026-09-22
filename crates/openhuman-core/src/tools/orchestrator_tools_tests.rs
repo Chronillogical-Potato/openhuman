@@ -113,7 +113,10 @@ fn collects_agentid_entries_and_collapses_skills_wildcard() {
 
     // Archetype tool descriptions come from `when_to_use`.
     let research_tool = tools.iter().find(|t| t.name() == "research").unwrap();
-    assert!(research_tool.description().contains("crawler"), "delegate description is the target's when_to_use");
+    assert!(
+        research_tool.description().contains("crawler"),
+        "delegate description is the target's when_to_use"
+    );
 
     // The collapsed delegation tool enumerates every connected toolkit
     // in its description so the orchestrator still discovers what's

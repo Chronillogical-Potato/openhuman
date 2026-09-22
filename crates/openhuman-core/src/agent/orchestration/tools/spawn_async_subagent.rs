@@ -119,7 +119,9 @@ pub fn scope_spawn_async_subagent_spec(spec: &mut tinytools::ToolSpec, allowed: 
         .parameters
         .pointer_mut("/properties/agent_id/description")
     {
-        *description = serde_json::Value::String("Sub-agent id (only these are dispatchable from here).".to_string());
+        *description = serde_json::Value::String(
+            "Sub-agent id (only these are dispatchable from here).".to_string(),
+        );
     }
 }
 

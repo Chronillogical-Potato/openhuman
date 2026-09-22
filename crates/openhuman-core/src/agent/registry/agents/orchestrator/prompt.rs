@@ -68,9 +68,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     // Model families that stop after announcing a plan get one short block of
     // execution discipline; the rest (Claude, Gemini) pay nothing. The text
     // and the gate are tinyagents', so every host renders the same words.
-    if let Some(guidance) =
-        tinyagents_harness::prompt::execution_discipline_for(ctx.model_name)
-    {
+    if let Some(guidance) = tinyagents_harness::prompt::execution_discipline_for(ctx.model_name) {
         tracing::debug!(
             model = ctx.model_name,
             "[orchestrator-prompt] rendering model-gated execution discipline"
@@ -96,7 +94,10 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         &mut out,
         &render_delegation_guide(ctx.connected_integrations, ctx.tool_call_format),
     );
-    push(&mut out, &render_connected_mcp_servers(mcp_route.as_deref()));
+    push(
+        &mut out,
+        &render_connected_mcp_servers(mcp_route.as_deref()),
+    );
 
     // NOTE: the grounding contract lives in `prompt.md` under the shared
     // heading, so `SystemPromptBuilder::build` skips the global copy.

@@ -280,10 +280,7 @@ pub const PACKS: &[ToolPack] = &[
     ToolPack {
         id: "scheduling",
         summary: "Reminders and scheduled jobs: create, list, update, remove, run, inspect.",
-        tools: &[
-            "schedule_task",
-            "cron",
-        ],
+        tools: &["schedule_task", "cron"],
         owners: &["scheduler_agent"],
     },
     ToolPack {

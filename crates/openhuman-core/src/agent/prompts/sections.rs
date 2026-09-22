@@ -78,8 +78,8 @@ impl PromptSection for DynamicPromptSection {
 
     fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
         let body = (self.builder)(ctx)?;
-        let has_marker = body.contains(PROMPT_TIER_CONTEXT_MARKER)
-            || body.contains(PROMPT_TIER_VOLATILE_MARKER);
+        let has_marker =
+            body.contains(PROMPT_TIER_CONTEXT_MARKER) || body.contains(PROMPT_TIER_VOLATILE_MARKER);
         // A builder that marks its tiers starts in `Stable`; one that does not
         // stays wholly in `Volatile` (see `tier`).
         let default_tier = if has_marker {

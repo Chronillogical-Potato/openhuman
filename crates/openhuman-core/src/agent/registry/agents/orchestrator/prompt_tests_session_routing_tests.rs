@@ -95,7 +95,9 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "orchestrator prompt must carry the workflow routing rule"
     );
     assert!(
-        ARCHETYPE.contains("skill `workflows` (`build_workflow` to author, `discover_workflows` to find)"),
+        ARCHETYPE.contains(
+            "skill `workflows` (`build_workflow` to author, `discover_workflows` to find)"
+        ),
         "the rule must name the delegate to call"
     );
 
