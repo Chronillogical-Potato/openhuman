@@ -96,6 +96,12 @@ pub(super) fn build_session_agent(
                 thread_id
             };
             agent.set_agent_definition_name(format!("{target_agent_id}_{short_thread}"));
+            // Bind the conversation's durable identity here, not after
+            // checkout: everything downstream — resume, transcript binding,
+            // the `_meta` this session writes — is addressed by it, and a host
+            // that forgot to bind it would fall back to resuming whichever
+            // transcript for this agent happened to be newest.
+            agent.set_thread_id(Some(thread_id));
             agent
         })
         .map_err(|e| e.to_string())
