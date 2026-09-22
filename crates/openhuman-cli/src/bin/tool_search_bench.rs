@@ -112,6 +112,10 @@ struct RankerReport {
     usd: f64,
     /// `expected family -> top-1 family -> count`, labelled rows only.
     confusion: BTreeMap<String, BTreeMap<String, usize>>,
+    /// `source -> (labelled, top1, top3, recall@k)` where source is `composio`
+    /// or `core`; the connector catalogue is the heavy one, so it is read on
+    /// its own.
+    by_source: BTreeMap<String, (usize, usize, usize, usize)>,
     misses: Vec<Miss>,
 }
 
@@ -287,6 +291,9 @@ fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_
     } else if let Ok(key) = std::env::var("TYPESAFE_API_KEY") {
         ClientConfig::new(key)
     } else {
+        // No key in the environment: rank exactly as the product does, with
+        // the process's signed-in TinyHumans session resolved per search.
+        eprintln!("jev: no key in the environment; using the signed-in TinyHumans session");
         return None;
     };
     let ranker = JevRanker::from_config(
@@ -361,9 +368,19 @@ async fn main() -> Result<()> {
     if want("jev") {
         match jev_ranker(args.retrieval_k) {
             Some((ranker, _)) => rankers.push(("jev".into(), ranker)),
-            None => eprintln!(
-                "jev: skipped (set OPENHUMAN_BACKEND_API_KEY or TYPESAFE_API_KEY; build with the `jev` feature)"
-            ),
+            None => {
+                #[cfg(feature = "jev")]
+                {
+                    let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
+                        tinytools_jev::JevRankerConfig::new()
+                            .with_retrieval_k(args.retrieval_k)
+                            .with_timeout(Duration::from_secs(15)),
+                    );
+                    rankers.push(("jev".into(), Arc::new(ranker)));
+                }
+                #[cfg(not(feature = "jev"))]
+                eprintln!("jev: skipped (build with the `jev` feature)");
+            }
         }
     }
 
@@ -399,11 +416,25 @@ async fn main() -> Result<()> {
                 continue;
             }
             report.labelled += 1;
-            if got.first().map(String::as_str) == Some(row.expected.as_str()) {
+            let source = if catalogue
+                .iter()
+                .any(|e| e.name == row.expected && e.family.as_deref().is_some_and(|f| FIXTURE_TOOLKITS.contains(&f)))
+            {
+                "composio"
+            } else {
+                "core"
+            };
+            let bucket = report.by_source.entry(source.to_string()).or_default();
+            bucket.0 += 1;
+            let hit1 = got.first().map(String::as_str) == Some(row.expected.as_str());
+            let hit3 = got.iter().any(|g| g == &row.expected);
+            if hit1 {
                 report.top1 += 1;
+                bucket.1 += 1;
             }
-            if got.iter().any(|g| g == &row.expected) {
+            if hit3 {
                 report.top3 += 1;
+                bucket.2 += 1;
             } else if args.misses {
                 report.misses.push(Miss {
                     intent: row.intent.clone(),
@@ -414,6 +445,7 @@ async fn main() -> Result<()> {
             let retrieved = Bm25Ranker::rank_sync(&candidates, &row.intent, args.retrieval_k);
             if retrieved.iter().any(|h| h.key == row.expected) {
                 report.recall_at_20 += 1;
+                report.by_source.get_mut(source).map(|b| b.3 += 1);
             }
             let expected_family = row
                 .family
@@ -485,6 +517,14 @@ async fn main() -> Result<()> {
             if r.input_tokens == 0 { "-".to_string() } else { r.input_tokens.to_string() },
             if r.usd == 0.0 { "-".to_string() } else { format!("${:.5}", r.usd) },
         );
+    }
+    println!("\n| ranker | source | labelled | top-1 | top-3 | recall@{} |", args.retrieval_k);
+    println!("|---|---|---|---|---|---|");
+    for r in &reports {
+        for (source, (n, t1, t3, rk)) in &r.by_source {
+            let pct = |x: usize| if *n == 0 { "n/a".to_string() } else { format!("{:.1}%", 100.0 * x as f64 / *n as f64) };
+            println!("| {} | {} | {} | {} | {} | {} |", r.ranker, source, n, pct(*t1), pct(*t3), pct(*rk));
+        }
     }
     for r in &reports {
         println!("\n### {} — top-1 family confusion (expected → got)", r.ranker);
