@@ -90,7 +90,7 @@ impl TinyHumansJevRanker {
         let ranker = JevRanker::from_config(client, self.config.clone())?;
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
-            openhuman_core::api::config::redact_url_for_log(&base_url),
+            openhuman_core::util::redact::redact_url_for_log(&base_url),
             if fingerprint_changed(cached.as_ref(), fingerprint) {
                 "credential or backend changed"
             } else {
