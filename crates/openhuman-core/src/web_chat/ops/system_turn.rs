@@ -62,7 +62,6 @@ pub async fn run_system_turn_on_thread(
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .map_err(|error| format!("{SESSION_CHECKOUT_FAILURE}{error}"))?;
