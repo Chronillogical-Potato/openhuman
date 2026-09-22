@@ -79,8 +79,11 @@ impl Tool for WebFetchTool {
     }
 
     fn description(&self) -> &str {
-        "GET a URL and return its body as text (truncated). Use this for \
-         reading docs / READMEs / spec pages. For richer HTTP semantics \
+        "GET a URL and read the page. HTML comes back as Markdown — headings, \
+         links and code blocks kept, scripts and styling dropped — so the \
+         links in the result are the ones to fetch next. Use this for docs, \
+         READMEs and spec pages. Pass `raw: true` for the untouched body \
+         (needed for JSON APIs you want verbatim). For richer HTTP semantics \
          (POST, custom headers, …) use `http_request`."
     }
 
@@ -91,8 +94,12 @@ impl Tool for WebFetchTool {
                 "url": { "type": "string", "description": "Absolute http(s) URL." },
                 "max_bytes": {
                     "type": "integer",
-                    "description": "Truncate body at this many bytes (default 1_000_000).",
+                    "description": "Cap the downloaded body at this many bytes (default 1_000_000).",
                     "minimum": 1
+                },
+                "raw": {
+                    "type": "boolean",
+                    "description": "Skip HTML-to-Markdown conversion and return the body as sent."
                 }
             },
             "required": ["url"]
@@ -129,6 +136,7 @@ impl Tool for WebFetchTool {
             .and_then(|v| v.as_u64())
             .map(|n| (n as usize).max(1))
             .unwrap_or(self.max_bytes);
+        let raw_requested = args.get("raw").and_then(|v| v.as_bool()).unwrap_or(false);
 
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
@@ -212,20 +220,54 @@ impl Tool for WebFetchTool {
             }
         }
 
-        let (snippet, truncated) = if body.len() > max_bytes {
+        let downloaded = body.len();
+        let (body, byte_capped) = if downloaded > max_bytes {
             let cut = crate::util::floor_char_boundary(&body, max_bytes);
-            (&body[..cut], true)
+            (body[..cut].to_string(), true)
         } else {
-            (body.as_str(), false)
+            (body, false)
         };
 
-        let suffix = if truncated {
-            format!("\n[truncated at {max_bytes} bytes]")
+        // Markdown by default. A page's prose is a small fraction of its
+        // bytes; handing the raw document to the model (and to the payload
+        // summarizer behind it) is how one research turn came to cost
+        // 1,083,069 input tokens. `tinyjuice` owns content transforms — see
+        // the dependency note in Cargo.toml for why this is a direct call and
+        // not a trip through the module bus.
+        let converted = !raw_requested && looks_like_html(&body);
+        let content = if converted {
+            tinyjuice::compressors::html::html_to_markdown(&body)
         } else {
-            String::new()
+            body
         };
-        let header = format!("status={} url={}\n", status.as_u16(), final_url);
-        Ok(ToolResult::success(format!("{header}{snippet}{suffix}")))
+
+        let extracted = content.len();
+        let (window, elided) = head_tail_window(&content, MAX_CONTENT_CHARS);
+
+        let mut header = format!("status={} url={final_url}", status.as_u16());
+        if converted {
+            header.push_str(" content=markdown");
+        }
+        if byte_capped {
+            header.push_str(&format!(" download_capped_at={max_bytes}B"));
+        }
+        if converted && extracted < downloaded {
+            header.push_str(&format!(" extracted={extracted}B_of_{downloaded}B"));
+        }
+        header.push('\n');
+
+        // Say how much is missing rather than letting the gap pass for the
+        // whole page. `web_fetch` has no offset parameter, so the honest
+        // instruction is to narrow the request.
+        let suffix = match elided {
+            0 => String::new(),
+            n => format!(
+                "\n\n[web_fetch: {n} of {extracted} chars omitted from the middle of this page. \
+                 The head and tail are shown. Fetch a more specific URL — an anchor, a sub-page, \
+                 or a raw/ or /api/ path — to read the part you need.]"
+            ),
+        };
+        Ok(ToolResult::success(format!("{header}{window}{suffix}")))
     }
 }
 
