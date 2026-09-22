@@ -4795,18 +4795,19 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         "the model-facing text: {set}"
     );
 
-    // Turn 2: goal_get reads the persisted goal back — same id, still active,
-    // and the first turn's usage has been charged against the budget.
+    // Turn 2: goal_get reads the persisted goal back — same id, same objective
+    // and budget, still active. (Token accounting is not asserted here: the
+    // scripted upstream returns no `usage`, so a turn charges nothing against
+    // the budget. `agent::goals::runtime`'s unit tests cover the accounting
+    // and the budget-limit transition directly.)
     send_web_chat(&stack.rpc_base, 801, "harness-goal", "thread-goal", "status?").await;
     let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let got = tool_result_payload(&results, "goal_get");
     assert_eq!(got["goal"]["goalId"], goal_id, "same goal across turns: {got}");
     assert_eq!(got["goal"]["status"], "active", "{got}");
-    assert!(
-        got["goal"]["tokensUsed"].as_u64().unwrap_or(0) > 0,
-        "turn 1's tokens were accounted against the goal: {got}"
-    );
+    assert_eq!(got["goal"]["objective"], "Ship the v2 release notes", "{got}");
+    assert_eq!(got["goal"]["tokenBudget"], 50000, "the budget persisted: {got}");
 
     // Turn 3: goal_complete.
     send_web_chat(&stack.rpc_base, 802, "harness-goal", "thread-goal", "done?").await;
