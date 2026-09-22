@@ -160,6 +160,18 @@ describe('selectThreadGoal', () => {
     expect(selectThreadGoal([set, failed, other])?.goalId).toBe('g1');
   });
 
+  // `goal_set` / `goal_get` sit in the `goals` tool pack, so the model calls
+  // them through `use_skill` and the row is named for the wrapper.
+  it('reads a goal call made through the use_skill wrapper', () => {
+    expect(selectThreadGoal([entry('use_skill', goalResult(active))])?.goalId).toBe('g1');
+  });
+
+  it('ignores an unrelated use_skill result', () => {
+    const set = entry('goal_set', goalResult(active));
+    const unrelated = entry('use_skill', { ok: true, goal: 'a bare string, not a goal' });
+    expect(selectThreadGoal([set, unrelated])?.goalId).toBe('g1');
+  });
+
   it('treats a missing budget as unbounded', () => {
     const goal = selectThreadGoal([
       entry('goal_set', goalResult({ ...active, tokenBudget: undefined, tokensUsed: undefined })),

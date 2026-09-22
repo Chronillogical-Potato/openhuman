@@ -43,7 +43,14 @@ export interface ThreadGoalView {
 }
 
 const TODO_TOOL = 'todo';
-const GOAL_TOOLS = new Set(['goal_set', 'goal_get', 'goal_complete']);
+/**
+ * `goal_complete` is a direct tool; `goal_set` / `goal_get` live in the
+ * `goals` tool pack, so the model reaches them through `use_skill` and the
+ * timeline row is named for the wrapper, not the goal tool. Matching the
+ * wrapper is safe because the payload check below is exact — a `use_skill`
+ * result only counts when it carries a `goal` key of the right shape.
+ */
+const GOAL_TOOLS = new Set(['goal_set', 'goal_get', 'goal_complete', 'use_skill']);
 const TODO_STATUSES: ReadonlySet<string> = new Set(['pending', 'in_progress', 'completed']);
 const GOAL_STATUSES: ReadonlySet<string> = new Set([
   'active',
