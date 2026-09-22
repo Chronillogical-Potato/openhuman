@@ -82,9 +82,11 @@ export default function ComposioConnectModal({
     scopeError,
     savingScope,
     connectInFlight,
+    cancelInFlight,
     initiallyConnected,
     initiallyExpired,
     handleConnect,
+    handleCancelConnect,
     handleToggleScope,
     handleDisconnect,
   } = useComposioConnectFlow({ toolkit, connections, onChanged });
@@ -206,8 +208,28 @@ export default function ComposioConnectModal({
               {t('composio.connect.reopenBrowser')}
             </Button>
           )}
+          {/* Escape hatch for a handoff that never comes back (the browser tab
+              was closed, the approval was declined, the provider errored out).
+              Without it the only exit was closing the modal, which left the
+              connection PENDING and the tile stuck on "Connecting". */}
+          <Button
+            variant="tertiary"
+            tone="danger"
+            size="md"
+            disabled={cancelInFlight}
+            onClick={() => void handleCancelConnect()}
+            className="w-full"
+            data-testid="composio-cancel-connect">
+            {t('composio.connect.cancelConnection')}
+          </Button>
           <p className="text-xs text-content-faint">{t('composio.connect.waitingHint')}</p>
         </>
+      )}
+
+      {phase === 'cancelling' && (
+        <p className="text-sm text-content-muted" data-testid="composio-cancelling">
+          {t('composio.connect.cancelling')}
+        </p>
       )}
 
       {phase === 'expired' && (
