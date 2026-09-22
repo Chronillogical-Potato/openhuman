@@ -1414,7 +1414,7 @@ impl OpenHumanSessionHost {
         Ok(outcome.output.unwrap_or_default())
     }
 
-    fn ensure_runtime_session(&mut self) -> Result<()> {
+    pub(in crate::agent::session_host) fn ensure_runtime_session(&mut self) -> Result<()> {
         if self.runtime_session.is_some() {
             return Ok(());
         }
