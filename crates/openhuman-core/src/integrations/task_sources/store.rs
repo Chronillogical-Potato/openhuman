@@ -293,7 +293,7 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 /// Whether `(source_id, external_id)` has been ingested before under any
 /// content hash. The pipeline uses it to tell an edited upstream task from a
 /// brand-new one in its logs.
-pub fn is_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
+pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
@@ -436,7 +436,7 @@ fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
 /// every open is the DDL batch itself (2 `CREATE TABLE` + 1 `CREATE INDEX`) plus
 /// the 2 `PRAGMA table_info(...)` migration scans — paid before every store op,
 /// and the periodic-poll fetch loop hits three of them per task (`is_ingested`,
-/// `is_ingested`, `mark_ingested`). Gating just that batch behind a per-path
+/// `was_ingested`, `mark_ingested`). Gating just that batch behind a per-path
 /// "already initialized" set keeps it to one execution per process per database
 /// file while every call still gets its own connection.
 ///

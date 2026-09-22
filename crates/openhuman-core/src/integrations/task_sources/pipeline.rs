@@ -162,8 +162,8 @@ async fn run_inner(
             continue;
         }
 
-        let edited = store::is_ingested(config, &source.id, &task.external_id)
-            .map_err(|e| format!("is_ingested failed: {e}"))?;
+        let edited = store::was_ingested(config, &source.id, &task.external_id)
+            .map_err(|e| format!("was_ingested failed: {e}"))?;
 
         tracing::debug!(
             source_id = %source.id,
