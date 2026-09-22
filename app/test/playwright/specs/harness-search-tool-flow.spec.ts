@@ -124,7 +124,7 @@ async function toolTimelineIncludes(page: Page, threadId: string, toolName: stri
         window as unknown as {
           __OPENHUMAN_STORE__?: {
             getState?: () => {
-              chatRuntime?: { toolTimelineByThread?: Record<string, Array<{ name?: string }> } };
+              chatRuntime?: { toolTimelineByThread?: Record<string, Array<{ name?: string }>> };
             };
           };
         }
