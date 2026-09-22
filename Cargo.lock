@@ -4238,6 +4238,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tinyhumans-sdk",
+ "tinytools 0.3.0",
+ "tinytools-jev",
  "tokio",
  "url",
  "urlencoding",
@@ -6845,6 +6847,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyjevclient"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=e53d5f088ff03fa38c53bac219dab7697b5016c9#e53d5f088ff03fa38c53bac219dab7697b5016c9"
+dependencies = [
+ "httpdate",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "tinyjuice-bus"
 version = "0.2.5"
 dependencies = [
@@ -7019,6 +7034,17 @@ dependencies = [
  "serde",
  "serde_json",
  "tinytools 0.3.0 (git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71)",
+]
+
+[[package]]
+name = "tinytools-jev"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "tinyjevclient",
+ "tinytools 0.3.0",
+ "tokio",
 ]
 
 [[package]]
