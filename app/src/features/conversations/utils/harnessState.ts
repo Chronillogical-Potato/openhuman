@@ -11,8 +11,14 @@
  * wrote by reading the newest successful call of each kind — the same
  * mechanism the transcript uses, with no second source of truth to drift.
  *
- * Both selectors are pure so the checklist and banner can be tested without
- * a store.
+ * Both selectors take the thread's turns oldest-first — the settled turns
+ * restored from `threads_turn_state_history` followed by the live one — and
+ * scan backwards, because the state the pane shows is whatever the agent
+ * wrote last. Scanning turns (rather than one flat array) is what makes a
+ * reloaded thread keep its goal: `goal_set` usually lands in the turn the
+ * work started in, several turns before the one the pane is rendering.
+ *
+ * Both are pure, so the checklist and banner can be tested without a store.
  */
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 
@@ -72,12 +78,18 @@ function parseResult(entry: ToolTimelineEntry): Record<string, unknown> | null {
 }
 
 /**
- * Newest-first walk of the timeline by issue order (`seq`), not array order:
- * a `tool_args_delta` for a later parallel call can land ahead of an earlier
- * one, and the last write is the one that counts.
+ * Newest-first walk of every turn's rows: turns in reverse order, and within
+ * a turn by issue order (`seq`) rather than array order — a
+ * `tool_args_delta` for a later parallel call can land ahead of an earlier
+ * one, and the last write is the one that counts. `seq` is per-turn, which is
+ * exactly why the turns are walked separately instead of being flattened.
  */
-function newestFirst(timeline: ToolTimelineEntry[]): ToolTimelineEntry[] {
-  return [...timeline].sort((a, b) => b.seq - a.seq);
+function newestFirst(turns: ToolTimelineEntry[][]): ToolTimelineEntry[] {
+  const out: ToolTimelineEntry[] = [];
+  for (let i = turns.length - 1; i >= 0; i -= 1) {
+    out.push(...[...turns[i]].sort((a, b) => b.seq - a.seq));
+  }
+  return out;
 }
 
 function parseTodoItems(raw: unknown): TodoItemView[] | null {
@@ -100,12 +112,12 @@ function parseTodoItems(raw: unknown): TodoItemView[] | null {
 
 /**
  * The list the agent last wrote in this thread, or `null` when it has not
- * written one (or cleared it). A sub-agent's own `todo` calls live inside its
+ * written one (or cleared it). `turns` is oldest-first. A sub-agent's own `todo` calls live inside its
  * parent row's `subagent.toolCalls`, never at the top level, so only the
  * thread's own agent reaches this.
  */
-export function selectTodoList(timeline: ToolTimelineEntry[]): TodoListView | null {
-  for (const entry of newestFirst(timeline)) {
+export function selectTodoList(turns: ToolTimelineEntry[][]): TodoListView | null {
+  for (const entry of newestFirst(turns)) {
     if (entry.name !== TODO_TOOL) continue;
     const payload = parseResult(entry);
     if (!payload) continue;
@@ -119,12 +131,13 @@ export function selectTodoList(timeline: ToolTimelineEntry[]): TodoListView | nu
 }
 
 /**
- * The thread goal as of the agent's last goal call: `goal_set` and
+ * The thread goal as of the agent's last goal call (`turns` oldest-first):
+ * `goal_set` and
  * `goal_complete` carry the goal they wrote, `goal_get` the one it read (or
  * `null` when the thread has none, which clears the banner).
  */
-export function selectThreadGoal(timeline: ToolTimelineEntry[]): ThreadGoalView | null {
-  for (const entry of newestFirst(timeline)) {
+export function selectThreadGoal(turns: ToolTimelineEntry[][]): ThreadGoalView | null {
+  for (const entry of newestFirst(turns)) {
     if (!GOAL_TOOLS.has(entry.name)) continue;
     const payload = parseResult(entry);
     if (!payload || !('goal' in payload)) continue;
