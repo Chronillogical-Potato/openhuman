@@ -314,7 +314,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "tasks",
-        summary: "Task sources, workflow bundles and artifacts: add, preview, fetch, update, remove, summarize.",
+        summary: "Task sources, workflows, artifacts: add, preview, fetch, update, remove.",
         tools: &["manage_tasks"],
         owners: &["task_manager_agent"],
     },
