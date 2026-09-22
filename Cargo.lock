@@ -6904,9 +6904,8 @@ dependencies = [
 name = "tinymcp"
 version = "0.3.2"
 dependencies = [
- "anyhow",
  "base64 0.23.1",
- "dirs 6.0.0",
+ "dirs 7.0.0",
  "futures-util",
  "parking_lot",
  "reqwest",
