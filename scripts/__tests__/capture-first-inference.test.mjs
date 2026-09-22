@@ -212,10 +212,9 @@ test('capture proxy forwards an inference call, dumps the body, and summarises t
   assert.equal(record.cached_tokens, 12288);
   assert.equal(record.error, null);
   assert.ok(record.ttfb_ms >= 0 && record.total_ms >= record.ttfb_ms, JSON.stringify(record));
-  assert.match(
-    proxy.output(),
-    /\[capture\] #000 200 model=z-ai\/glm-5\.3-flash msgs=2 tools=1 served_by=StreamLake ttfb=\d+\.\d\ds total=\d+\.\d\ds prompt=12344 cached=12288 cache_key=tap-25675927a3f2160d/
-  );
+  const summaryLine =
+    /\[capture\] #000 200 model=z-ai\/glm-5\.3-flash msgs=2 tools=1 served_by=StreamLake ttfb=\d+\.\d\ds total=\d+\.\d\ds prompt=12344 cached=12288 cache_key=tap-25675927a3f2160d/;
+  assert.match(await waitForOutput(proxy.output, summaryLine), summaryLine);
 });
 
 test('capture proxy records a non-2xx inference response body and names the error', async () => {
