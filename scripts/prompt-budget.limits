@@ -222,38 +222,38 @@
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
 
-morning_briefing:14965:67291
-trigger_triage:9207:0
-workflow_builder:79097:30400
-summarizer:9021:0
-tools_agent:8961:67291
-orchestrator:30213:30818
-code_executor:13294:14910
-crypto_agent:12986:12357
-task_manager_agent:7097:15834
-planner:10603:6559
-skill_creator:7304:12664
-flow_discovery:10780:9641
-profile_memory_agent:8237:12774
-settings_agent:7040:11065
-context_scout:11076:7349
-skill_executor:9594:7511
-scheduler_agent:9615:7047
-agent_memory:10422:6836
-skill_setup:7253:7604
-trigger_reactor:8877:7382
-mcp_agent:8920:4472
-flow_memory_agent:9687:3947
-tool_maker:6266:6087
-presentation_agent:6540:5678
-video_agent:6966:2519
-help:8462:2365
-image_agent:7010:2519
-goals_agent:7356:2604
-vision_agent:6878:2519
-archivist:6283:3450
-researcher:6855:2229
-critic:6215:2108
+morning_briefing:10654:61553
+trigger_triage:7422:0
+workflow_builder:76386:29644
+summarizer:7236:0
+tools_agent:5114:61553
+orchestrator:8766:22180
+code_executor:11340:14193
+crypto_agent:10877:11111
+task_manager_agent:4880:15518
+planner:7714:6471
+skill_creator:5349:12445
+flow_discovery:8408:8885
+profile_memory_agent:5400:11667
+settings_agent:4606:10309
+context_scout:8737:6095
+skill_executor:7674:6126
+scheduler_agent:7758:5801
+agent_memory:8116:6080
+skill_setup:5253:6350
+trigger_reactor:6446:6263
+mcp_agent:7032:3226
+flow_memory_agent:7411:3191
+tool_maker:4414:5200
+presentation_agent:4676:4922
+video_agent:5144:1763
+help:6627:1609
+image_agent:5188:1763
+goals_agent:5111:1848
+vision_agent:5056:1763
+archivist:4311:2343
+researcher:5485:1473
+critic:4405:1352
 
 # ── Per-tool schema ratchet ──────────────────────────────────────────────
 #
@@ -321,19 +321,19 @@ critic:6215:2108
 # failed before any number was compared. The prose above describes them as they
 # were on 2026-09-01. `cron` returned when the scheduler's collapsed surface was
 # wired into the durable registry.
-tool:spawn_subagent:3554
+tool:spawn_subagent:3542
 tool:propose_workflow:3170
 tool:memory_tree:3008
 tool:cron:3340
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
-tool:spawn_async_subagent:1965
+tool:spawn_async_subagent:1556
 tool:save_workflow:1957
-tool:spawn_parallel_agents:1851
-tool:todo:1831
+tool:spawn_parallel_agents:1839
+tool:todo:1098
 tool:search_tool_catalog:1695
-tool:use_skill:2096
+tool:use_skill:1715
 # One action-dispatched memory surface replaces the separately registered
 # memory operations while keeping read/write/forget routing explicit.
 tool:memory:3937
