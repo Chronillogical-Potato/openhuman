@@ -1538,7 +1538,7 @@ impl OpenHumanSessionHost {
                 run_queue: self.run_queue.clone(),
                 allowed_subagent_ids: self
                     .resolved_definition()
-                    .map(|definition| definition.allowed_subagent_ids())
+                    .map(|definition| definition.allowed_subagent_ids().into_iter().collect())
                     .unwrap_or_default(),
                 sandbox_mode: self
                     .resolved_definition()

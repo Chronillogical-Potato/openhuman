@@ -38,7 +38,7 @@ impl OpenHumanSessionHost {
         }
         let allowed_subagent_ids = self
             .resolved_definition()
-            .map(|definition| definition.allowed_subagent_ids())
+            .map(|definition| definition.allowed_subagent_ids().into_iter().collect())
             .unwrap_or_default();
 
         harness::ParentExecutionContext {
