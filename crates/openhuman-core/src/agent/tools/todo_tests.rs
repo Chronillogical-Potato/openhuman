@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::todos::ops::{TaskBoardCard, TaskCardStatus};
+use crate::agent::todos::ops::{TodoItem, TodoStatus};
 use serde_json::{json, Value};
 
 /// Serialize tests that share the process-global scratch store. Same lock
@@ -90,8 +90,10 @@ async fn bad_input_is_a_tool_error_not_a_harness_error() {
             "content",
         ),
         (
+            // The exact phrasing belongs to TinyAgents; assert only that the
+            // rejection names the field the model got wrong.
             json!({ "todos": [{ "content": "x", "status": "someday" }] }),
-            "status must be",
+            "status",
         ),
         (json!({ "todos": "not a list" }), "invalid `todos`"),
         (
@@ -112,6 +114,10 @@ async fn bad_input_is_a_tool_error_not_a_harness_error() {
     }
 }
 
+/// The schema is TinyAgents' (`todos::TodoTool`); this pins the parts the
+/// product depends on: one `todos` argument and no per-card `op`, and a
+/// `status` enum whose distinct states are exactly the Claude three — the
+/// other spellings it lists are aliases of those three, not extra states.
 #[test]
 fn schema_is_the_claude_shape() {
     let tool = TodoTool::new();
@@ -123,10 +129,25 @@ fn schema_is_the_claude_shape() {
         1,
         "no per-card ops: {props}"
     );
-    assert_eq!(
-        props["todos"]["items"]["properties"]["status"]["enum"],
-        json!(["pending", "in_progress", "completed"])
-    );
+    assert!(props.get("op").is_none(), "no op multiplexer: {props}");
+    let statuses: Vec<&str> = props["todos"]["items"]["properties"]["status"]["enum"]
+        .as_array()
+        .expect("status enum")
+        .iter()
+        .map(|value| value.as_str().expect("status spelling"))
+        .collect();
+    for required in ["pending", "in_progress", "completed"] {
+        assert!(
+            statuses.contains(&required),
+            "missing {required}: {statuses:?}"
+        );
+    }
+    for retired in ["blocked", "ready", "awaiting_approval", "rejected"] {
+        assert!(
+            !statuses.contains(&retired),
+            "board state {retired} is not a todo status: {statuses:?}"
+        );
+    }
     let desc = tool.description();
     assert!(desc.contains("3+ steps"), "missing when-to-use guidance");
     assert!(
@@ -203,21 +224,20 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
     crate::agent::todos::ops::clear(&a).await.unwrap();
     crate::agent::todos::ops::clear(&b).await.unwrap();
 
-    let mut card = TaskBoardCard::new("only in a");
-    card.status = TaskCardStatus::InProgress;
-    crate::agent::todos::ops::replace(&a, vec![card])
+    let item = TodoItem::with_status("only in a", TodoStatus::InProgress);
+    crate::agent::todos::ops::replace(&a, vec![item])
         .await
         .unwrap();
 
     let a_again = crate::agent::todos::ops::list(&a).await.unwrap();
     assert_eq!(
-        a_again.cards.len(),
+        a_again.items.len(),
         1,
         "a later turn of the same session reads it back"
     );
     assert!(crate::agent::todos::ops::list(&b)
         .await
         .unwrap()
-        .cards
+        .items
         .is_empty());
 }

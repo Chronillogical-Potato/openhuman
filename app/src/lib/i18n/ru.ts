@@ -3289,6 +3289,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Вывод',
   'conversations.composer.context.cost': 'Стоимость',
   'conversations.composer.command.clear': 'Очистить переписку',
+  'conversations.todos.title': 'Задачи',
+  'conversations.todos.progress': '{completed} из {total} выполнено',
+  'conversations.todos.allDone': 'Всё выполнено',
+  'conversations.todos.status.pending': 'Ожидает',
+  'conversations.todos.status.inProgress': 'В работе',
+  'conversations.todos.status.completed': 'Выполнено',
+  'conversations.goal.title': 'Цель',
+  'conversations.goal.status.active': 'Активна',
+  'conversations.goal.status.paused': 'Приостановлена',
+  'conversations.goal.status.budgetLimited': 'Бюджет исчерпан',
+  'conversations.goal.status.complete': 'Завершена',
+  'conversations.goal.tokens': '{used} токенов',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} токенов',
   'conversations.planReview.title': 'Проверить план',
   'conversations.planReview.subtitle':
     'Одобрите для запуска, отклоните для отмены или отправьте отзыв для доработки.',
@@ -3385,12 +3398,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Последняя сгенерированная архитектурная диаграмма OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Обновляется каждые {seconds} с',
   'intelligence.memoryText.entityTypePrefix': 'Тип сущности',
-  'intelligence.workTask.sourceTaskHeading': 'Исходная задача:',
-  'intelligence.workTask.repositoryLine': '- Репозиторий: {repo}',
-  'intelligence.workTask.externalIdLine': '- Внешний ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Ссылка: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Начните с краткого повторения конкретного плана реализации, затем выполните его. Поддерживайте видимость прогресса в этой ветке и обновляйте доску задач при изменении состояния работы.',
   'intelligence.agentWork.subtitle':
     'Каждый фоновый запуск агента, сгруппированный по состоянию жизненного цикла.',
   'intelligence.agentWork.loading': 'Загрузка работы агента…',
@@ -4868,9 +4875,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Каждые 2 часа',
   'settings.devWorkflow.schedule.every6hours': 'Каждые 6 часов',
   'settings.devWorkflow.schedule.onceDaily': 'Один раз в день (9 утра)',
-  'settings.developerMenu.tasks.title': 'Задачи',
-  'settings.developerMenu.tasks.desc':
-    'Просматривайте доски задач и управляйте ими: ваши собственные дела и доски, которые агенты создают в разговорах.',
   'settings.developerMenu.cronJobs.title': 'Задачи cron',
   'settings.developerMenu.cronJobs.desc':
     'Просмотр и настройка запланированных задач для runtime-навыков',
@@ -4974,9 +4978,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ограничить рабочее пространство',
   'settings.agentAccess.confine.desc':
     'Ограничьте агента каталогом рабочей области (плюс всеми предоставленными папками), независимо от выбранного режима доступа. Когда этот параметр отключен, он может получить доступ к любому месту, доступному вашему пользователю, за исключением всегда блокируемых учетных данных и системных каталогов.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
   'settings.agentAccess.autoApproveAll.label': 'Автоматически одобрять все действия',
   'settings.agentAccess.autoApproveAll.desc':
     'При включении агент будет выполнять все подходящие действия, не спрашивая вашего одобрения. Это включает запись файлов, команды оболочки, сетевые запросы и любые другие побочные эффекты. Жесткие блокировки безопасности (каталоги учетных данных и системные каталоги) продолжают действовать, а действия из ненадежных или неизвестных источников никогда не одобряются автоматически.',

@@ -3275,6 +3275,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Keluaran',
   'conversations.composer.context.cost': 'Biaya',
   'conversations.composer.command.clear': 'Bersihkan percakapan',
+  'conversations.todos.title': 'Tugas',
+  'conversations.todos.progress': '{completed} dari {total} selesai',
+  'conversations.todos.allDone': 'Semua selesai',
+  'conversations.todos.status.pending': 'Menunggu',
+  'conversations.todos.status.inProgress': 'Sedang berjalan',
+  'conversations.todos.status.completed': 'Selesai',
+  'conversations.goal.title': 'Tujuan',
+  'conversations.goal.status.active': 'Aktif',
+  'conversations.goal.status.paused': 'Dijeda',
+  'conversations.goal.status.budgetLimited': 'Anggaran tercapai',
+  'conversations.goal.status.complete': 'Selesai',
+  'conversations.goal.tokens': '{used} token',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} token',
   'conversations.planReview.title': 'Tinjau rencana',
   'conversations.planReview.subtitle':
     'Setujui untuk menjalankannya, tolak untuk membuangnya, atau kirim masukan untuk merevisinya.',
@@ -3371,12 +3384,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Diagram arsitektur OpenHuman terbaru yang dihasilkan',
   'intelligence.diagram.refreshesEvery': 'Diperbarui setiap {seconds}d',
   'intelligence.memoryText.entityTypePrefix': 'Tipe entitas',
-  'intelligence.workTask.sourceTaskHeading': 'Tugas sumber:',
-  'intelligence.workTask.repositoryLine': '- Repositori: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID eksternal: {externalId}',
-  'intelligence.workTask.urlLine': '- Tautan: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Mulailah dengan menyatakan kembali rencana implementasi konkret secara singkat, lalu jalankan. Jaga agar kemajuan tetap terlihat di utas ini dan perbarui papan tugas ketika status pekerjaan berubah.',
   'intelligence.agentWork.subtitle':
     'Setiap proses agen latar belakang, dikelompokkan menurut status siklus hidup.',
   'intelligence.agentWork.loading': 'Memuat kerja agen…',
@@ -4847,9 +4854,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Setiap 2 jam',
   'settings.devWorkflow.schedule.every6hours': 'Setiap 6 jam',
   'settings.devWorkflow.schedule.onceDaily': 'Setiap hari (jam 9 pagi)',
-  'settings.developerMenu.tasks.title': 'Tugas',
-  'settings.developerMenu.tasks.desc':
-    'Jelajahi dan kelola papan tugas: daftar tugas Anda sendiri serta papan yang dibuat agen di seluruh percakapan.',
   'settings.developerMenu.cronJobs.title': 'Pekerjaan Cron',
   'settings.developerMenu.cronJobs.desc': 'Lihat dan atur pekerjaan terjadwal untuk skill runtime',
   'settings.developerMenu.webhooks.title': 'Webhook',
@@ -4950,9 +4954,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine ke area kerja',
   'settings.agentAccess.confine.desc':
     'Batasi agen ke direktori area kerja (ditambah folder yang diberikan), modus akses mana yang dipilih. Ketika mati, dapat mencapai mana saja pengguna dapat - kecuali selalu-diblokir kredensial dan sistem direktori.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Perlu persetujuan rencana tugas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
   'settings.agentAccess.autoApproveAll.label': 'Setujui semua tindakan secara otomatis',
   'settings.agentAccess.autoApproveAll.desc':
     'Jika diaktifkan, agen akan menjalankan semua tindakan yang memenuhi syarat tanpa meminta persetujuan Anda terlebih dahulu. Ini termasuk penulisan file, perintah shell, permintaan jaringan, dan efek samping lainnya. Batasan keamanan ketat (direktori kredensial dan sistem) tetap berlaku, dan tindakan dari sumber yang tidak tepercaya atau tidak diketahui tidak pernah disetujui secara otomatis.',

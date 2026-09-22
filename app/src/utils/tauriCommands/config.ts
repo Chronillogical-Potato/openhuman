@@ -462,8 +462,6 @@ export interface AutonomySettings {
   max_actions_per_hour: number;
   /** "Always allow" allowlist — tool names the agent runs without a prompt. */
   auto_approve: string[];
-  /** Require approval before an agent executes a task-board plan. */
-  require_task_plan_approval?: boolean;
   /**
    * When true, the approval gate auto-approves ALL tool calls without
    * prompting — a blanket bypass, not just the `auto_approve` allowlist
@@ -485,7 +483,6 @@ export interface AutonomySettingsUpdate {
   max_actions_per_hour?: number;
   /** Replaces the "Always allow" allowlist wholesale. */
   auto_approve?: string[];
-  require_task_plan_approval?: boolean;
   /** Blanket "auto-approve everything" bypass. See `AutonomySettings`. */
   auto_approve_all?: boolean;
 }

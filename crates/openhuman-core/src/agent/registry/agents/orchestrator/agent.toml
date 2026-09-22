@@ -370,8 +370,8 @@ named = [
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);
     # `goal_get` reads it back (status + token budget); `goal_complete` closes it
-    # out only when evidence confirms success. Distinct from `todowrite` (this
-    # thread's task board) and the long-term `goals_*` list (cross-thread). The
+    # out only when evidence confirms success. Distinct from `todo` (this
+    # thread's step checklist) and the long-term `goals_*` list (cross-thread). The
     # harness injects the active goal into context each turn and can auto-continue
     # it when the thread goes idle, so keeping the objective current here is what
     # keeps that loop on-target.

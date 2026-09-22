@@ -2,10 +2,8 @@
 //!
 //! Todos are session state, the way Claude Code and Codex keep them: one list
 //! per agent session, alive for the life of the process, gone on restart. The
-//! transcript still records every list the model wrote. There used to be a
-//! durable per-thread "task board" here (a KV table keyed by conversation
-//! thread plus an `agent_task_boards` file-store migration at boot); nothing
-//! rendered it and it was removed with the board tools.
+//! transcript still records every list the model wrote, and the frontend
+//! renders the latest one from the turn's `todo` tool call.
 
 use std::sync::{Arc, OnceLock};
 
