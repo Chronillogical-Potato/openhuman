@@ -25,7 +25,9 @@ import {
   ChatThreadView,
   type ChatThreadViewHandle,
 } from '../../features/conversations/components/ChatThreadView';
+import { GoalBanner } from '../../features/conversations/components/GoalBanner';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
+import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
@@ -1734,6 +1736,19 @@ const Conversations = ({
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
   );
+  // Harness work state the agent keeps for this thread — its todo list and
+  // the thread goal — read off the newest `todo` / `goal_*` tool results in
+  // the same timeline (`utils/harnessState.ts`). Rendered above the composer
+  // next to the gate cards so a five-step task shows as a checklist ticking
+  // off while the agent works through it.
+  const todoList = useMemo(
+    () => selectTodoList(selectedThreadToolTimeline),
+    [selectedThreadToolTimeline]
+  );
+  const threadGoal = useMemo(
+    () => selectThreadGoal(selectedThreadToolTimeline),
+    [selectedThreadToolTimeline]
+  );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // `TranscriptOverlays` resolves the open delegation out of this same live
   // timeline and renders nothing when the id is absent, so an inline card must
@@ -1998,6 +2013,13 @@ const Conversations = ({
   // losing them; the two panels are mutually exclusive, so nothing doubles up.
   const agentGateCards = (
     <>
+      {/* Harness work state: the thread goal and the agent's todo list. Both
+          are read-only progress the agent wrote via its tools; they sit above
+          the gate cards so a parked decision is always the closest thing to
+          the composer. */}
+      {selectedThreadId && threadGoal && <GoalBanner goal={threadGoal} />}
+      {selectedThreadId && todoList && <TodoChecklist list={todoList} />}
+
       {/* Plan-mode review: the orchestrator parked the live turn on a
           thread-scoped plan (request_plan_review gate). Surface it for the
           user to Approve / Reject / send feedback on before anything executes;
