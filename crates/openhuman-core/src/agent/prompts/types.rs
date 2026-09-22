@@ -300,6 +300,23 @@ pub enum ToolCallFormat {
 }
 
 impl ToolCallFormat {
+    /// The harness policy that speaks this format.
+    ///
+    /// `Native` maps to `Auto` rather than forcing native: the session only
+    /// picks it when the provider profile supports native tools, and `Auto`
+    /// resolves to the same thing while still letting the harness fall back
+    /// for a model that turns out not to.
+    pub(crate) fn harness_dispatcher(self) -> tinyagents_harness::config::ToolDispatcher {
+        use tinyagents_harness::config::ToolDispatcher;
+        match self {
+            ToolCallFormat::PFormat => ToolDispatcher::Pformat,
+            ToolCallFormat::Json => ToolDispatcher::Xml,
+            ToolCallFormat::Native => ToolDispatcher::Auto,
+            ToolCallFormat::Python => ToolDispatcher::Python,
+            ToolCallFormat::TypeScript => ToolDispatcher::Typescript,
+        }
+    }
+
     /// The code style behind a code-call format, `None` for the others.
     pub(crate) fn code_style(self) -> Option<tinytools_agent::dialect::CodeStyle> {
         match self {
