@@ -226,14 +226,24 @@ endpoint (https://openrouter.ai/api/v1) but no matching cloud_providers entry
 was found for role 'chat'.
 ```
 
-`provider_for_role` resolves through `cloud_providers`, not `inference_url`.
-The caller must *also* pass a `cloud_providers` entry whose endpoint matches
-and pin each agent-turn role to `<slug>:<model>` — which `run.mjs` now does.
+`provider_for_role` resolves through `cloud_providers`, never through
+`inference_url`. The caller had to *also* hand-build a `cloud_providers` entry
+whose endpoint matched and pin each agent-turn role to `<slug>:<model>` — a
+failure in a different subsystem, one call later, for a write the API accepted,
+and none of it discoverable from the error.
 
-Either the RPC should synthesise the provider entry from `inference_url` +
-`api_key` (it already knows how — `config/schema/ephemeral_route.rs::apply`
-does exactly this for the per-call route), or it should reject the incomplete
-write instead of accepting it and failing later.
+**Fixed** by `complete_byok_route` in
+`crates/openhuman-core/src/config/ops/model.rs`: when `inference_url` and
+`api_key` both arrive non-blank and no entry matches the endpoint, register one
+and pin the four roles an agent turn runs on — the same completion
+`config/schema/ephemeral_route.rs::apply` already does for a single call. It is
+deliberately narrow: both halves required, an existing entry for that endpoint
+reused rather than duplicated, a blank `default_model` declined (the grammar is
+`<slug>:<model>`), and any role the same patch pinned — or that already points
+somewhere deliberate like `ollama:…` — left alone.
+
+Covered by `config/ops/model_byok_tests.rs` (9 tests), and end-to-end by
+`run.mjs`, which now sends only the three documented fields and routes.
 
 ---
 
