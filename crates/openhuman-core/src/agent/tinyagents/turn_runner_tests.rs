@@ -161,3 +161,38 @@ async fn concurrent_hosted_roots_keep_models_progress_workspace_and_origin_isola
         "the right invocation retained its own progress sink"
     );
 }
+
+#[tokio::test]
+async fn a_streamed_delta_reaches_the_progress_channel_exactly_once() {
+    let (progress, mut events) = tokio::sync::mpsc::channel(64);
+    let outcome = run_root(
+        hosted_base(),
+        root_context("single", "/tmp/single", progress),
+        "one delta",
+    )
+    .await;
+    assert_eq!(outcome.text, "one delta");
+
+    // `OpenhumanEventBridge` projects the crate's `ModelDelta` events onto the
+    // channel; the host `ProgressSink` must not project the same tokens a
+    // second time, or the web bridge interleaves two copies of every delta
+    // ("TheThe resolver couldn't parse that exact phrase, so let resolver…").
+    let mut streamed = Vec::new();
+    let mut started = 0;
+    let mut completed = 0;
+    while let Ok(event) = events.try_recv() {
+        match event {
+            crate::agent::progress::AgentProgress::TextDelta { delta, .. } => streamed.push(delta),
+            crate::agent::progress::AgentProgress::TurnStarted => started += 1,
+            crate::agent::progress::AgentProgress::TurnCompleted { .. } => completed += 1,
+            _ => {}
+        }
+    }
+    assert_eq!(
+        streamed,
+        vec!["one delta".to_string()],
+        "every model delta is forwarded once, by one producer"
+    );
+    assert!(started <= 1, "TurnStarted was emitted {started} times");
+    assert!(completed <= 1, "TurnCompleted was emitted {completed} times");
+}
