@@ -136,6 +136,25 @@ fn parse_input_value_rejects_invalid_bool() {
 }
 
 #[test]
+fn parse_input_value_enforces_bounded_u64_range() {
+    let ty = TypeSchema::BoundedU64 { min: 1, max: 10 };
+
+    assert_eq!(parse_input_value(&ty, "10").unwrap(), serde_json::json!(10));
+
+    let err = parse_input_value(&ty, "11").expect_err("above max should fail");
+    assert_eq!(err, "expected unsigned integer in 1..=10, got '11'");
+
+    let err = parse_input_value(&ty, "0").expect_err("below min should fail");
+    assert_eq!(err, "expected unsigned integer in 1..=10, got '0'");
+
+    let err = parse_input_value(&ty, "-3").expect_err("negative should fail");
+    assert!(
+        err.starts_with("expected unsigned integer, got '-3'"),
+        "got: {err}"
+    );
+}
+
+#[test]
 fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
     let _guard = env_lock();
     let tmp = tempdir().expect("tempdir");

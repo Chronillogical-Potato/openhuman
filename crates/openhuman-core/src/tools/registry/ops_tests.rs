@@ -304,6 +304,31 @@ fn controller_json_schema_marks_required_and_optional_fields() {
     );
 }
 
+#[test]
+fn controller_json_schema_carries_bounded_integer_range() {
+    // A model reads the declared range as a promise, so it must see the bound
+    // the dispatch gate enforces (#6137).
+    let schema = schema_fields_to_json_schema(&[FieldSchema {
+        name: "order",
+        ty: TypeSchema::BoundedU64 {
+            min: 1,
+            max: u32::MAX as u64,
+        },
+        comment: "Sort position.",
+        required: true,
+    }]);
+
+    assert_eq!(
+        schema["properties"]["order"],
+        json!({
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4_294_967_295u64,
+            "description": "Sort position.",
+        })
+    );
+}
+
 fn capability_provider(
     id: &str,
     trust_state: CapabilityProviderTrustState,
