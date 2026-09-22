@@ -306,6 +306,12 @@ fn compress_hint_from_params(params: &Map<String, Value>) -> Result<ContentHint,
         extension: str_param(params, "extension"),
         query: str_param(params, "query"),
         explicit,
+        // `Exact` is the contract default and the behavior this endpoint has
+        // always had: a caller compacting arbitrary content has not asked for
+        // source to be reduced to a signature stub. Spelled out rather than
+        // `..Default::default()` so the next field added to the wire contract
+        // fails the build here instead of being absorbed silently.
+        read_intent: tinyjuice_bus::types::ReadIntent::Exact,
     })
 }
 
