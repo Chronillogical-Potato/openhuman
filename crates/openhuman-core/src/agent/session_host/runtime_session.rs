@@ -1369,43 +1369,6 @@ impl OpenHumanSessionHost {
             .map_err(|error| anyhow::anyhow!(error.to_string()))
     }
 
-    /// Seed a cold runtime session from the lossless transcript selected for a
-    /// conversation thread. The original raw rows travel with the seed so the
-    /// next runtime append can reconcile rather than reserialize them.
-    pub fn seed_resume_from_thread_transcript(&mut self, thread_id: &str) -> bool {
-        self.seed_resume_from_thread_transcript_scoped(thread_id, None)
-    }
-
-    pub fn seed_resume_from_thread_transcript_scoped(
-        &mut self,
-        thread_id: &str,
-        agent_id: Option<&str>,
-    ) -> bool {
-        if self.runtime_session.is_some() {
-            return false;
-        }
-        let Some(handle) = self
-            .session_locator()
-            .root_for_thread_scoped(thread_id, agent_id)
-        else {
-            return false;
-        };
-        let Ok(Some(transcript)) = handle.read_session() else {
-            return false;
-        };
-        let Ok(history) = OpenHumanTranscriptCodec.decode_history(&transcript) else {
-            return false;
-        };
-        if history.is_empty() || self.ensure_runtime_session().is_err() {
-            return false;
-        }
-        self.runtime_session
-            .as_mut()
-            .expect("runtime session initialized")
-            .seed_history(history, transcript.messages)
-            .is_ok()
-    }
-
     /// Dispatch one public OpenHuman turn through the neutral runtime.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
         self.ensure_runtime_session()?;
