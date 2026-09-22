@@ -4950,9 +4950,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Alle 2 Stunden',
   'settings.devWorkflow.schedule.every6hours': 'Alle 6 Stunden',
   'settings.devWorkflow.schedule.onceDaily': 'Einmal täglich (09:00 Uhr)',
-  'settings.developerMenu.tasks.title': 'Aufgaben',
-  'settings.developerMenu.tasks.desc':
-    'Aufgaben-Boards durchsuchen und verwalten: deine eigenen To-dos sowie die Boards, die Agenten über Unterhaltungen hinweg erstellen.',
   'settings.developerMenu.cronJobs.title': 'Cron-Jobs',
   'settings.developerMenu.cronJobs.desc':
     'Zeige geplante Jobs für Laufzeitfähigkeiten an und konfiguriere sie',
@@ -5058,10 +5055,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Auf Arbeitsbereich beschränken',
   'settings.agentAccess.confine.desc':
     'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn die Option ausgeschaltet ist, kann der Agent jeden Ort erreichen, auf den Ihr Benutzer zugreifen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
-  'settings.agentAccess.requireTaskPlanApproval.label':
-    'Erfordern Sie die Genehmigung des Aufgabenplans',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
   'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
   'settings.agentAccess.autoApproveAll.desc':
     'Wenn aktiviert, genehmigt der Agent automatisch alle zulässigen Aktionen, ohne vorher deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und andere Aktionen mit externen Auswirkungen. Feste Sicherheitssperren (Anmeldeinformationen und Systemverzeichnisse) gelten weiterhin, und Aktionen aus nicht vertrauenswürdigen oder unbekannten Quellen werden nie automatisch genehmigt.',

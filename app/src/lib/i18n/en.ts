@@ -5539,9 +5539,6 @@ const en: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Every 2 hours',
   'settings.devWorkflow.schedule.every6hours': 'Every 6 hours',
   'settings.devWorkflow.schedule.onceDaily': 'Once daily (9 AM)',
-  'settings.developerMenu.tasks.title': 'Tasks',
-  'settings.developerMenu.tasks.desc':
-    'Browse and manage task boards: your own to-dos plus the boards agents build across conversations.',
   'settings.developerMenu.cronJobs.title': 'Cron Jobs',
   'settings.developerMenu.cronJobs.desc': 'View and configure scheduled jobs for runtime skills',
   'settings.developerMenu.webhooks.title': 'Webhooks',
@@ -5651,9 +5648,6 @@ const en: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine to workspace',
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can, except the always-blocked credential and system directories.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pause before an assigned agent executes an agent-authored task brief.',
   'settings.agentAccess.autoApproveAll.label': 'Auto-approve all actions',
   'settings.agentAccess.autoApproveAll.desc':
     'When enabled, the agent executes all eligible actions without asking for your approval first. This includes file writes, shell commands, network requests, and any other side effects. Credential and system directories stay blocked, and actions from untrusted or unlabelled call origins are still denied.',

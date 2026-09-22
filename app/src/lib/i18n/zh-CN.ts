@@ -4545,9 +4545,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': '每 2 小时',
   'settings.devWorkflow.schedule.every6hours': '每 6 小时',
   'settings.devWorkflow.schedule.onceDaily': '每天一次（上午 9 点）',
-  'settings.developerMenu.tasks.title': '任务',
-  'settings.developerMenu.tasks.desc':
-    '浏览和管理任务看板：你的待办事项以及智能体在对话中创建的看板。',
   'settings.developerMenu.cronJobs.title': '定时任务',
   'settings.developerMenu.cronJobs.desc': '查看并配置运行时技能的计划任务',
   'settings.developerMenu.webhooks.title': 'Webhook',
@@ -4639,9 +4636,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': '限制在工作区',
   'settings.agentAccess.confine.desc':
     '无论选择哪种访问模式，都将智能体限制在工作区目录（以及已授权文件夹）内。关闭后，它可访问你的用户可访问的任何位置：始终阻止的凭据和系统目录除外。',
-  'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    '在指定智能体执行由智能体编写的任务简报前暂停。',
   'settings.agentAccess.autoApproveAll.label': '自动批准所有操作',
   'settings.agentAccess.autoApproveAll.desc':
     '启用后，智能体将自动执行所有符合条件的操作，无需事先征得你的批准。这包括文件写入、Shell 命令、网络请求以及任何其他副作用。严格的安全阻止措施（凭据目录和系统目录）仍然适用，来自不受信任或未知来源的操作永远不会被自动批准。',

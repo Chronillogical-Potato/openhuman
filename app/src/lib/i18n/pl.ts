@@ -4891,9 +4891,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Co 2 godziny',
   'settings.devWorkflow.schedule.every6hours': 'Co 6 godzin',
   'settings.devWorkflow.schedule.onceDaily': 'Raz dziennie (9:00)',
-  'settings.developerMenu.tasks.title': 'Zadania',
-  'settings.developerMenu.tasks.desc':
-    'Przeglądaj tablice zadań i zarządzaj nimi: Twoje własne zadania oraz tablice tworzone przez agentów w rozmowach.',
   'settings.developerMenu.cronJobs.title': 'Zadania cron',
   'settings.developerMenu.cronJobs.desc':
     'Przeglądaj i konfiguruj zaplanowane zadania dla umiejętności runtime',
@@ -4998,9 +4995,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ogranicz do przestrzeni roboczej',
   'settings.agentAccess.confine.desc':
     'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Po wyłączeniu tej opcji agent może sięgać wszędzie tam, gdzie ma dostęp Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Wymagaj zatwierdzenia planu zadania',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
   'settings.agentAccess.autoApproveAll.label': 'Automatycznie zatwierdzaj wszystkie działania',
   'settings.agentAccess.autoApproveAll.desc':
     'Po włączeniu agent będzie wykonywać wszystkie działania bez wcześniejszego proszenia o Twoją zgodę. Obejmuje to zapis plików, polecenia powłoki, żądania sieciowe i wszelkie inne efekty uboczne. Twarde blokady bezpieczeństwa (katalogi poświadczeń, wewnętrzne ścieżki przestrzeni roboczej) nadal obowiązują.',

@@ -4818,9 +4818,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'প্রতি ২ ঘন্টা',
   'settings.devWorkflow.schedule.every6hours': 'প্রতি ৬ ঘন্টা',
   'settings.devWorkflow.schedule.onceDaily': 'প্রতিদিন (৯.',
-  'settings.developerMenu.tasks.title': 'কাজ',
-  'settings.developerMenu.tasks.desc':
-    'টাস্ক বোর্ড ব্রাউজ ও পরিচালনা করুন: আপনার নিজের কাজ এবং কথোপকথন জুড়ে এজেন্টদের তৈরি করা বোর্ড।',
   'settings.developerMenu.cronJobs.title': 'Cron জব',
   'settings.developerMenu.cronJobs.desc':
     'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
@@ -4923,9 +4920,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'কর্মক্ষেত্র সক্রিয় করা হবে',
   'settings.agentAccess.confine.desc':
     'কর্মক্ষেত্রের মধ্যে উপস্থিত ফোল্ডারগুলির উপর নির্ভর করে (যেমন কোনো ফোল্ডার), যে কোনো ফোল্ডার নির্বাচন করা হবে। বন্ধ করা হলে, এটি আপনার ব্যবহারকারী যে কোন স্থানে পৌঁছাতে পারে - তবে একমাত্র নির্ধারিত পরিচয় এবং সিস্টেম ডিরেক্টরি ছাড়া।',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
   'settings.agentAccess.autoApproveAll.label': 'সব কাজ স্বয়ংক্রিয়ভাবে অনুমোদন করুন',
   'settings.agentAccess.autoApproveAll.desc':
     'সক্রিয় করা হলে, এজেন্ট আপনার অনুমতি না নিয়েই সব কাজ সম্পাদন করবে। এর মধ্যে রয়েছে ফাইল লেখা, শেল কমান্ড, নেটওয়ার্ক অনুরোধ এবং অন্যান্য যেকোনো পার্শ্বপ্রতিক্রিয়া। কঠোর নিরাপত্তা বাধা (ক্রেডেনশিয়াল ডিরেক্টরি, ওয়ার্কস্পেসের অভ্যন্তরীণ পাথ) তবুও কার্যকর থাকবে।',

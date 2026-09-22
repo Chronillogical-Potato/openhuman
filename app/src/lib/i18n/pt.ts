@@ -4887,9 +4887,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'A cada 2 horas',
   'settings.devWorkflow.schedule.every6hours': 'A cada 6 horas',
   'settings.devWorkflow.schedule.onceDaily': 'Uma vez ao dia (9h)',
-  'settings.developerMenu.tasks.title': 'Tarefas',
-  'settings.developerMenu.tasks.desc':
-    'Navegue e gerencie os quadros de tarefas: suas próprias pendências e os quadros que os agentes criam nas conversas.',
   'settings.developerMenu.cronJobs.title': 'Tarefas cron',
   'settings.developerMenu.cronJobs.desc':
     'Veja e configure tarefas agendadas para habilidades em tempo de execução',
@@ -4994,9 +4991,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confinar ao espaço de trabalho',
   'settings.agentAccess.confine.desc':
     'Restrinja o agente ao diretório de trabalho (mais quaisquer pastas concedidas), qualquer que seja o modo de acesso selecionado. Quando desligado, ele pode acessar qualquer lugar que seu usuário possa, exceto os diretórios de credenciais e do sistema que sempre são bloqueados.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
   'settings.agentAccess.autoApproveAll.label': 'Aprovar automaticamente todas as ações',
   'settings.agentAccess.autoApproveAll.desc':
     'Quando ativado, o agente executará todas as ações sem pedir sua aprovação antes. Isso inclui gravação de arquivos, comandos de shell, solicitações de rede e qualquer outro efeito colateral. Os bloqueios de segurança rígidos (diretórios de credenciais, caminhos internos do espaço de trabalho) continuam em vigor.',

@@ -4928,9 +4928,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Toutes les 2 heures',
   'settings.devWorkflow.schedule.every6hours': 'Toutes les 6 heures',
   'settings.devWorkflow.schedule.onceDaily': 'Une fois par jour (9 h)',
-  'settings.developerMenu.tasks.title': 'Tâches',
-  'settings.developerMenu.tasks.desc':
-    'Parcourez et gérez les tableaux de tâches: vos propres to-dos ainsi que les tableaux créés par les agents au fil des conversations.',
   'settings.developerMenu.cronJobs.title': 'Tâches cron',
   'settings.developerMenu.cronJobs.desc':
     "Afficher et configurer les tâches planifiées des compétences d'exécution",
@@ -5036,9 +5033,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': "Confiner à l'espace de travail",
   'settings.agentAccess.confine.desc':
     "Restreignez l'agent au répertoire de l'espace de travail (plus tous les dossiers accordés), quel que soit le mode d'accès sélectionné. Lorsqu'il est désactivé, il peut accéder à n'importe quel endroit auquel votre utilisateur peut accéder, sauf aux répertoires d'identifiants et système toujours bloqués.",
-  'settings.agentAccess.requireTaskPlanApproval.label': "Exiger l'approbation du plan de tâche",
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
   'settings.agentAccess.autoApproveAll.label': 'Approuver automatiquement toutes les actions',
   'settings.agentAccess.autoApproveAll.desc':
     "Une fois activé, l'agent exécutera toutes les actions sans demander votre approbation au préalable. Cela inclut l'écriture de fichiers, les commandes shell, les requêtes réseau et tout autre effet secondaire. Les blocages de sécurité stricts (répertoires d'identifiants, chemins internes de l'espace de travail) continuent de s'appliquer.",

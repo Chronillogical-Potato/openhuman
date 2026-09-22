@@ -4847,9 +4847,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Setiap 2 jam',
   'settings.devWorkflow.schedule.every6hours': 'Setiap 6 jam',
   'settings.devWorkflow.schedule.onceDaily': 'Setiap hari (jam 9 pagi)',
-  'settings.developerMenu.tasks.title': 'Tugas',
-  'settings.developerMenu.tasks.desc':
-    'Jelajahi dan kelola papan tugas: daftar tugas Anda sendiri serta papan yang dibuat agen di seluruh percakapan.',
   'settings.developerMenu.cronJobs.title': 'Pekerjaan Cron',
   'settings.developerMenu.cronJobs.desc': 'Lihat dan atur pekerjaan terjadwal untuk skill runtime',
   'settings.developerMenu.webhooks.title': 'Webhook',
@@ -4950,9 +4947,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine ke area kerja',
   'settings.agentAccess.confine.desc':
     'Batasi agen ke direktori area kerja (ditambah folder yang diberikan), modus akses mana yang dipilih. Ketika mati, dapat mencapai mana saja pengguna dapat - kecuali selalu-diblokir kredensial dan sistem direktori.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Perlu persetujuan rencana tugas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
   'settings.agentAccess.autoApproveAll.label': 'Setujui semua tindakan secara otomatis',
   'settings.agentAccess.autoApproveAll.desc':
     'Jika diaktifkan, agen akan menjalankan semua tindakan yang memenuhi syarat tanpa meminta persetujuan Anda terlebih dahulu. Ini termasuk penulisan file, perintah shell, permintaan jaringan, dan efek samping lainnya. Batasan keamanan ketat (direktori kredensial dan sistem) tetap berlaku, dan tindakan dari sumber yang tidak tepercaya atau tidak diketahui tidak pernah disetujui secara otomatis.',

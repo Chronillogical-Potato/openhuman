@@ -4765,9 +4765,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': '2시간마다',
   'settings.devWorkflow.schedule.every6hours': '6시간마다',
   'settings.devWorkflow.schedule.onceDaily': '하루 한 번(오전 9시)',
-  'settings.developerMenu.tasks.title': '작업',
-  'settings.developerMenu.tasks.desc':
-    '작업 보드를 둘러보고 관리하세요: 내 할 일과 대화 전반에서 에이전트가 만든 보드를 함께 확인합니다.',
   'settings.developerMenu.cronJobs.title': '크론 작업',
   'settings.developerMenu.cronJobs.desc': '예약 보기 및 구성 런타임 기술용 작업',
   'settings.developerMenu.webhooks.title': '웹훅',
@@ -4864,9 +4861,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': '작업공간으로 제한',
   'settings.agentAccess.confine.desc':
     '선택한 접근 모드와 관계없이 에이전트를 작업공간 디렉터리와 허용된 폴더로 제한합니다. 끄면 항상 차단되는 자격 증명 및 시스템 디렉터리를 제외하고 사용자가 접근할 수 있는 모든 위치에 접근할 수 있습니다.',
-  'settings.agentAccess.requireTaskPlanApproval.label': '작업 계획 승인 필요',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
   'settings.agentAccess.autoApproveAll.label': '모든 작업 자동 승인',
   'settings.agentAccess.autoApproveAll.desc':
     '활성화하면 에이전트가 먼저 승인을 요청하지 않고 해당되는 모든 작업을 실행합니다. 여기에는 파일 쓰기, 셸 명령, 네트워크 요청 및 기타 모든 부작용이 포함됩니다. 자격 증명 및 시스템 디렉터리는 계속 차단되며, 신뢰할 수 없거나 출처가 확인되지 않은 호출에서 비롯된 작업은 계속 거부됩니다.',

@@ -4708,9 +4708,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'كل ساعتين',
   'settings.devWorkflow.schedule.every6hours': 'كل 6 ساعات',
   'settings.devWorkflow.schedule.onceDaily': 'يوم واحد (9 صباحا)',
-  'settings.developerMenu.tasks.title': 'المهام',
-  'settings.developerMenu.tasks.desc':
-    'تصفّح لوحات المهام وإدارتها: مهامك الخاصة إضافةً إلى اللوحات التي تنشئها الوكلاء عبر المحادثات.',
   'settings.developerMenu.cronJobs.title': 'مهام Cron',
   'settings.developerMenu.cronJobs.desc': 'عرض وتكوين المهام المجدولة لمهارات وقت التشغيل',
   'settings.developerMenu.webhooks.title': 'خطافات الويب',
@@ -4807,9 +4804,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'مقصورة على مكان العمل',
   'settings.agentAccess.confine.desc':
     'قيّد الوكيل بدليل مساحة العمل (بالإضافة إلى أي مجلدات ممنوحة)، بصرف النظر عن وضع الوصول المحدد. عند إيقاف التشغيل، يمكنه الوصول إلى أي مكان يمكن لمستخدمك الوصول إليه، باستثناء أدلة بيانات الاعتماد والنظام المحظورة دائمًا.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
   'settings.agentAccess.autoApproveAll.label': 'الموافقة التلقائية على جميع الإجراءات',
   'settings.agentAccess.autoApproveAll.desc':
     'عند التفعيل، سينفذ الوكيل جميع الإجراءات المؤهلة دون طلب موافقتك أولاً. يشمل ذلك كتابة الملفات وتنفيذ أوامر الطرفية وطلبات الشبكة وأي تأثيرات جانبية أخرى. تظل الحواجز الأمنية الصارمة، مثل أدلة بيانات الاعتماد والأدلة النظامية، سارية المفعول، ولا تتم الموافقة التلقائية أبداً على الإجراءات ذات المصدر غير الموثوق أو غير المعروف.',
