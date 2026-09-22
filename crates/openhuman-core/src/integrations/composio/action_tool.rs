@@ -284,19 +284,19 @@ impl Tool for ComposioActionTool {
         // re-resolving process-global `OPENHUMAN_WORKSPACE` (the tool is scoped to
         // the user/workspace it was created for).
         let live_config = match self.live_config().await {
-                Ok(c) => c,
-                Err(e) => {
-                    tracing::warn!(
-                        tool = %self.action_name,
-                        error = %e,
-                        "[composio] per-action execute: load_config failed"
-                    );
-                    return Ok(ToolResult::error(format!(
-                        "{}: failed to load live config: {e}",
-                        self.action_name
-                    )));
-                }
-            };
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(
+                    tool = %self.action_name,
+                    error = %e,
+                    "[composio] per-action execute: load_config failed"
+                );
+                return Ok(ToolResult::error(format!(
+                    "{}: failed to load live config: {e}",
+                    self.action_name
+                )));
+            }
+        };
 
         // Contract gate (#4853): the per-action tool is built from the thin
         // spawn-time `list_tools` schema (often `{"type":"object"}` with no

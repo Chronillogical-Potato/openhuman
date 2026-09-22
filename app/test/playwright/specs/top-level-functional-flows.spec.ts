@@ -105,7 +105,6 @@ test.describe('Top-level functional flows', () => {
       ['/chat', /Assistant|Message|Chat/],
       ['/settings/notifications-hub', /Notifications/],
       ['/notifications', /Notifications|System Events/],
-      ['/rewards', /Rewards|Referrals|Redeem/],
     ];
 
     for (const [hash, text] of routes) {

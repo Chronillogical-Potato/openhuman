@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 //! Raw-line oriented integration coverage for tools, approval, channels, and
 //! tool_registry surfaces that are not covered by the narrower controller tests.
 

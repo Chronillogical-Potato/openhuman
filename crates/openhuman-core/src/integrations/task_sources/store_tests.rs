@@ -163,12 +163,7 @@ fn remove_deletes_and_cascades_ingested() {
         25,
     )
     .unwrap();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "A", "2025-01-01"),
-        "task-abc",
-    )
+    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01"))
     .unwrap();
 
     remove_source(&config, &src.id).unwrap();
@@ -200,7 +195,7 @@ fn dedup_detects_seen_and_edited_tasks() {
     // Not ingested yet.
     assert!(!is_ingested(&config, &src.id, "42", &hash).unwrap());
 
-    mark_ingested(&config, &src.id, &task, "task-v1").unwrap();
+    mark_ingested(&config, &src.id, &task).unwrap();
     // Same content hash → already ingested.
     assert!(is_ingested(&config, &src.id, "42", &hash).unwrap());
 
@@ -211,16 +206,15 @@ fn dedup_detects_seen_and_edited_tasks() {
     assert!(!is_ingested(&config, &src.id, "42", &edited_hash).unwrap());
 
     // Re-ingesting the edit upserts (still one row).
-    mark_ingested(&config, &src.id, &edited, "task-v2").unwrap();
+    mark_ingested(&config, &src.id, &edited).unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].external_id, "42");
 }
 
 #[tokio::test]
-async fn ops_remove_prunes_routed_cards_for_source() {
-    use crate::agent::todos::ops::{add as todo_add, BoardLocation, CardPatch};
-    use crate::integrations::task_sources::{ops, route};
+async fn ops_remove_prunes_the_ledger_for_source() {
+    use crate::integrations::task_sources::ops;
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -235,26 +229,11 @@ async fn ops_remove_prunes_routed_cards_for_source() {
         25,
     )
     .unwrap();
-    let location = BoardLocation::Thread {
-        workspace_dir: config.workspace_dir.clone(),
-        thread_id: route::TASK_SOURCES_THREAD_ID.to_string(),
-    };
-    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default())
-        .await
-        .unwrap();
-    let card_id = snapshot.cards.last().unwrap().id.clone();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "A", "2025-01-01"),
-        &card_id,
-    )
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01")).unwrap();
 
     let out = ops::remove(&config, &src.id).await.expect("remove source");
     assert_eq!(out.value["removed"], true);
     assert_eq!(out.value["pruned"], 1);
-    assert!(route::board_cards(&config).await.unwrap().is_empty());
     assert!(list_ingested(&config, &src.id, 10).unwrap().is_empty());
 }
 
@@ -289,19 +268,9 @@ fn list_ingested_orders_newest_first() {
     )
     .unwrap();
 
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "first", "2025-01-01"),
-        "task-1",
-    )
+    mark_ingested(&config, &src.id, &sample_task("1", "first", "2025-01-01"))
     .unwrap();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("2", "second", "2025-01-02"),
-        "task-2",
-    )
+    mark_ingested(&config, &src.id, &sample_task("2", "second", "2025-01-02"))
     .unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 2);

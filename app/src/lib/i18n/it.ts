@@ -3311,7 +3311,6 @@ const messages: TranslationMap = {
     'La tua sessione OpenHuman è scaduta. Accedi di nuovo per caricare i trigger.',
   'composio.triggers.needsConfiguration': 'Richiede configurazione',
   'composio.triggers.noneAvailable': 'Nessun trigger attualmente disponibile per',
-  'conversations.threadTodo.title': 'Piano',
   'conversations.composer.context.title': 'Finestra di contesto',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Input in cache',
@@ -5886,10 +5885,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Fonti del compito',
   'settings.integrations.title': 'Integrazioni',
   'settings.integrations.menuDesc': 'Sorgenti di attività, routing Composio e trigger webhook',
-  'settings.taskSources.subtitle':
-    "Estrai le attività dai tuoi strumenti sulla lavagna delle cose da fare dell'agente",
+  'settings.taskSources.subtitle': 'Porta le attività dai tuoi strumenti al tuo agente',
   'settings.taskSources.description':
-    "Raccogliere elementi di lavoro da GitHub, Notion, Linear e ClickUp, arricchirli e instradarli sulla bacheca delle cose da fare dell'agente.",
+    'Raccogli le attività da GitHub, Notion, Linear e ClickUp, arricchiscile e affidale al tuo agente per lo smistamento.',
   'settings.taskSources.connectHint':
     'Le origini dei compiti utilizzano i tuoi account collegati. Collegali prima sotto Integrazioni.',
   'settings.taskSources.disabledBanner':

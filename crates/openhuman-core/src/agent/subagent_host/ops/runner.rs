@@ -22,7 +22,10 @@ use crate::agent::harness::definition::{
     PromptSource, SandboxMode as AgentSandboxMode,
 };
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};
+use crate::agent::harness::{
+    spawn_depth_context::current_spawn_depth, with_current_sandbox_mode, with_spawn_depth,
+    MAX_SPAWN_DEPTH,
+};
 use crate::agent::prompts::{
     render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -481,7 +484,13 @@ pub(crate) async fn run_subagent_direct(
             .clone()
             .ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
-        let attempted_depth = options.run_context.spawn_depth;
+        // Typed callers carry their depth in the run context. Direct callers
+        // are scoped by `with_spawn_depth`; honor both authorities and count
+        // this child spawn exactly once.
+        let attempted_depth = options
+            .run_context
+            .spawn_depth
+            .max(current_spawn_depth().saturating_add(1));
 
         // Synchronous pre-dispatch projection of the single depth authority
         // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
@@ -1534,18 +1543,6 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_host] resolved sub-agent model vision capability"
     );
-    // Sub-agent turns run through the tinyagents harness (issue #4249): the graph
-    // route reuses the same provider + tools and mirrors every legacy seam (child
-    // progress, steering, cap checkpoint, ask_user_clarification pause,
-    // worker-thread mirror). The legacy `run_inner_loop` has been removed.
-    //
-    // `model_vision` and `max_output_tokens` are now forwarded into the graph
-    // route (image rehydration + per-call output cap). `lazy_resolver` /
-    // `handoff_cache` — the integrations-agent progressive-disclosure seams — are
-    // not yet re-expressed on the tinyagents path; they need a tool-result
-    // interception middleware and are tracked as a follow-up (issue #4249, 1b).
-    // `handoff_cache` is now threaded into the graph route below (progressive
-    // disclosure). `lazy_resolver` remains a follow-up (#4249 1b).
     let _ = &lazy_resolver;
     // Per-agent turn graph (issue #4249): `Default` runs the shared sub-agent
     // graph; `Custom` hands the assembled turn to this agent's own graph runner

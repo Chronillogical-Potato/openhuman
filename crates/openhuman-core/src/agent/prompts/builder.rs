@@ -14,6 +14,41 @@ pub struct TieredPrompt {
     pub text: String,
     /// Ascending byte offsets into [`Self::text`].
     pub breakpoints: Vec<usize>,
+    /// The bytes of each tier, in tier order, with empty tiers omitted.
+    ///
+    /// Concatenating the strings in order reproduces [`Self::text`]. A host
+    /// that wants the provider to see the tiers as separate cacheable
+    /// segments sends one system message per part (`runtime_session.rs`).
+    pub parts: Vec<(PromptTier, String)>,
+}
+
+impl TieredPrompt {
+    /// The tiers as separate strings, ready to become one system message each.
+    ///
+    /// `Stable` and `Context` are merged into the first message: both are
+    /// fixed for the whole session, and one fewer message is one fewer thing a
+    /// provider can reject. `Volatile` (when present) is the second message,
+    /// so a rewritten memory file or a newly connected service changes the
+    /// second segment and leaves the first byte-identical.
+    #[must_use]
+    pub fn system_messages(&self) -> Vec<String> {
+        let mut head = String::new();
+        let mut tail = String::new();
+        for (tier, part) in &self.parts {
+            match tier {
+                PromptTier::Stable | PromptTier::Context => head.push_str(part),
+                PromptTier::Volatile => tail.push_str(part),
+            }
+        }
+        let mut messages = Vec::with_capacity(2);
+        if !head.trim().is_empty() {
+            messages.push(head.trim_end().to_string());
+        }
+        if !tail.trim().is_empty() {
+            messages.push(tail.trim_end().to_string());
+        }
+        messages
+    }
 }
 
 use super::render_helpers::sync_workspace_file;
@@ -312,64 +347,77 @@ impl SystemPromptBuilder {
     /// therefore not move when this lands, and if it does, something else
     /// changed too.
     pub fn build_tiered(&self, ctx: &PromptContext<'_>) -> Result<TieredPrompt> {
-        let mut output = String::new();
-        let mut breakpoints: Vec<usize> = Vec::new();
+        // Render each section once and bucket its parts by tier. A section
+        // usually yields one part in its own tier; a dynamic builder that
+        // marks its tiers yields several (see `PromptSection::build_parts`).
+        let mut buckets: [Vec<String>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+        let mut has_grounding = false;
+        for section in &self.sections {
+            for (tier, part) in section.build_parts(ctx)? {
+                if part.trim().is_empty() {
+                    continue;
+                }
+                if part.contains(GROUNDING_HEADING) {
+                    has_grounding = true;
+                }
+                buckets[tier_index(tier)].push(part.trim_end().to_string());
+            }
+        }
+        // The grounding contract and the writing-style rules are byte-stable
+        // and shared by every agent, so they close the *stable* tier: behind
+        // the identity and rules, ahead of anything that changes per session.
+        // Grounding is skipped when the agent's own prompt already carries
+        // the contract under the shared heading (the orchestrator does), so
+        // it never ships twice.
+        if !has_grounding {
+            buckets[tier_index(PromptTier::Stable)].push(GROUNDING_BODY.trim_end().to_string());
+        }
+        buckets[tier_index(PromptTier::Stable)]
+            .push(global_style_block(ctx.workspace_dir).trim_end().to_string());
 
+        let mut text = String::new();
+        let mut breakpoints: Vec<usize> = Vec::new();
+        let mut parts: Vec<(PromptTier, String)> = Vec::new();
         for tier in [
             PromptTier::Stable,
             PromptTier::Context,
             PromptTier::Volatile,
         ] {
-            for section in self.sections.iter().filter(|s| s.tier() == tier) {
-                let part = section.build(ctx)?;
-                if part.trim().is_empty() {
-                    continue;
-                }
-                output.push_str(part.trim_end());
-                output.push_str("\n\n");
+            let bucket = &buckets[tier_index(tier)];
+            if bucket.is_empty() {
+                continue;
             }
-            // A boundary is only worth declaring when the tier actually
-            // contributed something and something can still follow it. A
-            // breakpoint at offset 0 caches nothing, and one at the very end
-            // of the prompt is the provider's default anyway.
-            if tier != PromptTier::Volatile && !output.is_empty() {
-                match breakpoints.last() {
-                    Some(&last) if last == output.len() => {}
-                    _ => breakpoints.push(output.len()),
-                }
+            let mut rendered = String::new();
+            for part in bucket {
+                rendered.push_str(part);
+                rendered.push_str("\n\n");
+            }
+            text.push_str(&rendered);
+            parts.push((tier, rendered));
+            // A boundary is only worth declaring when something can still
+            // follow it; one at the very end is the provider's default anyway.
+            if tier != PromptTier::Volatile {
+                breakpoints.push(text.len());
             }
         }
-        // Grounding / anti-hallucination contract is appended centrally here
-        // (and in the narrow sub-agent renderer) rather than per-section, so
-        // EVERY agent inherits the same anti-fabrication floor — including the
-        // ~26 dynamic `agents/<id>/prompt.rs` builders that each hand-assemble
-        // their own body via the `render_*` helpers and would otherwise have
-        // to splice it in individually. Single source of truth: GROUNDING_BODY.
-        // Placed near the tail (just before the output-style rules) so it reads
-        // as a closing contract; byte-stable, so it stays cache-friendly.
-        // Skipped when the agent's own prompt already carries the contract.
-        // The orchestrator folds grounding into its merged `## Rules` section
-        // (#5701) so the rules read as one list rather than two that repeat
-        // each other; appending here as well would ship it twice. Matching on
-        // the heading keeps this self-maintaining: an agent that stops
-        // carrying its own copy silently gets the global one back.
-        if !output.contains(GROUNDING_HEADING) {
-            output.push_str(GROUNDING_BODY);
-            output.push_str("\n\n");
+        // Drop a trailing breakpoint that coincides with the end of the text
+        // (the prompt ended on a non-volatile tier).
+        if breakpoints.last() == Some(&text.len()) {
+            breakpoints.pop();
         }
-        output.push_str(global_style_block(ctx.workspace_dir).trim_end());
-        output.push('\n');
-        // The grounding contract and the style block are byte-stable and are
-        // appended after every tier, so they land behind the volatile bytes and
-        // are not covered by any breakpoint. That is deliberate and costs
-        // nothing worth recovering: together they are under a kilobyte, and
-        // moving them ahead of the volatile tier would put the prompt's closing
-        // contract in the middle of the document, which is worse to read and
-        // worse to edit. If they ever grow, make them their own `Stable`
-        // sections instead of special-casing them here.
+        let text = format!("{}\n", text.trim_end());
         Ok(TieredPrompt {
-            text: output,
+            text,
             breakpoints,
+            parts,
         })
+    }
+}
+
+fn tier_index(tier: PromptTier) -> usize {
+    match tier {
+        PromptTier::Stable => 0,
+        PromptTier::Context => 1,
+        PromptTier::Volatile => 2,
     }
 }

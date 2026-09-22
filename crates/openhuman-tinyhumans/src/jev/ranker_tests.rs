@@ -51,3 +51,24 @@ async fn no_credential_is_a_backend_error_naming_the_gap() {
         other => panic!("expected a backend error, got {other}"),
     }
 }
+
+/// A config whose embedding provider is `none` disables the Jev search
+/// outright — the harness's BM25 answers — rather than quietly retrieving
+/// lexically.
+#[test]
+fn no_embedding_provider_disables_the_search() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.memory.embedding_provider = "none".into();
+    let err = retriever_for(&config).err().map(|e| e.to_string());
+    assert!(
+        err.as_deref()
+            .is_some_and(|e| e.contains("no usable embedding provider")),
+        "{err:?}"
+    );
+}

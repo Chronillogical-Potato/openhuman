@@ -193,8 +193,7 @@ fn named_belt_opts_into_discovery_by_naming_tool_search() {
 /// down: no deferred set, and a deferred tool it did not name stays hidden.
 #[test]
 fn named_belt_without_tool_search_reaches_no_deferred_tool() {
-    let visible: std::collections::HashSet<String> =
-        std::iter::once("plain".to_string()).collect();
+    let visible: std::collections::HashSet<String> = std::iter::once("plain".to_string()).collect();
     let agent = build_with(direct_and_deferred(), visible);
 
     assert!(agent.deferred_tool_names_for_test().is_empty());

@@ -229,8 +229,12 @@ async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
         TaMessage::user("and again, later"),
     ])
     .with_tools(tools);
-    mw.before_model(&mut ctx(), &(), &mut turn_one).await.unwrap();
-    mw.before_model(&mut ctx(), &(), &mut turn_two).await.unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_one)
+        .await
+        .unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_two)
+        .await
+        .unwrap();
 
     let ids = |r: &ModelRequest| {
         r.cache_segments
@@ -248,6 +252,62 @@ async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
     );
     assert_eq!(turn_one.prompt_fingerprint, turn_two.prompt_fingerprint);
     assert!(turn_one.prompt_fingerprint.is_some());
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
+    // Two leading system messages (stable+context, then volatile) are two
+    // segments named the way the harness's `refresh_prompt_cache_fingerprint`
+    // expects (`system`, `system.1`). Under a text dialect the harness folds
+    // the catalogue into the prompt and clears `tools` after this hook, so
+    // no `tools` segment is declared: declaring one would not match the
+    // rebuilt layout and would demote the request to a per-call digest.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let messages = vec![
+        TaMessage::system("stable"),
+        TaMessage::system("volatile"),
+        TaMessage::user("hi"),
+    ];
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role))
+            .collect::<Vec<_>>()
+    };
+
+    let mut native = ModelRequest::new(messages.clone()).with_tools(tools.clone());
+    mw.before_model(&mut ctx(), &(), &mut native).await.unwrap();
+    assert_eq!(
+        ids(&native),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+            ("tools".to_string(), SegmentRole::Tools),
+        ]
+    );
+
+    let mut python_ctx = ctx();
+    python_ctx.data = python_ctx
+        .data
+        .clone()
+        .with_tool_dialect(tinyagents_harness::config::ToolDispatcher::Python);
+    let mut python = ModelRequest::new(messages).with_tools(tools);
+    mw.before_model(&mut python_ctx, &(), &mut python)
+        .await
+        .unwrap();
+    assert_eq!(
+        ids(&python),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+        ]
+    );
+    assert!(python.prompt_fingerprint.is_some());
 }
 
 #[tokio::test]

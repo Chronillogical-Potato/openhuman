@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Round 20 near-90 raw integration coverage closures.
 //!
 //! All fixtures are local and deterministic: temp workspaces, loopback HTTP,

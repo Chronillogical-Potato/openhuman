@@ -3254,7 +3254,6 @@ const messages: TranslationMap = {
     'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়েছে। ট্রিগার লোড করতে আবার সাইন ইন করুন।',
   'composio.triggers.needsConfiguration': 'কনফিগারেশন প্রয়োজন',
   'composio.triggers.noneAvailable': 'বর্তমানে কোনো ট্রিগার উপলব্ধ নেই',
-  'conversations.threadTodo.title': 'পরিকল্পনা',
   'conversations.composer.context.title': 'কনটেক্সট উইন্ডো',
   'conversations.composer.context.input': 'ইনপুট',
   'conversations.composer.context.cached': 'ক্যাশ করা ইনপুট',
@@ -5788,9 +5787,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.integrations.title': 'ইন্টিগ্রেশন',
   'settings.integrations.menuDesc': 'টাস্ক সোর্স, Composio রাউটিং এবং ওয়েবহুক ট্রিগার',
-  'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
+  'settings.taskSources.subtitle': 'আপনার টুল থেকে কাজ আপনার এজেন্টের কাছে আনুন',
   'settings.taskSources.description':
-    'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
+    'GitHub, Notion, Linear এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন এবং বাছাইয়ের জন্য আপনার এজেন্টকে দিন।',
   'settings.taskSources.connectHint':
     'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
   'settings.taskSources.disabledBanner':

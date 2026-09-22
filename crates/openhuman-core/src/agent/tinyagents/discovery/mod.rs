@@ -168,6 +168,10 @@ impl ToolRanker for OverlapRanker {
     }
 }
 
+mod embedding_ranker;
+
+pub use embedding_ranker::EmbeddingToolRanker;
+
 #[cfg(test)]
 #[path = "discovery_tests.rs"]
 mod tests;

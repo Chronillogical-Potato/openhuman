@@ -105,6 +105,17 @@ impl Tool for SpawnSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-spawn-subagent") {
+            let run_context = live_parent.data.child();
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    run_context,
+                    Some(&live_parent),
+                )
+                .await;
+        }
         self.execute_with_parent_context(
             args,
             tool_context,
@@ -136,11 +147,6 @@ impl SpawnSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(live_parent) = live_parent else {
-            return Ok(ToolResult::error(
-                "spawn_subagent requires a live harness run context.",
-            ));
-        };
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -197,7 +203,6 @@ impl SpawnSubagentTool {
         if prompt.is_empty() {
             return Ok(ToolResult::error("spawn_subagent: `prompt` is required"));
         }
-
         let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
             None => {
@@ -398,6 +403,15 @@ impl SpawnSubagentTool {
             }
         }
 
+        // Input, registry, allowlist, and integration validation are safe to
+        // perform without a live run. A valid spawn must still fail closed
+        // unless its typed harness parent carries authority and cancellation.
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_subagent requires a live harness run context.",
+            ));
+        };
+
         // Async-by-default only holds where the finished result has somewhere
         // to land. `spawn_async_subagent` delivers thread-addressed (see
         // `background_delivery`), so outside a chat turn (flow `agent` node,
@@ -495,11 +509,6 @@ impl SpawnSubagentTool {
             prompt.chars().count(),
         );
 
-        // Mirror the spawn onto the parent's per-turn progress sink so the
-        // web-channel bridge can stream a live subagent row into the
-        // parent thread's UI. Best-effort: a closed/missing sink is
-        // silently ignored — the global DomainEvent above is the
-        // authoritative record.
         if let Some(progress) = run_context.progress.clone() {
             let _ = progress
                 .send(AgentProgress::SubagentSpawned {
@@ -515,7 +524,6 @@ impl SpawnSubagentTool {
                 .await;
         }
 
-        // ── Run the sub-agent ──────────────────────────────────────────
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
         let worktree_action_dir = workspace_descriptor
             .as_ref()
@@ -562,10 +570,6 @@ impl SpawnSubagentTool {
                         options: _,
                         checkpoint,
                     } => {
-                        // Sub-agent paused for user input — publish
-                        // awaiting event and return structured envelope so
-                        // the orchestrator can relay the question and later
-                        // call continue_subagent.
                         if emit_lifecycle_effects {
                             crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                             parent_session,
@@ -597,11 +601,6 @@ impl SpawnSubagentTool {
                         Ok(ToolResult::success(envelope))
                     }
                     SubagentRunStatus::Completed => {
-                        // #3883: log the orchestrator taking delivery of each
-                        // artifact path the child handed back, so a run journal
-                        // shows both ends of every `[artifact]` pointer. The
-                        // `consumed_by_parent` stage distinguishes this from the
-                        // child's `recorded_by_child` line for the same path.
                         crate::agent::harness::artifact_offload::note_artifact_handoff(
                             crate::agent::harness::artifact_offload::HANDOFF_STAGE_CONSUMED,
                             &outcome.agent_id,

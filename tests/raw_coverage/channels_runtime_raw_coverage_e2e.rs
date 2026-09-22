@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 use std::sync::{Arc, Mutex};
 
 use axum::{

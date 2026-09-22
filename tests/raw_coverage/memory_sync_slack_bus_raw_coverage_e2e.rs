@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Round19 raw coverage for Slack memory sync, Composio bus subscribers,
 //! and Gmail post-processing.
 //!

@@ -358,6 +358,7 @@ pub(crate) fn spawn_progress_bridge(
         // separately via `deliver_response` and is never part of this buffer
         // (it belongs to the terminal round, which ends with no tool call).
         let mut pending_narration = String::new();
+        let mut timing = super::turn_timing::TurnTiming::start();
         let mut events_seen: u64 = 0;
         // Per-request monotonic ordering key stamped on every emitted
         // web-channel event (see `publish_seq_stamped`). Unique per emission so
@@ -641,6 +642,7 @@ pub(crate) fn spawn_progress_bridge(
                     display_label,
                     display_detail,
                 } => {
+                    timing.tool_call(&tool_name, iteration, &request_id);
                     // The parent's leading narration for this round is complete
                     // once it calls a tool — flush it as an interim bubble so it
                     // persists interleaved with the tool activity.
@@ -1285,6 +1287,7 @@ pub(crate) fn spawn_progress_bridge(
                     );
                 }
                 AgentProgress::TextDelta { delta, iteration } => {
+                    timing.text_delta(&delta, iteration, &request_id);
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.
                     pending_narration.push_str(&delta);
@@ -1346,6 +1349,7 @@ pub(crate) fn spawn_progress_bridge(
                 }
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
+                    timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
                     // Turn is done — stop liveness beats (issue #4270). The FE
                     // clears its silence timer on `chat_done`/`chat_error`; this
                     // also prevents a stray beat racing the channel close.

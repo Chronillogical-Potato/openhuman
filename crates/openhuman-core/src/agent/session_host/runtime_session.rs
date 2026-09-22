@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, PrefixSnapshot, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
+    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
     SessionTurnRequest, ToolSnapshot, TranscriptCodec, TranscriptTarget, TurnOptions,
     TurnPreparation,
 };
@@ -212,9 +212,8 @@ impl OpenHumanTurnPrelude {
         };
         let prefix = if cold {
             let learned = self.fetch_learned_context().await;
-            Some(PrefixSnapshot::new(vec![Message::system(
-                self.build_system_prompt(learned)?,
-            )]))
+            let tiered = self.build_system_prompt_tiered(learned)?;
+            Some(super::prefix_snapshot::tiered_prefix_snapshot(&tiered))
         } else {
             None
         };
@@ -337,10 +336,10 @@ impl OpenHumanTurnPrelude {
         }
     }
 
-    fn build_system_prompt(
+    fn build_system_prompt_tiered(
         &self,
         learned: crate::agent::prompts::LearnedContextData,
-    ) -> Result<String> {
+    ) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -394,7 +393,7 @@ impl OpenHumanTurnPrelude {
         self.context
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .build_system_prompt(&context)
+            .build_system_prompt_tiered(&context)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -802,6 +801,14 @@ impl OpenHumanTurnPrelude {
             ),
         ));
         run_context.sandbox_mode = Some(self.sandbox_mode);
+        // Same pin as `SessionDriver::run_turn`: the harness speaks the dialect
+        // the prompt was composed for, so a text dialect keeps its schemas off
+        // the wire and renders the catalogue itself (`ToolsSection` no longer
+        // does), and a code call is recovered against the positional registry.
+        run_context.tool_dialect = crate::agent::prompts::tool_call_format_from_dialect(
+            self.tool_dispatcher.tool_call_format(),
+        )
+        .harness_dispatcher();
         run_context
             .stop_hooks
             .extend(crate::agent::stop_hooks::current_stop_hooks());
@@ -1003,14 +1010,17 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn finalize_after_durable_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
-        self.flush_user_autosave().await;
+        if self.flush_user_autosave().await {
+            self.flush_assistant_autosave(receipt.outcome.output.as_deref())
+                .await;
+        }
         self.mirror_transcript_after_commit(receipt);
         self.spawn_transcript_ingestion_after_commit(receipt);
         self.spawn_session_memory_extraction_after_commit(receipt)
             .await;
     }
 
-    async fn flush_user_autosave(&self) {
+    async fn flush_user_autosave(&self) -> bool {
         let message = self
             .mutable
             .lock()
@@ -1018,23 +1028,35 @@ impl OpenHumanTurnPrelude {
             .pending_user_autosave
             .take();
         let Some(message) = message else {
+            return false;
+        };
+        self.store_autosave_message("user_msg", &message).await
+    }
+
+    async fn flush_assistant_autosave(&self, message: Option<&str>) {
+        let Some(message) = message.filter(|message| !message.trim().is_empty()) else {
             return;
         };
-        let key = format!("user_msg:{}", uuid::Uuid::new_v4());
+        self.store_autosave_message("assistant_msg", message).await;
+    }
+
+    async fn store_autosave_message(&self, kind: &str, message: &str) -> bool {
+        let key = format!("{kind}:{}", uuid::Uuid::new_v4());
         if let Err(error) = self
             .memory
             .store(
                 crate::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
                 &key,
-                &message,
+                message,
                 crate::memory::MemoryCategory::Conversation,
                 self.thread_id.as_deref(),
             )
             .await
         {
-            log::warn!(
-                "[agent_autosave] durable user-message autosave failed key={key} err={error}"
-            );
+            log::warn!("[agent_autosave] durable message autosave failed kind={kind} key={key} err={error}");
+            false
+        } else {
+            true
         }
     }
 
@@ -1458,6 +1480,7 @@ impl OpenHumanSessionHost {
             self.model_name.clone(),
             self.temperature,
             self.config.max_tool_iterations,
+            self.config.max_history_messages,
             self.model_vision,
             self.run_queue.clone(),
             self.workspace_descriptor.clone(),
@@ -1598,13 +1621,9 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    let resumed_prefix = view.resumed.then(|| {
-                        view.history
-                            .first()
-                            .filter(|message| matches!(message, Message::System(_)))
-                            .cloned()
-                            .map(|message| PrefixSnapshot::new(vec![message]))
-                    });
+                    let resumed_prefix = view
+                        .resumed
+                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
@@ -1625,10 +1644,6 @@ impl OpenHumanSessionHost {
                         prelude
                             .refresh_turn_boundary(!view.resumed && view.history.is_empty())
                             .await;
-                        // The driver resolves the same model source, but the
-                        // host sidecar needs this metadata before either the
-                        // successful or partial runtime append asks the codec
-                        // for atomic billing data.
                         let context_window = prelude
                             .turn_model_source
                             .effective_context_window(&prelude.model_name)
@@ -1679,10 +1694,6 @@ impl OpenHumanSessionHost {
                             policy_channel,
                         ) = prelude.current_tool_source();
                         if overrides.suppress_tools {
-                            // The execution source must narrow with the wire
-                            // snapshot. Leaving instances here would make a
-                            // tool-less override advisory instead of a hard
-                            // authority boundary.
                             current_tools = Arc::new(Vec::new());
                             current_synthesized_tools = Arc::new(Vec::new());
                         }
@@ -1707,11 +1718,6 @@ impl OpenHumanSessionHost {
                                 session: policy_session,
                                 session_id: policy_session_id,
                                 channel: policy_channel,
-                                // This is the stable agent definition key
-                                // used for driver diagnostics and policy
-                                // enforcement. The mutable surface carries
-                                // its current display name separately when it
-                                // rebuilds the policy session.
                                 agent_definition_id: prelude.agent_definition_id.clone(),
                             });
                         options.run_context.data.required_output = state
@@ -1812,15 +1818,7 @@ impl OpenHumanSessionHost {
                             .pending_citations
                             .take();
                         if let Some(prelude) = prelude {
-                            // `after_commit` is only reached after runtime
-                            // transcript durability. Every host write below is
-                            // therefore receipt-gated.
                             prelude.finalize_after_durable_commit(&receipt).await;
-                            // Account the same committed direct + child totals
-                            // that the codec atomically attached to the
-                            // transcript. A continuation's suppression state
-                            // is intentionally cleared by the goals runtime
-                            // only after this receipt exists.
                             account_committed_turn_against_goal(
                                 &prelude.workspace_dir,
                                 receipt.options.context.thread_id.as_deref(),

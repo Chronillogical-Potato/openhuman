@@ -18,15 +18,15 @@ surface is `openhuman.memory_goals_*`.
 
 ## Agent work state
 
-Turn-scoped goals and todos are internal TinyAgents capabilities. TinyAgents
-owns their types, lifecycle, persistence, budgets, claims, and run records;
-OpenHuman supplies runtime and tool adapters so the orchestrator can use them
-while it works.
+While it works on a multi-step request the agent keeps a session todo list,
+the same shape Claude Code and Codex use: one `todo` tool call writes the whole
+list (`content` + `pending` / `in_progress` / `completed`), scoped to the agent
+session and held in memory for the life of the process. Thread goals are the
+per-thread completion contract (`goal_set` / `goal_get` / `goal_complete`).
 
-These internals are not presented as a separate kanban board and do not expose
-`thread_goals`, `todos`, or `threads_task_board` RPC endpoints. Conversation
-threads remain the chat/session container and are independent of this agent
-work state.
+Neither is a kanban board. There is no per-thread task board, no card CRUD,
+no approval gate, and no `thread_goals`, `todos`, or `threads_task_board` RPC
+endpoint. Conversation threads remain the chat/session container.
 
 ## See also
 

@@ -3348,7 +3348,6 @@ const messages: TranslationMap = {
     'Deine OpenHuman-Sitzung ist abgelaufen. Melde dich erneut an, um Trigger zu laden.',
   'composio.triggers.needsConfiguration': 'Muss konfiguriert werden',
   'composio.triggers.noneAvailable': 'Derzeit sind keine Auslöser verfügbar für',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Kontextfenster',
   'conversations.composer.context.input': 'Eingabe',
   'conversations.composer.context.cached': 'Zwischengespeicherte Eingabe',
@@ -5945,9 +5944,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Aufgabenquellen',
   'settings.integrations.title': 'Integrationen',
   'settings.integrations.menuDesc': 'Aufgabenquellen, Composio-Routing und Webhook-Trigger',
-  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
+  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools zu Ihrem Agenten',
   'settings.taskSources.description':
-    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, bereichern Sie sie und leiten Sie sie an das Agent-ToDo-Board weiter.',
+    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, reichern Sie sie an und übergeben Sie sie Ihrem Agenten zur Sichtung.',
   'settings.taskSources.connectHint':
     'Aufgabenquellen nutzen Ihre verbundenen Konten. Verbinden Sie sie zunächst unter Integrationen.',
   'settings.taskSources.disabledBanner':

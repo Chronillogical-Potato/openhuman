@@ -153,6 +153,12 @@ pub(super) fn assemble_turn_harness(
     policy.discovery = super::discovery::discovery_policy();
 
     policy.tool_dialect = tool_dialect;
+    // The session composes its prompt for this same dialect: `ToolsSection`
+    // renders the protocol block and the catalogue of the visible tools into
+    // the system prompt (inside the cacheable prefix, counted by
+    // `prompt-size`). Without this the harness appended a second copy of
+    // both on every text-dialect call.
+    policy.host_renders_tool_catalogue = true;
     tracing::debug!(
         model,
         ?tool_dialect,

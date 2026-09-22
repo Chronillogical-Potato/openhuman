@@ -89,9 +89,9 @@ impl Config {
                 self.context.tool_result_budget_bytes = n;
             }
         }
-        // Kill-switch for native tool-output compaction (Stage 1a). On by
-        // default; `OPENHUMAN_COMPACTION=0` disables it for a support/A-B
-        // bisect. Accepts the canonical short name and the namespaced form.
+        // Switch for native tool-output compaction (Stage 1a). Off by
+        // default; `OPENHUMAN_COMPACTION=1` turns it on for an A/B bisect.
+        // Accepts the canonical short name and the namespaced form.
         if let Some(flag) = env
             .get("OPENHUMAN_COMPACTION")
             .or_else(|| env.get("OPENHUMAN_CONTEXT_COMPACTION_ENABLED"))

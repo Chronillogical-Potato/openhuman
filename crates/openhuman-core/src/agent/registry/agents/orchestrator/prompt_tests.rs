@@ -62,18 +62,19 @@ fn prompt_routes_result_gating_tasks_to_synchronous_delegation() {
     // finalized before the critique ran. The orchestrator prompt must
     // explicitly route result-gating work to a synchronous/awaited path.
     assert!(
-        ARCHETYPE.contains("Result-gating work runs synchronously"),
+        ARCHETYPE.contains("A result that must gate this reply goes through a `delegate_*` specialist with `blocking: true`"),
         "orchestrator prompt must carry the result-gating delegation rule"
     );
-    // It must steer such tasks to a primitive that returns inside the
-    // turn rather than to a fire-and-forget spawn. The awaited primitives
-    // it used to name (`spawn_parallel_agents` / `wait_subagent`) were
-    // retired in #5701; the two that remain are a blocking `delegate_*`
-    // specialist and `spawn_async_subagent` with `blocking: true`.
-    assert!(
-        ARCHETYPE.contains("`delegate_*`") && ARCHETYPE.contains("blocking: true"),
-        "the rule must name the alternatives that return within the turn"
-    );
+    // The only primitive that returns inside the turn is a blocking
+    // `delegate_*` specialist. `spawn_async_subagent` has no `blocking`
+    // parameter, and the prompt used to claim it did; make sure that claim
+    // never comes back.
+    for line in ARCHETYPE.lines() {
+        assert!(
+            !(line.contains("spawn_async_subagent") && line.contains("blocking: true")),
+            "spawn_async_subagent has no `blocking` argument: {line}"
+        );
+    }
 }
 
 #[test]
@@ -275,12 +276,11 @@ fn build_includes_datetime() {
 #[test]
 fn build_includes_direct_first_decision_tree() {
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(body.contains("## Delegation (direct-first)"));
-    assert!(body.contains(
-        "Default: **answer directly, or use a direct tool. Spawn a sub-agent only when the work needs a specialist.**"
-    ));
-    // Step 2 of the decision tree now explicitly routes live external-service
-    // requests to `delegate_to_integrations_agent` rather than `memory_tree`.
+    assert!(body.contains("## How you work"));
+    assert!(body.contains("Take the first branch that applies:"));
+    assert!(body.contains("**Answerable without tools**: reply."));
+    // Step 2 of the decision tree routes live external-service requests to
+    // `delegate_to_integrations_agent` rather than memory.
     assert!(body.contains("Needs a connected service's own data or actions"));
     assert!(body.contains("Use the live service even when memory could plausibly answer"));
 }
@@ -291,7 +291,8 @@ fn build_routes_live_facts_to_research_tool() {
     assert!(body.contains("via `research`"));
     assert!(body.contains("weather, forecasts, prices, recent news"));
     assert!(body.contains("\"use live data\""));
-    assert!(body.contains("Don't stop at \"on it\""));
+    // A lead-in line is welcome, but only in the same message as the call.
+    assert!(body.contains("Don't stop at a lead-in; make the tool call in the same message."));
     assert!(
         !body.contains("delegate_researcher"),
         "orchestrator prompt should name the synthesized researcher tool"
@@ -331,15 +332,9 @@ fn build_emits_delegation_guide_with_collapsed_tool() {
     assert!(!body.contains("spawn_subagent(agent_id=\"integrations_agent\""));
     // Delegator voice must NOT use the skill-executor wording.
     assert!(!body.contains("You have direct access"));
-    // Must contain the hardened delegation instruction.
+    // Must keep the always-delegate contract for real service asks.
     assert!(
-        body.contains("IMPORTANT"),
-        "delegation guide must contain the IMPORTANT instruction"
-    );
-    assert!(
-        body.contains(
-            "Never claim you cannot access a connected service without first attempting delegation"
-        ),
+        body.contains("Never claim you cannot access one without delegating first"),
         "delegation guide must instruct the model to always attempt delegation"
     );
 }
@@ -353,11 +348,11 @@ fn build_scope_gates_integrations_delegation() {
     // delegation-guide clause.
     let no_integrations = build(&ctx_with(&[])).unwrap();
     assert!(
-        no_integrations.contains("General knowledge, web/news lookups, headlines, date/time"),
+        no_integrations.contains("general knowledge, web/news lookups, headlines, date/time and math never delegate here"),
         "Step-2 scope gate must keep general/web/date asks off integrations delegation"
     );
     assert!(
-        no_integrations.contains("a request that references none"),
+        no_integrations.contains("A service being connected is not a reason to touch it"),
         "Step-2 scope gate must forbid reaching into an unreferenced service"
     );
 
@@ -377,18 +372,19 @@ fn build_scope_gates_integrations_delegation() {
         "delegation guide must carry the scoping clause when integrations are connected"
     );
     // The existing always-delegate contract for real service asks is preserved.
-    assert!(with_gmail.contains(
-        "Never claim you cannot access a connected service without first attempting delegation"
-    ));
+    assert!(with_gmail.contains("Never claim you cannot access one without delegating first"));
 }
 
 #[test]
 fn build_does_not_route_scope_errors_as_disconnected() {
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(body.contains("Don't confabulate \"unsupported\""));
-    assert!(body.contains("relay its message if the toolkit is genuinely unavailable"));
-    assert!(body.contains("That is the only honest refusal"));
-    assert!(body.contains("Connections"));
+    // A scope error from the connect call is relayed, never rewritten as
+    // "unsupported"; and the connected list is never treated as the
+    // connectable list.
+    assert!(body.contains("If the connect call reports the toolkit unavailable, relay its message"));
+    assert!(body.contains("that is the only honest refusal"));
+    assert!(body.contains("the list shows what is connected, not what is connectable"));
+    assert!(body.contains("`composio_connect`"));
 }
 
 #[test]
@@ -449,9 +445,7 @@ fn delegation_guide_adds_local_guardrail_for_text_protocol() {
         // Additive: the always-delegate contract for real service requests
         // is preserved — the guardrail narrows, it does not remove it.
         assert!(
-            guide.contains(
-                "Never claim you cannot access a connected service without first attempting delegation"
-            ),
+            guide.contains("Never claim you cannot access one without delegating first"),
             "always-delegate contract must remain for genuine service asks ({format:?})"
         );
     }
@@ -467,9 +461,7 @@ fn delegation_guide_omits_local_guardrail_for_native() {
         !guide.contains("### When NOT to delegate"),
         "native providers must keep the delegation guide unchanged"
     );
-    assert!(guide.contains(
-        "Never claim you cannot access a connected service without first attempting delegation"
-    ));
+    assert!(guide.contains("Never claim you cannot access one without delegating first"));
 }
 
 // With no connected integrations the section is omitted for every format —
@@ -551,12 +543,43 @@ fn build_routes_prompt_heavy_domains_to_specialists() {
 
 #[test]
 fn build_includes_evidence_aware_synthesis_contract() {
+    // Folded into the grounding block, which also carries the shared heading
+    // so `SystemPromptBuilder::build` does not append the global copy twice.
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(body.contains("## Evidence-aware synthesis"));
-    assert!(body.contains("Evidence used"));
-    assert!(body.contains("Failed tool calls"));
-    assert!(body.contains("Do not introduce facts"));
-    assert!(body.contains("truncated, oversized, partial, or unavailable"));
+    assert!(body.contains("## Grounding and tool use"));
+    assert_eq!(body.matches("## Grounding and tool use").count(), 1);
+    assert!(body.contains("`Evidence used`"));
+    assert!(body.contains("`Failed tool calls`"));
+    assert!(body.contains("Do not introduce facts its evidence does not support"));
+    assert!(body.contains("truncated, oversized, partial or unavailable"));
+    assert!(body.contains("Preserve numeric evidence exactly"));
+    assert!(body.contains("plus whatever `tool_search` returns"));
+    assert!(body.contains("call `tool_search` with the intent in plain words"));
+}
+
+#[test]
+fn build_never_mandates_plan_review_and_allows_a_lead_in() {
+    // The chat orchestrator no longer holds `request_plan_review`: a research
+    // question must never park the turn behind an approval card. The lead-in
+    // rule is the flip side: text and tool calls in one message.
+    let body = build(&ctx_with(&[])).unwrap();
+    assert!(!body.contains("request_plan_review"), "{body}");
+    assert!(!body.contains("before doing any of the work"));
+    assert!(body.contains("Don't stop with a plan: execute it."));
+    assert!(body.contains("## Plans"));
+}
+
+#[test]
+fn build_stays_inside_the_hermetic_byte_budget() {
+    // The whole point of the rewrite (latency RCA, 2026-09-22): the hermetic
+    // orchestrator body, identity included, fits in 8 KiB. Signed-in sessions
+    // add installed skills, integrations and MCP servers on top.
+    let body = build(&ctx_with(&[])).unwrap();
+    assert!(
+        body.len() <= 8 * 1024,
+        "orchestrator prompt body is {} bytes, budget is 8192",
+        body.len()
+    );
 }
 
 #[test]

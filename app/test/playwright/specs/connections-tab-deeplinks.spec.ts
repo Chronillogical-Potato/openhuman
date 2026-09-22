@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  bootRuntimeReadyExistingSessionPage,
   bootRuntimeReadyGuestPage,
-  callCoreRpc,
   dismissWalkthroughIfPresent,
   signInViaBypassUser,
   waitForAppReady,
@@ -53,18 +51,13 @@ async function openRoute(
   route: string,
   settlesOn?: string
 ) {
-  const snapshot = await callCoreRpc<{
-    result?: { currentUser?: { _id?: string | null } | null };
-    currentUser?: { _id?: string | null } | null;
-  }>('openhuman.app_state_snapshot', {});
-  const currentUser = (snapshot.result ?? snapshot).currentUser;
-
-  if (currentUser?._id) {
-    await bootRuntimeReadyExistingSessionPage(page);
-  } else {
-    await bootRuntimeReadyGuestPage(page);
-    await signInViaBypassUser(page, userId);
-  }
+  // This spec follows another Connections test in the serial web lane. Reusing
+  // its authenticated core session made the first attempt depend on whether
+  // the previous browser had finished propagating its session snapshot. Start
+  // from the same deterministic guest-to-user transition used by the alias
+  // coverage instead.
+  await bootRuntimeReadyGuestPage(page);
+  await signInViaBypassUser(page, userId);
   await page.evaluate(
     ({ target }) => {
       try {
@@ -99,9 +92,7 @@ async function expectSelectedTab(page: import('@playwright/test').Page, tab: str
   await expect(page.locator('[data-testid^="two-pane-nav-"][aria-current="page"]')).toHaveCount(1);
 }
 
-test('Connections deep links preserve their selected pane, search, and fragment', async ({
-  page,
-}) => {
+test('Connections deep links preserve their selected pane and fragment', async ({ page }) => {
   await openRoute(page, 'pw-connection-deeplinks', '/connections');
 
   const navigate = async (route: string, settlesOn = '/connections') => {
@@ -121,12 +112,8 @@ test('Connections deep links preserve their selected pane, search, and fragment'
   await expect.poll(() => currentHash(page), { timeout: 10_000 }).toContain('tab=channels');
   await page.getByTestId('two-pane-nav-mcp').click();
   await expect.poll(() => currentHash(page), { timeout: 10_000 }).toContain('tab=mcp');
-  await expect(
-    page
-      .getByRole('searchbox')
-      .or(page.getByPlaceholder(/search/i))
-      .first()
-  ).toBeVisible();
+  await expectSelectedTab(page, 'mcp');
+  await expect(page.getByRole('heading', { level: 1, name: 'MCP Servers' })).toBeVisible();
 
   await navigate('/connections?tab=channels');
   await expectSelectedTab(page, 'channels');

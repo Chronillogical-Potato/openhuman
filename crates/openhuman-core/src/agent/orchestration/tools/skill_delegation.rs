@@ -62,12 +62,15 @@ impl SkillDelegationTool {
 }
 
 fn build_description(connected: &[(String, String)]) -> String {
+    // One sentence of routing plus one short line per connected service. The
+    // catalogue blurbs are marketing copy ("Gmail is Google's email service,
+    // featuring spam protection, ...") and were costing a paragraph per
+    // service on every turn; a clause is enough to disambiguate a slug.
+    const DESCRIPTION_MAX_CHARS: usize = 80;
     let mut buf = String::from(
-        "Use only when direct response/direct tools are insufficient and the task truly \
-         requires external integration actions. Routes the work to the integrations_agent \
-         with the named toolkit pre-selected. Required argument `toolkit` must be one of \
-         the currently-connected slugs below; pass the user's task verbatim as `prompt`. \
-         Connected toolkits:",
+        "Act on a connected service (read or write its data) through the integrations \
+         agent: `toolkit` is one of the connected slugs below, `prompt` the user's task. \
+         Connected:",
     );
     for (slug, desc) in connected {
         buf.push_str("\n - ");
@@ -75,7 +78,14 @@ fn build_description(connected: &[(String, String)]) -> String {
         let trimmed = desc.trim();
         if !trimmed.is_empty() {
             buf.push_str(": ");
-            buf.push_str(trimmed);
+            if trimmed.chars().count() > DESCRIPTION_MAX_CHARS {
+                let cut: String = trimmed.chars().take(DESCRIPTION_MAX_CHARS).collect();
+                let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
+                buf.push_str(cut.trim_end_matches([',', ';', ':']));
+                buf.push_str("...");
+            } else {
+                buf.push_str(trimmed);
+            }
         }
     }
     buf
@@ -225,6 +235,18 @@ pub(crate) async fn execute_skill_delegation(
     tool_context: Option<&dyn ToolRunContext>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
 ) -> anyhow::Result<ToolResult> {
+    if let Some(live_parent) = super::ambient_parent_run_context("direct-skill-delegation") {
+        let run_context = live_parent.data.child();
+        return execute_skill_delegation_with_live_parent(
+            tool_name,
+            connected_toolkits,
+            args,
+            tool_context,
+            run_context,
+            Some(&live_parent),
+        )
+        .await;
+    }
     execute_skill_delegation_with_live_parent(
         tool_name,
         connected_toolkits,

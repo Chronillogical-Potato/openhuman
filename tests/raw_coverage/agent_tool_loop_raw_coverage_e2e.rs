@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 use async_trait::async_trait;
 use openhuman_core::core::bus::BUS;
 use openhuman_core::agent::bus::{

@@ -3308,7 +3308,6 @@ const messages: TranslationMap = {
     'Sua sessão do OpenHuman expirou. Entre novamente para carregar os gatilhos.',
   'composio.triggers.needsConfiguration': 'Precisa de configuração',
   'composio.triggers.noneAvailable': 'Nenhum gatilho disponível no momento para',
-  'conversations.threadTodo.title': 'Plano',
   'conversations.composer.context.title': 'Janela de contexto',
   'conversations.composer.context.input': 'Entrada',
   'conversations.composer.context.cached': 'Entrada em cache',
@@ -5877,10 +5876,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Fontes da Tarefa',
   'settings.integrations.title': 'Integrações',
   'settings.integrations.menuDesc': 'Fontes de tarefas, roteamento Composio e gatilhos de webhooks',
-  'settings.taskSources.subtitle':
-    'Puxe tarefas de suas ferramentas para o quadro de tarefas do agente',
+  'settings.taskSources.subtitle': 'Traga tarefas das suas ferramentas para o seu agente',
   'settings.taskSources.description':
-    'Coletar itens de trabalho do GitHub, Notion, Linear e ClickUp, enriquecê-los e encaminhá-los para o quadro de tarefas do agente.',
+    'Colete itens de trabalho do GitHub, Notion, Linear e ClickUp, enriqueça-os e entregue-os ao seu agente para triagem.',
   'settings.taskSources.connectHint':
     'As fontes de tarefas usam suas contas conectadas. Conecte-as primeiro em Integrações.',
   'settings.taskSources.disabledBanner':

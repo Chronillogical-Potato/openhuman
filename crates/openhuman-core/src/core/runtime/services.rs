@@ -431,17 +431,6 @@ pub(crate) async fn run_legacy_migrations(config: &Config) {
         Ok(_) => {}
         Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
     }
-
-    match crate::agent::tinyagents::todos::migrate_legacy_task_boards(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => log::info!(
-            "[todos] legacy→crate migration: total={} copied={} skipped={}",
-            report.total,
-            report.copied,
-            report.skipped
-        ),
-        Ok(_) => {}
-        Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
-    }
 }
 
 /// Auto-connect Socket.IO to the backend when enabled by the service selection.

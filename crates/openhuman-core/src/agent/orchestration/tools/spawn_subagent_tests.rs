@@ -236,14 +236,16 @@ async fn legacy_archetype_alias_is_normalized_to_agent_id() {
         .unwrap();
     assert!(result.is_error);
     // The alias resolved: the call got past argument validation and only
-    // failed later, on the missing parent turn.
+    // failed later, because raw tool execution has no typed harness parent.
     assert!(
         !result.output().contains("agent_id is required"),
         "{}",
         result.output()
     );
     assert!(
-        result.output().contains("called outside of an agent turn"),
+        result
+            .output()
+            .contains("requires a live harness run context"),
         "{}",
         result.output()
     );
@@ -276,8 +278,8 @@ async fn async_default_self_heals_to_blocking_without_delivery_thread() {
         "thread-less spawn_subagent must not hit the async delivery guard: {out}"
     );
     assert!(
-        out.contains("spawn_subagent called outside of an agent turn"),
-        "expected the blocking path's own error: {out}"
+        out.contains("requires a live harness run context"),
+        "a raw tool call must reject missing typed authority: {out}"
     );
 }
 

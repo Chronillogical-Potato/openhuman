@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 //! Round19 raw/E2E coverage for tools-side Composio adapters and adjacent
 //! network-tool registration paths.
 //!

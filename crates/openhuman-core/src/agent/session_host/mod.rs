@@ -37,6 +37,7 @@ mod driver;
 mod factory;
 mod hooks;
 mod policy;
+mod prefix_snapshot;
 mod runtime;
 mod runtime_session;
 #[cfg(test)]
