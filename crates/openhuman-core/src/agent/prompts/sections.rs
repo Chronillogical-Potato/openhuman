@@ -12,8 +12,6 @@ use super::render_helpers::{
 use super::types::*;
 use anyhow::Result;
 use std::fmt::Write;
-use tinytools::ToolSpec;
-use tinytools_agent::dialect::render_pformat_catalogue;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Special sections (archetype, dynamic, reflection)
@@ -382,7 +380,6 @@ impl PromptSection for ToolsSection {
         // `python`), and the copy here could disagree with the harness's on
         // which tools are callable. The harness copy is the one bound to the
         // registry that parses the calls back, so it is the one that stays.
-        let _ = ctx.tools;
         Ok(String::new())
     }
 }
