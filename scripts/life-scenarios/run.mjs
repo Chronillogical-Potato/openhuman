@@ -96,6 +96,24 @@ function parseArgs(argv) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * The per-turn inference route.
+ *
+ * `inference_agent_chat` builds an `EphemeralRoute` only when BOTH
+ * `inference_url` and `api_key` arrive non-blank, and `apply()` bails unless a
+ * model is already resolved — so the model override is not optional on this
+ * path, it is part of the route. `--managed` drops all three and lets the
+ * turn run on the account's own configured provider instead.
+ */
+function routeParams(opts) {
+  if (opts.managed) return opts.model ? { model_override: opts.model } : {};
+  return {
+    model_override: opts.model,
+    inference_url: opts.inferenceUrl,
+    api_key: opts.apiKey,
+  };
+}
+
 async function freePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
