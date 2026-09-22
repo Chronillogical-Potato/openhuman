@@ -71,15 +71,13 @@ describe('formatTimelineEntry', () => {
   it('labels a direct connected-service action by its provider', () => {
     expect(
       formatTimelineEntry(
-        entry({
-          name: 'GMAIL_SEND_EMAIL',
-          argsBuffer: JSON.stringify({ to: 'alex@example.com' }),
-        })
+        entry({ name: 'GMAIL_SEND_EMAIL', argsBuffer: JSON.stringify({ to: 'alex@example.com' }) })
       )
     ).toEqual({ title: 'Making requests to your Gmail account', detail: 'Send email' });
-    expect(
-      formatTimelineEntry(entry({ name: 'GOOGLE_CALENDAR_CREATE_EVENT' }))
-    ).toEqual({ title: 'Updating your Google Calendar', detail: 'Create event' });
+    expect(formatTimelineEntry(entry({ name: 'GOOGLE_CALENDAR_CREATE_EVENT' }))).toEqual({
+      title: 'Updating your Google Calendar',
+      detail: 'Create event',
+    });
   });
 
   it('keeps the generic label for upper-case names on unknown toolkits', () => {
