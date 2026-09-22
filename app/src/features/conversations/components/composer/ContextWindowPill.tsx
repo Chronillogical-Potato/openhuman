@@ -53,6 +53,34 @@ export function contextUsageFromTokenUsage(
 const compact = (n: number): string =>
   n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n);
 
+/**
+ * Cache reads as a share of the thread's input, or an em dash when no input has
+ * been reported yet.
+ *
+ * A share rather than a count because the two rows are disjoint:
+ * `contextUsageFromTokenUsage` has already subtracted the cached portion out of
+ * `input`, so rendering both as absolutes read as if the cache were larger than
+ * the input it came from. The denominator is therefore the ORIGINAL input total
+ * (`input + cachedInput`, i.e. `SessionTokenUsage.inputTokens`) — not `input`,
+ * which would let the ratio exceed 100%, and not `limit`, which a thread's
+ * cumulative input outgrows after a few turns.
+ *
+ * An em dash rather than `0%` when nothing has been reported: `0%` asserts a
+ * measured miss rate that no turn ever produced. `0%` on a turn that *did*
+ * report input and got no cache hit is correct and shows.
+ *
+ * The clamp is defence in depth only, and is unreachable by construction here —
+ * the denominator contains the numerator. It guards a caller that builds a
+ * `ContextUsage` by hand with a negative `input`; the provider-reported
+ * over-report (`cachedTokens > inputTokens`) is already absorbed upstream by the
+ * `Math.max(0, …)` on `input` and lands on 100%.
+ */
+export function cacheHitLabel(usage: Pick<ContextUsage, 'input' | 'cachedInput'>): string {
+  const total = usage.input + usage.cachedInput;
+  if (total <= 0) return '—';
+  return `${Math.min(100, Math.round((usage.cachedInput / total) * 100))}%`;
+}
+
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex items-baseline justify-between gap-6">
     <span className="text-muted-foreground">{label}</span>
@@ -105,10 +133,7 @@ export function ContextWindowPill({ usage }: { usage: ContextUsage }) {
           <p className="mb-1.5 font-medium">{t('conversations.composer.context.title')}</p>
           <div className="flex flex-col gap-1">
             <Row label={t('conversations.composer.context.input')} value={compact(usage.input)} />
-            <Row
-              label={t('conversations.composer.context.cached')}
-              value={compact(usage.cachedInput)}
-            />
+            <Row label={t('conversations.composer.context.cached')} value={cacheHitLabel(usage)} />
             <Row label={t('conversations.composer.context.output')} value={compact(usage.output)} />
             <Row
               label={t('conversations.composer.context.cost')}
