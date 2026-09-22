@@ -261,11 +261,15 @@ describe('chatRuntimeSlice', () => {
   });
 
   /**
-   * The counterpart: an `interrupted` snapshot means the core process driving
-   * the child is gone, so even a detached child has no driver left and must
-   * settle rather than pulse forever.
+   * `interrupted` does NOT mean the core is gone. It is also stamped when the
+   * parent's agent loop merely errored with the core still running
+   * (`TurnStateMirror::finish`), and a detached child spawned earlier in that
+   * turn is a separate task that keeps working. So the snapshot must not
+   * settle a detached row on `interrupted` either — the ledger does that after
+   * a real restart. An ordinary (non-detached) row in the same snapshot has no
+   * driver left and must still settle.
    */
-  it('settles a detached async subagent when the turn was interrupted', () => {
+  it('keeps a detached async subagent running when its parent turn was interrupted', () => {
     const snapshot: PersistedTurnState = {
       threadId: 'thread-async-int',
       requestId: 'req-async-int',
@@ -288,16 +292,31 @@ describe('chatRuntimeSlice', () => {
             toolCalls: [],
           },
         },
+        {
+          id: 'subagent:sub-typed-int',
+          name: 'subagent:writer',
+          round: 1,
+          status: 'running' as const,
+          subagent: {
+            taskId: 'sub-typed-int',
+            agentId: 'writer',
+            status: 'running' as const,
+            mode: 'typed',
+            toolCalls: [],
+          },
+        },
       ],
       startedAt: '2026-09-22T00:00:00Z',
       updatedAt: '2026-09-22T00:00:09Z',
     };
 
     const next = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
-    const row = next.toolTimelineByThread['thread-async-int'][0];
+    const [detached, typed] = next.toolTimelineByThread['thread-async-int'];
 
-    expect(row.status).toBe('cancelled');
-    expect(row.subagent?.status).toBe('cancelled');
+    expect(detached.status).toBe('running');
+    expect(detached.subagent?.status).toBe('running');
+    expect(typed.status).toBe('cancelled');
+    expect(typed.subagent?.status).toBe('cancelled');
   });
 
   it('rehydrates historical subagent rows without live streamed prose', () => {
@@ -421,14 +440,14 @@ describe('chatRuntimeSlice', () => {
    * settle a detached row still shown running, and a `running` one must not.
    */
   describe('ledger reconciliation of a detached async row kept alive past its parent', () => {
-    const keptAlive = () =>
+    const keptAlive = (lifecycle: 'completed' | 'interrupted' = 'completed') =>
       reducer(
         undefined,
         hydrateRuntimeFromSnapshot({
           snapshot: {
             threadId: 'thread-detached',
             requestId: 'req-detached',
-            lifecycle: 'completed',
+            lifecycle,
             iteration: 1,
             maxIterations: 25,
             streamingText: '',
@@ -481,6 +500,32 @@ describe('chatRuntimeSlice', () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].status).toBe('cancelled');
       expect(rows[0].subagent?.status).toBe('interrupted');
+    });
+
+    /**
+     * A crash mid-turn leaves the parent snapshot `interrupted`, and the
+     * snapshot no longer settles detached rows. The ledger must, or a child
+     * that died with the core would read "Running" forever.
+     */
+    it('settles the row after a crash mid-turn, via the ledger', () => {
+      const before = keptAlive('interrupted');
+      expect(before.toolTimelineByThread['thread-detached'][0].status).toBe('running');
+
+      const rows = reducer(before, ledgerSays('interrupted')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows[0].status).toBe('cancelled');
+      expect(rows[0].subagent?.status).toBe('interrupted');
+    });
+
+    /** The reviewer's scenario: the parent errored, the core and child live on. */
+    it('leaves the row running after a parent error while the child lives', () => {
+      const rows = reducer(keptAlive('interrupted'), ledgerSays('running')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows[0].status).toBe('running');
     });
 
     it('leaves the row running while the ledger says the child is still alive', () => {

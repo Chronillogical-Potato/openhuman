@@ -1032,22 +1032,23 @@ function toolTimelineFromPersisted(
  * intact preserves the truthful "was waiting for the user" history — and the
  * pulse is already stopped by the row-level `cancelled` above.
  *
- * `turnStillOwnsDetachedChildren` is the one case where a `running` row is not
- * orphaned: a detached sub-agent (`spawn_async_subagent`, `mode === 'async'`)
- * is a fire-and-forget task that deliberately outlives the turn that spawned
- * it, and the core is still driving it. Settling those on the parent's
- * `completed` snapshot is what made the Background tasks panel report
- * "none running" — and the row read "Cancelled" — while the sub-agent was
- * visibly still making tool calls. Its `subagent_completed` event settles it
- * for real. An `interrupted` snapshot passes `false`: there the core process
- * itself is gone, so even a detached child has no driver left.
+ * A detached sub-agent (`spawn_async_subagent`, `mode === 'async'`) is the
+ * exception, and the parent's snapshot is never allowed to settle it. It is a
+ * fire-and-forget task that deliberately outlives the turn that spawned it, so
+ * the parent's lifecycle says nothing about whether the child is alive — and
+ * `interrupted` is ambiguous on exactly that point: it is stamped both when the
+ * core died (child dead too) and when the parent's agent loop merely errored
+ * with the core still running (`TurnStateMirror::finish`, child very possibly
+ * still working). Settling on the snapshot made the Background tasks panel
+ * read "none running" / "Cancelled" while the sub-agent was visibly still
+ * making tool calls. Its liveness is owned by sources that actually track it:
+ * its own `subagent_completed` event while the core lives, and the run ledger
+ * after a restart (startup stamps orphaned runs `interrupted`, which
+ * `hydrateRuntimeFromRunLedger` then applies to the row).
  */
-function settleOrphanedTimelineEntry(
-  entry: ToolTimelineEntry,
-  turnStillOwnsDetachedChildren = false
-): ToolTimelineEntry {
+function settleOrphanedTimelineEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
   if (entry.status !== 'running') return entry;
-  if (turnStillOwnsDetachedChildren && entry.subagent?.mode === 'async') return entry;
+  if (entry.subagent?.mode === 'async') return entry;
   return {
     ...entry,
     status: 'cancelled',
@@ -2272,7 +2273,7 @@ const chatRuntimeSlice = createSlice({
             state.toolTimelineByThread[threadId],
             snapshot.toolTimeline
               .map((e, seq) => toolTimelineFromPersisted(e, seq))
-              .map(e => settleOrphanedTimelineEntry(e, snapshot.lifecycle === 'completed'))
+              .map(settleOrphanedTimelineEntry)
           );
           // Persisted order is issue order — seed the live counter with the
           // row count so events arriving after this hydration keep counting
@@ -2369,15 +2370,14 @@ const chatRuntimeSlice = createSlice({
         const seq = state.toolTimelineSeqByThread[threadId] ?? 0;
         const entry = timelineEntryFromRun(run, seq);
         if (liveTaskIds.has(run.id)) {
-          // A detached `async` row is kept `running` past its parent's
-          // `completed` snapshot (see `settleOrphanedTimelineEntry`), which
-          // is only truthful while the child is alive. If the core died
-          // first, no `subagent_completed` is ever coming, and the snapshot
-          // stays `completed` — so without this the row would read
-          // "Running" forever. The ledger is the independent authority on
-          // the child: startup stamps orphaned runs `interrupted`
-          // (`interrupt_orphaned_agent_runs`). Let a terminal ledger status
-          // settle a row that is still shown running.
+          // The parent's snapshot never settles a detached `async` row (see
+          // `settleOrphanedTimelineEntry`): its lifecycle cannot say whether
+          // the child is alive. That is only truthful while the child is. If
+          // the core died, no `subagent_completed` is ever coming, so without
+          // this the row would read "Running" forever. The ledger is the
+          // independent authority on the child: startup stamps orphaned runs
+          // `interrupted` (`interrupt_orphaned_agent_runs`). Let a terminal
+          // ledger status settle a row that is still shown running.
           const live = existing.find(e => e.subagent?.taskId === run.id);
           const settled = timelineStatusFromRun(run.status);
           if (
