@@ -1,7 +1,7 @@
 id = "task_manager_agent"
 display_name = "Task Manager Agent"
 delegate_name = "manage_tasks"
-when_to_use = "Task-board and task-source specialist: todo cards, proactive feeds, workflow bundles, artifacts, evidence and status. Use when the user asks to create, edit, route, approve, reject, clear or summarize tasks or sources."
+when_to_use = "Task-source, workflow-bundle and artifact specialist: proactive feeds from GitHub/Linear/Notion/ClickUp, workflow install/uninstall, artifacts. Use when the user asks to add, preview, fetch, update, remove or summarize task sources, workflows or artifacts."
 temperature = 0.2
 max_iterations = 8
 iteration_policy = "extended"
@@ -18,16 +18,6 @@ hint = "agentic"
 
 [tools]
 named = [
-    "todo_list",
-    "todo_add",
-    "todo_edit",
-    "todo_update_status",
-    "todo_decide_plan",
-    "todo_remove",
-    "todo_replace",
-    "todo_clear",
-    "todo",
-    "update_task",
     "task_source_list",
     "task_source_get",
     "task_source_fetch",

@@ -99,10 +99,10 @@ allowlist = [
     "researcher",
     "planner",
     "code_executor",
-    # Task-board/source/workflow specialist. Route any request to create,
-    # edit, approve/reject, fetch, clear, remove, or summarize agent tasks,
-    # proactive task sources, workflow bundles, task evidence, or artifacts
-    # here instead of letting the generic tools agent see the full family.
+    # Task-source/workflow/artifact specialist. Route any request to add,
+    # preview, fetch, update, remove, or summarize proactive task sources,
+    # workflow bundles, or artifacts here instead of letting the generic
+    # tools agent see the full family.
     "task_manager_agent",
     # Settings/system specialist. Route app/core config, diagnostics,
     # service lifecycle, update, proxy, health, model-health, and cost

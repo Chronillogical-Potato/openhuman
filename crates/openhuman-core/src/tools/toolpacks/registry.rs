@@ -314,7 +314,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "tasks",
-        summary: "Agent task board: create, edit, approve, clear, summarize tasks and sources.",
+        summary: "Task sources, workflow bundles and artifacts: add, preview, fetch, update, remove, summarize.",
         tools: &["manage_tasks"],
         owners: &["task_manager_agent"],
     },
