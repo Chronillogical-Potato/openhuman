@@ -12,9 +12,7 @@ use super::workspace_files::{
 };
 use std::fmt::Write;
 use std::path::Path;
-use tinytools_agent::dialect::{
-    CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
-};
+use tinytools_agent::dialect::{CodeDialect, NativeDialect, PFormatDialect, ToolDialect};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-agent prompt renderer
@@ -246,7 +244,7 @@ pub fn render_subagent_system_prompt_with_format(
 fn render_tool_dialect_prompt(format: ToolCallFormat, tools: &[tinytools::ToolSpec]) -> String {
     match format {
         ToolCallFormat::Native => NativeDialect.prompt_instructions(tools),
-        ToolCallFormat::Json => XmlDialect.prompt_instructions(tools),
+        ToolCallFormat::Json => harness_json_tool_prompt(tools),
         ToolCallFormat::PFormat => {
             let registry = tinytools_agent::build_registry(
                 tools
@@ -268,4 +266,20 @@ fn render_tool_dialect_prompt(format: ToolCallFormat, tools: &[tinytools::ToolSp
             )
         }
     }
+}
+
+/// Use TinyAgents' complete text-mode prompt contract rather than teaching a
+/// local JSON convention that could drift from transcript replay and parsing.
+fn harness_json_tool_prompt(tools: &[tinytools::ToolSpec]) -> String {
+    let schemas: Vec<tinyinference_llm::tool::ToolSchema> = tools
+        .iter()
+        .map(|tool| {
+            tinyinference_llm::tool::ToolSchema::new(
+                tool.name.clone(),
+                tool.description.clone(),
+                tool.parameters.clone(),
+            )
+        })
+        .collect();
+    tinyagents_harness::tool::prompt_tool_instructions(&schemas)
 }

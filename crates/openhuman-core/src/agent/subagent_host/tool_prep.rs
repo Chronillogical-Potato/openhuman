@@ -184,10 +184,10 @@ pub(crate) fn subagent_prompt_protocol(
 ) -> (crate::agent::prompts::ToolCallFormat, String) {
     use crate::agent::prompts::ToolCallFormat;
     use tinytools_agent::dialect::{
-        CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+        CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolDialect,
     };
     if text_mode {
-        return (ToolCallFormat::Json, XmlDialect.prompt_instructions(tools));
+        return (ToolCallFormat::Json, harness_json_tool_prompt(tools));
     }
     let instructions = match parent_format {
         ToolCallFormat::PFormat => {
@@ -199,11 +199,27 @@ pub(crate) fn subagent_prompt_protocol(
             PFormatDialect::new(registry).prompt_instructions(tools)
         }
         ToolCallFormat::Native => NativeDialect.prompt_instructions(tools),
-        ToolCallFormat::Json => XmlDialect.prompt_instructions(tools),
+        ToolCallFormat::Json => harness_json_tool_prompt(tools),
         ToolCallFormat::Python => CodeDialect::instructions(CodeStyle::Python),
         ToolCallFormat::TypeScript => CodeDialect::instructions(CodeStyle::TypeScript),
     };
     (parent_format, instructions)
+}
+
+/// TinyAgents owns the JSON text-mode contract, including the result replay
+/// instructions paired with its `<tool_call>` parser.
+fn harness_json_tool_prompt(tools: &[tinytools::ToolSpec]) -> String {
+    let schemas: Vec<tinyinference_llm::tool::ToolSchema> = tools
+        .iter()
+        .map(|tool| {
+            tinyinference_llm::tool::ToolSchema::new(
+                tool.name.clone(),
+                tool.description.clone(),
+                tool.parameters.clone(),
+            )
+        })
+        .collect();
+    tinyagents_harness::tool::prompt_tool_instructions(&schemas)
 }
 
 // ── Tool filtering ──────────────────────────────────────────────────────

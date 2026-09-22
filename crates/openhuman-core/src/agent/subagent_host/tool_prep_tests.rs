@@ -471,7 +471,7 @@ fn text_mode_child_of_a_native_parent_renders_its_tool_catalogue() {
     );
     let rendered = render_tools_at(format, &instructions);
     assert!(
-        rendered.contains("- **composio_execute**:"),
+        rendered.contains("**composio_execute**:"),
         "text-mode child has no tool catalogue: {rendered:?}"
     );
 
