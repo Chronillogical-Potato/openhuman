@@ -52,7 +52,9 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
         })
         .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
         .collect();
-    let meta = TranscriptMeta { session_id: None, parent_session_id: None,
+    let meta = TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator_thread".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -115,7 +117,10 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     // A host-authored turn checks out with no overrides and no user text.
-    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+    let CheckedOutSession {
+        mut agent,
+        fingerprint,
+    } = checkout_session_agent(
         &config,
         super::super::SYSTEM_CLIENT_ID,
         &thread_id,
@@ -123,10 +128,16 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
+    // Checkout binds the thread's durable session identity; the history loads
+    // when the session resumes, which every turn does for itself. The
+    // conversation the transcript holds must come back either way.
+    assert!(
+        agent.resume_bound_session().await.unwrap(),
+        "a thread with a transcript must resume"
+    );
     let history = prose(&agent.history());
     assert!(
         history
@@ -150,7 +161,6 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::Exact,
-        "so lets do 20-30 days then?",
     )
     .await
     .unwrap();
@@ -194,7 +204,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -213,7 +222,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -281,7 +289,6 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
@@ -298,7 +305,6 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         Some(0.2),
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
