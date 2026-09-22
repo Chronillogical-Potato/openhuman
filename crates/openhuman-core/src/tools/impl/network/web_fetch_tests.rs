@@ -119,7 +119,7 @@ fn an_explicit_html_content_type_selects_markdown_conversion() {
 fn an_explicit_non_html_content_type_is_taken_at_its_word() {
     // A JSON API that happens to quote markup must come back verbatim —
     // the server said what it sent, so we don't second-guess it by sniffing.
-    let body = r#"{"html": "<div><p>one</p><span>two</span><a href=\"#\">x</a></div>"}"#;
+    let body = r##"{"html": "<div><p>one</p><span>two</span><a href="/x">two</a></div>"}"##;
     assert!(!is_html(body, Some("application/json")));
     assert!(!is_html("<p>x</p>", Some("text/plain")));
 }
