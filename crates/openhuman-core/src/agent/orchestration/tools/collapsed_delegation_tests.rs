@@ -31,7 +31,7 @@ fn tool() -> CollapsedDelegationTool {
 #[test]
 fn an_empty_target_list_produces_no_tool() {
     // An `agent` enum with no valid value is a schema the model can only call
-    // wrongly. Mirrors `SkillDelegationTool::for_connected`.
+    // wrongly.
     assert!(CollapsedDelegationTool::for_targets(Vec::new()).is_none());
 }
 

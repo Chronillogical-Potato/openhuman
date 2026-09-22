@@ -97,11 +97,7 @@ impl CollapsedDelegationTool {
     /// Build the collapsed tool, or `None` when there is nothing to route to.
     ///
     /// `None` rather than an empty enum: a `delegate` tool whose `agent` has no
-    /// valid value is a schema the model can only call wrongly, and the
-    /// sibling [`SkillDelegationTool::for_connected`] already returns `None` on
-    /// an empty toolkit list for the same reason.
-    ///
-    /// [`SkillDelegationTool::for_connected`]: super::SkillDelegationTool::for_connected
+    /// valid value is a schema the model can only call wrongly.
     pub fn for_targets(targets: Vec<DelegateTarget>) -> Option<Self> {
         if targets.is_empty() {
             return None;
