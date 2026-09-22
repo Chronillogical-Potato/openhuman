@@ -146,6 +146,7 @@ struct Args {
     top_k: usize,
     retrieval_k: usize,
     misses: bool,
+    family: bool,
 }
 
 fn parse_args() -> Args {
@@ -157,6 +158,7 @@ fn parse_args() -> Args {
         top_k: 3,
         retrieval_k: 20,
         misses: false,
+        family: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -170,10 +172,11 @@ fn parse_args() -> Args {
                 args.retrieval_k = it.next().and_then(|v| v.parse().ok()).unwrap_or(20)
             }
             "--misses" => args.misses = true,
+            "--family" => args.family = true,
             "-h" | "--help" => {
                 eprintln!(
                     "usage: tool-search-bench [--ranker all|bm25|overlap|jev] [--intents FILE] \
-                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses]"
+                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses] [--family]"
                 );
                 std::process::exit(0);
             }
@@ -278,7 +281,10 @@ fn load_intents(path: &PathBuf) -> Result<Vec<IntentRow>> {
 use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
 #[cfg(feature = "jev")]
-fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
+fn jev_ranker(
+    retrieval_k: usize,
+    family: bool,
+) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
     use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
     let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
         let mut client = ClientConfig::tinyhumans_openrouter(key);
@@ -298,17 +304,28 @@ fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_
     };
     let ranker = JevRanker::from_config(
         client,
-        JevRankerConfig::new()
-            .with_retrieval_k(retrieval_k)
-            .with_timeout(Duration::from_secs(15)),
+        jev_config(retrieval_k, family),
     )
     .ok()?;
     let ranker = Arc::new(ranker);
     Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
 }
 
+#[cfg(feature = "jev")]
+fn jev_config(retrieval_k: usize, family: bool) -> tinytools_jev::JevRankerConfig {
+    use tinytools_jev::{JevRankerConfig, JevStrategy};
+    let config = JevRankerConfig::new()
+        .with_retrieval_k(retrieval_k)
+        .with_timeout(Duration::from_secs(20));
+    if family {
+        config.with_strategy(JevStrategy::FamilyThenDecide)
+    } else {
+        config
+    }
+}
+
 #[cfg(not(feature = "jev"))]
-fn jev_ranker(_retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
+fn jev_ranker(_retrieval_k: usize, _family: bool) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
     None
 }
 
@@ -366,15 +383,13 @@ async fn main() -> Result<()> {
         rankers.push(("overlap".into(), Arc::new(OverlapRanker)));
     }
     if want("jev") {
-        match jev_ranker(args.retrieval_k) {
+        match jev_ranker(args.retrieval_k, args.family) {
             Some((ranker, _)) => rankers.push(("jev".into(), ranker)),
             None => {
                 #[cfg(feature = "jev")]
                 {
                     let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
-                        tinytools_jev::JevRankerConfig::new()
-                            .with_retrieval_k(args.retrieval_k)
-                            .with_timeout(Duration::from_secs(15)),
+                        jev_config(args.retrieval_k, args.family),
                     );
                     rankers.push(("jev".into(), Arc::new(ranker)));
                 }
@@ -387,7 +402,11 @@ async fn main() -> Result<()> {
     let mut reports = Vec::new();
     for (kind, ranker) in &rankers {
         let mut report = RankerReport {
-            ranker: kind.clone(),
+            ranker: if kind == "jev" && args.family {
+                "jev(family)".to_string()
+            } else {
+                kind.clone()
+            },
             rows: rows.len(),
             ..RankerReport::default()
         };
@@ -469,7 +488,7 @@ async fn main() -> Result<()> {
     if let Some(report) = reports.iter_mut().find(|r| r.ranker == "jev") {
         // Tokens and cost: one detailed pass over the labelled rows so the
         // number is the provider's own `usage`, not an estimate.
-        if let Some((_, detailed)) = jev_ranker(args.retrieval_k) {
+        if let Some((_, detailed)) = jev_ranker(args.retrieval_k, args.family) {
             let mut tokens = 0_u64;
             let mut counted = 0_u64;
             for row in rows.iter().take(25) {
