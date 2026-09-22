@@ -854,7 +854,7 @@ fn workflow_builder_reaches_propose_workflow() {
 fn orchestrator_hands_integration_work_to_the_specialist() {
     run_case(Case {
         agent: "orchestrator",
-        agent_marker: "## Delegation (direct-first)",
+        agent_marker: "## How you work",
         entry: Entry::WebChat,
         user_message: "Check my Gmail for anything from my landlord.",
         scripted_completions: vec![
@@ -1030,7 +1030,7 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         let requests = captured().clone();
         let orchestrator = requests
             .iter()
-            .find(|r| system_text(r).contains("## Delegation (direct-first)"))
+            .find(|r| system_text(r).contains("## How you work"))
             .expect("no orchestrator request captured");
         let prompt = system_text(orchestrator);
         let belt = advertised_tool_names(orchestrator);
