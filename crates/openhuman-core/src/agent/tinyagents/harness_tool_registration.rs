@@ -132,8 +132,6 @@ pub(super) fn register_turn_tools_and_agents(
                     harness.register_tool_dispatch(Arc::new(DelegateToolDispatch::new(adapter)));
                 } else if name == "todo" {
                     harness.register_tool_dispatch(Arc::new(TodoToolDispatch::new(adapter)));
-                } else if name == "update_task" {
-                    harness.register_tool_dispatch(Arc::new(UpdateTaskDispatch::new(adapter)));
                 } else if name == "call_memory_agent" {
                     harness.register_tool_dispatch(Arc::new(CallMemoryAgentDispatch::new(adapter)));
                 } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
