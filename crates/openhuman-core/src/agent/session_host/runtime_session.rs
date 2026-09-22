@@ -194,21 +194,8 @@ impl OpenHumanTurnPrelude {
         };
         let prefix = if cold {
             let learned = self.fetch_learned_context().await;
-            // One system message per cache tier (stable+context, then
-            // volatile): the harness gives each its own cacheable segment, so
-            // a rewritten memory file or a newly connected service changes the
-            // second segment and leaves the first byte-identical for the
-            // provider's prefix cache.
             let tiered = self.build_system_prompt_tiered(learned)?;
-            let messages = tiered.system_messages();
-            tracing::debug!(
-                segments = messages.len(),
-                bytes = ?messages.iter().map(String::len).collect::<Vec<_>>(),
-                "[session] frozen system prompt as tiered segments"
-            );
-            Some(PrefixSnapshot::new(
-                messages.into_iter().map(Message::system).collect(),
-            ))
+            Some(super::prefix_snapshot::tiered_prefix_snapshot(&tiered))
         } else {
             None
         };
@@ -1563,18 +1550,9 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    // The frozen prefix is every leading system message, not
-                    // only the first: the prompt is sent as one message per
-                    // cache tier (see `prepare`).
-                    let resumed_prefix = view.resumed.then(|| {
-                        let leading: Vec<Message> = view
-                            .history
-                            .iter()
-                            .take_while(|message| matches!(message, Message::System(_)))
-                            .cloned()
-                            .collect();
-                        (!leading.is_empty()).then(|| PrefixSnapshot::new(leading))
-                    });
+                    let resumed_prefix = view
+                        .resumed
+                        .then(|| super::prefix_snapshot::leading_system_prefix(&view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
