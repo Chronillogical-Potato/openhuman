@@ -4408,10 +4408,16 @@ async fn collect_turn_tool_results(
 }
 
 /// The JSON payload a named tool answered with on the live socket.
+///
+/// Found by `tool_call_id` (`call_<name>`, stamped by [`tool_call_completion`])
+/// rather than by `tool_name`: `goal_set` / `goal_get` live in the `goals`
+/// tool pack, so the model reaches them through `use_skill` and the frame is
+/// named for the wrapper.
 fn tool_result_payload(results: &[Value], tool_name: &str) -> Value {
+    let call_id = format!("call_{tool_name}");
     let frame = results
         .iter()
-        .find(|frame| frame.get("tool_name").and_then(Value::as_str) == Some(tool_name))
+        .find(|frame| frame.get("tool_call_id").and_then(Value::as_str) == Some(call_id.as_str()))
         .unwrap_or_else(|| panic!("no tool_result frame for `{tool_name}` in {results:?}"));
     assert_eq!(
         frame.get("success"),
@@ -4475,9 +4481,12 @@ async fn turn_state_history(rpc_base: &str, id: i64, thread_id: &str) -> Vec<Val
         .unwrap_or_else(|| panic!("turn_state_history has no turnStates: {resp}"))
 }
 
-/// Persisted tool rows named `tool_name`, oldest first, across every turn of
-/// the thread — what a cold-booted pane rehydrates its timeline from.
+/// Persisted tool rows whose id is `call_<tool_name>`, oldest first, across
+/// every turn of the thread — what a cold-booted pane rehydrates its timeline
+/// from. Keyed on the call id for the same reason as [`tool_result_payload`]:
+/// a packed tool's row is named for the `use_skill` wrapper.
 fn persisted_tool_rows(turns: &[Value], tool_name: &str) -> Vec<Value> {
+    let call_id = format!("call_{tool_name}");
     turns
         .iter()
         .rev()
@@ -4487,7 +4496,7 @@ fn persisted_tool_rows(turns: &[Value], tool_name: &str) -> Vec<Value> {
                 .cloned()
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|row| row["name"].as_str() == Some(tool_name))
+                .filter(|row| row["id"].as_str() == Some(call_id.as_str()))
         })
         .collect()
 }
@@ -4696,6 +4705,12 @@ async fn todo_list_rejects_two_items_in_progress_inner() {
         .iter()
         .filter(|frame| frame.get("tool_name").and_then(Value::as_str) == Some("todo"))
         .collect();
+    assert!(
+        todo_frames
+            .iter()
+            .all(|frame| frame["tool_call_id"].as_str() == Some("call_todo")),
+        "the todo tool is unpacked — every frame is a direct `todo` call: {todo_frames:?}"
+    );
     assert_eq!(todo_frames.len(), 3, "write, rejected write, read: {results:?}");
     assert_eq!(todo_frames[0]["success"], json!(true), "{}", todo_frames[0]);
     assert_eq!(
@@ -4809,12 +4824,11 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     // newest row is the completion.
     let turns = turn_state_history(&stack.rpc_base, 850, "thread-goal").await;
     assert_eq!(turns.len(), 3, "one snapshot per turn");
-    let names: Vec<String> = ["goal_set", "goal_get", "goal_complete"]
-        .iter()
-        .flat_map(|name| persisted_tool_rows(&turns, name))
-        .map(|row| row["name"].as_str().unwrap().to_string())
-        .collect();
-    assert_eq!(names, vec!["goal_set", "goal_get", "goal_complete"]);
+    for name in ["goal_set", "goal_get", "goal_complete"] {
+        let rows = persisted_tool_rows(&turns, name);
+        assert_eq!(rows.len(), 1, "one persisted `{name}` row: {rows:?}");
+        assert_eq!(rows[0]["status"].as_str(), Some("success"), "{}", rows[0]);
+    }
     let persisted_done: Value = serde_json::from_str(
         persisted_tool_rows(&turns, "goal_complete")[0]["output"]
             .as_str()
