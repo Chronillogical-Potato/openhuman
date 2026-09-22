@@ -310,3 +310,76 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
     assert_eq!(prose(&agent.history()), vec!["pinned-history", "ok"]);
     evict(&thread_id).await;
 }
+
+/// The identity that fixes the reported bug: a thread resolves to one
+/// transcript, named without a timestamp, so two cold boots address the same
+/// file instead of accumulating one root per launch.
+#[tokio::test]
+async fn a_thread_binds_one_stable_session_across_cold_boots() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("stable");
+
+    let first = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+    // Nothing is checked back in, so the next checkout is a genuine cold boot.
+    let second = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+
+    let session_id = first.agent.session_id().expect("a chat thread is a session");
+    assert_eq!(
+        second.agent.session_id().as_deref(),
+        Some(session_id.as_str()),
+        "two cold boots of one thread must address the same session"
+    );
+    assert!(
+        session_id.starts_with(&thread_id),
+        "the session is named for its conversation, got {session_id}"
+    );
+    assert!(
+        !session_id
+            .split(['.', '_'])
+            .any(|part| part.len() >= 10 && part.chars().all(|c| c.is_ascii_digit())),
+        "a timestamp in the name is what made every launch a new transcript: {session_id}"
+    );
+    evict(&thread_id).await;
+}
+
+/// A sub-agent inherits its parent's thread for correlation, but each spawn is
+/// genuinely its own transcript, so it must not claim the conversation's
+/// session identity.
+#[test]
+fn a_subagent_does_not_take_over_the_conversations_session() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let mut host = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+
+    host.set_thread_id(Some("thread-1"));
+    assert!(host.session_id().is_some());
+
+    let mut child = OpenHumanSessionHost::builder_for_agent(&config, "orchestrator")
+        .unwrap()
+        .session_parent_prefix(Some("1713000000_orchestrator".into()))
+        .build()
+        .unwrap();
+    child.set_thread_id(Some("thread-1"));
+    assert_eq!(child.session_id(), None);
+}
