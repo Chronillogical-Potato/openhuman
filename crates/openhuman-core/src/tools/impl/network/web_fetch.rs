@@ -247,8 +247,6 @@ impl Tool for WebFetchTool {
         };
 
         let extracted = content.len();
-        let (window, elided) = head_tail_window(&content, MAX_CONTENT_CHARS);
-
         let mut header = format!("status={} url={final_url}", status.as_u16());
         if converted {
             header.push_str(" content=markdown");
@@ -261,37 +259,15 @@ impl Tool for WebFetchTool {
         }
         header.push('\n');
 
-        // Say how much is missing rather than letting the gap pass for the
-        // whole page. `web_fetch` has no offset parameter, so the honest
-        // instruction is to narrow the request.
-        let suffix = match elided {
-            0 => String::new(),
-            n => format!(
-                "\n\n[web_fetch: {n} of {extracted} chars omitted from the middle of this page. \
-                 The head and tail are shown. Fetch a more specific URL — an anchor, a sub-page, \
-                 or a raw/ or /api/ path — to read the part you need.]"
-            ),
-        };
-        Ok(ToolResult::success(format!("{header}{window}{suffix}")))
+        // Full extracted content. Bounding it — the head/tail window, the
+        // spill to an artifact and the paging handle — belongs to
+        // `ToolOutputMiddleware`, which applies one rule to every tool.
+        // Codex enforces exactly this invariant at a single chokepoint
+        // (`context_manager/history.rs`), which is why a tool there cannot
+        // leak an unbounded payload however it misbehaves.
+        Ok(ToolResult::success(format!("{header}{content}")))
     }
 }
-
-/// How much extracted content reaches the model.
-///
-/// Markdown, not markup: after extraction a long documentation page is
-/// typically a few thousand chars, so this bites only on genuinely large
-/// documents. Sized against the 4,000-token (~16 KB) payload-summarizer
-/// trigger in `context.summarizer_payload_threshold_tokens` — a page that
-/// survives this window is one the summarizer would otherwise be handed
-/// whole. Hermes' `web_extract` uses 15,000 chars of clean markdown for the
-/// same job; Codex caps every tool result at ~10,000 tokens.
-const MAX_CONTENT_CHARS: usize = 24_000;
-
-/// Fraction of the window spent on the head. A page's lede, title and
-/// navigation-to-content transition are front-loaded; the tail is where
-/// references, footnotes and "next page" links live. Hermes splits 75/25,
-/// Codex 50/50 — exec output puts its verdict last, prose does not.
-const HEAD_FRACTION: f64 = 0.75;
 
 /// Is this HTML? The server's own `Content-Type` is authoritative when it
 /// says so; otherwise fall back to TinyJuice's content detection, which
@@ -313,41 +289,6 @@ fn is_html(body: &str, content_type: Option<&str>) -> bool {
         tinyjuice::detect_content_kind(body, &tinyjuice::types::ContentHint::default()),
         tinyjuice::types::ContentKind::Html
     )
-}
-
-/// Keep the head and the tail, drop the middle, and report how much went.
-///
-/// Returns the window and the number of chars elided. Cuts land on char
-/// boundaries, and on a line boundary where one is close by, so the model
-/// never sees a half-word or a half-line.
-fn head_tail_window(content: &str, budget: usize) -> (String, usize) {
-    if content.chars().count() <= budget {
-        return (content.to_string(), 0);
-    }
-    let head_budget = (budget as f64 * HEAD_FRACTION) as usize;
-    let tail_budget = budget.saturating_sub(head_budget);
-
-    let head_end = crate::util::floor_char_boundary(content, head_budget);
-    let head = &content[..head_end];
-    // Snap back to a line break when one is within the last quarter of the
-    // head, so the cut falls between paragraphs rather than mid-sentence.
-    let head = match head.rfind('\n') {
-        Some(nl) if nl > head_budget * 3 / 4 => &head[..nl],
-        _ => head,
-    };
-
-    let tail_start = crate::util::floor_char_boundary(
-        content,
-        content.len().saturating_sub(tail_budget),
-    );
-    let tail = &content[tail_start..];
-    let tail = match tail.find('\n') {
-        Some(nl) if nl < tail_budget / 4 => &tail[nl + 1..],
-        _ => tail,
-    };
-
-    let elided = content.len().saturating_sub(head.len() + tail.len());
-    (format!("{head}\n\n[…]\n\n{tail}"), elided)
 }
 
 #[cfg(test)]
