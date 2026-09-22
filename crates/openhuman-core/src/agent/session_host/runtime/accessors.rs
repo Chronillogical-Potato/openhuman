@@ -124,6 +124,11 @@ impl OpenHumanSessionHost {
     }
 
     #[cfg(test)]
+    pub(crate) fn deferred_tool_names_for_test(&self) -> &std::collections::HashSet<String> {
+        &self.deferred_tool_names
+    }
+
+    #[cfg(test)]
     pub(crate) fn subagent_tool_ceiling_names_for_test(
         &self,
     ) -> &std::collections::HashSet<String> {

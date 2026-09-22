@@ -72,11 +72,7 @@ fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
 fn wildcard_belt_advertises_collapsed_tools_not_their_hidden_members() {
     let visible = visible_names("tools_agent");
 
-    for collapsed in [
-        crate::memory::tools::MEMORY_TOOL_NAME,
-        "todo",
-        crate::tools::implementations::meta::TOOL_SEARCH_NAME,
-    ] {
+    for collapsed in [crate::memory::tools::MEMORY_TOOL_NAME, "todo"] {
         assert!(
             visible.contains(collapsed),
             "wildcard belt must advertise `{collapsed}`; got {visible:?}"
@@ -92,6 +88,51 @@ fn wildcard_belt_advertises_collapsed_tools_not_their_hidden_members() {
     assert!(
         leaked.is_empty(),
         "Hidden members of `memory`/`todo` must not ship beside them: {leaked:?}"
+    );
+}
+
+/// A wildcard belt withholds every `Deferred` registration from the wire and
+/// keeps it reachable: never advertised, always in the deferred set the
+/// harness registers for its `tool_search` bridge, and classified `Allow` by
+/// the policy — a found tool the gate refuses as prompt-hidden is the
+/// unusable find this replaced.
+#[test]
+fn wildcard_belt_defers_stock_tools_but_keeps_them_reachable() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let definition = crate::agent::harness::AgentDefinitionRegistry::builtins_only()
+        .get("tools_agent")
+        .cloned()
+        .expect("tools_agent built-in definition");
+    let agent =
+        crate::agent::OpenHumanSessionHost::from_config_with_definition(&config, &definition)
+            .expect("build tools agent");
+
+    let deferred = agent.deferred_tool_names_for_test();
+    assert!(
+        deferred.contains("stock_quote"),
+        "stock_quote declares Deferred and must land in the deferred set; got {deferred:?}"
+    );
+    assert!(
+        !agent.visible_tool_names_for_test().contains("stock_quote"),
+        "a deferred tool must not be advertised"
+    );
+    assert!(
+        !agent
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "stock_quote"),
+        "a deferred tool must not be in the prompt's spec list"
+    );
+    assert!(
+        agent.tool_policy_session_for_test().is_allowed("stock_quote"),
+        "a deferred tool must be callable once found"
+    );
+    assert!(
+        !agent
+            .visible_tool_names_for_test()
+            .contains(crate::tools::implementations::meta::TOOL_SEARCH_NAME),
+        "tool_search is the harness's intrinsic bridge, never a registered tool"
     );
 }
 
