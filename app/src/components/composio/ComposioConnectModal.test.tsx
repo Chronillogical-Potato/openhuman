@@ -873,12 +873,19 @@ describe('<ComposioConnectModal> — cancelling a pending connection', () => {
       connectUrl: 'https://hosted.composio.dev/test-token',
       connectionId: '',
     });
-    vi.mocked(composioApi.listConnections).mockResolvedValue({
-      connections: [
-        { id: 'ca_other_toolkit', toolkit: 'slack', status: 'INITIATED' },
-        { id: 'ca_direct', toolkit: 'gmail', status: 'INITIATED' },
-      ],
-    });
+    // The first call is the poll that `handleConnect` kicks off; it must come
+    // back empty, otherwise the poller itself records the id and the cancel
+    // path never reaches its lookup — the test would then pass without
+    // exercising the branch it exists for. The rows only appear on the call
+    // cancel makes.
+    vi.mocked(composioApi.listConnections)
+      .mockResolvedValueOnce({ connections: [] })
+      .mockResolvedValue({
+        connections: [
+          { id: 'ca_other_toolkit', toolkit: 'slack', status: 'INITIATED' },
+          { id: 'ca_direct', toolkit: 'gmail', status: 'INITIATED' },
+        ],
+      });
 
     render(<ComposioConnectModal toolkit={mockToolkit} onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
