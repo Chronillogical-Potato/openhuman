@@ -31,7 +31,7 @@ import {
   typeIntoComposer,
   waitForSocketConnected,
 } from '../helpers/chat-harness';
-import { textExists, waitForTestId } from '../helpers/element-helpers';
+import { clickTestId, textExists, waitForTestId } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
@@ -259,13 +259,7 @@ describe('Chat todos and goals', () => {
     expect(await readGoal()).toBeNull();
 
     // Back to the first thread: both rehydrate from the persisted turn state.
-    const reselected = await browser.execute((tid: string) => {
-      const rows = Array.from(document.querySelectorAll('[data-thread-id]'));
-      const row = rows.find(r => r.getAttribute('data-thread-id') === tid) as HTMLElement | null;
-      row?.click();
-      return Boolean(row);
-    }, threadId);
-    expect(reselected).toBe(true);
+    await clickTestId(`thread-row-${threadId}`, 15_000);
     await browser.waitUntil(async () => (await getSelectedThreadId()) === threadId, {
       timeout: 8_000,
       timeoutMsg: 'never switched back to the first thread',
