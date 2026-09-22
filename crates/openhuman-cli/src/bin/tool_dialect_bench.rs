@@ -482,7 +482,11 @@ fn is_exact(parsed: &Value, expected: &Value) -> bool {
     let (Some(parsed), Some(expected)) = (parsed.as_object(), expected.as_object()) else {
         return false;
     };
-    parsed.len() == expected.len() && is_superset(&Value::Object(parsed.clone()), &Value::Object(expected.clone()))
+    parsed.len() == expected.len()
+        && is_superset(
+            &Value::Object(parsed.clone()),
+            &Value::Object(expected.clone()),
+        )
 }
 
 #[tokio::main]
@@ -494,7 +498,12 @@ async fn main() -> Result<()> {
     let tasks: Vec<(usize, &Task)> = match &args.tasks {
         Some(indices) => indices
             .iter()
-            .map(|&i| all_tasks.get(i).map(|t| (i, t)).context("task index out of range"))
+            .map(|&i| {
+                all_tasks
+                    .get(i)
+                    .map(|t| (i, t))
+                    .context("task index out of range")
+            })
             .collect::<Result<Vec<_>>>()?,
         None => all_tasks.iter().enumerate().collect(),
     };
@@ -540,11 +549,9 @@ async fn main() -> Result<()> {
                     .with_temperature(0.0)
                     .with_max_tokens(args.max_output_tokens);
                     let started = Instant::now();
-                    let outcome = tokio::time::timeout(
-                        Duration::from_secs(180),
-                        model.invoke(&(), request),
-                    )
-                    .await;
+                    let outcome =
+                        tokio::time::timeout(Duration::from_secs(180), model.invoke(&(), request))
+                            .await;
                     let latency_ms = started.elapsed().as_millis();
                     let mut row = Row {
                         model: model_id.clone(),
@@ -596,7 +603,8 @@ async fn main() -> Result<()> {
                             if let Some(call) = calls.first() {
                                 row.recovered = true;
                                 row.name_ok = call.name == task.tool;
-                                row.args_exact = row.name_ok && is_exact(&call.arguments, &task.args);
+                                row.args_exact =
+                                    row.name_ok && is_exact(&call.arguments, &task.args);
                                 row.args_superset =
                                     row.name_ok && is_superset(&call.arguments, &task.args);
                                 row.source = Some(source_name(call.source).to_string());
@@ -658,7 +666,11 @@ async fn main() -> Result<()> {
             s.pct(s.name_ok),
             s.pct(s.args_superset),
             s.pct(s.args_exact),
-            if s.n == 0 { 0 } else { s.latency_ms / s.n as u128 },
+            if s.n == 0 {
+                0
+            } else {
+                s.latency_ms / s.n as u128
+            },
             s.errors,
             sources.join(" ")
         );
@@ -695,4 +707,3 @@ fn one_line(text: &str) -> String {
         flat
     }
 }
-
