@@ -3385,12 +3385,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Последняя сгенерированная архитектурная диаграмма OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Обновляется каждые {seconds} с',
   'intelligence.memoryText.entityTypePrefix': 'Тип сущности',
-  'intelligence.workTask.sourceTaskHeading': 'Исходная задача:',
-  'intelligence.workTask.repositoryLine': '- Репозиторий: {repo}',
-  'intelligence.workTask.externalIdLine': '- Внешний ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Ссылка: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Начните с краткого повторения конкретного плана реализации, затем выполните его. Поддерживайте видимость прогресса в этой ветке и обновляйте доску задач при изменении состояния работы.',
   'intelligence.agentWork.subtitle':
     'Каждый фоновый запуск агента, сгруппированный по состоянию жизненного цикла.',
   'intelligence.agentWork.loading': 'Загрузка работы агента…',

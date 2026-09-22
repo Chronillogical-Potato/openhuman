@@ -3398,12 +3398,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Najnowszy wygenerowany diagram architektury OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Odświeża co {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Typ encji',
-  'intelligence.workTask.sourceTaskHeading': 'Zadanie źródłowe:',
-  'intelligence.workTask.repositoryLine': '- Repozytorium: {repo}',
-  'intelligence.workTask.externalIdLine': '- Identyfikator zewnętrzny: {externalId}',
-  'intelligence.workTask.urlLine': '- Adres: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Zacznij od krótkiego powtórzenia konkretnego planu wdrożenia, a następnie go zrealizuj. Utrzymuj widoczność postępów w tym wątku i aktualizuj tablicę zadań, gdy zmienia się stan pracy.',
   'intelligence.agentWork.subtitle':
     'Każdy przebieg agenta w tle, pogrupowany według stanu cyklu życia.',
   'intelligence.agentWork.loading': 'Ładowanie pracy agenta…',

@@ -3874,12 +3874,6 @@ const en: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Latest generated OpenHuman architecture diagram',
   'intelligence.diagram.refreshesEvery': 'Refreshes every {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Entity type',
-  'intelligence.workTask.sourceTaskHeading': 'Source task:',
-  'intelligence.workTask.repositoryLine': '- Repository: {repo}',
-  'intelligence.workTask.externalIdLine': '- External ID: {externalId}',
-  'intelligence.workTask.urlLine': '- URL: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.',
   'intelligence.agentWork.subtitle': 'Every background agent run, grouped by lifecycle state.',
   'intelligence.agentWork.loading': 'Loading agent work…',
   'intelligence.agentWork.failedToLoad': 'Failed to load agent work',

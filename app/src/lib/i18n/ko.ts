@@ -3323,12 +3323,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': '최신 생성된 OpenHuman 아키텍처 다이어그램',
   'intelligence.diagram.refreshesEvery': '{seconds}초마다 새로 고침',
   'intelligence.memoryText.entityTypePrefix': '엔터티 유형',
-  'intelligence.workTask.sourceTaskHeading': '소스 작업:',
-  'intelligence.workTask.repositoryLine': '- 저장소: {repo}',
-  'intelligence.workTask.externalIdLine': '- 외부 ID: {externalId}',
-  'intelligence.workTask.urlLine': '- 링크: {url}',
-  'intelligence.workTask.closingInstruction':
-    '먼저 구체적인 구현 계획을 간략히 다시 설명한 다음 실행하세요. 이 스레드에서 진행 상황을 계속 보이게 하고 작업 상태가 바뀌면 작업 보드를 업데이트하세요.',
   'intelligence.agentWork.subtitle':
     '모든 백그라운드 에이전트 실행을 수명 주기 상태별로 그룹화합니다.',
   'intelligence.agentWork.loading': '에이전트 작업 불러오는 중…',

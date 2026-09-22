@@ -3452,12 +3452,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Zuletzt generiertes OpenHuman-Architekturdiagramm',
   'intelligence.diagram.refreshesEvery': 'Aktualisiert alle {seconds} s',
   'intelligence.memoryText.entityTypePrefix': 'Entitätstyp',
-  'intelligence.workTask.sourceTaskHeading': 'Quellaufgabe:',
-  'intelligence.workTask.repositoryLine': '- Repository (Repo): {repo}',
-  'intelligence.workTask.externalIdLine': '- Externe ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Adresse: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Beginne damit, den konkreten Umsetzungsplan kurz zu wiederholen, und führe ihn dann aus. Halte den Fortschritt in diesem Thread sichtbar und aktualisiere das Aufgabenboard, wenn sich der Arbeitsstand ändert.',
   'intelligence.agentWork.subtitle':
     'Jeder Hintergrund-Agentenlauf, gruppiert nach Lebenszyklusstatus.',
   'intelligence.agentWork.loading': 'Agentenarbeit wird geladen…',

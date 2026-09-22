@@ -3371,12 +3371,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Diagram arsitektur OpenHuman terbaru yang dihasilkan',
   'intelligence.diagram.refreshesEvery': 'Diperbarui setiap {seconds}d',
   'intelligence.memoryText.entityTypePrefix': 'Tipe entitas',
-  'intelligence.workTask.sourceTaskHeading': 'Tugas sumber:',
-  'intelligence.workTask.repositoryLine': '- Repositori: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID eksternal: {externalId}',
-  'intelligence.workTask.urlLine': '- Tautan: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Mulailah dengan menyatakan kembali rencana implementasi konkret secara singkat, lalu jalankan. Jaga agar kemajuan tetap terlihat di utas ini dan perbarui papan tugas ketika status pekerjaan berubah.',
   'intelligence.agentWork.subtitle':
     'Setiap proses agen latar belakang, dikelompokkan menurut status siklus hidup.',
   'intelligence.agentWork.loading': 'Memuat kerja agen…',

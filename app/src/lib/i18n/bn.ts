@@ -3356,12 +3356,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'সর্বশেষ তৈরি OpenHuman আর্কিটেকচার ডায়াগ্রাম',
   'intelligence.diagram.refreshesEvery': 'প্রতি {seconds}s-এ রিফ্রেশ হয়',
   'intelligence.memoryText.entityTypePrefix': 'এনটিটি ধরন',
-  'intelligence.workTask.sourceTaskHeading': 'উৎস টাস্ক:',
-  'intelligence.workTask.repositoryLine': '- রিপোজিটরি: {repo}',
-  'intelligence.workTask.externalIdLine': '- বাহ্যিক আইডি: {externalId}',
-  'intelligence.workTask.urlLine': '- ইউআরএল: {url}',
-  'intelligence.workTask.closingInstruction':
-    'প্রথমে সুনির্দিষ্ট বাস্তবায়ন পরিকল্পনাটি সংক্ষেপে পুনরায় বলুন, তারপর তা সম্পাদন করুন। এই থ্রেডে অগ্রগতি দৃশ্যমান রাখুন এবং কাজের অবস্থা পরিবর্তিত হলে টাস্ক বোর্ড আপডেট করুন।',
   'intelligence.agentWork.subtitle':
     'প্রতিটি ব্যাকগ্রাউন্ড এজেন্ট রান, জীবনচক্রের অবস্থা অনুযায়ী গোষ্ঠীবদ্ধ।',
   'intelligence.agentWork.loading': 'এজেন্ট কাজ লোড হচ্ছে…',

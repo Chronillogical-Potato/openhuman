@@ -3358,12 +3358,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'OpenHuman का नवीनतम जेनरेटेड आर्किटेक्चर डायग्राम',
   'intelligence.diagram.refreshesEvery': 'हर {seconds}s पर रीफ्रेश होता है',
   'intelligence.memoryText.entityTypePrefix': 'इकाई प्रकार',
-  'intelligence.workTask.sourceTaskHeading': 'स्रोत कार्य:',
-  'intelligence.workTask.repositoryLine': '- रिपॉज़िटरी: {repo}',
-  'intelligence.workTask.externalIdLine': '- बाहरी आईडी: {externalId}',
-  'intelligence.workTask.urlLine': '- यूआरएल: {url}',
-  'intelligence.workTask.closingInstruction':
-    'पहले ठोस कार्यान्वयन योजना को संक्षेप में दोहराएँ, फिर उसे निष्पादित करें। इस थ्रेड में प्रगति दिखती रहे और कार्य की स्थिति बदलने पर कार्य बोर्ड अपडेट करें।',
   'intelligence.agentWork.subtitle': 'हर पृष्ठभूमि एजेंट रन, जीवनचक्र स्थिति के अनुसार समूहित।',
   'intelligence.agentWork.loading': 'एजेंट कार्य लोड हो रहा है…',
   'intelligence.agentWork.failedToLoad': 'एजेंट कार्य लोड नहीं हो सका',

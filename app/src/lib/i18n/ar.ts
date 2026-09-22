@@ -3279,12 +3279,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'أحدث مخطط بنية OpenHuman المُولَّد',
   'intelligence.diagram.refreshesEvery': 'يتجدد كل {seconds} ثانية',
   'intelligence.memoryText.entityTypePrefix': 'نوع الكيان',
-  'intelligence.workTask.sourceTaskHeading': 'المهمة المصدر:',
-  'intelligence.workTask.repositoryLine': '- المستودع: {repo}',
-  'intelligence.workTask.externalIdLine': '- المعرّف الخارجي: {externalId}',
-  'intelligence.workTask.urlLine': '- الرابط: {url}',
-  'intelligence.workTask.closingInstruction':
-    'ابدأ بإعادة صياغة خطة التنفيذ الملموسة بإيجاز، ثم نفّذها. أبقِ التقدّم مرئيًا في هذا المحادثة وحدّث لوحة المهام عند تغيّر حالة العمل.',
   'intelligence.agentWork.subtitle': 'كل تشغيل وكيل في الخلفية، مُجمّع حسب حالة دورة الحياة.',
   'intelligence.agentWork.loading': 'جارٍ تحميل عمل الوكيل…',
   'intelligence.agentWork.failedToLoad': 'تعذّر تحميل عمل الوكيل',

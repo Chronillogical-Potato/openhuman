@@ -3160,12 +3160,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': '最新生成的 OpenHuman 架构图',
   'intelligence.diagram.refreshesEvery': '每 {seconds} 秒刷新',
   'intelligence.memoryText.entityTypePrefix': '实体类型',
-  'intelligence.workTask.sourceTaskHeading': '来源任务：',
-  'intelligence.workTask.repositoryLine': '- 仓库：{repo}',
-  'intelligence.workTask.externalIdLine': '- 外部 ID：{externalId}',
-  'intelligence.workTask.urlLine': '- 网址：{url}',
-  'intelligence.workTask.closingInstruction':
-    '先简要重述具体的实施计划，然后执行它。在此线程中保持进度可见，并在工作状态变化时更新任务看板。',
   'intelligence.agentWork.subtitle': '所有后台智能体运行，按生命周期状态分组。',
   'intelligence.agentWork.loading': '正在加载智能体工作…',
   'intelligence.agentWork.failedToLoad': '无法加载智能体工作',

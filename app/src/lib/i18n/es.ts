@@ -3415,12 +3415,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Último diagrama de arquitectura de OpenHuman generado',
   'intelligence.diagram.refreshesEvery': 'Se actualiza cada {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo de entidad',
-  'intelligence.workTask.sourceTaskHeading': 'Tarea de origen:',
-  'intelligence.workTask.repositoryLine': '- Repositorio: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
-  'intelligence.workTask.urlLine': '- Dirección: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Empieza reformulando brevemente el plan de implementación concreto y luego ejecútalo. Mantén el progreso visible en este hilo y actualiza el tablero de tareas cuando cambie el estado del trabajo.',
   'intelligence.agentWork.subtitle':
     'Cada ejecución de agente en segundo plano, agrupada por estado del ciclo de vida.',
   'intelligence.agentWork.loading': 'Cargando trabajo del agente…',
