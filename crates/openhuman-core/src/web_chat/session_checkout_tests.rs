@@ -344,7 +344,10 @@ async fn a_thread_binds_one_stable_session_across_cold_boots() {
     .await
     .unwrap();
 
-    let session_id = first.agent.session_id().expect("a chat thread is a session");
+    let session_id = first
+        .agent
+        .session_id()
+        .expect("a chat thread is a session");
     assert_eq!(
         second.agent.session_id().as_deref(),
         Some(session_id.as_str()),

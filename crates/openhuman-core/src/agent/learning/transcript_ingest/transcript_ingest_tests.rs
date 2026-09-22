@@ -177,7 +177,9 @@ impl Memory for InMemory {
 }
 
 fn fake_meta(thread_id: Option<&str>) -> TranscriptMeta {
-    TranscriptMeta { session_id: None, parent_session_id: None,
+    TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "main".into(),
         agent_id: None,
         agent_type: None,

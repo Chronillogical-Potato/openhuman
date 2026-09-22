@@ -333,12 +333,10 @@ impl OpenHumanSessionHost {
             (!thread_id.is_empty()).then(|| thread_id.to_owned())
         });
         self.session = match (&self.thread_id, self.session_parent_prefix.is_some()) {
-            (Some(thread_id), false) => Some(
-                tinyagents_session::transcript::SessionRef::scoped(
-                    thread_id.clone(),
-                    self.agent_definition_id.clone(),
-                ),
-            ),
+            (Some(thread_id), false) => Some(tinyagents_session::transcript::SessionRef::scoped(
+                thread_id.clone(),
+                self.agent_definition_id.clone(),
+            )),
             _ => None,
         };
     }

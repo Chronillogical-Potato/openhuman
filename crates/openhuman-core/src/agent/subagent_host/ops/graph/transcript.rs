@@ -83,7 +83,9 @@ pub(super) fn persist_subagent_transcript(
         tool_calls: Vec::new(),
         iteration,
     };
-    let meta = transcript::TranscriptMeta { session_id: None, parent_session_id: None,
+    let meta = transcript::TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: agent_id.to_string(),
         agent_id: Some(agent_id.to_string()),
         agent_type: Some("subagent".to_string()),
