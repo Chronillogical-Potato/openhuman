@@ -114,6 +114,13 @@ struct OpenHumanTurnToolSurface {
     durable_tool_specs: Arc<Vec<Arc<tinytools::ToolSpec>>>,
     visible_tool_specs: Arc<Vec<Arc<tinytools::ToolSpec>>>,
     visible_tool_names: std::collections::HashSet<String>,
+    /// Registered but never advertised: the `Deferred` tools the harness's
+    /// `tool_search` bridge can reach. Part of the snapshot the driver treats
+    /// as the final allowlist, and classified `Allow` by the policy, so a
+    /// found tool is callable. See `OpenHumanSessionHost::deferred_tool_names`.
+    deferred_tool_names: std::collections::HashSet<String>,
+    /// Whether this belt reaches deferred tools at all; fixed at build.
+    discovery_enabled: bool,
     /// Whether newly connected delegates may enter the visible belt without a
     /// caller explicitly allowing them. A hide/named restriction turns this
     /// off so refresh cannot reopen withdrawn authority.
@@ -183,10 +190,21 @@ impl OpenHumanTurnPrelude {
                 .tool_surface
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            // The snapshot is the declaration set the session grants — the
+            // driver reads it back as the harness allowlist — so it carries
+            // the deferred tools beside the advertised ones. The harness
+            // still advertises only the `Direct` registrations and reaches
+            // the rest through its `tool_search` bridge.
             ToolSnapshot::new(
                 surface
                     .visible_tool_specs
                     .iter()
+                    .chain(
+                        surface
+                            .tool_specs
+                            .iter()
+                            .filter(|spec| surface.deferred_tool_names.contains(&spec.name)),
+                    )
                     .map(|spec| spec.as_ref().clone())
                     .collect(),
             )
@@ -542,6 +560,20 @@ impl OpenHumanTurnPrelude {
             &mut surface.visible_tool_names,
             &agent_definition_name,
         );
+        // Same split as the session host's `recompute_deferred_tool_names`:
+        // a `Deferred` synthesised tool leaves the wire and joins the
+        // searchable set, on a belt that opted into discovery.
+        if surface.discovery_enabled {
+            let mut deferred =
+                crate::tools::implementations::meta::deferred_tool_names(surface.tools.as_slice());
+            deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+                synthesized.as_slice(),
+            ));
+            surface
+                .visible_tool_names
+                .retain(|name| !deferred.contains(name));
+            surface.deferred_tool_names = deferred;
+        }
 
         let specs = surface
             .durable_tool_specs
@@ -557,13 +589,27 @@ impl OpenHumanTurnPrelude {
             .chain(synthesized_tools.iter())
             .map(|tool| tool.as_ref())
             .collect::<Vec<_>>();
+        // Advertised plus deferred, like the session host: a deferred tool
+        // outside the set would be `HideFromPrompt`, which the direct-call
+        // gate refuses.
+        let reachable: std::collections::HashSet<String> = if surface.visible_tool_names.is_empty()
+        {
+            std::collections::HashSet::new()
+        } else {
+            surface
+                .visible_tool_names
+                .iter()
+                .chain(surface.deferred_tool_names.iter())
+                .cloned()
+                .collect()
+        };
         let mut policy = ToolPolicyEngine::build_session_from_refs(
             &surface.agent_definition_name,
             &surface.event_channel,
             "session",
             &self.config.channel_permissions,
             &all_tools,
-            &surface.visible_tool_names,
+            &reachable,
         );
         crate::tools::toolpacks::close_handed_off_packs(
             &mut policy,
@@ -720,12 +766,12 @@ impl OpenHumanTurnPrelude {
             .inject_agent_experience_context(original_user_message, enriched)
             .await;
 
-        let parent = self.parent_context();
+        let parent = run_context.attach_parent(self.parent_context());
         let (enriched_with_memory_agent, memory_agent_context_injected) = self
             .inject_triggered_memory_agent_context(
                 original_user_message,
                 enriched,
-                &parent,
+                parent,
                 overrides.suppress_memory_agent,
             )
             .await;
@@ -745,7 +791,6 @@ impl OpenHumanTurnPrelude {
         }
         self.apply_pending_announcements(&mut enriched);
 
-        run_context.parent = Some(parent);
         run_context.prepared_context_sources = Arc::new(prepared_sources);
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),
@@ -1517,6 +1562,8 @@ impl OpenHumanSessionHost {
                     durable_tool_specs: self.durable_tool_specs.clone(),
                     visible_tool_specs: self.visible_tool_specs.clone(),
                     visible_tool_names: self.visible_tool_names.clone(),
+                    deferred_tool_names: self.deferred_tool_names.clone(),
+                    discovery_enabled: self.discovery_enabled,
                     auto_include_new_synthesized_tools: true,
                     synthesized_tool_names: self.synthesized_tool_names.clone(),
                     tool_policy_session: self.tool_policy_session.clone(),
@@ -1882,6 +1929,8 @@ impl OpenHumanSessionHost {
             durable_tool_specs: self.durable_tool_specs.clone(),
             visible_tool_specs: self.visible_tool_specs.clone(),
             visible_tool_names: self.visible_tool_names.clone(),
+            deferred_tool_names: self.deferred_tool_names.clone(),
+            discovery_enabled: self.discovery_enabled,
             auto_include_new_synthesized_tools: auto_include_new_synthesized_tools
                 .unwrap_or(prior_auto_include),
             synthesized_tool_names: self.synthesized_tool_names.clone(),

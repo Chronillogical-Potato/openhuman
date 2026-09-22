@@ -74,7 +74,9 @@ fn all_tools_registers_collapsed_memory_and_search_tools() {
         tool_capability(memory.name()),
         Some(tinymemory_api::capabilities::Capability::Core)
     );
-    assert!(tools
+    // The search half of deferral is the harness's intrinsic bridge, never a
+    // registered tool: a host `tool_search` would shadow it.
+    assert!(!tools
         .iter()
         .any(|tool| { tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME }));
 }

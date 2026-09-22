@@ -246,6 +246,15 @@ pub struct AgentConfig {
     /// - `"xml"`: force JSON-in-tag.
     /// - `"pformat"`: force compact positional P-Format (`tool[a|b]`) — most
     ///   token-efficient, but mis-parses on some models, so it is opt-in only.
+    /// - `"python"`: force code-style calls with Python signatures in the
+    ///   prompt (`def read_file(path: str, limit: int = None) -> str`, called
+    ///   as `read_file(path="x")`). Compact like P-Format but a syntax small
+    ///   code-trained models already write; opt-in only.
+    /// - `"typescript"`: the same with TypeScript signatures and
+    ///   `read_file({path: "x"})` calls; opt-in only.
+    ///
+    /// The `OPENHUMAN_TOOL_DISPATCHER` environment variable overrides this
+    /// field for one launch.
     #[serde(default = "default_agent_tool_dispatcher")]
     pub tool_dispatcher: String,
     /// **Legacy** — maximum characters of memory context to inject per
@@ -379,6 +388,43 @@ pub struct AgentConfig {
     /// `AGENTS.md`.
     #[serde(default = "default_agents_md_enabled")]
     pub agents_md_enabled: bool,
+
+    /// How the harness's `tool_search` bridge ranks deferred tools against
+    /// the model's query. See [`ToolSearchConfig`].
+    #[serde(default)]
+    pub tool_search: ToolSearchConfig,
+}
+
+/// Configuration of the `tool_search` bridge: which ranker answers a search
+/// over the tools that left the wire under `ToolExposure::Deferred`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
+pub struct ToolSearchConfig {
+    /// Which ranker serves the search.
+    ///
+    /// - `"auto"` (default): the installed decision-model ranker (Jev, via
+    ///   `openhuman-tinyhumans`) when the process has one and a TinyHumans
+    ///   credential; BM25 otherwise.
+    /// - `"jev"`: the installed ranker, falling back to BM25 only when it
+    ///   fails.
+    /// - `"bm25"`: the built-in lexical ranker alone, no network.
+    /// - `"compare"`: serve the installed ranker and record the BM25 ranking
+    ///   alongside it in the `tool.searched` telemetry, so the two can be
+    ///   judged on live traffic without changing what the model sees.
+    pub ranker: String,
+    /// Matches a search returns when the model does not ask for a number.
+    /// Three: enough for the model to choose, few enough that the schemas
+    /// returned do not undo the saving deferral made.
+    pub top_k: usize,
+}
+
+impl Default for ToolSearchConfig {
+    fn default() -> Self {
+        Self {
+            ranker: "auto".into(),
+            top_k: 3,
+        }
+    }
 }
 
 fn default_agents_md_enabled() -> bool {
@@ -535,6 +581,7 @@ impl Default for AgentConfig {
             session_shadow_reads: default_session_shadow_reads(),
             required_output: None,
             agents_md_enabled: default_agents_md_enabled(),
+            tool_search: ToolSearchConfig::default(),
         }
     }
 }

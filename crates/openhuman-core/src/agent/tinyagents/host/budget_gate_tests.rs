@@ -137,105 +137,14 @@ async fn recording_usage_is_a_soft_no_op_without_a_tracker() {
 }
 
 #[test]
-fn a_healthy_budget_declines_to_ask_for_compression() {
-    // Union semantics: `None` is "not asking", not "do not compress". A
-    // full context with no budget pressure must still yield `None` here so
-    // the crate's own SummarizationPolicy stays the authority on the
-    // window.
+fn this_gate_never_asks_for_compression() {
+    // Union semantics: `None` is "not asking", not "do not compress". This
+    // gate has no budget opinion left to escalate from — the spend cap that
+    // used to drive the hint is gone — and context fullness was never its
+    // question, so even a full window yields `None` and the crate's own
+    // SummarizationPolicy stays the authority.
     let gate = gate(AgentTokenjuiceCompression::Full);
     assert_eq!(gate.compression_hint(&crowded()), CompressionHint::None);
-}
-
-#[test]
-fn budget_warning_asks_softly_and_escalates_only_when_context_is_crowded() {
-    let gate = gate(AgentTokenjuiceCompression::Full);
-    gate.pressure.store(PRESSURE_WARNING, Ordering::Relaxed);
-
-    let roomy = ContextState {
-        message_count: 4,
-        prompt_tokens: 1_000,
-        context_window_tokens: Some(100_000),
-        iterations: 1,
-    };
-    assert_eq!(gate.compression_hint(&roomy), CompressionHint::Soft);
-    assert_eq!(gate.compression_hint(&crowded()), CompressionHint::Hard);
-
-    // An unknown window must not escalate — `utilization()` is `None`
-    // there, and "unknown" is not "full".
-    let unknown_window = ContextState {
-        message_count: 4,
-        prompt_tokens: 999_999,
-        context_window_tokens: None,
-        iterations: 1,
-    };
-    assert_eq!(
-        gate.compression_hint(&unknown_window),
-        CompressionHint::Soft
-    );
-}
-
-#[test]
-fn an_exceeded_budget_asks_hard_regardless_of_context() {
-    let gate = gate(AgentTokenjuiceCompression::Full);
-    gate.pressure.store(PRESSURE_EXCEEDED, Ordering::Relaxed);
-    assert_eq!(
-        gate.compression_hint(&ContextState::default()),
-        CompressionHint::Hard
-    );
-}
-
-#[test]
-fn the_tokenjuice_profile_caps_the_hint_but_never_raises_it() {
-    for (profile, warning, exceeded) in [
-        (
-            AgentTokenjuiceCompression::Auto,
-            CompressionHint::Soft,
-            CompressionHint::Hard,
-        ),
-        (
-            AgentTokenjuiceCompression::Full,
-            CompressionHint::Soft,
-            CompressionHint::Hard,
-        ),
-        // Light tolerates non-lossy reductions only.
-        (
-            AgentTokenjuiceCompression::Light,
-            CompressionHint::Soft,
-            CompressionHint::Soft,
-        ),
-        // Off opts the agent out of TokenJuice entirely.
-        (
-            AgentTokenjuiceCompression::Off,
-            CompressionHint::None,
-            CompressionHint::None,
-        ),
-    ] {
-        let gate = gate(profile);
-        gate.pressure.store(PRESSURE_WARNING, Ordering::Relaxed);
-        assert_eq!(
-            gate.compression_hint(&ContextState::default()),
-            warning,
-            "warning under {}",
-            profile.as_str()
-        );
-        gate.pressure.store(PRESSURE_EXCEEDED, Ordering::Relaxed);
-        assert_eq!(
-            gate.compression_hint(&ContextState::default()),
-            exceeded,
-            "exceeded under {}",
-            profile.as_str()
-        );
-    }
-}
-
-#[test]
-fn refreshing_pressure_without_a_tracker_has_no_opinion() {
-    let gate = gate(AgentTokenjuiceCompression::Full);
-    gate.pressure.store(PRESSURE_WARNING, Ordering::Relaxed);
-    assert!(gate.refresh_pressure(1.0).is_none());
-    // The uninitialised tracker must not clear a previously-cached
-    // pressure — absence of a reading is not a reading of "fine".
-    assert_eq!(gate.pressure.load(Ordering::Relaxed), PRESSURE_WARNING);
 }
 
 #[tokio::test]

@@ -1,6 +1,7 @@
 //! `OpenHumanSessionHost::from_config` factory methods and the internal
 //! `build_session_agent_inner` constructor.
 
+use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
@@ -17,7 +18,9 @@ use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool};
-use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+use tinytools_agent::dialect::{
+    CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+};
 
 impl OpenHumanSessionHost {
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
@@ -619,13 +622,35 @@ impl OpenHumanSessionHost {
                     ToolScope::Named(names) => {
                         let mut set: std::collections::HashSet<String> =
                             names.iter().cloned().collect();
-                        // These are the per-specialist delegation routes the
-                        // collector actually synthesizes today. Do not infer a
-                        // collapsed replacement from `ToolExposure::Hidden`:
-                        // `CollapsedDelegationTool` is not constructed here,
-                        // so filtering these names would leave the orchestrator
-                        // with no executable hand-off route (#6370).
+                        // Only the *advertised* ones. A synthesised tool that
+                        // reports `ToolExposure::Hidden` is a member of a
+                        // collapsed tool — today every `ArchetypeDelegationTool`,
+                        // whose family the single `delegate_to` tool now stands
+                        // for. Inserting it here would put it back on the wire
+                        // beside the tool that replaced it, shipping both
+                        // surfaces and saving nothing.
+                        //
+                        // This is not the same judgement as
+                        // `strip_deferred_from_visible`, which deliberately
+                        // leaves a hand-written `[tools] named` belt alone. That
+                        // restraint is about not second-guessing a human's
+                        // choice; these names were never chosen by a human, they
+                        // are inserted right here. Hiding one removes nothing an
+                        // author asked for.
+                        //
+                        // The tool stays in `synthed`, so it stays registered
+                        // and dispatchable for a replayed transcript or a saved
+                        // skill that names it — exactly like a packed tool.
+                        //
+                        // A synthesised `Deferred` tool (a per-action
+                        // integration tool) is likewise not advertised: it is
+                        // reachable through `tool_search` when the belt opts
+                        // in, and the session builder keeps it in the deferred
+                        // set beside the visible one.
                         for t in &synthed {
+                            if t.exposure() != tinytools::ToolExposure::Direct {
+                                continue;
+                            }
                             set.insert(t.name().to_string());
                         }
                         // `named = []` means zero tools. An empty set here is
@@ -723,6 +748,7 @@ impl OpenHumanSessionHost {
             Some(set) => set,
             None => delegation_tools
                 .iter()
+                .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
                 .map(|t| t.name().to_string())
                 .collect(),
         };
@@ -743,7 +769,12 @@ impl OpenHumanSessionHost {
                         visible = tools
                             .iter()
                             .map(|t| t.name().to_string())
-                            .chain(delegation_tools.iter().map(|t| t.name().to_string()))
+                            .chain(
+                                delegation_tools
+                                    .iter()
+                                    .filter(|t| t.exposure() != tinytools::ToolExposure::Hidden)
+                                    .map(|t| t.name().to_string()),
+                            )
                             .filter(|name| !definition_disallows_tool(&def.disallowed_tools, name))
                             .collect();
                     }
@@ -815,6 +846,9 @@ impl OpenHumanSessionHost {
             DispatcherKind::Native => Box::new(NativeDialect),
             DispatcherKind::Xml => Box::new(XmlDialect),
             DispatcherKind::PFormat => Box::new(PFormatDialect::new(pformat_registry.clone())),
+            DispatcherKind::Code(style) => {
+                Box::new(CodeDialect::new(style, pformat_registry.clone()))
+            }
         };
 
         log::debug!(
@@ -1100,50 +1134,6 @@ fn definition_disallows_tool(disallowed: &[String], name: &str) -> bool {
             entry == name
         }
     })
-}
-
-/// Which tool-call dialect a session speaks to its provider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DispatcherKind {
-    /// Provider-native structured function calling (JSON tool specs on the wire).
-    Native,
-    /// JSON-in-tag: `<tool_call>{"name":…,"arguments":{…}}</tool_call>` in text.
-    Xml,
-    /// Compact positional P-Format (`tool[a|b]`) — opt-in only.
-    PFormat,
-}
-
-/// Pick the tool-call dialect from the configured `agent.tool_dispatcher`
-/// choice, the provider's native-tool support, and the agent id.
-///
-/// `"auto"` (and any unrecognized value) resolves to native when the provider
-/// supports it, otherwise JSON-in-tag — **never** P-Format, which is opt-in
-/// (`"pformat"`) because its compact positional syntax mis-parses on some
-/// models.
-///
-/// `integrations_agent` is special-cased off native: provider-side grammar
-/// decoders (e.g. Fireworks) compile every JSON tool schema into a grammar
-/// indexed by a `uint16_t` (max 65 535 rules), and large Composio toolkits
-/// (Notion, Salesforce, Gmail) blow past that ceiling, so a native request is
-/// rejected with a 400 before any generation. Falling back to JSON-in-tag puts
-/// the catalogue in the prompt as prose, so no grammar is compiled.
-fn resolve_dispatcher_kind(
-    dispatcher_choice: &str,
-    supports_native: bool,
-    agent_id: &str,
-) -> DispatcherKind {
-    let base = match dispatcher_choice {
-        "native" => DispatcherKind::Native,
-        "xml" => DispatcherKind::Xml,
-        "pformat" => DispatcherKind::PFormat,
-        _ if supports_native => DispatcherKind::Native,
-        _ => DispatcherKind::Xml,
-    };
-    if agent_id == "integrations_agent" && base == DispatcherKind::Native {
-        DispatcherKind::Xml
-    } else {
-        base
-    }
 }
 
 /// Resolve the provider/workload role for a session build.

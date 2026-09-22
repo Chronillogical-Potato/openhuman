@@ -306,7 +306,7 @@ fn handle_sio_packet_unknown_type_is_noop() {
 fn log_connection_failure_does_not_panic_below_threshold() {
     // Calls 1 through threshold-1 stay at warn — must complete without panic.
     for i in 1..FAIL_ESCALATE_THRESHOLD {
-        log_connection_failure(i, "simulated transient failure");
+        log_connection_failure(i, None, "simulated transient failure");
     }
 }
 
@@ -314,7 +314,7 @@ fn log_connection_failure_does_not_panic_below_threshold() {
 fn log_connection_failure_does_not_panic_at_and_above_threshold() {
     // Calls at and above threshold escalate to error — must also not panic.
     for i in FAIL_ESCALATE_THRESHOLD..=FAIL_ESCALATE_THRESHOLD + 3 {
-        log_connection_failure(i, "simulated sustained failure");
+        log_connection_failure(i, None, "simulated sustained failure");
     }
 }
 

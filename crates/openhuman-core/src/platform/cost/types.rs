@@ -132,25 +132,6 @@ impl CostRecord {
     }
 }
 
-/// Budget enforcement result.
-#[derive(Debug, Clone)]
-pub enum BudgetCheck {
-    /// Within budget, request can proceed
-    Allowed,
-    /// Warning threshold exceeded but request can proceed
-    Warning {
-        current_usd: f64,
-        limit_usd: f64,
-        period: UsagePeriod,
-    },
-    /// Budget exceeded, request blocked
-    Exceeded {
-        current_usd: f64,
-        limit_usd: f64,
-        period: UsagePeriod,
-    },
-}
-
 /// Cost summary for reporting.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostSummary {

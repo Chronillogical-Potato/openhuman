@@ -1672,7 +1672,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'वेरिएबल नाम',
   'mcp.form.envValue': 'मान',
   'mcp.form.value': 'मान',
-  'mcp.form.keepStored': 'संग्रहीत - रखने के लिए खाली छोड़ें',
+  'mcp.form.keepStored': 'संग्रहीत (रखने के लिए खाली छोड़ें)',
   'mcp.form.removeRow': 'पंक्ति हटाएँ',
   'mcp.form.addEnv': 'वेरिएबल जोड़ें',
   'mcp.form.url': 'URL',
@@ -1719,7 +1719,7 @@ const messages: TranslationMap = {
     'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
   'mcp.json.loadFailedTitle': 'mcp.json पढ़ा नहीं जा सका',
   'mcp.json.loadFailedBody':
-    'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया - खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
+    'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया। खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
   'mcp.json.intro':
     'आपके MCP सर्वर एक ही दस्तावेज़ के रूप में, उसी रूप में जो अन्य MCP क्लाइंट उपयोग करते हैं। किसी सर्वर का ब्लॉक उसके इंस्टॉल पेज से पेस्ट करें और सेव करें।',
   'mcp.json.credentialsNote':
@@ -1733,11 +1733,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'उदाहरण',
   'mcp.json.saveFailed': 'mcp.json सेव नहीं किया जा सका।',
   'mcp.json.parseError.empty': 'दस्तावेज़ खाली है। कोई सर्वर न होना { "mcpServers": {} } है।',
-  'mcp.json.parseError.invalidJson': 'अमान्य JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'अमान्य JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json में `mcpServers` कुंजी वाला एक ऑब्जेक्ट होता है।',
-  'mcp.json.parseError.missingRoot': '`mcpServers` कुंजी नहीं है - हर सर्वर इसके अंदर रहता है।',
+  'mcp.json.parseError.missingRoot': '`mcpServers` कुंजी नहीं है। हर सर्वर इसके अंदर रहता है।',
   'mcp.json.parseError.rootNotMap': '`mcpServers` सर्वर के नाम को उसकी सेटिंग से जोड़ता है।',
-  'mcp.json.parseError.emptyName': 'सर्वर को एक नाम चाहिए - एक प्रविष्टि की कुंजी खाली है।',
+  'mcp.json.parseError.emptyName': 'सर्वर को एक नाम चाहिए। एक प्रविष्टि की कुंजी खाली है।',
   'mcp.json.parseError.entryNotObject':
     '`{name}` में एक ऑब्जेक्ट होना चाहिए, जैसे { "command": "npx", "args": ["-y", "…"] } या { "url": "https://…" }।',
   'mcp.json.parseError.needsUrlOrCommand':

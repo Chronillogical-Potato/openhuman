@@ -27,7 +27,7 @@ const LEGACY_LIMITS = new Map([
     796,
   ],
   ["crates/openhuman-core/src/agent/multimodal.rs", 772],
-  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1943],
+  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1987],
   ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1304],
   ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1793],
   // Session-host factory still assembles the product's deliberately coupled
@@ -40,6 +40,11 @@ const LEGACY_LIMITS = new Map([
   ["crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs", 796],
   ["crates/openhuman-core/src/tools/ops.rs", 1502],
   ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1547],
+  // Merged upstream work added focused coverage and routing seams. These
+  // legacy files remain pinned at their post-merge sizes until split.
+  ["crates/openhuman-core/src/agent/prompts/mod_tests_builder_sections_tests.rs", 779],
+  ["crates/openhuman-core/src/inference/provider/factory_crate_native_tests.rs", 796],
+  ["crates/openhuman-core/src/tools/ops_tests_default_registry_tests.rs", 752],
 ]);
 
 function rustFiles(directory) {

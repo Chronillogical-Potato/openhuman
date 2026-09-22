@@ -1672,7 +1672,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'ভেরিয়েবলের নাম',
   'mcp.form.envValue': 'মান',
   'mcp.form.value': 'মান',
-  'mcp.form.keepStored': 'সংরক্ষিত - রাখতে খালি রাখুন',
+  'mcp.form.keepStored': 'সংরক্ষিত (রাখতে খালি রাখুন)',
   'mcp.form.removeRow': 'সারি সরান',
   'mcp.form.addEnv': 'ভেরিয়েবল যোগ করুন',
   'mcp.form.url': 'URL',
@@ -1719,7 +1719,7 @@ const messages: TranslationMap = {
     'MCP সার্ভারের একটি ডিরেক্টরি। কোনো সার্ভার খুললে আপনি তার নিজস্ব পেজে যাবেন, যেখানে ইনস্টল নির্দেশনা আছে; এটি mcp.json ট্যাবে যোগ করুন।',
   'mcp.json.loadFailedTitle': 'mcp.json পড়া যায়নি',
   'mcp.json.loadFailedBody':
-    'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না - খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',
+    'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না। খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',
   'mcp.json.intro':
     'আপনার MCP সার্ভারগুলো একটি ডকুমেন্ট হিসেবে, অন্য MCP ক্লায়েন্টরা যে রূপ ব্যবহার করে সেই রূপে। সার্ভারের ইনস্টল পেজ থেকে ব্লকটি পেস্ট করে সেভ করুন।',
   'mcp.json.credentialsNote':
@@ -1733,11 +1733,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'উদাহরণ',
   'mcp.json.saveFailed': 'mcp.json সেভ করা যায়নি।',
   'mcp.json.parseError.empty': 'ডকুমেন্টটি খালি। কোনো সার্ভার না থাকা মানে { "mcpServers": {} }।',
-  'mcp.json.parseError.invalidJson': 'অবৈধ JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'অবৈধ JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json-এ `mcpServers` কী সহ একটি অবজেক্ট থাকে।',
-  'mcp.json.parseError.missingRoot': '`mcpServers` কী নেই - প্রতিটি সার্ভার এর নিচে থাকে।',
+  'mcp.json.parseError.missingRoot': '`mcpServers` কী নেই। প্রতিটি সার্ভার এর নিচে থাকে।',
   'mcp.json.parseError.rootNotMap': '`mcpServers` সার্ভারের নামকে তার সেটিংসের সাথে যুক্ত করে।',
-  'mcp.json.parseError.emptyName': 'সার্ভারের একটি নাম দরকার - একটি এন্ট্রির কী খালি।',
+  'mcp.json.parseError.emptyName': 'সার্ভারের একটি নাম দরকার। একটি এন্ট্রির কী খালি।',
   'mcp.json.parseError.entryNotObject':
     '`{name}`-এ একটি অবজেক্ট থাকতে হবে, যেমন { "command": "npx", "args": ["-y", "…"] } বা { "url": "https://…" }।',
   'mcp.json.parseError.needsUrlOrCommand':

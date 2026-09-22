@@ -73,7 +73,7 @@ mod update;
 
 pub use agent::{
     AgentConfig, DelegateAgentConfig, MemoryContextWindow, MemoryWindowLimits,
-    OrchestratorModelConfig, RequiredOutputContract, TeamModelConfig,
+    OrchestratorModelConfig, RequiredOutputContract, TeamModelConfig, ToolSearchConfig,
 };
 pub use autonomy::AutonomyConfig;
 pub use capability_providers::{CapabilityProviderConfig, CapabilityProviderTrustState};
