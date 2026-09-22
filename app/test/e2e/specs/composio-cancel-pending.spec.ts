@@ -80,9 +80,8 @@ describe('Composio pending-connection cancel flow', () => {
     const deadline = Date.now() + 30_000;
     let deleteSeen = false;
     while (Date.now() < deadline && !deleteSeen) {
-      const log = await getRequestLog();
-      deleteSeen = log.some(
-        entry =>
+      deleteSeen = getRequestLog().some(
+        (entry: { method: string; url: string }) =>
           entry.method === 'DELETE' &&
           entry.url.includes('/agent-integrations/composio/connections') &&
           entry.url.includes(PENDING_CONNECTION_ID)
