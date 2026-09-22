@@ -54,6 +54,13 @@ impl StubSummarizer {
     fn ok(outcome: SummarizeOutcome) -> Arc<Self> {
         Arc::new(Self(std::sync::Mutex::new(Some(Ok(outcome)))))
     }
+
+    /// Whether the middleware actually dispatched to the summarizer. The
+    /// outcome is consumed on first call, so an untouched slot means the
+    /// stage was skipped — which is the whole point for a self-bounding tool.
+    fn was_called(&self) -> bool {
+        self.0.lock().expect("stub outcome lock").is_none()
+    }
 }
 
 #[async_trait]
