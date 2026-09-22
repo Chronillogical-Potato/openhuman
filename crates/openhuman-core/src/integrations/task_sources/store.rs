@@ -31,7 +31,6 @@ use super::types::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IngestedTaskRef {
     pub external_id: String,
-    pub card_id: Option<String>,
 }
 
 /// Compute an edit-aware content hash for a task. Two fetches of the
@@ -437,7 +436,7 @@ fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
 /// every open is the DDL batch itself (2 `CREATE TABLE` + 1 `CREATE INDEX`) plus
 /// the 2 `PRAGMA table_info(...)` migration scans — paid before every store op,
 /// and the periodic-poll fetch loop hits three of them per task (`is_ingested`,
-/// `get_card_id`, `mark_ingested`). Gating just that batch behind a per-path
+/// `is_ingested`, `mark_ingested`). Gating just that batch behind a per-path
 /// "already initialized" set keeps it to one execution per process per database
 /// file while every call still gets its own connection.
 ///
