@@ -779,3 +779,102 @@ describe('ComposioConnectModal — focus-triggered re-poll', () => {
     expect(await screen.findByText(/Gmail is connected/)).toBeInTheDocument();
   });
 });
+
+// ── Cancelling a stuck handoff ────────────────────────────────────────
+// A connection that never comes back from the browser used to leave the
+// toolkit pinned on "Connecting": the modal only polled, and closing it left
+// the Composio connection in PENDING so reopening resumed the same wait.
+
+describe('<ComposioConnectModal> — cancelling a pending connection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(composioApi.listConnections).mockResolvedValue({ connections: [] });
+    vi.mocked(composioApi.deleteConnection).mockResolvedValue({ deleted: true });
+  });
+
+  it('deletes the connection created by authorize and returns to idle', async () => {
+    vi.mocked(composioApi.authorize).mockResolvedValue({
+      connectUrl: 'https://hosted.composio.dev/test-token',
+      connectionId: 'ca_new',
+    });
+    const onChanged = vi.fn();
+
+    render(<ComposioConnectModal toolkit={mockToolkit} onChanged={onChanged} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
+
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    await waitFor(() => {
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_new');
+    });
+    // Back to the idle phase — the Connect button is offered again and the
+    // waiting spinner copy is gone.
+    expect(await screen.findByRole('button', { name: /Connect Gmail/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for Gmail/i)).not.toBeInTheDocument();
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it('cancels a handoff resumed from an existing PENDING connection', async () => {
+    vi.mocked(composioApi.listConnections).mockResolvedValue({
+      connections: [{ id: 'ca_pending', toolkit: 'gmail', status: 'PENDING' }],
+    });
+
+    render(
+      <ComposioConnectModal
+        toolkit={mockToolkit}
+        connections={[{ id: 'ca_pending', toolkit: 'gmail', status: 'PENDING' }]}
+        onClose={() => {}}
+      />
+    );
+
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    await waitFor(() => {
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_pending');
+    });
+    expect(await screen.findByRole('button', { name: /Connect Gmail/ })).toBeInTheDocument();
+  });
+
+  it('stops polling once the pending connection is cancelled', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(composioApi.listConnections).mockResolvedValue({
+        connections: [{ id: 'ca_pending', toolkit: 'gmail', status: 'PENDING' }],
+      });
+
+      render(
+        <ComposioConnectModal
+          toolkit={mockToolkit}
+          connections={[{ id: 'ca_pending', toolkit: 'gmail', status: 'PENDING' }]}
+          onClose={() => {}}
+        />
+      );
+
+      await vi.advanceTimersByTimeAsync(0);
+      const pollsBeforeCancel = vi.mocked(composioApi.listConnections).mock.calls.length;
+
+      fireEvent.click(screen.getByTestId('composio-cancel-connect'));
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(vi.mocked(composioApi.listConnections).mock.calls.length).toBe(pollsBeforeCancel);
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_pending');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('surfaces a failure to cancel instead of silently staying stuck', async () => {
+    vi.mocked(composioApi.authorize).mockResolvedValue({
+      connectUrl: 'https://hosted.composio.dev/test-token',
+      connectionId: 'ca_new',
+    });
+    vi.mocked(composioApi.deleteConnection).mockRejectedValue(new Error('backend down'));
+
+    render(<ComposioConnectModal toolkit={mockToolkit} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    expect(await screen.findByText(/backend down/)).toBeInTheDocument();
+  });
+});
