@@ -146,7 +146,9 @@ describe('AgentAccessPanel — fail-closed defaults for omitted security fields'
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
     // Reaching a rendered panel at all is the assertion: a missing array would
     // throw during render before anything appeared.
-    expect(await screen.findByRole('switch', { name: /plan|approval/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('switch', { name: /auto-approve all|approve all/i })
+    ).toBeInTheDocument();
   });
 });
 
