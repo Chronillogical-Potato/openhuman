@@ -3329,8 +3329,8 @@ const messages: TranslationMap = {
   'conversations.goal.status.paused': 'En pausa',
   'conversations.goal.status.budgetLimited': 'Presupuesto alcanzado',
   'conversations.goal.status.complete': 'Completado',
-  'conversations.goal.tokens': '{used} tokens',
-  'conversations.goal.tokensWithBudget': '{used} / {budget} tokens',
+  'conversations.goal.tokens': '{used} tókenes',
+  'conversations.goal.tokensWithBudget': '{used} de {budget} tókenes',
   'conversations.planReview.title': 'Revisar plan',
   'conversations.planReview.subtitle':
     'Aprueba para ejecutarlo, recházalo para descartarlo o envía comentarios para revisarlo.',
