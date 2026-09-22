@@ -400,7 +400,8 @@ fn availability_notes_are_status_not_instructions() {
         );
         assert!(note.contains("Do not tell the user to reconnect or restart"));
     }
-    assert!(notes[0].contains("delegate_to_integrations_agent") && notes[0].contains("gmail"));
+    assert!(notes[0].contains("tool_search") && notes[0].contains("gmail"));
+    assert!(!notes[0].contains("delegate_to_integrations_agent"));
     assert!(notes[1].contains("use_mcp_server") && notes[1].contains("filesystem, github"));
     assert!(notes[2].contains("run_skill") && notes[2].contains("deploy"));
     assert!(integration_announcement_note(&[]).is_none());
