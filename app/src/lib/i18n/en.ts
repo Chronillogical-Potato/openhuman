@@ -1863,7 +1863,7 @@ const en: TranslationMap = {
   'mcp.form.envKey': 'Variable name',
   'mcp.form.envValue': 'Value',
   'mcp.form.value': 'Value',
-  'mcp.form.keepStored': 'Stored — leave blank to keep',
+  'mcp.form.keepStored': 'Stored (leave blank to keep)',
   'mcp.form.removeRow': 'Remove row',
   'mcp.form.addEnv': 'Add variable',
   'mcp.form.url': 'URL',
@@ -1910,7 +1910,7 @@ const en: TranslationMap = {
     'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
   'mcp.json.loadFailedTitle': "Couldn't read mcp.json",
   'mcp.json.loadFailedBody':
-    'The core did not answer, so the document is not shown — an empty editor would invite a save that wipes your servers.',
+    'The core did not answer, so the document is not shown. An empty editor would invite a save that wipes your servers.',
   'mcp.json.intro':
     'Your MCP servers as one document, in the shape other MCP clients use. Paste a server block from its install page and save.',
   'mcp.json.credentialsNote':
@@ -1924,11 +1924,11 @@ const en: TranslationMap = {
   'mcp.json.exampleTitle': 'Example',
   'mcp.json.saveFailed': "Couldn't save mcp.json.",
   'mcp.json.parseError.empty': 'The document is empty. No servers is { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Not valid JSON — {detail}',
+  'mcp.json.parseError.invalidJson': 'Not valid JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json holds an object with an `mcpServers` key.',
-  'mcp.json.parseError.missingRoot': 'No `mcpServers` key — every server lives under it.',
+  'mcp.json.parseError.missingRoot': 'No `mcpServers` key. Every server lives under it.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` maps a server name to its settings.',
-  'mcp.json.parseError.emptyName': "A server needs a name — one entry's key is empty.",
+  'mcp.json.parseError.emptyName': "A server needs a name. One entry's key is empty.",
   'mcp.json.parseError.entryNotObject':
     '`{name}` holds an object, e.g. { "command": "npx", "args": ["-y", "…"] } or { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

@@ -1635,7 +1635,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'اسم المتغير',
   'mcp.form.envValue': 'القيمة',
   'mcp.form.value': 'القيمة',
-  'mcp.form.keepStored': 'مخزَّن — اتركه فارغًا للإبقاء عليه',
+  'mcp.form.keepStored': 'مخزَّن (اتركه فارغًا للإبقاء عليه)',
   'mcp.form.removeRow': 'إزالة الصف',
   'mcp.form.addEnv': 'إضافة متغير',
   'mcp.form.url': 'URL',
@@ -1681,7 +1681,7 @@ const messages: TranslationMap = {
     'دليل لخوادم MCP. فتح خادم ينقلك إلى صفحته الخاصة حيث توجد تعليمات التثبيت؛ أضفه من تبويب mcp.json.',
   'mcp.json.loadFailedTitle': 'تعذّر قراءة mcp.json',
   'mcp.json.loadFailedBody':
-    'لم يستجب النواة، لذا لا يُعرض المستند — محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
+    'لم يستجب النواة، لذا لا يُعرض المستند. محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
   'mcp.json.intro':
     'خوادم MCP الخاصة بك كمستند واحد، بالشكل الذي تستخدمه عملاء MCP الأخرى. الصق كتلة الخادم من صفحة تثبيته ثم احفظ.',
   'mcp.json.credentialsNote':
@@ -1695,11 +1695,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'مثال',
   'mcp.json.saveFailed': 'تعذّر حفظ mcp.json.',
   'mcp.json.parseError.empty': 'المستند فارغ. عدم وجود خوادم يعني { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON غير صالح — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON غير صالح: {detail}',
   'mcp.json.parseError.rootNotObject': 'يحتوي mcp.json على كائن بمفتاح `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'لا يوجد مفتاح `mcpServers` — كل خادم يقع تحته.',
+  'mcp.json.parseError.missingRoot': 'لا يوجد مفتاح `mcpServers`. كل خادم يقع تحته.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` يربط اسم الخادم بإعداداته.',
-  'mcp.json.parseError.emptyName': 'يحتاج الخادم إلى اسم — مفتاح أحد الإدخالات فارغ.',
+  'mcp.json.parseError.emptyName': 'يحتاج الخادم إلى اسم. مفتاح أحد الإدخالات فارغ.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` يجب أن يكون كائنًا، مثل { "command": "npx", "args": ["-y", "…"] } أو { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
