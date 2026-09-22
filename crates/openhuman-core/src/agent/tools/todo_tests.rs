@@ -91,7 +91,7 @@ async fn bad_input_is_a_tool_error_not_a_harness_error() {
         ),
         (
             json!({ "todos": [{ "content": "x", "status": "someday" }] }),
-            "invalid status",
+            "status must be",
         ),
         (json!({ "todos": "not a list" }), "invalid `todos`"),
         (
