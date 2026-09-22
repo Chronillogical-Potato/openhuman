@@ -482,16 +482,27 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
 
     let empty_visible: HashSet<String> = HashSet::new();
     let model_name = definition.model.resolve(agent.model_name()).to_string();
+    let text_mode_schemas: Vec<tinyinference_llm::tool::ToolSchema> = rendered_tools
+        .iter()
+        .map(|tool| {
+            tinyinference_llm::tool::ToolSchema::new(
+                tool.name(),
+                tool.description(),
+                tool.parameters_schema(),
+            )
+        })
+        .collect();
+    let dispatcher_instructions = text_mode_dispatcher_instructions(&text_mode_schemas);
     let ctx = PromptContext {
         workspace_dir: agent.workspace_dir(),
         model_name: &model_name,
         agent_id: INTEGRATIONS_AGENT_ID,
         tools: &prompt_tools,
         workflows: agent.workflows(),
-        dispatcher_instructions: "",
+        dispatcher_instructions: &dispatcher_instructions,
         learned: LearnedContextData::default(),
         visible_tool_names: &empty_visible,
-        tool_call_format: ToolCallFormat::PFormat,
+        tool_call_format: ToolCallFormat::Json,
         connected_integrations: &narrow_integrations,
         connected_identities_md: crate::agent::prompts::render_connected_identities(),
         include_profile: !definition.omit_profile,
@@ -503,18 +514,8 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         agents_md_local: None,
     };
 
-    let mut text = build(&ctx)
+    let text = build(&ctx)
         .with_context(|| format!("building integrations_agent prompt for toolkit `{toolkit}`"))?;
-
-    // Mirror the runner's text-mode mutation: when integrations_agent
-    // has any tools the runner appends `build_text_mode_tool_instructions`
-    // to the system message (see `subagent_host::run_typed_mode`,
-    // `force_text_mode` branch). Reproduce it here so
-    // the dump matches what the LLM actually receives on turn 1.
-    if !rendered_tools.is_empty() {
-        text.push_str("\n\n");
-        text.push_str(&crate::agent::subagent_host::build_text_mode_tool_instructions());
-    }
 
     let tool_names: Vec<String> = rendered_tools
         .iter()
@@ -538,6 +539,20 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         tool_specs,
     })
 }
+
+/// Render the text-mode protocol only when the integrations agent has tools.
+/// An empty catalogue must not invite the model to make an unavailable call.
+fn text_mode_dispatcher_instructions(schemas: &[tinyinference_llm::tool::ToolSchema]) -> String {
+    if schemas.is_empty() {
+        String::new()
+    } else {
+        tinyagents_harness::tool::prompt_tool_instructions(schemas)
+    }
+}
+
+#[cfg(test)]
+#[path = "debug_protocol_tests.rs"]
+mod protocol_tests;
 
 /// Wrap a `&dyn Tool` as a `Box<dyn Tool>` proxy that forwards
 /// `name()` / `description()` / `parameters_schema()` / `category()`
