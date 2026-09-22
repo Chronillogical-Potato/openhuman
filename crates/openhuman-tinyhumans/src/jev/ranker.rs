@@ -9,6 +9,7 @@ use std::{
 
 use std::{future::Future, pin::Pin, sync::Arc};
 
+use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
 use openhuman_core::api::config::effective_backend_api_url;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
@@ -33,6 +34,9 @@ pub struct TinyHumansJevRanker {
 struct Cached {
     fingerprint: u64,
     ranker: JevRanker,
+    /// The retriever inside `ranker`, kept so its catalogue embeddings
+    /// survive a credential change.
+    retriever: Arc<dyn ToolRanker>,
 }
 
 impl std::fmt::Debug for TinyHumansJevRanker {
@@ -104,7 +108,18 @@ impl TinyHumansJevRanker {
         }
         let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
         client.base_url = base_url.clone();
-        let ranker = JevRanker::from_config(client, self.config.clone())?;
+        // The retriever is the process's embedding provider when it can
+        // embed (the same one memory recall uses), so a family larger than
+        // one Jev Choice is cut by meaning, not by shared words. Reused
+        // across rebuilds so the catalogue is embedded once per process.
+        let retriever: Arc<dyn ToolRanker> = match cached.as_ref() {
+            Some(entry) => entry.retriever.clone(),
+            None => retriever_for(&config),
+        };
+        let ranker = JevRanker::from_config(
+            client,
+            self.config.clone().with_retriever(retriever.clone()),
+        )?;
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
             openhuman_core::util::redact::redact_url_for_log(&base_url),
@@ -117,9 +132,38 @@ impl TinyHumansJevRanker {
         *cached = Some(Cached {
             fingerprint,
             ranker: ranker.clone(),
+            retriever,
         });
         Ok(ranker)
     }
+}
+
+/// The semantic retriever for `config`'s embedding provider, or BM25 when
+/// the provider cannot embed (`none`, or a managed provider with no route).
+fn retriever_for(config: &Config) -> Arc<dyn ToolRanker> {
+    let provider = openhuman_core::inference::embedding_host::default_embedding_provider_with_config(
+        config,
+    );
+    if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
+        log::info!(
+            "[tool-search] embedding provider `{}` cannot embed; retrieving with bm25",
+            provider.name()
+        );
+        return Arc::new(tinytools::Bm25Ranker);
+    }
+    log::info!(
+        "[tool-search] retrieving with embeddings ({} / {})",
+        provider.name(),
+        provider.model_id()
+    );
+    Arc::new(
+        EmbeddingToolRanker::new(provider).with_disk_cache(
+            config
+                .workspace_dir
+                .join("cache")
+                .join("tool_search_embeddings.json"),
+        ),
+    )
 }
 
 fn fingerprint(secret: &str, base_url: &str) -> u64 {

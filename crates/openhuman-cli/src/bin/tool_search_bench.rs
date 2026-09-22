@@ -147,6 +147,7 @@ struct Args {
     retrieval_k: usize,
     misses: bool,
     family: bool,
+    embedding: bool,
 }
 
 fn parse_args() -> Args {
@@ -159,6 +160,7 @@ fn parse_args() -> Args {
         retrieval_k: 20,
         misses: false,
         family: false,
+        embedding: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -173,10 +175,11 @@ fn parse_args() -> Args {
             }
             "--misses" => args.misses = true,
             "--family" => args.family = true,
+            "--embedding" => args.embedding = true,
             "-h" | "--help" => {
                 eprintln!(
-                    "usage: tool-search-bench [--ranker all|bm25|overlap|jev] [--intents FILE] \
-                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses] [--family]"
+                    "usage: tool-search-bench [--ranker all|bm25|overlap|embedding|jev] [--intents FILE] \
+                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses] [--family] [--embedding]"
                 );
                 std::process::exit(0);
             }
@@ -284,6 +287,7 @@ use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 fn jev_ranker(
     retrieval_k: usize,
     family: bool,
+    embedding: bool,
 ) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
     use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
     let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
@@ -304,7 +308,7 @@ fn jev_ranker(
     };
     let ranker = JevRanker::from_config(
         client,
-        jev_config(retrieval_k, family),
+        jev_config(retrieval_k, family, embedding),
     )
     .ok()?;
     let ranker = Arc::new(ranker);
@@ -312,21 +316,53 @@ fn jev_ranker(
 }
 
 #[cfg(feature = "jev")]
-fn jev_config(retrieval_k: usize, family: bool) -> tinytools_jev::JevRankerConfig {
+fn jev_config(retrieval_k: usize, family: bool, embedding: bool) -> tinytools_jev::JevRankerConfig {
     use tinytools_jev::{JevRankerConfig, JevStrategy};
-    let config = JevRankerConfig::new()
+    let mut config = JevRankerConfig::new()
         .with_retrieval_k(retrieval_k)
         .with_timeout(Duration::from_secs(20));
     if family {
-        config.with_strategy(JevStrategy::FamilyThenDecide)
-    } else {
-        config
+        config = config.with_strategy(JevStrategy::FamilyThenDecide);
     }
+    if embedding {
+        config = config.with_retriever(embedding_retriever());
+    }
+    config
 }
 
 #[cfg(not(feature = "jev"))]
-fn jev_ranker(_retrieval_k: usize, _family: bool) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
+fn jev_ranker(
+    _retrieval_k: usize,
+    _family: bool,
+    _embedding: bool,
+) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
     None
+}
+
+/// The process's configured embedding provider as a `ToolRanker`, with its
+/// catalogue cache in the scratch workspace so repeated runs embed only the
+/// intents.
+fn embedding_retriever() -> Arc<dyn ToolRanker> {
+    use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
+    let config = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(openhuman_core::config::Config::load_or_init())
+    })
+    .expect("load config for the embedding provider");
+    let provider =
+        openhuman_core::inference::embedding_host::default_embedding_provider_with_config(&config);
+    if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
+        eprintln!(
+            "embedding: provider `{}` cannot embed; the bench retriever stays bm25",
+            provider.name()
+        );
+        return Arc::new(Bm25Ranker);
+    }
+    eprintln!("embedding: {} / {}", provider.name(), provider.model_id());
+    Arc::new(
+        EmbeddingToolRanker::new(provider).with_disk_cache(
+            repo_root().join("target").join("tool_search_bench_embeddings.json"),
+        ),
+    )
 }
 
 fn family_of<'a>(catalogue: &'a [CatalogueEntry], name: &str) -> &'a str {
@@ -382,14 +418,17 @@ async fn main() -> Result<()> {
     if want("overlap") {
         rankers.push(("overlap".into(), Arc::new(OverlapRanker)));
     }
+    if want("embedding") && args.embedding {
+        rankers.push(("embedding".into(), embedding_retriever()));
+    }
     if want("jev") {
-        match jev_ranker(args.retrieval_k, args.family) {
+        match jev_ranker(args.retrieval_k, args.family, args.embedding) {
             Some((ranker, _)) => rankers.push(("jev".into(), ranker)),
             None => {
                 #[cfg(feature = "jev")]
                 {
                     let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
-                        jev_config(args.retrieval_k, args.family),
+                        jev_config(args.retrieval_k, args.family, args.embedding),
                     );
                     rankers.push(("jev".into(), Arc::new(ranker)));
                 }
@@ -402,8 +441,12 @@ async fn main() -> Result<()> {
     let mut reports = Vec::new();
     for (kind, ranker) in &rankers {
         let mut report = RankerReport {
-            ranker: if kind == "jev" && args.family {
-                "jev(family)".to_string()
+            ranker: if kind == "jev" {
+                format!(
+                    "jev({}{})",
+                    if args.family { "family" } else { "retrieve" },
+                    if args.embedding { "+embedding" } else { "+bm25" }
+                )
             } else {
                 kind.clone()
             },
@@ -488,7 +531,7 @@ async fn main() -> Result<()> {
     if let Some(report) = reports.iter_mut().find(|r| r.ranker == "jev") {
         // Tokens and cost: one detailed pass over the labelled rows so the
         // number is the provider's own `usage`, not an estimate.
-        if let Some((_, detailed)) = jev_ranker(args.retrieval_k, args.family) {
+        if let Some((_, detailed)) = jev_ranker(args.retrieval_k, args.family, args.embedding) {
             let mut tokens = 0_u64;
             let mut counted = 0_u64;
             for row in rows.iter().take(25) {
