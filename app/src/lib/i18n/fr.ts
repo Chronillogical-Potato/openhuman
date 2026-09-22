@@ -744,6 +744,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'On y va, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Place à la concentration 🧘🏻',
   'chat.newWindowPrompt': "Comment puis-je t'aider aujourd'hui ?",
+  'chat.welcomeSuggestion.calendarToday': "Qu'est-ce que j'ai à mon agenda aujourd'hui ?",
+  'chat.welcomeSuggestion.unreadEmail': 'Résume mes e-mails non lus.',
+  'chat.welcomeSuggestion.draftReply': 'Rédige une réponse à mon dernier message.',
+  'chat.welcomeSuggestion.followUps': "Qu'ai-je dit que je suivrais cette semaine ?",
+  'chat.welcomeSuggestion.connectIntegration': 'Connecte une nouvelle intégration.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    "Crée un flux qui m'envoie un résumé quotidien par e-mail.",
   'chat.typeMessage': 'Envoie un message...',
   'chat.send': 'Envoyer le message',
   'chat.stopGeneration': 'Arrêter la génération',

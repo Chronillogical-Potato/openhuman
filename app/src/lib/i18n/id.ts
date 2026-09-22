@@ -722,6 +722,14 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Ayo mulai, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Waktunya fokus 🧘🏻',
   'chat.newWindowPrompt': 'Apa yang bisa saya bantu hari ini?',
+  'chat.welcomeSuggestion.calendarToday': 'Ada apa saja di kalender saya hari ini?',
+  'chat.welcomeSuggestion.unreadEmail': 'Ringkas email saya yang belum dibaca.',
+  'chat.welcomeSuggestion.draftReply': 'Buat draf balasan untuk pesan terakhir saya.',
+  'chat.welcomeSuggestion.followUps':
+    'Apa saja yang saya katakan akan saya tindak lanjuti minggu ini?',
+  'chat.welcomeSuggestion.connectIntegration': 'Hubungkan integrasi baru.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Buat alur yang mengirimi saya ringkasan harian lewat email.',
   'chat.typeMessage': 'Kirim pesan...',
   'chat.send': 'Kirim pesan',
   'chat.stopGeneration': 'Hentikan pembuatan',

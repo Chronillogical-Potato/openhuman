@@ -728,6 +728,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Do dzieła, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Czas się skupić 🧘🏻',
   'chat.newWindowPrompt': 'Jak mogę ci dziś pomóc?',
+  'chat.welcomeSuggestion.calendarToday': 'Co mam dzisiaj w kalendarzu?',
+  'chat.welcomeSuggestion.unreadEmail': 'Podsumuj moje nieprzeczytane e-maile.',
+  'chat.welcomeSuggestion.draftReply': 'Przygotuj odpowiedź na moją ostatnią wiadomość.',
+  'chat.welcomeSuggestion.followUps': 'Co miałem w tym tygodniu doprowadzić do końca?',
+  'chat.welcomeSuggestion.connectIntegration': 'Połącz nową integrację.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Zbuduj przepływ, który codziennie wyśle mi podsumowanie e-mailem.',
   'chat.typeMessage': 'Wyślij wiadomość...',
   'chat.send': 'Wyślij wiadomość',
   'chat.stopGeneration': 'Zatrzymaj generowanie',
