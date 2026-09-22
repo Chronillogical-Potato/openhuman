@@ -656,6 +656,7 @@ fn tools_section_json_with_an_embedded_catalogue_lists_tools_once() {
         description: "tool desc".into(),
         parameters: serde_json::json!({"type": "object"}),
     }];
+    use tinytools_agent::dialect::ToolDialect as _;
     let block = tinytools_agent::dialect::XmlDialect.prompt_instructions(&specs);
     let ctx = PromptContext {
         workspace_dir: Path::new("/tmp"),
