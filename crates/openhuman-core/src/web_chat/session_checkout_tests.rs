@@ -362,24 +362,3 @@ async fn a_thread_binds_one_stable_session_across_cold_boots() {
     );
     evict(&thread_id).await;
 }
-
-/// A sub-agent inherits its parent's thread for correlation, but each spawn is
-/// genuinely its own transcript, so it must not claim the conversation's
-/// session identity.
-#[test]
-fn a_subagent_does_not_take_over_the_conversations_session() {
-    let tmp = tempfile::tempdir().unwrap();
-    let config = test_config(&tmp);
-    let mut host = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
-
-    host.set_thread_id(Some("thread-1"));
-    assert!(host.session_id().is_some());
-
-    let mut child = OpenHumanSessionHost::builder_for_agent(&config, "orchestrator")
-        .unwrap()
-        .session_parent_prefix(Some("1713000000_orchestrator".into()))
-        .build()
-        .unwrap();
-    child.set_thread_id(Some("thread-1"));
-    assert_eq!(child.session_id(), None);
-}

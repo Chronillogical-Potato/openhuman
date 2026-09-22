@@ -409,3 +409,32 @@ fn availability_notes_are_status_not_instructions() {
     assert!(mcp_announcement_note(&[]).is_none());
     assert!(skill_announcement_note(&[]).is_none());
 }
+
+/// A sub-agent inherits its parent's thread id for correlation, but each spawn
+/// is genuinely its own transcript. It must therefore not claim the
+/// conversation's durable session identity, or two concurrent workers on one
+/// thread would write into the same file.
+#[test]
+fn a_subagent_thread_binding_claims_no_session_identity() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..crate::config::Config::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+
+    let mut root = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    root.set_thread_id(Some("thread-1"));
+    assert_eq!(
+        root.session_id().as_deref(),
+        Some("thread-1.orchestrator"),
+        "a root chat session is addressed by its conversation"
+    );
+
+    let mut child = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    child.session_parent_prefix = Some("1713000000_orchestrator".into());
+    child.set_thread_id(Some("thread-1"));
+    assert_eq!(child.session_id(), None);
+}
