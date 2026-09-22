@@ -412,7 +412,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         extra_headers: extra_headers.as_slice(),
         native_tool_calling: Some(native_tool_calling),
         vision: None,
-        default_provider_options: None,
+        default_provider_options: openrouter_default_provider_options(&endpoint),
         responses_api_primary,
         responses_omit_max_output_tokens,
         extra_query_params: extra_query_params.as_slice(),
@@ -425,3 +425,29 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     });
     Some(Ok((chat, effective_model)))
 }
+
+/// The `provider.sort` OpenRouter routing preference sent on every request to
+/// a direct (BYOK) OpenRouter endpoint.
+pub(crate) const OPENROUTER_PROVIDER_SORT: &str = "price";
+
+/// Baked request options for a direct OpenRouter endpoint, `None` for every
+/// other OpenAI-compatible host.
+///
+/// OpenRouter's default routing is a health-aware load balance weighted toward
+/// the cheaper endpoints of a model's pool, which spreads consecutive turns
+/// across endpoints. DeepSeek- and Z.AI-family prefix caches live per endpoint,
+/// so every hop re-pays the whole prefill. `provider.sort` orders the pool and
+/// disables the balancing (not the fallback: `allow_fallbacks` stays on and
+/// `order` is never set, so a request still moves down the sorted list when an
+/// endpoint errors), and `price` is the stable choice — cheapest first, dearer
+/// only on failure. Stickiness itself comes from the harness's derived
+/// `prompt_cache_key` (`tap-<prefix fingerprint>`), which OpenRouter honours as
+/// its sticky-routing key; measured on `z-ai/glm-5.3-flash` the same endpoint
+/// served 5/5 calls with it. The hosted backend applies the same sort
+/// server-side (tinyhumansai/backend#1370), so managed and direct routing agree.
+/// https://openrouter.ai/docs/features/provider-routing
+pub(crate) fn openrouter_default_provider_options(endpoint: &str) -> Option<serde_json::Value> {
+    endpoint_is_openrouter(endpoint)
+        .then(|| serde_json::json!({ "provider": { "sort": OPENROUTER_PROVIDER_SORT } }))
+}
+
