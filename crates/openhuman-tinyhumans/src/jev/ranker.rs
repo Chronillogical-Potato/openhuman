@@ -14,7 +14,10 @@ use openhuman_core::api::config::effective_backend_api_url;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
-use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
+use tinyjevclient::{Client, ClientConfig};
+use tinytools_jev::{JevRanker, JevRankerConfig, JevStrategy};
+
+use super::evaluator::TinyJevEvaluator;
 
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
@@ -54,10 +57,12 @@ impl Default for TinyHumansJevRanker {
 }
 
 impl TinyHumansJevRanker {
-    /// A ranker with `tinytools-jev`'s defaults: BM25 retrieval to 20, one
-    /// Jev decision, a 3 s deadline.
+    /// A ranker with the product defaults: family-then-decide (the
+    /// evaluator picks the toolkit or pack, then the tool), the process's
+    /// embedding provider as the retriever for any family too large for one
+    /// choice, a 3 s deadline per evaluation.
     pub fn new() -> Self {
-        Self::with_config(JevRankerConfig::new())
+        Self::with_config(JevRankerConfig::new().with_strategy(JevStrategy::FamilyThenDecide))
     }
 
     /// A ranker with an explicit `tinytools-jev` configuration.
@@ -106,8 +111,12 @@ impl TinyHumansJevRanker {
         if let Some(entry) = cached.as_ref().filter(|entry| entry.fingerprint == fingerprint) {
             return Ok(entry.ranker.clone());
         }
-        let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
-        client.base_url = base_url.clone();
+        let mut client_config = ClientConfig::tinyhumans_openrouter(credential.into_secret());
+        client_config.base_url = base_url.clone();
+        let client = Client::new(client_config)
+            .map_err(|error| RankError::invalid_input(error.to_string()))?;
+        let evaluator: Arc<dyn tinytools_jev::JevEvaluator> =
+            Arc::new(TinyJevEvaluator::new(client));
         // The retriever is the process's embedding provider when it can
         // embed (the same one memory recall uses), so a family larger than
         // one Jev Choice is cut by meaning, not by shared words. Reused
@@ -116,10 +125,10 @@ impl TinyHumansJevRanker {
             Some(entry) => entry.retriever.clone(),
             None => retriever_for(&config),
         };
-        let ranker = JevRanker::from_config(
-            client,
+        let ranker = JevRanker::new(
+            evaluator,
             self.config.clone().with_retriever(retriever.clone()),
-        )?;
+        );
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
             openhuman_core::util::redact::redact_url_for_log(&base_url),
@@ -195,9 +204,10 @@ impl ToolRanker for TinyHumansJevRanker {
             .rank_detailed(intent, context, candidates, limit)
             .await?;
         log::debug!(
-            "[tool-search] jev ranked {} of {} shortlisted (choice_confidence={:.2} needs_tool={:?} none={:.2} latency_ms={} attempts={} input_tokens={:?})",
+            "[tool-search] jev ranked {} of {} shown (families={:?} choice_confidence={:.2} needs_tool={:?} none={:.2} latency_ms={} attempts={} input_tokens={:?})",
             ranking.hits.len(),
             ranking.shortlisted,
+            ranking.families,
             ranking.choice_confidence,
             ranking.needs_tool,
             ranking.none_probability,

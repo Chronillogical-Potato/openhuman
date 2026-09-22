@@ -15,6 +15,6 @@ pub use schemas::{
 };
 pub use tracker::CostTracker;
 pub use types::{
-    BudgetCheck, BudgetStatus, CostDashboard, CostRecord, CostSource, CostSummary, DailyCostEntry,
-    ModelStats, TokenUsage, UsagePeriod,
+    BudgetStatus, CostDashboard, CostRecord, CostSource, CostSummary, DailyCostEntry, ModelStats,
+    TokenUsage, UsagePeriod,
 };

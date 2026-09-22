@@ -289,7 +289,9 @@ fn jev_ranker(
     family: bool,
     embedding: bool,
 ) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use tinytools_jev::{ClientConfig, JevRanker};
+    use openhuman_tinyhumans::jev::TinyJevEvaluator;
+    use tinyjevclient::{Client, ClientConfig};
+    use tinytools_jev::JevRanker;
     let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
         let mut client = ClientConfig::tinyhumans_openrouter(key);
         if let Ok(base) = std::env::var("BACKEND_URL") {
@@ -306,21 +308,19 @@ fn jev_ranker(
         eprintln!("jev: no key in the environment; using the signed-in TinyHumans session");
         return None;
     };
-    let ranker = JevRanker::from_config(
-        client,
+    let client = Client::new(client).ok()?;
+    let evaluator = Arc::new(TinyJevEvaluator::new(client).with_deadline(Duration::from_secs(20)));
+    let ranker = Arc::new(JevRanker::new(
+        evaluator,
         jev_config(retrieval_k, family, embedding),
-    )
-    .ok()?;
-    let ranker = Arc::new(ranker);
+    ));
     Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
 }
 
 #[cfg(feature = "jev")]
 fn jev_config(retrieval_k: usize, family: bool, embedding: bool) -> tinytools_jev::JevRankerConfig {
     use tinytools_jev::{JevRankerConfig, JevStrategy};
-    let mut config = JevRankerConfig::new()
-        .with_retrieval_k(retrieval_k)
-        .with_timeout(Duration::from_secs(20));
+    let mut config = JevRankerConfig::new().with_retrieval_k(retrieval_k);
     if family {
         config = config.with_strategy(JevStrategy::FamilyThenDecide);
     }
@@ -504,8 +504,27 @@ async fn main() -> Result<()> {
                     got: got.clone(),
                 });
             }
-            let retrieved = Bm25Ranker::rank_sync(&candidates, &row.intent, args.retrieval_k);
-            if retrieved.iter().any(|h| h.key == row.expected) {
+            // Recall of the retriever Jev sits on: the embedding index when
+            // `--embedding`, BM25 otherwise. For the standalone rankers it is
+            // their own recall at `retrieval_k`.
+            let retrieved: Vec<String> = if kind == "jev" && !args.embedding || kind == "bm25" {
+                Bm25Ranker::rank_sync(&candidates, &row.intent, args.retrieval_k)
+                    .into_iter()
+                    .map(|h| h.key)
+                    .collect()
+            } else {
+                let retriever: Arc<dyn ToolRanker> = if kind == "jev" {
+                    embedding_retriever()
+                } else {
+                    ranker.clone()
+                };
+                retriever
+                    .rank(&row.intent, &RankContext::empty(), &candidates, args.retrieval_k)
+                    .await
+                    .map(|hits| hits.into_iter().map(|h| h.key).collect())
+                    .unwrap_or_default()
+            };
+            if retrieved.iter().any(|h| h == &row.expected) {
                 report.recall_at_20 += 1;
                 report.by_source.get_mut(source).map(|b| b.3 += 1);
             }
@@ -553,7 +572,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("| ranker | rows | top-1 | top-3 | recall@{} (bm25) | needless (of {}) | errors | p50 ms | p95 ms | tokens/search | USD/search |",
+    println!("| ranker | rows | top-1 | top-3 | retriever recall@{} | needless (of {}) | errors | p50 ms | p95 ms | tokens/search | USD/search |",
         args.retrieval_k,
         reports.first().map_or(0, |r| r.none_rows));
     println!("|---|---|---|---|---|---|---|---|---|---|---|");

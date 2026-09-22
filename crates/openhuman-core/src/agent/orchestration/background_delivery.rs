@@ -5,14 +5,20 @@
 //!   * **idle-gated** — never mid-turn; defers while a user turn is in flight,
 //!   * **debounced** — a burst of completions batches into one turn,
 //!   * **batched** — every result ready at delivery time goes in one turn,
-//!     each tagged by its sub-agent process id.
+//!     each tagged by its sub-agent process id,
+//!   * **bounded** — a failed turn requeues its batch, but only
+//!     [`MAX_DELIVERY_ATTEMPTS`] times; a turn that can never succeed would
+//!     otherwise retry forever, because a failed turn re-triggers this module,
+//!   * **never silently lost** — once the retries are spent the results are
+//!     written into the thread verbatim, with an explicit notice that delivery
+//!     failed and why, instead of being discarded.
 //!
 //! The delivery turn runs on the originating thread's own chat session
 //! (`web_chat::run_system_turn_on_thread`) so it sees the conversation and
 //! appends to the thread's transcript. It persists its reply before announcing
 //! `chat_done`, so a reconnect cannot lose a completed delegated result.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -29,6 +35,49 @@ use super::background_completions;
 
 /// Coalesce completions landing within this window into one delivery turn.
 const DEBOUNCE: Duration = Duration::from_secs(3);
+
+/// Upper bound on consecutive failed delivery turns for one session before the
+/// loop stops retrying and writes the results into the thread instead.
+///
+/// The requeue below exists so a *transient* failure doesn't lose a result
+/// (#4896), but on its own it is unbounded — and this module re-triggers
+/// itself: a failed delivery turn publishes `DomainEvent::AgentError`, which
+/// our own handler turns straight back into a scheduled drain 300 ms later.
+/// Against a turn that can *never* succeed (refused inference, expired
+/// session, revoked integration, backend outage) that is a self-sustaining
+/// loop, not a retry. Observed in production 2026-09-21: 178 delivery attempts
+/// per minute against a single thread, 4,389 in one day, and a 432 MB log.
+///
+/// Five attempts keeps the transient case working. Past that the retries stop,
+/// but the results are **not** discarded: they are handed to the give-up sink,
+/// which persists them into the thread with an explicit failed-delivery notice.
+/// Ending the storm must not cost the user the result that caused it.
+const MAX_DELIVERY_ATTEMPTS: u32 = 5;
+
+/// Consecutive failed delivery turns per session. Cleared on a delivered batch
+/// and once a batch has been handed to the give-up sink, so the budget tracks a
+/// single failure chain and a later batch always starts fresh.
+fn attempts() -> &'static Mutex<HashMap<String, u32>> {
+    static A: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
+    A.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Record a failed delivery turn; returns the new consecutive-failure count.
+fn note_failed_attempt(session: &str) -> u32 {
+    let mut a = attempts().lock().expect("delivery attempts poisoned");
+    let n = a.entry(session.to_string()).or_insert(0);
+    *n += 1;
+    *n
+}
+
+/// Reset a session's failure budget — on a delivered batch, or once a batch has
+/// been handed to the give-up sink and the chain is over.
+fn clear_attempts(session: &str) {
+    attempts()
+        .lock()
+        .expect("delivery attempts poisoned")
+        .remove(session);
+}
 
 /// Sessions with a user turn currently in flight — delivery defers while busy.
 fn busy() -> &'static Mutex<HashSet<String>> {
@@ -138,19 +187,63 @@ fn requeue(session: &str, batch: Vec<background_completions::CompletedBackground
 /// Drain + deliver pending completions for a session — if idle and not already
 /// delivering. Batches everything ready at this instant into one system turn.
 async fn try_deliver(session: String) {
-    try_deliver_with(session, |thread_id, notice| async move {
-        run_system_turn_on_thread(thread_id, notice).await
-    })
+    try_deliver_with(
+        session,
+        |thread_id, notice| async move { run_system_turn_on_thread(thread_id, notice).await },
+        |thread_id, notice| async move { persist_undelivered(thread_id, notice).await },
+    )
     .await;
 }
 
-/// Delivery-loop core with an injected turn executor. Keeping the queue and
-/// retry boundary independent from host execution lets tests prove a failed
-/// durable append is requeued before any terminal announcement is observable.
-async fn try_deliver_with<F, Fut>(session: String, mut deliver: F)
+/// Last resort when the delivery turn has failed [`MAX_DELIVERY_ATTEMPTS`]
+/// times: append the results to the thread directly, with no model turn.
+///
+/// This is the whole point of the ceiling — retries stop, but the user is still
+/// told. If even this append fails there is nowhere left to put the result, so
+/// it is logged at error and the chain ends; that is the one path on which a
+/// result is genuinely lost, and it requires the conversation store to be
+/// failing as well as the agent.
+async fn persist_undelivered(thread_id: String, notice: String) {
+    let run_id = format!("bgdeliver-undelivered-{}", uuid::Uuid::new_v4());
+    let config = match crate::config::Config::load_or_init().await {
+        Ok(config) => config,
+        Err(error) => {
+            log::error!(
+                "[background_delivery] undelivered results LOST — could not load config to \
+                 persist them thread_id={thread_id} run_id={run_id} error={error:#}"
+            );
+            return;
+        }
+    };
+    match persist_delivery_reply(
+        config.workspace_dir.clone(),
+        &thread_id,
+        &run_id,
+        notice,
+        false,
+    ) {
+        Ok(()) => log::warn!(
+            "[background_delivery] delivery turn gave up; wrote results into the thread \
+             verbatim instead thread_id={thread_id} run_id={run_id}"
+        ),
+        Err(error) => log::error!(
+            "[background_delivery] undelivered results LOST — could not append them to the \
+             thread thread_id={thread_id} run_id={run_id} error={error}"
+        ),
+    }
+}
+
+/// Delivery-loop core with an injected turn executor and an injected
+/// give-up sink. Keeping the queue and retry boundary independent from host
+/// execution lets tests prove a failed durable append is requeued before any
+/// terminal announcement is observable, and that a batch which exhausts its
+/// retries is handed to `on_undeliverable` rather than dropped.
+async fn try_deliver_with<F, Fut, G, GFut>(session: String, mut deliver: F, on_undeliverable: G)
 where
     F: FnMut(String, String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
+    G: FnOnce(String, String) -> GFut,
+    GFut: Future<Output = ()>,
 {
     if is_busy(&session) || !background_completions::has_pending(&session) {
         return;
@@ -189,11 +282,56 @@ where
                  session={session} thread_id={thread_id}",
                 batch.len()
             );
-            if let Err(e) = deliver(thread_id, notice).await {
-                log::warn!(
-                    "[background_delivery] delivery turn failed session={session} error={e}"
-                );
-                requeue(&session, batch); // don't lose results on a failed turn
+            match deliver(thread_id.clone(), notice).await {
+                Ok(_) => clear_attempts(&session),
+                Err(e) => {
+                    // Count only a failed *turn*. The busy re-check above also
+                    // requeues, but that is a deferral, not a failure — letting
+                    // it burn the budget would drop results just because the
+                    // user kept typing.
+                    //
+                    // A `SESSION_CHECKOUT_FAILURE`-prefixed error (the session
+                    // could not be checked out, so no turn ran at all) counts
+                    // the same as a turn that ran and failed. That is
+                    // deliberate: the budget measures "the result was not
+                    // delivered", which is equally true either way, and giving
+                    // up is no longer lossy — the batch is written into the
+                    // thread rather than discarded. Note a checkout failure
+                    // publishes no `AgentError`, so it cannot drive the
+                    // self-retrigger loop on its own; it only ever spends the
+                    // budget, never extends it.
+                    let attempt = note_failed_attempt(&session);
+                    if attempt >= MAX_DELIVERY_ATTEMPTS {
+                        // Stop retrying, but do NOT drop: the results exist and
+                        // the user is owed them. Hand them to the give-up sink,
+                        // which writes them into the thread verbatim along with
+                        // an explicit statement that delivery failed and why.
+                        log::warn!(
+                            "[background_delivery] giving up on the delivery turn after \
+                             {attempt} consecutive failures; writing {} result(s) into the \
+                             thread instead session={session} thread_id={thread_id} \
+                             tasks=[{}] error={e}",
+                            batch.len(),
+                            batch
+                                .iter()
+                                .map(|c| c.task_id.as_str())
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        );
+                        clear_attempts(&session);
+                        if let Some(undelivered) =
+                            background_completions::build_undelivered_notice(&batch, attempt, &e)
+                        {
+                            on_undeliverable(thread_id, undelivered).await;
+                        }
+                    } else {
+                        log::warn!(
+                            "[background_delivery] delivery turn failed session={session} \
+                             attempt={attempt}/{MAX_DELIVERY_ATTEMPTS} error={e}"
+                        );
+                        requeue(&session, batch); // don't lose results on a failed turn
+                    }
+                }
             }
         } else {
             log::warn!(

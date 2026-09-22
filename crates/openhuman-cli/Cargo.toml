@@ -64,6 +64,13 @@ required-features = ["http-server", "bin-tools"]
 name = "tool-search-bench"
 path = "src/bin/tool_search_bench.rs"
 
+# Manual, network-touching A/B of the text tool-call dialects against a local
+# Ollama model: prompt tokens and call accuracy per `agent.tool_dispatcher`
+# value. Never run by CI; see the file's docs for the invocation.
+[[bin]]
+name = "tool-dialect-bench"
+path = "src/bin/tool_dialect_bench.rs"
+
 [[bin]]
 name = "rss-bench"
 path = "src/bin/rss_bench.rs"
@@ -102,6 +109,13 @@ required-features = ["rss-bench"]
 # files. #5021 is still the right fix for symbols named in the middle of an
 # otherwise gate-free target — required-features is the blunt instrument, and
 # it costs the whole target when the gate is off.
+[[test]]
+# Reproduction of the removed spend cap: needs its own process because the
+# global CostTracker is a `OnceCell`, so a shared `--lib` process makes the
+# spend state order-dependent.
+name = "cost_cap_removed"
+path = "../../tests/cost_cap_removed.rs"
+
 [[test]]
 name = "observability_smoke"
 path = "../../tests/observability_smoke.rs"
@@ -331,6 +345,7 @@ tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tiny
 # The Jev ranker `tool-search-bench` measures; gated with the crate's `jev`
 # feature so the bin builds without a Jev client.
 tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev", optional = true }
+tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "84b3983c7e1e14f7515658ceafabb6c4e7967c94", optional = true }
 tokio = { version = "1", features = ["full"] }
 toml = "1.0"
 tracing = "0.1"
@@ -379,7 +394,7 @@ wiremock = "0.6"
 default = ["openhuman-core/default", "openhuman-tinyhumans/default", "jev"]
 # The Jev-backed `tool_search` ranker; `openhuman-tinyhumans`'s own gate, plus
 # the client `tool-search-bench` measures it with.
-jev = ["openhuman-tinyhumans/jev", "dep:tinytools-jev"]
+jev = ["openhuman-tinyhumans/jev", "dep:tinytools-jev", "dep:tinyjevclient"]
 http-server = ["openhuman-core/http-server", "openhuman-tinyhumans/http-server"]
 inference = ["openhuman-core/inference", "openhuman-tinyhumans/inference"]
 documents = ["openhuman-core/documents", "openhuman-tinyhumans/documents"]

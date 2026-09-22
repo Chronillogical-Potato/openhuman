@@ -1708,7 +1708,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nombre de la variable',
   'mcp.form.envValue': 'Valor',
   'mcp.form.value': 'Valor',
-  'mcp.form.keepStored': 'Guardado — déjalo en blanco para conservarlo',
+  'mcp.form.keepStored': 'Guardado (déjalo en blanco para conservarlo)',
   'mcp.form.removeRow': 'Eliminar fila',
   'mcp.form.addEnv': 'Añadir variable',
   'mcp.form.url': 'URL',
@@ -1769,7 +1769,7 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Ejemplo',
   'mcp.json.saveFailed': 'No se pudo guardar mcp.json.',
   'mcp.json.parseError.empty': 'El documento está vacío. Sin servidores es { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON no válido — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON no válido: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contiene un objeto con una clave `mcpServers`.',
   'mcp.json.parseError.missingRoot':
     'Falta la clave `mcpServers`: todos los servidores van dentro.',

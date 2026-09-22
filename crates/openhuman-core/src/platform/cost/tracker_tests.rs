@@ -25,19 +25,6 @@ fn cost_tracker_initialization() {
 }
 
 #[test]
-fn budget_check_when_disabled() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: false,
-        ..Default::default()
-    };
-
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-    let check = tracker.check_budget(1000.0).unwrap();
-    assert!(matches!(check, BudgetCheck::Allowed));
-}
-
-#[test]
 fn record_usage_and_get_summary() {
     let tmp = TempDir::new().unwrap();
     let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
@@ -49,26 +36,6 @@ fn record_usage_and_get_summary() {
     assert_eq!(summary.request_count, 1);
     assert!(summary.session_cost_usd > 0.0);
     assert_eq!(summary.by_model.len(), 1);
-}
-
-#[test]
-fn budget_exceeded_daily_limit() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 0.01, // Very low limit
-        ..Default::default()
-    };
-
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    // Record managed-route usage that exceeds the limit. Only managed spend
-    // gates a request (#5016), so the model id has to be a backend tier slug.
-    let usage = TokenUsage::new(MANAGED_MODEL, 10000, 5000, 1.0, 2.0); // ~0.02 USD
-    tracker.record_usage(usage).unwrap();
-
-    let check = tracker.check_budget(0.01).unwrap();
-    assert!(matches!(check, BudgetCheck::Exceeded { .. }));
 }
 
 #[test]
@@ -129,31 +96,6 @@ fn malformed_lines_are_ignored_while_loading() {
 }
 
 #[test]
-fn invalid_budget_estimate_is_rejected() {
-    let tmp = TempDir::new().unwrap();
-    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
-
-    let err = tracker.check_budget(f64::NAN).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("Estimated cost must be a finite, non-negative value"));
-}
-
-#[test]
-fn invalid_budget_negative_is_rejected() {
-    let tmp = TempDir::new().unwrap();
-    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
-    assert!(tracker.check_budget(-1.0).is_err());
-}
-
-#[test]
-fn invalid_budget_infinity_is_rejected() {
-    let tmp = TempDir::new().unwrap();
-    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
-    assert!(tracker.check_budget(f64::INFINITY).is_err());
-}
-
-#[test]
 fn record_usage_when_disabled_is_noop() {
     let tmp = TempDir::new().unwrap();
     let config = CostConfig {
@@ -202,149 +144,6 @@ fn record_usage_rejects_nan_cost() {
 }
 
 #[test]
-fn budget_warning_threshold() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 10.0,
-        warn_at_percent: 80,
-        monthly_limit_usd: 1000.0,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    // Record usage just under warning threshold (80% of 10 = 8.0)
-    let _usage = TokenUsage::new("test/model", 100000, 50000, 1.0, 2.0);
-    // This has a cost, so let's just check the budget with a projected amount
-    let check = tracker.check_budget(8.5).unwrap();
-    assert!(
-        matches!(check, BudgetCheck::Warning { .. }),
-        "expected warning, got {check:?}"
-    );
-}
-
-#[test]
-fn budget_monthly_exceeded() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 1000.0,
-        monthly_limit_usd: 0.01,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    let usage = TokenUsage::new(MANAGED_MODEL, 10000, 5000, 1.0, 2.0);
-    tracker.record_usage(usage).unwrap();
-
-    let check = tracker.check_budget(0.01).unwrap();
-    assert!(matches!(
-        check,
-        BudgetCheck::Exceeded {
-            period: UsagePeriod::Month,
-            ..
-        }
-    ));
-}
-
-// ── BYOK budget exemption (#5016 / #5127) ──────────────────────────────
-//
-// The reported bug: a user with no OpenHuman credits configured, routing all
-// inference through their own OpenRouter key, accumulated locally *estimated*
-// spend until they tripped the default $10/day cap and were told "You're out
-// of credits" — for inference OpenHuman never billed them for.
-
-#[test]
-fn byok_spend_never_exceeds_the_daily_limit() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 0.01,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    // Far past the $0.01 daily cap — and irrelevant, because it is BYOK.
-    let usage = TokenUsage::new(BYOK_MODEL, 10_000_000, 5_000_000, 1.0, 2.0);
-    tracker.record_usage(usage).unwrap();
-
-    // Estimate 0.0, matching what `CostBudgetMiddleware::before_model` actually
-    // passes. Charging the whole $0.01 limit to the *current* request would trip
-    // the 80% warning on that request's own projected cost, which says nothing
-    // about whether the recorded BYOK history leaked into the budget.
-    let check = tracker.check_budget(0.0).unwrap();
-    assert!(
-        matches!(check, BudgetCheck::Allowed),
-        "BYOK spend must never gate a request, got {check:?}"
-    );
-
-    // `Exceeded` is the only variant that actually blocks a request, so pin it
-    // separately: even a request that would consume the entire remaining limit
-    // must not be blocked by BYOK history.
-    assert!(
-        !matches!(
-            tracker.check_budget(0.01).unwrap(),
-            BudgetCheck::Exceeded { .. }
-        ),
-        "BYOK history must never push a request over the managed cap"
-    );
-}
-
-#[test]
-fn byok_spend_never_exceeds_the_monthly_limit() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 1000.0,
-        monthly_limit_usd: 0.01,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    let usage = TokenUsage::new(BYOK_MODEL, 10_000_000, 5_000_000, 1.0, 2.0);
-    tracker.record_usage(usage).unwrap();
-
-    // Estimate 0.0, as `CostBudgetMiddleware::before_model` passes: charging the
-    // whole $0.01 limit to the current request would trip the 80% warning on
-    // that request's own cost, which says nothing about the BYOK history.
-    let check = tracker.check_budget(0.0).unwrap();
-    assert!(
-        matches!(check, BudgetCheck::Allowed),
-        "BYOK spend must never gate a request, got {check:?}"
-    );
-    assert!(
-        !matches!(
-            tracker.check_budget(0.01).unwrap(),
-            BudgetCheck::Exceeded { .. }
-        ),
-        "BYOK history must never push a request over the managed monthly cap"
-    );
-}
-
-#[test]
-fn byok_spend_does_not_trip_the_warning_threshold_either() {
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 10.0,
-        warn_at_percent: 80,
-        monthly_limit_usd: 1000.0,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    let mut usage = TokenUsage::new(BYOK_MODEL, 1000, 500, 1.0, 1.0);
-    usage.cost_usd = 9.5; // 95% of the daily limit, if it counted
-    tracker.record_usage(usage).unwrap();
-
-    let check = tracker.check_budget(0.0).unwrap();
-    assert!(
-        matches!(check, BudgetCheck::Allowed),
-        "BYOK spend must not raise a budget warning, got {check:?}"
-    );
-}
-
-#[test]
 fn byok_spend_is_still_recorded_for_the_dashboard() {
     // Exempting BYOK from the *budget* must not hide it from usage reporting:
     // the user in #5016 explicitly wanted to understand the counter.
@@ -362,45 +161,6 @@ fn byok_spend_is_still_recorded_for_the_dashboard() {
 }
 
 #[test]
-fn managed_spend_still_gates_when_byok_spend_is_also_present() {
-    // A mixed user: BYOK for chat, managed for background workloads. Only the
-    // managed portion may push them over the limit.
-    let tmp = TempDir::new().unwrap();
-    let config = CostConfig {
-        enabled: true,
-        daily_limit_usd: 5.0,
-        monthly_limit_usd: 1000.0,
-        ..Default::default()
-    };
-    let tracker = CostTracker::new(config, tmp.path()).unwrap();
-
-    let mut byok = TokenUsage::new(BYOK_MODEL, 1000, 500, 1.0, 1.0);
-    byok.cost_usd = 100.0; // dwarfs the limit, and must be ignored
-    tracker.record_usage(byok).unwrap();
-
-    let mut managed = TokenUsage::new(MANAGED_MODEL, 1000, 500, 1.0, 1.0);
-    managed.cost_usd = 2.0; // under the $5 limit on its own
-    tracker.record_usage(managed).unwrap();
-
-    assert!(
-        matches!(tracker.check_budget(0.0).unwrap(), BudgetCheck::Allowed),
-        "managed spend is under the limit; BYOK spend must not push it over"
-    );
-
-    let mut more_managed = TokenUsage::new(MANAGED_MODEL, 1000, 500, 1.0, 1.0);
-    more_managed.cost_usd = 4.0; // 2.0 + 4.0 = 6.0 > 5.0
-    tracker.record_usage(more_managed).unwrap();
-
-    assert!(
-        matches!(
-            tracker.check_budget(0.0).unwrap(),
-            BudgetCheck::Exceeded { .. }
-        ),
-        "managed spend over the limit must still gate"
-    );
-}
-
-#[test]
 fn legacy_byok_records_are_exempt_after_an_aggregate_rebuild() {
     // Records persisted by builds that predate #5016 carry no route field. The
     // route is derived from the model id they already store, so a tracker that
@@ -413,17 +173,15 @@ fn legacy_byok_records_are_exempt_after_an_aggregate_rebuild() {
 
     let config = CostConfig {
         enabled: true,
-        daily_limit_usd: 10.0,
         monthly_limit_usd: 10.0,
         ..Default::default()
     };
     let tracker = CostTracker::new(config, tmp.path()).unwrap();
 
-    assert!(
-        matches!(tracker.check_budget(0.0).unwrap(), BudgetCheck::Allowed),
-        "pre-existing BYOK history must not keep an upgraded user blocked"
-    );
-    // …while still showing up in the usage figures.
+    // Nothing refuses a request on cost any more, so what matters on upgrade is
+    // that the legacy rows are classified correctly: they show up in the usage
+    // figures without inflating the managed totals the dashboard is drawn
+    // against.
     let now = Utc::now();
     let monthly = tracker.get_monthly_cost(now.year(), now.month()).unwrap();
     assert!((monthly - 50.0).abs() < 0.0001);

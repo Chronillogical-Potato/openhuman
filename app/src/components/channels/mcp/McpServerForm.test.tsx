@@ -128,7 +128,7 @@ describe('McpServerForm', () => {
     // Two stored names, none of the bookkeeping ones, and no values.
     const keys = screen.getAllByLabelText('Variable name') as HTMLInputElement[];
     expect(keys.map(k => k.value)).toEqual(['GITHUB_TOKEN', 'OTHER']);
-    expect(screen.getAllByPlaceholderText('Stored — leave blank to keep')).toHaveLength(2);
+    expect(screen.getAllByPlaceholderText('Stored (leave blank to keep)')).toHaveLength(2);
 
     // Drop OTHER, keep GITHUB_TOKEN untouched.
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove row' })[1]);

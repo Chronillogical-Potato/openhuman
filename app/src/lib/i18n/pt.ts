@@ -1709,7 +1709,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nome da variável',
   'mcp.form.envValue': 'Valor',
   'mcp.form.value': 'Valor',
-  'mcp.form.keepStored': 'Armazenado — deixe em branco para manter',
+  'mcp.form.keepStored': 'Armazenado (deixe em branco para manter)',
   'mcp.form.removeRow': 'Remover linha',
   'mcp.form.addEnv': 'Adicionar variável',
   'mcp.form.url': 'URL',
@@ -1756,7 +1756,7 @@ const messages: TranslationMap = {
     'Um diretório de servidores MCP. Abrir um servidor leva à sua própria página, onde estão as instruções de instalação; adicione-o na aba mcp.json.',
   'mcp.json.loadFailedTitle': 'Não foi possível ler mcp.json',
   'mcp.json.loadFailedBody':
-    'O núcleo não respondeu, então o documento não é mostrado — um editor vazio convidaria a salvar e apagar seus servidores.',
+    'O núcleo não respondeu, então o documento não é mostrado. Um editor vazio convidaria a salvar e apagar seus servidores.',
   'mcp.json.intro':
     'Seus servidores MCP como um único documento, no formato que outros clientes MCP usam. Cole o bloco de um servidor da sua página de instalação e salve.',
   'mcp.json.credentialsNote':
@@ -1770,13 +1770,13 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Exemplo',
   'mcp.json.saveFailed': 'Não foi possível salvar mcp.json.',
   'mcp.json.parseError.empty': 'O documento está vazio. Nenhum servidor é { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON inválido — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON inválido: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contém um objeto com uma chave `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Sem a chave `mcpServers` — todo servidor fica dentro dela.',
+  'mcp.json.parseError.missingRoot': 'Sem a chave `mcpServers`. Todo servidor fica dentro dela.',
   'mcp.json.parseError.rootNotMap':
     '`mcpServers` associa o nome de um servidor às suas configurações.',
   'mcp.json.parseError.emptyName':
-    'Um servidor precisa de um nome — a chave de uma entrada está vazia.',
+    'Um servidor precisa de um nome. A chave de uma entrada está vazia.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` contém um objeto, por ex. { "command": "npx", "args": ["-y", "…"] } ou { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
