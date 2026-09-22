@@ -635,7 +635,10 @@ async function sendDesktopTurn({ core, events, clientId, threadId, message, opts
           name: ev.tool_name || ev.tool || "",
           label: ev.tool_display_label || "",
         });
-      if (ev.event === "chat_done") {
+      // A failed turn ends in `chat_error`, not `chat_done` — a driver that
+      // waits only for `chat_done` hangs until its own timeout on every
+      // provider misconfiguration, and reports it as a timeout.
+      if (ev.event === "chat_done" || ev.event === "chat_error") {
         // The ack may not have landed yet, so match loosely on thread when the
         // request id is not yet known.
         if (requestId && ev.request_id && ev.request_id !== requestId) return;
