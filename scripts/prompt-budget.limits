@@ -227,7 +227,7 @@ trigger_triage:7422:0
 workflow_builder:76386:28987
 summarizer:7236:0
 tools_agent:5114:61553
-orchestrator:8750:21523
+orchestrator:8821:21523
 code_executor:11340:13536
 crypto_agent:10877:10454
 task_manager_agent:4880:14861
