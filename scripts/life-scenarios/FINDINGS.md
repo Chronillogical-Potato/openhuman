@@ -42,42 +42,66 @@ Ordered by severity.
 
 ---
 
-## 1. The iteration cap ends the turn with the work undone, and says so only to the model
+## 1. The assistant cannot reliably create a file
 
-**Severity: high. The single biggest cause of failure in this suite.**
+**Severity: high. The cause of four of the six empty scenarios.**
 
-The orchestrator runs with `max_iterations=15`, `iteration_policy=Strict`. Any
-task that both gathers information and then produces an artifact spends its
-budget on the gathering and never reaches the writing. The model knows, and
-says so — `baggage-policy`, 21 tool calls, $0.69, 147 s, no file:
+Four mechanisms compose so that the orchestrator has no working route to
+writing a new file. Full trace, with the transcript for each step, in
+[`DIAGNOSIS.md`](DIAGNOSIS.md) — summarised here:
 
-> Here's what I found from Delta's actual pages (**I haven't written the file
-> yet — running low on tool calls this turn**, so reporting findings first)
+- **`action_dir` is the join base for relative tool paths but is not a
+  permitted write root.** `is_resolved_path_allowed_for`
+  (`security/policy/path_checks.rs`) allows `workspace_root` or a trusted root;
+  `enforcement.rs:118-126` grants a trusted root for `default_projects_dir()`,
+  which reads `OPENHUMAN_PROJECTS_DIR` and knows nothing about
+  `OPENHUMAN_ACTION_DIR`. On a stock install the two coincide and this is
+  invisible. **Change the working folder — `action_dir_override`, which is what
+  the Settings control writes — and file-tool writes into it are refused**
+  `Resolved path escapes workspace`, for a path inside the directory
+  `CLAUDE.md` calls "the agent's permitted read and write root". Verified: also
+  granting the dir via `OPENHUMAN_PROJECTS_DIR` took `policy-blocked` events
+  from several to zero.
+- **`classify_command` rejects `&` inside a quoted heredoc body.** The blocked
+  `cat > out/meal_plan.md << 'EOF'` contained four ampersands, every one of them
+  in a recipe title ("Greek Chicken **&** Spinach Orzo Skillet"), and was
+  refused as command substitution / background. `subscription-scan` wrote
+  successfully with the identical heredoc shape and no `&` in its content.
+  Ampersands are ordinary in prose, so `shell` is an unreliable writer for the
+  documents an assistant produces.
+- **`use_skill` cannot reach `file_write`.** Withheld packs are documented as
+  reachable through `use_skill`; for the orchestrator the `files` pack is
+  *closed* by `close_handed_off_packs` (#6302), and the call returns
+  "Skill `files` has no tools available in this session."
+- **`apply_patch` cannot create a file** — `` `old_string` must not be empty ``,
+  and it canonicalizes the target, so the file must already exist.
 
-`fact-check-publish` (14 calls, $0.13): *"Here's where things stand after this
-pass"*. `trip-itinerary` (14 calls, $0.78, 444 s): *"Here's where things
-stand"* — having correctly extracted every fact from the mail and the PDF,
-including that 14 October is a travel day, and then written nothing.
+`meal-plan` spent 11 rounds and $0.80 cycling through all four and left two
+**1-byte files containing `x`** — the placeholder it created so `apply_patch`
+would have something to patch.
 
-Three things make this worse than a plain budget limit:
+---
 
-1. **The full cost is spent and nothing is kept.** No partial artifact, no
-   resumable state. The next turn starts over.
-2. **The caller is not told.** `chat_done` arrives normally. Nothing in the
-   usage payload, the run-ledger row or the reply text is machine-readable as
-   "capped" — only prose the model chose to write. A UI shows a confident
-   answer; this suite had to read the reply to find out.
-3. **It converts the task into a status report.** Warned it is running out,
-   the model reprioritises toward summarising what it has over finishing.
-   Every scenario that failed this way failed *with a well-written summary*,
-   which is the failure mode hardest to notice.
+## 1b. A capped turn withdraws every tool, and looks finished on the wire
 
-`turn_run_finalize.rs` already detects the cap ("the cap pauser stops the loop
-mid-work, `final_response` stays `None`"). That signal should reach the caller:
-a `capped: true` on the turn payload, a distinct event, or a ledger status —
-anything that lets a host retry or continue rather than present a partial
-answer as a complete one. A higher cap alone would not fix it; a research task
-can always outgrow any fixed number.
+**Severity: medium.** Three scenarios reached `max_model_calls=15` — and
+reached it partly because of the above.
+
+At the last permitted call, `FinalCallWrapUpMiddleware` clears
+`request.tools` (25 of them), sets `tool_choice = None`, and injects
+`MAX_ITER_CHECKPOINT_INSTRUCTION`: *"You have reached the maximum number of tool
+calls allowed for this single turn … report the substance of what this turn
+produced … close with a brief **Still to do** line."* The turn is then
+structurally unable to write anything, and the model correctly produces a
+status report.
+
+The mechanism is deliberate (#6014) and works as designed. The defect is that
+**the caller cannot tell.** `turn_run_finalize.rs:210` computes `hit_cap` and
+`flows/ops/builder.rs:336` consumes it, but `grep hit_cap` over `web_chat/`
+finds nothing and `TurnUsagePayload` (`core/socketio.rs:353`) has no cap field.
+On the path the desktop app uses, a truncated turn arrives as an ordinary
+`chat_done` — indistinguishable from a complete answer except by reading the
+prose.
 
 ---
 
