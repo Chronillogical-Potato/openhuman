@@ -1,5 +1,5 @@
 use super::*;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 /// Serialize tests that share the process-global scratch store. Same lock
 /// as `todos::ops` — otherwise the two test modules race under `cargo test`'s
