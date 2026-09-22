@@ -320,3 +320,150 @@ async fn is_live_for_is_scoped_to_url_and_token_and_cleared_on_disconnect() {
     manager.disconnect().await.unwrap();
     assert!(!manager.is_live_for(&url, TOKEN_A));
 }
+
+// ── Mid-handshake redundant-connect suppression (#6418) ────────────
+
+/// EIO v4 mock that accepts and counts connections but holds each one *before*
+/// the Engine.IO OPEN frame until the returned gate is opened.
+///
+/// The ungated mock races: `connect_with_provider` returns at spawn, so a test
+/// that fired the second connect straight afterwards would sometimes find the
+/// socket already `Connected` and exercise the #6181 path instead of this one.
+/// Stalling the handshake pins the manager in `Connecting` for as long as the
+/// test needs, which is the exact window #6418 lives in.
+async fn spawn_handshake_stalling_eio_server() -> (
+    Arc<AtomicUsize>,
+    Arc<AtomicUsize>,
+    std::net::SocketAddr,
+    tokio::sync::watch::Sender<bool>,
+) {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    let accepts = Arc::new(AtomicUsize::new(0));
+    let sio_acks = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&accepts);
+    let ack_counter = Arc::clone(&sio_acks);
+    let (gate, rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            counter.fetch_add(1, Ordering::SeqCst);
+            let mut rx = rx.clone();
+            let ack_counter = Arc::clone(&ack_counter);
+            tokio::spawn(async move {
+                let Ok(ws) = accept_async(stream).await else {
+                    return;
+                };
+                let (mut write, mut read) = ws.split();
+                // Hold here: accepted, but no EIO OPEN yet, so the client stays
+                // in `Connecting`.
+                while !*rx.borrow() {
+                    if rx.changed().await.is_err() {
+                        return;
+                    }
+                }
+                let open = r#"0{"sid":"mock-eio-sid","upgrades":[],"pingInterval":30000,"pingTimeout":30000}"#;
+                let _ = write.send(WsMessage::Text(open.into())).await;
+                let _ = read.next().await; // client SIO CONNECT
+                                           // The literal artefact Alan's acceptance criterion names: one
+                                           // `SIO CONNECT ACK` per boot. Counted at the send, so it tracks
+                                           // completed Socket.IO handshakes, not merely TCP accepts.
+                let _ = write
+                    .send(WsMessage::Text(r#"40{"sid":"mock-sio-sid"}"#.into()))
+                    .await;
+                ack_counter.fetch_add(1, Ordering::SeqCst);
+                while let Some(Ok(_)) = read.next().await {}
+            });
+        }
+    });
+    (accepts, sio_acks, addr, gate)
+}
+
+/// Wait until the manager is mid-handshake: the server has accepted a socket
+/// and the manager is in `Connecting`. Panics rather than letting a test assert
+/// against a window that never opened.
+async fn wait_for_mid_handshake(manager: &SocketManager, accepts: &AtomicUsize) {
+    for _ in 0..200 {
+        if accepts.load(Ordering::SeqCst) >= 1
+            && manager.get_state().status == ConnectionStatus::Connecting
+        {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    panic!("the socket never sat in Connecting with a connection accepted");
+}
+
+/// #6418: `spawn_loop` returns when the background task is spawned, not when the
+/// handshake completes, so `lock_identity_rebind` is released while the first
+/// path is still mid-handshake. The renderer's RPC then arrives, and before this
+/// fix saw `Connecting` — not `Connected` — decided the socket was not live for
+/// its identity, and called `disconnect()` on a handshake that was seconds from
+/// done. Alan's boot log is exactly that: SIO CONNECT ACK, "Shutdown signal
+/// received", then a second "Connecting to".
+#[tokio::test]
+async fn a_session_connect_during_the_boot_handshake_does_not_restart_it() {
+    let (accepts, sio_acks, addr, gate) = spawn_handshake_stalling_eio_server().await;
+    let url = format!("http://{addr}");
+    let manager = SocketManager::new();
+
+    // Bootstrap auto-connect, deliberately NOT waiting for `Connected`.
+    manager
+        .connect_with_provider(&url, static_token_provider(TOKEN_A.to_string()))
+        .await
+        .unwrap();
+    wait_for_mid_handshake(&manager, &accepts).await;
+
+    // The renderer's RPC lands in that window with the same url+token.
+    let bridge_installed = AtomicBool::new(false);
+    connect_with_session_using(
+        &manager,
+        &url,
+        TOKEN_A,
+        static_token_provider(TOKEN_A.to_string()),
+        || bridge_installed.store(true, Ordering::SeqCst),
+    )
+    .await
+    .unwrap();
+
+    // Let the stalled handshake finish and settle past the duplicate window.
+    let _ = gate.send(true);
+    wait_for_connected(&manager).await;
+    settle_for_a_second_accept(&accepts).await;
+
+    assert_eq!(
+        sio_acks.load(Ordering::SeqCst),
+        1,
+        "boot produced more than one SIO CONNECT ACK: a connect arriving mid-handshake tore the boot handshake down and redid it"
+    );
+    assert_eq!(
+        accepts.load(Ordering::SeqCst),
+        1,
+        "a connect arriving mid-handshake opened a second EIO session"
+    );
+    // The socket is reused, but the bridge is pinned to a `Config` and must
+    // still be installed on the reuse path.
+    assert!(
+        bridge_installed.load(Ordering::SeqCst),
+        "reusing an in-flight handshake skipped the workflow-bridge install"
+    );
+}
+
+/// The guard widened to `Connecting`, so it must not be satisfied by a stale
+/// `Connecting` with no loop behind it — otherwise a manager that never got a
+/// task spawned would answer "already connecting" forever and never reconnect.
+#[tokio::test]
+async fn a_connecting_status_with_no_live_loop_is_not_treated_as_serving() {
+    let manager = SocketManager::new();
+    *manager.shared.connection_identity.write() =
+        Some(("http://127.0.0.1:1".to_string(), TOKEN_A.to_string()));
+    *manager.shared.status.write() = ConnectionStatus::Connecting;
+
+    assert!(
+        !manager.is_live_for("http://127.0.0.1:1", TOKEN_A),
+        "a Connecting status with no background loop was treated as a live connection"
+    );
+}

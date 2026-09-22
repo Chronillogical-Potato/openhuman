@@ -263,8 +263,9 @@ impl SocketManager {
         self.shared.loop_stopped_on_failure.load(Ordering::Acquire)
     }
 
-    /// True when a **live** connection is already serving exactly this `url`
-    /// under exactly this session token.
+    /// True when a connection for exactly this `url` under exactly this session
+    /// token is already **established or in flight** — starting another would be
+    /// redundant.
     ///
     /// Startup has two independent connect paths — the core's bootstrap
     /// auto-connect and the renderer's `socket_connect_with_session` RPC — and
@@ -273,15 +274,33 @@ impl SocketManager {
     /// couple of seconds apart (#6181). Callers consult this before starting an
     /// identity rebind so the second path becomes a no-op.
     ///
-    /// Deliberately conservative: a different URL, a different token, or any
-    /// status other than `Connected` all report `false`, so an account switch
-    /// (same URL, new token) still forces a real reconnect and an unhealthy
-    /// socket is still replaced. The token compared against is the one
-    /// `ws_loop` used for its most recent attempt, not the one this manager was
-    /// handed at spawn — a provider that refreshes the session mid-loop keeps
-    /// matching instead of forcing a pointless reconnect.
+    /// `Connecting` counts, and that is the whole of #6418: [`spawn_loop`]
+    /// returns when the background task is **spawned**, not when the handshake
+    /// completes, so `lock_identity_rebind` is released while the first path is
+    /// still mid-handshake. Testing `Connected` alone left the second path
+    /// seeing `Connecting`, calling `disconnect()`, and killing a handshake that
+    /// was seconds from done — #6193 closed the connected case and left this
+    /// one open. `loop_active` is what separates an attempt genuinely in flight
+    /// from a stale `Connecting` with no task behind it; it is lowered by a
+    /// `Drop` guard in `ws_loop`, so a panicking or cancelled loop cannot leave
+    /// this reporting `true` forever.
+    ///
+    /// Still deliberately conservative: a different URL or a different token
+    /// reports `false`, so an account switch (same URL, new token) forces a real
+    /// reconnect. `Reconnecting` is excluded — a loop between backoff attempts
+    /// has already lost its socket, and reusing it would report success to a
+    /// caller with nothing live underneath. The token compared against is the
+    /// one `ws_loop` used for its most recent attempt, not the one this manager
+    /// was handed at spawn — a provider that refreshes the session mid-loop
+    /// keeps matching instead of forcing a pointless reconnect.
     pub fn is_live_for(&self, url: &str, token: &str) -> bool {
-        self.is_connected()
+        let status = *self.shared.status.read();
+        let serving = match status {
+            ConnectionStatus::Connected => true,
+            ConnectionStatus::Connecting => self.is_loop_active(),
+            _ => false,
+        };
+        serving
             && self
                 .shared
                 .connection_identity
