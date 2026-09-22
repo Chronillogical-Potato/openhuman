@@ -492,11 +492,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
             )
         })
         .collect();
-    let dispatcher_instructions = if text_mode_schemas.is_empty() {
-        String::new()
-    } else {
-        tinyagents_harness::tool::prompt_tool_instructions(&text_mode_schemas)
-    };
+    let dispatcher_instructions = text_mode_dispatcher_instructions(&text_mode_schemas);
     let ctx = PromptContext {
         workspace_dir: agent.workspace_dir(),
         model_name: &model_name,
@@ -543,6 +539,20 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         tool_specs,
     })
 }
+
+/// Render the text-mode protocol only when the integrations agent has tools.
+/// An empty catalogue must not invite the model to make an unavailable call.
+fn text_mode_dispatcher_instructions(schemas: &[tinyinference_llm::tool::ToolSchema]) -> String {
+    if schemas.is_empty() {
+        String::new()
+    } else {
+        tinyagents_harness::tool::prompt_tool_instructions(schemas)
+    }
+}
+
+#[cfg(test)]
+#[path = "debug_protocol_tests.rs"]
+mod protocol_tests;
 
 /// Wrap a `&dyn Tool` as a `Box<dyn Tool>` proxy that forwards
 /// `name()` / `description()` / `parameters_schema()` / `category()`
