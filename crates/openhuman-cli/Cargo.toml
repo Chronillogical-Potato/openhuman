@@ -64,6 +64,13 @@ required-features = ["http-server", "bin-tools"]
 name = "tool-search-bench"
 path = "src/bin/tool_search_bench.rs"
 
+# Manual, network-touching A/B of the text tool-call dialects against a local
+# Ollama model: prompt tokens and call accuracy per `agent.tool_dispatcher`
+# value. Never run by CI; see the file's docs for the invocation.
+[[bin]]
+name = "tool-dialect-bench"
+path = "src/bin/tool_dialect_bench.rs"
+
 [[bin]]
 name = "rss-bench"
 path = "src/bin/rss_bench.rs"
@@ -102,6 +109,13 @@ required-features = ["rss-bench"]
 # files. #5021 is still the right fix for symbols named in the middle of an
 # otherwise gate-free target — required-features is the blunt instrument, and
 # it costs the whole target when the gate is off.
+[[test]]
+# Reproduction of the removed spend cap: needs its own process because the
+# global CostTracker is a `OnceCell`, so a shared `--lib` process makes the
+# spend state order-dependent.
+name = "cost_cap_removed"
+path = "../../tests/cost_cap_removed.rs"
+
 [[test]]
 name = "observability_smoke"
 path = "../../tests/observability_smoke.rs"

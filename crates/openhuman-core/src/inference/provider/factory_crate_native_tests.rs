@@ -1,6 +1,9 @@
 use super::*;
 
-use crate::inference::provider::factory::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools;
+use crate::inference::provider::factory::cloud_slug::{
+    openrouter_default_provider_options, try_create_cloud_slug_chat_model_from_string_with_native_tools,
+    OPENROUTER_PROVIDER_SORT,
+};
 #[test]
 fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // Drive the live-policy-backed wrapper: install a LocalOnly policy, then
@@ -714,7 +717,6 @@ async fn caller_owned_models_build_without_openhuman_session() {
         );
     }
 }
-
 #[tokio::test]
 async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
     let _guard = crate::inference::inference_test_guard();
@@ -747,4 +749,48 @@ async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
         .expect("bare Ollama must require a model ID");
     assert!(error.to_string().contains("empty model"), "{error}");
     assert!(!error.to_string().contains("SESSION_EXPIRED"), "{error}");
+}
+
+#[test]
+fn direct_openrouter_endpoints_get_price_sorted_routing_and_nothing_else() {
+    // Direct BYOK OpenRouter: cheapest-first sort so consecutive turns stay on
+    // one endpoint and its prefix cache hits. Only the sort — never `order` or
+    // `allow_fallbacks: false`, which would strand a request on an outage, and
+    // never a `max_price` (the hosted backend dropped its own for the same
+    // reason in tinyhumansai/backend#1370).
+    let options = openrouter_default_provider_options("https://openrouter.ai/api/v1")
+        .expect("openrouter endpoint carries routing options");
+    assert_eq!(OPENROUTER_PROVIDER_SORT, "price");
+    assert_eq!(
+        options,
+        serde_json::json!({ "provider": { "sort": "price" } }),
+        "exactly the sort and nothing else: {options}"
+    );
+    let provider = &options["provider"];
+    for forbidden in ["order", "allow_fallbacks", "max_price", "only", "ignore"] {
+        assert!(provider.get(forbidden).is_none(), "must not set provider.{forbidden}");
+    }
+    // Host matching is what keys it, with or without a path or trailing slash.
+    assert!(openrouter_default_provider_options("https://openrouter.ai/api/v1/").is_some());
+    assert!(openrouter_default_provider_options("https://OpenRouter.ai/api/v1").is_some());
+}
+
+#[test]
+fn non_openrouter_openai_compatible_endpoints_get_no_baked_provider_options() {
+    // `provider` is an OpenRouter-only body field; hosted OpenAI rejects
+    // unknown top-level fields and local runners ignore them, so no other
+    // OpenAI-compatible host may receive it.
+    for endpoint in [
+        "https://api.openai.com/v1",
+        "https://api.deepseek.com/v1",
+        "https://api.groq.com/openai/v1",
+        "http://localhost:11434/v1",
+        "https://openrouter.example.com/v1",
+        "not a url",
+    ] {
+        assert!(
+            openrouter_default_provider_options(endpoint).is_none(),
+            "{endpoint} must not get OpenRouter routing options"
+        );
+    }
 }

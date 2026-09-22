@@ -233,7 +233,9 @@ pub(crate) fn subagent_prompt_protocol(
     text_mode: bool,
 ) -> (crate::agent::prompts::ToolCallFormat, String) {
     use crate::agent::prompts::ToolCallFormat;
-    use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+    use tinytools_agent::dialect::{
+        CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+    };
     use tinytools_agent::PFormatRegistry;
     if text_mode {
         return (ToolCallFormat::PFormat, String::new());
@@ -245,6 +247,8 @@ pub(crate) fn subagent_prompt_protocol(
         }
         ToolCallFormat::Native => NativeDialect.prompt_instructions(&empty_tools),
         ToolCallFormat::Json => XmlDialect.prompt_instructions(&empty_tools),
+        ToolCallFormat::Python => CodeDialect::instructions(CodeStyle::Python),
+        ToolCallFormat::TypeScript => CodeDialect::instructions(CodeStyle::TypeScript),
     };
     (parent_format, instructions)
 }

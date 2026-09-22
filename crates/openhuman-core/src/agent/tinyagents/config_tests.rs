@@ -67,6 +67,8 @@ fn every_dispatcher_spelling_maps_and_unknown_falls_back_to_auto() {
         ("native", ToolDispatcher::Native),
         ("xml", ToolDispatcher::Xml),
         ("pformat", ToolDispatcher::Pformat),
+        ("python", ToolDispatcher::Python),
+        ("typescript", ToolDispatcher::Typescript),
         // Case and surrounding whitespace are tolerated.
         ("  NATIVE ", ToolDispatcher::Native),
         // A typo must not fail the session.

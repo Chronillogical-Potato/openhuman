@@ -246,6 +246,15 @@ pub struct AgentConfig {
     /// - `"xml"`: force JSON-in-tag.
     /// - `"pformat"`: force compact positional P-Format (`tool[a|b]`) — most
     ///   token-efficient, but mis-parses on some models, so it is opt-in only.
+    /// - `"python"`: force code-style calls with Python signatures in the
+    ///   prompt (`def read_file(path: str, limit: int = None) -> str`, called
+    ///   as `read_file(path="x")`). Compact like P-Format but a syntax small
+    ///   code-trained models already write; opt-in only.
+    /// - `"typescript"`: the same with TypeScript signatures and
+    ///   `read_file({path: "x"})` calls; opt-in only.
+    ///
+    /// The `OPENHUMAN_TOOL_DISPATCHER` environment variable overrides this
+    /// field for one launch.
     #[serde(default = "default_agent_tool_dispatcher")]
     pub tool_dispatcher: String,
     /// **Legacy** — maximum characters of memory context to inject per

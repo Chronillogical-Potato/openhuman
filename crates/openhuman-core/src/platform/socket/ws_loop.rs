@@ -26,8 +26,8 @@ use connect::{
 use dispatch::{handle_eio_message, handle_sio_packet, parse_sio_ack};
 #[cfg(test)]
 use reconnect::{
-    decide_after_invalid_token, drain_pending_emits, log_connection_failure, InvalidTokenAction,
-    FAIL_ESCALATE_THRESHOLD,
+    decide_after_invalid_token, drain_pending_emits, log_connection_failure, render_attempt_line,
+    InvalidTokenAction, FAIL_ESCALATE_THRESHOLD,
 };
 
 #[cfg(test)]

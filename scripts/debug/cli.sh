@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dispatcher for `pnpm debug <cmd> <args…>`.
 # Agent-friendly wrappers around the project's test/run scripts.
-# Commands: unit | e2e | rust | logs | harness-cache-audit
+# Commands: unit | e2e | rust | logs | harness-cache-audit | capture
 
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +33,11 @@ Commands:
   goals-live [options]
         Live-test the memory_goals flow (list/add/edit/delete + reflect enrichment),
         printing the goals_agent's thoughts, tool calls, token usage and cost.
+  capture [--help]
+        Loopback proxy between the core and its inference backend: dumps the
+        exact request bodies the harness sends and prints one line per
+        inference response (serving endpoint, TTFB, prompt/cached tokens,
+        prompt_cache_key). Configure with CAPTURE_* env vars; `--help` lists them.
 
 Flags common to runners:
   --verbose   Stream full output to stdout in addition to the log file.
@@ -57,6 +62,9 @@ case "$cmd" in
     ;;
   agent-prepare-context-audit)
     exec node "$here/agent-prepare-context-audit.mjs" "$@"
+    ;;
+  capture)
+    exec node "$here/capture-first-inference.mjs" "$@"
     ;;
   goals-live)
     exec node "$here/goals-live.mjs" "$@"

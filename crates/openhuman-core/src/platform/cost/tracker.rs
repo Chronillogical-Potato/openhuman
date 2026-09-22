@@ -1,7 +1,6 @@
 use super::route::route_for_model;
 use super::types::{
-    BudgetCheck, BudgetStatus, CostDashboard, CostRecord, CostSummary, DailyCostEntry, ModelStats,
-    TokenUsage, UsagePeriod,
+    BudgetStatus, CostDashboard, CostRecord, CostSummary, DailyCostEntry, ModelStats, TokenUsage,
 };
 use crate::config::CostConfig;
 use anyhow::{anyhow, Context, Result};
@@ -51,91 +50,11 @@ impl CostTracker {
         self.session_costs.lock()
     }
 
-    /// Check if a request is within budget.
-    ///
-    /// Only **managed-route** spend is considered (#5016). The local `[cost]`
-    /// limits cap spend against OpenHuman credits; bring-your-own-key and
-    /// local inference is billed by the user's own provider, so counting it
-    /// here produced a phantom limit — a pure-BYOK user accrued locally
-    /// *estimated* spend they were never charged for and got "You're out of
-    /// credits" at the default $10/day. See [`super::route`].
-    ///
-    /// A pure-BYOK user therefore has zero managed spend and can never trip
-    /// this gate. Real managed-credit exhaustion is unaffected: it is enforced
-    /// server-side by the backend, which returns its own billing error.
-    pub fn check_budget(&self, estimated_cost_usd: f64) -> Result<BudgetCheck> {
-        if !self.config.enabled {
-            return Ok(BudgetCheck::Allowed);
-        }
-
-        if !estimated_cost_usd.is_finite() || estimated_cost_usd < 0.0 {
-            return Err(anyhow!(
-                "Estimated cost must be a finite, non-negative value"
-            ));
-        }
-
-        let mut storage = self.lock_storage();
-        let (daily_cost, monthly_cost) = storage.get_aggregated_managed_costs()?;
-        // The all-routes totals exist purely to make the managed-vs-BYOK split
-        // visible in a debug log. `tracing` evaluates field expressions eagerly,
-        // so compute them only when that level is actually enabled rather than
-        // on every budget check in production.
-        if tracing::enabled!(tracing::Level::DEBUG) {
-            let (daily_all, monthly_all) = storage.get_aggregated_costs()?;
-            tracing::debug!(
-                daily_managed_usd = daily_cost,
-                monthly_managed_usd = monthly_cost,
-                daily_all_routes_usd = daily_all,
-                monthly_all_routes_usd = monthly_all,
-                daily_limit_usd = self.config.daily_limit_usd,
-                monthly_limit_usd = self.config.monthly_limit_usd,
-                "[cost] budget check against managed-route spend only (BYOK excluded, #5016)"
-            );
-        }
-
-        // Check daily limit
-        let projected_daily = daily_cost + estimated_cost_usd;
-        if projected_daily > self.config.daily_limit_usd {
-            return Ok(BudgetCheck::Exceeded {
-                current_usd: daily_cost,
-                limit_usd: self.config.daily_limit_usd,
-                period: UsagePeriod::Day,
-            });
-        }
-
-        // Check monthly limit
-        let projected_monthly = monthly_cost + estimated_cost_usd;
-        if projected_monthly > self.config.monthly_limit_usd {
-            return Ok(BudgetCheck::Exceeded {
-                current_usd: monthly_cost,
-                limit_usd: self.config.monthly_limit_usd,
-                period: UsagePeriod::Month,
-            });
-        }
-
-        // Check warning thresholds
-        let warn_threshold = f64::from(self.config.warn_at_percent.min(100)) / 100.0;
-        let daily_warn_threshold = self.config.daily_limit_usd * warn_threshold;
-        let monthly_warn_threshold = self.config.monthly_limit_usd * warn_threshold;
-
-        if projected_daily >= daily_warn_threshold {
-            return Ok(BudgetCheck::Warning {
-                current_usd: daily_cost,
-                limit_usd: self.config.daily_limit_usd,
-                period: UsagePeriod::Day,
-            });
-        }
-
-        if projected_monthly >= monthly_warn_threshold {
-            return Ok(BudgetCheck::Warning {
-                current_usd: monthly_cost,
-                limit_usd: self.config.monthly_limit_usd,
-                period: UsagePeriod::Month,
-            });
-        }
-
-        Ok(BudgetCheck::Allowed)
-    }
+    // `check_budget` and `BudgetCheck` were removed with the spend cap. Nothing
+    // in the core refuses a request on cost any more: managed-credit
+    // exhaustion is enforced server-side by the backend, which returns its own
+    // billing error, and that is the only spend limit a user can now hit.
+    // Recording below is untouched — the dashboard still sees every cost.
 
     /// Record a usage event.
     ///
