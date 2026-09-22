@@ -248,6 +248,9 @@ jobs:
               - 'scripts/mock-api/**'
               - 'scripts/*.mjs'
               - 'scripts/__tests__/**'
+              # The inference capture proxy has node --test coverage in
+              # scripts/__tests__/ but lives under scripts/debug/.
+              - 'scripts/debug/*.mjs'
               # The release-notes generator has node --test coverage in
               # scripts/__tests__/ but lives one directory down, so the
               # 'scripts/*.mjs' glob above never armed this lane for it — its
