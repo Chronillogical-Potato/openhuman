@@ -490,14 +490,41 @@ export function useComposioConnectFlow({
     setPhase('cancelling');
     setError(null);
 
-    const pendingId = pendingConnectionIdRef.current;
     console.debug(
       '[composio][cancel] → toolkit=%s connection_id=%s',
       toolkit.slug,
-      pendingId ?? 'none'
+      pendingConnectionIdRef.current ?? 'none'
     );
     try {
-      if (pendingId) await deleteConnection(pendingId);
+      let pendingId = pendingConnectionIdRef.current;
+      if (!pendingId) {
+        // Direct mode's authorize returns no stable connection id, so the row
+        // Composio created for this handoff can only be found by listing. It
+        // has to be found: leaving it behind is exactly the stuck `PENDING`
+        // this button exists to clear, and the poll loop would rediscover it
+        // by toolkit the next time the modal opens.
+        const resp = await listConnections();
+        pendingId =
+          resp.connections.find(
+            c =>
+              c.toolkit.toLowerCase() === toolkit.slug.toLowerCase() &&
+              deriveComposioState(c) === 'pending'
+          )?.id ?? null;
+        console.debug(
+          '[composio][cancel] direct-mode lookup toolkit=%s resolved=%s',
+          toolkit.slug,
+          pendingId ?? 'none'
+        );
+      }
+      if (pendingId) {
+        const resp = await deleteConnection(pendingId);
+        // The backend reports whether the row actually went away. Reporting
+        // success on an unconfirmed delete would tell the user the handoff is
+        // gone while Composio still holds it.
+        if (!resp.deleted) {
+          throw new Error(t('composio.connect.cancelNotConfirmed'));
+        }
+      }
       pendingConnectionIdRef.current = null;
       setConnectUrl(null);
       if (activeConnections.length > 0) {
