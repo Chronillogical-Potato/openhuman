@@ -222,17 +222,17 @@
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
 
-morning_briefing:10654:60908
+morning_briefing:10654:59064
 trigger_triage:7422:0
 workflow_builder:76386:28987
 summarizer:7236:0
-tools_agent:5114:60908
-orchestrator:9169:20946
-code_executor:11340:13536
+tools_agent:5114:59064
+orchestrator:9169:20455
+code_executor:11340:13028
 crypto_agent:10877:10454
-task_manager_agent:4880:14861
-planner:7714:5814
-skill_creator:5349:11788
+task_manager_agent:4416:7602
+planner:7714:5306
+skill_creator:5349:11280
 flow_discovery:8407:8228
 profile_memory_agent:5400:11010
 settings_agent:4606:9652
@@ -331,9 +331,9 @@ tool:suggest_workflows:2445
 tool:spawn_async_subagent:1556
 tool:save_workflow:1957
 tool:spawn_parallel_agents:1839
-tool:todo:1098
+tool:todo:590
 tool:search_tool_catalog:1695
-tool:use_skill:1715
+tool:use_skill:1732
 # One action-dispatched memory surface replaces the separately registered
 # memory operations while keeping read/write/forget routing explicit.
 tool:memory:3937
