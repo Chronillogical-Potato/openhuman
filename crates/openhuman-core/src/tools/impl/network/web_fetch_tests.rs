@@ -135,7 +135,10 @@ fn a_missing_content_type_falls_back_to_content_detection() {
 
 #[test]
 fn an_empty_content_type_does_not_veto_detection() {
-    assert!(is_html("<!DOCTYPE html><html><body>x</body></html>", Some("")));
+    assert!(is_html(
+        "<!DOCTYPE html><html><body>x</body></html>",
+        Some("")
+    ));
 }
 
 #[test]
@@ -156,7 +159,9 @@ fn the_schema_offers_the_raw_escape_hatch() {
 #[test]
 fn the_declared_cap_is_sized_for_extracted_markdown_not_raw_markup() {
     let tool = WebFetchTool::new(Arc::new(SecurityPolicy::default()), vec![], None, None);
-    let cap = tool.max_result_size_chars().expect("web_fetch declares a cap");
+    let cap = tool
+        .max_result_size_chars()
+        .expect("web_fetch declares a cap");
     assert!(
         (8_000..=32_000).contains(&cap),
         "cap should sit in the same range as Hermes (15k chars) and Codex \
