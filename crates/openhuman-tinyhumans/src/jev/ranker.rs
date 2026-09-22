@@ -99,9 +99,7 @@ impl TinyHumansJevRanker {
             .cached
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(entry) = cached.as_ref()
-            && entry.fingerprint == fingerprint
-        {
+        if let Some(entry) = cached.as_ref().filter(|entry| entry.fingerprint == fingerprint) {
             return Ok(entry.ranker.clone());
         }
         let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
