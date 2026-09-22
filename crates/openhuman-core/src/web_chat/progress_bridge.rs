@@ -358,14 +358,7 @@ pub(crate) fn spawn_progress_bridge(
         // separately via `deliver_response` and is never part of this buffer
         // (it belongs to the terminal round, which ends with no tool call).
         let mut pending_narration = String::new();
-        // Time-to-first-visible instrumentation (grep `time-to-first-visible`).
-        // A turn that shows nothing for 40 s looks the same in the logs as one
-        // that streams a lead-in at 5 s unless the first text delta and the
-        // first tool call of round 1 are stamped against the turn start.
-        let turn_started = std::time::Instant::now();
-        let mut first_text_ms: Option<u128> = None;
-        let mut first_tool_ms: Option<u128> = None;
-        let mut round_one_narration_chars: usize = 0;
+        let mut timing = super::turn_timing::TurnTiming::start();
         let mut events_seen: u64 = 0;
         // Per-request monotonic ordering key stamped on every emitted
         // web-channel event (see `publish_seq_stamped`). Unique per emission so
@@ -649,14 +642,7 @@ pub(crate) fn spawn_progress_bridge(
                     display_label,
                     display_detail,
                 } => {
-                    if first_tool_ms.is_none() {
-                        let elapsed = turn_started.elapsed().as_millis();
-                        first_tool_ms = Some(elapsed);
-                        log::info!(
-                            "[web_channel][bridge] time-to-first-visible kind=tool_call first_tool_ms={elapsed} first_text_ms={:?} round={iteration} tool={tool_name} request_id={request_id}",
-                            first_text_ms
-                        );
-                    }
+                    timing.tool_call(&tool_name, iteration, &request_id);
                     // The parent's leading narration for this round is complete
                     // once it calls a tool — flush it as an interim bubble so it
                     // persists interleaved with the tool activity.
@@ -1301,16 +1287,7 @@ pub(crate) fn spawn_progress_bridge(
                     );
                 }
                 AgentProgress::TextDelta { delta, iteration } => {
-                    if first_text_ms.is_none() && !delta.trim().is_empty() {
-                        let elapsed = turn_started.elapsed().as_millis();
-                        first_text_ms = Some(elapsed);
-                        log::info!(
-                            "[web_channel][bridge] time-to-first-visible kind=text first_text_ms={elapsed} round={iteration} request_id={request_id}"
-                        );
-                    }
-                    if iteration <= 1 {
-                        round_one_narration_chars += delta.chars().count();
-                    }
+                    timing.text_delta(&delta, iteration, &request_id);
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.
                     pending_narration.push_str(&delta);
@@ -1372,12 +1349,7 @@ pub(crate) fn spawn_progress_bridge(
                 }
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
-                    log::info!(
-                        "[web_channel][bridge] time-to-first-visible kind=turn_done total_ms={} first_text_ms={:?} first_tool_ms={:?} round_one_narration_chars={round_one_narration_chars} interim_threshold={MIN_INTERIM_NARRATION_CHARS} iterations={iterations} request_id={request_id}",
-                        turn_started.elapsed().as_millis(),
-                        first_text_ms,
-                        first_tool_ms
-                    );
+                    timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
                     // Turn is done — stop liveness beats (issue #4270). The FE
                     // clears its silence timer on `chat_done`/`chat_error`; this
                     // also prevents a stray beat racing the channel close.

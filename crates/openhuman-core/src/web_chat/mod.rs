@@ -35,6 +35,7 @@ mod reply_persistence;
 mod run_task;
 mod schemas;
 mod session;
+mod turn_timing;
 mod types;
 
 mod web_errors;
