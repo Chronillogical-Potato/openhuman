@@ -205,6 +205,11 @@ impl Tool for WebFetchTool {
             .get(reqwest::header::LOCATION)
             .and_then(|v| v.to_str().ok())
             .map(str::to_string);
+        let content_type = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
         let body = match resp.text().await {
             Ok(b) => b,
             Err(e) => return Ok(ToolResult::error(format!("Failed to read body: {e}"))),
@@ -234,7 +239,7 @@ impl Tool for WebFetchTool {
         // 1,083,069 input tokens. `tinyjuice` owns content transforms — see
         // the dependency note in Cargo.toml for why this is a direct call and
         // not a trip through the module bus.
-        let converted = !raw_requested && looks_like_html(&body);
+        let converted = !raw_requested && is_html(&body, content_type.as_deref());
         let content = if converted {
             tinyjuice::compressors::html::html_to_markdown(&body)
         } else {
@@ -269,6 +274,80 @@ impl Tool for WebFetchTool {
         };
         Ok(ToolResult::success(format!("{header}{window}{suffix}")))
     }
+}
+
+/// How much extracted content reaches the model.
+///
+/// Markdown, not markup: after extraction a long documentation page is
+/// typically a few thousand chars, so this bites only on genuinely large
+/// documents. Sized against the 4,000-token (~16 KB) payload-summarizer
+/// trigger in `context.summarizer_payload_threshold_tokens` — a page that
+/// survives this window is one the summarizer would otherwise be handed
+/// whole. Hermes' `web_extract` uses 15,000 chars of clean markdown for the
+/// same job; Codex caps every tool result at ~10,000 tokens.
+const MAX_CONTENT_CHARS: usize = 24_000;
+
+/// Fraction of the window spent on the head. A page's lede, title and
+/// navigation-to-content transition are front-loaded; the tail is where
+/// references, footnotes and "next page" links live. Hermes splits 75/25,
+/// Codex 50/50 — exec output puts its verdict last, prose does not.
+const HEAD_FRACTION: f64 = 0.75;
+
+/// Is this HTML? The server's own `Content-Type` is authoritative when it
+/// says so; otherwise fall back to TinyJuice's content detection, which
+/// already distinguishes HTML from JSON, diffs and code.
+fn is_html(body: &str, content_type: Option<&str>) -> bool {
+    if let Some(ct) = content_type {
+        let ct = ct.to_ascii_lowercase();
+        let mime = ct.split(';').next().unwrap_or("").trim().to_string();
+        // An explicit non-HTML type is a statement, not a guess: a JSON API
+        // that happens to embed markup must come back verbatim.
+        if !mime.is_empty() && mime != "text/html" && mime != "application/xhtml+xml" {
+            return false;
+        }
+        if !mime.is_empty() {
+            return true;
+        }
+    }
+    matches!(
+        tinyjuice::detect_content_kind(body, &tinyjuice::types::ContentHint::default()),
+        tinyjuice::types::ContentKind::Html
+    )
+}
+
+/// Keep the head and the tail, drop the middle, and report how much went.
+///
+/// Returns the window and the number of chars elided. Cuts land on char
+/// boundaries, and on a line boundary where one is close by, so the model
+/// never sees a half-word or a half-line.
+fn head_tail_window(content: &str, budget: usize) -> (String, usize) {
+    if content.chars().count() <= budget {
+        return (content.to_string(), 0);
+    }
+    let head_budget = (budget as f64 * HEAD_FRACTION) as usize;
+    let tail_budget = budget.saturating_sub(head_budget);
+
+    let head_end = crate::util::floor_char_boundary(content, head_budget);
+    let head = &content[..head_end];
+    // Snap back to a line break when one is within the last quarter of the
+    // head, so the cut falls between paragraphs rather than mid-sentence.
+    let head = match head.rfind('\n') {
+        Some(nl) if nl > head_budget * 3 / 4 => &head[..nl],
+        _ => head,
+    };
+
+    let tail_start = crate::util::floor_char_boundary(
+        content,
+        content.len().saturating_sub(tail_budget),
+    );
+    let tail = &content[tail_start..];
+    let tail = match tail.find('\n') {
+        Some(nl) if nl < tail_budget / 4 => &tail[nl + 1..],
+        _ => tail,
+    };
+
+    let elided = content.len().saturating_sub(head.len() + tail.len());
+    (format!("{head}\n\n[…]\n\n{tail}"), elided)
 }
 
 #[cfg(test)]
