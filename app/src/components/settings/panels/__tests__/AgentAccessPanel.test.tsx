@@ -16,7 +16,7 @@ import AgentAccessPanel from '../AgentAccessPanel';
 // ──────────────────────────────────────────────────────────────────────────────
 // Note: Tier-selection and action-dir editing tests live in
 // PermissionsPanel.test.tsx (those controls moved to the layman panel).
-// This file covers the ADVANCED surface: workspace confinement, task-plan
+// This file covers the ADVANCED surface: workspace confinement,
 // approval, action timeout, granted folders, always-allowed tools, and the
 // approval-history link.
 // ──────────────────────────────────────────────────────────────────────────────
@@ -101,17 +101,6 @@ describe('AgentAccessPanel (advanced)', () => {
     fireEvent.click(screen.getByRole('switch', { name: /confine to workspace/i }));
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ workspace_only: true }))
-    );
-  });
-
-  it('toggling task plan approval persists require_task_plan_approval', async () => {
-    renderWithProviders(<AgentAccessPanel />);
-    await screen.findByText('Confine to workspace');
-    fireEvent.click(screen.getByRole('switch', { name: /require task plan approval/i }));
-    await waitFor(() =>
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ require_task_plan_approval: false })
-      )
     );
   });
 
