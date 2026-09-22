@@ -17,7 +17,6 @@ use tinytools::Tool;
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
-const SKILL_DELEGATION_CANARY: &str = "tool-e2e-skill-delegation-canary";
 const WORKER_THREAD_CANARY: &str = "tool-e2e-worker-thread-canary";
 
 #[tokio::test]
