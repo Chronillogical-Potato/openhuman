@@ -14,7 +14,7 @@ use crate::agent::harness::definition::SubagentEntry;
 use crate::agent::harness::AgentDefinitionRegistry;
 use crate::agent::prompts::{
     render_datetime, render_identity, render_tools, render_user_files, render_workspace,
-    ConnectedIntegration, PromptContext, ToolCallFormat,
+    ConnectedIntegration, PromptContext,
 };
 use crate::skills::ops_types::Workflow;
 use crate::tools::orchestrator_tools::sanitise_slug;
