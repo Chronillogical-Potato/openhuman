@@ -110,7 +110,7 @@ fn named_scope_without_extras_returns_named_only() {
 /// `ToolScope::Named` with extras returns the union of the TOML
 /// named list and the extras' names. This is the orchestrator's
 /// path: direct tools from the TOML + the synthesised delegation
-/// tools (`research`, `plan`, `delegate_to_integrations_agent`)
+/// tools (`research`, `plan`) and deferred integration actions
 /// → all of them visible to the orchestrator's LLM. The stub
 /// names in this test are arbitrary; they exercise the union
 /// logic, not the real synthesiser.

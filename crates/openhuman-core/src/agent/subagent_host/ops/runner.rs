@@ -65,10 +65,9 @@ use super::provider::{
 /// initialised. A `None` parent yields `Ok(())`: we skip rather than mask, the
 /// same defensive posture the loader takes for unknown child ids.
 ///
-/// A **worker** parent is also exempted. At runtime a worker only reaches the
-/// spawn chokepoint via the documented collapsed `delegate_to_integrations_agent`
-/// path (→ `integrations_agent`, itself a worker) — a shape the loader
-/// intentionally leaves untouched. Re-denying it here would turn valid custom
+/// A **worker** parent is also exempted. A worker's `subagents` list holds no
+/// agent id (the loader rejects one), so any spawn it reaches at runtime is
+/// one the host dispatched for it. Re-denying it here would turn valid custom
 /// worker agents that use `{ skills = "*" }` into runtime failures. The
 /// worker-leaf authoring rule stays enforced statically at boot, and the
 /// per-parent allowlist gate blocks any other worker spawn.
