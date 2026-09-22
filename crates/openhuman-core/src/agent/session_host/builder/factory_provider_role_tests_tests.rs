@@ -1,5 +1,5 @@
+use super::super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 use super::provider_role_for;
-use super::{resolve_dispatcher_kind, DispatcherKind};
 
 #[test]
 fn legacy_orchestrator_fallback_defaults_to_chat() {
@@ -77,6 +77,15 @@ fn explicit_choices_are_honoured_including_opt_in_pformat() {
     assert_eq!(
         resolve_dispatcher_kind("pformat", true, "chat"),
         DispatcherKind::PFormat
+    );
+    // So are the code dialects.
+    assert_eq!(
+        resolve_dispatcher_kind("python", true, "chat"),
+        DispatcherKind::Code(tinytools_agent::dialect::CodeStyle::Python)
+    );
+    assert_eq!(
+        resolve_dispatcher_kind("typescript", false, "chat"),
+        DispatcherKind::Code(tinytools_agent::dialect::CodeStyle::TypeScript)
     );
 }
 

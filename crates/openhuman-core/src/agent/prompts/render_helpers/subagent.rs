@@ -217,6 +217,24 @@ pub fn render_subagent_system_prompt_with_format(
                     tool.parameters_schema()
                 );
             }
+            ToolCallFormat::Python | ToolCallFormat::TypeScript => {
+                let Some(style) = tool_call_format.code_style() else {
+                    return;
+                };
+                let spec = tinytools::ToolSpec {
+                    name: tool.name().to_string(),
+                    description: tool.description().to_string(),
+                    parameters: tool.parameters_schema(),
+                };
+                // Reuse the canonical renderer, minus its heading — the
+                // heading was written once above for the whole list.
+                let rendered = tinytools_agent::render::render_code_catalogue(&[spec], style);
+                out.push_str(
+                    rendered
+                        .strip_prefix(tinytools_agent::render::CATALOGUE_HEADING)
+                        .unwrap_or(&rendered),
+                );
+            }
             ToolCallFormat::Native => {
                 // Unreachable — outer guard skips Native entirely.
             }
@@ -264,6 +282,16 @@ pub fn render_subagent_system_prompt_with_format(
                  ```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n\n\
                  You may emit multiple `<tool_call>` blocks in a single response.\n\n\
                  Use the provided tools to accomplish the task. Reply with a concise, dense \
+                 final answer when you have one — the parent agent will weave it back into the \
+                 user-visible response.\n\n",
+            );
+        }
+        ToolCallFormat::Python | ToolCallFormat::TypeScript => {
+            if let Some(style) = tool_call_format.code_style() {
+                out.push_str(&tinytools_agent::dialect::CodeDialect::instructions(style));
+            }
+            out.push_str(
+                "Use the provided tools to accomplish the task. Reply with a concise, dense \
                  final answer when you have one — the parent agent will weave it back into the \
                  user-visible response.\n\n",
             );

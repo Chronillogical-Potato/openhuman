@@ -178,7 +178,15 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .map(|spec| spec.name.clone())
             .collect();
         ensure_snapshot_tools_are_executable(&visible_tool_names, &tools, &synthesized_tools)?;
-        let run_context = request.run_context.data.clone();
+        // The harness must speak the dialect this session's prompt was
+        // composed for: a text dialect strips schemas off the wire and needs
+        // the positional registry to recover P-Format / code-style calls.
+        let run_context = request.run_context.data.clone().with_tool_dialect(
+            crate::agent::prompts::tool_call_format_from_dialect(
+                self.dispatcher.tool_call_format(),
+            )
+            .harness_dispatcher(),
+        );
         let outcome = match graph::run_chat_turn_graph(ChatTurnGraph {
             turn_models,
             model: self.model_name.clone(),

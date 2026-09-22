@@ -84,6 +84,7 @@ pub(super) async fn run_turn_via_tinyagents_inner(
         deterministic_cacheable,
         hosted_root.is_some(),
         pause_at_cap,
+        run_context.tool_dialect,
     );
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).

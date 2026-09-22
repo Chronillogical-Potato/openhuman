@@ -663,3 +663,18 @@ fn env_overlay_auto_update_restart_strategy_accepts_supported_values() {
         crate::config::UpdateRestartStrategy::SelfReplace
     );
 }
+
+#[test]
+fn env_overlay_tool_dispatcher_overrides_the_agent_field_when_non_blank() {
+    let mut cfg = Config::default();
+    assert_eq!(cfg.agent.tool_dispatcher, "auto");
+
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", " python "));
+    assert_eq!(cfg.agent.tool_dispatcher, "python");
+
+    // Blank values leave the persisted choice alone.
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", "   "));
+    assert_eq!(cfg.agent.tool_dispatcher, "python");
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", ""));
+    assert_eq!(cfg.agent.tool_dispatcher, "python");
+}

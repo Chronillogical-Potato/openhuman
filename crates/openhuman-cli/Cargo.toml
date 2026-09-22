@@ -56,6 +56,13 @@ required-features = ["http-server", "bin-tools"]
 # backend. What the feature used to name the engine crates for was two
 # `library-profile` *scenarios* — see that target's comment below; the binary
 # itself is still here.
+# Manual, network-touching A/B of the text tool-call dialects against a local
+# Ollama model: prompt tokens and call accuracy per `agent.tool_dispatcher`
+# value. Never run by CI; see the file's docs for the invocation.
+[[bin]]
+name = "tool-dialect-bench"
+path = "src/bin/tool_dialect_bench.rs"
+
 [[bin]]
 name = "rss-bench"
 path = "src/bin/rss_bench.rs"
