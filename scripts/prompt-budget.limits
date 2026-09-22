@@ -227,7 +227,7 @@ trigger_triage:7422:0
 workflow_builder:76386:28987
 summarizer:7236:0
 tools_agent:5114:59064
-orchestrator:9169:20455
+orchestrator:9169:20434
 code_executor:11340:13028
 crypto_agent:10877:10454
 task_manager_agent:4416:7602
@@ -333,7 +333,7 @@ tool:save_workflow:1957
 tool:spawn_parallel_agents:1839
 tool:todo:590
 tool:search_tool_catalog:1695
-tool:use_skill:1732
+tool:use_skill:1711
 # One action-dispatched memory surface replaces the separately registered
 # memory operations while keeping read/write/forget routing explicit.
 tool:memory:3937
