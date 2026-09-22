@@ -555,6 +555,12 @@ fn build_includes_evidence_aware_synthesis_contract() {
     assert!(body.contains("Preserve numeric evidence exactly"));
     assert!(body.contains("plus whatever `tool_search` returns"));
     assert!(body.contains("call `tool_search` with the intent in plain words"));
+    // Under the native dialect no tool is "listed in this prompt"; a model told
+    // that its tools are the listed ones concluded it had no web search while
+    // `web_search_tool` sat in its tool list (thread-7e52b, 2026-09-22).
+    assert!(!body.contains("listed in this prompt"), "{body}");
+    assert!(body.contains("`web_search_tool` and `web_fetch` are usually in it"));
+    assert!(body.contains("anything public on the web (a public repository, a product page, docs) never delegate here"));
 }
 
 #[test]
