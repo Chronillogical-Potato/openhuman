@@ -219,6 +219,16 @@ named = [
     # schemas. The hosted runtime also enforces this definition as its dispatch
     # allowlist, so the proxy must be declared here as well as injected there.
     "use_skill",
+    # Not a registered tool: naming it opts this belt into on-demand tool
+    # discovery. Every registration marked `ToolExposure::Deferred` (rarely
+    # needed lookups such as `stock_*`, and the per-action / per-server /
+    # per-skill entries the long tail registers) stays off the wire and is
+    # reachable through the harness's intrinsic `tool_search` — ranked by Jev
+    # when the process has a TinyHumans credential, BM25 otherwise — and
+    # callable by name or via `tool_call` afterwards. The session builder
+    # strips this name from the allowlist and keeps the deferred set beside it
+    # (`agent/session_host/builder/builder_build.rs`).
+    "tool_search",
     "ask_user_clarification",
 # Direct coding surface. The Master Agent owns the normal inspect → edit →
 # verify loop in the action sandbox. `apply_patch` is the one edit mechanism

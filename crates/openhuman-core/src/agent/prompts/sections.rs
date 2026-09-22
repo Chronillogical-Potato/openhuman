@@ -404,7 +404,17 @@ impl PromptSection for ToolsSection {
                 }
             })
             .collect();
-        let mut out = render_pformat_catalogue(&visible);
+        // The JSON dialect's protocol block embeds its own full-schema
+        // catalogue (`XmlDialect::embeds_tool_catalogue`), so rendering the
+        // signature catalogue as well listed every tool twice — 13 KB of
+        // P-Format signatures on top of 28 KB of schemas for the orchestrator.
+        let mut out = match ctx.tool_call_format {
+            ToolCallFormat::Json if !ctx.dispatcher_instructions.trim().is_empty() => String::new(),
+            format => match format.code_style() {
+                Some(style) => tinytools_agent::render::render_code_catalogue(&visible, style),
+                None => render_pformat_catalogue(&visible),
+            },
+        };
         if !ctx.dispatcher_instructions.is_empty() {
             out.push('\n');
             out.push_str(ctx.dispatcher_instructions);

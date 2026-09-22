@@ -32,6 +32,7 @@
 
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, SubagentEntry};
 use crate::agent::prompts::ConnectedIntegration;
+use crate::integrations::composio::ComposioActionTool;
 
 // SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
 // temporarily disabled (see tinyhumansai/openhuman#1624).
@@ -241,6 +242,22 @@ pub fn collect_orchestrator_tools(
                         );
                     }
                 }
+                // The same toolkits' actions, one `Deferred` tool each. Never
+                // on the wire: a belt that opted into discovery reaches them
+                // through the harness's `tool_search`, so one clear action is
+                // a search and a call rather than an `integrations_agent`
+                // run. A belt that did not opt in never sees them — the
+                // session builder leaves them prompt-hidden, which the
+                // direct-call gate refuses. Approval and channel permission
+                // apply per call exactly as on the sub-agent path.
+                let actions = collect_deferred_integration_actions(connected_integrations);
+                if !actions.is_empty() {
+                    log::debug!(
+                        "[orchestrator_tools] registering {} deferred integration action tool(s)",
+                        actions.len()
+                    );
+                    tools.extend(actions);
+                }
             }
         }
     }
@@ -252,6 +269,44 @@ pub fn collect_orchestrator_tools(
         connected_integrations.len()
     );
 
+    tools
+}
+
+/// One `ToolExposure::Deferred` [`ComposioActionTool`] per action of every
+/// connected integration, sorted by toolkit then action so the synthesised
+/// set — and with it the tool specs a session freezes — is stable across
+/// reconciles whatever order the backend returns.
+///
+/// Gated actions are left out: the model cannot call them and the prompt's
+/// Connected Integrations section already explains how to unlock them.
+/// A collision on an action slug across two toolkits keeps the first
+/// arrival, like `sanitise_slug` collisions above.
+pub fn collect_deferred_integration_actions(
+    connected_integrations: &[ConnectedIntegration],
+) -> Vec<Box<dyn Tool>> {
+    let mut integrations: Vec<&ConnectedIntegration> = connected_integrations
+        .iter()
+        .filter(|integration| integration.connected)
+        .collect();
+    integrations.sort_by(|a, b| a.toolkit.cmp(&b.toolkit));
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut tools: Vec<Box<dyn Tool>> = Vec::new();
+    for integration in integrations {
+        let mut actions: Vec<&crate::agent::prompts::ConnectedIntegrationTool> =
+            integration.tools.iter().collect();
+        actions.sort_by(|a, b| a.name.cmp(&b.name));
+        for action in actions {
+            if action.name.trim().is_empty() || !seen.insert(action.name.as_str()) {
+                continue;
+            }
+            tools.push(Box::new(ComposioActionTool::deferred(
+                &integration.toolkit,
+                action.name.clone(),
+                action.description.clone(),
+                action.parameters.clone(),
+            )));
+        }
+    }
     tools
 }
 

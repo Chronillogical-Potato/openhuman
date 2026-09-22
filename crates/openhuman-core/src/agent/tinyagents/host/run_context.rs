@@ -295,6 +295,12 @@ pub struct OpenHumanRunContext {
     /// Required structured-output contract for this exact host turn. The
     /// driver repairs it before returning a candidate to runtime validation.
     pub(crate) required_output: Option<tinyagents_harness::config::RequiredOutput>,
+    /// The tool dialect the owning session composed its system prompt for,
+    /// as the harness policy spells it. The turn harness runs the same
+    /// dialect so a text protocol strips its schemas off the wire and builds
+    /// the registry that recovers positional / code-style calls; `Auto`
+    /// (the default) leaves the harness to choose from the model profile.
+    pub(crate) tool_dialect: tinyagents_harness::config::ToolDispatcher,
 }
 
 impl Default for OpenHumanRunContext {
@@ -334,7 +340,18 @@ impl OpenHumanRunContext {
             context_middleware: None,
             session_sidecar: Arc::new(Mutex::new(SessionTurnSidecar::default())),
             required_output: None,
+            tool_dialect: tinyagents_harness::config::ToolDispatcher::Auto,
         }
+    }
+
+    /// Pins the harness tool dialect to the one the session prompt speaks.
+    #[must_use]
+    pub(crate) fn with_tool_dialect(
+        mut self,
+        dialect: tinyagents_harness::config::ToolDispatcher,
+    ) -> Self {
+        self.tool_dialect = dialect;
+        self
     }
 
     /// Sets the direct TinyTools workspace descriptor for this run.
@@ -362,6 +379,33 @@ impl OpenHumanRunContext {
     pub(crate) fn with_parent(mut self, parent: ParentExecutionContext) -> Self {
         self.parent = Some(parent);
         self
+    }
+
+    /// Installs this turn's parent snapshot, binding the run's live progress
+    /// sink to it.
+    ///
+    /// The snapshot is built from a prelude that captured `on_progress` when
+    /// the runtime session was first created. A web-chat turn checks out a
+    /// cached session — so that build is a no-op — and only afterwards calls
+    /// `set_on_progress`, leaving the prelude's copy `None` for the rest of the
+    /// session's life. Sub-agent spawn and completion are the only progress
+    /// events that ride this parent sink instead of the harness event
+    /// projection, so a stale `None` drops them outright: no `subagent_spawned`
+    /// socket event, no run-ledger row, and a "Background tasks" panel that
+    /// reads "none running" while sub-agents are working. The run context's own
+    /// sink is the live one (it is what `driver.rs` hands the turn graph), so
+    /// prefer it and keep the snapshot as the fallback.
+    ///
+    /// Returns the installed parent so a caller that must launch a sub-agent
+    /// *before* the rest of the turn is assembled — `inject_triggered_memory_agent_context`
+    /// is the one such caller — hands it the bound context rather than the
+    /// stale snapshot it started from.
+    pub(crate) fn attach_parent(
+        &mut self,
+        mut parent: ParentExecutionContext,
+    ) -> &ParentExecutionContext {
+        parent.on_progress = self.progress.clone().or(parent.on_progress);
+        self.parent.insert(parent)
     }
 
     /// Sets the same cancellation token on this context and its TinyAgents run.

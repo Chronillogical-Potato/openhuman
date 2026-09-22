@@ -90,6 +90,21 @@ impl Config {
             }
         }
 
+        // One-launch override for the tool-call dialect experiment
+        // (`agent.tool_dispatcher`): `auto | native | xml | pformat | python |
+        // typescript`. Validation stays with the dispatcher mapping, which
+        // falls back to `auto` with a warning on an unknown spelling.
+        if let Some(raw) = env.get("OPENHUMAN_TOOL_DISPATCHER") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                tracing::debug!(
+                    dispatcher = trimmed,
+                    "OPENHUMAN_TOOL_DISPATCHER overrides agent.tool_dispatcher"
+                );
+                self.agent.tool_dispatcher = trimmed.to_string();
+            }
+        }
+
         if let Some(workspace) = env.get("OPENHUMAN_WORKSPACE") {
             if !workspace.is_empty() {
                 let (_, workspace_dir) =

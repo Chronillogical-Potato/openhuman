@@ -57,6 +57,12 @@ const CANCELLED_TOMBSTONE_CAP: usize = 512;
 /// insertion order.
 const COLLECTED_TOMBSTONE_CAP: usize = 512;
 
+/// Cap on the delivery-error text stored in the undelivered-results notice. The
+/// notice is a permanent thread message, unlike the transient `chat_error`
+/// event that already carries the same string, so an unbounded provider error
+/// should not be able to dominate the transcript.
+const MAX_PERSISTED_ERROR_CHARS: usize = 500;
+
 /// Shared state behind a single mutex so the cancellation check in
 /// [`record_completion`] is atomic against the tombstone+sweep in
 /// [`discard_for_thread`] — otherwise the cooperative-abort race could enqueue a
@@ -376,6 +382,40 @@ pub(crate) fn build_batched_notice(completed: &[CompletedBackgroundAgent]) -> Op
          tagged with its sub-agent process id.]\n",
         if n == 1 { "" } else { "s" },
     ));
+    out.push_str(&render_results(completed));
+    Some(out)
+}
+
+/// Defang any sequence in untrusted sub-agent output that could forge or
+/// terminate one of the envelope tags below.
+///
+/// A sub-agent summary is arbitrary text: it can carry tool-fetched web
+/// content, file contents, or anything else the child produced. Interpolated
+/// raw, a summary containing `</background_agent_result>` closes its own
+/// envelope early and everything after it reads as if it came from the host
+/// rather than from the child — and a forged *opening* tag invents a result
+/// that no sub-agent produced. Both matter more now that this text can be
+/// persisted into the thread verbatim when delivery gives up, because a stored
+/// message is replayed to every later turn with the authority of the
+/// transcript rather than being a one-shot prompt.
+///
+/// Only the exact markers that could impersonate this envelope are escaped, so
+/// ordinary prose and code in a summary survive unchanged.
+fn neutralize_envelope_markers(summary: &str) -> String {
+    // Escape the bracket rather than prefixing it: a prefixed `\</tag>` still
+    // contains the literal marker, so it reads as a real boundary to anything
+    // scanning the text. `&lt;` removes the character that makes it a tag while
+    // keeping the content legible and recoverable.
+    summary
+        .replace("</background_agent_", "&lt;/background_agent_")
+        .replace("<background_agent_", "&lt;background_agent_")
+}
+
+/// Render each result with its outcome-specific tag. Shared by the normal
+/// delivery notice and by the undelivered fallback, so a result reads the same
+/// either way and a failure is never dressed up as a completion.
+fn render_results(completed: &[CompletedBackgroundAgent]) -> String {
+    let mut out = String::new();
     for c in completed {
         // Distinct tag per terminal outcome so a failure / awaiting-input result
         // is not presented as a normal completion (#4896).
@@ -393,15 +433,59 @@ pub(crate) fn build_batched_notice(completed: &[CompletedBackgroundAgent]) -> Op
             ),
         };
         let summary = if c.summary.trim().is_empty() {
-            empty_fallback
+            empty_fallback.to_string()
         } else {
-            c.summary.trim()
+            neutralize_envelope_markers(c.summary.trim())
         };
         out.push_str(&format!(
             "\n<{tag} id=\"{}\" agent=\"{}\">\n{}\n</{tag}>\n",
             c.task_id, c.agent_id, summary,
         ));
     }
+    out
+}
+
+/// Build the notice written **straight into the thread** when the delivery turn
+/// has failed too many times to keep retrying.
+///
+/// Delivery normally runs a system turn so the agent can present a result in
+/// context. When that turn cannot succeed, the results still exist and the user
+/// is still owed them — so they are persisted verbatim instead, with an
+/// `[BACKGROUND_DELIVERY_FAILED]` envelope saying plainly that this is a failed
+/// delivery and why. The envelope follows the `[SUBAGENT_FAILED]` precedent
+/// (#4896): the user learns the delegated work finished and could not be
+/// delivered normally, rather than the result vanishing or arriving as an
+/// unexplained raw dump.
+pub(crate) fn build_undelivered_notice(
+    completed: &[CompletedBackgroundAgent],
+    attempts: u32,
+    error: &str,
+) -> Option<String> {
+    if completed.is_empty() {
+        return None;
+    }
+    let n = completed.len();
+    // The error text is already surfaced to the client on every failed delivery
+    // (`chat_error` carries it verbatim), so including it here is not a new
+    // exposure — but a stored message is permanent where that event is
+    // transient, so bound it and defang it like any other untrusted text.
+    let error = neutralize_envelope_markers(error);
+    let error = if error.chars().count() > MAX_PERSISTED_ERROR_CHARS {
+        let truncated: String = error.chars().take(MAX_PERSISTED_ERROR_CHARS).collect();
+        format!("{truncated}… (truncated)")
+    } else {
+        error
+    };
+    let mut out = format!(
+        "[BACKGROUND_DELIVERY_FAILED] {n} background sub-agent result{} finished, but \
+         could not be delivered into this conversation after {attempts} attempts. \
+         Last error: {error}\n\nThe {} shown verbatim below so nothing is lost — it has \
+         not been reviewed or summarised, because the turn that would have done so is \
+         the thing that failed.\n",
+        if n == 1 { "" } else { "s" },
+        if n == 1 { "result is" } else { "results are" },
+    );
+    out.push_str(&render_results(completed));
     Some(out)
 }
 

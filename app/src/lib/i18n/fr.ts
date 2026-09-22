@@ -1727,7 +1727,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nom de la variable',
   'mcp.form.envValue': 'Valeur',
   'mcp.form.value': 'Valeur',
-  'mcp.form.keepStored': 'Stockée — laisser vide pour conserver',
+  'mcp.form.keepStored': 'Stockée (laisser vide pour conserver)',
   'mcp.form.removeRow': 'Supprimer la ligne',
   'mcp.form.addEnv': 'Ajouter une variable',
   'mcp.form.url': 'URL',
@@ -1774,7 +1774,7 @@ const messages: TranslationMap = {
     'Un annuaire de serveurs MCP. Ouvrir un serveur mène à sa propre page, où se trouvent les instructions d’installation ; ajoutez-le dans l’onglet mcp.json.',
   'mcp.json.loadFailedTitle': 'Impossible de lire mcp.json',
   'mcp.json.loadFailedBody':
-    'Le noyau n’a pas répondu, le document n’est donc pas affiché — un éditeur vide inviterait à enregistrer et effacer vos serveurs.',
+    'Le noyau n’a pas répondu, le document n’est donc pas affiché. Un éditeur vide inviterait à enregistrer et effacer vos serveurs.',
   'mcp.json.intro':
     'Vos serveurs MCP en un seul document, dans la forme utilisée par les autres clients MCP. Collez le bloc d’un serveur depuis sa page d’installation et enregistrez.',
   'mcp.json.credentialsNote':
@@ -1788,11 +1788,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Exemple',
   'mcp.json.saveFailed': 'Impossible d’enregistrer mcp.json.',
   'mcp.json.parseError.empty': 'Le document est vide. Aucun serveur s’écrit { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON invalide — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON invalide : {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contient un objet avec une clé `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Pas de clé `mcpServers` — chaque serveur se trouve dessous.',
+  'mcp.json.parseError.missingRoot': 'Pas de clé `mcpServers`. Chaque serveur se trouve dessous.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` associe le nom d’un serveur à ses réglages.',
-  'mcp.json.parseError.emptyName': 'Un serveur a besoin d’un nom — la clé d’une entrée est vide.',
+  'mcp.json.parseError.emptyName': 'Un serveur a besoin d’un nom. La clé d’une entrée est vide.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` contient un objet, p. ex. { "command": "npx", "args": ["-y", "…"] } ou { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

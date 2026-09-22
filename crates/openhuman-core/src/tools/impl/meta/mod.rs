@@ -1,18 +1,18 @@
 //! Tools *about* the tool surface itself.
 //!
-//! Two members: [`tool_search`], the lookup half of
-//! [`ToolExposure::Deferred`](tinytools::ToolExposure). It sits
-//! in its own family rather than under `system/` because it is not a capability
-//! the host offers the user — it is the model asking what it is able to do.
+//! Two members: [`collapse`], the shared arithmetic behind a collapsed tool
+//! (`memory`, `todo`, `delegate_to`), and [`deferred`], the host's half of
+//! [`ToolExposure::Deferred`](tinytools::ToolExposure) — which registered tools
+//! leave the wire so the harness can advertise its `tool_search` bridge in
+//! their place. They sit in their own family rather than under `system/`
+//! because neither is a capability the host offers the user — it is the model
+//! asking what it is able to do.
 
 pub mod collapse;
-pub mod tool_search;
+pub mod deferred;
 
 pub use collapse::{
     any_external_effect, args_without_action, merge_action_schemas, resolve, strictest_permission,
     unknown_action_message, CollapsedAction,
 };
-pub use tool_search::{
-    bind_tool_search_index, strip_deferred_from_visible, ToolSearchHandle, ToolSearchIndex,
-    ToolSearchTool, TOOL_SEARCH_NAME,
-};
+pub use deferred::{deferred_tool_names, strip_deferred_from_visible, TOOL_SEARCH_NAME};
