@@ -28,7 +28,7 @@ six-line copy rather than an engine link.
 `crate::util::truncate_with_ellipsis`, `crate::util::retry_with_backoff`, and
 `crate::util::MaybeSet` resolve without the submodule. `redact`,
 `sanitize`, and `tls` are reached through their submodule:
-`crate::util::bm25::Bm25Index`, `crate::util::redact::redact`,
+`crate::util::redact::redact`,
 `crate::util::sanitize::sanitize_for_llm`, `crate::util::tls::tls_client_builder`.
 From outside the crate the lib is `openhuman_core`, which is the path the
 `truncate_with_ellipsis` doctest uses.
