@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent::todos::ops::{TaskBoardCard, TaskCardStatus};
 use serde_json::{json, Value};
 
 /// Serialize tests that share the process-global scratch store. Same lock
