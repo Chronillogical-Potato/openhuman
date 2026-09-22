@@ -3,6 +3,41 @@
 Everything below is reproducible with `node scripts/life-scenarios/run.mjs`.
 Run directories referenced by timestamp live under `target/life-scenarios/`.
 
+## The numbers
+
+Six scenarios, the shipping desktop path (`channel_web_chat` + SSE, the
+orchestrator agent, approval gate on), BYOK to OpenRouter.
+
+**`deepseek/deepseek-v4.1-flash`** (run `2026-09-22T20-10-53`):
+
+| scenario | done | tools | in | cached | out | cost | latency |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| calendar-buffer | 0/1 | 0 | 5.7k | 94% | 94 | $0.0040 | 14.0s |
+| subscription-scan | 0/1 | 0 | 5.7k | 0% | 69 | $0.0181 | 7.4s |
+| baggage-policy | 0/1 | 0 | 5.6k | 0% | 104 | $0.0185 | 8.4s |
+| meal-plan | 0/2 | 0 | 5.6k | 0% | 78 | $0.0181 | 11.7s |
+| trip-itinerary | 0/1 | 0 | 5.7k | 94% | 136 | $0.0047 | 10.2s |
+| fact-check-publish | 0/3 | 0 | 5.7k | 0% | 111 | $0.0188 | 7.0s |
+| **total** | **0/9 (0%)** | **0** | 34.1k | 31.5% | 592 | **$0.0822** | 58.7s |
+
+**`anthropic/claude-sonnet-5`** (run `2026-09-22T20-12-36`):
+
+| scenario | done | tools | appr | in | cached | out | cost | latency |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| calendar-buffer | 0/1 | 1 | 0 | 26.8k | 57% | 3.7k | $0.0546 | 42.6s |
+| subscription-scan | 9/11 | 4 | 4 | 49.8k | 91% | 1.4k | $0.0483 | 30.4s |
+| baggage-policy | 0/1 | 21 | 0 | 298.4k | 39% | 7.2k | $0.6880 | 147.4s |
+| meal-plan | 3/10 | 11 | 7 | 224.5k | 54% | 33.0k | $0.7971 | 290.5s |
+| trip-itinerary | 0/1 | 14 | 9 | 200.0k | 64% | 35.0k | $0.7825 | 444.1s |
+| fact-check-publish | 0/3 | 14 | 3 | 142.5k | 86% | 2.5k | $0.1341 | 89.6s |
+| **total** | **12/27 (44%)** | **65** | **23** | 941.9k | 58.1% | 82.9k | **$2.5046** | 1044.6s |
+
+Read the two tables together. The cheap model never calls a tool at all — it
+narrates and stops, so it is not a measurement of the harness. The strong model
+*works*: 65 tool calls, sixteen minutes, $2.50. And **four of six scenarios
+produced no output file whatsoever**, after spending $0.69, $0.78 and $0.13 on
+three of them. Finding 1 is why.
+
 Ordered by severity.
 
 ---
