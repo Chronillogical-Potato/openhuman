@@ -206,6 +206,16 @@ pub async fn apply_model_settings(
         };
     }
 
+    // Which of the four agent-turn roles this patch pinned itself. A caller
+    // that named a role means it; `complete_byok_route` below only fills the
+    // ones nobody spoke for.
+    let explicit_role_pins = ExplicitRolePins {
+        chat: update.chat_provider.is_some(),
+        reasoning: update.reasoning_provider.is_some(),
+        agentic: update.agentic_provider.is_some(),
+        coding: update.coding_provider.is_some(),
+    };
+
     let normalise_provider = |s: String| -> Option<String> {
         let t = s.trim();
         if t.is_empty() {
