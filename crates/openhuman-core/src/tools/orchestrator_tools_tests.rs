@@ -152,14 +152,15 @@ fn collects_agentid_entries_and_expands_skills_wildcard_to_deferred_actions() {
     );
 
     // Every action is `Deferred`: off the wire, reachable through
-    // `tool_search`. The delegation tools stay `Direct`.
-    for tool in &tools {
-        let expected = if tool.name().starts_with("delegate_") || tool.name() == "research" {
-            tinytools::ToolExposure::Direct
-        } else {
-            tinytools::ToolExposure::Deferred
-        };
-        assert_eq!(tool.exposure(), expected, "exposure of {}", tool.name());
+    // `tool_search`. (The archetype delegates are `Hidden` — the collapsed
+    // `delegate_to` tool advertises them — so only the actions are checked.)
+    for tool in tools.iter().filter(|t| t.name().starts_with("G")) {
+        assert_eq!(
+            tool.exposure(),
+            tinytools::ToolExposure::Deferred,
+            "exposure of {}",
+            tool.name()
+        );
     }
 }
 
