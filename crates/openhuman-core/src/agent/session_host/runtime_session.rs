@@ -1420,7 +1420,13 @@ impl OpenHumanSessionHost {
             request_id: crate::agent::turn_origin::current_request_id(),
             thread_id: self.thread_id.clone(),
             stream: self.on_progress.is_some(),
-            resume: if self
+            session: self.session.clone(),
+            resume: if self.session.is_some() {
+                // Exact, identity-keyed resume. Unlike `LatestForAgent` it
+                // cannot splice a different thread's transcript into this
+                // turn, and the file it reads is the file the turn appends to.
+                ResumeMode::Session
+            } else if self
                 .runtime_session
                 .as_ref()
                 .is_some_and(|session| session.history().is_empty())
@@ -1495,12 +1501,24 @@ impl OpenHumanSessionHost {
             self.hosted_base.clone(),
             self.agent_definition_id.clone(),
         ));
-        let resume_target = TranscriptTarget::new(
-            self.session_locator(),
-            self.runtime_transcript_stem(),
-            self.runtime_transcript_meta(),
-        )
-        .with_resume_agent(self.agent_definition_name.clone());
+        // A thread-bound root session addresses its transcript by durable
+        // identity, so a restart appends to the conversation's own file rather
+        // than minting a new stem and resuming whichever one happens to be
+        // newest. Everything else — sub-agents, unthreaded CLI turns — keeps
+        // the stem path, where a fresh transcript per run is correct.
+        let resume_target = match self.session.clone() {
+            Some(session) => TranscriptTarget::for_session(
+                self.session_locator(),
+                session,
+                self.runtime_transcript_meta(),
+            ),
+            None => TranscriptTarget::new(
+                self.session_locator(),
+                self.runtime_transcript_stem(),
+                self.runtime_transcript_meta(),
+            )
+            .with_resume_agent(self.agent_definition_name.clone()),
+        };
         {
             let mut state = self
                 .runtime_state
@@ -1974,6 +1992,11 @@ impl OpenHumanSessionHost {
             charged_amount_usd: 0.0,
             thread_id: self.thread_id.clone(),
             task_id: None,
+            session_id: self.session.as_ref().map(|session| session.session_id()),
+            parent_session_id: self
+                .session
+                .as_ref()
+                .and_then(|session| session.parent_session_id()),
         }
     }
 }
