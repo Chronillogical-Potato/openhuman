@@ -143,7 +143,7 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
         return String::new();
     };
 
-    let mut rows: Vec<(String, String, &'static str)> = Vec::new();
+    let mut rows: Vec<(String, &'static str)> = Vec::new();
     for entry in &definition.subagents {
         // `Skills(_)` expands to `delegate_to_integrations_agent`, which the
         // `## Connected Integrations` block below documents in full.
@@ -170,7 +170,7 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
             // belt never listed it, so there is no route to describe.
             continue;
         };
-        rows.push((tool_name, first_sentence(&target.when_to_use), pack.id));
+        rows.push((tool_name, pack.id));
     }
 
     if rows.is_empty() {
@@ -192,7 +192,7 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
     // full `when_to_use` arrives with the schema once the pack is loaded.
     let mut by_pack: std::collections::BTreeMap<&'static str, Vec<String>> =
         std::collections::BTreeMap::new();
-    for (tool, _intent, pack) in rows {
+    for (tool, pack) in rows {
         by_pack.entry(pack).or_default().push(format!("`{tool}`"));
     }
     let mut out = String::from(
@@ -307,56 +307,6 @@ fn resolve_definition<'r>(
     registry.get(&best)
 }
 
-/// The first sentence of `text`, or a hard-capped prefix when it has none.
-///
-/// `when_to_use` is written as a paragraph for the tool description; one
-/// sentence is the routing signal and the rest is detail the model only needs
-/// once it has loaded the schema.
-/// Longest routing intent a withheld-specialist row carries. One sentence is
-/// the signal; the full `when_to_use` is on the tool once it is loaded.
-const WITHHELD_INTENT_MAX_CHARS: usize = 64;
-
-fn first_sentence(text: &str) -> String {
-    let text = text.trim();
-    for (idx, _) in text.match_indices(". ") {
-        // "…an ALREADY-CONNECTED MCP server (e.g. `gmail`)…" is one sentence.
-        // An abbreviation carries a second period two bytes back, and a real
-        // sentence boundary is followed by a capital; requiring both keeps the
-        // row readable instead of cutting it mid-parenthetical.
-        let is_abbreviation = text[..idx].ends_with('.') || text[..idx].ends_with(". ");
-        let starts_new = text[idx + 2..]
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_uppercase());
-        if !is_abbreviation && starts_new {
-            let sentence = text[..=idx].trim_end();
-            if sentence.chars().count() <= WITHHELD_INTENT_MAX_CHARS {
-                return sentence.to_string();
-            }
-            break;
-        }
-    }
-    if text.chars().count() <= WITHHELD_INTENT_MAX_CHARS {
-        return text.to_string();
-    }
-    let cut: String = text.chars().take(WITHHELD_INTENT_MAX_CHARS).collect();
-    // Cut at the last word boundary so the row never ends mid-word.
-    let cut = match cut.rfind(' ') {
-        Some(idx) if idx > WITHHELD_INTENT_MAX_CHARS / 2 => &cut[..idx],
-        _ => cut.as_str(),
-    };
-    format!("{}...", cut.trim_end_matches([' ', ',', ';', ':', '-', '—']))
-}
-
-/// Render the `## Installed Skills` section listing locally installed
-/// workflows so the orchestrator knows what's available without calling
-/// `list_workflows` on every turn. Omitted when no skills are installed.
-///
-/// `run` and `install` are the hand-offs to `skill_executor` and `skill_setup`
-/// in the form this session can call ([`hand_off_route`]), or `None` when it has
-/// no route, in which case the section names none. This block once named five
-/// tools the model could not see; it names only what [`hand_off_route`] vouches
-/// for (#6302).
 fn render_installed_skills(
     skills: &[Workflow],
     run: Option<&str>,

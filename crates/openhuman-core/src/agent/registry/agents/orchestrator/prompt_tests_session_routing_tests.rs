@@ -64,40 +64,6 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
     );
 }
 
-/// The row text must be one readable sentence, not a cut parenthetical.
-///
-/// `mcp_agent`'s `when_to_use` opens "…an ALREADY-CONNECTED MCP server (e.g.
-/// `gmail`)…", and a naive split on ". " ends the row at "(e.g." — which is
-/// what the first live capture rendered.
-#[test]
-fn a_row_is_not_cut_at_an_abbreviation() {
-    assert_eq!(
-        first_sentence("Calls tools on a connected server (e.g. gmail). Then reports back."),
-        "Calls tools on a connected server (e.g. gmail).",
-    );
-    // A genuine boundary still ends the row.
-    assert_eq!(
-        first_sentence("Builds decks from evidence. Use for pitch-deck requests."),
-        "Builds decks from evidence.",
-    );
-    // No boundary at all: capped at a word boundary, never mid-word.
-    let long = "alpha ".repeat(200);
-    let capped = first_sentence(&long);
-    assert!(capped.ends_with("..."), "{capped}");
-    assert!(capped.len() <= 90 + 3, "{capped}");
-    assert!(!capped.contains("alph..."), "cut must land on a word boundary: {capped}");
-    // A first sentence longer than the cap is capped the same way.
-    let long_sentence = format!("{} end. Second sentence.", "word ".repeat(40));
-    let capped = first_sentence(&long_sentence);
-    assert!(capped.ends_with("..."), "{capped}");
-    assert!(!capped.contains("Second"));
-    // Short and unterminated: returned whole.
-    assert_eq!(
-        first_sentence("Runs installed agent skills"),
-        "Runs installed agent skills"
-    );
-}
-
 /// The generated intro must not carry the source's line-continuation padding.
 #[test]
 fn the_generated_block_has_no_stray_whitespace_runs() {
