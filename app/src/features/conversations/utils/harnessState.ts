@@ -52,10 +52,6 @@ const GOAL_STATUSES: ReadonlySet<string> = new Set([
   'complete',
 ]);
 
-function toolName(entry: ToolTimelineEntry): string {
-  return entry.sourceToolName ?? entry.name;
-}
-
 function parseResult(entry: ToolTimelineEntry): Record<string, unknown> | null {
   if (entry.status !== 'success' || !entry.result) return null;
   try {
@@ -103,7 +99,7 @@ function parseTodoItems(raw: unknown): TodoItemView[] | null {
  */
 export function selectTodoList(timeline: ToolTimelineEntry[]): TodoListView | null {
   for (const entry of newestFirst(timeline)) {
-    if (toolName(entry) !== TODO_TOOL) continue;
+    if (entry.name !== TODO_TOOL) continue;
     const payload = parseResult(entry);
     if (!payload) continue;
     const items = parseTodoItems(payload.todos);
@@ -122,7 +118,7 @@ export function selectTodoList(timeline: ToolTimelineEntry[]): TodoListView | nu
  */
 export function selectThreadGoal(timeline: ToolTimelineEntry[]): ThreadGoalView | null {
   for (const entry of newestFirst(timeline)) {
-    if (!GOAL_TOOLS.has(toolName(entry))) continue;
+    if (!GOAL_TOOLS.has(entry.name)) continue;
     const payload = parseResult(entry);
     if (!payload || !('goal' in payload)) continue;
     const goal = payload.goal;
