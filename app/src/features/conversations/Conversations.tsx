@@ -34,7 +34,7 @@ import {
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
-import { selectThreadGoal, selectTodoList } from '../../features/conversations/utils/harnessState';
+import { useThreadHarnessState } from '../../features/conversations/hooks/useThreadHarnessState';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
@@ -1738,17 +1738,14 @@ const Conversations = ({
     [selectedThreadToolTimeline]
   );
   // Harness work state the agent keeps for this thread — its todo list and
-  // the thread goal — read off the newest `todo` / `goal_*` tool results in
-  // the same timeline (`utils/harnessState.ts`). Rendered above the composer
-  // next to the gate cards so a five-step task shows as a checklist ticking
-  // off while the agent works through it.
-  const todoList = useMemo(
-    () => selectTodoList(selectedThreadToolTimeline),
-    [selectedThreadToolTimeline]
-  );
-  const threadGoal = useMemo(
-    () => selectThreadGoal(selectedThreadToolTimeline),
-    [selectedThreadToolTimeline]
+  // the thread goal — read off the newest `todo` / `goal_*` tool results
+  // across this turn and the thread's settled turns
+  // (`hooks/useThreadHarnessState.ts`). Rendered above the composer next to
+  // the gate cards so a five-step task shows as a checklist ticking off while
+  // the agent works through it.
+  const { todoList, goal: threadGoal } = useThreadHarnessState(
+    selectedThreadId ?? null,
+    selectedThreadToolTimeline
   );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // `TranscriptOverlays` resolves the open delegation out of this same live

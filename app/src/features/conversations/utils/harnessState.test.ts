@@ -33,7 +33,7 @@ const goalResult = (goal: Record<string, unknown> | null) => ({ goal, text: '' }
 describe('selectTodoList', () => {
   it('returns null when the agent never wrote a list', () => {
     expect(selectTodoList([])).toBeNull();
-    expect(selectTodoList([entry('file_read', 'contents')])).toBeNull();
+    expect(selectTodoList([[entry('file_read', 'contents')])).toBeNull();
   });
 
   it('reads the newest successful todo write, by issue order not array order', () => {
@@ -128,11 +128,11 @@ describe('selectThreadGoal', () => {
 
   it('returns null without a goal call', () => {
     expect(selectThreadGoal([])).toBeNull();
-    expect(selectThreadGoal([entry('todo', todoResult([]))])).toBeNull();
+    expect(selectThreadGoal([[entry('todo', todoResult([]))])).toBeNull();
   });
 
   it('reads the goal a goal_set wrote', () => {
-    expect(selectThreadGoal([entry('goal_set', goalResult(active))])).toEqual({
+    expect(selectThreadGoal([[entry('goal_set', goalResult(active))])).toEqual({
       goalId: 'g1',
       objective: 'Ship the release',
       status: 'active',
@@ -163,7 +163,7 @@ describe('selectThreadGoal', () => {
   // `goal_set` / `goal_get` sit in the `goals` tool pack, so the model calls
   // them through `use_skill` and the row is named for the wrapper.
   it('reads a goal call made through the use_skill wrapper', () => {
-    expect(selectThreadGoal([entry('use_skill', goalResult(active))])?.goalId).toBe('g1');
+    expect(selectThreadGoal([[entry('use_skill', goalResult(active))])?.goalId).toBe('g1');
   });
 
   it('ignores an unrelated use_skill result', () => {
