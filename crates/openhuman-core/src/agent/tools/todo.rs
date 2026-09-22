@@ -65,7 +65,7 @@ impl Default for TodoTool {
 /// `pending` / `in_progress` / `completed` plus the older `todo` / `done`
 /// spellings the store already parses.
 #[derive(Deserialize)]
-struct TodoItem {
+struct TodoArg {
     content: String,
     #[serde(default)]
     status: Option<String>,
@@ -140,7 +140,7 @@ impl TodoTool {
         let result = match args.get("todos") {
             None | Some(serde_json::Value::Null) => ops::list(&scope).await,
             Some(raw) => {
-                let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
+                let items: Vec<TodoArg> = serde_json::from_value(raw.clone())
                     .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
                 let mut todos = Vec::with_capacity(items.len());
                 for item in items {
