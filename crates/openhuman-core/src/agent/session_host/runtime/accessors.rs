@@ -129,7 +129,7 @@ impl OpenHumanSessionHost {
     }
 
     #[cfg(test)]
-    pub(crate) fn tool_policy_session_for_test(&self) -> &ToolPolicySession {
+    pub(crate) fn tool_policy_session_for_test(&self) -> &crate::tools::agent_policy::ToolPolicySession {
         &self.tool_policy_session
     }
 
