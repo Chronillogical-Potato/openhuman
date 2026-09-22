@@ -475,18 +475,23 @@ class ApprovalResponder {
             ? pending
             : (pending && (pending.requests || pending.pending || pending.items)) || [];
           for (const row of rows) {
-            const id = row.id || row.request_id || row.requestId;
-            if (!id) continue;
+            // `PendingApproval.request_id` — the decide RPC takes `request_id`,
+            // not `id`, and a wrong key comes back as a redacted
+            // param-validation error that names neither the field nor the
+            // method's expectation.
+            const requestId = row.request_id || row.requestId;
+            if (!requestId || this.seen.has(requestId)) continue;
+            this.seen.add(requestId);
             await this.core.rpc(
               "openhuman.approval_decide",
-              { id, decision: "approve_once" },
+              { request_id: requestId, decision: "approve_once" },
               15_000,
             );
             this.decisions.push({
               at: new Date().toISOString(),
-              id,
-              tool: row.tool_name || row.tool || row.toolName || "",
-              summary: (row.summary || row.description || "").slice(0, 200),
+              request_id: requestId,
+              tool: row.tool_name || "",
+              summary: (row.action_summary || "").slice(0, 200),
             });
           }
         } catch (e) {
