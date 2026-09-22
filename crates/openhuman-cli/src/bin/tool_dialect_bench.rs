@@ -498,7 +498,7 @@ async fn main() -> Result<()> {
     let mut summaries: BTreeMap<(String, Dialect), Summary> = BTreeMap::new();
 
     for model_name in &args.models {
-        let provider = format!("{}{model_name}", openhuman_core::inference::provider::OLLAMA_PROVIDER_PREFIX);
+        let provider = format!("ollama:{model_name}");
         let (model, model_id): (Arc<dyn ChatModel<()>>, String) =
             openhuman_core::inference::provider::create_chat_model_from_string_with_model_id(
                 "chat", &provider, &config, 0.0,
