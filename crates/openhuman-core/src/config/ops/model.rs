@@ -726,3 +726,7 @@ pub async fn load_and_resolve_api_url() -> Result<RpcOutcome<serde_json::Value>,
         Vec::new(),
     ))
 }
+
+#[cfg(test)]
+#[path = "model_byok_tests.rs"]
+mod byok_tests;
