@@ -717,7 +717,6 @@ async fn caller_owned_models_build_without_openhuman_session() {
         );
     }
 }
-
 #[tokio::test]
 async fn local_aliases_build_without_a_session_and_preserve_model_ids() {
     let _guard = crate::inference::inference_test_guard();
@@ -795,4 +794,3 @@ fn non_openrouter_openai_compatible_endpoints_get_no_baked_provider_options() {
         );
     }
 }
-

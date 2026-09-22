@@ -450,4 +450,3 @@ pub(crate) fn openrouter_default_provider_options(endpoint: &str) -> Option<serd
     endpoint_is_openrouter(endpoint)
         .then(|| serde_json::json!({ "provider": { "sort": OPENROUTER_PROVIDER_SORT } }))
 }
-

@@ -151,6 +151,7 @@ pub(super) fn assemble_turn_harness(
     // `Deferred` registrations the allowlist admits, ranked by whatever the
     // process installed (`agent::tinyagents::discovery`).
     policy.discovery = super::discovery::discovery_policy();
+
     policy.tool_dialect = tool_dialect;
     tracing::debug!(
         model,
