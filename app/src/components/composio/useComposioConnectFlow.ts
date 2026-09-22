@@ -34,6 +34,10 @@ export type ComposioConnectPhase =
   | 'connected'
   | 'expired'
   | 'disconnecting'
+  // Entered from `waiting` when the user gives up on an OAuth handoff that
+  // never came back: the pending Composio connection is deleted so the
+  // toolkit stops reporting `PENDING` forever (#stuck-connecting).
+  | 'cancelling'
   | 'error';
 
 interface UseComposioConnectFlowArgs {
@@ -76,6 +80,13 @@ export function useComposioConnectFlow({
   const pokePollRef = useRef<() => void>(() => {});
   const connectInFlightRef = useRef<boolean>(false);
   const [connectInFlight, setConnectInFlight] = useState(false);
+  // Id of the connection Composio created for the handoff currently in
+  // flight. Needed to cancel it: `authorize` hands it to us up front, and a
+  // resumed/polled pending connection supplies it when the modal reopens on
+  // an already-initiated handoff.
+  const pendingConnectionIdRef = useRef<string | null>(null);
+  const cancelInFlightRef = useRef<boolean>(false);
+  const [cancelInFlight, setCancelInFlight] = useState(false);
 
   const connection = connections?.[0];
   const initialState = deriveComposioState(connection);
@@ -90,6 +101,9 @@ export function useComposioConnectFlow({
           ? 'waiting'
           : 'idle'
   );
+  if (initialState === 'pending' && connection && pendingConnectionIdRef.current === null) {
+    pendingConnectionIdRef.current = connection.id;
+  }
   const [error, setError] = useState<string | null>(null);
   const [connectUrl, setConnectUrl] = useState<string | null>(null);
   const [clearMemoryOnDisconnect, setClearMemoryOnDisconnect] = useState(false);
@@ -169,10 +183,12 @@ export function useComposioConnectFlow({
           ) ?? allForToolkit[0];
         if (hit) {
           setActiveConnection(hit);
+          if (deriveComposioState(hit) === 'pending') pendingConnectionIdRef.current = hit.id;
           setActiveConnections(allForToolkit.filter(c => deriveComposioState(c) === 'connected'));
           const state = deriveComposioState(hit);
           if (state === 'connected') {
             stopPolling();
+            pendingConnectionIdRef.current = null;
             setPhase('connected');
             setError(null);
             onChanged?.();
@@ -307,6 +323,7 @@ export function useComposioConnectFlow({
         toolkit.slug,
         resp.connectionId
       );
+      pendingConnectionIdRef.current = resp.connectionId ?? null;
       setConnectUrl(resp.connectUrl);
       setPhase('waiting');
       startPolling();
