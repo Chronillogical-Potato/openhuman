@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
 use openhuman_core::api::config::effective_backend_api_url;
@@ -31,8 +31,17 @@ pub type ConfigLoader = Arc<
 pub struct TinyHumansJevRanker {
     config: JevRankerConfig,
     load_config: ConfigLoader,
+    /// Deadline for one evaluation. Measured through the TinyHumans proxy
+    /// (2026-09) one evaluation takes 0.7–1.9 s at p50 and the family
+    /// strategy runs its second-stage evaluations concurrently, so six
+    /// seconds bounds a slow search well above the norm while still turning
+    /// a stalled proxy into a BM25 fallback inside the turn.
+    deadline: Duration,
     cached: Mutex<Option<Cached>>,
 }
+
+/// Default per-evaluation deadline; see `TinyHumansJevRanker::deadline`.
+const DEFAULT_DEADLINE: Duration = Duration::from_secs(6);
 
 struct Cached {
     fingerprint: u64,
@@ -72,8 +81,15 @@ impl TinyHumansJevRanker {
             load_config: Arc::new(|| {
                 Box::pin(openhuman_core::config::ops::load_config_with_timeout())
             }),
+            deadline: DEFAULT_DEADLINE,
             cached: Mutex::new(None),
         }
+    }
+
+    /// Sets the per-evaluation deadline.
+    pub fn with_deadline(mut self, deadline: Duration) -> Self {
+        self.deadline = deadline;
+        self
     }
 
     /// Reads the config through `loader` instead of the core's read path.
@@ -116,7 +132,7 @@ impl TinyHumansJevRanker {
         let client = Client::new(client_config)
             .map_err(|error| RankError::invalid_input(error.to_string()))?;
         let evaluator: Arc<dyn tinytools_jev::JevEvaluator> =
-            Arc::new(TinyJevEvaluator::new(client));
+            Arc::new(TinyJevEvaluator::new(client).with_deadline(self.deadline));
         // The retriever is the process's embedding provider when it can
         // embed (the same one memory recall uses), so a family larger than
         // one Jev Choice is cut by meaning, not by shared words. Reused

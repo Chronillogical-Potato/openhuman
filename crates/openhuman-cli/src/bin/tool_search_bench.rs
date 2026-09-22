@@ -429,7 +429,8 @@ async fn main() -> Result<()> {
                 {
                     let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
                         jev_config(args.retrieval_k, args.family, args.embedding),
-                    );
+                    )
+                    .with_deadline(Duration::from_secs(20));
                     rankers.push(("jev".into(), Arc::new(ranker)));
                 }
                 #[cfg(not(feature = "jev"))]
@@ -526,7 +527,9 @@ async fn main() -> Result<()> {
             };
             if retrieved.iter().any(|h| h == &row.expected) {
                 report.recall_at_20 += 1;
-                report.by_source.get_mut(source).map(|b| b.3 += 1);
+                if let Some(bucket) = report.by_source.get_mut(source) {
+                    bucket.3 += 1;
+                }
             }
             let expected_family = row
                 .family
