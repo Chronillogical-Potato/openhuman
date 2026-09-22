@@ -218,3 +218,149 @@ fn children_inherit_attachment_placeholders() {
         ["[Image: x #att:1]"]
     );
 }
+
+/// A parent snapshot as a cached web-chat session produces one: the prelude
+/// captured `on_progress` before `set_on_progress` ran, so it carries `None`.
+fn stale_parent_snapshot() -> ParentExecutionContext {
+    ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: std::collections::HashSet::new(),
+        turn_model_source: crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["done"]),
+        )),
+        all_tools: Arc::new(Vec::new()),
+        all_tool_specs: Arc::new(Vec::new()),
+        visible_tool_specs: Arc::new(Vec::new()),
+        visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
+        model_name: "test-model".into(),
+        temperature: 0.0,
+        workspace_dir: std::path::PathBuf::from("/tmp/openhuman-attach-parent"),
+        workspace_descriptor: None,
+        memory: crate::memory::test_support::noop_memory(),
+        agent_config: crate::config::AgentConfig::default(),
+        workflows: Arc::new(Vec::new()),
+        memory_context: Arc::new(None),
+        session_id: "parent-session".into(),
+        channel: "test".into(),
+        connected_integrations: Vec::new(),
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
+        session_key: "parent-key".into(),
+        session_parent_prefix: None,
+        on_progress: None,
+        run_queue: None,
+    }
+}
+
+/// Round-trips one real `SubagentSpawned` through `sink` and asserts it lands
+/// on `rx`, the receiver belonging to the run whose sink the bind was supposed
+/// to install.
+///
+/// `on_progress.is_some()` proves *presence*, not *identity*: a bind that
+/// installed some other, freshly created channel satisfies it just as happily,
+/// and that is the miswiring that actually ships. Production reads this exact
+/// field one clone away — `spawn_async_subagent_execute.rs` opens with
+/// `let progress_sink = parent.on_progress.clone();` — so delivery onto this
+/// receiver is what "the panel will see the spawn" reduces to.
+fn assert_bound_sink_is_this_runs_channel(
+    sink: Option<&Sender<AgentProgress>>,
+    rx: &mut tokio::sync::mpsc::Receiver<AgentProgress>,
+    case: &str,
+) {
+    let sink = sink.unwrap_or_else(|| panic!("{case}: no progress sink bound at all"));
+    sink.try_send(AgentProgress::SubagentSpawned {
+        agent_id: "probe-agent".to_string(),
+        task_id: "probe-task".to_string(),
+        mode: "async".to_string(),
+        dedicated_thread: false,
+        prompt_chars: 5,
+        worker_thread_id: None,
+        display_name: None,
+        prompt: "probe".to_string(),
+    })
+    .unwrap_or_else(|err| panic!("{case}: the bound sink refused the event: {err}"));
+
+    match rx.try_recv() {
+        Ok(AgentProgress::SubagentSpawned { task_id, .. }) => assert_eq!(
+            task_id, "probe-task",
+            "{case}: a different event arrived on this run's receiver"
+        ),
+        other => panic!(
+            "{case}: the bound sink is not this run's channel — nothing arrived \
+             on its receiver ({other:?}). A sub-agent spawned through this \
+             parent would be dropped and the Background tasks panel would stay \
+             empty, exactly as before the fix."
+        ),
+    }
+}
+
+/// Sub-agent spawn/completion are the only progress events that ride the
+/// parent snapshot rather than the harness event projection. The snapshot's
+/// own sink is `None` for the whole life of a checked-out session, so binding
+/// the run's live sink here is what keeps `subagent_spawned` reaching the
+/// progress bridge — and with it the run-ledger row and the "Background tasks"
+/// panel. Without the bind the panel reads "none running" while sub-agents run.
+#[test]
+fn attach_parent_binds_the_runs_live_progress_sink_over_a_stale_snapshot() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(4);
+    let mut context = OpenHumanRunContext::new();
+    context.progress = Some(tx);
+
+    context.attach_parent(stale_parent_snapshot());
+
+    let bound = context.parent.as_ref().expect("parent installed");
+    assert_bound_sink_is_this_runs_channel(
+        bound.on_progress.as_ref(),
+        &mut rx,
+        "the parent snapshot handed to tools must carry the turn's own live \
+         progress sink",
+    );
+}
+
+/// The returned reference is the bound context, not the caller's snapshot.
+///
+/// `enrich_request` launches the triggered memory sub-agent *before* the rest
+/// of the turn is assembled, so it has to hand that spawn a parent context.
+/// Taking it from this return value is what stops it passing the stale
+/// snapshot it started from — the same `on_progress = None` that kept
+/// `subagent_spawned` out of the Background tasks panel. If this method ever
+/// stops returning the installed parent, that call site silently regresses.
+#[test]
+fn attach_parent_returns_the_bound_parent_not_the_caller_snapshot() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(4);
+    let mut context = OpenHumanRunContext::new();
+    context.progress = Some(tx);
+    let snapshot = stale_parent_snapshot();
+    assert!(snapshot.on_progress.is_none(), "snapshot starts stale");
+
+    let bound = context.attach_parent(snapshot);
+
+    assert_bound_sink_is_this_runs_channel(
+        bound.on_progress.as_ref(),
+        &mut rx,
+        "the context returned by attach_parent must already carry the run's \
+         own live sink, because enrich_request spawns from this value before \
+         the turn is assembled",
+    );
+}
+
+/// The bind must not blank a sink the snapshot did carry: a turn with no
+/// progress subscriber of its own (CLI, cron) leaves the snapshot intact.
+#[test]
+fn attach_parent_keeps_the_snapshot_sink_when_the_run_has_none() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(4);
+    let mut snapshot = stale_parent_snapshot();
+    snapshot.on_progress = Some(tx);
+    let mut context = OpenHumanRunContext::new();
+    assert!(context.progress.is_none(), "run has no sink of its own");
+
+    context.attach_parent(snapshot);
+
+    let bound = context.parent.as_ref().expect("parent installed");
+    assert_bound_sink_is_this_runs_channel(
+        bound.on_progress.as_ref(),
+        &mut rx,
+        "a run without its own sink must keep the snapshot's, and keep the \
+         CLI/cron receiver that snapshot was carrying",
+    );
+}

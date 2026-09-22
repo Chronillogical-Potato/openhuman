@@ -720,12 +720,12 @@ impl OpenHumanTurnPrelude {
             .inject_agent_experience_context(original_user_message, enriched)
             .await;
 
-        let parent = self.parent_context();
+        let parent = run_context.attach_parent(self.parent_context());
         let (enriched_with_memory_agent, memory_agent_context_injected) = self
             .inject_triggered_memory_agent_context(
                 original_user_message,
                 enriched,
-                &parent,
+                parent,
                 overrides.suppress_memory_agent,
             )
             .await;
@@ -745,7 +745,6 @@ impl OpenHumanTurnPrelude {
         }
         self.apply_pending_announcements(&mut enriched);
 
-        run_context.parent = Some(parent);
         run_context.prepared_context_sources = Arc::new(prepared_sources);
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),
