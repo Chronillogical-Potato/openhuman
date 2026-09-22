@@ -81,3 +81,7 @@ debug = false
 
 [profile.dev.package."*"]
 debug = false
+
+# TEMP bench experiment: size-aware probability tolerance (tinyjevclient PR pending)
+[patch."https://github.com/tinyhumansai/tinyjevclient"]
+tinyjevclient = { path = "/private/tmp/claude-501/-Users-enamakel-work-workflow-opencompany-openhuman/e01cc3ec-1f27-4ce6-9afb-36587e79ae28/scratchpad/tinyjevclient/crates/tinyjevclient" }
