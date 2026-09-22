@@ -3227,6 +3227,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': '출력',
   'conversations.composer.context.cost': '비용',
   'conversations.composer.command.clear': '대화 비우기',
+  'conversations.todos.title': '할 일',
+  'conversations.todos.progress': '{total}개 중 {completed}개 완료',
+  'conversations.todos.allDone': '모두 완료',
+  'conversations.todos.status.pending': '대기 중',
+  'conversations.todos.status.inProgress': '진행 중',
+  'conversations.todos.status.completed': '완료됨',
+  'conversations.goal.title': '목표',
+  'conversations.goal.status.active': '활성',
+  'conversations.goal.status.paused': '일시정지',
+  'conversations.goal.status.budgetLimited': '예산 도달',
+  'conversations.goal.status.complete': '완료',
+  'conversations.goal.tokens': '{used} 토큰',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} 토큰',
   'conversations.planReview.title': '계획 검토',
   'conversations.planReview.subtitle':
     '실행하려면 승인하고, 버리려면 거부하거나, 수정하려면 의견을 보내세요.',
@@ -3323,12 +3336,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': '최신 생성된 OpenHuman 아키텍처 다이어그램',
   'intelligence.diagram.refreshesEvery': '{seconds}초마다 새로 고침',
   'intelligence.memoryText.entityTypePrefix': '엔터티 유형',
-  'intelligence.workTask.sourceTaskHeading': '소스 작업:',
-  'intelligence.workTask.repositoryLine': '- 저장소: {repo}',
-  'intelligence.workTask.externalIdLine': '- 외부 ID: {externalId}',
-  'intelligence.workTask.urlLine': '- 링크: {url}',
-  'intelligence.workTask.closingInstruction':
-    '먼저 구체적인 구현 계획을 간략히 다시 설명한 다음 실행하세요. 이 스레드에서 진행 상황을 계속 보이게 하고 작업 상태가 바뀌면 작업 보드를 업데이트하세요.',
   'intelligence.agentWork.subtitle':
     '모든 백그라운드 에이전트 실행을 수명 주기 상태별로 그룹화합니다.',
   'intelligence.agentWork.loading': '에이전트 작업 불러오는 중…',
@@ -4765,9 +4772,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': '2시간마다',
   'settings.devWorkflow.schedule.every6hours': '6시간마다',
   'settings.devWorkflow.schedule.onceDaily': '하루 한 번(오전 9시)',
-  'settings.developerMenu.tasks.title': '작업',
-  'settings.developerMenu.tasks.desc':
-    '작업 보드를 둘러보고 관리하세요: 내 할 일과 대화 전반에서 에이전트가 만든 보드를 함께 확인합니다.',
   'settings.developerMenu.cronJobs.title': '크론 작업',
   'settings.developerMenu.cronJobs.desc': '예약 보기 및 구성 런타임 기술용 작업',
   'settings.developerMenu.webhooks.title': '웹훅',
@@ -4864,9 +4868,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': '작업공간으로 제한',
   'settings.agentAccess.confine.desc':
     '선택한 접근 모드와 관계없이 에이전트를 작업공간 디렉터리와 허용된 폴더로 제한합니다. 끄면 항상 차단되는 자격 증명 및 시스템 디렉터리를 제외하고 사용자가 접근할 수 있는 모든 위치에 접근할 수 있습니다.',
-  'settings.agentAccess.requireTaskPlanApproval.label': '작업 계획 승인 필요',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
   'settings.agentAccess.autoApproveAll.label': '모든 작업 자동 승인',
   'settings.agentAccess.autoApproveAll.desc':
     '활성화하면 에이전트가 먼저 승인을 요청하지 않고 해당되는 모든 작업을 실행합니다. 여기에는 파일 쓰기, 셸 명령, 네트워크 요청 및 기타 모든 부작용이 포함됩니다. 자격 증명 및 시스템 디렉터리는 계속 차단되며, 신뢰할 수 없거나 출처가 확인되지 않은 호출에서 비롯된 작업은 계속 거부됩니다.',

@@ -1,6 +1,6 @@
 //! Agent-owned dialogue and control tools.
 //!
-//! These tools act on the agent loop, its task board, or the user's stored
+//! These tools act on the agent loop, its todo list, or the user's stored
 //! preferences rather than on files, memory, or the network. Wire names are
 //! given in parentheses where they differ from the type name:
 //!

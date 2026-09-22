@@ -3318,6 +3318,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Salida',
   'conversations.composer.context.cost': 'Coste',
   'conversations.composer.command.clear': 'Vaciar la conversación',
+  'conversations.todos.title': 'Tareas',
+  'conversations.todos.progress': '{completed} de {total} hechas',
+  'conversations.todos.allDone': 'Todo hecho',
+  'conversations.todos.status.pending': 'Pendiente',
+  'conversations.todos.status.inProgress': 'En curso',
+  'conversations.todos.status.completed': 'Completada',
+  'conversations.goal.title': 'Objetivo',
+  'conversations.goal.status.active': 'Activo',
+  'conversations.goal.status.paused': 'En pausa',
+  'conversations.goal.status.budgetLimited': 'Presupuesto alcanzado',
+  'conversations.goal.status.complete': 'Completado',
+  'conversations.goal.tokens': '{used} tókenes',
+  'conversations.goal.tokensWithBudget': '{used} de {budget} tókenes',
   'conversations.planReview.title': 'Revisar plan',
   'conversations.planReview.subtitle':
     'Aprueba para ejecutarlo, recházalo para descartarlo o envía comentarios para revisarlo.',
@@ -3415,12 +3428,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Último diagrama de arquitectura de OpenHuman generado',
   'intelligence.diagram.refreshesEvery': 'Se actualiza cada {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo de entidad',
-  'intelligence.workTask.sourceTaskHeading': 'Tarea de origen:',
-  'intelligence.workTask.repositoryLine': '- Repositorio: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
-  'intelligence.workTask.urlLine': '- Dirección: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Empieza reformulando brevemente el plan de implementación concreto y luego ejecútalo. Mantén el progreso visible en este hilo y actualiza el tablero de tareas cuando cambie el estado del trabajo.',
   'intelligence.agentWork.subtitle':
     'Cada ejecución de agente en segundo plano, agrupada por estado del ciclo de vida.',
   'intelligence.agentWork.loading': 'Cargando trabajo del agente…',
@@ -4901,9 +4908,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Cada 2 horas',
   'settings.devWorkflow.schedule.every6hours': 'Cada 6 horas',
   'settings.devWorkflow.schedule.onceDaily': 'Una vez al día (9 AM)',
-  'settings.developerMenu.tasks.title': 'Tareas',
-  'settings.developerMenu.tasks.desc':
-    'Explora y gestiona los tableros de tareas: tus pendientes y los tableros que los agentes crean en las conversaciones.',
   'settings.developerMenu.cronJobs.title': 'Tareas cron',
   'settings.developerMenu.cronJobs.desc':
     'Ver y configurar tareas programadas para habilidades en tiempo de ejecución',
@@ -5009,9 +5013,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Restringir al espacio de trabajo',
   'settings.agentAccess.confine.desc':
     'Restringe al agente al directorio de trabajo (más cualquier carpeta concedida), sea cual sea el modo de acceso seleccionado. Cuando está desactivado, puede acceder a cualquier lugar al que pueda acceder tu usuario, excepto a los directorios de credenciales y del sistema que siempre están bloqueados.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Requerir la aprobación del plan de tareas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausa antes de que un agente asignado ejecute un breve tarea elaborada por el agente.',
   'settings.agentAccess.autoApproveAll.label': 'Aprobar automáticamente todas las acciones',
   'settings.agentAccess.autoApproveAll.desc':
     'Cuando está activado, el agente ejecutará todas las acciones elegibles sin pedir tu aprobación primero. Esto incluye escritura de archivos, comandos de shell, solicitudes de red y cualquier otro efecto secundario. Los bloqueos de seguridad estrictos, incluidos los directorios de credenciales y del sistema, siguen aplicándose, y las acciones con un origen no confiable o desconocido nunca se aprueban automáticamente.',

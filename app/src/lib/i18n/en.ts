@@ -3684,6 +3684,19 @@ const en: TranslationMap = {
   'conversations.composer.context.output': 'Output',
   'conversations.composer.context.cost': 'Cost',
   'conversations.composer.command.clear': 'Clear the conversation',
+  'conversations.todos.title': 'Todos',
+  'conversations.todos.progress': '{completed} of {total} done',
+  'conversations.todos.allDone': 'All done',
+  'conversations.todos.status.pending': 'Pending',
+  'conversations.todos.status.inProgress': 'In progress',
+  'conversations.todos.status.completed': 'Completed',
+  'conversations.goal.title': 'Goal',
+  'conversations.goal.status.active': 'Active',
+  'conversations.goal.status.paused': 'Paused',
+  'conversations.goal.status.budgetLimited': 'Budget reached',
+  'conversations.goal.status.complete': 'Complete',
+  'conversations.goal.tokens': '{used} tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokens',
   'conversations.planReview.title': 'Review plan',
   'conversations.planReview.subtitle':
     'Approve to run it, reject to discard, or send feedback to revise.',
@@ -3874,12 +3887,6 @@ const en: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Latest generated OpenHuman architecture diagram',
   'intelligence.diagram.refreshesEvery': 'Refreshes every {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Entity type',
-  'intelligence.workTask.sourceTaskHeading': 'Source task:',
-  'intelligence.workTask.repositoryLine': '- Repository: {repo}',
-  'intelligence.workTask.externalIdLine': '- External ID: {externalId}',
-  'intelligence.workTask.urlLine': '- URL: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.',
   'intelligence.agentWork.subtitle': 'Every background agent run, grouped by lifecycle state.',
   'intelligence.agentWork.loading': 'Loading agent work…',
   'intelligence.agentWork.failedToLoad': 'Failed to load agent work',
@@ -5539,9 +5546,6 @@ const en: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Every 2 hours',
   'settings.devWorkflow.schedule.every6hours': 'Every 6 hours',
   'settings.devWorkflow.schedule.onceDaily': 'Once daily (9 AM)',
-  'settings.developerMenu.tasks.title': 'Tasks',
-  'settings.developerMenu.tasks.desc':
-    'Browse and manage task boards: your own to-dos plus the boards agents build across conversations.',
   'settings.developerMenu.cronJobs.title': 'Cron Jobs',
   'settings.developerMenu.cronJobs.desc': 'View and configure scheduled jobs for runtime skills',
   'settings.developerMenu.webhooks.title': 'Webhooks',
@@ -5651,9 +5655,6 @@ const en: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine to workspace',
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can, except the always-blocked credential and system directories.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pause before an assigned agent executes an agent-authored task brief.',
   'settings.agentAccess.autoApproveAll.label': 'Auto-approve all actions',
   'settings.agentAccess.autoApproveAll.desc':
     'When enabled, the agent executes all eligible actions without asking for your approval first. This includes file writes, shell commands, network requests, and any other side effects. Credential and system directories stay blocked, and actions from untrusted or unlabelled call origins are still denied.',

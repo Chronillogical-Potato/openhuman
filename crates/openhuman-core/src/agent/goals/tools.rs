@@ -32,6 +32,23 @@ fn render_goal(goal: &ThreadGoal) -> String {
     )
 }
 
+/// The JSON every goal tool answers with: the goal as structured data (the
+/// crate's camelCase `ThreadGoal`, or `null` when the thread has none) plus a
+/// `text` rendering for transcripts. The frontend reads `goal` off the tool
+/// result to draw the goal banner; the model reads either.
+fn goal_payload(goal: Option<&ThreadGoal>, note: &str) -> String {
+    let text = match goal {
+        Some(goal) if note.is_empty() => render_goal(goal),
+        Some(goal) => format!("{note}\n{}", render_goal(goal)),
+        None => note.to_string(),
+    };
+    json!({
+        "goal": goal.map(|goal| serde_json::to_value(goal).unwrap_or(serde_json::Value::Null)),
+        "text": text,
+    })
+    .to_string()
+}
+
 /// Resolve the caller thread id or return a uniform tool error.
 fn require_thread_id(context: Option<&dyn ToolRunContext>) -> Result<String, ToolResult> {
     context
@@ -88,8 +105,11 @@ impl Tool for GoalGetTool {
         };
         log::debug!("[thread_goals] tool=goal_get thread_id={thread_id}");
         match store::get(&self.workspace_dir, &thread_id).await {
-            Ok(Some(goal)) => Ok(ToolResult::success(render_goal(&goal))),
-            Ok(None) => Ok(ToolResult::success("no goal set for this thread")),
+            Ok(Some(goal)) => Ok(ToolResult::success(goal_payload(Some(&goal), ""))),
+            Ok(None) => Ok(ToolResult::success(goal_payload(
+                None,
+                "no goal set for this thread",
+            ))),
             Err(e) => Ok(ToolResult::error(e)),
         }
     }
@@ -172,10 +192,7 @@ impl Tool for GoalSetTool {
                         status: goal.status.as_str().to_string(),
                     },
                 );
-                Ok(ToolResult::success(format!(
-                    "Goal set.\n{}",
-                    render_goal(&goal)
-                )))
+                Ok(ToolResult::success(goal_payload(Some(&goal), "Goal set.")))
             }
             Err(e) => Ok(ToolResult::error(e)),
         }
@@ -238,9 +255,9 @@ impl Tool for GoalCompleteTool {
                         status: goal.status.as_str().to_string(),
                     },
                 );
-                Ok(ToolResult::success(format!(
-                    "Goal marked complete.\n{}",
-                    render_goal(&goal)
+                Ok(ToolResult::success(goal_payload(
+                    Some(&goal),
+                    "Goal marked complete.",
                 )))
             }
             Err(e) => Ok(ToolResult::error(e)),

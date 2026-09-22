@@ -3260,6 +3260,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'আউটপুট',
   'conversations.composer.context.cost': 'খরচ',
   'conversations.composer.command.clear': 'কথোপকথন মুছে ফেলুন',
+  'conversations.todos.title': 'কাজের তালিকা',
+  'conversations.todos.progress': '{total}টির মধ্যে {completed}টি সম্পন্ন',
+  'conversations.todos.allDone': 'সব সম্পন্ন',
+  'conversations.todos.status.pending': 'অপেক্ষমাণ',
+  'conversations.todos.status.inProgress': 'চলছে',
+  'conversations.todos.status.completed': 'সম্পন্ন',
+  'conversations.goal.title': 'লক্ষ্য',
+  'conversations.goal.status.active': 'সক্রিয়',
+  'conversations.goal.status.paused': 'বিরতিতে',
+  'conversations.goal.status.budgetLimited': 'বাজেট শেষ',
+  'conversations.goal.status.complete': 'সম্পূর্ণ',
+  'conversations.goal.tokens': '{used} টোকেন',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} টোকেন',
   'conversations.planReview.title': 'পরিকল্পনা পর্যালোচনা করুন',
   'conversations.planReview.subtitle':
     'চালানোর জন্য অনুমোদন করুন, বাতিল করতে প্রত্যাখ্যান করুন, অথবা সংশোধনের জন্য মতামত পাঠান।',
@@ -3356,12 +3369,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'সর্বশেষ তৈরি OpenHuman আর্কিটেকচার ডায়াগ্রাম',
   'intelligence.diagram.refreshesEvery': 'প্রতি {seconds}s-এ রিফ্রেশ হয়',
   'intelligence.memoryText.entityTypePrefix': 'এনটিটি ধরন',
-  'intelligence.workTask.sourceTaskHeading': 'উৎস টাস্ক:',
-  'intelligence.workTask.repositoryLine': '- রিপোজিটরি: {repo}',
-  'intelligence.workTask.externalIdLine': '- বাহ্যিক আইডি: {externalId}',
-  'intelligence.workTask.urlLine': '- ইউআরএল: {url}',
-  'intelligence.workTask.closingInstruction':
-    'প্রথমে সুনির্দিষ্ট বাস্তবায়ন পরিকল্পনাটি সংক্ষেপে পুনরায় বলুন, তারপর তা সম্পাদন করুন। এই থ্রেডে অগ্রগতি দৃশ্যমান রাখুন এবং কাজের অবস্থা পরিবর্তিত হলে টাস্ক বোর্ড আপডেট করুন।',
   'intelligence.agentWork.subtitle':
     'প্রতিটি ব্যাকগ্রাউন্ড এজেন্ট রান, জীবনচক্রের অবস্থা অনুযায়ী গোষ্ঠীবদ্ধ।',
   'intelligence.agentWork.loading': 'এজেন্ট কাজ লোড হচ্ছে…',
@@ -4818,9 +4825,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'প্রতি ২ ঘন্টা',
   'settings.devWorkflow.schedule.every6hours': 'প্রতি ৬ ঘন্টা',
   'settings.devWorkflow.schedule.onceDaily': 'প্রতিদিন (৯.',
-  'settings.developerMenu.tasks.title': 'কাজ',
-  'settings.developerMenu.tasks.desc':
-    'টাস্ক বোর্ড ব্রাউজ ও পরিচালনা করুন: আপনার নিজের কাজ এবং কথোপকথন জুড়ে এজেন্টদের তৈরি করা বোর্ড।',
   'settings.developerMenu.cronJobs.title': 'Cron জব',
   'settings.developerMenu.cronJobs.desc':
     'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
@@ -4923,9 +4927,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'কর্মক্ষেত্র সক্রিয় করা হবে',
   'settings.agentAccess.confine.desc':
     'কর্মক্ষেত্রের মধ্যে উপস্থিত ফোল্ডারগুলির উপর নির্ভর করে (যেমন কোনো ফোল্ডার), যে কোনো ফোল্ডার নির্বাচন করা হবে। বন্ধ করা হলে, এটি আপনার ব্যবহারকারী যে কোন স্থানে পৌঁছাতে পারে - তবে একমাত্র নির্ধারিত পরিচয় এবং সিস্টেম ডিরেক্টরি ছাড়া।',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
   'settings.agentAccess.autoApproveAll.label': 'সব কাজ স্বয়ংক্রিয়ভাবে অনুমোদন করুন',
   'settings.agentAccess.autoApproveAll.desc':
     'সক্রিয় করা হলে, এজেন্ট আপনার অনুমতি না নিয়েই সব কাজ সম্পাদন করবে। এর মধ্যে রয়েছে ফাইল লেখা, শেল কমান্ড, নেটওয়ার্ক অনুরোধ এবং অন্যান্য যেকোনো পার্শ্বপ্রতিক্রিয়া। কঠোর নিরাপত্তা বাধা (ক্রেডেনশিয়াল ডিরেক্টরি, ওয়ার্কস্পেসের অভ্যন্তরীণ পাথ) তবুও কার্যকর থাকবে।',

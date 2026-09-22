@@ -1,11 +1,11 @@
 //! OpenHuman adapters around the TinyAgents todo store.
 //!
 //! Design notes:
-//! - **Per-thread scoped.** The list belongs to the conversation thread the
-//!   turn runs in; there is no cross-thread or app-wide board.
-//! - **In-memory scratch.** When no thread context is available the
+//! - **Per-session scoped.** The list belongs to the agent session the turn
+//!   runs in; there is no cross-session or app-wide list.
+//! - **In-memory scratch.** When no session context is available the
 //!   process-global scratch store is used (tool invocations outside a chat
-//!   thread, tests).
+//!   session, tests).
 //! - **Markdown output.** Tool results include a rendered representation for
 //!   the agent transcript.
 

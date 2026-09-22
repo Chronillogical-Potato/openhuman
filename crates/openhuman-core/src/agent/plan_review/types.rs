@@ -2,10 +2,9 @@
 //!
 //! A plan review parks a live (interactive) agent turn after the orchestrator
 //! has laid out a thread-scoped plan, surfaces the plan to the user, and
-//! resumes the SAME turn with the user's decision. Unlike the task-board
-//! approval lifecycle (which the background dispatcher runs on the
-//! `user-tasks` / `task-sources` boards), this gate is a parked-future on the
-//! live turn — modelled on [`crate::security::approval::ApprovalGate`] but
+//! resumes the SAME turn with the user's decision. The gate is a
+//! parked-future on the live turn — modelled on
+//! [`crate::security::approval::ApprovalGate`] but
 //! in-memory only: an interactive turn that can't resume across a restart has
 //! nothing to persist.
 

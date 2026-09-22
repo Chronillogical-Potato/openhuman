@@ -581,8 +581,6 @@ pub(crate) fn spawn_progress_bridge(
                             status: AgentRunStatus::Running,
                             prompt_ref: Some(format!("thread:{thread_id}:request:{request_id}")),
                             worker_thread_id: None,
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             checkpoint_path: None,
                             checkpoint: None,
                             summary: None,
@@ -773,8 +771,6 @@ pub(crate) fn spawn_progress_bridge(
                                 .as_ref()
                                 .map(|id| format!("thread:{id}:message:seed")),
                             worker_thread_id: worker_thread_id.clone(),
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             checkpoint_path: None,
                             checkpoint: None,
                             summary: None,
@@ -854,8 +850,6 @@ pub(crate) fn spawn_progress_bridge(
                             status: AgentRunStatus::Completed,
                             prompt_ref: None,
                             worker_thread_id: None,
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             checkpoint_path: None,
                             checkpoint: None,
                             summary: Some(format!(
@@ -940,8 +934,6 @@ pub(crate) fn spawn_progress_bridge(
                             status: AgentRunStatus::Failed,
                             prompt_ref: None,
                             worker_thread_id: None,
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             checkpoint_path: None,
                             checkpoint: None,
                             summary: None,
@@ -1014,8 +1006,6 @@ pub(crate) fn spawn_progress_bridge(
                             status: AgentRunStatus::AwaitingUser,
                             prompt_ref: None,
                             worker_thread_id: worker_thread_id.clone(),
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             // What the runner actually wrote; the old rebuild
                             // from `workspace_dir` asserted a checkpoint that
                             // may never have been written (#5928).
@@ -1366,8 +1356,6 @@ pub(crate) fn spawn_progress_bridge(
                             status: AgentRunStatus::Completed,
                             prompt_ref: Some(format!("thread:{thread_id}:request:{request_id}")),
                             worker_thread_id: None,
-                            task_board_id: Some(thread_id.clone()),
-                            task_card_id: None,
                             checkpoint_path: None,
                             checkpoint: None,
                             summary: Some(format!("Completed in {iterations} iteration(s)")),
@@ -1455,8 +1443,6 @@ pub(crate) fn spawn_progress_bridge(
                     status: AgentRunStatus::Interrupted,
                     prompt_ref: Some(format!("thread:{thread_id}:request:{request_id}")),
                     worker_thread_id: None,
-                    task_board_id: Some(thread_id.clone()),
-                    task_card_id: None,
                     checkpoint_path: None,
                     checkpoint: None,
                     summary: None,

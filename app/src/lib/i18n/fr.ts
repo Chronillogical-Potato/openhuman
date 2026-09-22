@@ -3342,6 +3342,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Sortie',
   'conversations.composer.context.cost': 'Coût',
   'conversations.composer.command.clear': 'Effacer la conversation',
+  'conversations.todos.title': 'Tâches',
+  'conversations.todos.progress': '{completed} sur {total} terminées',
+  'conversations.todos.allDone': 'Tout est terminé',
+  'conversations.todos.status.pending': 'En attente',
+  'conversations.todos.status.inProgress': 'En cours',
+  'conversations.todos.status.completed': 'Terminée',
+  'conversations.goal.title': 'Objectif',
+  'conversations.goal.status.active': 'Actif',
+  'conversations.goal.status.paused': 'En pause',
+  'conversations.goal.status.budgetLimited': 'Budget atteint',
+  'conversations.goal.status.complete': 'Terminé',
+  'conversations.goal.tokens': '{used} jetons',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} jetons',
   'conversations.planReview.title': 'Examiner le plan',
   'conversations.planReview.subtitle':
     'Approuvez pour l’exécuter, rejetez pour l’abandonner ou envoyez un retour pour le réviser.',
@@ -3439,12 +3452,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': "Dernier diagramme d'architecture OpenHuman généré",
   'intelligence.diagram.refreshesEvery': 'Actualise toutes les {seconds}s',
   'intelligence.memoryText.entityTypePrefix': "Type d'entité",
-  'intelligence.workTask.sourceTaskHeading': 'Tâche source :',
-  'intelligence.workTask.repositoryLine': '- Dépôt : {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externe : {externalId}',
-  'intelligence.workTask.urlLine': '- URL : {url}',
-  'intelligence.workTask.closingInstruction':
-    "Commencez par reformuler brièvement le plan d'implémentation concret, puis exécutez-le. Gardez la progression visible dans ce fil et mettez à jour le tableau des tâches lorsque l'état du travail change.",
   'intelligence.refine.objectiveDefault':
     "Transformez la tâche source en une tâche d'agent prête à être implémentée : {title}",
   'intelligence.refine.sourceLine': 'Source : {url}',
@@ -4928,9 +4935,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Toutes les 2 heures',
   'settings.devWorkflow.schedule.every6hours': 'Toutes les 6 heures',
   'settings.devWorkflow.schedule.onceDaily': 'Une fois par jour (9 h)',
-  'settings.developerMenu.tasks.title': 'Tâches',
-  'settings.developerMenu.tasks.desc':
-    'Parcourez et gérez les tableaux de tâches: vos propres to-dos ainsi que les tableaux créés par les agents au fil des conversations.',
   'settings.developerMenu.cronJobs.title': 'Tâches cron',
   'settings.developerMenu.cronJobs.desc':
     "Afficher et configurer les tâches planifiées des compétences d'exécution",
@@ -5036,9 +5040,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': "Confiner à l'espace de travail",
   'settings.agentAccess.confine.desc':
     "Restreignez l'agent au répertoire de l'espace de travail (plus tous les dossiers accordés), quel que soit le mode d'accès sélectionné. Lorsqu'il est désactivé, il peut accéder à n'importe quel endroit auquel votre utilisateur peut accéder, sauf aux répertoires d'identifiants et système toujours bloqués.",
-  'settings.agentAccess.requireTaskPlanApproval.label': "Exiger l'approbation du plan de tâche",
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
   'settings.agentAccess.autoApproveAll.label': 'Approuver automatiquement toutes les actions',
   'settings.agentAccess.autoApproveAll.desc':
     "Une fois activé, l'agent exécutera toutes les actions sans demander votre approbation au préalable. Cela inclut l'écriture de fichiers, les commandes shell, les requêtes réseau et tout autre effet secondaire. Les blocages de sécurité stricts (répertoires d'identifiants, chemins internes de l'espace de travail) continuent de s'appliquer.",
