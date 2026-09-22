@@ -39,7 +39,7 @@ use serde_json::{json, Value};
 use super::ops_discover::{discover_workflows, is_workspace_trusted};
 use super::ops_types::Workflow;
 use crate::config::Config;
-use crate::util::bm25::Bm25Index;
+use tinytools::rank::Bm25Index;
 use tinytools::{Tool, ToolResult};
 
 /// How many matches a search returns when the caller does not say.

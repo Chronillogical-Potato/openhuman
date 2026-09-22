@@ -1085,17 +1085,11 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::tools::toolpacks::append_pack_tools(&mut tools);
-
-    // The lookup half of `ToolExposure::Deferred`. Always registered, for the
-    // same reason `use_skill` is: whether anything is actually deferred depends
-    // on the agent's belt, which is resolved later in the session builder, and
-    // a search tool that arrived *after* the tools it searches were hidden
-    // would be one release of silently unreachable capabilities. Its index
-    // starts empty and costs one small schema; the builder fills it via
-    // `bind_tool_search_index`.
-    tools.push(Box::new(
-        crate::tools::implementations::meta::ToolSearchTool::new(),
-    ));
+    // The lookup half of `ToolExposure::Deferred` is not registered here: the
+    // tinyagents harness advertises its intrinsic `tool_search` / `tool_call`
+    // bridge whenever a run has a deferred tool (`tool::discover`), ranked by
+    // whatever `agent::tinyagents::discovery` installed. A host-registered
+    // `tool_search` would shadow that bridge.
     tools
 }
 
