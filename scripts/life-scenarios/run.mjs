@@ -461,6 +461,7 @@ class ApprovalResponder {
     this.core = core;
     this.intervalMs = intervalMs;
     this.decisions = [];
+    this.seen = new Set();
     this.running = false;
     this.errors = [];
   }
