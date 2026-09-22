@@ -641,8 +641,14 @@ impl OpenHumanSessionHost {
                         // The tool stays in `synthed`, so it stays registered
                         // and dispatchable for a replayed transcript or a saved
                         // skill that names it — exactly like a packed tool.
+                        //
+                        // A synthesised `Deferred` tool (a per-action
+                        // integration tool) is likewise not advertised: it is
+                        // reachable through `tool_search` when the belt opts
+                        // in, and the session builder keeps it in the deferred
+                        // set beside the visible one.
                         for t in &synthed {
-                            if t.exposure() == tinytools::ToolExposure::Hidden {
+                            if t.exposure() != tinytools::ToolExposure::Direct {
                                 continue;
                             }
                             set.insert(t.name().to_string());

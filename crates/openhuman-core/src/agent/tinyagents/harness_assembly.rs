@@ -147,6 +147,11 @@ pub(super) fn assemble_turn_harness(
     let mut policy = run_policy_for(max_iterations, deterministic_cacheable);
     let route_fallback = routes::route_fallback_policy(model);
     policy.fallback = route_fallback.clone();
+    // Tool discovery: the harness advertises its `tool_search` bridge over the
+    // `Deferred` registrations the allowlist admits, ranked by whatever the
+    // process installed (`agent::tinyagents::discovery`).
+    policy.discovery = super::discovery::discovery_policy();
+
     policy.tool_dialect = tool_dialect;
     tracing::debug!(
         model,

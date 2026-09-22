@@ -12,7 +12,7 @@
 //! deciding it should.
 //!
 //! Search is the third way: pay for the one skill that matches, and nothing for
-//! the rest. It is the same bargain [`crate::tools::implementations::meta::tool_search`]
+//! the rest. It is the same bargain [`crate::tools::implementations::meta::deferred`]
 //! makes for deferred tool schemas, over a different corpus.
 //!
 //! # What it returns, and what it does not
@@ -24,7 +24,7 @@
 //!
 //! # The seam
 //!
-//! Ranking is [`crate::util::bm25`], which names nothing from this
+//! Ranking is [`tinytools::rank::Bm25Index`], which names nothing from this
 //! crate. The host-owned half is everything else in this file: which roots are
 //! scanned and whether the workspace is trusted. That is the split to preserve
 //! if this ever becomes a loadable module — a module can rank, but it cannot be
@@ -39,7 +39,7 @@ use serde_json::{json, Value};
 use super::ops_discover::{discover_workflows, is_workspace_trusted};
 use super::ops_types::Workflow;
 use crate::config::Config;
-use crate::util::bm25::Bm25Index;
+use tinytools::rank::Bm25Index;
 use tinytools::{Tool, ToolResult};
 
 /// How many matches a search returns when the caller does not say.

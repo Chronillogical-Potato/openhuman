@@ -29,6 +29,11 @@ pub struct InstallOptions {
     /// gate hides them — or turn it off to keep them out of the registry
     /// entirely.
     pub hosted_controllers: bool,
+    /// Install the Jev-backed `tool_search` ranker (`crate::jev`) as the
+    /// core's process-wide ranker. Default `true`; only meaningful with the
+    /// `jev` feature, and only used when `agent.tool_search.ranker` lets it.
+    /// Without it the harness ranks `tool_search` with BM25 alone.
+    pub tool_ranker: bool,
 }
 
 impl Default for InstallOptions {
@@ -36,6 +41,7 @@ impl Default for InstallOptions {
         Self {
             product_identity: None,
             hosted_controllers: true,
+            tool_ranker: true,
         }
     }
 }
@@ -50,6 +56,12 @@ impl InstallOptions {
     /// Whether to register the hosted RPC proxies (default `true`).
     pub fn hosted_controllers(mut self, enabled: bool) -> Self {
         self.hosted_controllers = enabled;
+        self
+    }
+
+    /// Whether to install the Jev `tool_search` ranker (default `true`).
+    pub fn tool_ranker(mut self, enabled: bool) -> Self {
+        self.tool_ranker = enabled;
         self
     }
 }
@@ -92,6 +104,13 @@ pub fn install(options: InstallOptions) -> Result<Arc<SdkBackendTransport>, Inst
         // Idempotent in the core: an identical re-registration is a no-op.
         register_controller_extension(crate::hosted::extension())
             .map_err(InstallError::Registry)?;
+    }
+
+    #[cfg(feature = "jev")]
+    if options.tool_ranker {
+        // Idempotent in the core: the slot is replaced in place. The ranker
+        // resolves the credential per search, so nothing here needs a login.
+        crate::jev::install_jev_ranker();
     }
 
     if let Some(existing) = guard.as_ref() {

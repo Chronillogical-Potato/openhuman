@@ -363,6 +363,117 @@ impl EventListener for OpenhumanEventBridge {
                     }
                 }
             }
+            AgentEvent::ToolsAdvertised {
+                direct,
+                deferred,
+                schema_bytes,
+            } => {
+                tracing::info!(
+                    direct,
+                    deferred,
+                    schema_bytes,
+                    "[tool-search] tools advertised for run (deferred reachable via tool_search)"
+                );
+            }
+            AgentEvent::DeferredToolCall { call_id, tool_name } => {
+                // The following `ToolStarted` names the real tool; this only
+                // records that it arrived through the bridge.
+                tracing::debug!(
+                    call_id = call_id.as_str(),
+                    tool = tool_name.as_str(),
+                    "[tool-search] deferred tool invoked through tool_call"
+                );
+            }
+            AgentEvent::ToolSearched {
+                call_id,
+                query,
+                matched,
+                ranker,
+                top_confidence,
+                fallback,
+                shadow_matched,
+                latency_ms,
+            } => {
+                // The harness answers `tool_search` itself, so no
+                // `ToolStarted`/`ToolCompleted` pair exists for it. Project a
+                // synthetic pair so the timeline shows the search and the trace
+                // gets a `tool.tool_search` span carrying the ranking facts —
+                // that span is how a Jev-vs-BM25 comparison is read off live
+                // traffic. Never the query text in a log line; it is user
+                // content. The arguments ride the progress event, which is
+                // content-gated at the collector like every tool's.
+                tracing::info!(
+                    call_id = call_id.as_str(),
+                    matched,
+                    ranker = ranker.as_str(),
+                    top_confidence = ?top_confidence,
+                    fallback = ?fallback,
+                    shadow_agrees = ?shadow_matched.as_ref().map(|_| ()),
+                    latency_ms,
+                    "[tool-search] answered"
+                );
+                let iteration = self.iteration();
+                let tool_name = tinyagents_harness::tool::discover::TOOL_SEARCH_NAME.to_string();
+                let arguments = serde_json::json!({ "query": query });
+                let output = serde_json::json!({
+                    "matched": matched,
+                    "ranker": ranker,
+                    "top_confidence": top_confidence,
+                    "fallback": fallback,
+                    "shadow_matched": shadow_matched,
+                    "latency_ms": latency_ms,
+                })
+                .to_string();
+                let output_chars = output.chars().count();
+                match &self.scope {
+                    None => {
+                        self.send(AgentProgress::ToolCallStarted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: tool_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some("Searching tools".to_string()),
+                            display_detail: None,
+                        });
+                        self.send(AgentProgress::ToolCallCompleted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name,
+                            success: true,
+                            output_chars,
+                            output,
+                            arguments: Some(arguments),
+                            elapsed_ms: *latency_ms,
+                            iteration,
+                            failure: None,
+                        });
+                    }
+                    Some(s) => {
+                        self.send(AgentProgress::SubagentToolCallStarted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: tool_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some("Searching tools".to_string()),
+                            display_detail: None,
+                        });
+                        self.send(AgentProgress::SubagentToolCallCompleted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name,
+                            success: true,
+                            output_chars,
+                            output,
+                            arguments: Some(arguments),
+                            elapsed_ms: *latency_ms,
+                            iteration,
+                            failure: None,
+                        });
+                    }
+                }
+            }
             AgentEvent::ToolStarted { call_id, tool_name } => {
                 // Unknown/invisible tool calls no longer produce a sentinel-named
                 // Started event: the migration replaced `UNKNOWN_TOOL_SENTINEL` +
