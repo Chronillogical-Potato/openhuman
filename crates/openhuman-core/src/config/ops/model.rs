@@ -245,6 +245,8 @@ pub async fn apply_model_settings(
         config.subconscious_provider = normalise_provider(s);
     }
 
+    complete_byok_route(config, &explicit_role_pins);
+
     config.save().await.map_err(|e| e.to_string())?;
     // #1574 §4: the AIPanel workload matrix changes the embedder via THIS
     // (model-settings) path — `embeddings_provider` above — not the
