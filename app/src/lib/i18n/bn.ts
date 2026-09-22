@@ -3193,7 +3193,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian সাবডোমেইন লেবেল',
   'composio.connect.cancelConnection': 'সংযোগ বাতিল করুন',
   'composio.connect.cancelFailed': 'সংযোগ বাতিল করা যায়নি: {msg}',
-  'composio.connect.cancelNotConfirmed': 'Composio সংযোগটি সরানো হয়েছে বলে নিশ্চিত করেনি। আবার চেষ্টা করুন।',
+  'composio.connect.cancelNotConfirmed':
+    'Composio সংযোগটি সরানো হয়েছে বলে নিশ্চিত করেনি। আবার চেষ্টা করুন।',
   'composio.connect.cancelling': 'বাতিল করা হচ্ছে…',
   'composio.connect.connect': 'সংযোগ করুন',
   'composio.connect.connectedAccounts': 'সংযুক্ত অ্যাকাউন্ট',

@@ -3617,7 +3617,8 @@ const en: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian subdomain',
   'composio.connect.cancelConnection': 'Cancel connection',
   'composio.connect.cancelFailed': "Couldn't cancel the connection: {msg}",
-  'composio.connect.cancelNotConfirmed': 'Composio did not confirm the connection was removed. Try again.',
+  'composio.connect.cancelNotConfirmed':
+    'Composio did not confirm the connection was removed. Try again.',
   'composio.connect.cancelling': 'Cancelling…',
   'composio.connect.connect': 'Connect',
   'composio.connect.connectedAccounts': 'Connected accounts',
