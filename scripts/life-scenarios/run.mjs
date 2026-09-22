@@ -955,36 +955,17 @@ async function main() {
   // `channel_web_chat` carries no per-turn route, so on the desktop path this
   // is the only way to run BYOK — which is also how a BYOK desktop user runs.
   if (!opts.managed) {
-    // `inference_url` + `api_key` on their own are NOT enough, despite the
-    // field's own documentation ("When set together with `api_key`, inference
-    // goes direct to this URL instead of the OpenHuman backend"). The write is
-    // accepted, and then the next turn dies with
-    //   [chat-factory] BYOK_INCOMPLETE: inference_url is set to a
-    //   custom/direct endpoint but no matching cloud_providers entry was found
-    // because `provider_for_role` resolves through `cloud_providers`, not
-    // through `inference_url`. The endpoint has to be registered as a provider
-    // and each agent-turn role pinned to it — which is what the Settings →
-    // Models screen ends up writing.
-    const slug = "life-scenarios-byok";
-    const providerString = `${slug}:${opts.model}`;
+    // The three documented BYOK fields, and nothing else. Until
+    // `complete_byok_route` (crates/openhuman-core/src/config/ops/model.rs)
+    // this was accepted and then every turn died `BYOK_INCOMPLETE`, because
+    // role resolution goes through `cloud_providers` and nothing had put the
+    // endpoint there; the caller had to hand-build a provider entry and pin
+    // four roles. That this short form now routes is the end-to-end check on
+    // that fix.
     await core.rpc("openhuman.config_update_model_settings", {
       inference_url: opts.inferenceUrl,
       api_key: opts.apiKey,
       default_model: opts.model,
-      cloud_providers: [
-        {
-          id: slug,
-          slug,
-          label: "Life Scenarios BYOK",
-          endpoint: opts.inferenceUrl,
-          auth_style: "bearer",
-        },
-      ],
-      primary_cloud: slug,
-      chat_provider: providerString,
-      reasoning_provider: providerString,
-      agentic_provider: providerString,
-      coding_provider: providerString,
     });
   }
   console.log(
