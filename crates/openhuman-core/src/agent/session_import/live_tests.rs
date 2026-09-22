@@ -36,8 +36,8 @@ fn durable_messages(
 }
 
 /// A transcript meta header matching the importer's `native` fixture shape.
-fn meta(thread_id: &str) -> TranscriptMeta {
-    TranscriptMeta {
+fn meta(thread_id: &str) -> TranscriptMeta { session_id: None, parent_session_id: None,
+    TranscriptMeta { session_id: None, parent_session_id: None,
         agent_name: "orchestrator".to_string(),
         agent_id: Some("orchestrator".to_string()),
         agent_type: Some("root".to_string()),

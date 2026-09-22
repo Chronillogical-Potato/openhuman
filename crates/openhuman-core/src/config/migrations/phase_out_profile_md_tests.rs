@@ -13,8 +13,8 @@ fn durable_messages(
         .collect()
 }
 
-fn meta() -> TranscriptMeta {
-    TranscriptMeta {
+fn meta() -> TranscriptMeta { session_id: None, parent_session_id: None,
+    TranscriptMeta { session_id: None, parent_session_id: None,
         agent_name: "main".into(),
         agent_id: None,
         agent_type: None,

@@ -278,8 +278,8 @@ async fn committed_goal_accounting_uses_direct_and_completed_child_usage() {
     );
 }
 
-fn meta() -> TranscriptMeta {
-    TranscriptMeta {
+fn meta() -> TranscriptMeta { session_id: None, parent_session_id: None,
+    TranscriptMeta { session_id: None, parent_session_id: None,
         agent_name: "adapter-test".into(),
         agent_id: Some("adapter-test".into()),
         agent_type: Some("root".into()),

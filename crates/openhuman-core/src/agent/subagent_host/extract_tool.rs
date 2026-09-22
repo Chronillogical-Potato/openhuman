@@ -603,7 +603,7 @@ fn write_extract_transcript(
         iteration: 1,
     };
 
-    let meta = TranscriptMeta {
+    let meta = TranscriptMeta { session_id: None, parent_session_id: None,
         agent_name: format!("{owner_agent_id}::extract_from_result"),
         agent_id: Some(owner_agent_id.to_string()),
         agent_type: Some("extractor".to_string()),
