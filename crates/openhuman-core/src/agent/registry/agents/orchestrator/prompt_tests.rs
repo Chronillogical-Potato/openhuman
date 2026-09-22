@@ -283,7 +283,11 @@ fn build_includes_direct_first_decision_tree() {
     // a `tool_search` + direct call rather than memory or a sub-agent.
     assert!(body.contains("Needs a connected service's own data or actions"));
     assert!(body.contains("Use the live service even when memory could plausibly answer"));
-    assert!(body.contains("there is no integrations sub-agent"));
+    assert!(body.contains("No sub-agent runs it for you"));
+    // The lead-in rule lives on the branch where the failure was observed: a
+    // live run had the model answer "let me search for the right tool" and
+    // end the turn without emitting the `tool_search` call.
+    assert!(body.contains("an announced search never happens"));
     assert!(!body.contains("delegate_to_integrations_agent"));
 }
 
@@ -294,7 +298,7 @@ fn build_routes_live_facts_to_research_tool() {
     assert!(body.contains("weather, forecasts, prices, recent news"));
     assert!(body.contains("\"use live data\""));
     // A lead-in line is welcome, but only in the same message as the call.
-    assert!(body.contains("Don't stop at a lead-in; make the tool call in the same message."));
+    assert!(body.contains("emit the call itself in that message"));
     assert!(
         !body.contains("delegate_researcher"),
         "orchestrator prompt should name the synthesized researcher tool"
@@ -529,7 +533,7 @@ fn build_includes_evidence_aware_synthesis_contract() {
     assert!(body.contains("truncated, oversized, partial or unavailable"));
     assert!(body.contains("Preserve numeric evidence exactly"));
     assert!(body.contains("plus whatever `tool_search` returns"));
-    assert!(body.contains("call `tool_search` with the intent in plain words"));
+    assert!(body.contains("`tool_search` with the intent in plain words"));
 }
 
 #[test]
