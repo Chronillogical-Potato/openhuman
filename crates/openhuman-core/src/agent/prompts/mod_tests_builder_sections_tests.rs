@@ -645,6 +645,49 @@ fn tools_section_uses_pformat_signature_for_text_dispatchers() {
 }
 
 #[test]
+fn tools_section_json_with_an_embedded_catalogue_lists_tools_once() {
+    // `XmlDialect::prompt_instructions` embeds the full-schema catalogue, so
+    // the section must not put the signature catalogue in front of it: the
+    // orchestrator's 31 tools were listed twice (13 KB + 28 KB) that way.
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let prompt_tools = PromptTool::from_tools(&tools);
+    let specs = vec![tinytools::ToolSpec {
+        name: "test_tool".into(),
+        description: "tool desc".into(),
+        parameters: serde_json::json!({"type": "object"}),
+    }];
+    let block = tinytools_agent::dialect::XmlDialect.prompt_instructions(&specs);
+    let ctx = PromptContext {
+        workspace_dir: Path::new("/tmp"),
+        model_name: "test-model",
+        agent_id: "",
+        tools: &prompt_tools,
+        workflows: &[],
+        dispatcher_instructions: &block,
+        learned: LearnedContextData::default(),
+        visible_tool_names: &NO_FILTER,
+        tool_call_format: ToolCallFormat::Json,
+        connected_integrations: &[],
+        connected_identities_md: String::new(),
+        include_profile: false,
+        include_memory_md: false,
+        curated_snapshot: None,
+        user_identity: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+    let rendered = ToolsSection.build(&ctx).unwrap();
+    assert_eq!(
+        rendered.matches("**test_tool**").count(),
+        1,
+        "listed once, in the dialect's own catalogue:\n{rendered}"
+    );
+    assert!(!rendered.contains("Call as:"), "{rendered}");
+    assert!(rendered.contains("Parameters:"), "{rendered}");
+}
+
+#[test]
 fn user_memory_section_renders_namespaces_with_headings() {
     let learned = LearnedContextData {
         tree_root_summaries: vec![
