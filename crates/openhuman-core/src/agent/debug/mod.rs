@@ -449,8 +449,8 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     let prompt_tools: Vec<PromptTool<'_>> = rendered_tools
         .iter()
         .map(|t| PromptTool {
-            name: t.name(),
-            description: t.description(),
+            name: std::borrow::Cow::Borrowed(t.name()),
+            description: std::borrow::Cow::Borrowed(t.description()),
             parameters_schema: Some(t.parameters_schema().to_string()),
         })
         .collect();

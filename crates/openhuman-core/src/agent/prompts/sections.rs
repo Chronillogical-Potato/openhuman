@@ -381,7 +381,7 @@ impl PromptSection for ToolsSection {
         let visible: Vec<ToolSpec> = ctx
             .tools
             .iter()
-            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name))
+            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name.as_ref()))
             .map(|tool| {
                 let parameters = match tool.parameters_schema.as_deref() {
                     Some(schema) => match serde_json::from_str(schema) {

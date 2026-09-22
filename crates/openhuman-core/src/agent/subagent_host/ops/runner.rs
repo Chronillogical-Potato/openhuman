@@ -1370,14 +1370,14 @@ async fn run_typed_mode(
         .map(|&i| {
             let t = parent.all_tools[i].as_ref();
             PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             }
         })
         .chain(dynamic_tools.iter().map(|t| PromptTool {
-            name: t.name(),
-            description: t.description(),
+            name: std::borrow::Cow::Borrowed(t.name()),
+            description: std::borrow::Cow::Borrowed(t.description()),
             parameters_schema: Some(t.parameters_schema().to_string()),
         }))
         .collect();
