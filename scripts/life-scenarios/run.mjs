@@ -30,6 +30,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SCENARIOS, scenarioById } from "./scenarios.mjs";
+import { startMockComposio } from "./mock-composio.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -191,6 +192,44 @@ async function snapshotTree(root) {
   }
   await walk(root);
   return out;
+}
+
+
+/**
+ * Build the throwaway HOME the benchmark core runs under.
+ *
+ * Config is written from scratch rather than copied from the operator's
+ * install: a copied `config.toml` drags along whatever `api_url`, provider
+ * pins and autonomy settings that machine happens to have, and a benchmark
+ * that silently inherits those measures the machine, not the harness.
+ */
+async function prepareHome(runDir) {
+  const home = path.join(runDir, "home");
+  const oh = path.join(home, ".openhuman");
+  await fsp.mkdir(oh, { recursive: true });
+  const config = [
+    "schema_version = 13",
+    'api_url = "https://api.tinyhumans.ai"',
+    "default_temperature = 0.7",
+    "onboarding_completed = true",
+    "chat_onboarding_completed = true",
+    "",
+    "[autonomy]",
+    // The sandbox IS the action_dir, and the whole point is to watch the agent
+    // read and write inside it unattended. `workspace_only = false` keeps the
+    // action_dir (not the internal workspace) as the permitted root; the Rust
+    // path checks, the forbidden-path list and the command classifier are all
+    // untouched.
+    'level = "autonomous"',
+    "workspace_only = false",
+    "",
+    "[observability]",
+    "analytics_enabled = false",
+    "share_usage_data = false",
+    "",
+  ].join("\n");
+  await fsp.writeFile(path.join(oh, "config.toml"), config);
+  return home;
 }
 
 // ---------------------------------------------------------------------------
@@ -551,11 +590,29 @@ async function main() {
       `core binary not found at ${opts.coreBin}\n` +
         `build it: cargo build --manifest-path Cargo.toml -p openhuman-cli --bin openhuman-core`,
     );
+  if (!opts.managed && !opts.apiKey)
+    throw new Error(
+      "no inference key: set OPENROUTER_API_KEY, pass --api-key, or use --managed",
+    );
+
+  const home = await prepareHome(runDir);
+
+  let composio = null;
+  if (opts.mockComposio) {
+    composio = await startMockComposio({
+      fixtureRoot: FIXTURES,
+      outboxPath: path.join(runDir, "composio-outbox.json"),
+      port: opts.composioPort,
+    });
+    console.log(`composio: mock at ${composio.url} (${composio.ctx.mailbox.length} messages, ${composio.ctx.calendar.length} events)`);
+  }
 
   const health = await core.start({
     actionDir: actionRoot,
     logPath: path.join(runDir, "core.log"),
     approvalGate: opts.approvalGate,
+    home,
+    composioBase: composio ? composio.url : "",
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
 
@@ -612,6 +669,13 @@ async function main() {
     }
   } finally {
     await core.stop();
+    if (composio) {
+      await fsp.writeFile(
+        path.join(runDir, "composio-requests.json"),
+        JSON.stringify({ requests: composio.ctx.requests, outbox: composio.ctx.outbox }, null, 2),
+      );
+      await composio.close();
+    }
   }
 
   printReport(results);
