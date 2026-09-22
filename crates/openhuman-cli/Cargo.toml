@@ -95,6 +95,13 @@ required-features = ["rss-bench"]
 # otherwise gate-free target — required-features is the blunt instrument, and
 # it costs the whole target when the gate is off.
 [[test]]
+# Reproduction of the removed spend cap: needs its own process because the
+# global CostTracker is a `OnceCell`, so a shared `--lib` process makes the
+# spend state order-dependent.
+name = "cost_cap_removed"
+path = "../../tests/cost_cap_removed.rs"
+
+[[test]]
 name = "observability_smoke"
 path = "../../tests/observability_smoke.rs"
 # The `is_*_event` Sentry filters are all `#[cfg(feature = "crash-reporting")]`.
