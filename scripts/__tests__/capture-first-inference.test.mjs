@@ -126,6 +126,22 @@ async function post(port, urlPath, body, headers = {}) {
   return { status: res.status, text: await res.text() };
 }
 
+// The proxy writes its stdout summary line and closes the HTTP response from
+// the same synchronous handler, in that order, but the two travel to this
+// test over different channels — a pipe for stdout, a loopback socket for the
+// response — with no ordering guarantee between them once they leave the
+// child process. `fetch()` resolving is therefore not proof the stdout bytes
+// have arrived yet; poll briefly instead of asserting the instant it returns.
+async function waitForOutput(getOutput, pattern, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const output = getOutput();
+    if (pattern.test(output)) return output;
+    if (Date.now() >= deadline) return output;
+    await new Promise(r => setTimeout(r, 10));
+  }
+}
+
 let upstream;
 let proxy;
 let workDir;
