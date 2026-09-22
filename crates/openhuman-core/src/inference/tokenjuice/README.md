@@ -1,7 +1,9 @@
 # OpenHuman TokenJuice Adapter
 
 The reusable compression engine ships as the separately released `tinyjuice`
-TinyBus module. It is not linked into OpenHuman's dependency graph. This
+TinyBus module. Its stateful half — the router, the CCR cache, the rule engine,
+ranged retrieval — runs there and is reached only over the bus; its stateless
+content transforms are linked directly (see "What is linked" below). This
 directory is the host adapter and shared wire-contract layer.
 
 OpenHuman-owned files:
