@@ -2,9 +2,8 @@
 //!
 //! One call writes the whole list: `{"todos": [{"content", "status"}]}`.
 //! There is no per-item CRUD; the list is a progress checklist the model
-//! rewrites as it works. It is scoped
-//! to the agent session the turn runs in (in memory, for the life of the
-//! process) via [`crate::agent::todos::ops`]; without a session (a bare
+//! rewrites as it works. It is scoped to the agent session the turn runs in
+//! (in memory, for the life of the process) via [`crate::agent::todos::ops`]; without a session (a bare
 //! `execute` in a test) it falls back to a scratch list. Calling with no
 //! `todos` returns the current list.
 
