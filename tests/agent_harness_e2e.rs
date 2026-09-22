@@ -3298,7 +3298,7 @@ fn packed_tool_call_completion(pack: &str, tool: &str, args: Value) -> Value {
 /// passed as an argument would otherwise read as a pass.
 fn tool_result_text(requests: &[Value], tool_name: &str) -> Option<String> {
     let call_id = format!("call_{tool_name}");
-    requests
+    let legacy_result = requests
         .iter()
         .filter_map(|request| request.pointer("/body/messages").and_then(Value::as_array))
         .flatten()
@@ -3317,7 +3317,26 @@ fn tool_result_text(requests: &[Value], tool_name: &str) -> Option<String> {
                 "`{tool_name}` was not a tool the calling agent could reach: {text}"
             );
             text
-        })
+        });
+
+    // TinyAgents' prompt-rendered dialect represents tool results as a user
+    // message containing a `<tool_result>` block rather than an OpenAI `tool`
+    // message. Keep accepting the latter so this assertion remains about the
+    // session boundary, not a provider-wire implementation detail.
+    legacy_result.or_else(|| {
+        let marker = format!("<tool_result id=\"{call_id}\">");
+        requests
+            .iter()
+            .filter_map(|request| request.pointer("/body/messages").and_then(Value::as_array))
+            .flatten()
+            .filter_map(|message| message.get("content").and_then(Value::as_str))
+            .find_map(|content| {
+                content
+                    .split_once(&marker)
+                    .and_then(|(_, result)| result.split_once("</tool_result>"))
+                    .map(|(result, _)| result.trim().to_string())
+            })
+    })
 }
 
 #[cfg(feature = "skills")]
@@ -3535,8 +3554,11 @@ async fn agent_installs_a_registry_skill_then_runs_it_inner() {
 // These tests pin both halves against a real session.
 
 /// Tool names a captured model request advertised to the provider.
+///
+/// TinyAgents renders the function catalogue into system-prompt `def` lines
+/// for text-dialect providers, rather than sending an OpenAI `tools` array.
 fn advertised_tool_names(request: &Value) -> Vec<String> {
-    request
+    let schema_names = request
         .pointer("/body/tools")
         .and_then(Value::as_array)
         .into_iter()
@@ -3546,8 +3568,21 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
                 .or_else(|| tool.get("name"))
                 .and_then(Value::as_str)
                 .map(str::to_string)
-        })
-        .collect()
+        });
+    let prompt_names = request
+        .pointer("/body/messages")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|message| message.get("role").and_then(Value::as_str) == Some("system"))
+        .filter_map(|message| message.get("content").and_then(Value::as_str))
+        .flat_map(|content| content.lines())
+        .filter_map(|line| {
+            line.strip_prefix("def ")
+                .and_then(|signature| signature.split_once('('))
+                .map(|(name, _)| name.to_string())
+        });
+    schema_names.chain(prompt_names).collect()
 }
 
 /// One scripted turn in which the orchestrator hands a request to a specialist
