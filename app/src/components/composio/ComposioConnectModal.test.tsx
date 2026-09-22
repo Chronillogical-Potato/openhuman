@@ -864,20 +864,80 @@ describe('<ComposioConnectModal> — cancelling a pending connection', () => {
     }
   });
 
-  it('cancels without an RPC when no connection id is known (direct mode)', async () => {
-    // Direct mode returns an empty connectionId, so there is nothing to
-    // delete — cancel must still release the user from the waiting phase.
+  it('finds and deletes the pending row by toolkit when authorize returned no id', async () => {
+    // Direct mode's authorize emits an empty connectionId. Releasing the UI
+    // without deleting anything would leave the row Composio created behind —
+    // the same stuck PENDING this button exists to clear — so cancel has to
+    // look it up by toolkit first.
     vi.mocked(composioApi.authorize).mockResolvedValue({
       connectUrl: 'https://hosted.composio.dev/test-token',
       connectionId: '',
+    });
+    vi.mocked(composioApi.listConnections).mockResolvedValue({
+      connections: [
+        { id: 'ca_other_toolkit', toolkit: 'slack', status: 'INITIATED' },
+        { id: 'ca_direct', toolkit: 'gmail', status: 'INITIATED' },
+      ],
     });
 
     render(<ComposioConnectModal toolkit={mockToolkit} onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
     fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
 
+    await waitFor(() => {
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_direct');
+    });
     expect(await screen.findByRole('button', { name: /Connect Gmail/ })).toBeInTheDocument();
-    expect(composioApi.deleteConnection).not.toHaveBeenCalled();
+  });
+
+  it('does not report success when the backend did not confirm the delete', async () => {
+    // `deleted: false` means the row is still there. Flipping to idle would
+    // tell the user the handoff is gone while Composio still holds it.
+    vi.mocked(composioApi.authorize).mockResolvedValue({
+      connectUrl: 'https://hosted.composio.dev/test-token',
+      connectionId: 'ca_new',
+    });
+    vi.mocked(composioApi.deleteConnection).mockResolvedValue({ deleted: false });
+    const onChanged = vi.fn();
+
+    render(<ComposioConnectModal toolkit={mockToolkit} onChanged={onChanged} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    expect(await screen.findByText(/did not confirm/i)).toBeInTheDocument();
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it('ignores a poll that was already in flight when cancel ran', async () => {
+    // Clearing the timer cannot un-send a request. A tick that resolves after
+    // the delete must not push the modal back to "connected" for a connection
+    // that no longer exists.
+    let resolvePoll: (value: { connections: ComposioConnection[] }) => void = () => {};
+    const pending = new Promise<{ connections: ComposioConnection[] }>(resolve => {
+      resolvePoll = resolve;
+    });
+    vi.mocked(composioApi.listConnections).mockReturnValue(pending);
+
+    render(
+      <ComposioConnectModal
+        toolkit={mockToolkit}
+        connections={[{ id: 'ca_pending', toolkit: 'gmail', status: 'PENDING' }]}
+        onClose={() => {}}
+      />
+    );
+
+    // The mount poll is now in flight and will not settle until we say so.
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+    await waitFor(() => {
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_pending');
+    });
+
+    // The stale response lands late, claiming the toolkit went ACTIVE.
+    resolvePoll({ connections: [{ id: 'ca_pending', toolkit: 'gmail', status: 'ACTIVE' }] });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Connect Gmail/ })).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Gmail is connected/)).not.toBeInTheDocument();
   });
 
   it('returns to the connected view when a second-account handoff is cancelled', async () => {
