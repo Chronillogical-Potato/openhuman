@@ -117,13 +117,22 @@ impl Tool for WebFetchTool {
         true
     }
 
-    /// Cap web_fetch results at ~50k chars before they reach the
-    /// model. The tool itself already truncates byte-wise via
-    /// `max_bytes` (default 1MB), but a 1MB HTML page is still tens
-    /// of thousands of tokens — the agent rarely needs that much, and
-    /// when it does, `read_file` on a saved copy is the right tool.
+    /// How much of a page reaches the model in one result.
+    ///
+    /// Extraction does most of the work — after HTML→Markdown a long
+    /// documentation page is usually a few thousand chars — so this
+    /// bites only on genuinely large documents. What it no longer does
+    /// is throw the remainder away: `ToolOutputMiddleware` spills the
+    /// full extracted page to an artifact and returns the `file_read`
+    /// call that pages it, which is what this comment used to
+    /// recommend while the cap itself disabled the affordance.
+    ///
+    /// 24k rather than the old 50k because the point of reference
+    /// moved: 50k was a bound on raw markup, this is clean Markdown.
+    /// Hermes budgets 15,000 chars of extracted text for the same job;
+    /// Codex caps every tool result at ~10,000 tokens.
     fn max_result_size_chars(&self) -> Option<usize> {
-        Some(50_000)
+        Some(24_000)
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
