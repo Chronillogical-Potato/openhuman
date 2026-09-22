@@ -801,6 +801,14 @@ impl OpenHumanTurnPrelude {
             ),
         ));
         run_context.sandbox_mode = Some(self.sandbox_mode);
+        // Same pin as `SessionDriver::run_turn`: the harness speaks the dialect
+        // the prompt was composed for, so a text dialect keeps its schemas off
+        // the wire and renders the catalogue itself (`ToolsSection` no longer
+        // does), and a code call is recovered against the positional registry.
+        run_context.tool_dialect = crate::agent::prompts::tool_call_format_from_dialect(
+            self.tool_dispatcher.tool_call_format(),
+        )
+        .harness_dispatcher();
         run_context
             .stop_hooks
             .extend(crate::agent::stop_hooks::current_stop_hooks());
