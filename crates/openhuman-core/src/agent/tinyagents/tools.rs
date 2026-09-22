@@ -129,6 +129,19 @@ impl Tool for CanonicalSharedToolAdapter {
         self.resolved_tool().map(Tool::policy).unwrap_or_default()
     }
 
+    /// Forwarded so the harness advertises only `Direct` registrations and
+    /// indexes `Deferred` ones for its `tool_search` bridge. Without this
+    /// every registered tool reported `Direct` and the bridge stayed inert.
+    fn exposure(&self) -> tinytools::ToolExposure {
+        self.resolved_tool()
+            .map(Tool::exposure)
+            .unwrap_or_default()
+    }
+
+    fn family(&self) -> Option<&str> {
+        self.resolved_tool().and_then(Tool::family)
+    }
+
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         self.execute_with_context(
             args,
