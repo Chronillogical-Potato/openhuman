@@ -1604,6 +1604,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d57d423b3c82e89b9a24ca3091fee61f456a26edbd28d26c65906f4bc1dcd8f"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4026,7 +4035,7 @@ dependencies = [
  "cron",
  "curve25519-dalek",
  "directories",
- "dirs",
+ "dirs 6.0.0",
  "dotenvy",
  "ed25519-dalek",
  "enigo",
@@ -4199,7 +4208,7 @@ name = "openhuman-embed"
 version = "0.63.31"
 dependencies = [
  "anyhow",
- "dirs",
+ "dirs 6.0.0",
  "env_logger",
  "log",
  "openhuman",
@@ -6455,7 +6464,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
- "dirs",
+ "dirs 6.0.0",
  "flate2",
  "futures",
  "regex",
@@ -6868,7 +6877,7 @@ name = "tinyjuice"
 version = "0.2.5"
 dependencies = [
  "async-trait",
- "dirs",
+ "dirs 7.0.0",
  "hex",
  "log",
  "once_cell",
@@ -6888,6 +6897,7 @@ name = "tinyjuice-bus"
 version = "0.2.5"
 dependencies = [
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6896,7 +6906,7 @@ version = "0.3.2"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
- "dirs",
+ "dirs 6.0.0",
  "futures-util",
  "parking_lot",
  "reqwest",
