@@ -116,7 +116,9 @@ impl OpenHumanSessionHost {
         (
             Arc::clone(&self.tools),
             Arc::clone(&self.synthesized_tools),
-            self.visible_tool_names.clone(),
+            // Advertised plus deferred: the harness advertises only the
+            // `Direct` registrations and reaches the rest through its bridge.
+            self.reachable_tool_names(),
         )
     }
 

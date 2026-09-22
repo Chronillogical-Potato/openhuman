@@ -150,6 +150,15 @@ pub struct OpenHumanSessionHost {
     /// their per-definition scopes with the effective parent-visible set.
     /// Empty = no filter (all tools visible, backward compat).
     pub(super) visible_tool_names: std::collections::HashSet<String>,
+    /// Registered tools that left the wire under
+    /// [`ToolExposure::Deferred`](tinytools::ToolExposure): never in
+    /// [`Self::visible_tool_names`], never in the prompt's spec list, but
+    /// handed to the harness beside the visible set so its intrinsic
+    /// `tool_search` / `tool_call` bridge can find and run them. Empty for a
+    /// belt that did not opt into discovery. Classified `Allow` by the
+    /// policy session exactly like a visible tool — a found tool the gate
+    /// refused as "prompt-hidden" would be the old unusable find again.
+    pub(super) deferred_tool_names: std::collections::HashSet<String>,
     /// Explicit profile/channel ceiling inherited by delegated agents.
     ///
     /// This is deliberately separate from [`Self::visible_tool_names`]: a

@@ -75,38 +75,52 @@ impl SessionHostBuilder {
         );
         // Per-tool exposure: `Hidden` members of a collapsed tool (`memory_*`,
         // `todo_*`) and `Deferred` tools leave the wire; they stay registered
-        // and dispatchable. Only for a wildcard belt — a hand-written `[tools]
-        // named` list is already the answer to "what should this agent see".
+        // and dispatchable. A wildcard belt always gets this; a hand-written
+        // `[tools] named` list is already the answer to "what should this
+        // agent see", so it opts into discovery by naming `tool_search` — the
+        // harness's intrinsic bridge, not a registered tool, so the name is
+        // taken off the allowlist here and stands for "every deferred
+        // registration is reachable through the bridge".
         //
         // Only the DURABLE registry is passed, never `synthesized_tools`: every
         // `ArchetypeDelegationTool` reports `Hidden`, and on a wildcard belt the
         // synthesised delegates are the agent's only hand-off routes. Stripping
         // them would delete every `research`/`run_code`/… route.
-        // `strip_deferred_from_visible` only looks at the tools it is given.
         //
         // This is the one site that turns the "all visible" sentinel into a
         // concrete set for a session, so the refresh paths never re-admit a
         // durable Hidden tool: `refresh_delegation_tools` (turn/tools.rs) only
         // swaps synthesised names, and `OpenHumanSessionHost::hide_tools` only seeds a set
         // that is still empty — see the matching strip there.
-        let deferred = if belt_is_wildcard {
+        let discovery_opted_in =
+            visible_names.remove(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
+        let deferred_names = if belt_is_wildcard {
             crate::tools::implementations::meta::strip_deferred_from_visible(
                 &mut visible_names,
                 tools.as_slice(),
             )
+        } else if discovery_opted_in {
+            let deferred = crate::tools::implementations::meta::deferred_tool_names(tools.as_slice());
+            visible_names.retain(|name| !deferred.contains(name));
+            deferred
         } else {
-            Vec::new()
+            std::collections::HashSet::new()
         };
-        if !deferred.is_empty() {
+        if !deferred_names.is_empty() {
             tracing::info!(
                 agent = %agent_definition_name,
-                deferred = deferred.len(),
-                "[tools] withheld deferred tool schemas; reachable via tool_search"
+                deferred = deferred_names.len(),
+                "[tools] withheld deferred tool schemas; reachable via the harness tool_search bridge"
             );
         }
-        // Index them where the model can find them again. Done here rather than
-        // at registration because which tools are deferred depends on the belt.
-        crate::tools::implementations::meta::bind_tool_search_index(tools.as_slice(), deferred);
+        // What the policy classifies and the harness registers: the advertised
+        // set plus the deferred set. A deferred tool outside this union would
+        // be `HideFromPrompt`, and the direct-call gate refuses those.
+        let reachable_names: std::collections::HashSet<String> = visible_names
+            .iter()
+            .chain(deferred_names.iter())
+            .cloned()
+            .collect();
         let config = self.config.clone().unwrap_or_default();
         let event_session_id = self
             .event_session_id
@@ -128,7 +142,7 @@ impl SessionHostBuilder {
             "session",
             &config.channel_permissions,
             &all_tools,
-            &visible_names,
+            &reachable_names,
         );
         // A pack whose owner this agent can hand off to directly is that
         // specialist's belt, not this agent's: close it (#6302).
@@ -282,6 +296,7 @@ impl SessionHostBuilder {
             durable_tool_specs: Arc::new(durable_tool_specs),
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
+            deferred_tool_names: deferred_names,
             subagent_tool_ceiling_names,
             tool_policy_session,
             memory,

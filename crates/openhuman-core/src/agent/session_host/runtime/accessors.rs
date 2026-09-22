@@ -431,14 +431,27 @@ impl OpenHumanSessionHost {
             &mut self.visible_tool_names,
             &self.agent_definition_name,
         );
-        let deferred = crate::tools::implementations::meta::strip_deferred_from_visible(
+        self.deferred_tool_names = crate::tools::implementations::meta::strip_deferred_from_visible(
             &mut self.visible_tool_names,
             self.tools.as_slice(),
         );
-        crate::tools::implementations::meta::bind_tool_search_index(
-            self.tools.as_slice(),
-            deferred,
-        );
+    }
+
+    /// The names the harness registers for a turn: the advertised set plus
+    /// the deferred set the `tool_search` bridge can reach. The empty
+    /// wildcard sentinel stays empty — "no filter" already admits the
+    /// deferred tools.
+    pub(in crate::agent::session_host) fn reachable_tool_names(
+        &self,
+    ) -> std::collections::HashSet<String> {
+        if self.visible_tool_names.is_empty() {
+            return std::collections::HashSet::new();
+        }
+        self.visible_tool_names
+            .iter()
+            .chain(self.deferred_tool_names.iter())
+            .cloned()
+            .collect()
     }
 
     /// Remove `names` from the main agent's callable set for this session,
@@ -477,13 +490,14 @@ impl OpenHumanSessionHost {
         // registry alone would leave every `delegate_*` tool with no decision
         // at all.
         let all_tools = self.all_tool_refs();
+        let reachable = self.reachable_tool_names();
         let mut session = ToolPolicyEngine::build_session_from_refs(
             &self.agent_definition_name,
             &self.event_channel,
             "session",
             &self.config.channel_permissions,
             &all_tools,
-            &self.visible_tool_names,
+            &reachable,
         );
         // Same narrowing as the builder, re-applied on every rebuild so a
         // delegation refresh cannot reopen a closed pack (#6302).
