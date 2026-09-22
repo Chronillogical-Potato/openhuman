@@ -184,7 +184,7 @@ pub fn collect_orchestrator_tools(
 /// Gated actions are left out: the model cannot call them and the prompt's
 /// Connected Integrations section already explains how to unlock them.
 /// A collision on an action slug across two toolkits keeps the first
-/// arrival, like `sanitise_slug` collisions above.
+/// arrival.
 pub fn collect_deferred_integration_actions(
     connected_integrations: &[ConnectedIntegration],
 ) -> Vec<Box<dyn Tool>> {
