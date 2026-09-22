@@ -286,7 +286,7 @@ fn parse_tool_calls_recovers_mismatched_close_tag() {
 </arg_value>"#;
 
     let (text, calls) = parse_tool_calls(response);
-    assert!(text.is_empty());
+    assert!(text.contains("</arg_value>"));
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].name, "shell");
     assert_eq!(

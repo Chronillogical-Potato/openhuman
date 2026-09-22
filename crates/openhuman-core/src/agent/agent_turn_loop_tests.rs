@@ -128,7 +128,7 @@ async fn turn_emits_checkpoint_at_max_iterations() {
         .await
         .expect("hitting the iteration cap should return a checkpoint, not error");
     assert!(
-        reply.contains("tool call") && reply.contains("Tell me how you'd like to proceed"),
+        reply.contains("tool-call limit") && reply.contains("continue"),
         "Expected a resumable checkpoint summary, got: {reply}"
     );
     // The transcript ends on the assistant checkpoint (well-formed), which
@@ -137,7 +137,7 @@ async fn turn_emits_checkpoint_at_max_iterations() {
         matches!(
             agent.history().last(),
             Some(ConversationMessage::Chat(msg))
-                if msg.role == "assistant" && msg.content.contains("Tell me how you'd like to proceed")
+                if msg.role == "assistant" && msg.content.contains("tool-call limit")
         ),
         "history should end on the assistant checkpoint, got: {:?}",
         agent.history().last()
@@ -424,12 +424,9 @@ async fn turn_errors_on_empty_text_response() {
 
     let (mut agent, _tmp) = build_agent_with(provider, vec![], Box::new(NativeDialect));
 
-    let reply = agent
-        .turn("hi")
-        .await
-        .expect("an empty provider response should be closed");
+    let reply = agent.turn("hi").await.expect_err("an empty provider response must error");
     assert!(
-        reply.contains("produced no result"),
+        reply.to_string().contains("empty response"),
         "expected a deterministic empty-response close, got: {reply}"
     );
 }
@@ -445,12 +442,9 @@ async fn turn_errors_on_none_text_response() {
 
     let (mut agent, _tmp) = build_agent_with(provider, vec![], Box::new(NativeDialect));
 
-    let reply = agent
-        .turn("hi")
-        .await
-        .expect("a null-text provider response should be closed");
+    let reply = agent.turn("hi").await.expect_err("a null-text provider response must error");
     assert!(
-        reply.contains("produced no result"),
+        reply.to_string().contains("empty response"),
         "expected a deterministic empty-response close, got: {reply}"
     );
 }
