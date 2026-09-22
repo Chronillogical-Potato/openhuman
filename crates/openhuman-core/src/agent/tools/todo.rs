@@ -242,15 +242,11 @@ fn current_location(
     let Some(parent) = parent else {
         return BoardLocation::Scratch;
     };
-    // The orchestrator owns ONE global task board rather than a per-thread one:
-    // its `todo` tool always targets the app-wide `orchestrator-tasks` board so a
-    // single todo graph spans every delegation.
-    if parent.agent_definition_id == "orchestrator" {
-        return BoardLocation::Thread {
-            workspace_dir: parent.workspace_dir.clone(),
-            thread_id: ops::ORCHESTRATOR_TASKS_THREAD_ID.to_string(),
-        };
-    }
+    // Every agent, the orchestrator included, binds to the conversation thread
+    // it is running in. The orchestrator used to be routed to one app-wide
+    // `orchestrator-tasks` board instead; that board is deprecated and nothing
+    // renders it, so cards written there were invisible to the thread the
+    // user was looking at.
     let Some(thread_id) = tool_context.and_then(ToolRunContext::thread_id) else {
         return BoardLocation::Scratch;
     };

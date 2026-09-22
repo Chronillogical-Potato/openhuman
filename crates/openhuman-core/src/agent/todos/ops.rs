@@ -16,7 +16,6 @@ use crate::agent::todos::types::normalize_cards_for_wire;
 pub use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
 
 pub const USER_TASKS_THREAD_ID: &str = "user-tasks";
-pub const ORCHESTRATOR_TASKS_THREAD_ID: &str = "orchestrator-tasks";
 
 pub use tinyagents_graph::todos::{parse_status, render_markdown, CardPatch};
 
