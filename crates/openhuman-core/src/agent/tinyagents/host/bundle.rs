@@ -165,7 +165,6 @@ impl OpenHumanHostBundleFactory {
         // twice and interleaved the copies in the interim bubble. The sink
         // stays registered as the host capability with an unconsumed channel;
         // nothing OpenHuman renders depends on it.
-        let _ = &turn.progress;
         let progress = Arc::new(OpenHumanProgressSink::new(
             tokio::sync::mpsc::channel(1).0,
         ));
