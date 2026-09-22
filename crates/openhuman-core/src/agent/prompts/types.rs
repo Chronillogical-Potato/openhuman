@@ -250,7 +250,11 @@ impl<'a> PromptTool<'a> {
     /// An entry the catalogue owns rather than borrows: a tool that exists
     /// only for this prompt build (the harness's `tool_search` / `tool_call`
     /// bridge), with no registration to borrow a name from.
-    pub fn owned(name: String, description: String, parameters_schema: String) -> PromptTool<'static> {
+    pub fn owned(
+        name: String,
+        description: String,
+        parameters_schema: String,
+    ) -> PromptTool<'static> {
         PromptTool {
             name: std::borrow::Cow::Owned(name),
             description: std::borrow::Cow::Owned(description),

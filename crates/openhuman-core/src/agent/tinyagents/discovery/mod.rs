@@ -142,8 +142,9 @@ pub(crate) fn discovery_policy() -> ToolDiscoveryPolicy {
 /// manifest is rendered from; the per-tool manifest itself is deliberately
 /// left out of the prompt, because listing every deferred tool there is the
 /// cost deferral exists to avoid.
-pub(crate) fn bridge_prompt_tools(deferred: usize) -> Vec<crate::agent::prompts::PromptTool<'static>>
-{
+pub(crate) fn bridge_prompt_tools(
+    deferred: usize,
+) -> Vec<crate::agent::prompts::PromptTool<'static>> {
     if deferred == 0 {
         return Vec::new();
     }
