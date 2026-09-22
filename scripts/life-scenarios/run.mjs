@@ -669,6 +669,13 @@ async function sendDesktopTurn({ core, events, clientId, threadId, message, opts
   if (outcome === "timeout")
     return { error: `turn did not emit chat_done within ${opts.turnTimeoutMs}ms`, requestId, toolCalls };
 
+  if (done && done.event === "chat_error")
+    return {
+      error: `chat_error (${done.error_type || "unknown"}): ${String(done.message || "").slice(0, 300)}`,
+      requestId: requestId || done.request_id || null,
+      toolCalls,
+    };
+
   return {
     reply: (done && (done.full_response || done.response)) || "",
     usage: done && done.usage,
