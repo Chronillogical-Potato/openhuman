@@ -603,7 +603,7 @@ test.describe('MCP page — Registry tab', () => {
     const popup = context.waitForEvent('page');
     await page.getByRole('button', { name: 'Open the page for GitHub Tools' }).click();
     const opened = await popup;
-    expect(opened.url()).toBe('https://github.com/test/github-tools');
+    await expect.poll(() => opened.url()).toBe('https://github.com/test/github-tools');
     await opened.close();
   });
 
