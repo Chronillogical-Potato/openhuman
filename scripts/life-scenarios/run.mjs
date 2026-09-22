@@ -366,7 +366,7 @@ async function runScenario({ core, scenario, runDir, opts, attempt }) {
         message: scenario.prompt,
         thread_id: threadId,
         cwd: sandbox,
-        ...(opts.model ? { model_override: opts.model } : {}),
+        ...routeParams(opts),
       },
       opts.turnTimeoutMs,
     );
@@ -524,7 +524,11 @@ async function main() {
     const smokeStart = Date.now();
     const smoke = await core.rpc(
       "openhuman.inference_agent_chat",
-      { message: "Reply with exactly: READY", thread_id: `ls-smoke-${runId}` },
+      {
+        message: "Reply with exactly: READY",
+        thread_id: `ls-smoke-${runId}`,
+        ...routeParams(opts),
+      },
       120_000,
     );
     console.log(
