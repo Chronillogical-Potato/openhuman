@@ -81,7 +81,7 @@ can always outgrow any fixed number.
 
 ---
 
-## 2. `main` does not build — three vendor gitlinks point at non-ancestor commits
+## 3. `main` does not build — three vendor gitlinks point at non-ancestor commits
 
 **Severity: critical. Nothing in Rust compiles on `main`.**
 
@@ -162,7 +162,7 @@ not a host-side patch.
 
 ---
 
-## 3. Every provider call is written to the cost log twice
+## 4. Every provider call is written to the cost log twice
 
 **Severity: medium. The cost dashboard reports 2× tokens and 2× requests.**
 
@@ -192,7 +192,7 @@ budget gate is not covered by that reasoning.
 
 ---
 
-## 4. A model missing from the pricing catalog is billed at $0
+## 5. A model missing from the pricing catalog is billed at $0
 
 **Severity: medium. Budget enforcement silently stops working.**
 
@@ -208,7 +208,7 @@ does not reach it.
 
 ---
 
-## 5. `config.update_model_settings` accepts a BYOK config it cannot honour
+## 6. `config.update_model_settings` accepts a BYOK config it cannot honour
 
 **Severity: medium. Every subsequent turn fails.**
 
@@ -237,7 +237,7 @@ write instead of accepting it and failing later.
 
 ---
 
-## 6. The default agent has no file tools on the wire
+## 7. The default agent has no file tools on the wire
 
 **Severity: medium — a capability gap, and arguably intended.**
 
@@ -263,7 +263,7 @@ tools named explicitly, for comparison.
 
 ---
 
-## 7. Prompt-cache hit rate collapses between turns
+## 8. Prompt-cache hit rate collapses between turns
 
 **Severity: medium. 4× cost difference, same work.**
 
@@ -287,7 +287,7 @@ lines are the right next instrument here.
 
 ---
 
-## 8. A turn with no hosted session retries a failing backend call ~3× per turn
+## 9. A turn with no hosted session retries a failing backend call ~3× per turn
 
 **Severity: low. Seconds of latency and log noise per turn.**
 
@@ -307,7 +307,7 @@ cost: ~3 s of a 5 s pre-inference window.
 
 ---
 
-## 9. Smaller things
+## 10. Smaller things
 
 - **`AgentDefinition.system_prompt` rejects the spelling its own error
   suggests.** `system_prompt = "..."` fails to parse, because `PromptSource`
@@ -330,7 +330,7 @@ cost: ~3 s of a 5 s pre-inference window.
   short-circuit (`integrations/composio/tools/list_tools.rs:152-168`), so an
   agent on a direct connection cannot discover what it may call.
 
-## 10. Two things about this machine, not the codebase
+## 11. Two things about this machine, not the codebase
 
 - The operator's `~/.openhuman/config.toml` has
   `api_url = "http://127.0.0.1:18473"`, a capture proxy that is not running, so
