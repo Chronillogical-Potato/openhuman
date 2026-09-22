@@ -295,9 +295,8 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 /// brand-new one in its logs.
 pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
     with_connection(config, |conn| {
-        let mut stmt = conn.prepare(
-            "SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2")?;
         let mut rows = stmt.query(params![source_id, external_id])?;
         Ok(rows.next()?.is_some())
     })

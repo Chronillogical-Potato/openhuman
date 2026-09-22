@@ -58,7 +58,7 @@ fn render_subagent_system_prompt_renders_workspace_tail() {
     // sub-agent renderer — same source const, so it can never drift from
     // `GroundingSection` / the central `build()` append.
     assert!(rendered.contains("## Grounding and tool use"));
-    assert!(rendered.contains("Your tools are exactly the ones listed in this prompt"));
+    assert!(rendered.contains("Your tools are exactly the ones you have been given for this turn"));
     assert!(rendered.contains("Preserve numeric evidence exactly"));
 
     let _ = std::fs::remove_dir_all(workspace);

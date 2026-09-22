@@ -460,7 +460,7 @@ impl PromptSection for SafetySection {
 pub const GROUNDING_HEADING: &str = "Grounding and tool use";
 
 pub const GROUNDING_BODY: &str = "## Grounding and tool use\n\n\
-    - Your tools are exactly the ones listed in this prompt. You can only act through them. If a capability is not one of your tools, say so plainly rather than pretending it exists.\n\
+    - Your tools are exactly the ones you have been given for this turn, whether they arrive as a tool list or are described in this prompt. You can only act through them. Check that list before saying you lack a capability, and if it is not there, say so plainly rather than pretending it exists.\n\
     - Never invent tool names, arguments, ids, slugs, file paths, URLs, chain ids, addresses, quotes, metrics, or any other value. If you do not have it from a tool result or the user, ask for it or look it up with a tool.\n\
     - Preserve numeric evidence exactly. For numbers, counts, sizes, dates, timestamps, durations, currencies, percentages, quotas, and ids, copy the exact value from the observed tool result, user message, or cited memory into your answer.\n\
     - Do not round, convert units, rewrite relative times, or recalculate numeric values unless the user asks and you show the calculation from observed values. If sources disagree, name the discrepancy instead of choosing a plausible value.\n\
