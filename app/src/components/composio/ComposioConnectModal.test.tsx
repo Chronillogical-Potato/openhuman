@@ -864,6 +864,48 @@ describe('<ComposioConnectModal> — cancelling a pending connection', () => {
     }
   });
 
+  it('cancels without an RPC when no connection id is known (direct mode)', async () => {
+    // Direct mode returns an empty connectionId, so there is nothing to
+    // delete — cancel must still release the user from the waiting phase.
+    vi.mocked(composioApi.authorize).mockResolvedValue({
+      connectUrl: 'https://hosted.composio.dev/test-token',
+      connectionId: '',
+    });
+
+    render(<ComposioConnectModal toolkit={mockToolkit} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Connect Gmail/ }));
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    expect(await screen.findByRole('button', { name: /Connect Gmail/ })).toBeInTheDocument();
+    expect(composioApi.deleteConnection).not.toHaveBeenCalled();
+  });
+
+  it('returns to the connected view when a second-account handoff is cancelled', async () => {
+    // Adding another account to an already-connected toolkit and then
+    // cancelling must leave the existing account alone, not drop the user
+    // onto the disconnected idle screen.
+    vi.mocked(composioApi.authorize).mockResolvedValue({
+      connectUrl: 'https://hosted.composio.dev/test-token',
+      connectionId: 'ca_second',
+    });
+
+    render(
+      <ComposioConnectModal
+        toolkit={mockToolkit}
+        connections={[{ id: 'ca_first', toolkit: 'gmail', status: 'ACTIVE' }]}
+        onClose={() => {}}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Add another account/i }));
+    fireEvent.click(await screen.findByTestId('composio-cancel-connect'));
+
+    await waitFor(() => {
+      expect(composioApi.deleteConnection).toHaveBeenCalledWith('ca_second');
+    });
+    expect(await screen.findByText(/Gmail is connected/)).toBeInTheDocument();
+  });
+
   it('surfaces a failure to cancel instead of silently staying stuck', async () => {
     vi.mocked(composioApi.authorize).mockResolvedValue({
       connectUrl: 'https://hosted.composio.dev/test-token',
