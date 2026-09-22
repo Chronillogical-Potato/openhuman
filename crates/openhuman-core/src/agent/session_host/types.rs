@@ -57,9 +57,9 @@ pub struct TurnOverrides {
     /// transcript for the agent name -- NOT thread-scoped). A host that has just
     /// re-bound the in-memory history to a different chat sets this so a cleared
     /// history is not silently repopulated from an unrelated thread's transcript
-    /// (opencompany #1725). Thread-correct resume via
-    /// `OpenHumanSessionHost::seed_resume_from_thread_transcript` still works:
-    /// it seeds the runtime directly, rather than retaining a host cache.
+    /// (opencompany #1725). A thread-bound session no longer needs this: it
+    /// resumes by durable session identity (`ResumeMode::Session`), which is an
+    /// exact lookup and can never reach another thread's transcript.
     pub suppress_transcript_autoload: bool,
 }
 
