@@ -227,7 +227,7 @@
 #               (and their aggregate schema budgets) to the measured values;
 #               unrelated prompt and schema reductions are ratcheted too.
 
-morning_briefing:10751:59658
+morning_briefing:10754:59658
 trigger_triage:7537:0
 workflow_builder:76501:28987
 summarizer:7351:0
