@@ -1,7 +1,7 @@
 //! Mocked-LLM e2e tests for generic workflow-run plumbing.
 //!
-//! These ignored, serial tests cover the two workflow behaviours independent
-//! of the removed dispatcher/task-board surface: an inner workflow reaches a
+//! These ignored, serial tests cover two generic workflow behaviours: an inner
+//! workflow reaches a
 //! terminal footer and an orchestrator consumes that result via `run_workflow`.
 
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -349,8 +349,8 @@ where
 }
 
 /// Run one system-authored delivery turn on an existing conversation thread.
-/// This is intentionally separate from task-board execution: it only delivers
-/// a detached sub-agent result already produced by `background_completions`.
+/// It only delivers a detached sub-agent result already produced by
+/// `background_completions`.
 ///
 /// The turn runs on the thread's own session (`web_chat::run_system_turn_on_thread`),
 /// never on a throwaway host: the model presents the result in the context of

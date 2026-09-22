@@ -9,7 +9,7 @@
  * selectedThreadId !== null` alone, the palette listed a command that looked
  * available and silently did nothing.
  *
- * Same root cause as `Conversations.taskBoard.test.tsx` next door: something was
+ * Root cause: something was
  * left pointing at the wrong half of the either/or.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
