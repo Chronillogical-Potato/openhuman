@@ -118,3 +118,34 @@ async fn empty_intent_is_rejected_and_none_provider_is_unusable() {
     );
     assert!(!EmbeddingToolRanker::provider_is_usable(&none));
 }
+
+/// A tool that appears later — a newly connected toolkit's actions, a
+/// rewritten description — is embedded on its own; the rest is a cache hit.
+#[tokio::test]
+async fn a_new_or_changed_tool_is_embedded_incrementally() {
+    let embedder = Arc::new(BagEmbedder {
+        calls: AtomicUsize::new(0),
+    });
+    let ranker = EmbeddingToolRanker::new(embedder.clone());
+    ranker
+        .rank("ping", &RankContext::empty(), &candidates(), 1)
+        .await
+        .unwrap();
+    assert_eq!(embedder.calls.load(Ordering::SeqCst), 2, "catalogue + intent");
+
+    let mut grown = candidates();
+    grown.push(RankCandidate::new("NOTION_CREATE_PAGE", "create a page").with_family("notion"));
+    grown[2] = RankCandidate::new("file_read", "read a file from disk");
+    ranker
+        .rank("ping", &RankContext::empty(), &grown, 1)
+        .await
+        .unwrap();
+    // One batch for the two unseen texts (the new tool and the changed one),
+    // plus the intent — never the whole catalogue again.
+    assert_eq!(embedder.calls.load(Ordering::SeqCst), 4);
+    assert_eq!(
+        ranker.cache.read().unwrap().len(),
+        5,
+        "old and new descriptions both cached; a stale entry is harmless"
+    );
+}
