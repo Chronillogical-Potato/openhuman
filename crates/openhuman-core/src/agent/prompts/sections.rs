@@ -489,10 +489,9 @@ impl PromptSection for WorkspaceSection {
         // its real working directory at runtime and keep writes/reads there.
         let mut out = String::from(
             "## Workspace\n\n\
-             `pwd` is your working directory: commands run there and every file tool resolves \
-             relative paths against it. Read and write there; anything outside it and the \
-             scratch space below is blocked by the sandbox. Prefer stdout, and write a file \
-             only when output is too large for it.\n\n",
+             `pwd` is your working directory: commands and file tools resolve there, and \
+             anything outside it and the scratch space is blocked. Prefer stdout; write a \
+             file only when output is too large. ",
         );
         // Only advertise a concrete scratch path when the dir is actually present
         // and safe (real dir, not a symlink) — matching the policy grant in
@@ -506,7 +505,7 @@ impl PromptSection for WorkspaceSection {
         if scratch_granted {
             let _ = write!(
                 out,
-                "Scratch files go in `{}` or `$TMPDIR`, never a hardcoded `/tmp/<name>`.",
+                "Scratch: `{}` or `$TMPDIR`, never a hardcoded `/tmp/<name>`.",
                 scratch.display()
             );
         } else {
@@ -660,9 +659,8 @@ impl PromptSection for DateTimeSection {
         // learned "good morning" regardless of the actual hour (#3602).
         let mut out = String::from(
             "## Current Date & Time\n\nThe `Current Date & Time:` line on the latest message \
-             (local time, zone, weekday) is authoritative. Before a greeting like \"good \
-             morning\" or a word like \"today\", read it and match the actual local hour; \
-             never assume it is morning, and never call a tool just to know the time.",
+             is authoritative: before \"good morning\" or \"today\", read it and match the \
+             actual local hour. No tool call is needed for the time.",
         );
         // Tool-argument discipline, gated on the agent actually having the
         // `resolve_time` tool. LLMs are unreliable at epoch arithmetic — a
@@ -673,8 +671,7 @@ impl PromptSection for DateTimeSection {
         // tool never see the rule.
         if ctx.tools.iter().any(|t| t.name == "resolve_time") {
             out.push_str(
-                " Any date or time you pass as a tool argument comes from `resolve_time`, \
-                 never hand-computed; for \"recent / last N\" lookups prefer newest-first.",
+                " Tool date/time arguments come from `resolve_time`, never hand-computed.",
             );
         }
         Ok(out)

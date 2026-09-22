@@ -188,9 +188,8 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
     );
 
     let mut out = String::from(
-        "## Capabilities not in your tool list\n\nReach these with `use_skill` \
-         (`skill` alone lists a tool's arguments; `skill` + `tool` + `args` runs it). \
-         They are available, not missing.\n\n",
+        "## Capabilities not in your tool list\n\nAvailable through `use_skill` (`skill` \
+         alone lists arguments; add `tool` + `args` to run):\n\n",
     );
     for (tool, intent, pack) in rows {
         let _ = writeln!(out, "- `{pack}` / `{tool}`: {intent}");
@@ -307,7 +306,7 @@ fn resolve_definition<'r>(
 /// once it has loaded the schema.
 /// Longest routing intent a withheld-specialist row carries. One sentence is
 /// the signal; the full `when_to_use` is on the tool once it is loaded.
-const WITHHELD_INTENT_MAX_CHARS: usize = 90;
+const WITHHELD_INTENT_MAX_CHARS: usize = 64;
 
 fn first_sentence(text: &str) -> String {
     let text = text.trim();
