@@ -13,7 +13,10 @@ use openhuman_core::api::config::effective_backend_api_url;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
-use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
+use tinyjevclient::ClientConfig;
+use tinytools_jev::{JevRanker, JevRankerConfig};
+
+use super::evaluator::SystemOneEvaluator;
 
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
@@ -50,8 +53,8 @@ impl Default for TinyHumansJevRanker {
 }
 
 impl TinyHumansJevRanker {
-    /// A ranker with `tinytools-jev`'s defaults: BM25 retrieval to 20, one
-    /// Jev decision, a 3 s deadline.
+    /// A ranker with `tinytools-jev`'s defaults (BM25 retrieval to 20, one
+    /// Jev decision) under the evaluator's 3 s deadline.
     pub fn new() -> Self {
         Self::with_config(JevRankerConfig::new())
     }
@@ -104,7 +107,8 @@ impl TinyHumansJevRanker {
         }
         let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
         client.base_url = base_url.clone();
-        let ranker = JevRanker::from_config(client, self.config.clone())?;
+        let evaluator = SystemOneEvaluator::from_config(client)?;
+        let ranker = JevRanker::new(Arc::new(evaluator), self.config.clone());
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
             openhuman_core::util::redact::redact_url_for_log(&base_url),

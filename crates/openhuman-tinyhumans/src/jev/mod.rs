@@ -4,9 +4,11 @@
 //! tool and ranks searches with whatever ranker the process installed
 //! (`openhuman_core::agent::tinyagents::discovery`). This module installs
 //! [`TinyHumansJevRanker`]: `tinytools_jev::JevRanker` — BM25 retrieval to a
-//! shortlist, one Jev `Choice` to decide — reached through the backend's
+//! shortlist, one Jev `Choice` to decide — over [`SystemOneEvaluator`], the
+//! host-owned transport that reaches the backend's
 //! `/agent-integrations/openrouter/systemone` proxy with the same credential
-//! every other backend call uses.
+//! every other backend call uses (`tinytools-jev` keeps no HTTP client of
+//! its own; the host implements its `JevEvaluator` seam).
 //!
 //! The credential is resolved **per search**, not at install: a desktop
 //! signs in and out while the process runs, and a search must follow the
@@ -15,8 +17,10 @@
 //! out. The built client is cached by credential and base URL so a stable
 //! session does not rebuild an HTTP client on every search.
 
+mod evaluator;
 mod ranker;
 
+pub use evaluator::SystemOneEvaluator;
 pub use ranker::TinyHumansJevRanker;
 
 use std::sync::Arc;

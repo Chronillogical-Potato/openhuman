@@ -4239,6 +4239,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tinyhumans-sdk",
+ "tinyjevclient",
  "tinytools 0.4.1",
  "tinytools-jev",
  "tokio",
@@ -6845,6 +6846,19 @@ dependencies = [
  "tinyinference-local",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "tinyjevclient"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=e53d5f088ff03fa38c53bac219dab7697b5016c9#e53d5f088ff03fa38c53bac219dab7697b5016c9"
+dependencies = [
+ "httpdate",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]

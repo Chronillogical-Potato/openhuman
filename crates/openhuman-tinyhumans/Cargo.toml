@@ -17,7 +17,7 @@ publish = false
 # default and forwarded by every shipped host; without it the core ranks
 # `tool_search` with BM25 alone.
 default = ["openhuman-embed/default", "jev"]
-jev = ["dep:tinytools-jev"]
+jev = ["dep:tinytools-jev", "dep:tinyjevclient"]
 http-server = ["openhuman-embed/http-server"]
 inference = ["openhuman-embed/inference"]
 documents = ["openhuman-embed/documents"]
@@ -56,6 +56,10 @@ tinyhumans-sdk = { path = "../../vendor/tinyhumans-sdk", default-features = fals
 # `tinytools`, so the `ToolRanker` types unify.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev", optional = true }
+# The System One HTTP client behind `SystemOneEvaluator`: `tinytools-jev`
+# only defines the `JevEvaluator` seam, the host owns the transport. Same
+# revision `tinytools` pinned while it still carried the client itself.
+tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "e53d5f088ff03fa38c53bac219dab7697b5016c9", optional = true }
 anyhow = "1"
 async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
