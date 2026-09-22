@@ -2368,7 +2368,32 @@ const chatRuntimeSlice = createSlice({
         // get a stable, monotonically increasing `seq` for sorting.
         const seq = state.toolTimelineSeqByThread[threadId] ?? 0;
         const entry = timelineEntryFromRun(run, seq);
-        if (!entry || byId.has(entry.id) || liveTaskIds.has(run.id)) continue;
+        if (liveTaskIds.has(run.id)) {
+          // A detached `async` row is kept `running` past its parent's
+          // `completed` snapshot (see `settleOrphanedTimelineEntry`), which
+          // is only truthful while the child is alive. If the core died
+          // first, no `subagent_completed` is ever coming, and the snapshot
+          // stays `completed` — so without this the row would read
+          // "Running" forever. The ledger is the independent authority on
+          // the child: startup stamps orphaned runs `interrupted`
+          // (`interrupt_orphaned_agent_runs`). Let a terminal ledger status
+          // settle a row that is still shown running.
+          const live = existing.find(e => e.subagent?.taskId === run.id);
+          const settled = timelineStatusFromRun(run.status);
+          if (
+            live?.status === 'running' &&
+            live.subagent?.mode === 'async' &&
+            settled !== 'running'
+          ) {
+            byId.set(live.id, {
+              ...live,
+              status: settled,
+              subagent: live.subagent && { ...live.subagent, status: run.status },
+            });
+          }
+          continue;
+        }
+        if (!entry || byId.has(entry.id)) continue;
         state.toolTimelineSeqByThread[threadId] = seq + 1;
         byId.set(entry.id, entry);
       }

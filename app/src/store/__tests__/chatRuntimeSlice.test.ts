@@ -412,6 +412,87 @@ describe('chatRuntimeSlice', () => {
     expect(row.subagent?.transcript).toEqual([]);
   });
 
+  /**
+   * The detached-row keep-alive above is only truthful while the child lives.
+   * If the core dies after the parent turn completes, the snapshot stays
+   * `completed` and no `subagent_completed` is ever coming, so the row would
+   * read "Running" forever. The run ledger is the independent authority:
+   * startup stamps orphaned runs `interrupted`. A terminal ledger status must
+   * settle a detached row still shown running, and a `running` one must not.
+   */
+  describe('ledger reconciliation of a detached async row kept alive past its parent', () => {
+    const keptAlive = () =>
+      reducer(
+        undefined,
+        hydrateRuntimeFromSnapshot({
+          snapshot: {
+            threadId: 'thread-detached',
+            requestId: 'req-detached',
+            lifecycle: 'completed',
+            iteration: 1,
+            maxIterations: 25,
+            streamingText: '',
+            thinking: '',
+            toolTimeline: [
+              {
+                id: 'subagent:sub-detached',
+                name: 'subagent:researcher',
+                round: 1,
+                status: 'running',
+                subagent: {
+                  taskId: 'sub-detached',
+                  agentId: 'researcher',
+                  status: 'running',
+                  mode: 'async',
+                  toolCalls: [],
+                },
+              },
+            ],
+            startedAt: '2026-09-22T00:00:00Z',
+            updatedAt: '2026-09-22T00:00:09Z',
+          },
+        })
+      );
+    const ledgerSays = (status: 'interrupted' | 'running') =>
+      hydrateRuntimeFromRunLedger({
+        threadId: 'thread-detached',
+        runs: [
+          {
+            id: 'sub-detached',
+            kind: 'subagent',
+            parentThreadId: 'thread-detached',
+            agentId: 'researcher',
+            status,
+            metadata: { mode: 'async' },
+            startedAt: '2026-09-22T00:00:00Z',
+            updatedAt: '2026-09-22T00:05:00Z',
+          },
+        ],
+      });
+
+    it('settles the row when the ledger reports the child orphaned by a restart', () => {
+      const before = keptAlive();
+      expect(before.toolTimelineByThread['thread-detached'][0].status).toBe('running');
+
+      const rows = reducer(before, ledgerSays('interrupted')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].status).toBe('cancelled');
+      expect(rows[0].subagent?.status).toBe('interrupted');
+    });
+
+    it('leaves the row running while the ledger says the child is still alive', () => {
+      const rows = reducer(keptAlive(), ledgerSays('running')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].status).toBe('running');
+    });
+  });
+
   it('maps durable run ledger status, kind, and optional metadata into timeline rows', () => {
     const next = reducer(
       undefined,
