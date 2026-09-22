@@ -21,8 +21,6 @@
 //!   in only with the `skills` feature, so builds without it omit both tools
 //!   from the catalog.
 //! - [`TodoTool`] — the session's todo list (whole-list write, thread-scoped).
-//!   [`UpdateTaskTool`] edits one card by id on a target board (default:
-//!   the proactive `task-sources` board).
 //!
 //! `crate::tools` re-exports everything here (`pub use
 //! crate::agent::tools::*;` in `tools/mod.rs`); `tools::ops` registers the
