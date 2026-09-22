@@ -5,8 +5,8 @@
 
 mod curl;
 mod gitbooks;
-mod html_markdown;
 mod gmail_unsubscribe;
+mod html_markdown;
 mod http_request;
 // Leaf-gated: the only consumers of these two are the `#[cfg(feature = "mcp")]`
 // blocks in `tools/ops.rs`, so no stub is needed — nothing names them when the
