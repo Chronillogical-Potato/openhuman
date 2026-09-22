@@ -280,13 +280,13 @@ impl<'a> PromptTool<'a> {
     }
 }
 
-/// How the tool catalogue should render each tool entry. Driven by the
-/// dispatcher choice on the agent — JSON-schema rendering is the
-/// historic format; P-Format is the new default text protocol.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// How TinyTools should render and parse an agent's tool calls.
+///
+/// The prompt layer carries this only to select the TinyTools dialect; it does
+/// not define a tool-call protocol of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolCallFormat {
-    /// `tool_name[arg1|arg2|...]` — compact, positional. Default.
-    #[default]
+    /// Compact positional legacy dialect.
     PFormat,
     /// Legacy JSON-in-tag rendering with full schemas.
     Json,
@@ -297,6 +297,12 @@ pub enum ToolCallFormat {
     Python,
     /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
     TypeScript,
+}
+
+impl Default for ToolCallFormat {
+    fn default() -> Self {
+        Self::Python
+    }
 }
 
 impl ToolCallFormat {

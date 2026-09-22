@@ -372,11 +372,11 @@ impl PromptSection for ToolsSection {
             }
             return Ok(ctx.dispatcher_instructions.to_string());
         }
-        // Render P-Format signatures from the parser's schemas and argument order. For
-        // `Native` dispatchers the provider already has the full JSON schema in
-        // the API request (handled above); for `Json` / `PFormat` text
-        // dispatchers the dispatcher's own `prompt_instructions` block
-        // (appended below) carries whatever schema detail the wire format needs.
+        // TinyTools renders the compact catalogue from the same schemas and
+        // argument order that its parser consumes. For `Native` dispatchers
+        // the provider already has the full JSON schema in the API request
+        // (handled above); text dispatchers receive their protocol through
+        // the dialect's `prompt_instructions` block appended below.
         let has_filter = !ctx.visible_tool_names.is_empty();
         let visible: Vec<ToolSpec> = ctx
             .tools
@@ -407,7 +407,7 @@ impl PromptSection for ToolsSection {
         // The JSON dialect's protocol block embeds its own full-schema
         // catalogue (`XmlDialect::embeds_tool_catalogue`), so rendering the
         // signature catalogue as well listed every tool twice — 13 KB of
-        // P-Format signatures on top of 28 KB of schemas for the orchestrator.
+        // compact signatures on top of 28 KB of schemas for the orchestrator.
         let mut out = match ctx.tool_call_format {
             ToolCallFormat::Json if !ctx.dispatcher_instructions.trim().is_empty() => String::new(),
             format => match format.code_style() {

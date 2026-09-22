@@ -68,10 +68,6 @@ pub use types::{
     SubagentRunStatus, SubagentUsage,
 };
 
-// Crate-internal re-exports: `agent::debug` calls the text-mode protocol
-// renderer. The other `tool_prep` helpers are used only inside this module.
-pub(crate) use tool_prep::build_text_mode_tool_instructions;
-
 // Progressive-disclosure handoff: the tinyagents `HandoffMiddleware` intercepts
 // oversized sub-agent tool results via `apply_handoff`, sharing the per-spawn
 // `ResultHandoffCache` with the `extract_from_result` tool.
