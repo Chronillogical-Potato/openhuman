@@ -17,8 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { threadApi } from '../../../services/api/threadApi';
-import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
-import { toolTimelineFromPersisted } from '../../../store/chatRuntimeSlice';
+import { type ToolTimelineEntry, toolTimelineFromPersisted } from '../../../store/chatRuntimeSlice';
 import {
   selectThreadGoal,
   selectTodoList,
