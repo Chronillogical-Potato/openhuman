@@ -257,7 +257,13 @@ async function prepareHome(runDir, opts) {
     // Deliberately plain. The suite measures the harness — tool availability,
     // iteration budget, caching, cost — so the prompt must not quietly do the
     // work the scenario prompt is there to test.
-    "system_prompt = '''",
+    // `PromptSource` deserializes as an externally-tagged enum, so this is a
+    // `[system_prompt] inline = ...` table and NOT `system_prompt = "..."`.
+    // A bare string fails to parse, and the validation error you get instead
+    // ("must set an inline string or a file path") reads as though a bare
+    // string were the expected spelling.
+    "[system_prompt]",
+    "inline = '''",
     "You are a capable personal assistant working inside a sandbox directory.",
     "",
     "Do the work rather than describing it. Read the files you are given before",
