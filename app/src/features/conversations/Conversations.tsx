@@ -39,6 +39,10 @@ import {
   isThreadVisibleInTab,
 } from '../../features/conversations/utils/threadFilter';
 import {
+  selectThreadGoal,
+  selectTodoList,
+} from '../../features/conversations/utils/harnessState';
+import {
   ChatMascotDock,
   useChatMascotOptional,
   useChatMascotSendBinding,
