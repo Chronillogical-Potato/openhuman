@@ -113,11 +113,11 @@ fn schema_is_the_claude_shape() {
     );
 }
 
-/// The orchestrator's list is the conversation thread's list. It used to be
-/// routed to one app-wide `orchestrator-tasks` board that nothing rendered,
-/// so the items the model wrote never showed up in the thread the user was in.
+/// The orchestrator's list is its session's list. It used to be routed to one
+/// app-wide `orchestrator-tasks` board that nothing rendered, so the items the
+/// model wrote never showed up in the thread the user was in.
 #[test]
-fn every_agent_binds_to_the_live_thread() {
+fn every_agent_binds_to_its_own_session() {
     struct ThreadContext(&'static str);
     impl ToolRunContext for ThreadContext {
         fn thread_id(&self) -> Option<&str> {
@@ -143,7 +143,7 @@ fn every_agent_binds_to_the_live_thread() {
         agent_config: crate::config::AgentConfig::default(),
         workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
-        session_id: "parent-session".into(),
+        session_id: "orchestrator_thread-live".into(),
         channel: "test".into(),
         connected_integrations: Vec::new(),
         tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
@@ -152,14 +152,33 @@ fn every_agent_binds_to_the_live_thread() {
         on_progress: None,
         run_queue: None,
     };
-    let context = ThreadContext("thread-live");
 
     assert_eq!(
-        current_scope(Some(&parent), Some(&context)).thread_id(),
-        Some("thread-live")
+        current_scope(Some(&parent), Some(&ThreadContext("thread-live"))).session_id(),
+        Some("orchestrator_thread-live"),
+        "the parent's session wins over the thread id"
     );
-    assert!(
-        matches!(current_scope(Some(&parent), None), TodoScope::Scratch),
-        "without a thread there is no list to persist to"
+    assert_eq!(
+        current_scope(None, Some(&ThreadContext("thread-live"))).session_id(),
+        Some("thread-live"),
+        "a thread-only caller keys on the thread"
     );
+    assert_eq!(current_scope(None, None), TodoScope::Scratch);
+}
+
+#[tokio::test]
+async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
+    let a = TodoScope::Session { id: "sess-a".into() };
+    let b = TodoScope::Session { id: "sess-b".into() };
+    crate::agent::todos::ops::clear(&a).await.unwrap();
+    crate::agent::todos::ops::clear(&b).await.unwrap();
+
+    let mut card = TaskBoardCard::new("only in a");
+    card.status = TaskCardStatus::InProgress;
+    crate::agent::todos::ops::replace(&a, vec![card]).await.unwrap();
+
+    let a_again = crate::agent::todos::ops::list(&a).await.unwrap();
+    assert_eq!(a_again.cards.len(), 1, "a later turn of the same session reads it back");
+    assert_eq!(a_again.session_id.as_deref(), Some("sess-a"));
+    assert!(crate::agent::todos::ops::list(&b).await.unwrap().cards.is_empty());
 }

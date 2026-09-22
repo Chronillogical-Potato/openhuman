@@ -3,10 +3,10 @@
 //! One call writes the whole list: `{"todos": [{"content", "status"}]}`.
 //! There is no per-card CRUD, no approval gate, no evidence, no plan; the
 //! list is a progress checklist the model rewrites as it works. It is scoped
-//! to the conversation thread the turn runs in and persists across turns of
-//! that thread via [`crate::agent::todos::ops`]; without a thread (a bare
-//! `execute` in a test) it falls back to a process-global scratch list.
-//! Calling with no `todos` returns the current list.
+//! to the agent session the turn runs in (in memory, for the life of the
+//! process) via [`crate::agent::todos::ops`]; without a session (a bare
+//! `execute` in a test) it falls back to a scratch list. Calling with no
+//! `todos` returns the current list.
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, TodoScope};
@@ -135,7 +135,7 @@ impl TodoTool {
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let scope = current_scope(parent.as_ref(), tool_context);
-        tracing::debug!(thread_id = ?scope.thread_id(), "[tool][todo] dispatch");
+        tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
 
         let result = match args.get("todos") {
             None | Some(serde_json::Value::Null) => ops::list(&scope).await,
@@ -172,7 +172,7 @@ impl TodoTool {
                     })
                     .collect();
                 let payload = json!({
-                    "threadId": snap.thread_id,
+                    "sessionId": snap.session_id,
                     "todos": todos,
                     "markdown": snap.markdown,
                 });
@@ -197,23 +197,26 @@ fn wire_status(status: TaskCardStatus) -> &'static str {
     }
 }
 
-/// Every agent, the orchestrator included, binds to the conversation thread it
-/// runs in. The orchestrator used to be routed to one app-wide
-/// `orchestrator-tasks` board instead; nothing rendered it, so the list the
-/// model kept was invisible to the thread the user was looking at.
+/// The list belongs to the agent session the tool runs in: the orchestrator's
+/// session for a chat thread, a sub-agent's own session for its run. The
+/// orchestrator used to be routed to one app-wide `orchestrator-tasks` board
+/// instead; nothing rendered it, so the list the model kept was invisible to
+/// the thread the user was looking at. The parent context names the session;
+/// a tool that is only handed a thread id (older callers, tests) keys on that.
 fn current_scope(
     parent: Option<&ParentExecutionContext>,
     tool_context: Option<&dyn ToolRunContext>,
 ) -> TodoScope {
-    let Some(parent) = parent else {
-        return TodoScope::Scratch;
-    };
-    let Some(thread_id) = tool_context.and_then(ToolRunContext::thread_id) else {
-        return TodoScope::Scratch;
-    };
-    TodoScope::Thread {
-        workspace_dir: parent.workspace_dir.clone(),
-        thread_id: thread_id.to_owned(),
+    if let Some(parent) = parent {
+        return TodoScope::Session {
+            id: parent.session_id.clone(),
+        };
+    }
+    match tool_context.and_then(ToolRunContext::thread_id) {
+        Some(thread_id) => TodoScope::Session {
+            id: thread_id.to_owned(),
+        },
+        None => TodoScope::Scratch,
     }
 }
 
