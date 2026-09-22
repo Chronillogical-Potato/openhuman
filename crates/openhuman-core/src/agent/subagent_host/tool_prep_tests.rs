@@ -417,13 +417,11 @@ fn a_dynamic_tool_list_without_spawn_tools_is_untouched() {
 /// Render the `## Tools` section the way a sub-agent prompt does, at `format`.
 fn render_tools_at(format: crate::agent::prompts::ToolCallFormat, instructions: &str) -> String {
     use crate::agent::prompts::{LearnedContextData, PromptTool};
-    let tools = [PromptTool {
-        name: "composio_execute",
-        description: "Run one Composio action.",
-        parameters_schema: Some(
-            r#"{"type":"object","properties":{"action":{"type":"string"}}}"#.into(),
-        ),
-    }];
+    let tools = [PromptTool::with_schema(
+        "composio_execute",
+        "Run one Composio action.",
+        r#"{"type":"object","properties":{"action":{"type":"string"}}}"#.into(),
+    )];
     let visible = std::collections::HashSet::new();
     let ctx = PromptContext {
         workspace_dir: std::path::Path::new("/tmp"),
