@@ -553,7 +553,8 @@ fn build_includes_evidence_aware_synthesis_contract() {
     assert!(body.contains("Do not introduce facts its evidence does not support"));
     assert!(body.contains("truncated, oversized, partial or unavailable"));
     assert!(body.contains("Preserve numeric evidence exactly"));
-    assert!(body.contains("Your tools are exactly the ones listed in this prompt"));
+    assert!(body.contains("plus whatever `tool_search` returns"));
+    assert!(body.contains("call `tool_search` with the intent in plain words"));
 }
 
 #[test]
