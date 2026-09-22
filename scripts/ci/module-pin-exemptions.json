@@ -27,8 +27,8 @@
     {
       "id": "tinymcp",
       "submodule": "vendor/tinymcp",
-      "expect": "v0.3.2-13-gfe34f5b8",
-      "reason": "The host compiles the MCP contract against the current tinymcp main, which includes the v0.3.2 follow-up dependency and vendor-sync commits. The registry retains the published v0.3.2 artifact. This is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
+      "expect": "v0.3.2-15-g10786a47",
+      "reason": "The host compiles the MCP contract against the current tinymcp main, which includes the v0.3.2 follow-up dependency and vendor-sync commits plus the reconnect-supervisor fix that parks a server whose credential was rejected instead of retrying it forever (tinymcp#20, openhuman#6412). The registry retains the published v0.3.2 artifact. This is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
     },
     {
       "id": "tinyjuice",
