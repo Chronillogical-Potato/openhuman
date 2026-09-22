@@ -79,12 +79,10 @@ impl Tool for WebFetchTool {
     }
 
     fn description(&self) -> &str {
-        "GET a URL and read the page. HTML comes back as Markdown — headings, \
-         links and code blocks kept, scripts and styling dropped — so the \
-         links in the result are the ones to fetch next. Use this for docs, \
-         READMEs and spec pages. Pass `raw: true` for the untouched body \
-         (needed for JSON APIs you want verbatim). For richer HTTP semantics \
-         (POST, custom headers, …) use `http_request`."
+        "GET a URL and read the page. HTML returns as Markdown — headings and \
+         links kept, scripts dropped — so the links in the result are the ones \
+         to fetch next. `raw: true` returns the body untouched. For POST or \
+         custom headers use `http_request`."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -94,12 +92,12 @@ impl Tool for WebFetchTool {
                 "url": { "type": "string", "description": "Absolute http(s) URL." },
                 "max_bytes": {
                     "type": "integer",
-                    "description": "Cap the downloaded body at this many bytes (default 1_000_000).",
+                    "description": "Cap the download at this many bytes (default 1_000_000).",
                     "minimum": 1
                 },
                 "raw": {
                     "type": "boolean",
-                    "description": "Skip HTML-to-Markdown conversion and return the body as sent."
+                    "description": "Return the body as sent, without Markdown conversion."
                 }
             },
             "required": ["url"]
