@@ -291,6 +291,47 @@ impl<'a> PromptTool<'a> {
     }
 }
 
+/// Swap a prompt catalogue's `Deferred` entries for the discovery bridge.
+///
+/// On a TEXT dialect (P-Format / code) the catalogue this prompt renders IS
+/// the model's callable surface: the harness folds it into the system prompt
+/// and clears `request.tools`. Two things follow, and both were wrong before
+/// this helper existed:
+///
+/// * **Deferred tools must leave the catalogue.** The filter each prompt site
+///   used is the policy's allow-set, which deliberately admits deferred names
+///   so a found tool stays *callable* (`reachable_names` in the session
+///   builder). Filtering the prompt by it rendered every deferred schema into
+///   the prompt — measured live at 107 connected Composio actions for 55 KB of
+///   a 71 KB prompt, the exact cost deferral exists to avoid — and told the
+///   model to search for an action whose signature it could already read.
+///
+/// * **The bridge must take their place.** The harness mints `tool_search` /
+///   `tool_call` onto `request.tools`, which a text dialect drops, and with
+///   `host_renders_tool_catalogue` it appends nothing itself. Without these
+///   entries the model reads "invoke a match with `tool_call`" in a search
+///   result and has no signature for that name; observed live as a turn that
+///   narrates the call it is about to make and then stops.
+///
+/// A native-tool-calling provider is unaffected: it reads `request.tools`,
+/// where the harness already puts exactly this pair.
+pub fn swap_deferred_for_discovery_bridge<'a>(
+    prompt_tools: &mut Vec<PromptTool<'a>>,
+    visible_tool_names: &mut std::collections::HashSet<String>,
+    deferred_tool_names: &std::collections::HashSet<String>,
+) {
+    if deferred_tool_names.is_empty() {
+        return;
+    }
+    visible_tool_names.retain(|name| !deferred_tool_names.contains(name));
+    for bridge in
+        crate::agent::tinyagents::discovery::bridge_prompt_tools(deferred_tool_names.len())
+    {
+        visible_tool_names.insert(bridge.name.to_string());
+        prompt_tools.push(bridge);
+    }
+}
+
 /// How the tool catalogue should render each tool entry. Driven by the
 /// dispatcher choice on the agent — JSON-schema rendering is the
 /// historic format; P-Format is the new default text protocol.

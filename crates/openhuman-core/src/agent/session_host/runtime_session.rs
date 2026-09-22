@@ -357,8 +357,13 @@ impl OpenHumanTurnPrelude {
             .chain(surface.synthesized_tools.iter())
             .map(|tool| tool.as_ref())
             .collect::<Vec<_>>();
-        let prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
-        let visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        let mut prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
+        let mut visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        crate::agent::prompts::swap_deferred_for_discovery_bridge(
+            &mut prompt_tools,
+            &mut visible_tool_names,
+            &surface.deferred_tool_names,
+        );
         let agents_md = if self.config.agents_md_enabled {
             crate::agent::prompts::load_agents_md_layers(&self.workspace_dir, &self.action_dir)
         } else {
