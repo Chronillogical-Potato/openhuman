@@ -425,7 +425,7 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
 
-    let mut root = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    let mut root = super::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
     root.set_thread_id(Some("thread-1"));
     assert_eq!(
         root.session_id().as_deref(),
@@ -433,7 +433,7 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
         "a root chat session is addressed by its conversation"
     );
 
-    let mut child = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    let mut child = super::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
     child.session_parent_prefix = Some("1713000000_orchestrator".into());
     child.set_thread_id(Some("thread-1"));
     assert_eq!(child.session_id(), None);
