@@ -156,10 +156,9 @@ impl SpawnAsyncSubagentTool {
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
                  chat turn). Fire-and-forget delegation has nowhere to land its result here and \
                  the sub-agent's work would be silently discarded. Use synchronous delegation \
-                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
-                 tool — both run the sub-agent inline and hand you its output in this turn. \
-                 For parallel work, model it as parallel flow nodes rather than background \
-                 sub-agents.",
+                 instead: a `delegate_*` tool with `blocking: true` runs the sub-agent inline \
+                 and hands you its output in this turn. For parallel work, model it as \
+                 parallel flow nodes rather than background sub-agents.",
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
