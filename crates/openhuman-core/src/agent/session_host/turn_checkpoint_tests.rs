@@ -272,3 +272,27 @@ fn the_close_verification_prompt_holds_request_records_and_reply() {
     assert!(prompt.contains("<reply>\nI'll search the registry.\n</reply>"));
     assert!(prompt.contains("ACCEPT or REJECT"));
 }
+
+/// The directive is framed like its neighbours, sits apart from the records it
+/// is grounded in, and names the three shapes that reached a user's screen.
+#[test]
+fn the_final_answer_instruction_is_framed_and_forbids_quoting_tools_and_deliberation() {
+    let out = final_answer_instruction(None, "\n- `read_file` — ok\n  > config found\n");
+
+    let frame_end = out
+        .find("</harness_instruction>")
+        .expect("the directive must be delimited: {out}");
+    assert!(out.contains("<harness_instruction>"), "opening tag: {out}");
+    let records_at = out.find("<tool_records>").expect("records rendered");
+    assert!(
+        frame_end < records_at,
+        "the records are input, not directive, so they stay outside the frame: {out}"
+    );
+
+    assert!(out.contains("Do not quote or restate them"), "{out}");
+    assert!(
+        out.contains("Do not list or describe the tools available to you"),
+        "{out}"
+    );
+    assert!(out.contains("Do not narrate your deliberation"), "{out}");
+}
