@@ -239,6 +239,20 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // the authoritative size with it (#6283).
         let mut summarized_from_bytes: Option<usize> = None;
 
+        // The tool's own declared cap, read before any stage runs. It used to
+        // be computed at step 3, *below* the summarizer, which meant a tool
+        // declaring `max_result_size_chars(50_000)` still handed its full
+        // megabyte to an LLM: the cap bounded the summary, never the
+        // summarizer's input. One research turn cost 1,083,069 input tokens
+        // that way, with the same page summarized three times.
+        let tool_cap = self.tool_char_cap(tool_name);
+
+        // What bounds this result. A tool that declares a cap is stating its
+        // own contract and that number wins; everything else falls back to the
+        // shared budget. Either way exactly one limit applies, so the two can
+        // no longer double-truncate.
+        let budget_bytes = tool_cap.unwrap_or(self.budget_bytes);
+
         // The tool's own output, kept only when it could end up persisted (step
         // 4 with a store), so the artifact stores what the tool returned rather
         // than the summarized or compacted copy the stages below produce. The
@@ -247,14 +261,20 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // when the raw body is larger than `file_read` will open: an artifact
         // nobody can read back is worse than the processed copy.
         let full_output = (!truncation_exempt
-            && self.tool_char_cap(tool_name).is_none()
-            && self.budget_bytes > 0
+            && budget_bytes > 0
             && self.artifact_store.is_some()
-            && content.len() > self.budget_bytes
+            && content.len() > budget_bytes
             && content.len() as u64 <= crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES)
             .then(|| content.clone());
 
-        if !compaction_exempt {
+        // A tool that declares its own cap bounds itself, and step 4 spills
+        // the overflow to an artifact the model can page with `file_read`.
+        // Summarizing it as well would pay a model call — at `web_fetch` sizes,
+        // 20s and ~160k prompt tokens — to produce something the paging handle
+        // already gives losslessly. Neither Hermes nor Codex runs a model over
+        // oversized tool output; both truncate and hand back a way to read the
+        // rest.
+        if !compaction_exempt && tool_cap.is_none() {
             if let Some(ps) = &self.payload_summarizer {
                 match ps
                     .maybe_summarize_in_parent(ctx, tool_name, self.task_hint.as_deref(), &content)
@@ -323,52 +343,34 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             }
         }
 
-        // 3. Per-tool **char** cap — a tool that declares `max_result_size_chars`
-        //    caps its own output in characters, with the tool-cap marker the model
-        //    was taught to read (legacy engine parity). Distinct from the generic
-        //    byte budget below: the tool cap is the tool's own contract. Skipped
-        //    for truncation-exempt tools (see [`is_truncation_exempt`]) — the tool
-        //    cap is still *computed* below (step 4's "no cap of its own" check
-        //    reads it), just not applied to `result.content`.
-        let tool_cap = self.tool_char_cap(tool_name);
-        if !truncation_exempt {
-            if let Some(cap) = tool_cap {
-                let char_count = content.chars().count();
-                if char_count > cap {
-                    let truncated: String = content.chars().take(cap).collect();
-                    let dropped = char_count - cap;
-                    tracing::debug!(
-                        tool = tool_name,
-                        cap,
-                        char_count,
-                        dropped,
-                        "[tinyagents::mw] per-tool char cap applied"
-                    );
-                    content = format!(
-                        "{truncated}\n\n[truncated by tool cap: {dropped} more chars not shown]"
-                    );
-                }
-            }
-        }
-
-        // 4. Shared byte-cap backstop — truncate at a UTF-8 boundary with a marker.
-        //    Only for tools with no cap of their own (a capped tool already bounded
-        //    itself above; stacking the two markers would double-truncate), and
-        //    never for truncation-exempt tools. This is a per-result cap only —
-        //    `apply_per_result_persistence` takes a single `content: String` and a
-        //    fixed `self.budget_bytes`, with no shared/global accumulator across
-        //    tool calls (the aggregate-spill variant, `spill_aggregate_tool_results`,
-        //    is a separate legacy code path not wired into this middleware) — so
-        //    exempting these tools' own contribution here cannot perturb any other
-        //    tool's budget accounting.
-        if !truncation_exempt && tool_cap.is_none() && self.budget_bytes > 0 {
+        // 3. One bound, one place. Whether the limit came from the tool's own
+        //    `max_result_size_chars` or from the shared budget, an oversized
+        //    result takes the same route: spill the full body to an artifact,
+        //    hand back a preview plus the `file_read` call that pages the rest,
+        //    and fall back to an inline marker when no store is configured.
+        //
+        //    Declaring a cap used to *disable* this — `tool_cap.is_none()`
+        //    gated the persistence path — so the tools most in need of a
+        //    recovery handle were the ones denied it. `web_fetch` discarded
+        //    everything past 50k chars with no way to get it back, while
+        //    `file_read`, which declares no cap, got full byte-offset paging.
+        //    This is the affordance Hermes' `web_extract` footer provides and
+        //    the one `web_fetch`'s own doc comment already recommended.
+        //
+        //    This is a per-result cap only — `apply_per_result_persistence`
+        //    takes a single `content: String` and a fixed budget, with no
+        //    shared/global accumulator across tool calls (the aggregate-spill
+        //    variant, `spill_aggregate_tool_results`, is a separate legacy code
+        //    path not wired into this middleware) — so exempting a tool's own
+        //    contribution here cannot perturb any other tool's accounting.
+        if !truncation_exempt && budget_bytes > 0 {
             let (capped, outcome) = apply_per_result_persistence(
                 std::mem::take(&mut content),
                 full_output,
                 self.artifact_store.as_ref(),
                 tool_name,
                 Some(&call_id),
-                self.budget_bytes,
+                budget_bytes,
             )
             .await;
             if outcome.persisted {
