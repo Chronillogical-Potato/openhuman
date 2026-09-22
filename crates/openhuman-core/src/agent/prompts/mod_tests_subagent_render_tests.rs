@@ -607,3 +607,57 @@ fn render_subagent_system_prompt_skips_memory_md_when_disabled() {
 
     let _ = std::fs::remove_dir_all(workspace);
 }
+
+#[test]
+fn render_subagent_system_prompt_code_formats_list_signatures_and_protocol() {
+    let workspace = std::env::temp_dir().join(format!(
+        "openhuman_prompt_code_{}",
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    for (format, signature, example) in [
+        (
+            ToolCallFormat::Python,
+            "def test_tool() -> str  # tool desc",
+            "read_file(path=\"src/main.rs\", limit=20)",
+        ),
+        (
+            ToolCallFormat::TypeScript,
+            "function test_tool(): string;  // tool desc",
+            "read_file({path: \"src/main.rs\", limit: 20})",
+        ),
+    ] {
+        let rendered = render_subagent_system_prompt_with_format(
+            &workspace,
+            "reasoning-v1",
+            &[0],
+            &tools,
+            &[],
+            "You are a specialist.",
+            SubagentRenderOptions::narrow(),
+            format,
+            &[],
+            None,
+            None,
+        );
+        // A prompt-driven format: the child must be told which tools exist,
+        // as signatures, and how to call them.
+        assert!(rendered.contains("## Tools\n"), "{format:?}:\n{rendered}");
+        assert!(rendered.contains(signature), "{format:?}:\n{rendered}");
+        assert!(
+            rendered.contains("## Tool Use Protocol"),
+            "{format:?}:\n{rendered}"
+        );
+        assert!(rendered.contains(example), "{format:?}:\n{rendered}");
+        assert!(!rendered.contains("Parameters:"), "{format:?}:\n{rendered}");
+        assert!(!rendered.contains("Call as:"), "{format:?}:\n{rendered}");
+        assert!(
+            rendered.contains("parent agent will weave it back"),
+            "{format:?}:\n{rendered}"
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(workspace);
+}
