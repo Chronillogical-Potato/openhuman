@@ -131,10 +131,7 @@ export function selectThreadGoal(timeline: ToolTimelineEntry[]): ThreadGoalView 
     const goal = payload.goal;
     if (goal === null) return null;
     if (!goal || typeof goal !== 'object') continue;
-    const { goalId, objective, status, tokensUsed, tokenBudget } = goal as Record<
-      string,
-      unknown
-    >;
+    const { goalId, objective, status, tokensUsed, tokenBudget } = goal as Record<string, unknown>;
     if (typeof objective !== 'string' || typeof status !== 'string' || !GOAL_STATUSES.has(status))
       continue;
     return {

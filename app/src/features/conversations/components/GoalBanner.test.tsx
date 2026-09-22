@@ -29,9 +29,7 @@ describe('GoalBanner', () => {
   it('renders the objective, status, and usage against the budget', () => {
     render(<GoalBanner goal={goal()} />);
     expect(screen.getByTestId('goal-objective').textContent).toBe('Ship the v2 release');
-    expect(screen.getByTestId('goal-status').textContent).toBe(
-      'conversations.goal.status.active'
-    );
+    expect(screen.getByTestId('goal-status').textContent).toBe('conversations.goal.status.active');
     expect(screen.getByTestId('goal-tokens').textContent).toBe('1.2k / 50k tokens');
     expect(screen.getByTestId('goal-banner').getAttribute('data-goal-status')).toBe('active');
   });

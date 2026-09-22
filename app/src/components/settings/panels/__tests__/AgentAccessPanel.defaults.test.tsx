@@ -98,7 +98,6 @@ const mockUpdate = vi.mocked(openhumanUpdateAutonomySettings);
 const mockGetAgent = vi.mocked(openhumanGetAgentSettings);
 const mockUpdateAgent = vi.mocked(openhumanUpdateAgentSettings);
 
-
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(isTauri).mockReturnValue(true);

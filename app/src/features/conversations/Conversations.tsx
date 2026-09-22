@@ -34,14 +34,11 @@ import {
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
+import { selectThreadGoal, selectTodoList } from '../../features/conversations/utils/harnessState';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
 } from '../../features/conversations/utils/threadFilter';
-import {
-  selectThreadGoal,
-  selectTodoList,
-} from '../../features/conversations/utils/harnessState';
 import {
   ChatMascotDock,
   useChatMascotOptional,

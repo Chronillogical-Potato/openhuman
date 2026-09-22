@@ -84,9 +84,7 @@ export const TodoChecklist: React.FC<Props> = ({ list }) => {
           aria-hidden
           className="h-4 w-4 shrink-0 text-primary-700 dark:text-primary-200"
         />
-        <span className="font-semibold text-content-primary">
-          {t('conversations.todos.title')}
-        </span>
+        <span className="font-semibold text-content-primary">{t('conversations.todos.title')}</span>
         <span className="ml-auto text-xs text-content-secondary" data-testid="todo-progress">
           {list.done ? t('conversations.todos.allDone') : progressLabel}
         </span>

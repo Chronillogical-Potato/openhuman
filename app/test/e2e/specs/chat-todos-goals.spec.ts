@@ -85,10 +85,7 @@ const FORCED_RESPONSES = [
 async function readChecklist(): Promise<Array<[string, string]>> {
   return (await browser.execute(() => {
     const rows = Array.from(document.querySelectorAll('[data-testid="todo-item"]'));
-    return rows.map(row => [
-      (row.textContent ?? '').trim(),
-      row.getAttribute('data-status') ?? '',
-    ]);
+    return rows.map(row => [(row.textContent ?? '').trim(), row.getAttribute('data-status') ?? '']);
   })) as Array<[string, string]>;
 }
 

@@ -65,7 +65,9 @@ export const GoalBanner: React.FC<Props> = ({ goal }) => {
       />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-content-primary">{t('conversations.goal.title')}</span>
+          <span className="font-semibold text-content-primary">
+            {t('conversations.goal.title')}
+          </span>
           <Badge variant={STATUS_VARIANT[goal.status]} data-testid="goal-status">
             {t(STATUS_KEY[goal.status])}
           </Badge>
