@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, PrefixSnapshot, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
+    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
     SessionTurnRequest, ToolSnapshot, TranscriptCodec, TranscriptTarget, TurnOptions,
     TurnPreparation,
 };
