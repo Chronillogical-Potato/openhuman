@@ -650,8 +650,7 @@ function inferIntegrationName(input?: string): string | undefined {
 function inferIntegrationActionName(
   name: string
 ): { provider: string; action: string } | undefined {
-  const match = name.match(/^([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*?)_([A-Z0-9_]+)$/);
-  if (!match) return undefined;
+  if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(name)) return undefined;
   // Try the longest toolkit prefix first (`GOOGLE_CALENDAR_...`), then the
   // shortest (`GMAIL_...`).
   const parts = name.split('_');
