@@ -137,7 +137,10 @@ fn schema_is_the_claude_shape() {
         .map(|value| value.as_str().expect("status spelling"))
         .collect();
     for required in ["pending", "in_progress", "completed"] {
-        assert!(statuses.contains(&required), "missing {required}: {statuses:?}");
+        assert!(
+            statuses.contains(&required),
+            "missing {required}: {statuses:?}"
+        );
     }
     for retired in ["blocked", "ready", "awaiting_approval", "rejected"] {
         assert!(
