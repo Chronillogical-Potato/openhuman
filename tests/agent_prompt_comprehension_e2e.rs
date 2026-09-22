@@ -204,6 +204,14 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
         {
             names.push(name.to_string());
         }
+        if let Some(name) = line
+            .strip_prefix("def ")
+            .and_then(|signature| signature.split_once('('))
+            .map(|(name, _)| name)
+            .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace))
+        {
+            names.push(name.to_string());
+        }
         if in_available_tools {
             if let Some(name) = line
                 .strip_prefix("**")
