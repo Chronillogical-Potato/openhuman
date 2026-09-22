@@ -1,5 +1,5 @@
 use super::provider_role_for;
-use super::{resolve_dispatcher_kind, DispatcherKind};
+use super::super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 
 #[test]
 fn legacy_orchestrator_fallback_defaults_to_chat() {
