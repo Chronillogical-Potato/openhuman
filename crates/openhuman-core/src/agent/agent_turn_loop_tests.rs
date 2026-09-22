@@ -424,7 +424,10 @@ async fn turn_errors_on_empty_text_response() {
 
     let (mut agent, _tmp) = build_agent_with(provider, vec![], Box::new(NativeDialect));
 
-    let reply = agent.turn("hi").await.expect_err("an empty provider response must error");
+    let reply = agent
+        .turn("hi")
+        .await
+        .expect_err("an empty provider response must error");
     assert!(
         reply.to_string().contains("empty response"),
         "expected a deterministic empty-response close, got: {reply}"
@@ -442,7 +445,10 @@ async fn turn_errors_on_none_text_response() {
 
     let (mut agent, _tmp) = build_agent_with(provider, vec![], Box::new(NativeDialect));
 
-    let reply = agent.turn("hi").await.expect_err("a null-text provider response must error");
+    let reply = agent
+        .turn("hi")
+        .await
+        .expect_err("a null-text provider response must error");
     assert!(
         reply.to_string().contains("empty response"),
         "expected a deterministic empty-response close, got: {reply}"
