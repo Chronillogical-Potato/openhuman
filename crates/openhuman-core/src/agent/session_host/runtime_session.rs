@@ -1974,7 +1974,7 @@ impl OpenHumanSessionHost {
         }
     }
 
-    fn session_locator(&self) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
+    pub(in crate::agent::session_host) fn session_locator(&self) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
         self.session_history_locator.clone().unwrap_or_else(|| {
             Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
                 self.workspace_dir.clone(),
