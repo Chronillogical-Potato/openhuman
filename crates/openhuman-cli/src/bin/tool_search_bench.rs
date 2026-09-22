@@ -289,7 +289,7 @@ fn jev_ranker(
     family: bool,
     embedding: bool,
 ) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
+    use tinytools_jev::{ClientConfig, JevRanker};
     let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
         let mut client = ClientConfig::tinyhumans_openrouter(key);
         if let Ok(base) = std::env::var("BACKEND_URL") {
