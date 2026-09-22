@@ -70,6 +70,10 @@ function parseArgs(argv) {
     };
     if (a === "--only") o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--model") o.model = next();
+    else if (a === "--inference-url") o.inferenceUrl = next();
+    else if (a === "--api-key") o.apiKey = next();
+    else if (a === "--managed") o.managed = true;
+    else if (a === "--no-mock-composio") o.mockComposio = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
     else if (a === "--core-bin") o.coreBin = next();
