@@ -284,7 +284,7 @@ impl<'a> PromptTool<'a> {
 ///
 /// The prompt layer carries this only to select the TinyTools dialect; it does
 /// not define a tool-call protocol of its own.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ToolCallFormat {
     /// Compact positional legacy dialect.
     PFormat,
@@ -294,15 +294,10 @@ pub enum ToolCallFormat {
     /// informational. Renders in the same JSON-schema form as `Json`.
     Native,
     /// Python `def` signatures; the model calls `name(arg="value")`.
+    #[default]
     Python,
     /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
     TypeScript,
-}
-
-impl Default for ToolCallFormat {
-    fn default() -> Self {
-        Self::Python
-    }
 }
 
 impl ToolCallFormat {
