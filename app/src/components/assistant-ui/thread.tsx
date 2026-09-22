@@ -33,6 +33,7 @@ import {
   useAuiEditCapabilities,
   useAuiReloadCapability,
 } from '@/features/conversations/components/aui/auiThreadState';
+import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -321,6 +322,8 @@ const ThreadRoot: FC<{
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
 
+  useOpenThreadAtBottom(viewportRef);
+
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
@@ -386,6 +389,70 @@ const ThreadRoot: FC<{
     </ThreadPrimitive.Root>
   );
 };
+
+/**
+ * Opening a thread lands on its newest message.
+ *
+ * assistant-ui has two stock knobs for this and BOTH are inert here:
+ *
+ * - `scrollToBottomOnThreadSwitch` listens for `threads.selectionChanged`,
+ *   which fires only when its `mainThreadId` changes. That id is
+ *   `adapter.threadId ?? DEFAULT_THREAD_ID`, and `useOpenHumanExternalStore`
+ *   returns no `threadId` — the real thread travels out-of-band through
+ *   `AuiThreadIdContext` — so `mainThreadId` never leaves the default and the
+ *   event never fires.
+ * - `scrollToBottomOnInitialize` latches on the first non-empty render and
+ *   re-arms only while the thread has zero messages. `<AssistantUiChat>` is
+ *   mounted without a `key`, so this viewport survives thread switches with
+ *   that latch still set.
+ *
+ * The second one is why the defect is intermittent rather than total, and it
+ * is the case to keep in mind. `useOpenHumanExternalStore` reads
+ * `state.thread.messagesByThreadId[threadId]`, a cache cleared only on delete
+ * or sign-out, so a thread visited earlier this session hands its messages
+ * over on the very render the id changes: it never passes through the empty
+ * state that re-arms the latch, and the viewport keeps the PREVIOUS thread's
+ * `scrollTop`. A thread not yet cached does briefly read empty and therefore
+ * scrolls correctly even unfixed — so a fix checked only against a fresh
+ * thread looks right and fixes nothing.
+ *
+ * Hence: latch on the thread id rather than on emptiness. Nothing here is
+ * conditional on the reader's scroll position, unlike `ThreadBottomFollower`
+ * below — "don't yank the reader who scrolled up" is about a new turn arriving
+ * in the thread being read, and a scroll offset left over from a different
+ * thread is not a reading position worth restoring.
+ *
+ * This lives in `ThreadRoot`, which owns `viewportRef`, rather than in
+ * `ThreadBottomFollower`, which is handed it: a descendant's layout effect
+ * runs before its ancestor's ref is attached, so the follower sees
+ * `viewportRef.current === null` on the mount that matters and would burn the
+ * latch without scrolling.
+ */
+function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
+  const hasMessages = useAuiState(s => s.thread.messages.length > 0);
+  const threadId = useAuiThreadId();
+  // Which thread this viewport has already been dropped to the bottom for.
+  // `undefined` (nothing opened yet) is deliberately distinct from the
+  // `string | null` a thread id can be, so the initial value cannot collide
+  // with a genuine "no thread selected".
+  const openedThreadRef = useRef<string | null | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    // Wait for the transcript: on the uncached path the messages arrive a tick
+    // after the id changes, and a scroll issued against an empty viewport goes
+    // nowhere. Leaving the latch alone here is what lets that second pass run.
+    if (!hasMessages) return;
+    if (openedThreadRef.current === threadId) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    openedThreadRef.current = threadId;
+    // `behavior: 'instant'` overrides the viewport's `scroll-smooth` class:
+    // opening a thread should start at the bottom, not animate down through the
+    // entire history to get there.
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+  }, [hasMessages, threadId, viewportRef]);
+}
 
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
 
