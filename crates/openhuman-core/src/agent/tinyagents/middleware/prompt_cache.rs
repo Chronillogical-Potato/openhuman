@@ -73,7 +73,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -100,8 +100,18 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // 2. Tool schemas — advertised tool surface identity (full schemas, in
         //    registration order) forms the next stable prefix segment. A changed
         //    tool surface legitimately busts the prefix; an unchanged one keeps
-        //    it stable.
-        if !request.tools.is_empty() {
+        //    it stable. Under a text dialect the harness folds the catalogue
+        //    into the system prompt and clears `tools` *after* this hook ran,
+        //    so declaring a `tools` segment here would no longer match the
+        //    layout the harness rebuilds at dispatch — and a mismatch demotes
+        //    the whole request to a per-call digest, which is exactly the
+        //    routing-key churn this middleware exists to prevent.
+        let schemas_stay_on_wire = matches!(
+            ctx.data.tool_dialect,
+            tinyagents_harness::config::ToolDispatcher::Auto
+                | tinyagents_harness::config::ToolDispatcher::Native
+        );
+        if schemas_stay_on_wire && !request.tools.is_empty() {
             segments.push(PromptSegment {
                 id: HARNESS_TOOLS_SEGMENT_ID.to_string(),
                 role: SegmentRole::Tools,
