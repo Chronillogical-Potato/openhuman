@@ -163,8 +163,7 @@ fn remove_deletes_and_cascades_ingested() {
         25,
     )
     .unwrap();
-    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01"))
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01")).unwrap();
 
     remove_source(&config, &src.id).unwrap();
     assert!(get_source(&config, &src.id).is_err());
@@ -268,10 +267,8 @@ fn list_ingested_orders_newest_first() {
     )
     .unwrap();
 
-    mark_ingested(&config, &src.id, &sample_task("1", "first", "2025-01-01"))
-    .unwrap();
-    mark_ingested(&config, &src.id, &sample_task("2", "second", "2025-01-02"))
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "first", "2025-01-01")).unwrap();
+    mark_ingested(&config, &src.id, &sample_task("2", "second", "2025-01-02")).unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 2);
     // Newest ingested_at first; "2" was inserted last.
