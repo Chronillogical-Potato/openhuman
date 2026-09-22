@@ -21,6 +21,9 @@ mod evaluator;
 mod ranker;
 
 pub use evaluator::SystemOneEvaluator;
+/// The System One client configuration `SystemOneEvaluator` is built from,
+/// re-exported so a host needs no `tinyjevclient` dependency of its own.
+pub use tinyjevclient::ClientConfig;
 pub use ranker::TinyHumansJevRanker;
 
 use std::sync::Arc;

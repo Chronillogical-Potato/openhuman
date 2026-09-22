@@ -275,7 +275,8 @@ use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
 #[cfg(feature = "jev")]
 fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
+    use openhuman_tinyhumans::jev::{ClientConfig, SystemOneEvaluator};
+    use tinytools_jev::{JevRanker, JevRankerConfig};
     let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
         let mut client = ClientConfig::tinyhumans_openrouter(key);
         if let Ok(base) = std::env::var("BACKEND_URL") {
@@ -289,13 +290,13 @@ fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_
     } else {
         return None;
     };
-    let ranker = JevRanker::from_config(
-        client,
-        JevRankerConfig::new()
-            .with_retrieval_k(retrieval_k)
-            .with_timeout(Duration::from_secs(15)),
-    )
-    .ok()?;
+    let evaluator = SystemOneEvaluator::from_config(client)
+        .ok()?
+        .with_timeout(Duration::from_secs(15));
+    let ranker = JevRanker::new(
+        Arc::new(evaluator),
+        JevRankerConfig::new().with_retrieval_k(retrieval_k),
+    );
     let ranker = Arc::new(ranker);
     Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
 }
