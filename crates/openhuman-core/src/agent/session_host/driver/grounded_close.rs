@@ -15,8 +15,9 @@ use crate::agent::{
     messages::ChatMessage,
     session_host::turn_checkpoint::{
         self, build_deterministic_checkpoint, build_deterministic_final_summary,
-        close_verification_prompt, final_answer_instruction, parse_close_verdict,
-        render_tool_results, results_from_tool_outcomes, wrap_harness_instruction, CloseVerdict,
+        close_repair_instruction, close_verification_prompt, final_answer_instruction,
+        parse_close_verdict, quotes_harness_instruction, render_tool_results,
+        results_from_tool_outcomes, wrap_harness_instruction, CloseVerdict, CloseViolation,
     },
     tinyagents::{TinyagentsTurnOutcome, TurnModelSource},
 };
@@ -159,45 +160,109 @@ pub(super) async fn close_if_needed(
     } else {
         final_answer_instruction(outcome.breaker_halt.as_deref(), &rendered)
     };
-    let mut base: Vec<ChatMessage> = base_history
+    let base: Vec<ChatMessage> = base_history
         .iter()
         .filter_map(message_to_native_chat_message)
         .collect();
-    base.push(ChatMessage::user(instruction));
+    let stop_reason = outcome.breaker_halt.as_deref();
 
-    let mut usage = RepairUsage::default();
-    let (candidate, candidate_usage) =
-        completion(source, model, temperature, thread_id, base).await;
-    usage.record(candidate_usage);
-    let candidate = candidate.trim().to_owned();
-
+    let ask = |prompt: String| {
+        let mut messages = base.clone();
+        messages.push(ChatMessage::user(prompt));
+        async move { completion(source, model, temperature, thread_id, messages).await }
+    };
     // A closing response is only user-visible after a separate, tool-less
     // verifier accepts it.  This prevents a fluent repair from contradicting a
     // captured failure result or merely narrating intended work.
-    let accepted = if candidate.is_empty() || contains_tool_call(dispatcher, &candidate) {
-        false
-    } else {
-        let prompt = close_verification_prompt(user_message, &rendered, &candidate);
-        let (verdict, verdict_usage) = completion(
-            source,
-            model,
-            temperature,
-            thread_id,
-            vec![ChatMessage::user(prompt)],
-        )
-        .await;
-        usage.record(verdict_usage);
-        parse_close_verdict(&verdict) == CloseVerdict::Accept
+    let verify = |candidate: String| {
+        let prompt = (!contains_tool_call(dispatcher, &candidate))
+            .then(|| close_verification_prompt(user_message, &rendered, &candidate));
+        async move {
+            let Some(prompt) = prompt else {
+                return (Some(CloseViolation::NoReply), None);
+            };
+            let (verdict, verdict_usage) = completion(
+                source,
+                model,
+                temperature,
+                thread_id,
+                vec![ChatMessage::user(prompt)],
+            )
+            .await;
+            let violation = match parse_close_verdict(&verdict) {
+                CloseVerdict::Accept => None,
+                CloseVerdict::Reject | CloseVerdict::Unclear => Some(CloseViolation::Unverified),
+            };
+            (violation, verdict_usage)
+        }
+    };
+    let fallback = || {
+        if needs_cap_close {
+            build_deterministic_checkpoint(&records, outcome.model_calls)
+        } else {
+            build_deterministic_final_summary(&records, stop_reason)
+        }
     };
 
-    let output = if accepted {
-        candidate
-    } else if needs_cap_close {
-        build_deterministic_checkpoint(&records, outcome.model_calls)
-    } else {
-        build_deterministic_final_summary(&records, outcome.breaker_halt.as_deref())
-    };
+    let (output, usage) =
+        close_with_one_repair(instruction, stop_reason, ask, verify, fallback).await;
     Some(GroundedClose { output, usage })
+}
+
+/// Ask for a closing message, screen it, and on a violation ask exactly once
+/// more with that violation named, before giving up to `fallback`.
+///
+/// The rung exists because detection alone makes the user worse off: a
+/// rejection otherwise drops straight to a raw dump of tool records, and a
+/// reply rejected for leaking harness text usually carries a sound answer
+/// underneath the leak. One re-ask is the whole budget — this path already runs
+/// after the turn's own model calls, and a model that ignores a named directive
+/// twice will not comply on a third try.
+///
+/// `ask` and `verify` are supplied by the caller so the sequence can be
+/// exercised without a provider; the deterministic guard stays here, ahead of
+/// `verify`, because it is the one check that cannot fail open.
+async fn close_with_one_repair<A, AF, V, VF>(
+    instruction: String,
+    stop_reason: Option<&str>,
+    ask: A,
+    verify: V,
+    fallback: impl FnOnce() -> String,
+) -> (String, RepairUsage)
+where
+    A: Fn(String) -> AF,
+    AF: std::future::Future<Output = (String, Option<UsageInfo>)>,
+    V: Fn(String) -> VF,
+    VF: std::future::Future<Output = (Option<CloseViolation>, Option<UsageInfo>)>,
+{
+    let mut usage = RepairUsage::default();
+    let mut prompt = instruction.clone();
+    for attempt in 0..2 {
+        let (candidate, candidate_usage) = ask(prompt).await;
+        usage.record(candidate_usage);
+        let candidate = candidate.trim().to_owned();
+        let violation = if candidate.is_empty() {
+            Some(CloseViolation::NoReply)
+        } else if quotes_harness_instruction(&candidate, stop_reason) {
+            Some(CloseViolation::QuotedHarnessText)
+        } else {
+            let (violation, verify_usage) = verify(candidate.clone()).await;
+            usage.record(verify_usage);
+            violation
+        };
+        let Some(violation) = violation else {
+            return (candidate, usage);
+        };
+        if attempt > 0 {
+            break;
+        }
+        tracing::debug!(
+            ?violation,
+            "[session-runtime] grounded close rejected, re-asking once"
+        );
+        prompt = close_repair_instruction(&instruction, violation);
+    }
+    (fallback(), usage)
 }
 
 async fn completion(
@@ -256,3 +321,7 @@ fn contains_tool_call(dispatcher: &dyn ToolDialect, text: &str) -> bool {
         .1
         .is_empty()
 }
+
+#[cfg(test)]
+#[path = "grounded_close_tests.rs"]
+mod tests;

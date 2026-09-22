@@ -296,3 +296,147 @@ fn the_final_answer_instruction_is_framed_and_forbids_quoting_tools_and_delibera
     );
     assert!(out.contains("Do not narrate your deliberation"), "{out}");
 }
+
+/// The needle is taken from the constant at run time. A reword that the guard
+/// does not follow therefore fails here instead of shipping a guard that
+/// matches text nobody is given any more.
+#[test]
+fn the_guard_rejects_a_reply_quoting_the_instruction_it_was_given() {
+    let span = FINAL_ANSWER_INSTRUCTION
+        .split('.')
+        .next()
+        .expect("the instruction opens with a sentence")
+        .trim();
+
+    let candidate = format!("Right — {span}. Anyway, the config is valid and the build passes.");
+    assert!(
+        quotes_harness_instruction(&candidate, None),
+        "a verbatim span of the directive must be caught: {candidate}"
+    );
+    // Re-wrapped and re-cased, it is the same quotation.
+    let rewrapped = span.to_uppercase().replace(' ', "\n  ");
+    assert!(
+        quotes_harness_instruction(&rewrapped, None),
+        "line breaks and case must not hide the quotation: {rewrapped}"
+    );
+}
+
+/// The stop note is handed to the same call, worded for a model, and is the
+/// other string the harness owns on this path.
+#[test]
+fn the_guard_rejects_a_reply_quoting_the_stop_note_it_was_given() {
+    let candidate = format!("I could not finish. {STOP_NOTE}");
+    assert!(
+        quotes_harness_instruction(&candidate, Some(STOP_NOTE)),
+        "the stop note must be caught when it was the one supplied: {candidate}"
+    );
+    assert!(
+        !quotes_harness_instruction(&candidate, None),
+        "a note this turn was never given is not a harness quotation: {candidate}"
+    );
+}
+
+/// The false-positive boundary. A user may ask what the assistant can do, and
+/// a report naturally names the tools it used — neither is a quotation, and a
+/// guard that rejected them would cost every such answer.
+#[test]
+fn the_guard_accepts_a_reply_that_names_tools_naturally() {
+    let reply = "I read the config with `read_file`, patched it, and saved it back with \
+                 `write_file` — the build is green again. I can also search the workspace or run \
+                 a command if you want me to check anything else. Nothing conclusive came back \
+                 from the log search, so say the word and I will dig further.";
+    assert!(
+        !quotes_harness_instruction(reply, None),
+        "naming tools and reporting plainly must pass: {reply}"
+    );
+    assert!(
+        !quotes_harness_instruction(reply, Some(STOP_NOTE)),
+        "the stop note being present must not change that: {reply}"
+    );
+}
+
+/// The reply that reached a user: deliberation aloud, the whole
+/// toolset recited, then the directive quoted, with a good answer underneath.
+///
+/// Its quotation is spliced from [`FINAL_ANSWER_INSTRUCTION`] rather than
+/// pasted, so the fixture keeps quoting whatever the model is actually handed.
+fn the_leaked_reply() -> String {
+    let quoted = FINAL_ANSWER_INSTRUCTION
+        .split('.')
+        .next()
+        .expect("the instruction opens with a sentence")
+        .trim();
+    format!(
+        "I need to see what's in the workspace to answer this properly.\n\n\
+         Wait, I don't have a workspace-listing tool available in my current toolset. My tools \
+         are: read_file, write_file, list_directory, search_files, run_command, fetch_url, \
+         create_task, list_tasks, update_task, send_message, search_memory, write_memory.\n\n\
+         {quoted}. Tools are no longer available and nothing more will run this turn, so do not \
+         call any tools.\n\n\
+         The workspace holds three crates; the build is green and the failing test from earlier \
+         now passes."
+    )
+}
+
+/// The regression the guard exists for. The good answer in the last third is
+/// exactly why this shipped unnoticed — and why a rejection has to repair
+/// rather than discard.
+#[test]
+fn the_leaked_reply_from_the_field_is_rejected() {
+    let leaked = the_leaked_reply();
+    assert!(
+        quotes_harness_instruction(&leaked, None),
+        "the reply this issue was filed for must not ship: {leaked}"
+    );
+}
+
+/// The two shapes the deterministic guard cannot see: told in the model's own
+/// words, neither leaves a span to match.
+#[test]
+fn the_close_verification_prompt_rejects_deliberation_and_recited_toolsets() {
+    let prompt = close_verification_prompt(
+        "what is in the workspace",
+        "\n- `list_directory` — ok\n  > three crates\n",
+        "Wait, I don't have a tool for that.",
+    );
+    assert!(
+        prompt.contains("narrates the assistant's own deliberation"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("recites or enumerates the tools the assistant has"),
+        "{prompt}"
+    );
+    // The carve-outs are what keep judgement rules from eating legitimate replies.
+    assert!(
+        prompt.contains("Reporting what a tool call returned is not deliberation"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("asked what the assistant can do, is not a violation"),
+        "{prompt}"
+    );
+    assert!(prompt.contains("ACCEPT or REJECT"), "{prompt}");
+}
+
+/// The re-ask is corrective, not a re-roll: it names what went wrong and
+/// carries the original instruction so the retry still has the records.
+#[test]
+fn the_repair_re_ask_names_the_violation_and_repeats_the_instruction() {
+    let instruction = final_answer_instruction(None, "\n- `read_file` — ok\n  > config found\n");
+
+    let quoted = close_repair_instruction(&instruction, CloseViolation::QuotedHarnessText);
+    assert!(quoted.contains("repeated these directions"), "{quoted}");
+    assert!(
+        quoted.contains(&instruction),
+        "the original instruction must ride along: {quoted}"
+    );
+
+    let unverified = close_repair_instruction(&instruction, CloseViolation::Unverified);
+    assert!(
+        unverified.contains("did not pass the check"),
+        "{unverified}"
+    );
+    let empty = close_repair_instruction(&instruction, CloseViolation::NoReply);
+    assert!(empty.contains("empty or tried to call a tool"), "{empty}");
+}
