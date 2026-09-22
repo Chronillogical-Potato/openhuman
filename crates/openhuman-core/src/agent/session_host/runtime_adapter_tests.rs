@@ -93,8 +93,17 @@ fn codec_marks_failed_tool_rows_from_the_explicit_turn_sidecar() {
         .is_some_and(|failure| failure.failed));
 }
 
+/// The durable record is the parent's OWN spend.
+///
+/// This assertion used to read `18` — "direct + completed child input" — which
+/// made the root transcript's record overlap the child's own transcript, and
+/// `threads::ops::usage` added both (#6460). Inverted deliberately, not deleted:
+/// the sub-agent entry is still appended below, and the point is that it does
+/// **not** move these numbers. The live `chat_done` projection stays inclusive —
+/// see `last_turn_usage_reports_the_same_holistic_totals_as_transcript_billing`
+/// immediately below, which is the counterpart this split is meant to preserve.
 #[test]
-fn codec_attaches_sidecar_usage_and_exact_tool_arguments_to_atomic_append() {
+fn codec_attaches_only_this_agents_own_sidecar_usage_to_atomic_append() {
     let context = OpenHumanRunContext::new();
     {
         let mut sidecar = context.session_sidecar.lock().unwrap();
@@ -125,6 +134,9 @@ fn codec_attaches_sidecar_usage_and_exact_tool_arguments_to_atomic_append() {
             charged_amount_usd: 0.001,
         },
     });
+    // `OpenHumanRunContext` is `Clone` and its child ledger is an `Arc`, so this
+    // probe observes the same ledger after `context` is moved into the options.
+    let probe = context.clone();
     let usage = OpenHumanTranscriptCodec
         .turn_usage(&TranscriptTurnOptions {
             request_id: Some("request-usage".into()),
@@ -136,11 +148,32 @@ fn codec_attaches_sidecar_usage_and_exact_tool_arguments_to_atomic_append() {
         .unwrap()
         .expect("observed sidecar produces transcript usage");
 
-    assert_eq!(usage.usage.input, 18, "direct + completed child input");
-    assert_eq!(usage.usage.output, 10, "direct + completed child output");
-    assert_eq!(usage.usage.cached_input, 4);
+    // The child contributed 5/2/1/$0.001 and is deliberately absent here: it is
+    // recorded in its own transcript, which the thread aggregate reads directly.
+    assert_eq!(
+        usage.usage.input, 13,
+        "the parent's own input, NOT 18 — the child's 5 belongs to the child's record"
+    );
+    assert_eq!(
+        usage.usage.output, 8,
+        "the parent's own output, NOT 10 — the child's 2 belongs to the child's record"
+    );
+    assert_eq!(
+        usage.usage.cached_input, 3,
+        "the parent's own cache reads, NOT 4"
+    );
     assert_eq!(usage.usage.context_window, 128_000);
-    assert!((usage.usage.cost_usd - 0.005).abs() < f64::EPSILON);
+    assert!(
+        (usage.usage.cost_usd - 0.004).abs() < f64::EPSILON,
+        "the parent's own cost, NOT 0.005"
+    );
+    // The entry is still on the sidecar — exclusivity is about what is written,
+    // not about discarding the ledger the live UI projection needs.
+    assert_eq!(
+        probe.subagent_usage_entries().len(),
+        1,
+        "the child entry survives on the ledger for the live projection"
+    );
     assert_eq!(usage.iteration, 2);
     assert_eq!(usage.tool_calls.len(), 1);
     assert_eq!(usage.tool_calls[0].id, "call-usage");
