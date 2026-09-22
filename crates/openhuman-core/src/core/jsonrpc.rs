@@ -2323,7 +2323,7 @@ pub async fn start_core_runtime_services(
     crate::core::runtime::services::start_boot_once_jobs(services, cfg).await;
 
     // Long-lived bootstrap loops selected by ServiceSet. These start only
-    // after the legacy goal/task-board migrations above have completed.
+    // after the boot-once jobs above have completed.
     crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
 
     match crate::platform::socket::global_socket_manager() {

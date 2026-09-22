@@ -16,23 +16,21 @@ import AgentAccessPanel from '../AgentAccessPanel';
 /**
  * The fail-safe half of `AgentAccessPanel`.
  *
- * On load the panel reads four security fields through nullish coalescing
- * (panel :94-97):
+ * On load the panel reads three security fields through nullish coalescing:
  *
- *   require_task_plan_approval ?? true
  *   auto_approve_all           ?? false
  *   trusted_roots              ?? []
  *   auto_approve               ?? []
  *
  * Each default is chosen to fail CLOSED — an older core, or one that drops a
- * field, must land on "approval required" and "nothing auto-approved" rather
- * than the permissive value. The existing suite always supplies every field, so
- * none of those four arms is exercised; the panel measured 66.2% branches.
+ * field, must land on "nothing auto-approved" rather than the permissive
+ * value. The existing suite always supplies every field, so none of those
+ * arms is exercised otherwise.
  *
- * If `require_task_plan_approval ?? true` were ever written `?? false`, a core
- * that omitted the field would silently stop requiring plan approval and the
- * toggle would show OFF as though the user had chosen it. That is the failure
- * these tests exist to catch.
+ * If `auto_approve_all ?? false` were ever written `?? true`, a core that
+ * omitted the field would silently approve every tool call and the toggle
+ * would show ON as though the user had chosen it. That is the failure these
+ * tests exist to catch.
  *
  * Also covers `addRoot`'s guards (blank, duplicate) and its Enter-key path,
  * which the existing suite reaches only through the Add button.
@@ -100,8 +98,6 @@ const mockUpdate = vi.mocked(openhumanUpdateAutonomySettings);
 const mockGetAgent = vi.mocked(openhumanGetAgentSettings);
 const mockUpdateAgent = vi.mocked(openhumanUpdateAgentSettings);
 
-const taskPlanToggle = () => screen.getByRole('switch', { name: /plan|approval/i });
-
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(isTauri).mockReturnValue(true);
@@ -112,25 +108,6 @@ beforeEach(() => {
 });
 
 describe('AgentAccessPanel — fail-closed defaults for omitted security fields', () => {
-  it('requires task-plan approval when the core omits the field', async () => {
-    mockGet.mockResolvedValue({ result: autonomyMissingOptionals(), logs: [] });
-    renderWithProviders(<AgentAccessPanel />);
-
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
-    // `?? true`: absent must read as ON, never as the permissive OFF.
-    await waitFor(() => expect(taskPlanToggle()).toHaveAttribute('aria-checked', 'true'));
-  });
-
-  it('still honours an explicit false for task-plan approval', async () => {
-    // The default must not mask a real value the user chose.
-    mockGet.mockResolvedValue({
-      result: autonomy({ require_task_plan_approval: false } as never),
-      logs: [],
-    });
-    renderWithProviders(<AgentAccessPanel />);
-    await waitFor(() => expect(taskPlanToggle()).toHaveAttribute('aria-checked', 'false'));
-  });
-
   it('leaves auto-approve-all OFF when the core omits the field', async () => {
     mockGet.mockResolvedValue({ result: autonomyMissingOptionals(), logs: [] });
     renderWithProviders(<AgentAccessPanel />);
@@ -168,7 +145,9 @@ describe('AgentAccessPanel — fail-closed defaults for omitted security fields'
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
     // Reaching a rendered panel at all is the assertion: a missing array would
     // throw during render before anything appeared.
-    expect(await screen.findByRole('switch', { name: /plan|approval/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('switch', { name: /auto-approve all|approve all/i })
+    ).toBeInTheDocument();
   });
 });
 

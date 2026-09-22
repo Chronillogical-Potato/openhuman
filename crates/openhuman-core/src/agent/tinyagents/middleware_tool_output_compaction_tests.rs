@@ -262,37 +262,29 @@ async fn the_turns_task_hint_reaches_the_payload_summarizer() {
 /// #6283 review: the authoritative size is stated after the output caps, so a
 /// tool cap shorter than the summary cannot cut it away.
 #[tokio::test]
-async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
-    let mut tool_policies = HashMap::new();
-    tool_policies.insert(
-        "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(ToolRuntime {
-            timeout_ms: None,
-            timeout: ToolTimeout::Inherit,
-            max_retries: None,
-            idempotent: false,
-            cancelable: true,
-            sandbox: tinytools::SandboxMode::Inherit,
-            max_result_bytes: Some(12),
-            streaming: false,
-            replay: Default::default(),
-        }),
-    );
+async fn the_summarized_size_leads_the_content_for_an_uncapped_tool() {
+    // The disclosure of how much was summarized must survive whatever the
+    // downstream budget does to the body, so the model is never handed a
+    // summary that reads as the whole result.
+    //
+    // A tool that declares its own cap no longer reaches this stage at all
+    // (see `a_tool_that_caps_itself_is_never_sent_to_the_summarizer`), so the
+    // interesting case is an uncapped tool whose summary the shared budget
+    // then trims.
     let summary = "summary ".repeat(50);
-    let mut mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Summarized(
+    let mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Summarized(
         crate::agent::tinyagents::payload_summarizer::SummarizedPayload {
             summary_bytes: summary.len(),
             summary,
             original_bytes: 119_796,
         },
     )));
-    mw.tool_policies = tool_policies;
-    let mut result = tool_result("terse", &"payload ".repeat(200));
+    let mut result = tool_result("test_tool", &"payload ".repeat(200));
 
     mw.after_tool(
         &mut ctx(),
         &(),
-        &invocation("terse-cap", "terse"),
+        &invocation("uncapped-summary", "test_tool"),
         &mut result,
     )
     .await
@@ -303,9 +295,5 @@ async fn the_summarized_size_survives_a_tool_cap_shorter_than_the_summary() {
             .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
         "the real size must lead the content whatever the caps did, got {:?}",
         result_text(&result).chars().take(160).collect::<String>()
-    );
-    assert!(
-        result_text(&result).contains("[truncated by tool cap:"),
-        "the summary itself is still bound by the tool's cap"
     );
 }

@@ -548,7 +548,13 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
 /// fragment that still reads as tool output. The notice is applied after
 /// every cap now, so it survives intact whatever the tool declared.
 #[tokio::test]
-async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
+async fn a_tool_that_caps_itself_is_never_sent_to_the_summarizer() {
+    // The cost bug this replaced. The per-tool cap used to be applied
+    // *after* the summarizer, so a tool declaring `max_result_size_chars`
+    // still shipped its full body to an LLM and the cap only bounded the
+    // summary. One research turn paid 1,083,069 input tokens that way.
+    // A tool that caps itself is already bounded, and step 4 spills the
+    // remainder to a pageable artifact, so the model call buys nothing.
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
@@ -559,19 +565,17 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
             idempotent: false,
             cancelable: true,
             sandbox: tinytools::SandboxMode::Inherit,
-            // Far shorter than the ~165-char notice.
-            max_result_bytes: Some(12),
+            max_result_bytes: Some(64),
             streaming: false,
             replay: Default::default(),
         }),
     );
+    let stub = StubSummarizer::ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
     let mw = ToolOutputMiddleware {
-        // Large enough that the byte-budget backstop never fires, so this
+        // Large enough that the shared backstop never fires, so this
         // observes the per-tool cap alone.
         budget_bytes: 10_000_000,
-        payload_summarizer: Some(StubSummarizer::ok(SummarizeOutcome::Unavailable(
-            UnavailableReason::Failed,
-        ))),
+        payload_summarizer: Some(stub.clone()),
         task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
@@ -591,26 +595,14 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
     .await
     .unwrap();
 
-    let notice = UnavailableReason::Failed.notice();
     assert!(
-        result_text(&result).starts_with(notice),
-        "the complete notice must lead the content, got {:?}",
-        result_text(&result).chars().take(200).collect::<String>()
+        !stub.was_called(),
+        "a tool with its own cap must not be dispatched to the summarizer"
     );
     assert!(
-        result_text(&result).contains("Do not re-run the tool for a summary"),
-        "the do-not-re-run instruction is the whole point of the notice and must survive"
-    );
-    // The payload itself is still capped — deferring the notice must not
-    // smuggle the tool past its own declared limit.
-    let rendered = result_text(&result);
-    let payload = rendered
-        .strip_prefix(notice)
-        .expect("notice prefix")
-        .trim_start();
-    assert!(
-        payload.contains("[truncated by tool cap:"),
-        "the raw payload must still be truncated to the tool's cap, got {payload:?}"
+        result_text(&result).len() < 1_600,
+        "the cap must still bound the result: {} bytes",
+        result_text(&result).len()
     );
 }
 
@@ -651,10 +643,15 @@ async fn tool_output_honors_a_tools_own_cap() {
     )
     .await
     .unwrap();
+    let text = result_text(&result);
     assert!(
-        result_text(&result).contains("truncated by tool cap: 480 more chars not shown"),
-        "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
-        result_text(&result)
+        text.len() < 500,
+        "the tool's own 20-byte cap must bound the result: {text}"
+    );
+    assert!(
+        text.contains("truncated by tool_result_budget"),
+        "a capped tool now takes the shared spill path, which says how much \
+         is missing and how to get it: {text}"
     );
 }
 

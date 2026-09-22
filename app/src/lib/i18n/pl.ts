@@ -3300,6 +3300,19 @@ const messages: TranslationMap = {
   'conversations.composer.context.output': 'Wyjście',
   'conversations.composer.context.cost': 'Koszt',
   'conversations.composer.command.clear': 'Wyczyść rozmowę',
+  'conversations.todos.title': 'Zadania',
+  'conversations.todos.progress': '{completed} z {total} ukończono',
+  'conversations.todos.allDone': 'Wszystko gotowe',
+  'conversations.todos.status.pending': 'Oczekuje',
+  'conversations.todos.status.inProgress': 'W toku',
+  'conversations.todos.status.completed': 'Ukończone',
+  'conversations.goal.title': 'Cel',
+  'conversations.goal.status.active': 'Aktywny',
+  'conversations.goal.status.paused': 'Wstrzymany',
+  'conversations.goal.status.budgetLimited': 'Budżet wyczerpany',
+  'conversations.goal.status.complete': 'Ukończony',
+  'conversations.goal.tokens': '{used} tokenów',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokenów',
   'conversations.planReview.title': 'Przejrzyj plan',
   'conversations.planReview.subtitle':
     'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
@@ -3398,12 +3411,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Najnowszy wygenerowany diagram architektury OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Odświeża co {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Typ encji',
-  'intelligence.workTask.sourceTaskHeading': 'Zadanie źródłowe:',
-  'intelligence.workTask.repositoryLine': '- Repozytorium: {repo}',
-  'intelligence.workTask.externalIdLine': '- Identyfikator zewnętrzny: {externalId}',
-  'intelligence.workTask.urlLine': '- Adres: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Zacznij od krótkiego powtórzenia konkretnego planu wdrożenia, a następnie go zrealizuj. Utrzymuj widoczność postępów w tym wątku i aktualizuj tablicę zadań, gdy zmienia się stan pracy.',
   'intelligence.agentWork.subtitle':
     'Każdy przebieg agenta w tle, pogrupowany według stanu cyklu życia.',
   'intelligence.agentWork.loading': 'Ładowanie pracy agenta…',
@@ -4891,9 +4898,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Co 2 godziny',
   'settings.devWorkflow.schedule.every6hours': 'Co 6 godzin',
   'settings.devWorkflow.schedule.onceDaily': 'Raz dziennie (9:00)',
-  'settings.developerMenu.tasks.title': 'Zadania',
-  'settings.developerMenu.tasks.desc':
-    'Przeglądaj tablice zadań i zarządzaj nimi: Twoje własne zadania oraz tablice tworzone przez agentów w rozmowach.',
   'settings.developerMenu.cronJobs.title': 'Zadania cron',
   'settings.developerMenu.cronJobs.desc':
     'Przeglądaj i konfiguruj zaplanowane zadania dla umiejętności runtime',
@@ -4998,9 +5002,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ogranicz do przestrzeni roboczej',
   'settings.agentAccess.confine.desc':
     'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Po wyłączeniu tej opcji agent może sięgać wszędzie tam, gdzie ma dostęp Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Wymagaj zatwierdzenia planu zadania',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
   'settings.agentAccess.autoApproveAll.label': 'Automatycznie zatwierdzaj wszystkie działania',
   'settings.agentAccess.autoApproveAll.desc':
     'Po włączeniu agent będzie wykonywać wszystkie działania bez wcześniejszego proszenia o Twoją zgodę. Obejmuje to zapis plików, polecenia powłoki, żądania sieciowe i wszelkie inne efekty uboczne. Twarde blokady bezpieczeństwa (katalogi poświadczeń, wewnętrzne ścieżki przestrzeni roboczej) nadal obowiązują.',

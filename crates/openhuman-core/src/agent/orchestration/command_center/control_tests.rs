@@ -24,8 +24,6 @@ fn seed_run(config: &Config, id: &str, status: AgentRunStatus) {
             status,
             prompt_ref: None,
             worker_thread_id: None,
-            task_board_id: None,
-            task_card_id: None,
             checkpoint_path: None,
             checkpoint: None,
             summary: None,
