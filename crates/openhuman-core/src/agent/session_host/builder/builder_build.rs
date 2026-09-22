@@ -122,6 +122,9 @@ impl SessionHostBuilder {
             .cloned()
             .collect();
         let config = self.config.clone().unwrap_or_default();
+        // The turn harness is assembled without a config in hand; record the
+        // `tool_search` settings here so every later turn ranks as configured.
+        crate::agent::tinyagents::discovery::apply_tool_search_config(&config.tool_search);
         let event_session_id = self
             .event_session_id
             .clone()
