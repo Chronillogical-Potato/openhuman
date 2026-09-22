@@ -20,7 +20,8 @@
  *   G1.2 — the checklist renders all five items with their statuses
  *   G1.3 — a later write moves the checklist on (3 of 5, fourth in progress)
  *   G1.4 — the final write completes every item and the banner turns complete
- *   G1.5 — both survive a thread switch and switch back (persisted turn state)
+ *   G1.5 — both survive a thread switch and switch back, rebuilt from the
+ *          thread's persisted turn states (`useThreadHarnessState`)
  */
 import { waitForApp } from '../helpers/app-helpers';
 import {
@@ -255,7 +256,9 @@ describe('Chat todos and goals', () => {
     });
     expect(await readGoal()).toBeNull();
 
-    // Back to the first thread: both rehydrate from the persisted turn state.
+    // Back to the first thread: both rebuild from the thread's persisted turn
+    // states — the goal from the turn that set it, the list from the last
+    // write.
     await clickTestId(`thread-row-${threadId}`, 15_000);
     await browser.waitUntil(async () => (await getSelectedThreadId()) === threadId, {
       timeout: 8_000,
