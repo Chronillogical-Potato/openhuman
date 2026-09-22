@@ -1968,7 +1968,7 @@ impl OpenHumanSessionHost {
 
     fn runtime_transcript_meta(&self) -> TranscriptMeta {
         let now = chrono::Utc::now().to_rfc3339();
-        TranscriptMeta { session_id: None, parent_session_id: None,
+        TranscriptMeta {
             agent_name: self.agent_definition_name.clone(),
             agent_id: Some(self.agent_definition_id.clone()),
             agent_type: Some(if self.session_parent_prefix.is_some() {
