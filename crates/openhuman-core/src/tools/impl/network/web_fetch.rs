@@ -79,9 +79,8 @@ impl Tool for WebFetchTool {
     }
 
     fn description(&self) -> &str {
-        "GET a URL and read the page. HTML returns as Markdown — headings and \
-         links kept, scripts dropped — so the links in the result are the ones \
-         to fetch next. `raw: true` returns the body untouched. For POST or \
+        "GET a URL and read the page. HTML returns as Markdown (links kept, \
+         scripts dropped); `raw: true` for the body as sent. For POST or \
          custom headers use `http_request`."
     }
 
@@ -92,12 +91,12 @@ impl Tool for WebFetchTool {
                 "url": { "type": "string", "description": "Absolute http(s) URL." },
                 "max_bytes": {
                     "type": "integer",
-                    "description": "Cap the download at this many bytes (default 1_000_000).",
+                    "description": "Truncate body at this many bytes (default 1_000_000).",
                     "minimum": 1
                 },
                 "raw": {
                     "type": "boolean",
-                    "description": "Return the body as sent, without Markdown conversion."
+                    "description": "Return the body as sent."
                 }
             },
             "required": ["url"]
