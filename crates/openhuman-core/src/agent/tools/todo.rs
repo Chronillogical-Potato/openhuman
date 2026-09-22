@@ -71,6 +71,27 @@ struct TodoItem {
     status: Option<String>,
 }
 
+fn cards_from_todos(raw: &serde_json::Value) -> anyhow::Result<Vec<TaskBoardCard>> {
+    let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
+        .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
+    let mut cards = Vec::with_capacity(items.len());
+    for item in items {
+        let content = item.content.trim();
+        if content.is_empty() {
+            anyhow::bail!("every todo needs non-empty `content`");
+        }
+        let mut card = TaskBoardCard::new(content);
+        card.status = match item.status.as_deref() {
+            None => TaskCardStatus::Todo,
+            Some(raw) => ops::parse_status(raw).map_err(|_| {
+                anyhow::anyhow!("status must be pending, in_progress, or completed")
+            })?,
+        };
+        cards.push(card);
+    }
+    Ok(cards)
+}
+
 #[async_trait]
 impl Tool for TodoTool {
     fn name(&self) -> &str {
@@ -137,26 +158,20 @@ impl TodoTool {
         let scope = current_scope(parent.as_ref(), tool_context);
         tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
 
-        let result = match args.get("todos") {
-            None | Some(serde_json::Value::Null) => ops::list(&scope).await,
-            Some(raw) => {
-                let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
-                    .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
-                let mut cards = Vec::with_capacity(items.len());
-                for item in items {
-                    let content = item.content.trim();
-                    if content.is_empty() {
-                        anyhow::bail!("every todo needs non-empty `content`");
-                    }
-                    let mut card = TaskBoardCard::new(content);
-                    card.status = match item.status.as_deref() {
-                        None => TaskCardStatus::Todo,
-                        Some(raw) => ops::parse_status(raw).map_err(anyhow::Error::msg)?,
-                    };
-                    cards.push(card);
-                }
-                ops::replace(&scope, cards).await
+        if args.get("todos").is_none() && args.get("cards").is_some() {
+            return Ok(ToolResult::error(
+                "the `cards` shape is retired; pass `todos` instead",
+            ));
+        }
+
+        let result: anyhow::Result<_> = match args.get("todos") {
+            None | Some(serde_json::Value::Null) => {
+                ops::list(&scope).await.map_err(anyhow::Error::msg)
             }
+            Some(raw) => match cards_from_todos(raw) {
+                Ok(cards) => ops::replace(&scope, cards).await.map_err(anyhow::Error::msg),
+                Err(error) => return Ok(ToolResult::error(error.to_string())),
+            },
         };
 
         match result {
@@ -178,7 +193,7 @@ impl TodoTool {
                 });
                 Ok(ToolResult::success(payload.to_string()))
             }
-            Err(err) => Ok(ToolResult::error(err)),
+            Err(err) => Ok(ToolResult::error(err.to_string())),
         }
     }
 }
