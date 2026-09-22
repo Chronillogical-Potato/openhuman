@@ -1,141 +1,123 @@
 use super::*;
 use serde_json::Value;
 
-/// Serialize tests that share the process-global scratch store with
-/// `todos::ops` tests. Same lock — otherwise the two test modules race
-/// under `cargo test`'s thread pool.
+/// Serialize tests that share the process-global scratch store. Same lock
+/// as `todos::ops` — otherwise the two test modules race under `cargo test`'s
+/// thread pool.
 fn scratch_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::agent::todos::ops::scratch_test_lock()
 }
 
 async fn reset_scratch() {
-    crate::agent::todos::ops::clear(&BoardLocation::Scratch)
+    crate::agent::todos::ops::clear(&TodoScope::Scratch)
         .await
         .expect("clear scratch");
 }
 
+fn payload(result: &ToolResult) -> Value {
+    serde_json::from_str(&result.output()).expect("json payload")
+}
+
 #[tokio::test]
-async fn add_then_list_round_trips_via_scratch() {
+async fn a_write_replaces_the_whole_list_and_a_read_returns_it() {
     let _guard = scratch_lock();
     reset_scratch().await;
     let tool = TodoTool::new();
-    let added = tool
-        .execute(json!({ "op": "add", "content": "Write tests" }))
+
+    let written = tool
+        .execute(json!({ "todos": [
+            { "content": "Write tests", "status": "in_progress" },
+            { "content": "Ship it", "status": "pending" }
+        ] }))
         .await
         .unwrap();
-    assert!(!added.is_error, "{}", added.output());
-    let payload: Value = serde_json::from_str(&added.output()).unwrap();
-    let cards = payload["cards"].as_array().unwrap();
-    assert_eq!(cards.len(), 1);
-    let id = cards[0]["id"].as_str().unwrap().to_string();
-    assert!(payload["markdown"]
-        .as_str()
-        .unwrap()
-        .contains("[ ] Write tests"));
+    assert!(!written.is_error, "{}", written.output());
+    let p = payload(&written);
+    assert_eq!(p["todos"].as_array().unwrap().len(), 2);
+    assert_eq!(p["todos"][0]["status"], "in_progress");
+    assert_eq!(p["todos"][1]["status"], "pending");
+    let markdown = p["markdown"].as_str().unwrap();
+    assert!(markdown.contains("[~] Write tests"), "{markdown}");
+    assert!(markdown.contains("[ ] Ship it"), "{markdown}");
 
-    let listed = tool.execute(json!({ "op": "list" })).await.unwrap();
-    let listed_payload: Value = serde_json::from_str(&listed.output()).unwrap();
-    assert_eq!(listed_payload["cards"].as_array().unwrap().len(), 1);
+    // Omitting `todos` reads the list back.
+    let read = tool.execute(json!({})).await.unwrap();
+    assert_eq!(payload(&read)["todos"].as_array().unwrap().len(), 2);
 
-    let done = tool
-        .execute(json!({ "op": "update_status", "id": id, "status": "done" }))
+    // The next write is the whole list again, not a patch.
+    let rewritten = tool
+        .execute(json!({ "todos": [
+            { "content": "Write tests", "status": "completed" }
+        ] }))
         .await
         .unwrap();
-    let done_payload: Value = serde_json::from_str(&done.output()).unwrap();
-    assert!(done_payload["markdown"]
-        .as_str()
-        .unwrap()
-        .contains("[x] Write tests"));
+    let p = payload(&rewritten);
+    assert_eq!(p["todos"].as_array().unwrap().len(), 1);
+    assert_eq!(p["todos"][0]["status"], "completed");
+    assert!(p["markdown"].as_str().unwrap().contains("[x] Write tests"));
+
+    // An empty list clears it.
+    let cleared = tool.execute(json!({ "todos": [] })).await.unwrap();
+    assert!(payload(&cleared)["todos"].as_array().unwrap().is_empty());
     reset_scratch().await;
 }
 
 #[tokio::test]
-async fn unknown_op_returns_error() {
-    let tool = TodoTool::new();
-    let result = tool.execute(json!({ "op": "frobnicate" })).await.unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("unknown op"));
+async fn two_in_progress_items_are_rejected() {
+    let _guard = scratch_lock();
+    reset_scratch().await;
+    let result = TodoTool::new()
+        .execute(json!({ "todos": [
+            { "content": "a", "status": "in_progress" },
+            { "content": "b", "status": "in_progress" }
+        ] }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    reset_scratch().await;
 }
 
 #[tokio::test]
-async fn add_requires_content() {
+async fn empty_content_and_unknown_status_are_errors() {
     let tool = TodoTool::new();
-    let err = tool.execute(json!({ "op": "add" })).await.unwrap_err();
-    assert!(err.to_string().contains("content"));
+    let err = tool
+        .execute(json!({ "todos": [{ "content": "  ", "status": "pending" }] }))
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("content"), "{err}");
+
+    let err = tool
+        .execute(json!({ "todos": [{ "content": "x", "status": "someday" }] }))
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("invalid status"), "{err}");
 }
 
 #[test]
-fn description_carries_planning_guidance() {
-    // The `todo` tool steers the live orchestrator purely through its static
-    // (prompt-cache-stable) schema description — there is no per-thread prompt
-    // injection. Lock in the behavioural contract so the guidance can't be
-    // silently dropped: when-to-use, single-in_progress discipline, and the
-    // "bound to the current thread, don't pass a thread id" rule.
+fn schema_is_the_claude_shape() {
     let tool = TodoTool::new();
+    let schema = tool.parameters_schema();
+    let props = &schema["properties"];
+    assert!(props.get("todos").is_some());
+    assert_eq!(props.as_object().unwrap().len(), 1, "no per-card ops: {props}");
+    assert_eq!(
+        props["todos"]["items"]["properties"]["status"]["enum"],
+        json!(["pending", "in_progress", "completed"])
+    );
     let desc = tool.description();
     assert!(desc.contains("3+ steps"), "missing when-to-use guidance");
+    assert!(desc.contains("one `in_progress`"), "missing single-in_progress rule");
     assert!(
-        desc.contains("Keep one `in_progress`"),
-        "missing single-in_progress discipline"
-    );
-    assert!(
-        desc.contains("do not pass a thread id"),
-        "missing explicit 'do not pass a thread id' note"
+        !desc.contains("board"),
+        "the tool must not describe itself as a board"
     );
 }
 
-#[tokio::test]
-async fn edit_rejects_unknown_id() {
-    let _guard = scratch_lock();
-    reset_scratch().await;
-    let tool = TodoTool::new();
-    let result = tool
-        .execute(json!({ "op": "edit", "id": "task-missing", "content": "x" }))
-        .await
-        .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("not found"));
-    reset_scratch().await;
-}
-
-#[tokio::test]
-async fn replace_accepts_full_card_list() {
-    let _guard = scratch_lock();
-    reset_scratch().await;
-    let tool = TodoTool::new();
-    let result = tool
-        .execute(json!({
-            "op": "replace",
-            "cards": [
-                {
-                    "id": "",
-                    "title": "Alpha",
-                    "status": "todo",
-                    "order": 0,
-                    "updated_at": ""
-                },
-                {
-                    "id": "",
-                    "title": "Beta",
-                    "status": "in_progress",
-                    "order": 1,
-                    "updated_at": ""
-                }
-            ]
-        }))
-        .await
-        .unwrap();
-    assert!(!result.is_error, "{}", result.output());
-    let payload: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(payload["cards"].as_array().unwrap().len(), 2);
-    reset_scratch().await;
-}
-
-/// The orchestrator's board is the conversation thread's board. It used to be
-/// routed to one app-wide `orchestrator-tasks` board that nothing renders, so
-/// the cards the model wrote never showed up in the thread the user was in.
+/// The orchestrator's list is the conversation thread's list. It used to be
+/// routed to one app-wide `orchestrator-tasks` board that nothing rendered,
+/// so the items the model wrote never showed up in the thread the user was in.
 #[test]
-fn orchestrator_binds_to_the_live_thread_not_a_global_board() {
+fn every_agent_binds_to_the_live_thread() {
     struct ThreadContext(&'static str);
     impl ToolRunContext for ThreadContext {
         fn thread_id(&self) -> Option<&str> {
@@ -172,14 +154,12 @@ fn orchestrator_binds_to_the_live_thread_not_a_global_board() {
     };
     let context = ThreadContext("thread-live");
 
-    let location = current_location(Some(&parent), Some(&context));
-
-    assert_eq!(location.thread_id(), Some("thread-live"));
+    assert_eq!(
+        current_scope(Some(&parent), Some(&context)).thread_id(),
+        Some("thread-live")
+    );
     assert!(
-        matches!(
-            current_location(Some(&parent), None),
-            BoardLocation::Scratch
-        ),
-        "without a thread there is no board to persist to"
+        matches!(current_scope(Some(&parent), None), TodoScope::Scratch),
+        "without a thread there is no list to persist to"
     );
 }
