@@ -12,7 +12,10 @@ fn parse_tool_calls_doubled_xml_tags_are_one_call() {
     assert_eq!(calls.len(), 1, "{calls:?}");
     assert_eq!(calls[0].name, "echo");
     assert_eq!(calls[0].arguments["msg"], "hi");
-    assert!(!text.contains("tool_call"), "no tag may survive into the text: {text:?}");
+    assert!(
+        !text.contains("tool_call"),
+        "no tag may survive into the text: {text:?}"
+    );
 }
 
 #[test]

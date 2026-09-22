@@ -194,5 +194,8 @@ async fn a_streamed_delta_reaches_the_progress_channel_exactly_once() {
         "every model delta is forwarded once, by one producer"
     );
     assert!(started <= 1, "TurnStarted was emitted {started} times");
-    assert!(completed <= 1, "TurnCompleted was emitted {completed} times");
+    assert!(
+        completed <= 1,
+        "TurnCompleted was emitted {completed} times"
+    );
 }

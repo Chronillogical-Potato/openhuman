@@ -43,7 +43,8 @@ impl EmbeddingProvider for BagEmbedder {
 
 fn candidates() -> Vec<RankCandidate> {
     vec![
-        RankCandidate::new("SLACK_SEND_MESSAGE", "send a message to a channel").with_family("slack"),
+        RankCandidate::new("SLACK_SEND_MESSAGE", "send a message to a channel")
+            .with_family("slack"),
         RankCandidate::new("GMAIL_SEND_EMAIL", "send an email").with_family("gmail"),
         RankCandidate::new("file_read", "read a file"),
     ]
@@ -131,7 +132,11 @@ async fn a_new_or_changed_tool_is_embedded_incrementally() {
         .rank("ping", &RankContext::empty(), &candidates(), 1)
         .await
         .unwrap();
-    assert_eq!(embedder.calls.load(Ordering::SeqCst), 2, "catalogue + intent");
+    assert_eq!(
+        embedder.calls.load(Ordering::SeqCst),
+        2,
+        "catalogue + intent"
+    );
 
     let mut grown = candidates();
     grown.push(RankCandidate::new("NOTION_CREATE_PAGE", "create a page").with_family("notion"));

@@ -13,8 +13,8 @@ use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
 use openhuman_core::api::config::effective_backend_api_url;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
-use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
 use tinyjevclient::{Client, ClientConfig};
+use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
 use tinytools_jev::{JevRanker, JevRankerConfig, JevStrategy};
 
 use super::evaluator::TinyJevEvaluator;
@@ -22,9 +22,8 @@ use super::evaluator::TinyJevEvaluator;
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
 /// process-global load); a test hands in a fixed one.
-pub type ConfigLoader = Arc<
-    dyn Fn() -> Pin<Box<dyn Future<Output = Result<Config, String>> + Send>> + Send + Sync,
->;
+pub type ConfigLoader =
+    Arc<dyn Fn() -> Pin<Box<dyn Future<Output = Result<Config, String>> + Send>> + Send + Sync>;
 
 /// A [`JevRanker`] bound to whichever credential and backend the process has
 /// at search time.
@@ -126,7 +125,10 @@ impl TinyHumansJevRanker {
             .cached
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(entry) = cached.as_ref().filter(|entry| entry.fingerprint == fingerprint) {
+        if let Some(entry) = cached
+            .as_ref()
+            .filter(|entry| entry.fingerprint == fingerprint)
+        {
             return Ok(entry.ranker.clone());
         }
         let mut client_config = ClientConfig::tinyhumans_openrouter(credential.into_secret());
@@ -172,9 +174,8 @@ impl TinyHumansJevRanker {
 /// and a Jev decision over a lexical shortlist would only add a network
 /// round trip to the same recall.
 fn retriever_for(config: &Config) -> Result<Arc<dyn ToolRanker>, RankError> {
-    let provider = openhuman_core::inference::embedding_host::default_embedding_provider_with_config(
-        config,
-    );
+    let provider =
+        openhuman_core::inference::embedding_host::default_embedding_provider_with_config(config);
     if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
         log::info!(
             "[tool-search] embedding provider `{}` cannot embed; jev search disabled, bm25 answers",

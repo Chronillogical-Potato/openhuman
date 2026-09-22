@@ -229,8 +229,12 @@ async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
         TaMessage::user("and again, later"),
     ])
     .with_tools(tools);
-    mw.before_model(&mut ctx(), &(), &mut turn_one).await.unwrap();
-    mw.before_model(&mut ctx(), &(), &mut turn_two).await.unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_one)
+        .await
+        .unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_two)
+        .await
+        .unwrap();
 
     let ids = |r: &ModelRequest| {
         r.cache_segments

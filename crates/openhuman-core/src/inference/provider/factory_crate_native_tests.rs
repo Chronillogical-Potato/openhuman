@@ -1,8 +1,8 @@
 use super::*;
 
 use crate::inference::provider::factory::cloud_slug::{
-    openrouter_default_provider_options, try_create_cloud_slug_chat_model_from_string_with_native_tools,
-    OPENROUTER_PROVIDER_SORT,
+    openrouter_default_provider_options,
+    try_create_cloud_slug_chat_model_from_string_with_native_tools, OPENROUTER_PROVIDER_SORT,
 };
 #[test]
 fn enforce_local_only_inference_errors_on_external_when_local_only() {
@@ -768,7 +768,10 @@ fn direct_openrouter_endpoints_get_price_sorted_routing_and_nothing_else() {
     );
     let provider = &options["provider"];
     for forbidden in ["order", "allow_fallbacks", "max_price", "only", "ignore"] {
-        assert!(provider.get(forbidden).is_none(), "must not set provider.{forbidden}");
+        assert!(
+            provider.get(forbidden).is_none(),
+            "must not set provider.{forbidden}"
+        );
     }
     // Host matching is what keys it, with or without a path or trailing slash.
     assert!(openrouter_default_provider_options("https://openrouter.ai/api/v1/").is_some());

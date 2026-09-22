@@ -130,13 +130,13 @@ impl EmbeddingToolRanker {
         );
         for batch in missing.chunks(EMBED_BATCH) {
             let texts: Vec<&str> = batch.iter().map(|(_, t)| t.as_str()).collect();
-            let vectors = self
-                .provider
-                .embed(&texts)
-                .await
-                .map_err(|error| RankError::Backend {
-                    reason: format!("embedding failed: {error:#}"),
-                })?;
+            let vectors =
+                self.provider
+                    .embed(&texts)
+                    .await
+                    .map_err(|error| RankError::Backend {
+                        reason: format!("embedding failed: {error:#}"),
+                    })?;
             if vectors.len() != batch.len() {
                 return Err(RankError::Backend {
                     reason: format!(
@@ -161,11 +161,7 @@ impl EmbeddingToolRanker {
         };
         let disk = DiskCache {
             signature: self.provider.signature(),
-            entries: self
-                .cache
-                .read()
-                .unwrap_or_else(|p| p.into_inner())
-                .clone(),
+            entries: self.cache.read().unwrap_or_else(|p| p.into_inner()).clone(),
         };
         let write = || -> std::io::Result<()> {
             if let Some(parent) = path.parent() {

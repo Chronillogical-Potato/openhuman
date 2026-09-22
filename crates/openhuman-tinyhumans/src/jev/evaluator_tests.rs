@@ -31,7 +31,11 @@ fn builds_one_choice_and_one_noul_from_the_request() {
     match wire.questions.get("tool") {
         Some(Question::Choice(choice)) => {
             assert_eq!(choice.criteria.len(), 2);
-            assert!(choice.instructions.as_str().unwrap().starts_with("Which tool"));
+            assert!(choice
+                .instructions
+                .as_str()
+                .unwrap()
+                .starts_with("Which tool"));
         }
         other => panic!("expected a choice, got {other:?}"),
     }
