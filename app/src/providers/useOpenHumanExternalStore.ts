@@ -229,6 +229,35 @@ function useWelcomeSuggestions(messageCount: number): readonly ThreadSuggestion[
 }
 
 /**
+ * The excerpt the user quoted, as a markdown blockquote, or `''`.
+ *
+ * The composer carries a quote as STRUCTURE — `metadata.custom.quote`, a
+ * `{ text, messageId }` set by `SelectionToolbarPrimitive.Quote` — but
+ * `surface.send` takes a string, so it has to be rendered into the message or
+ * it never reaches the model. Dropping it would leave the quote chip in the
+ * composer as decoration: the user would watch themselves quote a paragraph
+ * and the agent would answer as though they had not.
+ *
+ * A blockquote is the representation to pick: it is what the excerpt already
+ * is, every model reads it as quoted material, and it survives in the
+ * persisted message so the turn still makes sense on reload.
+ *
+ * `messageId` is deliberately dropped. Nothing downstream can resolve it — the
+ * core stores no reference between messages — and a raw id in the prompt is
+ * noise to the model.
+ */
+function appendMessageQuote(message: AppendMessage): string {
+  const quote = (message.metadata as { custom?: { quote?: { text?: unknown } } } | undefined)
+    ?.custom?.quote;
+  const text = typeof quote?.text === 'string' ? quote.text.trim() : '';
+  if (text.length === 0) return '';
+  return `${text
+    .split('\n')
+    .map(line => `> ${line}`)
+    .join('\n')}\n\n`;
+}
+
+/**
  * Build the `ExternalStoreAdapter` that backs `useExternalStoreRuntime`.
  *
  * Settled messages and live deltas remain in their existing UI stores, while
@@ -328,7 +357,7 @@ export function useOpenHumanExternalStore(threadId: string | null) {
       }
       const text = appendMessageText(message);
       if (text.length === 0) return;
-      await surface.send(text);
+      await surface.send(`${appendMessageQuote(message)}${text}`);
     },
     [threadId]
   );
