@@ -333,6 +333,7 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
     &[
         ("delegate", G::Agent),
         ("memory_search", G::Memory),
+        ("goal_get", G::Threads),
         ("mcp_list_servers", G::Mcp),
         ("wallet_get_address", G::Web3),
         ("media_generate_image", G::Media),
