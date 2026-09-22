@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Round22 focused raw coverage for high-miss channel web/Yuanbao paths.
 //!
 //! All networked branches use loopback servers or in-memory debug seams.

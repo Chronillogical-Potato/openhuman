@@ -27,7 +27,7 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 | `crates/openhuman-core/src/tools/schemas.rs` (thin shell over the `schemas/` submodule: `apify.rs`, `composio.rs`, `registry.rs`, `web_search.rs`) | JSON-RPC `tools` namespace controllers + `handle_*` fns. `all_controller_schemas` / `all_registered_controllers` (re-exported as `all_tools_*`). |
 | `crates/openhuman-core/src/tools/policy.rs` | `ToolPolicy` trait + `PolicyDecision` (`Allow`/`Deny`) + allow-all `DefaultToolPolicy`. Evaluated on the agent hot path before each `execute()`. |
 | `crates/openhuman-core/src/tools/schema.rs` | Re-exports `SchemaCleanr`, `CleaningStrategy` and `GEMINI_UNSUPPORTED_KEYWORDS` from `tinyagents_harness::tool` (local `$ref` resolution, provider-rejected keyword stripping, literal-union flattening). The only in-crate caller is `generated.rs`, which runs `SchemaCleanr::validate` on generated tool schemas at admission. |
-| `crates/openhuman-core/src/tools/orchestrator_tools.rs` | Synthesizes named per-subagent tools from the orchestrator's `subagents = [...]` definition; collapses skill wildcards into `delegate_to_integrations_agent`. |
+| `crates/openhuman-core/src/tools/orchestrator_tools.rs` | Synthesizes named per-subagent tools from the orchestrator's `subagents = [...]` definition; expands the skills wildcard into one `Deferred` `ComposioActionTool` per connected action (reached through `tool_search`, no delegate). |
 | `crates/openhuman-core/src/tools/generated.rs` | `GeneratedToolDefinition` + wrapper for runtime/profile-supplied generated capability tools (provider/capability/risk metadata for policy). |
 | `crates/openhuman-core/src/tools/user_filter.rs` | `filter_tools_by_user_preference` + UI-toggle-ID → Rust-tool-name map. Unmapped tools are always retained. |
 | [`crates/openhuman-core/src/tools/status/`](status/mod.rs) | Tool-call lifecycle state (`ToolLifecycleState`) and human-readable failure classification (`ToolFailureClass`, `classify`). Pure data/logic; no persistence, no RPC. |
@@ -40,7 +40,7 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 | `crates/openhuman-core/src/tools/impl/browser/` | `browser` (DOM-snapshot automation, pluggable backend), `browser_open`, `image_info`, Playwright backend. |
 | `crates/openhuman-core/src/tools/impl/system/` | Tools `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `insert_sql_record`, `read_workspace_state`, `retrieve_tool_output`. Helper module (not a tool): `command_output`, the shared exit-code/stdout/stderr formatter for the shell family. |
 | `crates/openhuman-core/src/tools/impl/network/` | Tools `http_request`, `web_fetch`, `curl`, `gitbooks_search`/`gitbooks_get_page`, `mcp_list_servers`/`mcp_list_tools`/`mcp_call_tool` (`mcp`-feature gated), `gmail_unsubscribe`. Helper module: `url_guard` (host allowlist matching, private-address rejection, `validate_url`). |
-| `crates/openhuman-core/src/tools/impl/meta/` | Tools *about* the tool surface itself: `tool_search` (the lookup half of `ToolExposure::Deferred`) and `collapse` (multi-action schema/permission merging helpers). |
+| `crates/openhuman-core/src/tools/impl/meta/` | Tools *about* the tool surface itself: `deferred` (the host's half of `ToolExposure::Deferred`; the harness's intrinsic `tool_search` bridge is the lookup half) and `collapse` (multi-action schema/permission merging helpers). |
 | `crates/openhuman-core/src/tools/impl/document/` (`documents` feature) | `DocumentTool` (`generate_document`) — structured document generation/editing engine. |
 | `crates/openhuman-core/src/tools/impl/presentation/` (`documents` feature) | `PresentationTool` (`generate_presentation`) — structured slide-deck generation engine. |
 | `crates/openhuman-core/src/search/` | Search engine registry and search-owned agent tools such as `web_search`. |
@@ -79,7 +79,7 @@ This module **owns** the cross-cutting built-in tools (the only ones that belong
 - **System/process**: `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `insert_sql_record`, `read_workspace_state`, `retrieve_tool_output`.
 - **Browser**: `browser`, `browser_open`, `image_info`.
 - **Generic network**: `http_request`, `web_fetch`, `curl`, `gitbooks_search`/`gitbooks_get_page`, MCP bridge (`mcp_list_servers`/`mcp_list_tools`/`mcp_call_tool`), `gmail_unsubscribe`.
-- **Meta**: `tool_search` (deferred-tool lookup) and the `collapse` multi-action helpers used by other tools' schema merging.
+- **Meta**: `deferred` (which tools leave the wire for the harness's `tool_search` bridge) and the `collapse` multi-action helpers used by other tools' schema merging.
 - **Documents** (`documents` feature): `generate_document` (`DocumentTool`), `generate_presentation` (`PresentationTool`).
 - **Search**: `web_search` and provider-specific search families are registered by `crate::search`; `search.engine = "disabled"` suppresses this surface entirely.
 

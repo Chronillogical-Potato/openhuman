@@ -410,8 +410,8 @@ pub async fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     }
 }
 
-/// Migrates legacy goal and task-board state before a built
-/// runtime can expose those crate-backed stores to in-process or HTTP callers.
+/// Prunes retired scheduled jobs before a built runtime can expose the
+/// scheduler to in-process or HTTP callers.
 pub(crate) async fn run_legacy_migrations(config: &Config) {
     match crate::cron::seed::prune_retired_jobs(config) {
         Ok(count) if count > 0 => {
@@ -419,28 +419,6 @@ pub(crate) async fn run_legacy_migrations(config: &Config) {
         }
         Ok(_) => {}
         Err(e) => log::warn!("[cron] failed to prune retired jobs: {e}"),
-    }
-
-    match crate::agent::goals::migration::migrate_legacy_goals(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => log::info!(
-            "[thread_goals] legacy→crate migration: total={} copied={} skipped={}",
-            report.total,
-            report.copied,
-            report.skipped
-        ),
-        Ok(_) => {}
-        Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
-    }
-
-    match crate::agent::tinyagents::todos::migrate_legacy_task_boards(&config.workspace_dir).await {
-        Ok(report) if report.total > 0 => log::info!(
-            "[todos] legacy→crate migration: total={} copied={} skipped={}",
-            report.total,
-            report.copied,
-            report.skipped
-        ),
-        Ok(_) => {}
-        Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
     }
 }
 

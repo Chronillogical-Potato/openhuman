@@ -132,6 +132,9 @@ pub(super) fn assemble_turn_harness(
     // `MaxIterationsExceeded`) must keep doing that, and handing it a wrap-up
     // would silently convert a documented error into an answer.
     pause_at_cap: bool,
+    // The dialect the session composed its prompt for; see
+    // `OpenHumanRunContext::tool_dialect`.
+    tool_dialect: tinyagents_harness::config::ToolDispatcher,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
@@ -144,6 +147,23 @@ pub(super) fn assemble_turn_harness(
     let mut policy = run_policy_for(max_iterations, deterministic_cacheable);
     let route_fallback = routes::route_fallback_policy(model);
     policy.fallback = route_fallback.clone();
+    // Tool discovery: the harness advertises its `tool_search` bridge over the
+    // `Deferred` registrations the allowlist admits, ranked by whatever the
+    // process installed (`agent::tinyagents::discovery`).
+    policy.discovery = super::discovery::discovery_policy();
+
+    policy.tool_dialect = tool_dialect;
+    // The session composes its prompt for this same dialect: `ToolsSection`
+    // renders the protocol block and the catalogue of the visible tools into
+    // the system prompt (inside the cacheable prefix, counted by
+    // `prompt-size`). Without this the harness appended a second copy of
+    // both on every text-dialect call.
+    policy.host_renders_tool_catalogue = true;
+    tracing::debug!(
+        model,
+        ?tool_dialect,
+        "[models] turn harness tool dialect pinned from the session"
+    );
     tracing::debug!(
         model,
         fallback_chain = ?route_fallback.as_ref().map(|f| &f.models),

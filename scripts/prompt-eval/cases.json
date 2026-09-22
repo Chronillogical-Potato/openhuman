@@ -72,6 +72,27 @@
       "surface": "orchestration"
     },
     {
+      "id": "orchestrator-research-trip",
+      "surface": "orchestration",
+      "_why": "A research question must go straight to search and stream an answer: no plan-review card, no todo board, one visible round trip (Hermes parity, latency RCA 2026-09-22).",
+      "entry": "agent_chat",
+      "message": "Can you help me find a trip to Kashmir? I'm thinking about going in October for about a week.",
+      "expect_calls": [
+        "web_search_tool"
+      ],
+      "forbid_calls": [
+        "request_plan_review",
+        "todo",
+        "spawn_async_subagent"
+      ],
+      "max_consecutive": {
+        "web_search_tool": 4
+      },
+      "max_input_tokens": 60000,
+      "judge": true,
+      "writes": []
+    },
+    {
       "id": "skill-notion-read",
       "surface": "skills",
       "_why": "Run an installed skill through its hand-off, read-only. The account's only installed skill on 2026-09-18 was `notion` (it was `github` two days earlier — re-check).",
@@ -124,13 +145,14 @@
       "id": "composio-gmail-read",
       "enabled": false,
       "surface": "composio",
-      "_why": "Integration hand-off to a connected toolkit, read-only. Exercises delegate_to_integrations_agent and the text-mode integrations_agent (see #6334).",
+      "_why": "Read-only action on a connected toolkit. Exercises the orchestrator's tool_search → direct GMAIL_* call route (the delegate_to_integrations_agent hand-off is gone; see #6334 for the earlier shape).",
       "entry": "agent_chat",
       "message": "What is the subject line of the most recent email in my Gmail inbox? Just read it, don't change anything.",
       "expect_calls": [
-        "delegate_to_integrations_agent"
+        "tool_search"
       ],
       "forbid_calls": [
+        "delegate_to_integrations_agent",
         "composio_connect",
         "GMAIL_SEND_EMAIL",
         "GMAIL_DELETE_MESSAGE",
@@ -148,7 +170,7 @@
         "params": {},
         "expect_regex": "(?s)\\{[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\\}|\\{[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\\}"
       },
-      "_gate": "Do not run until a real transcript has shown a text-mode integrations_agent call in `calls` in a form these forbids match. Until then GMAIL_* forbids are unproven against the live inbox."
+      "_gate": "Do not run until a real transcript has shown the orchestrator's direct GMAIL_* call in `calls` in a form these forbids match. Until then GMAIL_* forbids are unproven against the live inbox."
     },
     {
       "id": "orchestrator-reminder",

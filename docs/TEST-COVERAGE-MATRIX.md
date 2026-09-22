@@ -224,6 +224,8 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 4.4.11 | Inference Phase Transitions             | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Redux `inferenceStatusByThread` observes `subagent` phase then clears to idle                                   |
 | 4.4.12 | Tool Timeline Completeness              | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Timeline entries carry id/name/status/round; subagent row reaches `success`; rounds non-decreasing              |
 | 4.4.13 | Grounded Close (no final text / breaker halt) | RU | `crates/openhuman-core/src/agent/session_host/turn_final_reply_grounding_tests.rs`, `crates/openhuman-core/src/agent/session_host/turn_checkpoint_tests.rs` | ✅ | Tool-records wrap-up, check rejects intent narration / contradicted claims, fallback quotes failure messages; breaker stop note never shown verbatim (#6278, #6279) |
+| 4.4.14 | Session todo list (the `todo` tool) | RI+VU+WD | `tests/agent_harness_e2e.rs`, `crates/openhuman-core/src/agent/tools/todo_tests.rs`, `vendor/tinyagents/crates/tinyagents-graph/src/todos/test.rs`, `app/src/features/conversations/utils/harnessState.test.ts`, `app/src/features/conversations/components/TodoChecklist.test.tsx`, `app/src/features/conversations/hooks/useThreadHarnessState.test.ts`, `app/test/e2e/specs/chat-todos-goals.spec.ts` | ✅ | Whole-list write per call (Claude/Codex shape), single-`in_progress` invariant, per-session scoping; five items ticked off across turns, live on the socket, persisted in the turn state, and rendered as the chat pane's checklist |
+| 4.4.15 | Thread goal (`goal_set` / `goal_get` / `goal_complete`) | RI+RU+VU+WD | `tests/agent_harness_e2e.rs`, `crates/openhuman-core/src/agent/goals/{tools_tests.rs,runtime_tests.rs,continuation_tests.rs}`, `vendor/tinyagents/crates/tinyagents-graph/src/goals/test.rs`, `app/src/features/conversations/utils/harnessState.test.ts`, `app/src/features/conversations/components/GoalBanner.test.tsx`, `app/src/features/conversations/hooks/useThreadHarnessState.test.ts`, `app/test/e2e/specs/chat-todos-goals.spec.ts` | ✅ | Objective + token budget set, read back across turns, and completed; structured `{goal, text}` payload drives the chat pane's goal banner. Budget accounting and the budget-limit stop hook are unit-covered (the scripted e2e upstream reports no usage) |
 
 ---
 
@@ -282,6 +284,8 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 6.3.14 | Workflow proposal durability (async builder → chat card) | RU+VU | `crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent.rs::{extract_workflow_proposal_finds_last_proposal_tool_result,attach_workflow_proposal_persists_thread_message_and_extends_summary,attach_workflow_proposal_without_proposal_returns_summary_unchanged}`, `app/src/lib/workflows/workflowProposal.test.ts` | ✅ | A `workflow_proposal` payload in a finished async child's history is persisted as a parent-thread message (metadata scope `workflow_proposal`) and embedded in the delivery notice; the frontend rehydrates the newest unconsumed proposal into the card on thread load, and Save/Dismiss mark the source message consumed. |
 | 6.3.15 | Background reply persisted once (core-owned id, idempotent append) | RU+VU | `crates/openhuman-core/src/agent/orchestration/background_delivery.rs::run_system_turn_on_thread`, `crates/openhuman-core/src/memory/conversations/store/store_tests.rs::append_message_is_idempotent_by_message_id`, `crates/openhuman-core/src/web_chat/presentation_tests.rs::single_bubble_delivery_emits_one_unsegmented_chat_done_without_reaction`, `app/src/providers/__tests__/ChatRuntimeProvider.test.tsx` (system `chat_done`/`chat_error` reuse the core id), `app/src/services/api/threadApi.test.ts` (legacy `assistant` sender folded onto `agent`), `app/src/store/__tests__/threadSlice.test.ts` (same-id cache upsert) | ✅ | #5933 — background delivery persists a reply FIRST as `agent:<run_id>` (`sender: agent`, `extraMetadata.requestId`), then announces one unsegmented `chat_done`; the frontend reuses that id so the id-idempotent store keeps one row. |
 | 6.3.16 | Sub-agent spawn/delegate tool refusal (#4452 invariant) | RU | `crates/openhuman-core/src/agent/subagent_host/ops/graph_tests.rs::{a_sub_agent_cannot_reach_a_spawn_tool_and_the_healthy_run_is_quiet,an_allowlist_that_readmits_a_spawn_tool_is_refused_loudly}`, `crates/openhuman-core/src/agent/subagent_host/tool_prep_tests.rs::{dynamic_tools_keep_ordinary_actions_and_lose_spawn_tools,dynamic_tools_lose_unprefixed_delegate_name_overrides,a_dynamic_tool_list_without_spawn_tools_is_untouched}` | 🟡 | Migration coverage: the host still fail-closes `spawn_subagent`/`delegate_*`/`agent_prepare_context`/`spawn_worker_thread` while Phase 6 moves lifecycle ownership to TinyAgents. Completion requires the direct-driver and durable-resume checks in the extraction plan. |
+| 6.3.17 | Host-authored turns run on the thread's cached session (no competing root transcript) | RU | `crates/openhuman-core/src/web_chat/session_checkout_tests.rs::{checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_warm,checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile,a_system_turn_adopts_the_cached_agent_and_its_fingerprint,a_fork_never_takes_or_returns_the_cached_agent}` | ✅ | Background delivery and goal continuation go through `web_chat::run_system_turn_on_thread` → `checkout_session_agent`, so they see the conversation and append to the thread's transcript. A throwaway host bound to the thread used to write a competing root transcript that the next cold-boot resume preferred (newest `created`), dropping every earlier turn after a restart. `checkin_session_agent_if_vacant` never clobbers a user turn that re-cached meanwhile; forks stay isolated. |
+| 6.3.18 | Mid-conversation availability notes are status, not instructions | RU | `crates/openhuman-core/src/agent/session_host/runtime_adapter_tests.rs::availability_notes_are_status_not_instructions` | ✅ | `[integration update]` / `[MCP update]` / `[skills update]` prepended to the next user message no longer say "act on them immediately" (which sent the orchestrator to the integrations agent mid-conversation); they defer to the user's message and only forbid the "reconnect/restart" reply. |
 
 ### 6.4 Managed Cloud File Storage
 
@@ -522,6 +526,22 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 ## 12. Rewards & Progression
 
 > Removed. The Rewards page, its API client, slice and Playwright specs were deleted; the section id is kept so later numbering is stable.
+
+### 12.1 Role Unlocking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.1.1 | Activity-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.2 | Integration-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.3 | Plan-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+
+### 12.2 Progress Tracking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.2.1 | Message Count Tracking | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.2 | Usage Metrics | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.3 | State Persistence | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
 
 ---
 

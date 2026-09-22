@@ -131,6 +131,30 @@ Shared mock backend:
 - E2E adapter: `app/test/e2e/mock-server.ts`
 - Manual start: `pnpm mock:api`
 
+Debugging what the core actually sends to inference (prompt size, tool
+schemas, cache keys, which endpoint answered, time to first byte, cached
+tokens): put the capture proxy between the core and its backend instead of
+guessing from logs.
+
+- `CAPTURE_ALL=1 pnpm debug capture` (`scripts/debug/capture-first-inference.mjs`)
+  listens on `127.0.0.1:18765`, forwards everything to `CAPTURE_UPSTREAM`
+  (default `https://api.tinyhumans.ai`; `https://openrouter.ai` for a direct
+  BYOK route), dumps every inference request body under
+  `target/debug-logs/inference-sequence/`, and prints one line per response:
+  `served_by`, `ttfb`, `prompt`, `cached`, `cache_key`, status, error.
+- Point a core at it with `api_url = "http://127.0.0.1:18765"` in the user
+  `config.toml` or `BACKEND_URL=http://127.0.0.1:18765` on a headless
+  `openhuman-core run`; drive turns over JSON-RPC (`channel_web_chat`).
+- Read the lines as claims to check: `cache_key` must be identical across the
+  turns of one thread, `served_by` should not change mid-thread, and `cached`
+  should approach `prompt` from the second call on. Any of those drifting is
+  the finding.
+- Self-test: `scripts/__tests__/capture-first-inference.test.mjs` (runs in the
+  CI scripts lane). The static prompt on its own comes from
+  `openhuman-core agent dump-prompt --agent <id> --json --with-tools`
+  (`scripts/debug-agent-prompts.sh`); the proxy shows the request the harness
+  assembles from it per turn.
+
 ## Configuration and security
 
 - Copy environment settings from `.env.example` and `app/.env.example`.
@@ -253,6 +277,16 @@ progress events.
 - Use the `tinytools` copy vendored through `vendor/tinyagents/`; a second path
   creates incompatible Rust types.
 - Keep conversions mechanical. Policy decisions belong in OpenHuman.
+- **Put a change in the repo that owns it, not where it is easiest to land.**
+  Tool-call parsing, grammars, the `Tool` trait and generic tool types go to
+  `vendor/tinyagents/vendor/tinytools`; the agent loop, dialects, prompt
+  cache layout, run policy, progress events and generic harness tools (the
+  session todo list, goals, delegation graph) go to `vendor/tinyagents`
+  (`tinyagents-harness` / `tinyagents-graph`); OpenHuman keeps only the host
+  adapters (scope, dispatch, approvals, progress projection). Open the
+  upstream PR in that repo first, then move the gitlink here. A host-side
+  workaround for a harness or parser bug is a stopgap, not a fix: file or
+  fix it upstream in the same PR.
 - `openhuman_embed::Runtime` → `Agent` is the public library API: one runtime
   per process (features, services, backend URL, TinyHumans API key), then any
   number of independently configured agents on it (`AgentSpec`: provider,

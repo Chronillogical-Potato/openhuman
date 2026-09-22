@@ -115,6 +115,15 @@ pub(super) fn add_memory_prompt_sections(
         MEMORY_STORE_TOOL, MEMORY_WRITE_DELEGATE_TOOL, SAVE_PREFERENCE_TOOL,
     };
     let mut prompt_builder = prompt_builder;
+    // Gate on the set the model will actually see: packs are stripped from
+    // `visible` later in the build, and gating on the pre-strip set told the
+    // orchestrator to call `save_preference` while the pack held it off the
+    // wire.
+    let visible = &{
+        let mut after = visible.clone();
+        crate::tools::toolpacks::strip_packed_from_visible(&mut after, agent_id);
+        after
+    };
     if any_tool_offered(&MEMORY_READ_TOOLS, tools, delegation_tools, visible) {
         prompt_builder = prompt_builder.add_section(Box::new(MemoryAccessSection));
         log::debug!("[memory_access] prompt section registered");

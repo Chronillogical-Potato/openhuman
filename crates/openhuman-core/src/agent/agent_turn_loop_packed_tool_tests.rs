@@ -73,6 +73,9 @@ async fn turn_routes_a_bare_packed_tool_call_through_use_skill() {
                     .map(|r| r.content.clone())
                     .collect::<Vec<_>>(),
             ),
+            ConversationMessage::Chat(message) if message.role == "tool" => {
+                Some(vec![message.content.clone()])
+            }
             _ => None,
         })
         .flatten()
@@ -148,6 +151,12 @@ async fn turn_does_not_route_a_bare_call_the_session_would_refuse() {
         ConversationMessage::ToolResults(results) => results
             .iter()
             .any(|r| r.content.contains("unknown tool `skill_registry_install`")),
+        ConversationMessage::Chat(message) => {
+            message.role == "tool"
+                && message
+                    .content
+                    .contains("unknown tool `skill_registry_install`")
+        }
         _ => false,
     });
     assert!(

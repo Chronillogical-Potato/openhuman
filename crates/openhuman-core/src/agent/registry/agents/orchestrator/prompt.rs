@@ -2,20 +2,19 @@
 //!
 //! The orchestrator follows a direct-first policy: respond directly or use
 //! cheap direct tools whenever possible, and delegate only for specialised
-//! execution. It never executes Composio actions itself; the integration
-//! block points to the single collapsed `delegate_to_integrations_agent`
-//! tool (synthesised by `orchestrator_tools::collect_orchestrator_tools`,
-//! #1335) for true external-service operations, with the toolkit slug
-//! passed as an argument. That prose lives here (not in the shared
-//! prompts module) so the skill-executor voice stays in
-//! `integrations_agent/prompt.rs` and nobody has to branch on `agent_id`
-//! in a shared section impl.
+//! execution. Connected Composio integrations are part of that direct
+//! surface: every connected toolkit's actions are registered as `Deferred`
+//! tools (`orchestrator_tools::collect_deferred_integration_actions`), so
+//! the `## Connected Integrations` block tells the model to `tool_search`
+//! for the action and call it — there is no integrations sub-agent to
+//! delegate to any more. That prose lives here (not in the shared prompts
+//! module) so nobody has to branch on `agent_id` in a shared section impl.
 
 use crate::agent::harness::definition::SubagentEntry;
 use crate::agent::harness::AgentDefinitionRegistry;
 use crate::agent::prompts::{
     render_datetime, render_identity, render_tools, render_user_files, render_workspace,
-    ConnectedIntegration, PromptContext, ToolCallFormat,
+    ConnectedIntegration, PromptContext,
 };
 use crate::skills::ops_types::Workflow;
 use crate::tools::orchestrator_tools::sanitise_slug;
@@ -26,22 +25,15 @@ use std::fmt::Write;
 const ARCHETYPE: &str = include_str!("prompt.md");
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
-    let mut out = String::with_capacity(8192);
+    use crate::agent::prompts::{PROMPT_TIER_CONTEXT_MARKER, PROMPT_TIER_VOLATILE_MARKER};
 
-    // Identity leads the prompt (#5701): SOUL.md is the product persona every
-    // opted-in agent shares, ROLE.md is this agent's own role brief. Both are
-    // workspace files, so tuning either is an edit rather than a rebuild.
-    //
-    // Rendered here rather than via `IdentitySection` because the orchestrator
-    // is a `PromptSource::Dynamic` agent: `SystemPromptBuilder::from_dynamic`
-    // installs only this builder and never consults `omit_identity`, so the
-    // section chain that would otherwise inject these files does not run for
-    // us. Same reason `render_user_files` is called by hand just below.
-    let identity = render_identity(ctx)?;
-    if !identity.trim().is_empty() {
-        out.push_str(identity.trim_end());
-        out.push_str("\n\n");
-    }
+    let mut out = String::with_capacity(8192);
+    let push = |out: &mut String, part: &str| {
+        if !part.trim().is_empty() {
+            out.push_str(part.trim_end());
+            out.push_str("\n\n");
+        }
+    };
 
     // Resolved once: the same three routes decide both the static rows below
     // and the generated sections further down, and they must agree (#6302).
@@ -49,79 +41,65 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     let skill_install = hand_off_route(ctx, "skill_setup");
     let mcp_route = hand_off_route(ctx, "mcp_agent");
 
-    let archetype = strip_route_lines(
-        ARCHETYPE,
-        skill_run.is_some() || skill_install.is_some(),
-        mcp_route.is_some(),
+    // ── Stable tier: identical across sessions for a given build ─────────
+    //
+    // Identity leads the prompt (#5701): SOUL.md is the product persona every
+    // opted-in agent shares, ROLE.md is this agent's own role brief. Rendered
+    // here rather than via `IdentitySection` because the orchestrator is a
+    // `PromptSource::Dynamic` agent: `SystemPromptBuilder::from_dynamic`
+    // installs only this builder, so the section chain never runs for us.
+    push(&mut out, &render_identity(ctx)?);
+    push(
+        &mut out,
+        &strip_route_lines(
+            ARCHETYPE,
+            skill_run.is_some() || skill_install.is_some(),
+            mcp_route.is_some(),
+        ),
     );
-    out.push_str(archetype.trim_end());
-    out.push_str("\n\n");
+    push(&mut out, &render_tools(ctx)?);
+    push(&mut out, &render_datetime(ctx)?);
 
-    let user_files = render_user_files(ctx)?;
-    if !user_files.trim().is_empty() {
-        out.push_str(user_files.trim_end());
-        out.push_str("\n\n");
+    // ── Context tier: stable for the session, not across installs ────────
+    out.push_str(PROMPT_TIER_CONTEXT_MARKER);
+    out.push('\n');
+    push(&mut out, &render_workspace(ctx)?);
+    // Model families that stop after announcing a plan get one short block of
+    // execution discipline; the rest (Claude, Gemini) pay nothing. The text
+    // and the gate are tinyagents', so every host renders the same words.
+    if let Some(guidance) = tinyagents_harness::prompt::execution_discipline_for(ctx.model_name) {
+        tracing::debug!(
+            model = ctx.model_name,
+            "[orchestrator-prompt] rendering model-gated execution discipline"
+        );
+        push(&mut out, guidance);
     }
 
-    let identities = ctx.connected_identities_md.as_str();
-    if !identities.trim().is_empty() {
-        out.push_str(identities.trim_end());
-        out.push_str("\n\n");
-    }
-
-    let skills = render_installed_skills(
-        ctx.workflows,
-        skill_run.as_deref(),
-        skill_install.as_deref(),
+    // ── Volatile tier: the user's state, changes between sessions ────────
+    out.push_str(PROMPT_TIER_VOLATILE_MARKER);
+    out.push('\n');
+    push(&mut out, &render_user_files(ctx)?);
+    push(&mut out, ctx.connected_identities_md.as_str());
+    push(
+        &mut out,
+        &render_installed_skills(
+            ctx.workflows,
+            skill_run.as_deref(),
+            skill_install.as_deref(),
+        ),
     );
-    if !skills.trim().is_empty() {
-        out.push_str(skills.trim_end());
-        out.push_str("\n\n");
-    }
+    push(&mut out, &render_withheld_specialists(ctx));
+    push(
+        &mut out,
+        &render_connected_integrations(ctx.connected_integrations),
+    );
+    push(
+        &mut out,
+        &render_connected_mcp_servers(mcp_route.as_deref()),
+    );
 
-    let withheld = render_withheld_specialists(ctx);
-    if !withheld.trim().is_empty() {
-        out.push_str(withheld.trim_end());
-        out.push_str("\n\n");
-    }
-
-    let integrations = render_delegation_guide(ctx.connected_integrations, ctx.tool_call_format);
-    if !integrations.trim().is_empty() {
-        out.push_str(integrations.trim_end());
-        out.push_str("\n\n");
-    }
-
-    let mcp_servers = render_connected_mcp_servers(mcp_route.as_deref());
-    if !mcp_servers.trim().is_empty() {
-        out.push_str(mcp_servers.trim_end());
-        out.push_str("\n\n");
-    }
-
-    let tools = render_tools(ctx)?;
-    if !tools.trim().is_empty() {
-        out.push_str(tools.trim_end());
-        out.push_str("\n\n");
-    }
-
-    // NOTE: the shared grounding / anti-hallucination contract is appended
-    // centrally by `SystemPromptBuilder::build` (and the narrow sub-agent
-    // renderer), so every agent inherits it without each `prompt.rs` having
-    // to splice it in. Do not render it here, or it will appear twice.
-
-    let datetime = render_datetime(ctx)?;
-    if !datetime.trim().is_empty() {
-        out.push_str(datetime.trim_end());
-        out.push_str("\n\n");
-    }
-
-    // The Master Agent can execute coding work directly, so it needs the
-    // canonical action-root instructions before it receives the tool list.
-    let workspace = render_workspace(ctx)?;
-    if !workspace.trim().is_empty() {
-        out.push_str(workspace.trim_end());
-        out.push_str("\n\n");
-    }
-
+    // NOTE: the grounding contract lives in `prompt.md` under the shared
+    // heading, so `SystemPromptBuilder::build` skips the global copy.
     Ok(out)
 }
 
@@ -165,10 +143,10 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
         return String::new();
     };
 
-    let mut rows: Vec<(String, String, &'static str)> = Vec::new();
+    let mut rows: Vec<(String, &'static str)> = Vec::new();
     for entry in &definition.subagents {
-        // `Skills(_)` expands to `delegate_to_integrations_agent`, which the
-        // `## Connected Integrations` block below documents in full.
+        // `Skills(_)` expands to searchable integration actions, not a
+        // delegate tool; the `## Connected Integrations` block covers them.
         let SubagentEntry::AgentId(agent_id) = entry else {
             continue;
         };
@@ -192,7 +170,7 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
             // belt never listed it, so there is no route to describe.
             continue;
         };
-        rows.push((tool_name, first_sentence(&target.when_to_use), pack.id));
+        rows.push((tool_name, pack.id));
     }
 
     if rows.is_empty() {
@@ -209,15 +187,20 @@ fn render_withheld_specialists(ctx: &PromptContext<'_>) -> String {
         "[orchestrator-prompt] rendering withheld-specialist routing"
     );
 
+    // One line per pack, tools named without their blurbs: `use_skill`'s own
+    // description already carries a one-line summary of every pack, and the
+    // full `when_to_use` arrives with the schema once the pack is loaded.
+    let mut by_pack: std::collections::BTreeMap<&'static str, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for (tool, pack) in rows {
+        by_pack.entry(pack).or_default().push(format!("`{tool}`"));
+    }
     let mut out = String::from(
-        "## Capabilities not in your tool list\n\nThese exist but their schemas are not \
-         loaded. Reach one with `use_skill { \"skill\": \"<skill>\", \"tool\": \"<tool>\", \
-         \"args\": { … } }`; call `use_skill` with the `skill` alone first to read the \
-         tool's arguments. Do not tell the user a capability is unavailable because it \
-         is listed here.\n\n",
+        "## Capabilities not in your tool list\n\nAvailable through `use_skill` (`skill` \
+         alone lists arguments; add `tool` + `args` to run):\n\n",
     );
-    for (tool, intent, pack) in rows {
-        let _ = writeln!(out, "- {intent} — skill `{pack}`, tool `{tool}`.");
+    for (pack, tools) in by_pack {
+        let _ = writeln!(out, "- skill `{pack}`: {}", tools.join(", "));
     }
     out
 }
@@ -324,43 +307,6 @@ fn resolve_definition<'r>(
     registry.get(&best)
 }
 
-/// The first sentence of `text`, or a hard-capped prefix when it has none.
-///
-/// `when_to_use` is written as a paragraph for the tool description; one
-/// sentence is the routing signal and the rest is detail the model only needs
-/// once it has loaded the schema.
-fn first_sentence(text: &str) -> String {
-    let text = text.trim();
-    for (idx, _) in text.match_indices(". ") {
-        // "…an ALREADY-CONNECTED MCP server (e.g. `gmail`)…" is one sentence.
-        // An abbreviation carries a second period two bytes back, and a real
-        // sentence boundary is followed by a capital; requiring both keeps the
-        // row readable instead of cutting it mid-parenthetical.
-        let is_abbreviation = text[..idx].ends_with('.') || text[..idx].ends_with(". ");
-        let starts_new = text[idx + 2..]
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_uppercase());
-        if !is_abbreviation && starts_new {
-            return text[..=idx].trim_end().to_string();
-        }
-    }
-    if text.chars().count() <= 200 {
-        return text.to_string();
-    }
-    let cut: String = text.chars().take(200).collect();
-    format!("{}…", cut.trim_end())
-}
-
-/// Render the `## Installed Skills` section listing locally installed
-/// workflows so the orchestrator knows what's available without calling
-/// `list_workflows` on every turn. Omitted when no skills are installed.
-///
-/// `run` and `install` are the hand-offs to `skill_executor` and `skill_setup`
-/// in the form this session can call ([`hand_off_route`]), or `None` when it has
-/// no route, in which case the section names none. This block once named five
-/// tools the model could not see; it names only what [`hand_off_route`] vouches
-/// for (#6302).
 fn render_installed_skills(
     skills: &[Workflow],
     run: Option<&str>,
@@ -376,26 +322,16 @@ fn render_installed_skills(
         install_route = install.is_some(),
         "[orchestrator-prompt] rendering installed skills section"
     );
-    let mut out = String::from(
-        "## Installed Skills\n\n\
-         These skills are installed locally, and running one is the point of listing them. ",
-    );
+    let mut out = String::from("## Installed Skills\n\n");
     if let Some(run) = run {
-        let _ = write!(
-            out,
-            "Run one by handing it to {run} with the skill id and the task. "
-        );
+        let _ = write!(out, "Run one with {run} (skill id + task). ");
     }
     if let Some(install) = install {
-        let _ = write!(
-            out,
-            "To find or install a skill that is not listed, hand the request to {install}. "
-        );
+        let _ = write!(out, "Find or install others with {install}. ");
     }
     out.push_str(
-        "A skill runs in an isolated worker and returns only its result, plus a \
-         `## Handoff Plan` for any step the worker couldn't perform — carry those out \
-         yourself, under the approval gate.\n\n",
+        "A skill runs in an isolated worker and returns its result plus a `## Handoff Plan` \
+         for anything it could not do itself.\n\n",
     );
     for skill in skills {
         let id = if skill.dir_name.is_empty() {
@@ -411,7 +347,7 @@ fn render_installed_skills(
             // chars / instruction fences) and cap so a single installed
             // skill can't bloat the prompt or smuggle routing instructions;
             // full details stay one `describe_workflow` call away.
-            crate::util::sanitize::sanitize_for_llm(&skill.description, 240)
+            crate::util::sanitize::sanitize_for_llm(&skill.description, 120)
                 .replace(['\n', '\t'], " ")
                 .trim()
                 .to_string()
@@ -422,7 +358,7 @@ fn render_installed_skills(
 }
 
 /// Render the `## Connected MCP Servers` block from the live connection
-/// registry. The MCP analogue of [`render_delegation_guide`]: it lists each
+/// registry. The MCP analogue of [`render_connected_integrations`]: it lists each
 /// connected MCP server and tells the orchestrator to hand matching requests to
 /// the `mcp_agent` worker — NOT to call a server's tools itself or claim it
 /// can't. This is what lets the orchestrator pick up a connected server
@@ -469,17 +405,14 @@ fn format_connected_mcp_block(
         Some(route) => {
             let _ = write!(
                 out,
-                "IMPORTANT: The user has connected the MCP server(s) below. To act on any request \
-                 a connected server can satisfy, you MUST hand it to {route}. You do NOT have \
-                 direct access to these servers, and you must never claim you can't do something \
-                 a connected server clearly can without handing it off first. {route} routes to \
-                 the MCP agent, which discovers the server's tools and calls the right one. Pass \
-                 a plain-language task; do not pass server ids or tool names yourself.\n\n"
+                "Anything one of these servers can satisfy goes to {route} as a plain-language \
+                 task; you have no direct access to them, so never say you can't before \
+                 handing off.\n\n"
             );
         }
         None => out.push_str(
-            "The user has connected the MCP server(s) below, but no MCP hand-off is \
-             available to you in this session, so you cannot use them here.\n\n",
+            "Connected, but no MCP hand-off is available to you in this session, so you \
+             cannot use them here.\n\n",
         ),
     }
     for s in servers {
@@ -510,7 +443,7 @@ fn format_connected_mcp_block(
         let capability = if capability_raw.is_empty() {
             String::new()
         } else {
-            crate::util::sanitize::sanitize_for_llm(capability_raw, 240)
+            crate::util::sanitize::sanitize_for_llm(capability_raw, 120)
                 .replace(['\n', '\t'], " ")
                 .trim()
                 .to_string()
@@ -532,63 +465,49 @@ fn format_connected_mcp_block(
     out
 }
 
-/// Render the delegator-voice `## Connected Integrations` block. Only
-/// toolkits the user has actively connected are listed — unauthorised
-/// toolkits are hidden so the orchestrator cannot hallucinate a delegation
-/// to an integration whose `delegate_*` tool does not actually exist.
-/// When every toolkit is unconnected the whole section is omitted.
+/// Render the `## Connected Integrations` block. Only toolkits the user has
+/// actively connected are listed — unauthorised toolkits are hidden so the
+/// orchestrator cannot claim access to a service it does not have. When
+/// every toolkit is unconnected the whole section is omitted.
 ///
-/// The tool name printed in the prompt is derived with the same
-/// `sanitise_slug` function that `collect_orchestrator_tools` uses when
-/// synthesising the real tool objects, so the names in the prompt always
-/// match the names in the function-calling schema.
+/// The connected toolkits' actions are `Deferred` tools on this agent's own
+/// belt (`collect_deferred_integration_actions`), so the block teaches one
+/// route: `tool_search` for the action, then call it. The old collapsed
+/// `delegate_to_integrations_agent` spawn is gone; an integration action is
+/// a search and a call, not a sub-agent run.
 ///
-/// `tool_call_format` lets the guide adapt to the active provider. Providers
-/// with native structured tool-calling (`ToolCallFormat::Native`) get the
-/// historic guide unchanged. Text-protocol providers (`PFormat`/`Json`) — the
-/// dispatcher chosen for models that force `native_tool_calling = false`, i.e.
-/// local runtimes like Ollama / LM Studio / MLX / llama.cpp — additionally get
-/// an explicit "when NOT to delegate" carve-out. Weak local models over-select
-/// from the prose tool catalogue and the coercive "you MUST delegate" wording,
-/// spuriously routing greetings and local-filesystem actions into
-/// `delegate_to_integrations_agent` (issue #4361: "Ciao" → Connections,
-/// "create a folder on Desktop" → Calendar). The carve-out is additive: the
-/// always-delegate contract for genuine service requests is preserved.
-fn render_delegation_guide(
-    integrations: &[ConnectedIntegration],
-    tool_call_format: ToolCallFormat,
-) -> String {
+/// The slug printed beside each toolkit uses the same `sanitise_slug` as the
+/// rest of the prompt surface so the model's `composio_connect` argument and
+/// its searches name the toolkit consistently.
+///
+/// The gated-tools appendix used to live in the integrations sub-agent's
+/// prompt. It moves here with the catalogue: an action behind a permission
+/// toggle is not in the searchable set, so without this list the model would
+/// answer "can you do X?" with a wrong "no" instead of the unlock path.
+fn render_connected_integrations(integrations: &[ConnectedIntegration]) -> String {
     let connected: Vec<&ConnectedIntegration> =
         integrations.iter().filter(|ci| ci.connected).collect();
     tracing::debug!(
         total_integrations = integrations.len(),
         connected_count = connected.len(),
-        "[delegation-guide] rendering integration section ({} connected / {} total)",
+        "[connected-integrations] rendering integration section ({} connected / {} total)",
         connected.len(),
         integrations.len()
     );
     if connected.is_empty() {
-        tracing::debug!("[delegation-guide] section omitted — no connected integrations");
+        tracing::debug!("[connected-integrations] section omitted — no connected integrations");
         return String::new();
     }
     let mut out = String::from(
         "## Connected Integrations\n\n\
-         IMPORTANT: You MUST use the `delegate_to_integrations_agent` tool for any request \
-         involving connected services. You do NOT have direct access to these services — all \
-         interaction must go through delegation. Delegate here ONLY when the request actually \
-         operates on a connected service's data or actions; a connected service is not a reason \
-         to touch it for general-knowledge, web/news, headline, date/time, or math questions. \
-         Never claim you cannot access a connected \
-         service without first attempting delegation.\n\n\
-         The following services have an active connection. Their tool implementations \
-         live inside the `integrations_agent` sub-agent — NOT in your own tool list. \
-         Delegate with `delegate_to_integrations_agent`, passing the toolkit slug as \
-         `toolkit`:\n\n",
+         Their actions are not in your listed tools: `tool_search` for the action in plain \
+         words (\"send an email\", \"list calendar events\"), then call the tool it returns — \
+         no sub-agent. Act on a service only when the request operates on that service's data \
+         or actions (a connected service is not a reason to touch it for general-knowledge, \
+         web/news, date/time or math questions). Never claim you cannot access one without \
+         searching first.\n\n",
     );
-    for ci in connected {
-        // Use the same slug canonicalisation as `collect_orchestrator_tools`
-        // so the `toolkit` arg the orchestrator emits always matches the
-        // enum the synthesised tool accepts.
+    for ci in &connected {
         let slug = sanitise_slug(&ci.toolkit);
         if ci.connections.len() > 1 {
             let _ = writeln!(
@@ -622,10 +541,8 @@ fn render_delegation_guide(
     // SUBSET of the real per-toolkit catalogue (no bulk-delete, no
     // batch-modify, no admin/destructive actions, etc.). The result is a
     // confident wrong refusal ("nope, I can't delete emails") even when
-    // the action is in the actual tool list. The `integrations_agent`
-    // has the ground-truth tool catalogue (`tools` + `gated_tools`); only
-    // it can answer "can I do X?" honestly. Force-delegate capability
-    // questions, not just task requests.
+    // the action is in the catalogue. `tool_search` is the ground truth for
+    // callable actions and the gated appendix below for the rest.
     // The cross-chat bullet names the canonical header literal verbatim
     // so the model knows exactly which block to mistrust. Sourced from
     // CROSS_CHAT_HEADER (single source of truth) — drift would silently
@@ -635,67 +552,58 @@ fn render_delegation_guide(
     let _ = write!(
         out,
         "\n### Capability questions about connected toolkits\n\n\
-         Your prior knowledge of \"what a toolkit can do\" is UNRELIABLE — the \
-         real per-toolkit catalogue is wider than the common-knowledge summary \
-         (e.g. Gmail exposes bulk delete, batch modify, thread trash, etc.) and \
-         the user may have enabled scopes that expose further destructive actions. \
-         Therefore:\n\n\
-         - If the user asks **\"can you do X with {{toolkit}}?\"** or \"does \
-         {{toolkit}} support Y?\" for a connected toolkit above, **DO NOT** answer \
-         from priors. **DELEGATE** to `integrations_agent` first and let it \
-         inspect its live tool list (including `gated_tools` behind permission \
-         toggles) before answering.\n\
-         - If the user requests an **action** on a connected toolkit (delete, \
-         move, send, modify, label, etc.), **DELEGATE immediately**. Do not \
-         pre-emptively refuse with \"I can't do that\" — that's a confabulation \
-         unless `integrations_agent` itself has already reported the action as \
-         unavailable.\n\
-         - The only honest \"no\" comes back from a delegation that found the \
-         action neither in the visible `tools` list nor in the `gated_tools` \
-         (permission-toggle) list of the sub-agent.\n\
-         - **Cross-chat context is historical, not authoritative.** If the \
-         `{cross_chat_header_for_prompt}` block contains a past \"I can / can't \
-         do X with {{toolkit}}\" statement, treat it as a snapshot from an \
-         earlier moment. The tool list, connected integrations, and per-toolkit \
-         scope toggles (read / write / admin) can all change between chats — a \
-         past refusal may be stale. Verify against the **current** `## Connected \
-         Integrations` block above and (when in doubt) **DELEGATE** before \
-         quoting any past capability claim. Never echo a stale \"I can't\" \
-         without re-checking.\n\n",
+         Your prior knowledge of what a toolkit can do is unreliable: the live catalogue and \
+         the user's scopes decide. For \"can you do X with {{toolkit}}?\" or any action on a \
+         connected toolkit, `tool_search` first; the only honest \"no\" is an empty search that \
+         the permission-gated list below does not explain. A past \"I can / can't\" in the \
+         `{cross_chat_header_for_prompt}` block is a stale snapshot, never an answer.\n\n",
     );
 
-    // Provider-aware guardrail (#4361). Native-tool-calling providers keep the
-    // guide byte-identical. Text-protocol providers (PFormat/Json) — the
-    // dispatcher used when a model forces `native_tool_calling = false`, i.e.
-    // local runtimes (Ollama / LM Studio / MLX / llama.cpp) — see the whole
-    // tool catalogue rendered as prose and are steered by the coercive "you
-    // MUST delegate" wording above. Weaker local models then route obviously
-    // non-integration requests (greetings, local folder/file actions) into
-    // `delegate_to_integrations_agent`, which surfaces "Viewing your
-    // Connections" / calendar mis-maps. Carve those cases out explicitly so a
-    // small model does not have to infer them from the coercive block alone.
-    if tool_call_format != ToolCallFormat::Native {
+    // Pref-gated actions: the toolkit has them, the user has not granted the
+    // scope, so they are not in the searchable catalogue. The agent cannot
+    // call them and cannot flip the scope itself — the per-row `unlock
+    // paths` carry the exact UI hint to show the user.
+    let gated: Vec<&&ConnectedIntegration> = connected
+        .iter()
+        .filter(|ci| !ci.gated_tools.is_empty())
+        .collect();
+    tracing::debug!(
+        connected_with_gated = gated.len(),
+        "[connected-integrations] gated-tools scan complete"
+    );
+    if !gated.is_empty() {
         out.push_str(
-            "### When NOT to delegate\n\n\
-             Some requests are NOT integration work — handle them directly and do NOT call \
-             `delegate_to_integrations_agent`:\n\
-             - **Greetings and small talk** (\"hi\", \"hello\", \"ciao\", \"thanks\", \"how are \
-             you?\") — just reply.\n\
-             - **Local-machine actions**: creating, reading, writing, moving, or listing files \
-             and folders on this computer (e.g. \"create a folder on the Desktop\", \"make a \
-             directory\", \"save this to a file\") — use your local filesystem tools. A local \
-             folder/file request is NOT a Calendar, Drive, or any connected-service request.\n\n\
-             Delegate ONLY when the request clearly names or operates on one of the connected \
-             services listed above (its email, calendar, messages, documents, etc.). When a \
-             request mixes a local action with a connected service (\"save my latest email to a \
-             file on the Desktop\"), do the local part directly and delegate only the \
-             service part.\n\n",
+            "### Additional capabilities behind a permission toggle\n\n\
+             These actions exist in the toolkit but are NOT searchable or callable — the user \
+             has not granted the required scope. Do NOT pretend they're unavailable. When the \
+             user asks for one (or you'd otherwise need it), tell them what the action does and \
+             present ALL of its `unlock paths` listed below so the user can choose how to enable \
+             it. Never drop a path or rewrite it into your own framing.\n\n",
         );
+        for ci in gated {
+            let _ = writeln!(out, "- **{}**:", ci.toolkit);
+            for gt in &ci.gated_tools {
+                let desc = if gt.description.is_empty() {
+                    "(no description)"
+                } else {
+                    gt.description.as_str()
+                };
+                let _ = writeln!(
+                    out,
+                    "  - `{}` — {} (requires `{}` scope)",
+                    gt.name, desc, gt.required_scope
+                );
+                for path in &gt.unlock_paths {
+                    let _ = writeln!(out, "    - unlock path: {path}");
+                }
+            }
+        }
+        out.push('\n');
     }
 
     tracing::debug!(
         section_len = out.len(),
-        "[delegation-guide] section emitted ({} bytes)",
+        "[connected-integrations] section emitted ({} bytes)",
         out.len()
     );
     out

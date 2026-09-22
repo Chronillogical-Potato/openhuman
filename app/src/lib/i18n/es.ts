@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Spanish (Español) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1708,7 +1708,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nombre de la variable',
   'mcp.form.envValue': 'Valor',
   'mcp.form.value': 'Valor',
-  'mcp.form.keepStored': 'Guardado - déjalo en blanco para conservarlo',
+  'mcp.form.keepStored': 'Guardado (déjalo en blanco para conservarlo)',
   'mcp.form.removeRow': 'Eliminar fila',
   'mcp.form.addEnv': 'Añadir variable',
   'mcp.form.url': 'URL',
@@ -1769,7 +1769,7 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Ejemplo',
   'mcp.json.saveFailed': 'No se pudo guardar mcp.json.',
   'mcp.json.parseError.empty': 'El documento está vacío. Sin servidores es { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON no válido - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON no válido: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contiene un objeto con una clave `mcpServers`.',
   'mcp.json.parseError.missingRoot':
     'Falta la clave `mcpServers`: todos los servidores van dentro.',
@@ -1984,9 +1984,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Esto reemplazará permanentemente tu billetera actual. Asegúrate de haber guardado tu frase de recuperación antes de continuar.',
   'mnemonic.replaceWalletConfirm': 'Entiendo, reemplazar mi billetera',
-  'mnemonic.importAnExistingWallet': 'Importar una billetera existente',
-  'mnemonic.createANewWallet': 'Crear una nueva billetera',
-  'mnemonic.importWallet': 'Importar billetera',
   'mnemonic.loadingWalletStatus': 'Verificando estado de la billetera...',
   'mnemonic.viewAccounts': 'Cuentas de la billetera',
   'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperación',
@@ -3252,6 +3249,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Configuración adicional requerida',
   'composio.connect.atlassianSubdomainHint': 'cumbre',
   'composio.connect.atlassianSubdomainLabel': 'Etiqueta de subdominio de Atlassian',
+  'composio.connect.cancelConnection': 'Cancelar conexión',
+  'composio.connect.cancelFailed': 'No se pudo cancelar la conexión: {msg}',
+  'composio.connect.cancelling': 'Cancelando…',
   'composio.connect.connect': 'Conectar',
   'composio.connect.connectedAccounts': 'Cuentas conectadas',
   'composio.connect.defaultLabel': 'Predeterminada',
@@ -3315,13 +3315,25 @@ const messages: TranslationMap = {
     'Tu sesión de OpenHuman ha caducado. Vuelve a iniciar sesión para cargar los triggers.',
   'composio.triggers.needsConfiguration': 'Necesita configuración',
   'composio.triggers.noneAvailable': 'Actualmente no hay triggers disponibles para',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Ventana de contexto',
   'conversations.composer.context.input': 'Entrada',
   'conversations.composer.context.cached': 'Entrada en caché',
   'conversations.composer.context.output': 'Salida',
   'conversations.composer.context.cost': 'Coste',
   'conversations.composer.command.clear': 'Vaciar la conversación',
+  'conversations.todos.title': 'Tareas',
+  'conversations.todos.progress': '{completed} de {total} hechas',
+  'conversations.todos.allDone': 'Todo hecho',
+  'conversations.todos.status.pending': 'Pendiente',
+  'conversations.todos.status.inProgress': 'En curso',
+  'conversations.todos.status.completed': 'Completada',
+  'conversations.goal.title': 'Objetivo',
+  'conversations.goal.status.active': 'Activo',
+  'conversations.goal.status.paused': 'En pausa',
+  'conversations.goal.status.budgetLimited': 'Presupuesto alcanzado',
+  'conversations.goal.status.complete': 'Completado',
+  'conversations.goal.tokens': '{used} tókenes',
+  'conversations.goal.tokensWithBudget': '{used} de {budget} tókenes',
   'conversations.planReview.title': 'Revisar plan',
   'conversations.planReview.subtitle':
     'Aprueba para ejecutarlo, recházalo para descartarlo o envía comentarios para revisarlo.',
@@ -3419,12 +3431,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Último diagrama de arquitectura de OpenHuman generado',
   'intelligence.diagram.refreshesEvery': 'Se actualiza cada {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo de entidad',
-  'intelligence.workTask.sourceTaskHeading': 'Tarea de origen:',
-  'intelligence.workTask.repositoryLine': '- Repositorio: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
-  'intelligence.workTask.urlLine': '- Dirección: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Empieza reformulando brevemente el plan de implementación concreto y luego ejecútalo. Mantén el progreso visible en este hilo y actualiza el tablero de tareas cuando cambie el estado del trabajo.',
   'intelligence.agentWork.subtitle':
     'Cada ejecución de agente en segundo plano, agrupada por estado del ciclo de vida.',
   'intelligence.agentWork.loading': 'Cargando trabajo del agente…',
@@ -4905,9 +4911,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Cada 2 horas',
   'settings.devWorkflow.schedule.every6hours': 'Cada 6 horas',
   'settings.devWorkflow.schedule.onceDaily': 'Una vez al día (9 AM)',
-  'settings.developerMenu.tasks.title': 'Tareas',
-  'settings.developerMenu.tasks.desc':
-    'Explora y gestiona los tableros de tareas: tus pendientes y los tableros que los agentes crean en las conversaciones.',
   'settings.developerMenu.cronJobs.title': 'Tareas cron',
   'settings.developerMenu.cronJobs.desc':
     'Ver y configurar tareas programadas para habilidades en tiempo de ejecución',
@@ -5013,9 +5016,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Restringir al espacio de trabajo',
   'settings.agentAccess.confine.desc':
     'Restringe al agente al directorio de trabajo (más cualquier carpeta concedida), sea cual sea el modo de acceso seleccionado. Cuando está desactivado, puede acceder a cualquier lugar al que pueda acceder tu usuario, excepto a los directorios de credenciales y del sistema que siempre están bloqueados.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Requerir la aprobación del plan de tareas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausa antes de que un agente asignado ejecute un breve tarea elaborada por el agente.',
   'settings.agentAccess.autoApproveAll.label': 'Aprobar automáticamente todas las acciones',
   'settings.agentAccess.autoApproveAll.desc':
     'Cuando está activado, el agente ejecutará todas las acciones elegibles sin pedir tu aprobación primero. Esto incluye escritura de archivos, comandos de shell, solicitudes de red y cualquier otro efecto secundario. Los bloqueos de seguridad estrictos, incluidos los directorios de credenciales y del sistema, siguen aplicándose, y las acciones con un origen no confiable o desconocido nunca se aprueban automáticamente.',
@@ -5883,12 +5883,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Dirección de {network}',
   'walletReceive.onlyChainWarning':
     'Envía solo activos de {network} a esta dirección. Enviar activos de otra red puede provocar una pérdida permanente.',
-  'walletSend.title': 'Enviar',
-  'walletSend.to': 'Para',
-  'walletSend.addressPlaceholder': 'Ingresa o pega una dirección',
-  'walletSend.max': 'Máx',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} disponible',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponible',
   'walletSend.recipient': 'Dirección del destinatario',
   'walletSend.recipientPlaceholder': 'Pega la dirección de destino',
@@ -5911,10 +5905,9 @@ const messages: TranslationMap = {
   'settings.integrations.title': 'Integraciones',
   'settings.integrations.menuDesc':
     'Fuentes de tareas, enrutamiento de Composio y disparadores de webhooks',
-  'settings.taskSources.subtitle':
-    'Extrae tareas de tus herramientas al tablero de tareas del agente',
+  'settings.taskSources.subtitle': 'Trae tareas de tus herramientas a tu agente',
   'settings.taskSources.description':
-    'Recopila elementos de trabajo de GitHub, Notion, Linear y ClickUp, enriquétalos y dirígelos al tablero de tareas del agente.',
+    'Recopila elementos de trabajo de GitHub, Notion, Linear y ClickUp, enriquécelos y entrégaselos a tu agente para que los clasifique.',
   'settings.taskSources.connectHint':
     'Las fuentes de tareas utilizan tus cuentas conectadas. Conéctalas primero en Integraciones.',
   'settings.taskSources.disabledBanner':

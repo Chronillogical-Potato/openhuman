@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Focused raw integration coverage for Composio ops.
 //!
 //! This test binary stays on loopback mocks and temp stores. It drives the

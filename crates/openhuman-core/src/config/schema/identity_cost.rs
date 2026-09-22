@@ -12,9 +12,10 @@ use std::collections::HashMap;
 pub struct CostConfig {
     /// Enable budget enforcement (default: true).
     ///
-    /// When `true`, [`crate::platform::cost::CostTracker::check_budget`]
-    /// honours `daily_limit_usd` / `monthly_limit_usd` and refuses
-    /// over-budget requests via `BudgetCheck::Exceeded`.
+    /// Retained for **recording**, not enforcement: nothing refuses a request
+    /// on cost any more. `CostTracker::record_usage` is a no-op when this is
+    /// `false`; `record_usage_unconditional` (the dashboard/telemetry path)
+    /// ignores it.
     ///
     /// **Important:** as of the cost-dashboard PR this flag controls
     /// **enforcement only**, not telemetry capture. The dashboard
@@ -27,24 +28,26 @@ pub struct CostConfig {
     #[serde(default = "default_cost_enabled")]
     pub enabled: bool,
 
-    /// Daily spending limit in USD (default: 10.00).
+    /// Monthly budget in USD, for the dashboard only (default: 100.00).
     ///
-    /// Applies to **managed (OpenHuman-credit) inference only** — see
+    /// **This is a display target, not a cap.** Nothing in the core refuses a
+    /// request when it is exceeded — the enforcement path was removed with the
+    /// spend cap. It is the denominator behind the dashboard's budget gauge
+    /// and status (`CostTracker::get_dashboard`), which is why it survives and
+    /// why the settings copy still points at `cost.monthly_limit_usd`.
+    ///
+    /// Counts **managed (OpenHuman-credit) spend only** — see
     /// [`crate::platform::cost::route`]. Bring-your-own-key and local
     /// inference is billed by the user's own provider, so it is recorded for
-    /// the dashboard but never counted against this limit and can never
-    /// refuse a request (#5016).
-    #[serde(default = "default_daily_limit")]
-    pub daily_limit_usd: f64,
-
-    /// Monthly spending limit in USD (default: 100.00). Managed-route only,
-    /// on the same terms as [`Self::daily_limit_usd`].
+    /// the dashboard but never counted here (#5016); driving the gauge off the
+    /// all-route total filled a pure-BYOK user's bar against a limit that
+    /// could never fire.
+    ///
+    /// A retired `daily_limit_usd` key may still be present in existing config
+    /// files. It is accepted and ignored — this struct does not
+    /// `deny_unknown_fields`, so upgrading never fails to parse.
     #[serde(default = "default_monthly_limit")]
     pub monthly_limit_usd: f64,
-
-    /// Warn when spending reaches this percentage of limit (default: 80)
-    #[serde(default = "default_warn_percent")]
-    pub warn_at_percent: u8,
 
     /// Per-model pricing (USD per 1M tokens)
     #[serde(default)]
@@ -113,16 +116,8 @@ fn default_cost_enabled() -> bool {
     true
 }
 
-fn default_daily_limit() -> f64 {
-    10.0
-}
-
 fn default_monthly_limit() -> f64 {
     100.0
-}
-
-fn default_warn_percent() -> u8 {
-    80
 }
 
 fn default_dashboard_enabled() -> bool {
@@ -145,9 +140,7 @@ impl Default for CostConfig {
     fn default() -> Self {
         Self {
             enabled: default_cost_enabled(),
-            daily_limit_usd: default_daily_limit(),
             monthly_limit_usd: default_monthly_limit(),
-            warn_at_percent: default_warn_percent(),
             prices: get_default_pricing(),
             dashboard: CostDashboardConfig::default(),
         }

@@ -13,6 +13,14 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   297/277/2  2026-09-22  Updating tinymcp to main moves its platform
+#                      directory helper to `dirs` 7 while the host still
+#                      needs `dirs` 6 through `directories`. The flows
+#                      profile therefore resolves one additional version of
+#                      an existing crate; it adds no unique crate name and no
+#                      native build. This is required by the current tinymcp
+#                      contract and was measured with `scripts/kernel-floor.sh
+#                      flows` on the CI Linux profile.
 #   296/277/2  2026-09-20  the merged fresh-turn and cost-routing dependency
 #                      refresh sheds two resolved packages and two crate names
 #                      from the flows profile. Native builds stay unchanged.
@@ -571,4 +579,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:296:277:2
+flows:297:277:2

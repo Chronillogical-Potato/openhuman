@@ -146,7 +146,7 @@ pub enum SourceTarget {
     /// start working immediately (triage still gates noise).
     #[default]
     AgentTodoProactive,
-    /// Append a todo card only; never auto-start an agent turn.
+    /// Collect into the ingestion ledger only; never auto-start an agent turn.
     TodoOnly,
 }
 

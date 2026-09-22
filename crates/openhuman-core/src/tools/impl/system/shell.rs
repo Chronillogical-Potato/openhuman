@@ -201,7 +201,7 @@ impl Tool for ShellTool {
                 "category": {
                     "type": "string",
                     "enum": ["read", "write", "network", "install", "destructive"],
-                    "description": "Optional self-declared risk category for this command. Advisory and ESCALATE-ONLY: it can raise the approval requirement (e.g. flag a destructive command) but never lowers what the runtime determines."
+                    "description": "Optional self-declared risk; can only raise the approval requirement."
                 },
                 "timeout_secs": {
                     "type": "integer",

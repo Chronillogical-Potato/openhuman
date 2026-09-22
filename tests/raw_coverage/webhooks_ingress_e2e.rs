@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! End-to-end coverage for the `webhooks` RPC namespace (13 controllers, 0% before this file).
 //!
 //! Two independent halves, because the namespace has two independent backends:

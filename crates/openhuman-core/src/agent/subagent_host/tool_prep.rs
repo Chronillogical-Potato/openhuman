@@ -163,88 +163,52 @@ pub(super) fn select_actions_with_essentials(
     selected
 }
 
-// ── Text-mode protocol block ────────────────────────────────────────────
+// ── Text-mode dialect selection ─────────────────────────────────────────
 
-/// Format the tool-use protocol block appended to the system prompt in text
-/// mode. Teaches **P-Format** first (the same protocol
-/// [`tinytools_agent::dialect::PFormatDialect`] renders and
-/// the tinyagents adapter parses via `parse_tool_calls_with_pformat`), with
-/// the legacy JSON-in-tag form as the documented fallback for nested
-/// arguments. The `## Tools` catalogue already renders `Call as:` p-format
-/// signatures for every tool, so teaching JSON here contradicted the
-/// catalogue and threw away the p-format token savings.
+/// Select the TinyTools-owned tool-use protocol for text-mode sub-agents.
 ///
-/// Per-parameter rendering is intentionally **compact**: name, type, a
-/// "required" marker, and a short one-line description if present. We
-/// do **not** serialise the full JSON schema. Composio/Fireworks action
-/// schemas for toolkits like Gmail or Notion run multiple KB each —
-/// embedding them verbatim blows up the prompt past the model's
-/// context window (282k+ tokens for 26 Gmail tools vs a 196k cap).
-/// The compact listing keeps the model informed enough to call tools
-/// correctly while staying within budget. If the model needs deeper
-/// schema detail it can surface the error and the orchestrator will
-/// clarify on the next turn.
-pub(crate) fn build_text_mode_tool_instructions() -> String {
-    // The tool catalog is already rendered in the prompt's `## Tools`
-    // section (see `prompts::ToolsSection::build`) with full
-    // `Call as: NAME[arg|arg]` signatures. We previously also emitted
-    // an `### Available Tools` subsection here with a different
-    // formatting (`Parameters: name:type, ...`), which doubled the
-    // tool list bytes for text-mode agents — especially expensive for
-    // the integrations_agent toolkit-scoped spawns (~50 actions ×
-    // 2 listings). Keep only the protocol explanation; the tool
-    // catalog itself comes from the prompt template.
-    let mut out = String::new();
-    out.push_str("## Tool Use Protocol\n\n");
-    out.push_str(
-        "Tool calls use **P-Format** (Parameter-Format): compact, positional, \
-         pipe-delimited syntax wrapped in `<tool_call>` tags.\n\n",
-    );
-    out.push_str("```\n<tool_call>\nGMAIL_FETCH_EMAILS[ca_123||10]\n</tool_call>\n```\n\n");
-    out.push_str(
-        "**Rules:**\n\
-         - Form: `name[arg1|arg2|...|argN]`. Arguments are positional and must match the \
-           order shown in each tool's `Call as:` signature in the `## Tools` section \
-           (alphabetical by parameter name). Leave a slot empty to omit that argument.\n\
-         - Empty calls: `name[]` for zero-arg tools.\n\
-         - Escapes inside argument values: `\\|` for a literal `|`, `\\]` for `]`, `\\\\` for `\\`.\n\
-         - Do not nest tags. Emit one tag per call; you can emit multiple tags in the same \
-           response to run calls in parallel.\n\
-         - When an argument needs a nested object or array that p-format cannot express, \
-           fall back to the JSON form in the same tags: \
-           `<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}</tool_call>`. \
-           Prefer p-format for everything else.\n",
-    );
-    out
-}
-
+/// Tool syntax and tool catalogue rendering live in TinyTools. Keeping only
+/// dialect selection here prevents OpenHuman prompt text from drifting from
+/// the parser that consumes the response.
 /// The tool-call format a sub-agent's prompt is rendered for, and the
 /// dispatcher protocol block that goes with it.
 ///
 /// Normally both follow the parent. A text-mode child (the toolkit-scoped
 /// `integrations_agent`) is sent no native `tools`, so it must render its own
-/// catalogue as text whatever the parent uses: under a native-tool parent,
-/// `ToolsSection` would otherwise emit no catalogue and the native JSON protocol,
-/// and the child would be told how to call tools but never which ones exist.
-/// Its protocol block is empty because the runner appends
-/// [`build_text_mode_tool_instructions`] itself.
+/// catalogue as text whatever the parent uses. Text-mode children use the
+/// TinyTools JSON dialect, which can faithfully carry nested tool arguments.
 pub(crate) fn subagent_prompt_protocol(
     parent_format: crate::agent::prompts::ToolCallFormat,
     text_mode: bool,
+    tools: &[tinytools::ToolSpec],
 ) -> (crate::agent::prompts::ToolCallFormat, String) {
     use crate::agent::prompts::ToolCallFormat;
-    use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
-    use tinytools_agent::PFormatRegistry;
+    use tinytools_agent::dialect::{
+        CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolDialect,
+    };
     if text_mode {
-        return (ToolCallFormat::PFormat, String::new());
+        return (
+            ToolCallFormat::Json,
+            crate::agent::prompts::render_helpers::harness_json_tool_prompt(tools),
+        );
     }
-    let empty_tools = Vec::new();
     let instructions = match parent_format {
         ToolCallFormat::PFormat => {
-            PFormatDialect::new(PFormatRegistry::new()).prompt_instructions(&empty_tools)
+            let registry = tinytools_agent::build_registry(
+                tools
+                    .iter()
+                    .map(|tool| (tool.name.as_str(), &tool.parameters)),
+            );
+            PFormatDialect::new(registry).prompt_instructions(tools)
         }
-        ToolCallFormat::Native => NativeDialect.prompt_instructions(&empty_tools),
-        ToolCallFormat::Json => XmlDialect.prompt_instructions(&empty_tools),
+        // The native request carries its own structured catalogue; retain
+        // only the dialect guidance in the text prompt.
+        ToolCallFormat::Native => NativeDialect.prompt_instructions(&[]),
+        ToolCallFormat::Json => {
+            crate::agent::prompts::render_helpers::harness_json_tool_prompt(tools)
+        }
+        ToolCallFormat::Python => CodeDialect::instructions(CodeStyle::Python),
+        ToolCallFormat::TypeScript => CodeDialect::instructions(CodeStyle::TypeScript),
     };
     (parent_format, instructions)
 }

@@ -62,6 +62,12 @@ pub(super) struct ReconnectContext {
     pub(super) lost_previous: bool,
     /// Attempts that ended in `ConnectionOutcome::Failed` since the outage began.
     pub(super) failed_attempts: u32,
+    /// Whether this outage already fired the one-shot sustained-outage
+    /// escalation (`FAIL_ESCALATE_THRESHOLD`). The escalation fires while the
+    /// socket is still down, so it cannot know how long the outage lasted;
+    /// this flag is what lets the recovery report that duration, and only for
+    /// an outage that actually paged (#6417).
+    pub(super) escalated: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +165,7 @@ pub(super) async fn run_connection(
     *emit_ready.lock() = true;
     emit_state_change(shared);
     if let Some(started) = reconnect.outage_started {
-        log::info!(
+        let line = format!(
             "[socket] {} after {:.1}s ({} failed attempt(s))",
             if reconnect.lost_previous {
                 "Reconnected"
@@ -169,6 +175,35 @@ pub(super) async fn run_connection(
             started.elapsed().as_secs_f64(),
             reconnect.failed_attempts
         );
+        if reconnect.escalated {
+            // This outage already paged (one `error` at
+            // `FAIL_ESCALATE_THRESHOLD`), and that event could not carry a
+            // duration because the socket was still down when it fired. Close
+            // it out with the duration now that it is known — the missing half
+            // of #6417. Gated on `escalated` so the volume stays bounded: an
+            // outage that never crossed the threshold stays at `info`, and one
+            // that did produces exactly two events, never one per retry (the
+            // OPENHUMAN-TAURI-8M storm this threshold exists to prevent).
+            //
+            // An offline user never reaches here at all: their escalation was
+            // demoted to a breadcrumb, so `escalated` stayed false. Still
+            // routed through the classifier rather than `report_error` so a
+            // future expected-shape added there applies to both halves of the
+            // pair, instead of silently reporting only the recovery.
+            let attempts = reconnect.failed_attempts.to_string();
+            let outage_secs = format!("{:.0}", started.elapsed().as_secs_f64());
+            crate::core::observability::report_error_or_expected(
+                line.as_str(),
+                "socket",
+                "ws_reconnect",
+                &[
+                    ("attempts", attempts.as_str()),
+                    ("outage_s", outage_secs.as_str()),
+                ],
+            );
+        } else {
+            log::info!("{line}");
+        }
     }
 
     // 7. Main event loop

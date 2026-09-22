@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // German (Deutsch) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1728,7 +1728,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Variablenname',
   'mcp.form.envValue': 'Wert',
   'mcp.form.value': 'Wert',
-  'mcp.form.keepStored': 'Gespeichert - leer lassen, um zu behalten',
+  'mcp.form.keepStored': 'Gespeichert (zum Behalten leer lassen)',
   'mcp.form.removeRow': 'Zeile entfernen',
   'mcp.form.addEnv': 'Variable hinzufügen',
   'mcp.form.url': 'URL',
@@ -1775,7 +1775,7 @@ const messages: TranslationMap = {
     'Ein Verzeichnis von MCP-Servern. Ein Server öffnet seine eigene Seite mit der Installationsanleitung; füge ihn im Tab mcp.json hinzu.',
   'mcp.json.loadFailedTitle': 'mcp.json konnte nicht gelesen werden',
   'mcp.json.loadFailedBody':
-    'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt - ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
+    'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt. Ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
   'mcp.json.intro':
     'Deine MCP-Server als ein Dokument, in der Form, die andere MCP-Clients verwenden. Füge einen Serverblock von seiner Installationsseite ein und speichere.',
   'mcp.json.credentialsNote':
@@ -1789,13 +1789,13 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Beispiel',
   'mcp.json.saveFailed': 'mcp.json konnte nicht gespeichert werden.',
   'mcp.json.parseError.empty': 'Das Dokument ist leer. Keine Server bedeutet { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Kein gültiges JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'Kein gültiges JSON: {detail}',
   'mcp.json.parseError.rootNotObject':
     'mcp.json enthält ein Objekt mit einem Schlüssel `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Kein Schlüssel `mcpServers` - jeder Server steht darunter.',
+  'mcp.json.parseError.missingRoot': 'Kein Schlüssel `mcpServers`. Jeder Server steht darunter.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` ordnet einem Servernamen seine Einstellungen zu.',
   'mcp.json.parseError.emptyName':
-    'Ein Server braucht einen Namen - der Schlüssel eines Eintrags ist leer.',
+    'Ein Server braucht einen Namen. Der Schlüssel eines Eintrags ist leer.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` enthält ein Objekt, z. B. { "command": "npx", "args": ["-y", "…"] } oder { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -2007,9 +2007,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Dies wird deine aktuelle Wallet dauerhaft ersetzen. Stelle sicher, dass du deine Recovery-Phrase gesichert hast, bevor du fortfährst.',
   'mnemonic.replaceWalletConfirm': 'Ich verstehe, meine Wallet ersetzen',
-  'mnemonic.importAnExistingWallet': 'Ein bestehendes Wallet importieren',
-  'mnemonic.createANewWallet': 'Ein neues Wallet erstellen',
-  'mnemonic.importWallet': 'Wallet importieren',
   'mnemonic.loadingWalletStatus': 'Wallet-Status wird geprüft...',
   'mnemonic.viewAccounts': 'Wallet-Konten',
   'mnemonic.revealRecoveryPhrase': 'Wiederherstellungsphrase anzeigen',
@@ -3287,6 +3284,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Zusätzliche Konfiguration erforderlich',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian-Subdomain-Label',
+  'composio.connect.cancelConnection': 'Verbindung abbrechen',
+  'composio.connect.cancelFailed': 'Verbindung konnte nicht abgebrochen werden: {msg}',
+  'composio.connect.cancelling': 'Wird abgebrochen…',
   'composio.connect.connect': 'Verbinden',
   'composio.connect.connectedAccounts': 'Verbundene Konten',
   'composio.connect.defaultLabel': 'Standard',
@@ -3351,13 +3351,25 @@ const messages: TranslationMap = {
     'Deine OpenHuman-Sitzung ist abgelaufen. Melde dich erneut an, um Trigger zu laden.',
   'composio.triggers.needsConfiguration': 'Muss konfiguriert werden',
   'composio.triggers.noneAvailable': 'Derzeit sind keine Auslöser verfügbar für',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Kontextfenster',
   'conversations.composer.context.input': 'Eingabe',
   'conversations.composer.context.cached': 'Zwischengespeicherte Eingabe',
   'conversations.composer.context.output': 'Ausgabe',
   'conversations.composer.context.cost': 'Kosten',
   'conversations.composer.command.clear': 'Unterhaltung leeren',
+  'conversations.todos.title': 'Aufgaben',
+  'conversations.todos.progress': '{completed} von {total} erledigt',
+  'conversations.todos.allDone': 'Alles erledigt',
+  'conversations.todos.status.pending': 'Ausstehend',
+  'conversations.todos.status.inProgress': 'In Arbeit',
+  'conversations.todos.status.completed': 'Erledigt',
+  'conversations.goal.title': 'Ziel',
+  'conversations.goal.status.active': 'Aktiv',
+  'conversations.goal.status.paused': 'Pausiert',
+  'conversations.goal.status.budgetLimited': 'Budget erreicht',
+  'conversations.goal.status.complete': 'Abgeschlossen',
+  'conversations.goal.tokens': '{used} Tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} Tokens',
   'conversations.planReview.title': 'Plan prüfen',
   'conversations.planReview.subtitle':
     'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
@@ -3456,12 +3468,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Zuletzt generiertes OpenHuman-Architekturdiagramm',
   'intelligence.diagram.refreshesEvery': 'Aktualisiert alle {seconds} s',
   'intelligence.memoryText.entityTypePrefix': 'Entitätstyp',
-  'intelligence.workTask.sourceTaskHeading': 'Quellaufgabe:',
-  'intelligence.workTask.repositoryLine': '- Repository (Repo): {repo}',
-  'intelligence.workTask.externalIdLine': '- Externe ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Adresse: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Beginne damit, den konkreten Umsetzungsplan kurz zu wiederholen, und führe ihn dann aus. Halte den Fortschritt in diesem Thread sichtbar und aktualisiere das Aufgabenboard, wenn sich der Arbeitsstand ändert.',
   'intelligence.agentWork.subtitle':
     'Jeder Hintergrund-Agentenlauf, gruppiert nach Lebenszyklusstatus.',
   'intelligence.agentWork.loading': 'Agentenarbeit wird geladen…',
@@ -4954,9 +4960,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Alle 2 Stunden',
   'settings.devWorkflow.schedule.every6hours': 'Alle 6 Stunden',
   'settings.devWorkflow.schedule.onceDaily': 'Einmal täglich (09:00 Uhr)',
-  'settings.developerMenu.tasks.title': 'Aufgaben',
-  'settings.developerMenu.tasks.desc':
-    'Aufgaben-Boards durchsuchen und verwalten: deine eigenen To-dos sowie die Boards, die Agenten über Unterhaltungen hinweg erstellen.',
   'settings.developerMenu.cronJobs.title': 'Cron-Jobs',
   'settings.developerMenu.cronJobs.desc':
     'Zeige geplante Jobs für Laufzeitfähigkeiten an und konfiguriere sie',
@@ -5062,10 +5065,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Auf Arbeitsbereich beschränken',
   'settings.agentAccess.confine.desc':
     'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn die Option ausgeschaltet ist, kann der Agent jeden Ort erreichen, auf den Ihr Benutzer zugreifen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
-  'settings.agentAccess.requireTaskPlanApproval.label':
-    'Erfordern Sie die Genehmigung des Aufgabenplans',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
   'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
   'settings.agentAccess.autoApproveAll.desc':
     'Wenn aktiviert, genehmigt der Agent automatisch alle zulässigen Aktionen, ohne vorher deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und andere Aktionen mit externen Auswirkungen. Feste Sicherheitssperren (Anmeldeinformationen und Systemverzeichnisse) gelten weiterhin, und Aktionen aus nicht vertrauenswürdigen oder unbekannten Quellen werden nie automatisch genehmigt.',
@@ -5926,12 +5925,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network}-Adresse',
   'walletReceive.onlyChainWarning':
     'Sende nur {network}-Assets an diese Adresse. Das Senden von Assets aus einem anderen Netzwerk kann zu einem dauerhaften Verlust führen.',
-  'walletSend.title': 'Senden',
-  'walletSend.to': 'An',
-  'walletSend.addressPlaceholder': 'Adresse eingeben oder einfügen',
-  'walletSend.max': 'Max',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} verfügbar',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Verfügbar',
   'walletSend.recipient': 'Empfängeradresse',
   'walletSend.recipientPlaceholder': 'Zieladresse einfügen',
@@ -5954,9 +5947,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Aufgabenquellen',
   'settings.integrations.title': 'Integrationen',
   'settings.integrations.menuDesc': 'Aufgabenquellen, Composio-Routing und Webhook-Trigger',
-  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
+  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools zu Ihrem Agenten',
   'settings.taskSources.description':
-    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, bereichern Sie sie und leiten Sie sie an das Agent-ToDo-Board weiter.',
+    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, reichern Sie sie an und übergeben Sie sie Ihrem Agenten zur Sichtung.',
   'settings.taskSources.connectHint':
     'Aufgabenquellen nutzen Ihre verbundenen Konten. Verbinden Sie sie zunächst unter Integrationen.',
   'settings.taskSources.disabledBanner':

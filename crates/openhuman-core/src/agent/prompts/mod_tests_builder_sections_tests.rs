@@ -57,7 +57,7 @@ fn grounding_contract_appended_to_every_build_path() {
 
     // A distinctive clause from GROUNDING_BODY — present regardless of which
     // builder produced the prompt (single source of truth, central append).
-    let marker = "Your tools are exactly the ones listed in this prompt";
+    let marker = "Your tools are exactly the ones you have been given for this turn";
 
     // 1. Static default chain.
     let defaults = SystemPromptBuilder::with_defaults().build(&ctx).unwrap();
@@ -522,6 +522,88 @@ fn tools_section_renders_invalid_schema_tool_without_arguments() {
 }
 
 #[test]
+fn tools_section_code_formats_render_function_signatures() {
+    // Under the code dialects the catalogue is one signature per line, the
+    // description as a trailing comment, and the dispatcher's protocol block
+    // follows — no `Call as:`, no JSON schema.
+    struct ParamTool;
+    #[async_trait]
+    impl Tool for ParamTool {
+        fn name(&self) -> &str {
+            "make_tea"
+        }
+        fn description(&self) -> &str {
+            "brew a cup of tea"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "kind": { "type": "string" },
+                    "sugar": { "type": "boolean" }
+                },
+                "required": ["kind"]
+            })
+        }
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+            Ok(tinytools::ToolResult::success("ok"))
+        }
+    }
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(ParamTool)];
+    let prompt_tools = PromptTool::from_tools(&tools);
+    for (format, expected) in [
+        (
+            ToolCallFormat::Python,
+            "def make_tea(kind: str, sugar: bool = None) -> str  # brew a cup of tea",
+        ),
+        (
+            ToolCallFormat::TypeScript,
+            "function make_tea(kind: string, sugar?: boolean): string;  // brew a cup of tea",
+        ),
+    ] {
+        let ctx = PromptContext {
+            workspace_dir: Path::new("/tmp"),
+            model_name: "test-model",
+            agent_id: "",
+            tools: &prompt_tools,
+            workflows: &[],
+            dispatcher_instructions: "## Tool Use Protocol\n\n(block)",
+            learned: LearnedContextData::default(),
+            visible_tool_names: &NO_FILTER,
+            tool_call_format: format,
+            connected_integrations: &[],
+            connected_identities_md: String::new(),
+            include_profile: false,
+            include_memory_md: false,
+            curated_snapshot: None,
+            user_identity: None,
+            personality_roster: vec![],
+            agents_md_global: None,
+            agents_md_local: None,
+        };
+        let rendered = ToolsSection.build(&ctx).unwrap();
+        assert!(
+            rendered.starts_with("## Tools\n\n"),
+            "{format:?} keeps the catalogue heading, got:\n{rendered}"
+        );
+        assert!(
+            rendered.contains(expected),
+            "{format:?} expected {expected:?}, got:\n{rendered}"
+        );
+        assert!(!rendered.contains("Call as:"), "{format:?}:\n{rendered}");
+        assert!(
+            !rendered.contains("\"properties\""),
+            "{format:?}:\n{rendered}"
+        );
+        assert!(
+            rendered.ends_with("## Tool Use Protocol\n\n(block)"),
+            "{format:?} appends the dispatcher block, got:\n{rendered}"
+        );
+    }
+}
+
+#[test]
 fn tools_section_uses_pformat_signature_for_text_dispatchers() {
     // Tool rendering is uniform across text dispatchers: always the
     // compact `Call as: name[args]` signature, never a raw JSON
@@ -560,6 +642,50 @@ fn tools_section_uses_pformat_signature_for_text_dispatchers() {
             "{format:?} should never emit the JSON `Parameters:` line, got:\n{rendered}"
         );
     }
+}
+
+#[test]
+fn tools_section_json_with_an_embedded_catalogue_lists_tools_once() {
+    // `XmlDialect::prompt_instructions` embeds the full-schema catalogue, so
+    // the section must not put the signature catalogue in front of it: the
+    // orchestrator's 31 tools were listed twice (13 KB + 28 KB) that way.
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let prompt_tools = PromptTool::from_tools(&tools);
+    let specs = vec![tinytools::ToolSpec {
+        name: "test_tool".into(),
+        description: "tool desc".into(),
+        parameters: serde_json::json!({"type": "object"}),
+    }];
+    use tinytools_agent::dialect::ToolDialect as _;
+    let block = tinytools_agent::dialect::XmlDialect.prompt_instructions(&specs);
+    let ctx = PromptContext {
+        workspace_dir: Path::new("/tmp"),
+        model_name: "test-model",
+        agent_id: "",
+        tools: &prompt_tools,
+        workflows: &[],
+        dispatcher_instructions: &block,
+        learned: LearnedContextData::default(),
+        visible_tool_names: &NO_FILTER,
+        tool_call_format: ToolCallFormat::Json,
+        connected_integrations: &[],
+        connected_identities_md: String::new(),
+        include_profile: false,
+        include_memory_md: false,
+        curated_snapshot: None,
+        user_identity: None,
+        personality_roster: vec![],
+        agents_md_global: None,
+        agents_md_local: None,
+    };
+    let rendered = ToolsSection.build(&ctx).unwrap();
+    assert_eq!(
+        rendered.matches("**test_tool**").count(),
+        1,
+        "listed once, in the dialect's own catalogue:\n{rendered}"
+    );
+    assert!(!rendered.contains("Call as:"), "{rendered}");
+    assert!(rendered.contains("Parameters:"), "{rendered}");
 }
 
 #[test]

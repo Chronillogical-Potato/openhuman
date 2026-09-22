@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Portuguese (Português) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1709,7 +1709,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nome da variável',
   'mcp.form.envValue': 'Valor',
   'mcp.form.value': 'Valor',
-  'mcp.form.keepStored': 'Armazenado - deixe em branco para manter',
+  'mcp.form.keepStored': 'Armazenado (deixe em branco para manter)',
   'mcp.form.removeRow': 'Remover linha',
   'mcp.form.addEnv': 'Adicionar variável',
   'mcp.form.url': 'URL',
@@ -1756,7 +1756,7 @@ const messages: TranslationMap = {
     'Um diretório de servidores MCP. Abrir um servidor leva à sua própria página, onde estão as instruções de instalação; adicione-o na aba mcp.json.',
   'mcp.json.loadFailedTitle': 'Não foi possível ler mcp.json',
   'mcp.json.loadFailedBody':
-    'O núcleo não respondeu, então o documento não é mostrado - um editor vazio convidaria a salvar e apagar seus servidores.',
+    'O núcleo não respondeu, então o documento não é mostrado. Um editor vazio convidaria a salvar e apagar seus servidores.',
   'mcp.json.intro':
     'Seus servidores MCP como um único documento, no formato que outros clientes MCP usam. Cole o bloco de um servidor da sua página de instalação e salve.',
   'mcp.json.credentialsNote':
@@ -1770,13 +1770,13 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Exemplo',
   'mcp.json.saveFailed': 'Não foi possível salvar mcp.json.',
   'mcp.json.parseError.empty': 'O documento está vazio. Nenhum servidor é { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON inválido - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON inválido: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contém um objeto com uma chave `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Sem a chave `mcpServers` - todo servidor fica dentro dela.',
+  'mcp.json.parseError.missingRoot': 'Sem a chave `mcpServers`. Todo servidor fica dentro dela.',
   'mcp.json.parseError.rootNotMap':
     '`mcpServers` associa o nome de um servidor às suas configurações.',
   'mcp.json.parseError.emptyName':
-    'Um servidor precisa de um nome - a chave de uma entrada está vazia.',
+    'Um servidor precisa de um nome. A chave de uma entrada está vazia.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` contém um objeto, por ex. { "command": "npx", "args": ["-y", "…"] } ou { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -1984,9 +1984,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Isso substituirá permanentemente sua carteira atual. Certifique-se de ter feito backup da sua frase de recuperação antes de prosseguir.',
   'mnemonic.replaceWalletConfirm': 'Entendo, substituir minha carteira',
-  'mnemonic.importAnExistingWallet': 'Importar uma carteira existente',
-  'mnemonic.createANewWallet': 'Criar uma nova carteira',
-  'mnemonic.importWallet': 'Importar carteira',
   'mnemonic.loadingWalletStatus': 'Verificando status da carteira...',
   'mnemonic.viewAccounts': 'Contas da carteira',
   'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperação',
@@ -3247,6 +3244,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Configuração adicional necessária',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Rótulo de subdomínio Atlassian',
+  'composio.connect.cancelConnection': 'Cancelar conexão',
+  'composio.connect.cancelFailed': 'Não foi possível cancelar a conexão: {msg}',
+  'composio.connect.cancelling': 'Cancelando…',
   'composio.connect.connect': 'Conectar',
   'composio.connect.connectedAccounts': 'Contas conectadas',
   'composio.connect.defaultLabel': 'Padrão',
@@ -3311,13 +3311,25 @@ const messages: TranslationMap = {
     'Sua sessão do OpenHuman expirou. Entre novamente para carregar os gatilhos.',
   'composio.triggers.needsConfiguration': 'Precisa de configuração',
   'composio.triggers.noneAvailable': 'Nenhum gatilho disponível no momento para',
-  'conversations.threadTodo.title': 'Plano',
   'conversations.composer.context.title': 'Janela de contexto',
   'conversations.composer.context.input': 'Entrada',
   'conversations.composer.context.cached': 'Entrada em cache',
   'conversations.composer.context.output': 'Saída',
   'conversations.composer.context.cost': 'Custo',
   'conversations.composer.command.clear': 'Limpar a conversa',
+  'conversations.todos.title': 'Tarefas',
+  'conversations.todos.progress': '{completed} de {total} concluídas',
+  'conversations.todos.allDone': 'Tudo concluído',
+  'conversations.todos.status.pending': 'Pendente',
+  'conversations.todos.status.inProgress': 'Em andamento',
+  'conversations.todos.status.completed': 'Concluída',
+  'conversations.goal.title': 'Objetivo',
+  'conversations.goal.status.active': 'Ativo',
+  'conversations.goal.status.paused': 'Pausado',
+  'conversations.goal.status.budgetLimited': 'Orçamento atingido',
+  'conversations.goal.status.complete': 'Concluído',
+  'conversations.goal.tokens': '{used} tokens usados',
+  'conversations.goal.tokensWithBudget': '{used} de {budget} tokens',
   'conversations.planReview.title': 'Revisar plano',
   'conversations.planReview.subtitle':
     'Aprove para executá-lo, rejeite para descartá-lo ou envie comentários para revisá-lo.',
@@ -3414,12 +3426,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Último diagrama de arquitetura OpenHuman gerado',
   'intelligence.diagram.refreshesEvery': 'Atualiza a cada {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo de entidade',
-  'intelligence.workTask.sourceTaskHeading': 'Tarefa de origem:',
-  'intelligence.workTask.repositoryLine': '- Repositório: {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externo: {externalId}',
-  'intelligence.workTask.urlLine': '- Endereço: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Comece reformulando brevemente o plano de implementação concreto e depois execute-o. Mantenha o progresso visível neste tópico e atualize o quadro de tarefas quando o estado do trabalho mudar.',
   'intelligence.agentWork.subtitle':
     'Cada execução de agente em segundo plano, agrupada por estado do ciclo de vida.',
   'intelligence.agentWork.loading': 'Carregando trabalho do agente…',
@@ -4891,9 +4897,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'A cada 2 horas',
   'settings.devWorkflow.schedule.every6hours': 'A cada 6 horas',
   'settings.devWorkflow.schedule.onceDaily': 'Uma vez ao dia (9h)',
-  'settings.developerMenu.tasks.title': 'Tarefas',
-  'settings.developerMenu.tasks.desc':
-    'Navegue e gerencie os quadros de tarefas: suas próprias pendências e os quadros que os agentes criam nas conversas.',
   'settings.developerMenu.cronJobs.title': 'Tarefas cron',
   'settings.developerMenu.cronJobs.desc':
     'Veja e configure tarefas agendadas para habilidades em tempo de execução',
@@ -4998,9 +5001,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confinar ao espaço de trabalho',
   'settings.agentAccess.confine.desc':
     'Restrinja o agente ao diretório de trabalho (mais quaisquer pastas concedidas), qualquer que seja o modo de acesso selecionado. Quando desligado, ele pode acessar qualquer lugar que seu usuário possa, exceto os diretórios de credenciais e do sistema que sempre são bloqueados.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
   'settings.agentAccess.autoApproveAll.label': 'Aprovar automaticamente todas as ações',
   'settings.agentAccess.autoApproveAll.desc':
     'Quando ativado, o agente executará todas as ações sem pedir sua aprovação antes. Isso inclui gravação de arquivos, comandos de shell, solicitações de rede e qualquer outro efeito colateral. Os bloqueios de segurança rígidos (diretórios de credenciais, caminhos internos do espaço de trabalho) continuam em vigor.',
@@ -5859,12 +5859,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Endereço de {network}',
   'walletReceive.onlyChainWarning':
     'Envie apenas ativos de {network} para este endereço. Enviar ativos de outra rede pode resultar em perda permanente.',
-  'walletSend.title': 'Enviar',
-  'walletSend.to': 'Para',
-  'walletSend.addressPlaceholder': 'Insira ou cole um endereço',
-  'walletSend.max': 'Máx',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} disponível',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponível',
   'walletSend.recipient': 'Endereço do destinatário',
   'walletSend.recipientPlaceholder': 'Cole o endereço de destino',
@@ -5886,10 +5880,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Fontes da Tarefa',
   'settings.integrations.title': 'Integrações',
   'settings.integrations.menuDesc': 'Fontes de tarefas, roteamento Composio e gatilhos de webhooks',
-  'settings.taskSources.subtitle':
-    'Puxe tarefas de suas ferramentas para o quadro de tarefas do agente',
+  'settings.taskSources.subtitle': 'Traga tarefas das suas ferramentas para o seu agente',
   'settings.taskSources.description':
-    'Coletar itens de trabalho do GitHub, Notion, Linear e ClickUp, enriquecê-los e encaminhá-los para o quadro de tarefas do agente.',
+    'Colete itens de trabalho do GitHub, Notion, Linear e ClickUp, enriqueça-os e entregue-os ao seu agente para triagem.',
   'settings.taskSources.connectHint':
     'As fontes de tarefas usam suas contas conectadas. Conecte-as primeiro em Integrações.',
   'settings.taskSources.disabledBanner':

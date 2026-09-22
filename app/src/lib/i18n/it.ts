@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Italian (Italiano) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1711,7 +1711,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nome della variabile',
   'mcp.form.envValue': 'Valore',
   'mcp.form.value': 'Valore',
-  'mcp.form.keepStored': 'Memorizzato - lascia vuoto per mantenerlo',
+  'mcp.form.keepStored': 'Memorizzato (lascia vuoto per mantenerlo)',
   'mcp.form.removeRow': 'Rimuovi riga',
   'mcp.form.addEnv': 'Aggiungi variabile',
   'mcp.form.url': 'URL',
@@ -1772,7 +1772,7 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Esempio',
   'mcp.json.saveFailed': 'Impossibile salvare mcp.json.',
   'mcp.json.parseError.empty': 'Il documento è vuoto. Nessun server è { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON non valido - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON non valido: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contiene un oggetto con una chiave `mcpServers`.',
   'mcp.json.parseError.missingRoot':
     'Manca la chiave `mcpServers`: ogni server sta al suo interno.',
@@ -1985,9 +1985,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Questo sostituirà definitivamente il tuo portafoglio attuale. Assicurati di aver salvato la tua frase di recupero prima di procedere.',
   'mnemonic.replaceWalletConfirm': 'Capisco, sostituisci il mio portafoglio',
-  'mnemonic.importAnExistingWallet': 'Importa un portafoglio esistente',
-  'mnemonic.createANewWallet': 'Crea un nuovo portafoglio',
-  'mnemonic.importWallet': 'Importa portafoglio',
   'mnemonic.loadingWalletStatus': 'Verifica dello stato del portafoglio...',
   'mnemonic.viewAccounts': 'Conti del portafoglio',
   'mnemonic.revealRecoveryPhrase': 'Rivela la frase di recupero',
@@ -3250,6 +3247,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Configurazione aggiuntiva richiesta',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Etichetta sottodominio Atlassian',
+  'composio.connect.cancelConnection': 'Annulla connessione',
+  'composio.connect.cancelFailed': 'Impossibile annullare la connessione: {msg}',
+  'composio.connect.cancelling': 'Annullamento…',
   'composio.connect.connect': 'Connetti',
   'composio.connect.connectedAccounts': 'Account collegati',
   'composio.connect.defaultLabel': 'Predefinito',
@@ -3314,13 +3314,25 @@ const messages: TranslationMap = {
     'La tua sessione OpenHuman è scaduta. Accedi di nuovo per caricare i trigger.',
   'composio.triggers.needsConfiguration': 'Richiede configurazione',
   'composio.triggers.noneAvailable': 'Nessun trigger attualmente disponibile per',
-  'conversations.threadTodo.title': 'Piano',
   'conversations.composer.context.title': 'Finestra di contesto',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Input in cache',
   'conversations.composer.context.output': 'Output',
   'conversations.composer.context.cost': 'Costo',
   'conversations.composer.command.clear': 'Svuota la conversazione',
+  'conversations.todos.title': 'Attività',
+  'conversations.todos.progress': '{completed} di {total} completate',
+  'conversations.todos.allDone': 'Tutto fatto',
+  'conversations.todos.status.pending': 'In attesa',
+  'conversations.todos.status.inProgress': 'In corso',
+  'conversations.todos.status.completed': 'Completata',
+  'conversations.goal.title': 'Obiettivo',
+  'conversations.goal.status.active': 'Attivo',
+  'conversations.goal.status.paused': 'In pausa',
+  'conversations.goal.status.budgetLimited': 'Budget raggiunto',
+  'conversations.goal.status.complete': 'Completato',
+  'conversations.goal.tokens': '{used} token',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} token',
   'conversations.planReview.title': 'Rivedi il piano',
   'conversations.planReview.subtitle':
     'Approva per eseguirlo, rifiuta per scartarlo o invia un feedback per rivederlo.',
@@ -3418,12 +3430,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': "Ultimo diagramma dell'architettura OpenHuman generato",
   'intelligence.diagram.refreshesEvery': 'Si aggiorna ogni {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Tipo di entità',
-  'intelligence.workTask.sourceTaskHeading': 'Attività di origine:',
-  'intelligence.workTask.repositoryLine': '- Repository (deposito): {repo}',
-  'intelligence.workTask.externalIdLine': '- ID esterno: {externalId}',
-  'intelligence.workTask.urlLine': '- Indirizzo: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Inizia riformulando brevemente il piano di implementazione concreto, poi eseguilo. Mantieni i progressi visibili in questo thread e aggiorna la bacheca delle attività quando cambia lo stato del lavoro.',
   'intelligence.agentWork.subtitle':
     'Ogni esecuzione di agente in background, raggruppata per stato del ciclo di vita.',
   'intelligence.agentWork.loading': "Caricamento del lavoro dell'agente…",
@@ -4897,9 +4903,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Ogni 2 ore',
   'settings.devWorkflow.schedule.every6hours': 'Ogni 6 ore',
   'settings.devWorkflow.schedule.onceDaily': 'Una volta al giorno (ore 9)',
-  'settings.developerMenu.tasks.title': 'Attività',
-  'settings.developerMenu.tasks.desc':
-    'Esplora e gestisci le bacheche delle attività: i tuoi to-do e le bacheche create dagli agenti nelle conversazioni.',
   'settings.developerMenu.cronJobs.title': 'Processi cron',
   'settings.developerMenu.cronJobs.desc':
     'Visualizza e configura processi pianificati per le skill di runtime',
@@ -5005,10 +5008,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': "Limita all'area di lavoro",
   'settings.agentAccess.confine.desc':
     "Restringi l'agente alla directory di lavoro (più eventuali cartelle concesse), qualunque modalità di accesso sia selezionata. Quando è disattivato, può raggiungere ovunque l'utente possa, tranne le directory delle credenziali e di sistema sempre bloccate.",
-  'settings.agentAccess.requireTaskPlanApproval.label':
-    "Richiedere l'approvazione del piano di lavoro",
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    "Pausa prima che un agente assegnato esegua un brief del compito scritto dall'agente.",
   'settings.agentAccess.autoApproveAll.label': 'Approva automaticamente tutte le azioni',
   'settings.agentAccess.autoApproveAll.desc':
     "Se attivato, l'agente eseguirà tutte le azioni senza chiedere prima la tua approvazione. Questo include scritture di file, comandi shell, richieste di rete e qualsiasi altro effetto collaterale. I blocchi di sicurezza rigidi (directory delle credenziali, percorsi interni dell'area di lavoro) continuano ad applicarsi.",
@@ -5868,12 +5867,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Indirizzo {network}',
   'walletReceive.onlyChainWarning':
     'Invia solo asset {network} a questo indirizzo. Inviare asset da un’altra rete può causare una perdita permanente.',
-  'walletSend.title': 'Invia',
-  'walletSend.to': 'A',
-  'walletSend.addressPlaceholder': 'Inserisci o incolla un indirizzo',
-  'walletSend.max': 'Max',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} disponibile',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponibile',
   'walletSend.recipient': 'Indirizzo del destinatario',
   'walletSend.recipientPlaceholder': 'Incolla l’indirizzo di destinazione',
@@ -5895,10 +5888,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Fonti del compito',
   'settings.integrations.title': 'Integrazioni',
   'settings.integrations.menuDesc': 'Sorgenti di attività, routing Composio e trigger webhook',
-  'settings.taskSources.subtitle':
-    "Estrai le attività dai tuoi strumenti sulla lavagna delle cose da fare dell'agente",
+  'settings.taskSources.subtitle': 'Porta le attività dai tuoi strumenti al tuo agente',
   'settings.taskSources.description':
-    "Raccogliere elementi di lavoro da GitHub, Notion, Linear e ClickUp, arricchirli e instradarli sulla bacheca delle cose da fare dell'agente.",
+    'Raccogli le attività da GitHub, Notion, Linear e ClickUp, arricchiscile e affidale al tuo agente per lo smistamento.',
   'settings.taskSources.connectHint':
     'Le origini dei compiti utilizzano i tuoi account collegati. Collegali prima sotto Integrazioni.',
   'settings.taskSources.disabledBanner':

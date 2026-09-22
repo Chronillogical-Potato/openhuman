@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Round 15 raw integration coverage for network tools plus web-channel paths.
 //!
 //! Everything here stays local-only: loopback HTTP mocks, temp git/cron

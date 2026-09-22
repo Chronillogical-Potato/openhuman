@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Arabic (العربية) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1635,7 +1635,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'اسم المتغير',
   'mcp.form.envValue': 'القيمة',
   'mcp.form.value': 'القيمة',
-  'mcp.form.keepStored': 'مخزَّن - اتركه فارغًا للإبقاء عليه',
+  'mcp.form.keepStored': 'مخزَّن (اتركه فارغًا للإبقاء عليه)',
   'mcp.form.removeRow': 'إزالة الصف',
   'mcp.form.addEnv': 'إضافة متغير',
   'mcp.form.url': 'URL',
@@ -1681,7 +1681,7 @@ const messages: TranslationMap = {
     'دليل لخوادم MCP. فتح خادم ينقلك إلى صفحته الخاصة حيث توجد تعليمات التثبيت؛ أضفه من تبويب mcp.json.',
   'mcp.json.loadFailedTitle': 'تعذّر قراءة mcp.json',
   'mcp.json.loadFailedBody':
-    'لم يستجب النواة، لذا لا يُعرض المستند - محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
+    'لم يستجب النواة، لذا لا يُعرض المستند. محرر فارغ قد يدفع إلى حفظ يمسح خوادمك.',
   'mcp.json.intro':
     'خوادم MCP الخاصة بك كمستند واحد، بالشكل الذي تستخدمه عملاء MCP الأخرى. الصق كتلة الخادم من صفحة تثبيته ثم احفظ.',
   'mcp.json.credentialsNote':
@@ -1695,11 +1695,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'مثال',
   'mcp.json.saveFailed': 'تعذّر حفظ mcp.json.',
   'mcp.json.parseError.empty': 'المستند فارغ. عدم وجود خوادم يعني { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON غير صالح - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON غير صالح: {detail}',
   'mcp.json.parseError.rootNotObject': 'يحتوي mcp.json على كائن بمفتاح `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'لا يوجد مفتاح `mcpServers` - كل خادم يقع تحته.',
+  'mcp.json.parseError.missingRoot': 'لا يوجد مفتاح `mcpServers`. كل خادم يقع تحته.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` يربط اسم الخادم بإعداداته.',
-  'mcp.json.parseError.emptyName': 'يحتاج الخادم إلى اسم - مفتاح أحد الإدخالات فارغ.',
+  'mcp.json.parseError.emptyName': 'يحتاج الخادم إلى اسم. مفتاح أحد الإدخالات فارغ.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` يجب أن يكون كائنًا، مثل { "command": "npx", "args": ["-y", "…"] } أو { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -3118,6 +3118,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'يلزم إعداد إضافي',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'تسمية النطاق الفرعي لـ Atlassian',
+  'composio.connect.cancelConnection': 'إلغاء الاتصال',
+  'composio.connect.cancelFailed': 'تعذّر إلغاء الاتصال: {msg}',
+  'composio.connect.cancelling': 'جارٍ الإلغاء…',
   'composio.connect.connect': 'اتصال',
   'composio.connect.connectedAccounts': 'الحسابات المتصلة',
   'composio.connect.defaultLabel': 'افتراضي',
@@ -3179,13 +3182,25 @@ const messages: TranslationMap = {
     'انتهت صلاحية جلسة OpenHuman. سجّل الدخول مرة أخرى لتحميل المشغّلات.',
   'composio.triggers.needsConfiguration': 'يحتاج إلى إعداد',
   'composio.triggers.noneAvailable': 'لا توجد مشغّلات متاحة حاليًا لـ',
-  'conversations.threadTodo.title': 'الخطة',
   'conversations.composer.context.title': 'نافذة السياق',
   'conversations.composer.context.input': 'المدخلات',
   'conversations.composer.context.cached': 'مدخلات مخزّنة',
   'conversations.composer.context.output': 'المخرجات',
   'conversations.composer.context.cost': 'التكلفة',
   'conversations.composer.command.clear': 'مسح المحادثة',
+  'conversations.todos.title': 'المهام',
+  'conversations.todos.progress': 'اكتمل {completed} من {total}',
+  'conversations.todos.allDone': 'اكتمل الكل',
+  'conversations.todos.status.pending': 'قيد الانتظار',
+  'conversations.todos.status.inProgress': 'قيد التنفيذ',
+  'conversations.todos.status.completed': 'مكتمل',
+  'conversations.goal.title': 'الهدف',
+  'conversations.goal.status.active': 'نشط',
+  'conversations.goal.status.paused': 'متوقف مؤقتًا',
+  'conversations.goal.status.budgetLimited': 'تم بلوغ الميزانية',
+  'conversations.goal.status.complete': 'مكتمل',
+  'conversations.goal.tokens': '{used} رمز',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} رمز',
   'conversations.planReview.title': 'مراجعة الخطة',
   'conversations.planReview.subtitle':
     'وافق لتشغيلها، أو ارفضها لتجاهلها، أو أرسل ملاحظات لتعديلها.',
@@ -3280,12 +3295,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'أحدث مخطط بنية OpenHuman المُولَّد',
   'intelligence.diagram.refreshesEvery': 'يتجدد كل {seconds} ثانية',
   'intelligence.memoryText.entityTypePrefix': 'نوع الكيان',
-  'intelligence.workTask.sourceTaskHeading': 'المهمة المصدر:',
-  'intelligence.workTask.repositoryLine': '- المستودع: {repo}',
-  'intelligence.workTask.externalIdLine': '- المعرّف الخارجي: {externalId}',
-  'intelligence.workTask.urlLine': '- الرابط: {url}',
-  'intelligence.workTask.closingInstruction':
-    'ابدأ بإعادة صياغة خطة التنفيذ الملموسة بإيجاز، ثم نفّذها. أبقِ التقدّم مرئيًا في هذا المحادثة وحدّث لوحة المهام عند تغيّر حالة العمل.',
   'intelligence.agentWork.subtitle': 'كل تشغيل وكيل في الخلفية، مُجمّع حسب حالة دورة الحياة.',
   'intelligence.agentWork.loading': 'جارٍ تحميل عمل الوكيل…',
   'intelligence.agentWork.failedToLoad': 'تعذّر تحميل عمل الوكيل',
@@ -4709,9 +4718,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'كل ساعتين',
   'settings.devWorkflow.schedule.every6hours': 'كل 6 ساعات',
   'settings.devWorkflow.schedule.onceDaily': 'يوم واحد (9 صباحا)',
-  'settings.developerMenu.tasks.title': 'المهام',
-  'settings.developerMenu.tasks.desc':
-    'تصفّح لوحات المهام وإدارتها: مهامك الخاصة إضافةً إلى اللوحات التي تنشئها الوكلاء عبر المحادثات.',
   'settings.developerMenu.cronJobs.title': 'مهام Cron',
   'settings.developerMenu.cronJobs.desc': 'عرض وتكوين المهام المجدولة لمهارات وقت التشغيل',
   'settings.developerMenu.webhooks.title': 'خطافات الويب',
@@ -4808,9 +4814,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'مقصورة على مكان العمل',
   'settings.agentAccess.confine.desc':
     'قيّد الوكيل بدليل مساحة العمل (بالإضافة إلى أي مجلدات ممنوحة)، بصرف النظر عن وضع الوصول المحدد. عند إيقاف التشغيل، يمكنه الوصول إلى أي مكان يمكن لمستخدمك الوصول إليه، باستثناء أدلة بيانات الاعتماد والنظام المحظورة دائمًا.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
   'settings.agentAccess.autoApproveAll.label': 'الموافقة التلقائية على جميع الإجراءات',
   'settings.agentAccess.autoApproveAll.desc':
     'عند التفعيل، سينفذ الوكيل جميع الإجراءات المؤهلة دون طلب موافقتك أولاً. يشمل ذلك كتابة الملفات وتنفيذ أوامر الطرفية وطلبات الشبكة وأي تأثيرات جانبية أخرى. تظل الحواجز الأمنية الصارمة، مثل أدلة بيانات الاعتماد والأدلة النظامية، سارية المفعول، ولا تتم الموافقة التلقائية أبداً على الإجراءات ذات المصدر غير الموثوق أو غير المعروف.',
@@ -5631,12 +5634,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'عنوان {network}',
   'walletReceive.onlyChainWarning':
     'أرسل أصول {network} فقط إلى هذا العنوان. قد يؤدي إرسال أصول من شبكة أخرى إلى خسارة دائمة.',
-  'walletSend.title': 'إرسال',
-  'walletSend.to': 'إلى',
-  'walletSend.addressPlaceholder': 'أدخل العنوان أو الصقه',
-  'walletSend.max': 'الحد الأقصى',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} متاح',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'المتاح',
   'walletSend.recipient': 'عنوان المستلم',
   'walletSend.recipientPlaceholder': 'الصق عنوان الوجهة',
@@ -5657,9 +5654,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'المصادر',
   'settings.integrations.title': 'التكاملات',
   'settings.integrations.menuDesc': 'مصادر المهام وتوجيه Composio ومشغلات الويب هوك',
-  'settings.taskSources.subtitle': 'سحب المهام من أدواتك على لوحة العميل (تود)',
+  'settings.taskSources.subtitle': 'اسحب المهام من أدواتك إلى وكيلك',
   'settings.taskSources.description':
-    'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرها، وقم بتوجيهها إلى لوحة مهام الوكيل.',
+    'اجمع عناصر العمل من GitHub وNotion وLinear وClickUp، وأثرِها، وسلّمها إلى وكيلك للفرز.',
   'settings.taskSources.connectHint': 'مصادر المهمة تستخدم حساباتك المرتبطة إربطهم تحت الدمج أولاً',
   'settings.taskSources.disabledBanner':
     'وتُعوق مصادر المهام في البيئات. تمكنهم من الاقتراع تلقائياً',
@@ -6484,9 +6481,6 @@ const messages: TranslationMap = {
   'invites.redeemHeading': 'هل لديك رمز إحالة؟',
   'invites.redeemPlaceholder': 'رمز الإحالة',
   'invites.redeemSubmit': 'استخدام الرمز',
-  'mnemonic.importAnExistingWallet': 'استيراد محفظة موجودة',
-  'mnemonic.createANewWallet': 'إنشاء محفظة جديدة',
-  'mnemonic.importWallet': 'استيراد محفظة',
 };
 
 export default messages;

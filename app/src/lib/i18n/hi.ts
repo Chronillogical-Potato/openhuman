@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Hindi (हिन्दी) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1672,7 +1672,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'वेरिएबल नाम',
   'mcp.form.envValue': 'मान',
   'mcp.form.value': 'मान',
-  'mcp.form.keepStored': 'संग्रहीत - रखने के लिए खाली छोड़ें',
+  'mcp.form.keepStored': 'संग्रहीत (रखने के लिए खाली छोड़ें)',
   'mcp.form.removeRow': 'पंक्ति हटाएँ',
   'mcp.form.addEnv': 'वेरिएबल जोड़ें',
   'mcp.form.url': 'URL',
@@ -1719,7 +1719,7 @@ const messages: TranslationMap = {
     'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
   'mcp.json.loadFailedTitle': 'mcp.json पढ़ा नहीं जा सका',
   'mcp.json.loadFailedBody':
-    'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया - खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
+    'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया। खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
   'mcp.json.intro':
     'आपके MCP सर्वर एक ही दस्तावेज़ के रूप में, उसी रूप में जो अन्य MCP क्लाइंट उपयोग करते हैं। किसी सर्वर का ब्लॉक उसके इंस्टॉल पेज से पेस्ट करें और सेव करें।',
   'mcp.json.credentialsNote':
@@ -1733,11 +1733,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'उदाहरण',
   'mcp.json.saveFailed': 'mcp.json सेव नहीं किया जा सका।',
   'mcp.json.parseError.empty': 'दस्तावेज़ खाली है। कोई सर्वर न होना { "mcpServers": {} } है।',
-  'mcp.json.parseError.invalidJson': 'अमान्य JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'अमान्य JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json में `mcpServers` कुंजी वाला एक ऑब्जेक्ट होता है।',
-  'mcp.json.parseError.missingRoot': '`mcpServers` कुंजी नहीं है - हर सर्वर इसके अंदर रहता है।',
+  'mcp.json.parseError.missingRoot': '`mcpServers` कुंजी नहीं है। हर सर्वर इसके अंदर रहता है।',
   'mcp.json.parseError.rootNotMap': '`mcpServers` सर्वर के नाम को उसकी सेटिंग से जोड़ता है।',
-  'mcp.json.parseError.emptyName': 'सर्वर को एक नाम चाहिए - एक प्रविष्टि की कुंजी खाली है।',
+  'mcp.json.parseError.emptyName': 'सर्वर को एक नाम चाहिए। एक प्रविष्टि की कुंजी खाली है।',
   'mcp.json.parseError.entryNotObject':
     '`{name}` में एक ऑब्जेक्ट होना चाहिए, जैसे { "command": "npx", "args": ["-y", "…"] } या { "url": "https://…" }।',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -1944,9 +1944,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'यह आपके मौजूदा वॉलेट को स्थायी रूप से बदल देगा। आगे बढ़ने से पहले सुनिश्चित करें कि आपने अपनी रिकवरी फ्रेज़ का बैकअप ले लिया है।',
   'mnemonic.replaceWalletConfirm': 'मैं समझता/समझती हूँ, मेरा वॉलेट बदलें',
-  'mnemonic.importAnExistingWallet': 'मौजूदा वॉलेट आयात करें',
-  'mnemonic.createANewWallet': 'नया वॉलेट बनाएं',
-  'mnemonic.importWallet': 'वॉलेट आयात करें',
   'mnemonic.loadingWalletStatus': 'वॉलेट की स्थिति जाँची जा रही है...',
   'mnemonic.viewAccounts': 'वॉलेट खाते',
   'mnemonic.revealRecoveryPhrase': 'रिकवरी वाक्यांश प्रकट करें',
@@ -3196,6 +3193,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'अतिरिक्त कॉन्फिग ज़रूरी है',
   'composio.connect.atlassianSubdomainHint': 'एक्मे',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian सबडोमेन लेबल',
+  'composio.connect.cancelConnection': 'कनेक्शन रद्द करें',
+  'composio.connect.cancelFailed': 'कनेक्शन रद्द नहीं किया जा सका: {msg}',
+  'composio.connect.cancelling': 'रद्द किया जा रहा है…',
   'composio.connect.connect': 'कनेक्ट करें',
   'composio.connect.connectedAccounts': 'कनेक्टेड अकाउंट',
   'composio.connect.defaultLabel': 'डिफ़ॉल्ट',
@@ -3259,13 +3259,25 @@ const messages: TranslationMap = {
     'आपका OpenHuman सत्र समाप्त हो गया है। ट्रिगर्स लोड करने के लिए फिर से साइन इन करें।',
   'composio.triggers.needsConfiguration': 'कॉन्फिगरेशन ज़रूरी है',
   'composio.triggers.noneAvailable': 'वर्तमान में कोई ट्रिगर उपलब्ध नहीं है',
-  'conversations.threadTodo.title': 'योजना',
   'conversations.composer.context.title': 'कॉन्टेक्स्ट विंडो',
   'conversations.composer.context.input': 'इनपुट',
   'conversations.composer.context.cached': 'कैश किया गया इनपुट',
   'conversations.composer.context.output': 'आउटपुट',
   'conversations.composer.context.cost': 'लागत',
   'conversations.composer.command.clear': 'बातचीत साफ़ करें',
+  'conversations.todos.title': 'कार्य सूची',
+  'conversations.todos.progress': '{total} में से {completed} पूरे',
+  'conversations.todos.allDone': 'सब पूरा',
+  'conversations.todos.status.pending': 'लंबित',
+  'conversations.todos.status.inProgress': 'प्रगति में',
+  'conversations.todos.status.completed': 'पूरा',
+  'conversations.goal.title': 'लक्ष्य',
+  'conversations.goal.status.active': 'सक्रिय',
+  'conversations.goal.status.paused': 'रुका हुआ',
+  'conversations.goal.status.budgetLimited': 'बजट पूरा',
+  'conversations.goal.status.complete': 'पूर्ण',
+  'conversations.goal.tokens': '{used} टोकन',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} टोकन',
   'conversations.planReview.title': 'योजना की समीक्षा करें',
   'conversations.planReview.subtitle':
     'इसे चलाने के लिए स्वीकृत करें, हटाने के लिए अस्वीकार करें, या संशोधित करने के लिए प्रतिक्रिया भेजें।',
@@ -3362,12 +3374,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'OpenHuman का नवीनतम जेनरेटेड आर्किटेक्चर डायग्राम',
   'intelligence.diagram.refreshesEvery': 'हर {seconds}s पर रीफ्रेश होता है',
   'intelligence.memoryText.entityTypePrefix': 'इकाई प्रकार',
-  'intelligence.workTask.sourceTaskHeading': 'स्रोत कार्य:',
-  'intelligence.workTask.repositoryLine': '- रिपॉज़िटरी: {repo}',
-  'intelligence.workTask.externalIdLine': '- बाहरी आईडी: {externalId}',
-  'intelligence.workTask.urlLine': '- यूआरएल: {url}',
-  'intelligence.workTask.closingInstruction':
-    'पहले ठोस कार्यान्वयन योजना को संक्षेप में दोहराएँ, फिर उसे निष्पादित करें। इस थ्रेड में प्रगति दिखती रहे और कार्य की स्थिति बदलने पर कार्य बोर्ड अपडेट करें।',
   'intelligence.agentWork.subtitle': 'हर पृष्ठभूमि एजेंट रन, जीवनचक्र स्थिति के अनुसार समूहित।',
   'intelligence.agentWork.loading': 'एजेंट कार्य लोड हो रहा है…',
   'intelligence.agentWork.failedToLoad': 'एजेंट कार्य लोड नहीं हो सका',
@@ -4823,9 +4829,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'हर 2 घंटे',
   'settings.devWorkflow.schedule.every6hours': '6 घंटे',
   'settings.devWorkflow.schedule.onceDaily': 'एक बार दैनिक (9 AM)',
-  'settings.developerMenu.tasks.title': 'कार्य',
-  'settings.developerMenu.tasks.desc':
-    'टास्क बोर्ड ब्राउज़ करें और प्रबंधित करें: आपके अपने काम और बातचीत के दौरान एजेंट द्वारा बनाए गए बोर्ड।',
   'settings.developerMenu.cronJobs.title': 'Cron जॉब्स',
   'settings.developerMenu.cronJobs.desc':
     'रनटाइम स्किल्स के लिए शेड्यूल किए गए जॉब देखें और कॉन्फ़िगर करें',
@@ -4927,9 +4930,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'वर्कस्पेस को कॉन्फ़िगर करें',
   'settings.agentAccess.confine.desc':
     'एजेंट को वर्कस्पेस डायरेक्टरी (साथ किसी भी स्वीकृत फ़ोल्डर) में प्रतिबंधित करें, जो भी एक्सेस मोड का चयन किया जाता है। जब बंद हो जाता है, तो यह कहीं भी आपके उपयोगकर्ता तक पहुंच सकता है - हमेशा अवरुद्ध क्रेडेंशियल और सिस्टम डायरेक्टरी को छोड़कर।',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'कार्य योजना अनुमोदन की आवश्यकता',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'एक निर्धारित एजेंट से पहले रोकें एक एजेंट-लेखित कार्य संक्षिप्त निष्पादित करता है।',
   'settings.agentAccess.autoApproveAll.label': 'सभी कार्रवाइयों को स्वतः स्वीकृत करें',
   'settings.agentAccess.autoApproveAll.desc':
     'सक्षम होने पर, एजेंट आपकी अनुमति मांगे बिना सभी कार्रवाइयां निष्पादित करेगा। इसमें फ़ाइल लेखन, शेल कमांड, नेटवर्क अनुरोध और अन्य कोई भी दुष्प्रभाव शामिल हैं। कठोर सुरक्षा अवरोध (क्रेडेंशियल डायरेक्टरी, वर्कस्पेस-आंतरिक पथ) अब भी लागू रहते हैं।',
@@ -5769,12 +5769,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} पता',
   'walletReceive.onlyChainWarning':
     'इस पते पर केवल {network} एसेट भेजें। किसी अन्य नेटवर्क के एसेट भेजने से स्थायी हानि हो सकती है।',
-  'walletSend.title': 'भेजें',
-  'walletSend.to': 'प्रति',
-  'walletSend.addressPlaceholder': 'पता दर्ज करें या पेस्ट करें',
-  'walletSend.max': 'अधिकतम',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} उपलब्ध',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'उपलब्ध',
   'walletSend.recipient': 'प्राप्तकर्ता का पता',
   'walletSend.recipientPlaceholder': 'गंतव्य पता पेस्ट करें',
@@ -5796,9 +5790,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'कार्य स्रोत',
   'settings.integrations.title': 'एकीकरण',
   'settings.integrations.menuDesc': 'कार्य स्रोत, Composio रूटिंग और वेबहुक ट्रिगर',
-  'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
+  'settings.taskSources.subtitle': 'अपने टूल से कार्य अपने एजेंट तक लाएँ',
   'settings.taskSources.description':
-    'GitHub, नॉटियन, रैखिक और क्लिकअप से कार्य वस्तुओं को इकट्ठा करें, उन्हें समृद्ध करें और उन्हें एजेंट टोडो बोर्ड पर ले जाएं।',
+    'GitHub, Notion, Linear और ClickUp से कार्य आइटम इकट्ठा करें, उन्हें समृद्ध करें और छाँटने के लिए अपने एजेंट को सौंपें।',
   'settings.taskSources.connectHint':
     'कार्य स्रोत आपके कनेक्टेड खातों का उपयोग करते हैं। उन्हें पहले एकीकरण के तहत कनेक्ट करें।',
   'settings.taskSources.disabledBanner':

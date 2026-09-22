@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Simplified Chinese (简体中文) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1571,7 +1571,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': '变量名',
   'mcp.form.envValue': '值',
   'mcp.form.value': '值',
-  'mcp.form.keepStored': '已存储--留空以保留',
+  'mcp.form.keepStored': '已存储（留空以保留）',
   'mcp.form.removeRow': '删除行',
   'mcp.form.addEnv': '添加变量',
   'mcp.form.url': 'URL',
@@ -1615,7 +1615,7 @@ const messages: TranslationMap = {
   'mcp.registry.intro':
     'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
   'mcp.json.loadFailedTitle': '无法读取 mcp.json',
-  'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档--空编辑器会诱使保存并清空你的服务器。',
+  'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档。空编辑器会诱使保存并清空你的服务器。',
   'mcp.json.intro':
     '你的 MCP 服务器以单个文档呈现，采用其他 MCP 客户端使用的格式。从安装页面粘贴服务器块并保存。',
   'mcp.json.credentialsNote':
@@ -1629,11 +1629,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': '示例',
   'mcp.json.saveFailed': '无法保存 mcp.json。',
   'mcp.json.parseError.empty': '文档为空。没有服务器时应为 { "mcpServers": {} }。',
-  'mcp.json.parseError.invalidJson': 'JSON 无效 - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON 无效：{detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json 应为包含 `mcpServers` 键的对象。',
-  'mcp.json.parseError.missingRoot': '缺少 `mcpServers` 键--所有服务器都位于其下。',
+  'mcp.json.parseError.missingRoot': '缺少 `mcpServers` 键。所有服务器都位于其下。',
   'mcp.json.parseError.rootNotMap': '`mcpServers` 将服务器名称映射到其设置。',
-  'mcp.json.parseError.emptyName': '服务器需要一个名称--某个条目的键为空。',
+  'mcp.json.parseError.emptyName': '服务器需要一个名称。某个条目的键为空。',
   'mcp.json.parseError.entryNotObject':
     '`{name}` 应为对象，例如 { "command": "npx", "args": ["-y", "…"] } 或 { "url": "https://…" }。',
   'mcp.json.parseError.needsUrlOrCommand': '`{name}` 需要 `url`（托管）或 `command`（本地运行）。',
@@ -1816,9 +1816,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWallet': '替换钱包',
   'mnemonic.replaceWalletWarning': '这将永久替换您当前的钱包。在继续之前，请确保您已备份恢复短语。',
   'mnemonic.replaceWalletConfirm': '我明白，替换我的钱包',
-  'mnemonic.importAnExistingWallet': '导入现有钱包',
-  'mnemonic.createANewWallet': '创建新钱包',
-  'mnemonic.importWallet': '导入钱包',
   'mnemonic.loadingWalletStatus': '正在检查钱包状态...',
   'mnemonic.viewAccounts': '钱包账户',
   'mnemonic.revealRecoveryPhrase': '显示恢复短语',
@@ -3008,6 +3005,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': '需要额外配置',
   'composio.connect.atlassianSubdomainHint': '极致',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian 子域名',
+  'composio.connect.cancelConnection': '取消连接',
+  'composio.connect.cancelFailed': '无法取消连接：{msg}',
+  'composio.connect.cancelling': '正在取消…',
   'composio.connect.connect': '连接',
   'composio.connect.connectedAccounts': '已连接账户',
   'composio.connect.defaultLabel': '默认',
@@ -3066,13 +3066,25 @@ const messages: TranslationMap = {
   'composio.triggers.sessionExpired': '你的 OpenHuman 会话已过期。请重新登录以加载触发器。',
   'composio.triggers.needsConfiguration': '需要配置',
   'composio.triggers.noneAvailable': '当前没有可用的触发器：',
-  'conversations.threadTodo.title': '计划',
   'conversations.composer.context.title': '上下文窗口',
   'conversations.composer.context.input': '输入',
   'conversations.composer.context.cached': '缓存输入',
   'conversations.composer.context.output': '输出',
   'conversations.composer.context.cost': '费用',
   'conversations.composer.command.clear': '清空对话',
+  'conversations.todos.title': '待办',
+  'conversations.todos.progress': '已完成 {completed}/{total}',
+  'conversations.todos.allDone': '全部完成',
+  'conversations.todos.status.pending': '待处理',
+  'conversations.todos.status.inProgress': '进行中',
+  'conversations.todos.status.completed': '已完成',
+  'conversations.goal.title': '目标',
+  'conversations.goal.status.active': '进行中',
+  'conversations.goal.status.paused': '已暂停',
+  'conversations.goal.status.budgetLimited': '已达预算',
+  'conversations.goal.status.complete': '已完成',
+  'conversations.goal.tokens': '{used} 个令牌',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} 个令牌',
   'conversations.planReview.title': '审阅计划',
   'conversations.planReview.subtitle': '批准以执行，拒绝以放弃，或发送反馈以修改。',
   'conversations.planReview.approve': '批准并执行',
@@ -3164,12 +3176,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': '最新生成的 OpenHuman 架构图',
   'intelligence.diagram.refreshesEvery': '每 {seconds} 秒刷新',
   'intelligence.memoryText.entityTypePrefix': '实体类型',
-  'intelligence.workTask.sourceTaskHeading': '来源任务：',
-  'intelligence.workTask.repositoryLine': '- 仓库：{repo}',
-  'intelligence.workTask.externalIdLine': '- 外部 ID：{externalId}',
-  'intelligence.workTask.urlLine': '- 网址：{url}',
-  'intelligence.workTask.closingInstruction':
-    '先简要重述具体的实施计划，然后执行它。在此线程中保持进度可见，并在工作状态变化时更新任务看板。',
   'intelligence.agentWork.subtitle': '所有后台智能体运行，按生命周期状态分组。',
   'intelligence.agentWork.loading': '正在加载智能体工作…',
   'intelligence.agentWork.failedToLoad': '无法加载智能体工作',
@@ -4549,9 +4555,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': '每 2 小时',
   'settings.devWorkflow.schedule.every6hours': '每 6 小时',
   'settings.devWorkflow.schedule.onceDaily': '每天一次（上午 9 点）',
-  'settings.developerMenu.tasks.title': '任务',
-  'settings.developerMenu.tasks.desc':
-    '浏览和管理任务看板：你的待办事项以及智能体在对话中创建的看板。',
   'settings.developerMenu.cronJobs.title': '定时任务',
   'settings.developerMenu.cronJobs.desc': '查看并配置运行时技能的计划任务',
   'settings.developerMenu.webhooks.title': 'Webhook',
@@ -4643,9 +4646,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': '限制在工作区',
   'settings.agentAccess.confine.desc':
     '无论选择哪种访问模式，都将智能体限制在工作区目录（以及已授权文件夹）内。关闭后，它可访问你的用户可访问的任何位置：始终阻止的凭据和系统目录除外。',
-  'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    '在指定智能体执行由智能体编写的任务简报前暂停。',
   'settings.agentAccess.autoApproveAll.label': '自动批准所有操作',
   'settings.agentAccess.autoApproveAll.desc':
     '启用后，智能体将自动执行所有符合条件的操作，无需事先征得你的批准。这包括文件写入、Shell 命令、网络请求以及任何其他副作用。严格的安全阻止措施（凭据目录和系统目录）仍然适用，来自不受信任或未知来源的操作永远不会被自动批准。',
@@ -5434,12 +5434,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': '{network} 地址',
   'walletReceive.onlyChainWarning':
     '仅向此地址发送 {network} 资产。从其他网络发送资产可能导致永久损失。',
-  'walletSend.title': '发送',
-  'walletSend.to': '收款方',
-  'walletSend.addressPlaceholder': '输入或粘贴地址',
-  'walletSend.max': '最大',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} 可用',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': '可用',
   'walletSend.recipient': '收款地址',
   'walletSend.recipientPlaceholder': '粘贴目标地址',
@@ -5460,9 +5454,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': '任务来源',
   'settings.integrations.title': '集成',
   'settings.integrations.menuDesc': '任务来源、Composio 路由和 Webhook 触发器',
-  'settings.taskSources.subtitle': '从你的工具拉取任务到智能体待办板',
+  'settings.taskSources.subtitle': '从你的工具拉取任务给智能体',
   'settings.taskSources.description':
-    '从 GitHub、Notion、Linear 和 ClickUp 收集工作项，补充信息后路由到智能体待办板。',
+    '从 GitHub、Notion、Linear 和 ClickUp 收集工作项，补充信息后交给智能体分拣。',
   'settings.taskSources.connectHint': '任务来源会使用你已连接的账户。请先在集成中连接它们。',
   'settings.taskSources.disabledBanner': '任务来源已在设置中禁用。启用后可自动轮询。',
   'settings.taskSources.loadError': '加载任务来源失败',

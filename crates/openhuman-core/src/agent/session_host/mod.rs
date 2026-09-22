@@ -37,6 +37,7 @@ mod driver;
 mod factory;
 mod hooks;
 mod policy;
+mod prefix_snapshot;
 mod runtime;
 mod runtime_session;
 #[cfg(test)]
@@ -59,6 +60,8 @@ pub use types::{OpenHumanSessionHost, SessionHostBuilder, TurnOverrides};
 // (`session::runtime`, `subagent_host`) so all provider call sites
 // share one tested implementation.
 pub(crate) use builder::dedup_visible_tool_specs;
+
+mod announcement_notes;
 
 #[cfg(test)]
 mod runtime_adapter_tests;

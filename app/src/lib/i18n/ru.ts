@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Russian (Русский) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1693,7 +1693,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Имя переменной',
   'mcp.form.envValue': 'Значение',
   'mcp.form.value': 'Значение',
-  'mcp.form.keepStored': 'Сохранено - оставьте пустым, чтобы сохранить',
+  'mcp.form.keepStored': 'Сохранено (оставьте пустым, чтобы сохранить)',
   'mcp.form.removeRow': 'Удалить строку',
   'mcp.form.addEnv': 'Добавить переменную',
   'mcp.form.url': 'URL',
@@ -1740,7 +1740,7 @@ const messages: TranslationMap = {
     'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
   'mcp.json.loadFailedTitle': 'Не удалось прочитать mcp.json',
   'mcp.json.loadFailedBody':
-    'Ядро не ответило, поэтому документ не показан - пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
+    'Ядро не ответило, поэтому документ не показан. Пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
   'mcp.json.intro':
     'Ваши MCP-серверы одним документом, в том виде, который используют другие MCP-клиенты. Вставьте блок сервера со страницы его установки и сохраните.',
   'mcp.json.credentialsNote':
@@ -1753,12 +1753,13 @@ const messages: TranslationMap = {
   'mcp.json.revert': 'Отменить изменения',
   'mcp.json.exampleTitle': 'Пример',
   'mcp.json.saveFailed': 'Не удалось сохранить mcp.json.',
-  'mcp.json.parseError.empty': 'Документ пуст. Отсутствие серверов - это { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Недопустимый JSON - {detail}',
+  'mcp.json.parseError.empty':
+    'Документ пуст. Отсутствие серверов записывается как { "mcpServers": {} }.',
+  'mcp.json.parseError.invalidJson': 'Недопустимый JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json содержит объект с ключом `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Нет ключа `mcpServers` - все серверы находятся под ним.',
+  'mcp.json.parseError.missingRoot': 'Нет ключа `mcpServers`. Все серверы находятся под ним.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` сопоставляет имя сервера с его настройками.',
-  'mcp.json.parseError.emptyName': 'Серверу нужно имя - ключ одной из записей пуст.',
+  'mcp.json.parseError.emptyName': 'Серверу нужно имя. Ключ одной из записей пуст.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` содержит объект, например { "command": "npx", "args": ["-y", "…"] } или { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -1962,9 +1963,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Это навсегда заменит ваш текущий кошелёк. Убедитесь, что вы сделали резервную копию фразы восстановления, прежде чем продолжить.',
   'mnemonic.replaceWalletConfirm': 'Я понимаю, заменить мой кошелёк',
-  'mnemonic.importAnExistingWallet': 'Импортировать существующий кошелек',
-  'mnemonic.createANewWallet': 'Создать новый кошелек',
-  'mnemonic.importWallet': 'Импортировать кошелек',
   'mnemonic.loadingWalletStatus': 'Проверка статуса кошелька...',
   'mnemonic.viewAccounts': 'Счета кошелька',
   'mnemonic.revealRecoveryPhrase': 'Показать фразу восстановления',
@@ -3222,6 +3220,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Требуется дополнительная настройка',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Поддомен Atlassian',
+  'composio.connect.cancelConnection': 'Отменить подключение',
+  'composio.connect.cancelFailed': 'Не удалось отменить подключение: {msg}',
+  'composio.connect.cancelling': 'Отмена…',
   'composio.connect.connect': 'Подключить',
   'composio.connect.connectedAccounts': 'Подключённые аккаунты',
   'composio.connect.defaultLabel': 'По умолчанию',
@@ -3285,13 +3286,25 @@ const messages: TranslationMap = {
     'Срок действия сессии OpenHuman истёк. Войдите снова, чтобы загрузить триггеры.',
   'composio.triggers.needsConfiguration': 'Требуется настройка',
   'composio.triggers.noneAvailable': 'Сейчас нет доступных триггеров для',
-  'conversations.threadTodo.title': 'План',
   'conversations.composer.context.title': 'Контекстное окно',
   'conversations.composer.context.input': 'Ввод',
   'conversations.composer.context.cached': 'Ввод из кэша',
   'conversations.composer.context.output': 'Вывод',
   'conversations.composer.context.cost': 'Стоимость',
   'conversations.composer.command.clear': 'Очистить переписку',
+  'conversations.todos.title': 'Задачи',
+  'conversations.todos.progress': '{completed} из {total} выполнено',
+  'conversations.todos.allDone': 'Всё выполнено',
+  'conversations.todos.status.pending': 'Ожидает',
+  'conversations.todos.status.inProgress': 'В работе',
+  'conversations.todos.status.completed': 'Выполнено',
+  'conversations.goal.title': 'Цель',
+  'conversations.goal.status.active': 'Активна',
+  'conversations.goal.status.paused': 'Приостановлена',
+  'conversations.goal.status.budgetLimited': 'Бюджет исчерпан',
+  'conversations.goal.status.complete': 'Завершена',
+  'conversations.goal.tokens': '{used} токенов',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} токенов',
   'conversations.planReview.title': 'Проверить план',
   'conversations.planReview.subtitle':
     'Одобрите для запуска, отклоните для отмены или отправьте отзыв для доработки.',
@@ -3388,12 +3401,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Последняя сгенерированная архитектурная диаграмма OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Обновляется каждые {seconds} с',
   'intelligence.memoryText.entityTypePrefix': 'Тип сущности',
-  'intelligence.workTask.sourceTaskHeading': 'Исходная задача:',
-  'intelligence.workTask.repositoryLine': '- Репозиторий: {repo}',
-  'intelligence.workTask.externalIdLine': '- Внешний ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Ссылка: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Начните с краткого повторения конкретного плана реализации, затем выполните его. Поддерживайте видимость прогресса в этой ветке и обновляйте доску задач при изменении состояния работы.',
   'intelligence.agentWork.subtitle':
     'Каждый фоновый запуск агента, сгруппированный по состоянию жизненного цикла.',
   'intelligence.agentWork.loading': 'Загрузка работы агента…',
@@ -4871,9 +4878,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Каждые 2 часа',
   'settings.devWorkflow.schedule.every6hours': 'Каждые 6 часов',
   'settings.devWorkflow.schedule.onceDaily': 'Один раз в день (9 утра)',
-  'settings.developerMenu.tasks.title': 'Задачи',
-  'settings.developerMenu.tasks.desc':
-    'Просматривайте доски задач и управляйте ими: ваши собственные дела и доски, которые агенты создают в разговорах.',
   'settings.developerMenu.cronJobs.title': 'Задачи cron',
   'settings.developerMenu.cronJobs.desc':
     'Просмотр и настройка запланированных задач для runtime-навыков',
@@ -4977,9 +4981,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ограничить рабочее пространство',
   'settings.agentAccess.confine.desc':
     'Ограничьте агента каталогом рабочей области (плюс всеми предоставленными папками), независимо от выбранного режима доступа. Когда этот параметр отключен, он может получить доступ к любому месту, доступному вашему пользователю, за исключением всегда блокируемых учетных данных и системных каталогов.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
   'settings.agentAccess.autoApproveAll.label': 'Автоматически одобрять все действия',
   'settings.agentAccess.autoApproveAll.desc':
     'При включении агент будет выполнять все подходящие действия, не спрашивая вашего одобрения. Это включает запись файлов, команды оболочки, сетевые запросы и любые другие побочные эффекты. Жесткие блокировки безопасности (каталоги учетных данных и системные каталоги) продолжают действовать, а действия из ненадежных или неизвестных источников никогда не одобряются автоматически.',
@@ -5830,12 +5831,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Адрес {network}',
   'walletReceive.onlyChainWarning':
     'Отправляйте на этот адрес только активы сети {network}. Отправка активов из другой сети может привести к безвозвратной потере.',
-  'walletSend.title': 'Отправить',
-  'walletSend.to': 'Кому',
-  'walletSend.addressPlaceholder': 'Введите или вставьте адрес',
-  'walletSend.max': 'Макс',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} доступно',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Доступно',
   'walletSend.recipient': 'Адрес получателя',
   'walletSend.recipientPlaceholder': 'Вставьте адрес назначения',
@@ -5857,9 +5852,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Источники задач',
   'settings.integrations.title': 'Интеграции',
   'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
-  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
+  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов агенту',
   'settings.taskSources.description':
-    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
+    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и передавайте агенту на разбор.',
   'settings.taskSources.connectHint':
     'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
   'settings.taskSources.disabledBanner':

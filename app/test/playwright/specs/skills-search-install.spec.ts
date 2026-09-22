@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  bootRuntimeReadyGuestPage,
+  bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
-  signInViaBypassUser,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
@@ -53,20 +52,16 @@ async function openSkillsTab(page: import('@playwright/test').Page, userId: stri
     }
     await route.continue();
   });
-  await bootRuntimeReadyGuestPage(page);
-  await signInViaBypassUser(page, userId);
-  await page.evaluate(() => {
-    try {
-      localStorage.setItem('openhuman:walkthrough_completed', 'true');
-      localStorage.removeItem('openhuman:walkthrough_pending');
-    } catch {}
-    window.location.hash = '/connections?tab=skills';
-  });
+  // `signInViaBypassUser` intentionally settles on the chat landing route.
+  // Use the authenticated-route helper so its post-auth shell restoration
+  // cannot overwrite this spec's Connections deep link.
+  await bootAuthenticatedPage(page, userId, '/connections?tab=skills');
   await expect
     .poll(() => page.evaluate(() => window.location.hash), { timeout: 15_000 })
     .toContain('tab=skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
+  await page.getByTestId('skill-explorer-tab-registry').click();
   await expect(page.getByTestId(SEARCH)).toBeVisible({ timeout: 20_000 });
 }
 
@@ -126,17 +121,42 @@ test.describe('Skills explorer — the search box debounces', () => {
 
 test.describe('Skills explorer — typing narrows what is on screen', () => {
   test('a query with no matches leaves no catalog rows', async ({ page }) => {
-    // A cold registry browse may need to refresh its upstream cache. Keep the
-    // test's own timeout above that request's budget so a slow-but-successful
-    // refresh is not mistaken for an empty catalog.
-    test.setTimeout(90_000);
+    const entry = {
+      id: 'fixture-skill',
+      name: 'Fixture skill',
+      description: 'A deterministic catalog fixture.',
+      source: 'fixture',
+      category: 'testing',
+      author: null,
+      version: null,
+      tags: [],
+      platforms: [],
+      download_url: 'https://example.invalid/fixture',
+      docs_path: null,
+      commands: [],
+      env_vars: [],
+      license: null,
+    };
+    await page.route('**/rpc', async (route, request) => {
+      const body = JSON.parse(request.postData() || '{}');
+      if (
+        !['openhuman.skill_registry_browse', 'openhuman.skill_registry_search'].includes(
+          body.method
+        )
+      ) {
+        await route.continue();
+        return;
+      }
+      const entries = body.params?.query ? [] : [entry];
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { entries } }),
+      });
+    });
     await openSkillsTab(page, 'pw-skills-nomatch');
 
-    // Baseline: the catalog has something in it.
-    await expect(page.getByRole('row').first()).toBeVisible({ timeout: 20_000 });
-
     const rows = page.locator('[data-testid^="registry-install-"]');
-    await expect(rows.first()).toBeVisible({ timeout: 45_000 });
+    await expect(rows.first()).toBeVisible();
 
     await searchBox(page).fill('zzzz-no-such-skill-zzzz');
     // Any install button is a catalog row; none should survive this query.

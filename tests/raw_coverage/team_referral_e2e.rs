@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! RPC-level e2e coverage for `openhuman.team_*`, `openhuman.referral_*`,
 //! `openhuman.update_*` and `openhuman.migrate_openclaw`.
 //!

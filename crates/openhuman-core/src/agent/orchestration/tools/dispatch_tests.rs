@@ -68,25 +68,24 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
         }])
         .expect("one collapsed target is routable"),
     );
-    let integration = Arc::new(DelegationRegistrationTool {
+    assert!(
+        DelegationDispatch::for_tool(collapsed.clone()).is_some(),
+        "every synthesised delegation name must select the typed dispatch: {}",
+        collapsed.name(),
+    );
+    // The retired integrations delegate is not a delegation surface any more:
+    // its name must not select a dispatcher, so a stale tool by that name
+    // cannot spawn a sub-agent for one integration action.
+    let retired = Arc::new(DelegationRegistrationTool {
         name: "delegate_to_integrations_agent",
         parameters: serde_json::json!({
             "properties": { "toolkit": { "enum": ["gmail"] } }
         }),
     });
-    for tool in [
-        collapsed,
-        Arc::new(DelegationRegistrationTool {
-            name: "delegate_researcher",
-            parameters: serde_json::json!({}),
-        }),
-        integration,
-    ] {
-        assert!(
-            DelegationDispatch::for_tool(tool).is_some(),
-            "every synthesised delegation name must select the typed dispatch"
-        );
-    }
+    assert!(
+        DelegationDispatch::for_tool(retired).is_none(),
+        "delegate_to_integrations_agent must no longer select the typed dispatch"
+    );
 }
 
 #[test]
@@ -459,7 +458,7 @@ fn an_async_delegation_keeps_its_output_untouched() {
 #[test]
 fn the_incomplete_envelope_frames_a_stub_without_claiming_success() {
     let envelope = super::incomplete_envelope(
-        "delegate_to_integrations_agent",
+        "research",
         "returned an unexecuted tool call instead of a result",
         "<tool_call>GMAIL_LIST_MESSAGES</tool_call>",
         super::DispatchMode::Blocking,
@@ -484,7 +483,7 @@ fn an_unfinished_envelope_never_claims_completeness() {
     assert!(done.contains("complete as returned"));
 
     let unfinished = super::incomplete_envelope(
-        "delegate_to_integrations_agent",
+        "research",
         "hit its iteration cap",
         "partial",
         super::DispatchMode::Blocking,

@@ -985,7 +985,7 @@ function orderTranscriptBySeq(items: ProcessingTranscriptItem[]): ProcessingTran
  * settled turn) additionally seed {@link ChatRuntimeState.toolTimelineSeqByThread}
  * with the row count so subsequent live events keep counting up from there.
  */
-function toolTimelineFromPersisted(
+export function toolTimelineFromPersisted(
   entry: PersistedToolTimelineEntry,
   seq: number
 ): ToolTimelineEntry {
@@ -1031,9 +1031,24 @@ function toolTimelineFromPersisted(
  * still `running`; leaving `awaiting_user` (and any other non-running child)
  * intact preserves the truthful "was waiting for the user" history — and the
  * pulse is already stopped by the row-level `cancelled` above.
+ *
+ * A detached sub-agent (`spawn_async_subagent`, `mode === 'async'`) is the
+ * exception, and the parent's snapshot is never allowed to settle it. It is a
+ * fire-and-forget task that deliberately outlives the turn that spawned it, so
+ * the parent's lifecycle says nothing about whether the child is alive — and
+ * `interrupted` is ambiguous on exactly that point: it is stamped both when the
+ * core died (child dead too) and when the parent's agent loop merely errored
+ * with the core still running (`TurnStateMirror::finish`, child very possibly
+ * still working). Settling on the snapshot made the Background tasks panel
+ * read "none running" / "Cancelled" while the sub-agent was visibly still
+ * making tool calls. Its liveness is owned by sources that actually track it:
+ * its own `subagent_completed` event while the core lives, and the run ledger
+ * after a restart (startup stamps orphaned runs `interrupted`, which
+ * `hydrateRuntimeFromRunLedger` then applies to the row).
  */
 function settleOrphanedTimelineEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
   if (entry.status !== 'running') return entry;
+  if (entry.subagent?.mode === 'async') return entry;
   return {
     ...entry,
     status: 'cancelled',
@@ -2354,7 +2369,31 @@ const chatRuntimeSlice = createSlice({
         // get a stable, monotonically increasing `seq` for sorting.
         const seq = state.toolTimelineSeqByThread[threadId] ?? 0;
         const entry = timelineEntryFromRun(run, seq);
-        if (!entry || byId.has(entry.id) || liveTaskIds.has(run.id)) continue;
+        if (liveTaskIds.has(run.id)) {
+          // The parent's snapshot never settles a detached `async` row (see
+          // `settleOrphanedTimelineEntry`): its lifecycle cannot say whether
+          // the child is alive. That is only truthful while the child is. If
+          // the core died, no `subagent_completed` is ever coming, so without
+          // this the row would read "Running" forever. The ledger is the
+          // independent authority on the child: startup stamps orphaned runs
+          // `interrupted` (`interrupt_orphaned_agent_runs`). Let a terminal
+          // ledger status settle a row that is still shown running.
+          const live = existing.find(e => e.subagent?.taskId === run.id);
+          const settled = timelineStatusFromRun(run.status);
+          if (
+            live?.status === 'running' &&
+            live.subagent?.mode === 'async' &&
+            settled !== 'running'
+          ) {
+            byId.set(live.id, {
+              ...live,
+              status: settled,
+              subagent: live.subagent && { ...live.subagent, status: run.status },
+            });
+          }
+          continue;
+        }
+        if (!entry || byId.has(entry.id)) continue;
         state.toolTimelineSeqByThread[threadId] = seq + 1;
         byId.set(entry.id, entry);
       }

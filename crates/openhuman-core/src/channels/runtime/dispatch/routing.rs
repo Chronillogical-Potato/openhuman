@@ -114,8 +114,8 @@ pub(super) async fn resolve_target_agent(channel: &str) -> AgentScoping {
     //
     // Crucially, a transient failure (backend 5xx / no client for a beat) or a
     // timeout must NOT be laundered into "zero connected integrations": that
-    // would drop `delegate_to_integrations_agent` from the turn's tool surface
-    // and leave the channel agent unable to reach Gmail/Slack/etc. — the exact
+    // would drop every integration action from the turn's searchable tool
+    // catalogue and leave the channel agent unable to reach Gmail/Slack/etc. — the exact
     // "just normal inference, no tool calling" symptom. So we take the
     // status-returning fetch and, on `Unavailable`/timeout, fall back to the
     // last cached snapshot (same defence the first-party turn path uses) rather
@@ -138,7 +138,7 @@ pub(super) async fn resolve_target_agent(channel: &str) -> AgentScoping {
                 channel = %channel,
                 target_agent = target_id,
                 timed_out = fetched.is_none(),
-                "[dispatch::routing] Composio unavailable/timed out — using cached integration snapshot instead of an empty set (keeps delegate_to_integrations_agent live)"
+                "[dispatch::routing] Composio unavailable/timed out — using cached integration snapshot instead of an empty set (keeps the integration action catalogue live)"
             );
         }
         // Use the expiry-tolerant read for the fallback: a transient blip that
@@ -190,9 +190,9 @@ pub(super) async fn resolve_target_agent(channel: &str) -> AgentScoping {
 ///
 /// Only an `Authoritative` result (the backend explicitly reporting the current
 /// set, even if empty) is taken at face value. `Unavailable` or a timeout falls
-/// back to `cached`, so a one-off 5xx/slow call can't drop
-/// `delegate_to_integrations_agent` and silently disable tool calling for the
-/// turn (the "just normal inference" bug). With no cache to fall back on the
+/// back to `cached`, so a one-off 5xx/slow call can't drop the integration
+/// action catalogue and silently disable tool calling for the turn (the
+/// "just normal inference" bug). With no cache to fall back on the
 /// result is empty — the same conservative default as before, but reached only
 /// when we genuinely have no better truth.
 pub(super) fn connected_with_fallback(
@@ -211,8 +211,8 @@ pub(super) fn connected_with_fallback(
 /// * every tool name in the agent's `[tools] named = [...]` list
 ///   (when the scope is [`ToolScope::Named`]); and
 /// * every name produced by the per-turn synthesised delegation tools
-///   in `extra_tools` (e.g. `research`, `plan`,
-///   `delegate_to_integrations_agent`).
+///   in `extra_tools` (e.g. `research`, `plan`) and the deferred
+///   integration action tools beside them.
 ///
 /// When the agent's tool scope is [`ToolScope::Wildcard`] **and** there
 /// are no `extra_tools`, returns `None` to preserve the legacy

@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 const en: TranslationMap = {
   'skills.recallCalendar.title': 'Google Calendar',
@@ -936,7 +936,7 @@ const en: TranslationMap = {
   'memoryTree.status.statusError': 'Error',
   'memoryTree.status.statusIdle': 'Idle',
   'memoryTree.status.statusDegraded': 'Degraded',
-  // #5324: a spent embedding budget is a distinct state from a generic error -
+  // #5324: a spent embedding budget is a distinct state from a generic error —
   // memory is paused, not broken, and the fix is the user's to make.
   'memoryTree.status.statusBudgetExhausted': 'Paused: embedding budget reached',
   'memoryTree.status.never': 'Never',
@@ -1479,7 +1479,7 @@ const en: TranslationMap = {
   'settings.core.save': 'Save & restart',
   'settings.core.applyRestartNote': 'Saving restarts OpenHuman to reconnect.',
 
-  // Gateways - cores this app provisions and runs elsewhere.
+  // Gateways — cores this app provisions and runs elsewhere.
   'devOptions.gateway': 'Gateway',
   'devOptions.provisionedCore': 'Core provisioned by this app',
   'devOptions.gatewayId': 'Gateway',
@@ -1863,7 +1863,7 @@ const en: TranslationMap = {
   'mcp.form.envKey': 'Variable name',
   'mcp.form.envValue': 'Value',
   'mcp.form.value': 'Value',
-  'mcp.form.keepStored': 'Stored - leave blank to keep',
+  'mcp.form.keepStored': 'Stored (leave blank to keep)',
   'mcp.form.removeRow': 'Remove row',
   'mcp.form.addEnv': 'Add variable',
   'mcp.form.url': 'URL',
@@ -1910,7 +1910,7 @@ const en: TranslationMap = {
     'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
   'mcp.json.loadFailedTitle': "Couldn't read mcp.json",
   'mcp.json.loadFailedBody':
-    'The core did not answer, so the document is not shown - an empty editor would invite a save that wipes your servers.',
+    'The core did not answer, so the document is not shown. An empty editor would invite a save that wipes your servers.',
   'mcp.json.intro':
     'Your MCP servers as one document, in the shape other MCP clients use. Paste a server block from its install page and save.',
   'mcp.json.credentialsNote':
@@ -1924,11 +1924,11 @@ const en: TranslationMap = {
   'mcp.json.exampleTitle': 'Example',
   'mcp.json.saveFailed': "Couldn't save mcp.json.",
   'mcp.json.parseError.empty': 'The document is empty. No servers is { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Not valid JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'Not valid JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json holds an object with an `mcpServers` key.',
-  'mcp.json.parseError.missingRoot': 'No `mcpServers` key - every server lives under it.',
+  'mcp.json.parseError.missingRoot': 'No `mcpServers` key. Every server lives under it.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` maps a server name to its settings.',
-  'mcp.json.parseError.emptyName': "A server needs a name - one entry's key is empty.",
+  'mcp.json.parseError.emptyName': "A server needs a name. One entry's key is empty.",
   'mcp.json.parseError.entryNotObject':
     '`{name}` holds an object, e.g. { "command": "npx", "args": ["-y", "…"] } or { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -2171,9 +2171,6 @@ const en: TranslationMap = {
   'mnemonic.viewAccounts': 'Wallet accounts',
   'mnemonic.revealRecoveryPhrase': 'Reveal recovery phrase',
   'mnemonic.hidePhrase': 'Hide phrase',
-  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
-  'mnemonic.createANewWallet': 'Create a New Wallet',
-  'mnemonic.importWallet': 'Import Wallet',
 
   // Team
   'team.failedToCreate': 'Failed to create team',
@@ -2930,7 +2927,7 @@ const en: TranslationMap = {
   'sync.failedToLoad': 'Failed to load sync status',
   'sync.noContent': 'No content has been synced into memory yet. Connect an integration to start.',
 
-  // Data Sync layered pipeline status (GH-4690) - raw sync ≠ retrieval-ready
+  // Data Sync layered pipeline status (GH-4690) — raw sync ≠ retrieval-ready
   'sync.pipeline.ingestedOnly': 'Ingested only',
   'sync.pipeline.storedWithoutVectors': 'Stored without vectors. Semantic search unavailable.',
   'sync.pipeline.vectorsPending':
@@ -3618,6 +3615,9 @@ const en: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Additional config required',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian subdomain',
+  'composio.connect.cancelConnection': 'Cancel connection',
+  'composio.connect.cancelFailed': "Couldn't cancel the connection: {msg}",
+  'composio.connect.cancelling': 'Cancelling…',
   'composio.connect.connect': 'Connect',
   'composio.connect.connectedAccounts': 'Connected accounts',
   'composio.connect.defaultLabel': 'Default',
@@ -3681,13 +3681,25 @@ const en: TranslationMap = {
     'Your OpenHuman session expired. Sign in again to load triggers.',
   'composio.triggers.needsConfiguration': 'Needs configuration',
   'composio.triggers.noneAvailable': 'No triggers are currently available for',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Context window',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Cached input',
   'conversations.composer.context.output': 'Output',
   'conversations.composer.context.cost': 'Cost',
   'conversations.composer.command.clear': 'Clear the conversation',
+  'conversations.todos.title': 'Todos',
+  'conversations.todos.progress': '{completed} of {total} done',
+  'conversations.todos.allDone': 'All done',
+  'conversations.todos.status.pending': 'Pending',
+  'conversations.todos.status.inProgress': 'In progress',
+  'conversations.todos.status.completed': 'Completed',
+  'conversations.goal.title': 'Goal',
+  'conversations.goal.status.active': 'Active',
+  'conversations.goal.status.paused': 'Paused',
+  'conversations.goal.status.budgetLimited': 'Budget reached',
+  'conversations.goal.status.complete': 'Complete',
+  'conversations.goal.tokens': '{used} tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokens',
   'conversations.planReview.title': 'Review plan',
   'conversations.planReview.subtitle':
     'Approve to run it, reject to discard, or send feedback to revise.',
@@ -3878,12 +3890,6 @@ const en: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Latest generated OpenHuman architecture diagram',
   'intelligence.diagram.refreshesEvery': 'Refreshes every {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Entity type',
-  'intelligence.workTask.sourceTaskHeading': 'Source task:',
-  'intelligence.workTask.repositoryLine': '- Repository: {repo}',
-  'intelligence.workTask.externalIdLine': '- External ID: {externalId}',
-  'intelligence.workTask.urlLine': '- URL: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.',
   'intelligence.agentWork.subtitle': 'Every background agent run, grouped by lifecycle state.',
   'intelligence.agentWork.loading': 'Loading agent work…',
   'intelligence.agentWork.failedToLoad': 'Failed to load agent work',
@@ -5543,9 +5549,6 @@ const en: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Every 2 hours',
   'settings.devWorkflow.schedule.every6hours': 'Every 6 hours',
   'settings.devWorkflow.schedule.onceDaily': 'Once daily (9 AM)',
-  'settings.developerMenu.tasks.title': 'Tasks',
-  'settings.developerMenu.tasks.desc':
-    'Browse and manage task boards: your own to-dos plus the boards agents build across conversations.',
   'settings.developerMenu.cronJobs.title': 'Cron Jobs',
   'settings.developerMenu.cronJobs.desc': 'View and configure scheduled jobs for runtime skills',
   'settings.developerMenu.webhooks.title': 'Webhooks',
@@ -5655,9 +5658,6 @@ const en: TranslationMap = {
   'settings.agentAccess.confine.label': 'Confine to workspace',
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can, except the always-blocked credential and system directories.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pause before an assigned agent executes an agent-authored task brief.',
   'settings.agentAccess.autoApproveAll.label': 'Auto-approve all actions',
   'settings.agentAccess.autoApproveAll.desc':
     'When enabled, the agent executes all eligible actions without asking for your approval first. This includes file writes, shell commands, network requests, and any other side effects. Credential and system directories stay blocked, and actions from untrusted or unlabelled call origins are still denied.',
@@ -6512,13 +6512,7 @@ const en: TranslationMap = {
   'walletReceive.onlyChainWarning':
     'Only send {network} assets to this address. Sending assets from another network may result in permanent loss.',
   // Send modal
-  'walletSend.title': 'Send',
-  'walletSend.to': 'To',
-  'walletSend.addressPlaceholder': 'Enter or paste an address',
-  'walletSend.max': 'Max',
   'walletSend.available': 'Available',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} available',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.recipient': 'Recipient address',
   'walletSend.recipientPlaceholder': 'Paste the destination address',
   'walletSend.recipientRequired': 'Enter a recipient address',
@@ -6540,9 +6534,9 @@ const en: TranslationMap = {
   'settings.taskSources.title': 'Task Sources',
   'settings.integrations.title': 'Integrations',
   'settings.integrations.menuDesc': 'Task sources, Composio routing, and webhook triggers',
-  'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',
+  'settings.taskSources.subtitle': 'Pull tasks from your tools to your agent',
   'settings.taskSources.description':
-    'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and route them onto the agent todo board.',
+    'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and hand them to your agent to triage.',
   'settings.taskSources.connectHint':
     'Task sources use your connected accounts. Connect them under Integrations first.',
   'settings.taskSources.disabledBanner':

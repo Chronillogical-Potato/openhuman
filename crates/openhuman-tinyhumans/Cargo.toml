@@ -12,7 +12,12 @@ publish = false
 # This crate adds no gates of its own: it is the layer that *connects* an
 # embed runtime to the TinyHumans backend, not a feature surface.
 [features]
-default = ["openhuman-embed/default"]
+# `jev` is this crate's one gate of its own: the Jev-backed `tool_search`
+# ranker (`tinytools-jev` over the TinyHumans System One proxy). On by
+# default and forwarded by every shipped host; without it the core ranks
+# `tool_search` with BM25 alone.
+default = ["openhuman-embed/default", "jev"]
+jev = ["dep:tinytools-jev", "dep:tinyjevclient"]
 http-server = ["openhuman-embed/http-server"]
 inference = ["openhuman-embed/inference"]
 documents = ["openhuman-embed/documents"]
@@ -45,6 +50,16 @@ openhuman-core = { path = "../openhuman-core", package = "openhuman", default-fe
 # it. `default-features = false` drops the Socket.IO client; realtime stays
 # on the core's own `platform::socket` transport.
 tinyhumans-sdk = { path = "../../vendor/tinyhumans-sdk", default-features = false }
+# The `tool_search` ranker backed by TypeSafe's Jev, reached through the
+# backend's `/agent-integrations/openrouter/systemone` proxy with the same
+# credential every other backend call uses. Same vendored tree as the core's
+# `tinytools`, so the `ToolRanker` types unify.
+tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev", optional = true }
+# The System One transport behind the Jev evaluator; `tinytools-jev` is
+# transport-free and this crate owns the wire, the credential and the deadline.
+# Consumed by pinned revision, as that crate's README asks.
+tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "84b3983c7e1e14f7515658ceafabb6c4e7967c94", optional = true }
 anyhow = "1"
 async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

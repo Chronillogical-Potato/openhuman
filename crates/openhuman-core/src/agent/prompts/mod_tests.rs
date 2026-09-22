@@ -167,3 +167,108 @@ mod builder_sections_tests;
 mod subagent_render_tests;
 #[path = "mod_tests_user_files_reflections_tests.rs"]
 mod user_files_reflections_tests;
+
+#[test]
+fn tool_call_format_maps_to_the_dialect_and_harness_vocabulary() {
+    use tinyagents_harness::config::ToolDispatcher;
+    use tinytools_agent::dialect::CodeStyle;
+
+    for (dialect, host, harness, style) in [
+        (
+            tinytools_agent::dialect::ToolCallFormat::PFormat,
+            ToolCallFormat::PFormat,
+            ToolDispatcher::Pformat,
+            None,
+        ),
+        (
+            tinytools_agent::dialect::ToolCallFormat::Json,
+            ToolCallFormat::Json,
+            ToolDispatcher::Xml,
+            None,
+        ),
+        // Native maps to Auto on purpose: the harness keeps its profile-driven
+        // fallback for a model that turns out not to support native tools.
+        (
+            tinytools_agent::dialect::ToolCallFormat::Native,
+            ToolCallFormat::Native,
+            ToolDispatcher::Auto,
+            None,
+        ),
+        (
+            tinytools_agent::dialect::ToolCallFormat::Python,
+            ToolCallFormat::Python,
+            ToolDispatcher::Python,
+            Some(CodeStyle::Python),
+        ),
+        (
+            tinytools_agent::dialect::ToolCallFormat::TypeScript,
+            ToolCallFormat::TypeScript,
+            ToolDispatcher::Typescript,
+            Some(CodeStyle::TypeScript),
+        ),
+    ] {
+        assert_eq!(tool_call_format_from_dialect(dialect), host);
+        assert_eq!(host.harness_dispatcher(), harness);
+        assert_eq!(host.code_style(), style);
+    }
+}
+
+/// The prompt catalogue is the callable surface on a text dialect, so a
+/// deferred tool must leave it and the discovery bridge must take its place.
+/// Rendering the deferred set instead (what the policy allow-set does, since
+/// it admits those names to keep a found tool callable) both spends the bytes
+/// deferral exists to save and tells the model to search for a signature it
+/// can already read.
+#[test]
+fn swapping_deferred_entries_leaves_the_bridge_in_their_place() {
+    let mut tools = vec![
+        PromptTool::new("shell", "Run a command."),
+        PromptTool::new("GMAIL_SEND_EMAIL", "Send an email."),
+        PromptTool::new("GMAIL_FETCH_EMAILS", "Read email."),
+    ];
+    let mut visible: HashSet<String> = ["shell", "GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+    let deferred: HashSet<String> = ["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+    swap_deferred_for_discovery_bridge(&mut tools, &mut visible, &deferred);
+
+    assert!(visible.contains("shell"), "a direct tool stays advertised");
+    assert!(
+        !visible.contains("GMAIL_SEND_EMAIL") && !visible.contains("GMAIL_FETCH_EMAILS"),
+        "deferred tools must not be rendered into the catalogue: {visible:?}"
+    );
+    assert!(
+        visible.contains("tool_search") && visible.contains("tool_call"),
+        "the bridge replaces them so the model can reach what it finds: {visible:?}"
+    );
+    for name in ["tool_search", "tool_call"] {
+        assert!(
+            tools.iter().any(|tool| tool.name == name
+                && tool
+                    .parameters_schema
+                    .as_deref()
+                    .is_some_and(|schema| schema.contains("\"type\":\"object\""))),
+            "{name} must reach the catalogue with a callable schema"
+        );
+    }
+}
+
+/// Nothing deferred: the catalogue and the advertised set are untouched, and
+/// a belt that never opted into discovery does not pay for two bridge
+/// schemas it cannot use.
+#[test]
+fn swapping_is_a_no_op_without_a_deferred_set() {
+    let mut tools = vec![PromptTool::new("shell", "Run a command.")];
+    let mut visible: HashSet<String> = ["shell"].into_iter().map(str::to_string).collect();
+
+    swap_deferred_for_discovery_bridge(&mut tools, &mut visible, &HashSet::new());
+
+    assert_eq!(tools.len(), 1);
+    assert_eq!(visible.len(), 1);
+    assert!(visible.contains("shell"));
+}

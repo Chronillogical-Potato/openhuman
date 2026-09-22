@@ -210,20 +210,13 @@ pub fn all_tools_with_runtime(
         // checkpointed to the session DB. Heavier than spawn_subagent; for
         // sub-tasks that benefit from a self-review/revision loop.
         Box::new(DelegateGraphTool::new()),
-        // Coding-harness control flow (issue #1205): a process-global
-        // todo registry the agent can rewrite end-to-end, plus the
-        // `plan_exit` marker that hands a plan-mode pass off to a
-        // build-mode pass. The plan→build mode switch itself is a
-        // follow-up; the tool emits a stable marker today.
+        // The session todo list (Claude/Codex style): one whole-list write per
+        // call, scoped to the conversation thread. `plan_exit` is the marker
+        // that hands a plan-mode pass off to a build-mode pass.
         Box::new(TodoTool::new()),
         // Interactive plan-review gate: parks the live turn on a thread-scoped
         // plan the user must approve before execution (Codex/Claude plan mode).
         Box::new(crate::agent::plan_review::RequestPlanReviewTool::new()),
-        // Move/update a specific task card by id on a target board (defaults to
-        // the proactive `task-sources` board) — lets the agent advance the task
-        // it's working (in_progress / done+evidence / blocked+reason) from any
-        // thread, complementing `todo` which only touches the current thread.
-        Box::new(UpdateTaskTool::new()),
         Box::new(PlanExitTool::new()),
         // Workflow composition: `run_workflow` runs another workflow as a
         // subagent and (by default) waits on its result like a function call;
@@ -538,22 +531,13 @@ pub fn all_tools_with_runtime(
         Box::new(LearningEnrichProfileTool),
         // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
-        // destructive/overextending siblings (artifact_delete, todo_remove/
-        // replace/clear, task_source_add/update/remove) are registered too
-        // but ship default-OFF via `tools::user_filter` (their toggle IDs
-        // default off in onboarding). The per-call permission ladder still
-        // gates them.
+        // destructive/overextending siblings (artifact_delete,
+        // task_source_add/update/remove) are registered too but ship
+        // default-OFF via `tools::user_filter` (their toggle IDs default off
+        // in onboarding). The per-call permission ladder still gates them.
         Box::new(ArtifactListTool::new(config.clone())),
         Box::new(ArtifactGetTool::new(config.clone())),
         Box::new(ArtifactDeleteTool::new(config.clone())),
-        Box::new(TodoListTool::new(config.clone())),
-        Box::new(TodoAddTool::new(config.clone())),
-        Box::new(TodoEditTool::new(config.clone())),
-        Box::new(TodoUpdateStatusTool::new(config.clone())),
-        Box::new(TodoDecidePlanTool::new(config.clone())),
-        Box::new(TodoRemoveTool::new(config.clone())),
-        Box::new(TodoReplaceTool::new(config.clone())),
-        Box::new(TodoClearTool::new(config.clone())),
         Box::new(TaskSourceListTool::new(config.clone())),
         Box::new(TaskSourceGetTool::new(config.clone())),
         Box::new(TaskSourceFetchTool::new(config.clone())),
@@ -1085,17 +1069,11 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::tools::toolpacks::append_pack_tools(&mut tools);
-
-    // The lookup half of `ToolExposure::Deferred`. Always registered, for the
-    // same reason `use_skill` is: whether anything is actually deferred depends
-    // on the agent's belt, which is resolved later in the session builder, and
-    // a search tool that arrived *after* the tools it searches were hidden
-    // would be one release of silently unreachable capabilities. Its index
-    // starts empty and costs one small schema; the builder fills it via
-    // `bind_tool_search_index`.
-    tools.push(Box::new(
-        crate::tools::implementations::meta::ToolSearchTool::new(),
-    ));
+    // The lookup half of `ToolExposure::Deferred` is not registered here: the
+    // tinyagents harness advertises its intrinsic `tool_search` / `tool_call`
+    // bridge whenever a run has a deferred tool (`tool::discover`), ranked by
+    // whatever `agent::tinyagents::discovery` installed. A host-registered
+    // `tool_search` would shadow that bridge.
     tools
 }
 
@@ -1245,12 +1223,12 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     {
         return DomainGroup::Memory;
     }
-    // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
+    // Threads family (harness-kept): thread_* + per-thread goal + search.
     // `thread_` is kept as a prefix even though the `thread_*` agent-tool
-    // family was removed: `todo_`, `goal_*` and the THREADS_EXTRA entries still
+    // family was removed: `goal_*` and the THREADS_EXTRA entries still
     // classify here, and a future threads tool should land in Threads rather
     // than falling through to Platform.
-    if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
+    if name.starts_with("thread_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
     // Harness families realigned out of Platform.
@@ -1265,7 +1243,6 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
                 | "delegate_graph"
                 | "delegate_to_personality"
                 | "todo"
-                | "update_task"
                 | "wait"
                 | "wait_loop"
                 | "request_plan_review"

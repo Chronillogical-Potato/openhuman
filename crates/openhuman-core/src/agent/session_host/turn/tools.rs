@@ -38,23 +38,7 @@ impl OpenHumanSessionHost {
         }
         let allowed_subagent_ids = self
             .resolved_definition()
-            .map(|definition| {
-                definition
-                    .subagents
-                    .iter()
-                    .filter_map(|entry| match entry {
-                        crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                            Some(id.clone())
-                        }
-                        crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
-                            if wildcard.matches_all() =>
-                        {
-                            Some("integrations_agent".to_string())
-                        }
-                        crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
-                    })
-                    .collect()
-            })
+            .map(|definition| definition.allowed_subagent_ids().into_iter().collect())
             .unwrap_or_default();
 
         harness::ParentExecutionContext {
@@ -116,7 +100,9 @@ impl OpenHumanSessionHost {
         (
             Arc::clone(&self.tools),
             Arc::clone(&self.synthesized_tools),
-            self.visible_tool_names.clone(),
+            // Advertised plus deferred: the harness advertises only the
+            // `Direct` registrations and reaches the rest through its bridge.
+            self.reachable_tool_names(),
         )
     }
 
@@ -644,6 +630,10 @@ impl OpenHumanSessionHost {
                 &agent_id,
             );
         }
+        // The synthesis above can carry `Deferred` entries (per-action
+        // integration tools for a newly connected toolkit); keep them off the
+        // wire and in the searchable set, exactly as the build did.
+        self.recompute_deferred_tool_names();
 
         // Rebuild the visible-spec cache from the new tool_specs so the
         // next provider call carries the reconciled schema. Dedup

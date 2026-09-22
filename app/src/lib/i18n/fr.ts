@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // French (Français) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1727,7 +1727,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nom de la variable',
   'mcp.form.envValue': 'Valeur',
   'mcp.form.value': 'Valeur',
-  'mcp.form.keepStored': 'Stockée - laisser vide pour conserver',
+  'mcp.form.keepStored': 'Stockée (laisser vide pour conserver)',
   'mcp.form.removeRow': 'Supprimer la ligne',
   'mcp.form.addEnv': 'Ajouter une variable',
   'mcp.form.url': 'URL',
@@ -1774,7 +1774,7 @@ const messages: TranslationMap = {
     'Un annuaire de serveurs MCP. Ouvrir un serveur mène à sa propre page, où se trouvent les instructions d’installation ; ajoutez-le dans l’onglet mcp.json.',
   'mcp.json.loadFailedTitle': 'Impossible de lire mcp.json',
   'mcp.json.loadFailedBody':
-    'Le noyau n’a pas répondu, le document n’est donc pas affiché - un éditeur vide inviterait à enregistrer et effacer vos serveurs.',
+    'Le noyau n’a pas répondu, le document n’est donc pas affiché. Un éditeur vide inviterait à enregistrer et effacer vos serveurs.',
   'mcp.json.intro':
     'Vos serveurs MCP en un seul document, dans la forme utilisée par les autres clients MCP. Collez le bloc d’un serveur depuis sa page d’installation et enregistrez.',
   'mcp.json.credentialsNote':
@@ -1788,11 +1788,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Exemple',
   'mcp.json.saveFailed': 'Impossible d’enregistrer mcp.json.',
   'mcp.json.parseError.empty': 'Le document est vide. Aucun serveur s’écrit { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON invalide - {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON invalide : {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json contient un objet avec une clé `mcpServers`.',
-  'mcp.json.parseError.missingRoot': 'Pas de clé `mcpServers` - chaque serveur se trouve dessous.',
+  'mcp.json.parseError.missingRoot': 'Pas de clé `mcpServers`. Chaque serveur se trouve dessous.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` associe le nom d’un serveur à ses réglages.',
-  'mcp.json.parseError.emptyName': 'Un serveur a besoin d’un nom - la clé d’une entrée est vide.',
+  'mcp.json.parseError.emptyName': 'Un serveur a besoin d’un nom. La clé d’une entrée est vide.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` contient un objet, p. ex. { "command": "npx", "args": ["-y", "…"] } ou { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -2003,9 +2003,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     "Cela remplacera définitivement ton portefeuille actuel. Assure-toi d'avoir sauvegardé ta phrase de récupération avant de continuer.",
   'mnemonic.replaceWalletConfirm': 'Je comprends, remplacer mon portefeuille',
-  'mnemonic.importAnExistingWallet': 'Importer un portefeuille existant',
-  'mnemonic.createANewWallet': 'Créer un nouveau portefeuille',
-  'mnemonic.importWallet': 'Importer un portefeuille',
   'mnemonic.loadingWalletStatus': 'Vérification du statut du portefeuille...',
   'mnemonic.viewAccounts': 'Voir les comptes du portefeuille',
   'mnemonic.revealRecoveryPhrase': 'Révéler la phrase de récupération',
@@ -3276,6 +3273,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Configuration supplémentaire requise',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Libellé du sous-domaine Atlassian',
+  'composio.connect.cancelConnection': 'Annuler la connexion',
+  'composio.connect.cancelFailed': "Impossible d'annuler la connexion : {msg}",
+  'composio.connect.cancelling': 'Annulation…',
   'composio.connect.connect': 'Connecter',
   'composio.connect.connectedAccounts': 'Comptes connectés',
   'composio.connect.defaultLabel': 'Par défaut',
@@ -3339,13 +3339,25 @@ const messages: TranslationMap = {
     'Votre session OpenHuman a expiré. Reconnectez-vous pour charger les déclencheurs.',
   'composio.triggers.needsConfiguration': 'Configuration requise',
   'composio.triggers.noneAvailable': "Aucun déclencheur n'est actuellement disponible pour",
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Fenêtre de contexte',
   'conversations.composer.context.input': 'Entrée',
   'conversations.composer.context.cached': 'Entrée en cache',
   'conversations.composer.context.output': 'Sortie',
   'conversations.composer.context.cost': 'Coût',
   'conversations.composer.command.clear': 'Effacer la conversation',
+  'conversations.todos.title': 'Tâches',
+  'conversations.todos.progress': '{completed} sur {total} terminées',
+  'conversations.todos.allDone': 'Tout est terminé',
+  'conversations.todos.status.pending': 'En attente',
+  'conversations.todos.status.inProgress': 'En cours',
+  'conversations.todos.status.completed': 'Terminée',
+  'conversations.goal.title': 'Objectif',
+  'conversations.goal.status.active': 'Actif',
+  'conversations.goal.status.paused': 'En pause',
+  'conversations.goal.status.budgetLimited': 'Budget atteint',
+  'conversations.goal.status.complete': 'Terminé',
+  'conversations.goal.tokens': '{used} jetons',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} jetons',
   'conversations.planReview.title': 'Examiner le plan',
   'conversations.planReview.subtitle':
     'Approuvez pour l’exécuter, rejetez pour l’abandonner ou envoyez un retour pour le réviser.',
@@ -3443,12 +3455,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': "Dernier diagramme d'architecture OpenHuman généré",
   'intelligence.diagram.refreshesEvery': 'Actualise toutes les {seconds}s',
   'intelligence.memoryText.entityTypePrefix': "Type d'entité",
-  'intelligence.workTask.sourceTaskHeading': 'Tâche source :',
-  'intelligence.workTask.repositoryLine': '- Dépôt : {repo}',
-  'intelligence.workTask.externalIdLine': '- ID externe : {externalId}',
-  'intelligence.workTask.urlLine': '- URL : {url}',
-  'intelligence.workTask.closingInstruction':
-    "Commencez par reformuler brièvement le plan d'implémentation concret, puis exécutez-le. Gardez la progression visible dans ce fil et mettez à jour le tableau des tâches lorsque l'état du travail change.",
   'intelligence.refine.objectiveDefault':
     "Transformez la tâche source en une tâche d'agent prête à être implémentée : {title}",
   'intelligence.refine.sourceLine': 'Source : {url}',
@@ -4932,9 +4938,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Toutes les 2 heures',
   'settings.devWorkflow.schedule.every6hours': 'Toutes les 6 heures',
   'settings.devWorkflow.schedule.onceDaily': 'Une fois par jour (9 h)',
-  'settings.developerMenu.tasks.title': 'Tâches',
-  'settings.developerMenu.tasks.desc':
-    'Parcourez et gérez les tableaux de tâches: vos propres to-dos ainsi que les tableaux créés par les agents au fil des conversations.',
   'settings.developerMenu.cronJobs.title': 'Tâches cron',
   'settings.developerMenu.cronJobs.desc':
     "Afficher et configurer les tâches planifiées des compétences d'exécution",
@@ -5040,9 +5043,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': "Confiner à l'espace de travail",
   'settings.agentAccess.confine.desc':
     "Restreignez l'agent au répertoire de l'espace de travail (plus tous les dossiers accordés), quel que soit le mode d'accès sélectionné. Lorsqu'il est désactivé, il peut accéder à n'importe quel endroit auquel votre utilisateur peut accéder, sauf aux répertoires d'identifiants et système toujours bloqués.",
-  'settings.agentAccess.requireTaskPlanApproval.label': "Exiger l'approbation du plan de tâche",
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
   'settings.agentAccess.autoApproveAll.label': 'Approuver automatiquement toutes les actions',
   'settings.agentAccess.autoApproveAll.desc':
     "Une fois activé, l'agent exécutera toutes les actions sans demander votre approbation au préalable. Cela inclut l'écriture de fichiers, les commandes shell, les requêtes réseau et tout autre effet secondaire. Les blocages de sécurité stricts (répertoires d'identifiants, chemins internes de l'espace de travail) continuent de s'appliquer.",
@@ -5910,12 +5910,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Adresse {network}',
   'walletReceive.onlyChainWarning':
     'N’envoyez que des actifs {network} à cette adresse. Envoyer des actifs d’un autre réseau peut entraîner une perte définitive.',
-  'walletSend.title': 'Envoyer',
-  'walletSend.to': 'À',
-  'walletSend.addressPlaceholder': 'Entrez ou collez une adresse',
-  'walletSend.max': 'Max',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} disponible',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Disponible',
   'walletSend.recipient': 'Adresse du destinataire',
   'walletSend.recipientPlaceholder': 'Collez l’adresse de destination',
@@ -5938,10 +5932,9 @@ const messages: TranslationMap = {
   'settings.integrations.title': 'Intégrations',
   'settings.integrations.menuDesc':
     'Sources de tâches, routage Composio et déclencheurs de webhooks',
-  'settings.taskSources.subtitle':
-    "Tirez les tâches de vos outils sur le tableau des tâches de l'agent",
+  'settings.taskSources.subtitle': 'Tirez les tâches de vos outils vers votre agent',
   'settings.taskSources.description':
-    "Collecter les éléments de travail de GitHub, Notion, Linear et ClickUp, les enrichir et les acheminer vers le tableau des tâches de l'agent.",
+    'Collectez les éléments de travail depuis GitHub, Notion, Linear et ClickUp, enrichissez-les et confiez-les à votre agent pour tri.',
   'settings.taskSources.connectHint':
     "Les sources de tâches utilisent vos comptes connectés. Connectez-les d'abord sous Intégrations.",
   'settings.taskSources.disabledBanner':

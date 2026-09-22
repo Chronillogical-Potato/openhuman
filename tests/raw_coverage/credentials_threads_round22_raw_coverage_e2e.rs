@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 

@@ -1,4 +1,4 @@
-﻿import type { TranslationMap } from './types';
+import type { TranslationMap } from './types';
 
 // Polish (Polski) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1700,7 +1700,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nazwa zmiennej',
   'mcp.form.envValue': 'Wartość',
   'mcp.form.value': 'Wartość',
-  'mcp.form.keepStored': 'Zapisane - pozostaw puste, aby zachować',
+  'mcp.form.keepStored': 'Zapisane (pozostaw puste, aby zachować)',
   'mcp.form.removeRow': 'Usuń wiersz',
   'mcp.form.addEnv': 'Dodaj zmienną',
   'mcp.form.url': 'URL',
@@ -1747,7 +1747,7 @@ const messages: TranslationMap = {
     'Katalog serwerów MCP. Otwarcie serwera prowadzi do jego własnej strony z instrukcją instalacji; dodaj go w zakładce mcp.json.',
   'mcp.json.loadFailedTitle': 'Nie udało się odczytać mcp.json',
   'mcp.json.loadFailedBody':
-    'Rdzeń nie odpowiedział, więc dokument nie jest wyświetlany - pusty edytor zachęcałby do zapisu, który usunąłby twoje serwery.',
+    'Rdzeń nie odpowiedział, więc dokument nie jest wyświetlany. Pusty edytor zachęcałby do zapisu, który usunąłby twoje serwery.',
   'mcp.json.intro':
     'Twoje serwery MCP jako jeden dokument, w formacie używanym przez inne klienty MCP. Wklej blok serwera z jego strony instalacji i zapisz.',
   'mcp.json.credentialsNote':
@@ -1761,12 +1761,11 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Przykład',
   'mcp.json.saveFailed': 'Nie udało się zapisać mcp.json.',
   'mcp.json.parseError.empty': 'Dokument jest pusty. Brak serwerów to { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Nieprawidłowy JSON - {detail}',
+  'mcp.json.parseError.invalidJson': 'Nieprawidłowy JSON: {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json zawiera obiekt z kluczem `mcpServers`.',
-  'mcp.json.parseError.missingRoot':
-    'Brak klucza `mcpServers` - każdy serwer znajduje się pod nim.',
+  'mcp.json.parseError.missingRoot': 'Brak klucza `mcpServers`. Każdy serwer znajduje się pod nim.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` przypisuje nazwie serwera jego ustawienia.',
-  'mcp.json.parseError.emptyName': 'Serwer potrzebuje nazwy - klucz jednego wpisu jest pusty.',
+  'mcp.json.parseError.emptyName': 'Serwer potrzebuje nazwy. Klucz jednego wpisu jest pusty.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` zawiera obiekt, np. { "command": "npx", "args": ["-y", "…"] } lub { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':
@@ -1973,9 +1972,6 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletWarning':
     'Spowoduje to trwałe zastąpienie Twojego obecnego portfela. Upewnij się, że masz kopię zapasową frazy odzyskiwania przed kontynuowaniem.',
   'mnemonic.replaceWalletConfirm': 'Rozumiem, zastąp mój portfel',
-  'mnemonic.importAnExistingWallet': 'Importuj istniejący portfel',
-  'mnemonic.createANewWallet': 'Utwórz nowy portfel',
-  'mnemonic.importWallet': 'Importuj portfel',
   'mnemonic.loadingWalletStatus': 'Sprawdzanie statusu portfela...',
   'mnemonic.viewAccounts': 'Konta portfela',
   'mnemonic.revealRecoveryPhrase': 'Ujawnij frazę odzyskiwania',
@@ -3235,6 +3231,9 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Wymagana dodatkowa konfiguracja',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Subdomena Atlassian',
+  'composio.connect.cancelConnection': 'Anuluj połączenie',
+  'composio.connect.cancelFailed': 'Nie udało się anulować połączenia: {msg}',
+  'composio.connect.cancelling': 'Anulowanie…',
   'composio.connect.connect': 'Połącz',
   'composio.connect.connectedAccounts': 'Połączone konta',
   'composio.connect.defaultLabel': 'Domyślne',
@@ -3298,13 +3297,25 @@ const messages: TranslationMap = {
     'Twoja sesja OpenHuman wygasła. Zaloguj się ponownie, aby wczytać wyzwalacze.',
   'composio.triggers.needsConfiguration': 'Wymaga konfiguracji',
   'composio.triggers.noneAvailable': 'Brak dostępnych wyzwalaczy dla',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Okno kontekstu',
   'conversations.composer.context.input': 'Wejście',
   'conversations.composer.context.cached': 'Wejście z pamięci podręcznej',
   'conversations.composer.context.output': 'Wyjście',
   'conversations.composer.context.cost': 'Koszt',
   'conversations.composer.command.clear': 'Wyczyść rozmowę',
+  'conversations.todos.title': 'Zadania',
+  'conversations.todos.progress': '{completed} z {total} ukończono',
+  'conversations.todos.allDone': 'Wszystko gotowe',
+  'conversations.todos.status.pending': 'Oczekuje',
+  'conversations.todos.status.inProgress': 'W toku',
+  'conversations.todos.status.completed': 'Ukończone',
+  'conversations.goal.title': 'Cel',
+  'conversations.goal.status.active': 'Aktywny',
+  'conversations.goal.status.paused': 'Wstrzymany',
+  'conversations.goal.status.budgetLimited': 'Budżet wyczerpany',
+  'conversations.goal.status.complete': 'Ukończony',
+  'conversations.goal.tokens': '{used} tokenów',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokenów',
   'conversations.planReview.title': 'Przejrzyj plan',
   'conversations.planReview.subtitle':
     'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
@@ -3403,12 +3414,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Najnowszy wygenerowany diagram architektury OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Odświeża co {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Typ encji',
-  'intelligence.workTask.sourceTaskHeading': 'Zadanie źródłowe:',
-  'intelligence.workTask.repositoryLine': '- Repozytorium: {repo}',
-  'intelligence.workTask.externalIdLine': '- Identyfikator zewnętrzny: {externalId}',
-  'intelligence.workTask.urlLine': '- Adres: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Zacznij od krótkiego powtórzenia konkretnego planu wdrożenia, a następnie go zrealizuj. Utrzymuj widoczność postępów w tym wątku i aktualizuj tablicę zadań, gdy zmienia się stan pracy.',
   'intelligence.agentWork.subtitle':
     'Każdy przebieg agenta w tle, pogrupowany według stanu cyklu życia.',
   'intelligence.agentWork.loading': 'Ładowanie pracy agenta…',
@@ -4896,9 +4901,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Co 2 godziny',
   'settings.devWorkflow.schedule.every6hours': 'Co 6 godzin',
   'settings.devWorkflow.schedule.onceDaily': 'Raz dziennie (9:00)',
-  'settings.developerMenu.tasks.title': 'Zadania',
-  'settings.developerMenu.tasks.desc':
-    'Przeglądaj tablice zadań i zarządzaj nimi: Twoje własne zadania oraz tablice tworzone przez agentów w rozmowach.',
   'settings.developerMenu.cronJobs.title': 'Zadania cron',
   'settings.developerMenu.cronJobs.desc':
     'Przeglądaj i konfiguruj zaplanowane zadania dla umiejętności runtime',
@@ -5003,9 +5005,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ogranicz do przestrzeni roboczej',
   'settings.agentAccess.confine.desc':
     'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Po wyłączeniu tej opcji agent może sięgać wszędzie tam, gdzie ma dostęp Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Wymagaj zatwierdzenia planu zadania',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
   'settings.agentAccess.autoApproveAll.label': 'Automatycznie zatwierdzaj wszystkie działania',
   'settings.agentAccess.autoApproveAll.desc':
     'Po włączeniu agent będzie wykonywać wszystkie działania bez wcześniejszego proszenia o Twoją zgodę. Obejmuje to zapis plików, polecenia powłoki, żądania sieciowe i wszelkie inne efekty uboczne. Twarde blokady bezpieczeństwa (katalogi poświadczeń, wewnętrzne ścieżki przestrzeni roboczej) nadal obowiązują.',
@@ -5853,12 +5852,6 @@ const messages: TranslationMap = {
   'walletReceive.addressLabel': 'Adres {network}',
   'walletReceive.onlyChainWarning':
     'Wysyłaj na ten adres wyłącznie aktywa {network}. Wysłanie aktywów z innej sieci może spowodować trwałą utratę.',
-  'walletSend.title': 'Wyślij',
-  'walletSend.to': 'Do',
-  'walletSend.addressPlaceholder': 'Wprowadź lub wklej adres',
-  'walletSend.max': 'Maks',
-  'walletSend.availableBalance': '{{amount}} {{symbol}} dostępne',
-  'walletSend.amountWithSymbol': '{{amount}} {{symbol}}',
   'walletSend.available': 'Dostępne',
   'walletSend.recipient': 'Adres odbiorcy',
   'walletSend.recipientPlaceholder': 'Wklej adres docelowy',
@@ -5880,9 +5873,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Źródła zadań',
   'settings.integrations.title': 'Integracje',
   'settings.integrations.menuDesc': 'Źródła zadań, routing Composio i wyzwalacze webhooków',
-  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
+  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi do swojego agenta',
   'settings.taskSources.description':
-    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i kieruj na tablicę zadań agenta.',
+    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i przekazuj swojemu agentowi do przeglądu.',
   'settings.taskSources.connectHint':
     'Źródła zadań używają połączonych kont. Najpierw połącz je w Integracjach.',
   'settings.taskSources.disabledBanner':
