@@ -85,14 +85,30 @@ async fn two_in_progress_items_are_rejected() {
 async fn bad_input_is_a_tool_error_not_a_harness_error() {
     let tool = TodoTool::new();
     for (args, expect) in [
-        (json!({ "todos": [{ "content": "  ", "status": "pending" }] }), "content"),
-        (json!({ "todos": [{ "content": "x", "status": "someday" }] }), "invalid status"),
+        (
+            json!({ "todos": [{ "content": "  ", "status": "pending" }] }),
+            "content",
+        ),
+        (
+            json!({ "todos": [{ "content": "x", "status": "someday" }] }),
+            "invalid status",
+        ),
         (json!({ "todos": "not a list" }), "invalid `todos`"),
-        (json!({ "cards": [{ "content": "x", "status": "todo" }] }), "pass `todos`"),
+        (
+            json!({ "cards": [{ "content": "x", "status": "todo" }] }),
+            "pass `todos`",
+        ),
     ] {
-        let result = tool.execute(args.clone()).await.expect("never an Err: {args}");
+        let result = tool
+            .execute(args.clone())
+            .await
+            .expect("never an Err: {args}");
         assert!(result.is_error, "{args}");
-        assert!(result.output().contains(expect), "{args}: {}", result.output());
+        assert!(
+            result.output().contains(expect),
+            "{args}: {}",
+            result.output()
+        );
     }
 }
 
@@ -102,14 +118,21 @@ fn schema_is_the_claude_shape() {
     let schema = tool.parameters_schema();
     let props = &schema["properties"];
     assert!(props.get("todos").is_some());
-    assert_eq!(props.as_object().unwrap().len(), 1, "no per-card ops: {props}");
+    assert_eq!(
+        props.as_object().unwrap().len(),
+        1,
+        "no per-card ops: {props}"
+    );
     assert_eq!(
         props["todos"]["items"]["properties"]["status"]["enum"],
         json!(["pending", "in_progress", "completed"])
     );
     let desc = tool.description();
     assert!(desc.contains("3+ steps"), "missing when-to-use guidance");
-    assert!(desc.contains("one `in_progress`"), "missing single-in_progress rule");
+    assert!(
+        desc.contains("one `in_progress`"),
+        "missing single-in_progress rule"
+    );
     assert!(
         !desc.contains("board"),
         "the tool must not describe itself as a board"
@@ -171,16 +194,30 @@ fn every_agent_binds_to_its_own_session() {
 
 #[tokio::test]
 async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
-    let a = TodoScope::Session { id: "sess-a".into() };
-    let b = TodoScope::Session { id: "sess-b".into() };
+    let a = TodoScope::Session {
+        id: "sess-a".into(),
+    };
+    let b = TodoScope::Session {
+        id: "sess-b".into(),
+    };
     crate::agent::todos::ops::clear(&a).await.unwrap();
     crate::agent::todos::ops::clear(&b).await.unwrap();
 
     let mut card = TaskBoardCard::new("only in a");
     card.status = TaskCardStatus::InProgress;
-    crate::agent::todos::ops::replace(&a, vec![card]).await.unwrap();
+    crate::agent::todos::ops::replace(&a, vec![card])
+        .await
+        .unwrap();
 
     let a_again = crate::agent::todos::ops::list(&a).await.unwrap();
-    assert_eq!(a_again.cards.len(), 1, "a later turn of the same session reads it back");
-    assert!(crate::agent::todos::ops::list(&b).await.unwrap().cards.is_empty());
+    assert_eq!(
+        a_again.cards.len(),
+        1,
+        "a later turn of the same session reads it back"
+    );
+    assert!(crate::agent::todos::ops::list(&b)
+        .await
+        .unwrap()
+        .cards
+        .is_empty());
 }

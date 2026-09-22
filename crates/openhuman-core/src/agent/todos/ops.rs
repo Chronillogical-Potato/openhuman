@@ -40,7 +40,10 @@ pub fn store() -> Arc<dyn Store> {
     session_todos_store()
 }
 
-pub async fn replace(scope: &TodoScope, cards: Vec<TaskBoardCard>) -> Result<TodosSnapshot, String> {
+pub async fn replace(
+    scope: &TodoScope,
+    cards: Vec<TaskBoardCard>,
+) -> Result<TodosSnapshot, String> {
     session_list::write(&store(), scope.key(), cards)
         .await
         .map_err(|error| error.to_string())
