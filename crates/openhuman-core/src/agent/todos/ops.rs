@@ -59,7 +59,10 @@ fn finish(
     Ok(snapshot(scope, value))
 }
 
-pub async fn replace(scope: &TodoScope, cards: Vec<TaskBoardCard>) -> Result<TodosSnapshot, String> {
+pub async fn replace(
+    scope: &TodoScope,
+    cards: Vec<TaskBoardCard>,
+) -> Result<TodosSnapshot, String> {
     let store = session_todos_store();
     finish(scope, todos::replace(&store, scope.key(), cards).await)
 }
