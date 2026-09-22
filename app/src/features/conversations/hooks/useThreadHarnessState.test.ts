@@ -88,10 +88,7 @@ describe('useThreadHarnessState', () => {
     const { result } = renderHook(() => useThreadHarnessState('t1', NO_LIVE_ROWS));
     await waitFor(() => expect(result.current.goal?.goalId).toBe('g1'));
     expect(result.current.goal?.status).toBe('active');
-    expect(result.current.todoList?.items.map(i => i.status)).toEqual([
-      'completed',
-      'in_progress',
-    ]);
+    expect(result.current.todoList?.items.map(i => i.status)).toEqual(['completed', 'in_progress']);
   });
 
   it('lets the live turn win over the restored history', async () => {
