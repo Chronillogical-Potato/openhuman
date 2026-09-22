@@ -550,6 +550,24 @@ async function main() {
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
 
+  // Install the offline local credential before the first turn.
+  const localUserId = `life-scenarios-${runId.slice(0, 10).replace(/-/g, "")}`;
+  await core.rpc("openhuman.auth_set_credential", {
+    token: mintLocalSessionToken(localUserId),
+    kind: "local",
+    userId: localUserId,
+    user: { _id: localUserId, email: "life-scenarios@local.invalid", name: "Life Scenarios" },
+  });
+  const authState = await core.rpc("openhuman.auth_get_state", {}).catch(() => null);
+  console.log(
+    `auth    : local session installed (${
+      authState ? JSON.stringify(authState).slice(0, 120) : "state unavailable"
+    })`,
+  );
+  console.log(
+    `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
+  );
+
   const results = [];
   try {
     // A cheap smoke turn proves the credential and route work before we spend
