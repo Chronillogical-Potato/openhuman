@@ -88,19 +88,19 @@ impl SystemOneEvaluator {
             }
         }
         let mut state = json!({ "request": request.intent });
-        if !request.recent_turns.is_empty()
-            && let Some(object) = state.as_object_mut()
-        {
-            object.insert(
-                "recent_user_turns".to_owned(),
-                Value::Array(
-                    request
-                        .recent_turns
-                        .iter()
-                        .map(|turn| Value::String(turn.clone()))
-                        .collect(),
-                ),
-            );
+        if !request.recent_turns.is_empty() {
+            if let Some(object) = state.as_object_mut() {
+                object.insert(
+                    "recent_user_turns".to_owned(),
+                    Value::Array(
+                        request
+                            .recent_turns
+                            .iter()
+                            .map(|turn| Value::String(turn.clone()))
+                            .collect(),
+                    ),
+                );
+            }
         }
         let instructions = request
             .instructions
