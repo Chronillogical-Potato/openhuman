@@ -262,75 +262,17 @@ pub(crate) async fn checkout_session_agent(
         ),
     };
 
-    // Cold-boot resume. Prefer the full-fidelity `session_raw/{stem}.jsonl`
-    // transcript (tool calls, tool-role results, reasoning) routed by thread
-    // id — the model must not "forget" its tool interactions across an app
-    // restart. Only fall back to the lossy conversation-log prose pairs when
-    // no root transcript exists for the thread or it fails to load; the two
-    // sources overlap (user prompts + final assistant text), so we take one
-    // or the other, never both, to avoid duplicated context.
-    if was_built_fresh {
-        seed_cold_session(&mut agent, config, thread_id, current_user_message).await;
-    }
+    // Cold-boot resume needs no seeding here. `set_thread_id` binds the
+    // session's durable identity and the turn resumes by it, reading the one
+    // transcript this conversation has ever had — tool calls, tool results and
+    // reasoning included. The old path seeded by hand from whichever root
+    // transcript matched the thread and newest, and fell back to the
+    // conversation log's prose pairs when that failed; the prose fallback also
+    // carried no system message, so such a turn reached the provider with no
+    // system prompt and no prompt-cache key at all.
+    let _ = (config, current_user_message);
 
     Ok(CheckedOutSession { agent, fingerprint })
-}
-
-async fn seed_cold_session(
-    agent: &mut OpenHumanSessionHost,
-    config: &Config,
-    thread_id: &str,
-    current_user_message: &str,
-) {
-    if agent.seed_resume_from_thread_transcript(thread_id) {
-        log::info!(
-            "[web-channel] cold-boot resumed thread={} from full-fidelity session transcript",
-            thread_id
-        );
-        return;
-    }
-    log::debug!(
-        "[web-channel] no usable session transcript for thread={} — seeding resume \
-         from conversation-log prose",
-        thread_id
-    );
-    // Blocking pool: the store takes a process-global mutex and reads
-    // the thread's whole JSONL under it, so doing this inline parked an
-    // async worker on the chat hot path (#5156).
-    match crate::memory::conversations::blocking::get_messages(
-        config.workspace_dir.clone(),
-        thread_id.to_string(),
-    )
-    .await
-    {
-        Ok(prior_messages) if !prior_messages.is_empty() => {
-            let pairs: Vec<(String, String)> = prior_messages
-                .into_iter()
-                .map(|m| (m.sender, m.content))
-                .collect();
-            if let Err(err) = agent.seed_resume_from_messages(pairs, current_user_message) {
-                log::warn!(
-                    "[web-channel] failed to seed agent resume from conversation log \
-                     thread={} err={}",
-                    thread_id,
-                    err
-                );
-            }
-        }
-        Ok(_) => {
-            log::debug!(
-                "[web-channel] no prior messages to seed for thread={} — first turn",
-                thread_id
-            );
-        }
-        Err(err) => {
-            log::warn!(
-                "[web-channel] failed to read conversation log for resume thread={} err={}",
-                thread_id,
-                err
-            );
-        }
-    }
 }
 
 /// Return a checked-out agent to the thread cache, replacing whatever is there.
