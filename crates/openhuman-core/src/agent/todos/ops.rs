@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use tinyagents_graph::todos::store as todos;
 
 use crate::agent::tinyagents::todos::{session_todos_store, SCRATCH_SESSION_ID};
-use crate::agent::todos::types::normalize_cards_for_wire;
 pub use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 
 pub use tinyagents_graph::todos::{parse_status, render_markdown};
@@ -54,8 +53,7 @@ fn finish(
     scope: &TodoScope,
     result: tinyagents_harness::error::Result<tinyagents_graph::todos::TodosSnapshot>,
 ) -> Result<TodosSnapshot, String> {
-    let mut value = result.map_err(|error| error.to_string())?;
-    normalize_cards_for_wire(&mut value.cards);
+    let value = result.map_err(|error| error.to_string())?;
     Ok(snapshot(scope, value))
 }
 
