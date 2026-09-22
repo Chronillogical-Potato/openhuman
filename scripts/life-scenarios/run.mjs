@@ -250,60 +250,13 @@ async function prepareHome(runDir, opts) {
   // the wire at all — see README.md. Naming them here is what a real embedder
   // does with `AgentSpec`, and `--agent default` runs the unmodified
   // orchestrator for comparison.
-  const definition = [
-    'id = "life_scenarios"',
-    'display_name = "Life Scenarios"',
-    'when_to_use = "Benchmark agent for the life-scenario suite."',
-    // Deliberately plain. The suite measures the harness — tool availability,
-    // iteration budget, caching, cost — so the prompt must not quietly do the
-    // work the scenario prompt is there to test.
-    // `PromptSource` deserializes as an externally-tagged enum, so this is a
-    // `[system_prompt] inline = ...` table and NOT `system_prompt = "..."`.
-    // A bare string fails to parse, and the validation error you get instead
-    // ("must set an inline string or a file path") reads as though a bare
-    // string were the expected spelling.
-    "[system_prompt]",
-    "inline = '''",
-    "You are a capable personal assistant working inside a sandbox directory.",
-    "",
-    "Do the work rather than describing it. Read the files you are given before",
-    "answering, and write every artifact the task asks for to the exact path it",
-    "names. Paths in the task are relative to your working directory.",
-    "",
-    "Never invent a fact you could have read from a file or fetched from the web.",
-    "If something cannot be determined, say so in the output instead of guessing.",
-    "",
-    "When you are done, verify that every requested file exists on disk with the",
-    "requested content before you answer.",
-    "'''",
-    "max_iterations = 40",
-    'iteration_policy = "strict"',
-    "timeout_secs = 900",
-    "",
-    "[tools]",
-    'named = [',
-    ...[
-      "file_read",
-      "file_write",
-      "apply_patch",
-      "grep",
-      "glob",
-      "list",
-      "shell",
-      "web_search_tool",
-      "web_fetch",
-      "http_request",
-      "resolve_time",
-      "todo",
-      "use_skill",
-      "composio_execute",
-      "composio_list_connections",
-      "goal_complete",
-    ].map((t) => `  "${t}",`),
-    "]",
-    "",
-  ].join("\n");
-  await fsp.writeFile(path.join(oh, "agents", "life_scenarios.toml"), definition);
+  // The benchmark agent definition ships as a real TOML file next to this
+  // script so it is reviewable on its own; see its header for why a custom
+  // definition is needed at all.
+  await fsp.copyFile(
+    path.join(HERE, "agent-life-scenarios.toml"),
+    path.join(oh, "agents", "life_scenarios.toml"),
+  );
 
   return home;
 }
