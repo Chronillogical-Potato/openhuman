@@ -348,7 +348,7 @@ fn build_scope_gates_integrations_delegation() {
     // delegation-guide clause.
     let no_integrations = build(&ctx_with(&[])).unwrap();
     assert!(
-        no_integrations.contains("general knowledge, web/news lookups, headlines, date/time and math never delegate here"),
+        no_integrations.contains("general knowledge, web/news lookups, headlines, date/time, math, and anything public on the web (a public repository, a product page, docs) never delegate here"),
         "Step-2 scope gate must keep general/web/date asks off integrations delegation"
     );
     assert!(
