@@ -129,6 +129,7 @@ scoring proves too coarse.
 | `workflow-builder-news` | workflow | reaches `propose_workflow`; ≤2 consecutive catalog searches; saves nothing | nothing |
 | `orchestrator-reminder` | orchestration → scheduler | hands off through `schedule_task` | **a cron job**, remove it afterwards |
 | `orchestrator-direct-answer` | orchestration | answers a trivial question without spawning | nothing |
+| `orchestrator-research-trip` | orchestration | a research question goes straight to `web_search_tool` and streams an answer; never `request_plan_review`, `todo` or a spawn | nothing |
 | `composio-gmail-read` | composio | reads the latest Gmail subject via `delegate_to_integrations_agent`; never sends, deletes or reconnects | nothing |
 | `skill-notion-read` | skills | lists Notion pages through `run_skill`; never installs a skill | nothing |
 | `mcp-none-configured` | MCP, **error path** | with no MCP server configured, says so; never installs one, never fabricates results | nothing |

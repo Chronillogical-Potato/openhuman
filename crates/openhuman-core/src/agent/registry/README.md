@@ -109,7 +109,7 @@ The 29 archetypes in this directory:
 | `settings_agent` | App/core config, health/model diagnostics, service lifecycle, security policy |
 | `skill_creator` | Creates/updates SKILL.md packages and Node-backed JS helpers |
 | `summarizer` | Runtime-dispatched only: compresses oversized tool results for the orchestrator |
-| `task_manager_agent` | Task-board/task-source specialist: cards, feeds, artifacts, status |
+| `task_manager_agent` | Task-source/workflow/artifact specialist: proactive feeds, workflow bundles, artifacts |
 | `tool_maker` | Narrow self-healer: writes a polyfill when a host command is missing |
 | `tools_agent` | Generalist heavy execution (shell/HTTP/web/files) that never touches a repo or git; wildcard tool scope |
 | `trigger_reactor` | One or two tool calls in direct reaction to an external trigger, no planning |

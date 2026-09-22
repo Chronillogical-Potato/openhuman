@@ -187,7 +187,9 @@ impl Tool for ContinueSubagentTool {
     }
 
     fn description(&self) -> &str {
-        "Resume an existing sub-agent with a follow-up, keeping its full prior context: pass the `task_id` from a `[SUBAGENT_AWAITING_USER]` envelope with the user's answer, or a `subagent_session_id` from the `[active_subagents]` roster. Always prefer this to re-delegating — a fresh delegation loses everything the worker already did."
+        "Resume an existing sub-agent with a follow-up, keeping its context: pass the `task_id` \
+         from a `[SUBAGENT_AWAITING_USER]` envelope or a `subagent_session_id` from the roster. \
+         Always prefer this to re-delegating."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -197,7 +199,7 @@ impl Tool for ContinueSubagentTool {
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "The task_id from the [SUBAGENT_AWAITING_USER] envelope, or the subagent_session_id (preferred) / task id of a durable worker from the [active_subagents] roster."
+                    "description": "task_id from the envelope, or the worker's subagent_session_id from the roster."
                 },
                 "agent_id": {
                     "type": "string",

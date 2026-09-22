@@ -126,6 +126,22 @@ async function post(port, urlPath, body, headers = {}) {
   return { status: res.status, text: await res.text() };
 }
 
+// The proxy writes its stdout summary line and closes the HTTP response from
+// the same synchronous handler, in that order, but the two travel to this
+// test over different channels — a pipe for stdout, a loopback socket for the
+// response — with no ordering guarantee between them once they leave the
+// child process. `fetch()` resolving is therefore not proof the stdout bytes
+// have arrived yet; poll briefly instead of asserting the instant it returns.
+async function waitForOutput(getOutput, pattern, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const output = getOutput();
+    if (pattern.test(output)) return output;
+    if (Date.now() >= deadline) return output;
+    await new Promise(r => setTimeout(r, 10));
+  }
+}
+
 let upstream;
 let proxy;
 let workDir;
@@ -196,10 +212,9 @@ test('capture proxy forwards an inference call, dumps the body, and summarises t
   assert.equal(record.cached_tokens, 12288);
   assert.equal(record.error, null);
   assert.ok(record.ttfb_ms >= 0 && record.total_ms >= record.ttfb_ms, JSON.stringify(record));
-  assert.match(
-    proxy.output(),
-    /\[capture\] #000 200 model=z-ai\/glm-5\.3-flash msgs=2 tools=1 served_by=StreamLake ttfb=\d+\.\d\ds total=\d+\.\d\ds prompt=12344 cached=12288 cache_key=tap-25675927a3f2160d/
-  );
+  const summaryLine =
+    /\[capture\] #000 200 model=z-ai\/glm-5\.3-flash msgs=2 tools=1 served_by=StreamLake ttfb=\d+\.\d\ds total=\d+\.\d\ds prompt=12344 cached=12288 cache_key=tap-25675927a3f2160d/;
+  assert.match(await waitForOutput(proxy.output, summaryLine), summaryLine);
 });
 
 test('capture proxy records a non-2xx inference response body and names the error', async () => {

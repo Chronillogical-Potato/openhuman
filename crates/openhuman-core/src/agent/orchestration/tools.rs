@@ -96,7 +96,7 @@ pub(crate) use list_subagents::ListSubagentsDispatch;
 pub use list_subagents::ListSubagentsTool;
 pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
 pub(crate) use spawn_async_subagent::SpawnAsyncSubagentDispatch;
-pub use spawn_async_subagent::SpawnAsyncSubagentTool;
+pub use spawn_async_subagent::{scope_spawn_async_subagent_spec, SpawnAsyncSubagentTool};
 pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;
 pub use spawn_parallel_agents::SpawnParallelAgentsTool;
 pub(crate) use spawn_subagent::SpawnSubagentDispatch;

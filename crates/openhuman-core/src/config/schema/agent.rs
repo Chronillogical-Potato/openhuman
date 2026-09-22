@@ -239,19 +239,19 @@ pub struct AgentConfig {
     /// Maximum number of tool calls to execute concurrently when `parallel_tools` is true.
     #[serde(default = "default_max_parallel_tools")]
     pub max_parallel_tools: usize,
-    /// How the agent formats tool calls to text-only providers.
-    /// - `"auto"` (default): native structured tool-calling when the provider
-    ///   supports it, otherwise JSON-in-tag (`<tool_call>{…}</tool_call>`).
+    /// How the agent formats tool calls to its provider.
+    /// - `"python"` (default): code-style calls against Python signatures in
+    ///   the prompt (`def read_file(path: str, limit: int = None) -> str`,
+    ///   called as `read_file(path="x")`). The cheapest catalogue on the wire
+    ///   and a syntax every code-trained model already writes.
+    /// - `"auto"`: native structured tool-calling when the provider supports
+    ///   it, otherwise JSON-in-tag (`<tool_call>{…}</tool_call>`).
     /// - `"native"`: force provider-native structured tool calls.
     /// - `"xml"`: force JSON-in-tag.
-    /// - `"pformat"`: force compact positional P-Format (`tool[a|b]`) — most
-    ///   token-efficient, but mis-parses on some models, so it is opt-in only.
-    /// - `"python"`: force code-style calls with Python signatures in the
-    ///   prompt (`def read_file(path: str, limit: int = None) -> str`, called
-    ///   as `read_file(path="x")`). Compact like P-Format but a syntax small
-    ///   code-trained models already write; opt-in only.
-    /// - `"typescript"`: the same with TypeScript signatures and
-    ///   `read_file({path: "x"})` calls; opt-in only.
+    /// - `"pformat"`: force compact positional P-Format (`tool[a|b]`); it
+    ///   mis-parses on some models.
+    /// - `"typescript"`: like `"python"` with TypeScript signatures and
+    ///   `read_file({path: "x"})` calls.
     ///
     /// The `OPENHUMAN_TOOL_DISPATCHER` environment variable overrides this
     /// field for one launch.
@@ -402,11 +402,11 @@ pub struct AgentConfig {
 pub struct ToolSearchConfig {
     /// Which ranker serves the search.
     ///
-    /// - `"auto"` (default): the installed decision-model ranker (Jev, via
-    ///   `openhuman-tinyhumans`) when the process has one and a TinyHumans
-    ///   credential; BM25 otherwise.
-    /// - `"jev"`: the installed ranker, falling back to BM25 only when it
-    ///   fails.
+    /// - `"jev"` (default): the installed decision-model ranker (Jev, via
+    ///   `openhuman-tinyhumans`), falling back to BM25 only when it fails or
+    ///   the process has no TinyHumans credential.
+    /// - `"auto"`: the installed ranker when the process has one and a
+    ///   TinyHumans credential; BM25 otherwise.
     /// - `"bm25"`: the built-in lexical ranker alone, no network.
     /// - `"compare"`: serve the installed ranker and record the BM25 ranking
     ///   alongside it in the `tool.searched` telemetry, so the two can be
@@ -421,7 +421,7 @@ pub struct ToolSearchConfig {
 impl Default for ToolSearchConfig {
     fn default() -> Self {
         Self {
-            ranker: "auto".into(),
+            ranker: "jev".into(),
             top_k: 3,
         }
     }
@@ -469,7 +469,7 @@ fn default_max_parallel_tools() -> usize {
 }
 
 fn default_agent_tool_dispatcher() -> String {
-    "auto".into()
+    "python".into()
 }
 
 fn default_max_memory_context_chars() -> usize {

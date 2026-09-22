@@ -15,8 +15,10 @@
 //! out. The built client is cached by credential and base URL so a stable
 //! session does not rebuild an HTTP client on every search.
 
+mod evaluator;
 mod ranker;
 
+pub use evaluator::TinyJevEvaluator;
 pub use ranker::TinyHumansJevRanker;
 
 use std::sync::Arc;

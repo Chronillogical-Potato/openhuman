@@ -1,7 +1,7 @@
 id = "critic"
 display_name = "Critic"
 delegate_name = "review_code"
-when_to_use = "Adversarial reviewer — reviews diffs and code against project rules, flags vulnerabilities, regressions, and missing tests. Read-only."
+when_to_use = "Adversarial read-only review of diffs and code: vulnerabilities, regressions, missing tests."
 temperature = 0.4
 max_iterations = 5
 # Bound the review verdict that flows up to the orchestrator verbatim

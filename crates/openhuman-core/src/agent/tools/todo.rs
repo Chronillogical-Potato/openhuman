@@ -1,16 +1,18 @@
-//! `todo` — unified CRUD tool for the agent's task board.
+//! `todo` — the session's todo list, the way Claude Code and Codex have it.
 //!
-//! Dispatches on the `op` field so a single tool exposes
-//! `add` / `edit` / `update_status` / `remove` / `replace` / `clear` /
-//! `list`. The board is persisted to the active thread (when there is
-//! one) via [`crate::agent::todos::ops`]; without a caller thread the
-//! tool falls back to a process-global scratch list. Returns a markdown
-//! rendering so transcripts read cleanly.
+//! One call writes the whole list: `{"todos": [{"content", "status"}]}`.
+//! There is no per-card CRUD, no approval gate, no evidence, no plan; the
+//! list is a progress checklist the model rewrites as it works. It is scoped
+//! to the agent session the turn runs in (in memory, for the life of the
+//! process) via [`crate::agent::todos::ops`]; without a session (a bare
+//! `execute` in a test) it falls back to a scratch list. Calling with no
+//! `todos` returns the current list.
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::todos::ops::{self, BoardLocation, CardPatch};
-use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
+use crate::agent::todos::ops::{self, TodoScope};
+use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 use async_trait::async_trait;
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use tinyagents_harness::context::RunContext;
@@ -59,6 +61,16 @@ impl Default for TodoTool {
     }
 }
 
+/// One item as the model writes it. `status` accepts the Claude-style
+/// `pending` / `in_progress` / `completed` plus the older `todo` / `done`
+/// spellings the store already parses.
+#[derive(Deserialize)]
+struct TodoItem {
+    content: String,
+    #[serde(default)]
+    status: Option<String>,
+}
+
 #[async_trait]
 impl Tool for TodoTool {
     fn name(&self) -> &str {
@@ -66,61 +78,32 @@ impl Tool for TodoTool {
     }
 
     fn description(&self) -> &str {
-        "Maintain the visible plan for this thread; cards persist across turns. Use for requests with 3+ steps. Keep one `in_progress`; mark finished cards `done` immediately and blocked cards with a `blocker`. The board binds automatically; do not pass a thread id. Orchestrator calls use the shared board."
+        "Your todo list for this conversation. Pass the complete list every time; it \
+         replaces what was there. Use it for work with 3+ steps: write the steps up front, \
+         keep exactly one `in_progress`, mark each `completed` the moment it is done. Omit \
+         `todos` to read the current list."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
             "properties": {
-                "op": {
-                    "type": "string",
-                    "enum": ["add", "edit", "update_status", "decide_plan", "remove", "replace", "clear", "list"]
-                },
-                "id": { "type": "string", "description": "Card id (required for edit/update_status/remove)." },
-                "content": { "type": "string", "description": "Card title (required for add; optional for edit)." },
-                "status": {
-                    "type": "string",
-                    "enum": ["todo", "pending", "in_progress", "blocked", "done", "completed"]
-                },
-                "notes": { "type": "string" },
-                "blocker": { "type": "string" },
-                "approve": {
-                    "type": "boolean",
-                    "description": "decide_plan: approve (true) or reject (false) a card awaiting plan approval."
-                },
-                "objective": { "type": "string", "description": "Desired outcome for this task." },
-                "plan": {
+                "todos": {
                     "type": "array",
-                    "description": "Ordered lightweight execution steps.",
-                    "items": { "type": "string" }
-                },
-                "allowedTools": {
-                    "type": "array",
-                    "description": "Task-local tool names or toolkit slugs available while working this task.",
-                    "items": { "type": "string" }
-                },
-                "approvalMode": {
-                    "type": ["string", "null"],
-                    "enum": ["required", "not_required", null]
-                },
-                "acceptanceCriteria": {
-                    "type": "array",
-                    "description": "Checklist that must be true before the task is done.",
-                    "items": { "type": "string" }
-                },
-                "evidence": {
-                    "type": "array",
-                    "description": "Verification output, links, files, or notes produced while executing the task.",
-                    "items": { "type": "string" }
-                },
-                "cards": {
-                    "type": "array",
-                    "description": "Full card list for op=replace.",
-                    "items": { "type": "object" }
+                    "description": "The full list, in order.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": { "type": "string" },
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "in_progress", "completed"]
+                            }
+                        },
+                        "required": ["content", "status"]
+                    }
                 }
-            },
-            "required": ["op"]
+            }
         })
     }
 
@@ -151,72 +134,46 @@ impl TodoTool {
         parent: Option<ParentExecutionContext>,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let op = args
-            .get("op")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required field `op`"))?
-            .trim()
-            .to_string();
+        let scope = current_scope(parent.as_ref(), tool_context);
+        tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
 
-        let location = current_location(parent.as_ref(), tool_context);
-        tracing::debug!(op = %op, thread_id = ?location.thread_id(), "[tool][todo] dispatch");
-
-        let result = match op.as_str() {
-            "add" => {
-                let content = required_string(&args, "content")?;
-                let mut patch = patch_from_args(&args)?;
-                if patch.approval_mode.is_none() {
-                    patch.approval_mode = Some(default_task_approval_mode().await);
+        let result = match args.get("todos") {
+            None | Some(serde_json::Value::Null) => ops::list(&scope).await,
+            Some(raw) => {
+                let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
+                    .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
+                let mut cards = Vec::with_capacity(items.len());
+                for item in items {
+                    let content = item.content.trim();
+                    if content.is_empty() {
+                        anyhow::bail!("every todo needs non-empty `content`");
+                    }
+                    let mut card = TaskBoardCard::new(content);
+                    card.status = match item.status.as_deref() {
+                        None => TaskCardStatus::Todo,
+                        Some(raw) => ops::parse_status(raw).map_err(anyhow::Error::msg)?,
+                    };
+                    cards.push(card);
                 }
-                ops::add(&location, &content, patch).await
-            }
-            "edit" => {
-                let id = required_string(&args, "id")?;
-                let mut patch = patch_from_args(&args)?;
-                patch.content = optional_string(&args, "content");
-                ops::edit(&location, &id, patch).await
-            }
-            "update_status" => {
-                let id = required_string(&args, "id")?;
-                let status = required_string(&args, "status")?;
-                let status = ops::parse_status(&status).map_err(anyhow::Error::msg)?;
-                ops::update_status(&location, &id, status).await
-            }
-            "remove" => {
-                let id = required_string(&args, "id")?;
-                ops::remove(&location, &id).await
-            }
-            "replace" => {
-                let cards = args
-                    .get("cards")
-                    .ok_or_else(|| anyhow::anyhow!("missing `cards` for op=replace"))?;
-                let cards: Vec<TaskBoardCard> = serde_json::from_value(cards.clone())
-                    .map_err(|e| anyhow::anyhow!("invalid `cards`: {e}"))?;
-                ops::replace(&location, cards).await
-            }
-            "decide_plan" => {
-                let id = required_string(&args, "id")?;
-                let approve = args
-                    .get("approve")
-                    .and_then(serde_json::Value::as_bool)
-                    .ok_or_else(|| anyhow::anyhow!("missing required boolean `approve`"))?;
-                ops::decide_plan(&location, &id, approve).await
-            }
-            "clear" => ops::clear(&location).await,
-            "list" => ops::list(&location).await,
-            other => {
-                return Ok(ToolResult::error(format!(
-                    "unknown op '{other}' (expected \
-                 add|edit|update_status|decide_plan|remove|replace|clear|list)"
-                )));
+                ops::replace(&scope, cards).await
             }
         };
 
         match result {
             Ok(snap) => {
+                let todos: Vec<serde_json::Value> = snap
+                    .cards
+                    .iter()
+                    .map(|card| {
+                        json!({
+                            "content": card.title,
+                            "status": wire_status(card.status),
+                        })
+                    })
+                    .collect();
                 let payload = json!({
-                    "threadId": snap.thread_id,
-                    "cards": snap.cards,
+                    "sessionId": snap.session_id,
+                    "todos": todos,
                     "markdown": snap.markdown,
                 });
                 Ok(ToolResult::success(payload.to_string()))
@@ -226,129 +183,41 @@ impl TodoTool {
     }
 }
 
-async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
-    // Interactive plan review is handled by the `request_plan_review` gate
-    // (it parks the live turn), NOT by stamping conversation-thread cards: the
-    // background dispatcher never sweeps conversation boards, so a card status
-    // can't gate a chat turn. This default therefore just carries the
-    // config-driven behaviour for the dispatched boards (`user-tasks` /
-    // `task-sources`).
-    match crate::config::ops::load_config_with_timeout().await {
-        Ok(config) => Some(if config.autonomy.require_task_plan_approval {
-            TaskApprovalMode::Required
-        } else {
-            TaskApprovalMode::NotRequired
-        }),
-        Err(err) => {
-            tracing::debug!(
-                error = %err,
-                "[tool][todo] failed to load config for task approval default"
-            );
-            None
-        }
+/// The three states the model is told about. Store states the list can no
+/// longer produce (`ready`, `awaiting_approval`, `rejected`, `blocked`) fold
+/// into the nearest one so an old thread still reads sensibly.
+fn wire_status(status: TaskCardStatus) -> &'static str {
+    match status {
+        TaskCardStatus::InProgress => "in_progress",
+        TaskCardStatus::Done | TaskCardStatus::Rejected => "completed",
+        TaskCardStatus::Todo
+        | TaskCardStatus::Ready
+        | TaskCardStatus::AwaitingApproval
+        | TaskCardStatus::Blocked => "pending",
     }
 }
 
-fn current_location(
+/// The list belongs to the agent session the tool runs in: the orchestrator's
+/// session for a chat thread, a sub-agent's own session for its run. The
+/// orchestrator used to be routed to one app-wide `orchestrator-tasks` board
+/// instead; nothing rendered it, so the list the model kept was invisible to
+/// the thread the user was looking at. The parent context names the session;
+/// a tool that is only handed a thread id (older callers, tests) keys on that.
+fn current_scope(
     parent: Option<&ParentExecutionContext>,
     tool_context: Option<&dyn ToolRunContext>,
-) -> BoardLocation {
-    let Some(parent) = parent else {
-        return BoardLocation::Scratch;
-    };
-    // The orchestrator owns ONE global task board rather than a per-thread one:
-    // its `todo` tool always targets the app-wide `orchestrator-tasks` board so a
-    // single todo graph spans every delegation.
-    if parent.agent_definition_id == "orchestrator" {
-        return BoardLocation::Thread {
-            workspace_dir: parent.workspace_dir.clone(),
-            thread_id: ops::ORCHESTRATOR_TASKS_THREAD_ID.to_string(),
+) -> TodoScope {
+    if let Some(parent) = parent {
+        return TodoScope::Session {
+            id: parent.session_id.clone(),
         };
     }
-    let Some(thread_id) = tool_context.and_then(ToolRunContext::thread_id) else {
-        return BoardLocation::Scratch;
-    };
-    BoardLocation::Thread {
-        workspace_dir: parent.workspace_dir.clone(),
-        thread_id: thread_id.to_owned(),
-    }
-}
-
-fn required_string(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
-    let value = args
-        .get(key)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("missing required field `{key}`"))?;
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(anyhow::anyhow!("missing required field `{key}`"));
-    }
-    Ok(trimmed.to_string())
-}
-
-fn optional_string(args: &serde_json::Value, key: &str) -> Option<String> {
-    args.get(key)
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-}
-
-fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
-    let status: Option<TaskCardStatus> = match args.get("status").and_then(|v| v.as_str()) {
-        Some(s) => Some(ops::parse_status(s).map_err(anyhow::Error::msg)?),
-        None => None,
-    };
-    let approval_mode = match args.get("approvalMode") {
-        Some(value) if value.is_null() => Some(None),
-        Some(value) => match value.as_str() {
-            Some("required") => Some(Some(TaskApprovalMode::Required)),
-            Some("not_required") => Some(Some(TaskApprovalMode::NotRequired)),
-            Some(other) => {
-                return Err(anyhow::anyhow!(
-                    "invalid approvalMode '{other}' (expected required|not_required|null)"
-                ));
-            }
-            None => {
-                return Err(anyhow::anyhow!(
-                    "invalid approvalMode type (expected required|not_required|null)"
-                ));
-            }
+    match tool_context.and_then(ToolRunContext::thread_id) {
+        Some(thread_id) => TodoScope::Session {
+            id: thread_id.to_owned(),
         },
-        None => None,
-    };
-    Ok(CardPatch {
-        content: None,
-        status,
-        objective: optional_string(args, "objective"),
-        plan: optional_string_array(args, "plan")?,
-        allowed_tools: optional_string_array(args, "allowedTools")?,
-        approval_mode,
-        acceptance_criteria: optional_string_array(args, "acceptanceCriteria")?,
-        evidence: optional_string_array(args, "evidence")?,
-        notes: optional_string(args, "notes"),
-        blocker: optional_string(args, "blocker"),
-        source_metadata: None,
-    })
-}
-
-fn optional_string_array(
-    args: &serde_json::Value,
-    key: &str,
-) -> anyhow::Result<Option<Vec<String>>> {
-    let Some(value) = args.get(key) else {
-        return Ok(None);
-    };
-    let values = value
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("`{key}` must be an array of strings"))?;
-    values
-        .iter()
-        .map(|item| {
-            item.as_str()
-                .map(|s| s.to_string())
-                .ok_or_else(|| anyhow::anyhow!("`{key}` must be an array of strings"))
-        })
-        .collect::<anyhow::Result<Vec<_>>>()
-        .map(Some)
+        None => TodoScope::Scratch,
+    }
 }
 
 #[cfg(test)]

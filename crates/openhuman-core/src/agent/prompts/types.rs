@@ -452,6 +452,18 @@ pub trait PromptSection: Send + Sync {
     fn name(&self) -> &str;
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String>;
 
+    /// The section's bytes split by cache tier.
+    ///
+    /// Most sections live in exactly one tier, so the default is one part in
+    /// [`Self::tier`]. A section whose body spans tiers (the orchestrator's
+    /// dynamic builder renders identity, per-install context and the user's
+    /// state in one pass) overrides this so the builder can place each slice
+    /// with its peers instead of dragging the stable bytes into the volatile
+    /// tail.
+    fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
+        Ok(vec![(self.tier(), self.build(ctx)?)])
+    }
+
     /// Which cache tier this section's bytes belong to.
     ///
     /// Defaults to [`PromptTier::Stable`], which is right for the large
@@ -488,6 +500,56 @@ pub enum PromptTier {
     /// Changes whenever the user's state does: memory, profile, the skills
     /// index, connected integrations, the clock.
     Volatile,
+}
+
+/// Marker a dynamic prompt builder emits on its own line to say "everything
+/// after this belongs to the `Context` tier".
+///
+/// A [`PromptSource::Dynamic`](crate::agent::harness::definition::PromptSource)
+/// builder returns one string. Splitting it on these markers is how it
+/// declares tiers without a second builder signature, and the markers never
+/// reach the model: [`split_prompt_tiers`] removes them, and a renderer that
+/// bypasses the builder sees an HTML comment the model ignores.
+pub const PROMPT_TIER_CONTEXT_MARKER: &str = "<!--prompt-tier:context-->";
+/// Marker for the start of the `Volatile` tier. See [`PROMPT_TIER_CONTEXT_MARKER`].
+pub const PROMPT_TIER_VOLATILE_MARKER: &str = "<!--prompt-tier:volatile-->";
+
+/// Split a dynamic builder's body on the tier markers.
+///
+/// Text before the first marker is `default_tier` (the tier the section
+/// declares); text after [`PROMPT_TIER_CONTEXT_MARKER`] is `Context` and text
+/// after [`PROMPT_TIER_VOLATILE_MARKER`] is `Volatile`. Markers may appear in
+/// either order and at most once each; empty slices are dropped.
+#[must_use]
+pub fn split_prompt_tiers(body: &str, default_tier: PromptTier) -> Vec<(PromptTier, String)> {
+    let mut parts: Vec<(PromptTier, String)> = Vec::new();
+    let mut tier = default_tier;
+    let mut current = String::new();
+    for line in body.split_inclusive('\n') {
+        let trimmed = line.trim();
+        let next = if trimmed == PROMPT_TIER_CONTEXT_MARKER {
+            Some(PromptTier::Context)
+        } else if trimmed == PROMPT_TIER_VOLATILE_MARKER {
+            Some(PromptTier::Volatile)
+        } else {
+            None
+        };
+        match next {
+            Some(next_tier) => {
+                if !current.trim().is_empty() {
+                    parts.push((tier, std::mem::take(&mut current)));
+                } else {
+                    current.clear();
+                }
+                tier = next_tier;
+            }
+            None => current.push_str(line),
+        }
+    }
+    if !current.trim().is_empty() {
+        parts.push((tier, current));
+    }
+    parts
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

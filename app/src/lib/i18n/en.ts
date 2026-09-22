@@ -3678,7 +3678,6 @@ const en: TranslationMap = {
     'Your OpenHuman session expired. Sign in again to load triggers.',
   'composio.triggers.needsConfiguration': 'Needs configuration',
   'composio.triggers.noneAvailable': 'No triggers are currently available for',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Context window',
   'conversations.composer.context.input': 'Input',
   'conversations.composer.context.cached': 'Cached input',
@@ -6531,9 +6530,9 @@ const en: TranslationMap = {
   'settings.taskSources.title': 'Task Sources',
   'settings.integrations.title': 'Integrations',
   'settings.integrations.menuDesc': 'Task sources, Composio routing, and webhook triggers',
-  'settings.taskSources.subtitle': 'Pull tasks from your tools onto the agent todo board',
+  'settings.taskSources.subtitle': 'Pull tasks from your tools to your agent',
   'settings.taskSources.description':
-    'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and route them onto the agent todo board.',
+    'Collect work items from GitHub, Notion, Linear, and ClickUp, enrich them, and hand them to your agent to triage.',
   'settings.taskSources.connectHint':
     'Task sources use your connected accounts. Connect them under Integrations first.',
   'settings.taskSources.disabledBanner':

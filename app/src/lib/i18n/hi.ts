@@ -3256,7 +3256,6 @@ const messages: TranslationMap = {
     'आपका OpenHuman सत्र समाप्त हो गया है। ट्रिगर्स लोड करने के लिए फिर से साइन इन करें।',
   'composio.triggers.needsConfiguration': 'कॉन्फिगरेशन ज़रूरी है',
   'composio.triggers.noneAvailable': 'वर्तमान में कोई ट्रिगर उपलब्ध नहीं है',
-  'conversations.threadTodo.title': 'योजना',
   'conversations.composer.context.title': 'कॉन्टेक्स्ट विंडो',
   'conversations.composer.context.input': 'इनपुट',
   'conversations.composer.context.cached': 'कैश किया गया इनपुट',
@@ -5787,9 +5786,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'कार्य स्रोत',
   'settings.integrations.title': 'एकीकरण',
   'settings.integrations.menuDesc': 'कार्य स्रोत, Composio रूटिंग और वेबहुक ट्रिगर',
-  'settings.taskSources.subtitle': 'एजेंट टोडो बोर्ड पर अपने उपकरणों से कार्य खींचें',
+  'settings.taskSources.subtitle': 'अपने टूल से कार्य अपने एजेंट तक लाएँ',
   'settings.taskSources.description':
-    'GitHub, नॉटियन, रैखिक और क्लिकअप से कार्य वस्तुओं को इकट्ठा करें, उन्हें समृद्ध करें और उन्हें एजेंट टोडो बोर्ड पर ले जाएं।',
+    'GitHub, Notion, Linear और ClickUp से कार्य आइटम इकट्ठा करें, उन्हें समृद्ध करें और छाँटने के लिए अपने एजेंट को सौंपें।',
   'settings.taskSources.connectHint':
     'कार्य स्रोत आपके कनेक्टेड खातों का उपयोग करते हैं। उन्हें पहले एकीकरण के तहत कनेक्ट करें।',
   'settings.taskSources.disabledBanner':

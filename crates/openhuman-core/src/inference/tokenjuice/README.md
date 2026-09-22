@@ -45,6 +45,9 @@ engine behavior stays behind the loadable module boundary.
   treats every `RECOVERY_TOOL_NAMES` entry as a recovery tool. The registered
   tool name is `RETRIEVE_TOOL_NAME` (`"tinyjuice_retrieve"`);
   `"tokenjuice_retrieve"` and `LEGACY_RETRIEVE_TOOL_NAME`
-  (`"retrieve_tool_output"`) are recognized aliases only.
+  (`"retrieve_tool_output"`) are recognized aliases only. Only
+  `RECOVERY_TOOL_VISIBLE` (the live tool) is force-added to a curated
+  `ToolScope::Named` belt (`session_host/builder/mod.rs::ensure_recovery_tool_visible`);
+  the aliases stay registered for transcript replay but off the wire.
 - Contract crate: `tinyjuice-bus` (`vendor/tinyjuice/crates/tinyjuice-bus`,
   path dependency in `crates/openhuman-core/Cargo.toml`).

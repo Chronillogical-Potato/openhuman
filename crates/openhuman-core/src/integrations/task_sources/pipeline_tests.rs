@@ -68,9 +68,6 @@ async fn fetch_surfaces_error_for_every_toolkit() {
     assert_eq!(outcome.skipped_dupe, 0);
     assert_eq!(outcome.pruned, 0);
 
-    let cards = route::board_cards(&config).await.unwrap();
-    assert!(cards.is_empty(), "a refused fetch must route nothing");
-
     let ingested = store::list_ingested(&config, &source.id, 10).unwrap();
     assert!(ingested.is_empty(), "a refused fetch must ingest nothing");
 }
@@ -119,10 +116,9 @@ async fn full_page_fetch_skips_prune_then_resumes_below_cap() {
         title: "Stale task".into(),
         ..Default::default()
     };
-    // An empty card id keeps this focused on reconciliation: the store row is
-    // the stale ingestion that a complete fetch must retain and a later
-    // below-cap fetch must remove.
-    store::mark_ingested(&config, &source.id, &stale, "").unwrap();
+    // The store row is the stale ingestion that a complete fetch must retain
+    // and a later below-cap fetch must remove.
+    store::mark_ingested(&config, &source.id, &stale).unwrap();
     let current_external_ids = std::collections::HashSet::new();
 
     assert_eq!(

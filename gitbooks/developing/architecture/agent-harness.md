@@ -237,14 +237,14 @@ compatibility export.
 
 ### Tool dispatch and tool-call dialects
 
-`agent.tool_dispatcher` (overridable for one launch with `OPENHUMAN_TOOL_DISPATCHER`) picks how tools are spoken to the model. `auto` (the default) uses **native tool calling** — structured tool specs through the `ChatModel` adapter and structured calls back — whenever the provider profile supports it, and falls back to JSON-in-tag for prompt-guided providers such as local Ollama. The session composes its prompt for the chosen dialect and pins the same dialect on the turn harness, so a text dialect keeps its schemas off the wire and the harness recovers calls with the matching grammar.
+`agent.tool_dispatcher` (overridable for one launch with `OPENHUMAN_TOOL_DISPATCHER`) picks how tools are spoken to the model. `python` (the default) renders the catalogue as Python function signatures and reads code-style calls back. `auto` uses **native tool calling** — structured tool specs through the `ChatModel` adapter and structured calls back — whenever the provider profile supports it, and falls back to JSON-in-tag for prompt-guided providers such as local Ollama. The session composes its prompt for the chosen dialect and pins the same dialect on the turn harness, so a text dialect keeps its schemas off the wire and the harness recovers calls with the matching grammar.
 
 Canonical `tinytools_agent::dialect::ToolDialect` implementations provide transcript-compatible parsing and rendering directly; OpenHuman converts durable/provider records only at those I/O boundaries:
 
 - **Native** (`native`) — structured tool-call fields.
 - **XML** (`xml`) — `<tool_call>{...}</tool_call>` tags in assistant text, with full JSON schemas in the prompt.
 - **P-Format** (`pformat`) — compact positional `<tool_call>name[0|a|1|b]</tool_call>` with `name[0|<a>|1|<b>]` signatures in the prompt; opt-in.
-- **Code** (`python` / `typescript`) — the catalogue is a list of function signatures (`def read_file(path: str, limit: int = None) -> str` or `function read_file(path: string, limit?: number): string;`) and the model writes a function call inside the tag: `read_file(path="src/main.rs", limit=20)` or `read_file({path: "src/main.rs", limit: 20})`. Compact like P-Format but a syntax small code-trained models already write; opt-in.
+- **Code** (`python` / `typescript`) — the catalogue is a list of function signatures (`def read_file(path: str, limit: int = None) -> str` or `function read_file(path: string, limit?: number): string;`) and the model writes a function call inside the tag: `read_file(path="src/main.rs", limit=20)` or `read_file({path: "src/main.rs", limit: 20})`. Compact like P-Format but a syntax small code-trained models already write; `python` is the default.
 
 Every text dialect shares one parser: a `<tool_call>` body is tried as P-Format, then as a code call, then as JSON, so a model that mixes forms is still understood. Persisted session histories can contain suffixes in any of these shapes, so the session shell keeps the dispatcher around to parse and replay them faithfully when a transcript is resumed.
 

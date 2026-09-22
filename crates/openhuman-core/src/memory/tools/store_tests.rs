@@ -39,7 +39,7 @@ fn name_and_schema() {
     // for dedupe before writing and reconciles the index after.
     let desc = tool.description();
     assert!(
-        desc.contains("memory_recall") && desc.contains("update_memory_md"),
+        desc.contains("memory_recall") && !desc.contains("update_memory_md"),
         "memory_store description must state the read→dedupe→write→update contract: {desc}"
     );
 }

@@ -856,7 +856,7 @@ fn workflow_builder_reaches_propose_workflow() {
 fn orchestrator_hands_integration_work_to_the_specialist() {
     run_case(Case {
         agent: "orchestrator",
-        agent_marker: "## Delegation (direct-first)",
+        agent_marker: "## How you work",
         entry: Entry::WebChat,
         user_message: "Check my Gmail for anything from my landlord.",
         scripted_completions: vec![
@@ -952,7 +952,7 @@ fn summarizer_advertises_no_tools() {
         entry: Entry::WebChat,
         user_message: "What is the state of my workspace?",
         scripted_completions: vec![
-            call("read_workspace_state", json!({})),
+            call("resolve_time", json!({ "expr": "now" })),
             text_completion("Workspace summary: nothing notable."),
             text_completion("Your workspace has nothing notable."),
         ],
@@ -1034,7 +1034,7 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         let requests = captured().clone();
         let orchestrator = requests
             .iter()
-            .find(|r| system_text(r).contains("## Delegation (direct-first)"))
+            .find(|r| system_text(r).contains("## How you work"))
             .expect("no orchestrator request captured");
         let prompt = system_text(orchestrator);
         let belt = advertised_tool_names(orchestrator);

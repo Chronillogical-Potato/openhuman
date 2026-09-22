@@ -3283,7 +3283,6 @@ const messages: TranslationMap = {
     'Срок действия сессии OpenHuman истёк. Войдите снова, чтобы загрузить триггеры.',
   'composio.triggers.needsConfiguration': 'Требуется настройка',
   'composio.triggers.noneAvailable': 'Сейчас нет доступных триггеров для',
-  'conversations.threadTodo.title': 'План',
   'conversations.composer.context.title': 'Контекстное окно',
   'conversations.composer.context.input': 'Ввод',
   'conversations.composer.context.cached': 'Ввод из кэша',
@@ -5849,9 +5848,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Источники задач',
   'settings.integrations.title': 'Интеграции',
   'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
-  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
+  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов агенту',
   'settings.taskSources.description':
-    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
+    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и передавайте агенту на разбор.',
   'settings.taskSources.connectHint':
     'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
   'settings.taskSources.disabledBanner':

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, PrefixSnapshot, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
+    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
     SessionTurnRequest, ToolSnapshot, TranscriptCodec, TranscriptTarget, TurnOptions,
     TurnPreparation,
 };
@@ -212,9 +212,8 @@ impl OpenHumanTurnPrelude {
         };
         let prefix = if cold {
             let learned = self.fetch_learned_context().await;
-            Some(PrefixSnapshot::new(vec![Message::system(
-                self.build_system_prompt(learned)?,
-            )]))
+            let tiered = self.build_system_prompt_tiered(learned)?;
+            Some(super::prefix_snapshot::tiered_prefix_snapshot(&tiered))
         } else {
             None
         };
@@ -337,10 +336,10 @@ impl OpenHumanTurnPrelude {
         }
     }
 
-    fn build_system_prompt(
+    fn build_system_prompt_tiered(
         &self,
         learned: crate::agent::prompts::LearnedContextData,
-    ) -> Result<String> {
+    ) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -394,7 +393,7 @@ impl OpenHumanTurnPrelude {
         self.context
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .build_system_prompt(&context)
+            .build_system_prompt_tiered(&context)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -802,6 +801,14 @@ impl OpenHumanTurnPrelude {
             ),
         ));
         run_context.sandbox_mode = Some(self.sandbox_mode);
+        // Same pin as `SessionDriver::run_turn`: the harness speaks the dialect
+        // the prompt was composed for, so a text dialect keeps its schemas off
+        // the wire and renders the catalogue itself (`ToolsSection` no longer
+        // does), and a code call is recovered against the positional registry.
+        run_context.tool_dialect = crate::agent::prompts::tool_call_format_from_dialect(
+            self.tool_dispatcher.tool_call_format(),
+        )
+        .harness_dispatcher();
         run_context
             .stop_hooks
             .extend(crate::agent::stop_hooks::current_stop_hooks());
@@ -1614,13 +1621,9 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    let resumed_prefix = view.resumed.then(|| {
-                        view.history
-                            .first()
-                            .filter(|message| matches!(message, Message::System(_)))
-                            .cloned()
-                            .map(|message| PrefixSnapshot::new(vec![message]))
-                    });
+                    let resumed_prefix = view
+                        .resumed
+                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();

@@ -115,12 +115,12 @@ impl OpenHumanHostBundleFactory {
     /// Constructs all ten concrete adapters from a single session input set.
     ///
     /// The run context supplies per-turn state, while `inputs` supplies durable
-    /// session/runtime dependencies. No adapter is optional for OpenHuman. An
-    /// unobserved context gets an unconsumed bounded sink, preserving the
-    /// concrete progress seam without discovering state through a task-local.
+    /// session/runtime dependencies. No adapter is optional for OpenHuman. The
+    /// progress seam is registered but unconsumed: the turn's live channel is
+    /// owned by `OpenhumanEventBridge` (see below).
     pub fn build(
         inputs: OpenHumanHostBundleInputs,
-        turn: &OpenHumanRunContext,
+        _turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
         let context = Arc::new(OpenHumanContextComposer::new(Arc::clone(&inputs.config)));
         let registered_tools = Arc::new(
@@ -154,11 +154,18 @@ impl OpenHumanHostBundleFactory {
         let models = Arc::new(OpenHumanModelResolver::new(Arc::clone(&inputs.config)));
         let memory = Arc::new(OpenHumanAgentMemory::new(Arc::clone(&inputs.memory)));
         let budget = Arc::new(OpenHumanBudgetGate::new(Arc::clone(&inputs.config)));
-        let progress_tx = turn
-            .progress
-            .clone()
-            .unwrap_or_else(|| tokio::sync::mpsc::channel(1).0);
-        let progress = Arc::new(OpenHumanProgressSink::new(progress_tx));
+        // The turn's live `AgentProgress` channel is fed by exactly one
+        // producer: `OpenhumanEventBridge`, which `turn_runner` subscribes to
+        // the run's `EventSink` on every turn and which carries what the UI
+        // needs (iteration attribution, thinking, tool-argument fragments,
+        // sub-agent scoping, cost). The harness also mirrors the loop onto the
+        // coarse host `ProgressSink` (`emit_host_progress`: `Token` per model
+        // delta, `ToolCall`/`ToolCallFinished`, `Finished`), so wiring this
+        // sink to the same channel delivered every delta and every tool row
+        // twice and interleaved the copies in the interim bubble. The sink
+        // stays registered as the host capability with an unconsumed channel;
+        // nothing OpenHuman renders depends on it.
+        let progress = Arc::new(OpenHumanProgressSink::new(tokio::sync::mpsc::channel(1).0));
         let learning = Arc::new(OpenHumanLearningSink::new(inputs.post_turn_hooks));
         let tool_outcomes = Arc::new(OpenHumanToolOutcomeClassifier::new());
         let experience = Arc::new(OpenHumanExperienceStore::new(inputs.memory));

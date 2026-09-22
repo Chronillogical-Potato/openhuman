@@ -14,7 +14,7 @@ fn guard() -> std::sync::MutexGuard<'static, ()> {
 }
 
 #[test]
-fn default_policy_is_auto_with_no_ranker_and_top_three() {
+fn default_policy_is_jev_with_no_ranker_and_top_three() {
     let _g = guard();
     clear_tool_ranker();
     apply_tool_search_config(&ToolSearchConfig::default());

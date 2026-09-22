@@ -7,19 +7,17 @@ use std::{
     sync::Mutex,
 };
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use async_trait::async_trait;
+use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
 use openhuman_core::api::config::effective_backend_api_url;
-use openhuman_core::api::headers::build_backend_client;
-use openhuman_core::api::transport::TransportProfile;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
-use serde_json::{json, Value};
+use tinyjevclient::{Client, ClientConfig};
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
-use tinytools_jev::{JevDecision, JevEvaluator, JevRanker, JevRankerConfig, JevRequest};
+use tinytools_jev::{JevRanker, JevRankerConfig, JevStrategy};
 
-const SYSTEM_ONE_PATH: &str = "agent-integrations/openrouter/systemone";
+use super::evaluator::TinyJevEvaluator;
 
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
@@ -32,133 +30,24 @@ pub type ConfigLoader =
 pub struct TinyHumansJevRanker {
     config: JevRankerConfig,
     load_config: ConfigLoader,
+    /// Deadline for one evaluation. Measured through the TinyHumans proxy
+    /// (2026-09) one evaluation takes 0.7–1.9 s at p50 and the family
+    /// strategy runs its second-stage evaluations concurrently, so six
+    /// seconds bounds a slow search well above the norm while still turning
+    /// a stalled proxy into a BM25 fallback inside the turn.
+    deadline: Duration,
     cached: Mutex<Option<Cached>>,
 }
+
+/// Default per-evaluation deadline; see `TinyHumansJevRanker::deadline`.
+const DEFAULT_DEADLINE: Duration = Duration::from_secs(6);
 
 struct Cached {
     fingerprint: u64,
     ranker: JevRanker,
-}
-
-/// OpenHuman's System One transport. `tinytools-jev` deliberately keeps this
-/// policy at the host boundary, where backend headers and credentials belong.
-struct TinyHumansJevEvaluator {
-    client: reqwest::Client,
-    base_url: String,
-    credential: String,
-}
-
-impl std::fmt::Debug for TinyHumansJevEvaluator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TinyHumansJevEvaluator")
-            .field("base_url", &self.base_url)
-            .finish_non_exhaustive()
-    }
-}
-
-#[async_trait]
-impl JevEvaluator for TinyHumansJevEvaluator {
-    async fn evaluate(&self, request: &JevRequest) -> Result<JevDecision, RankError> {
-        let response = self
-            .client
-            .post(format!(
-                "{}/{SYSTEM_ONE_PATH}",
-                self.base_url.trim_end_matches('/')
-            ))
-            .bearer_auth(&self.credential)
-            .json(&system_one_request(request))
-            .send()
-            .await
-            .map_err(|error| RankError::Backend {
-                reason: format!("Jev request failed: {error}"),
-            })?
-            .error_for_status()
-            .map_err(|error| RankError::Backend {
-                reason: format!("Jev request was rejected: {error}"),
-            })?;
-        let value: Value = response.json().await.map_err(|error| RankError::Backend {
-            reason: format!("Jev response could not be decoded: {error}"),
-        })?;
-        system_one_decision(value)
-    }
-}
-
-fn system_one_request(request: &JevRequest) -> Value {
-    let criteria = request
-        .options
-        .iter()
-        .map(|option| {
-            (
-                option.key.clone(),
-                Value::String(option.description.clone()),
-            )
-        })
-        .collect::<serde_json::Map<_, _>>();
-    let instructions = request.instructions.clone().unwrap_or_else(|| {
-        "Which tool accomplishes the user's `request`? Judge by what each tool does, not by shared words. Pick `none` when no listed tool does it.".into()
-    });
-    json!({
-        "state": {
-            "request": request.intent,
-            "recent_user_turns": request.recent_turns,
-        },
-        "model": request.model,
-        "questions": {
-            "tool": {
-                "type": "choice",
-                "instructions": instructions,
-                "criteria": criteria,
-            },
-            "needs_tool": {
-                "type": "noul",
-                "instructions": "Does fulfilling the user's `request` require calling a tool — an action or a lookup outside the assistant's own knowledge?",
-                "criteria": {
-                    "true": "The request asks for an action or for information that must be fetched.",
-                    "false": "The request can be answered by replying, with no tool.",
-                },
-            },
-        },
-    })
-}
-
-fn system_one_decision(value: Value) -> Result<JevDecision, RankError> {
-    let answers = value
-        .get("answers")
-        .and_then(Value::as_object)
-        .ok_or_else(|| RankError::Backend {
-            reason: "Jev response has no answers object".into(),
-        })?;
-    let tool = answers.get("tool").ok_or_else(|| RankError::Backend {
-        reason: "Jev response has no tool answer".into(),
-    })?;
-    let probabilities =
-        serde_json::from_value(tool.get("probabilities").cloned().ok_or_else(|| {
-            RankError::Backend {
-                reason: "Jev tool answer has no probabilities".into(),
-            }
-        })?)
-        .map_err(|error| RankError::Backend {
-            reason: format!("Jev tool probabilities are invalid: {error}"),
-        })?;
-    let choice_confidence = tool
-        .get("confidence")
-        .and_then(Value::as_f64)
-        .ok_or_else(|| RankError::Backend {
-            reason: "Jev tool answer has no confidence".into(),
-        })?;
-    Ok(JevDecision {
-        probabilities,
-        choice_confidence,
-        needs_tool: answers
-            .get("needs_tool")
-            .and_then(|answer| answer.get("noul"))
-            .and_then(Value::as_f64),
-        input_tokens: value
-            .get("usage")
-            .and_then(|usage| usage.get("input_tokens"))
-            .and_then(Value::as_u64),
-        attempts: 1,
-    })
+    /// The retriever inside `ranker`, kept so its catalogue embeddings
+    /// survive a credential change.
+    retriever: Arc<dyn ToolRanker>,
 }
 
 impl std::fmt::Debug for TinyHumansJevRanker {
@@ -176,10 +65,14 @@ impl Default for TinyHumansJevRanker {
 }
 
 impl TinyHumansJevRanker {
-    /// A ranker with `tinytools-jev`'s defaults: BM25 retrieval to 20, one
-    /// Jev decision, a 3 s deadline.
+    /// A ranker with the product defaults: the process's embedding provider
+    /// retrieves the top 20 tools by meaning, one Jev evaluation decides
+    /// (`RetrieveThenDecide`), 6 s deadline per evaluation. Without a usable
+    /// embedding provider the search does not run and the harness ranks
+    /// with BM25 alone — a lexical shortlist would cap Jev at BM25's recall,
+    /// which the bench measured at 70% on the Composio catalogue.
     pub fn new() -> Self {
-        Self::with_config(JevRankerConfig::new())
+        Self::with_config(JevRankerConfig::new().with_strategy(JevStrategy::RetrieveThenDecide))
     }
 
     /// A ranker with an explicit `tinytools-jev` configuration.
@@ -189,8 +82,15 @@ impl TinyHumansJevRanker {
             load_config: Arc::new(|| {
                 Box::pin(openhuman_core::config::ops::load_config_with_timeout())
             }),
+            deadline: DEFAULT_DEADLINE,
             cached: Mutex::new(None),
         }
+    }
+
+    /// Sets the per-evaluation deadline.
+    pub fn with_deadline(mut self, deadline: Duration) -> Self {
+        self.deadline = deadline;
+        self
     }
 
     /// Reads the config through `loader` instead of the core's read path.
@@ -231,16 +131,24 @@ impl TinyHumansJevRanker {
         {
             return Ok(entry.ranker.clone());
         }
-        let evaluator = TinyHumansJevEvaluator {
-            client: build_backend_client(TransportProfile::Integrations).map_err(|error| {
-                RankError::Backend {
-                    reason: format!("Jev client is unavailable: {error}"),
-                }
-            })?,
-            base_url: base_url.clone(),
-            credential: credential.into_secret(),
+        let mut client_config = ClientConfig::tinyhumans_openrouter(credential.into_secret());
+        client_config.base_url = base_url.clone();
+        let client = Client::new(client_config)
+            .map_err(|error| RankError::invalid_input(error.to_string()))?;
+        let evaluator: Arc<dyn tinytools_jev::JevEvaluator> =
+            Arc::new(TinyJevEvaluator::new(client).with_deadline(self.deadline));
+        // The retriever is the process's embedding provider when it can
+        // embed (the same one memory recall uses), so a family larger than
+        // one Jev Choice is cut by meaning, not by shared words. Reused
+        // across rebuilds so the catalogue is embedded once per process.
+        let retriever: Arc<dyn ToolRanker> = match cached.as_ref() {
+            Some(entry) => entry.retriever.clone(),
+            None => retriever_for(&config)?,
         };
-        let ranker = JevRanker::new(Arc::new(evaluator), self.config.clone());
+        let ranker = JevRanker::new(
+            evaluator,
+            self.config.clone().with_retriever(retriever.clone()),
+        );
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
             openhuman_core::util::redact::redact_url_for_log(&base_url),
@@ -253,9 +161,44 @@ impl TinyHumansJevRanker {
         *cached = Some(Cached {
             fingerprint,
             ranker: ranker.clone(),
+            retriever,
         });
         Ok(ranker)
     }
+}
+
+/// The semantic retriever for `config`'s embedding provider.
+///
+/// A provider that cannot embed (`none`) is an error, not a BM25 substitute:
+/// the harness answers the search with its own BM25 catalogue in that case,
+/// and a Jev decision over a lexical shortlist would only add a network
+/// round trip to the same recall.
+fn retriever_for(config: &Config) -> Result<Arc<dyn ToolRanker>, RankError> {
+    let provider =
+        openhuman_core::inference::embedding_host::default_embedding_provider_with_config(config);
+    if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
+        log::info!(
+            "[tool-search] embedding provider `{}` cannot embed; jev search disabled, bm25 answers",
+            provider.name()
+        );
+        return Err(RankError::backend(format!(
+            "no usable embedding provider (`{}`); jev search disabled",
+            provider.name()
+        )));
+    }
+    log::info!(
+        "[tool-search] retrieving with embeddings ({} / {})",
+        provider.name(),
+        provider.model_id()
+    );
+    Ok(Arc::new(
+        EmbeddingToolRanker::new(provider).with_disk_cache(
+            config
+                .workspace_dir
+                .join("cache")
+                .join("tool_search_embeddings.json"),
+        ),
+    ))
 }
 
 fn fingerprint(secret: &str, base_url: &str) -> u64 {
@@ -287,9 +230,10 @@ impl ToolRanker for TinyHumansJevRanker {
             .rank_detailed(intent, context, candidates, limit)
             .await?;
         log::debug!(
-            "[tool-search] jev ranked {} of {} shortlisted (choice_confidence={:.2} needs_tool={:?} none={:.2} latency_ms={} attempts={} input_tokens={:?})",
+            "[tool-search] jev ranked {} of {} shown (families={:?} choice_confidence={:.2} needs_tool={:?} none={:.2} latency_ms={} attempts={} input_tokens={:?})",
             ranking.hits.len(),
             ranking.shortlisted,
+            ranking.families,
             ranking.choice_confidence,
             ranking.needs_tool,
             ranking.none_probability,

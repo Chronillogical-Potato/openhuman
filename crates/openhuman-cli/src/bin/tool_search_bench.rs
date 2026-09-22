@@ -34,7 +34,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -116,6 +116,10 @@ struct RankerReport {
     usd: f64,
     /// `expected family -> top-1 family -> count`, labelled rows only.
     confusion: BTreeMap<String, BTreeMap<String, usize>>,
+    /// `source -> (labelled, top1, top3, recall@k)` where source is `composio`
+    /// or `core`; the connector catalogue is the heavy one, so it is read on
+    /// its own.
+    by_source: BTreeMap<String, (usize, usize, usize, usize)>,
     misses: Vec<Miss>,
 }
 
@@ -146,6 +150,8 @@ struct Args {
     top_k: usize,
     retrieval_k: usize,
     misses: bool,
+    family: bool,
+    embedding: bool,
 }
 
 fn parse_args() -> Args {
@@ -157,6 +163,8 @@ fn parse_args() -> Args {
         top_k: 3,
         retrieval_k: 20,
         misses: false,
+        family: false,
+        embedding: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -170,10 +178,12 @@ fn parse_args() -> Args {
                 args.retrieval_k = it.next().and_then(|v| v.parse().ok()).unwrap_or(20)
             }
             "--misses" => args.misses = true,
+            "--family" => args.family = true,
+            "--embedding" => args.embedding = true,
             "-h" | "--help" => {
                 eprintln!(
-                    "usage: tool-search-bench [--ranker all|bm25|overlap|jev] [--intents FILE] \
-                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses]"
+                    "usage: tool-search-bench [--ranker all|bm25|overlap|embedding|jev] [--intents FILE] \
+                     [--dump-catalogue] [--json OUT] [--top-k N] [--retrieval-k N] [--misses] [--family] [--embedding]"
                 );
                 std::process::exit(0);
             }
@@ -278,131 +288,87 @@ fn load_intents(path: &PathBuf) -> Result<Vec<IntentRow>> {
 use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
 #[cfg(feature = "jev")]
-#[derive(Debug)]
-struct BenchmarkJevEvaluator {
-    client: reqwest::Client,
-    endpoint: String,
-    api_key: String,
-}
-
-#[cfg(feature = "jev")]
-#[async_trait::async_trait]
-impl tinytools_jev::JevEvaluator for BenchmarkJevEvaluator {
-    async fn evaluate(
-        &self,
-        request: &tinytools_jev::JevRequest,
-    ) -> Result<tinytools_jev::JevDecision, tinytools::RankError> {
-        let criteria = request
-            .options
-            .iter()
-            .map(|option| {
-                (
-                    option.key.clone(),
-                    serde_json::Value::String(option.description.clone()),
-                )
-            })
-            .collect::<serde_json::Map<_, _>>();
-        let instructions = request.instructions.clone().unwrap_or_else(|| {
-            "Which tool accomplishes the user's `request`? Judge by what each tool does, not by shared words. Pick `none` when no listed tool does it.".into()
-        });
-        let response: serde_json::Value = self
-            .client
-            .post(&self.endpoint)
-            .bearer_auth(&self.api_key)
-            .json(&serde_json::json!({
-                "state": { "request": request.intent, "recent_user_turns": request.recent_turns },
-                "model": request.model,
-                "questions": {
-                    "tool": { "type": "choice", "instructions": instructions, "criteria": criteria },
-                    "needs_tool": { "type": "noul", "instructions": "Does fulfilling the user's `request` require calling a tool — an action or a lookup outside the assistant's own knowledge?" },
-                },
-            }))
-            .send()
-            .await
-            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev request failed: {error}") })?
-            .error_for_status()
-            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev request was rejected: {error}") })?
-            .json()
-            .await
-            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev response could not be decoded: {error}") })?;
-        let answers = response
-            .get("answers")
-            .and_then(serde_json::Value::as_object)
-            .ok_or_else(|| tinytools::RankError::Backend {
-                reason: "Jev response has no answers object".into(),
-            })?;
-        let tool = answers
-            .get("tool")
-            .ok_or_else(|| tinytools::RankError::Backend {
-                reason: "Jev response has no tool answer".into(),
-            })?;
-        Ok(tinytools_jev::JevDecision {
-            probabilities: serde_json::from_value(tool.get("probabilities").cloned().ok_or_else(
-                || tinytools::RankError::Backend {
-                    reason: "Jev tool answer has no probabilities".into(),
-                },
-            )?)
-            .map_err(|error| tinytools::RankError::Backend {
-                reason: format!("Jev tool probabilities are invalid: {error}"),
-            })?,
-            choice_confidence: tool
-                .get("confidence")
-                .and_then(serde_json::Value::as_f64)
-                .ok_or_else(|| tinytools::RankError::Backend {
-                    reason: "Jev tool answer has no confidence".into(),
-                })?,
-            needs_tool: answers
-                .get("needs_tool")
-                .and_then(|answer| answer.get("noul"))
-                .and_then(serde_json::Value::as_f64),
-            input_tokens: response
-                .get("usage")
-                .and_then(|usage| usage.get("input_tokens"))
-                .and_then(serde_json::Value::as_u64),
-            attempts: 1,
-        })
-    }
-}
-
-#[cfg(feature = "jev")]
-fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use tinytools_jev::{JevRanker, JevRankerConfig};
-    let (endpoint, api_key) = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
-        let base = std::env::var("BACKEND_URL")
-            .ok()
-            .filter(|base| !base.trim().is_empty())
-            .unwrap_or_else(|| "https://api.tinyhumans.ai".into());
-        (
-            format!(
-                "{}/agent-integrations/openrouter/systemone",
-                base.trim_end_matches('/')
-            ),
-            key,
-        )
+fn jev_ranker(
+    retrieval_k: usize,
+    family: bool,
+    embedding: bool,
+) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
+    use openhuman_tinyhumans::jev::TinyJevEvaluator;
+    use tinyjevclient::{Client, ClientConfig};
+    use tinytools_jev::JevRanker;
+    let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
+        let mut client = ClientConfig::tinyhumans_openrouter(key);
+        if let Ok(base) = std::env::var("BACKEND_URL") {
+            if !base.trim().is_empty() {
+                client.base_url = base.trim().trim_end_matches('/').to_string();
+            }
+        }
+        client
     } else if let Ok(key) = std::env::var("TYPESAFE_API_KEY") {
-        ("https://api.typesafe.ai/v1/systemone".into(), key)
+        ClientConfig::new(key)
     } else {
+        // No key in the environment: rank exactly as the product does, with
+        // the process's signed-in TinyHumans session resolved per search.
+        eprintln!("jev: no key in the environment; using the signed-in TinyHumans session");
         return None;
     };
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .ok()?;
-    let ranker = JevRanker::new(
-        Arc::new(BenchmarkJevEvaluator {
-            client,
-            endpoint,
-            api_key,
-        }),
-        JevRankerConfig::new().with_retrieval_k(retrieval_k),
-    );
-    let ranker = Arc::new(ranker);
+    let client = Client::new(client).ok()?;
+    let evaluator = Arc::new(TinyJevEvaluator::new(client).with_deadline(Duration::from_secs(20)));
+    let ranker = Arc::new(JevRanker::new(
+        evaluator,
+        jev_config(retrieval_k, family, embedding),
+    ));
     Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
 }
 
+#[cfg(feature = "jev")]
+fn jev_config(retrieval_k: usize, family: bool, embedding: bool) -> tinytools_jev::JevRankerConfig {
+    use tinytools_jev::{JevRankerConfig, JevStrategy};
+    let mut config = JevRankerConfig::new().with_retrieval_k(retrieval_k);
+    if family {
+        config = config.with_strategy(JevStrategy::FamilyThenDecide);
+    }
+    if embedding {
+        config = config.with_retriever(embedding_retriever());
+    }
+    config
+}
+
 #[cfg(not(feature = "jev"))]
-fn jev_ranker(_retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
+fn jev_ranker(
+    _retrieval_k: usize,
+    _family: bool,
+    _embedding: bool,
+) -> Option<(Arc<dyn ToolRanker>, Arc<()>)> {
     None
+}
+
+/// The process's configured embedding provider as a `ToolRanker`, with its
+/// catalogue cache in the scratch workspace so repeated runs embed only the
+/// intents.
+fn embedding_retriever() -> Arc<dyn ToolRanker> {
+    use openhuman_core::agent::tinyagents::discovery::EmbeddingToolRanker;
+    let config = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(openhuman_core::config::Config::load_or_init())
+    })
+    .expect("load config for the embedding provider");
+    let provider =
+        openhuman_core::inference::embedding_host::default_embedding_provider_with_config(&config);
+    if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
+        eprintln!(
+            "embedding: provider `{}` cannot embed; the bench retriever stays bm25",
+            provider.name()
+        );
+        return Arc::new(Bm25Ranker);
+    }
+    eprintln!("embedding: {} / {}", provider.name(), provider.model_id());
+    Arc::new(
+        EmbeddingToolRanker::new(provider).with_disk_cache(
+            repo_root()
+                .join("target")
+                .join("tool_search_bench_embeddings.json"),
+        ),
+    )
 }
 
 fn family_of<'a>(catalogue: &'a [CatalogueEntry], name: &str) -> &'a str {
@@ -458,19 +424,43 @@ async fn main() -> Result<()> {
     if want("overlap") {
         rankers.push(("overlap".into(), Arc::new(OverlapRanker)));
     }
+    if want("embedding") && args.embedding {
+        rankers.push(("embedding".into(), embedding_retriever()));
+    }
     if want("jev") {
-        match jev_ranker(args.retrieval_k) {
+        match jev_ranker(args.retrieval_k, args.family, args.embedding) {
             Some((ranker, _)) => rankers.push(("jev".into(), ranker)),
-            None => eprintln!(
-                "jev: skipped (set OPENHUMAN_BACKEND_API_KEY or TYPESAFE_API_KEY; build with the `jev` feature)"
-            ),
+            None => {
+                #[cfg(feature = "jev")]
+                {
+                    let ranker = openhuman_tinyhumans::jev::TinyHumansJevRanker::with_config(
+                        jev_config(args.retrieval_k, args.family, args.embedding),
+                    )
+                    .with_deadline(Duration::from_secs(20));
+                    rankers.push(("jev".into(), Arc::new(ranker)));
+                }
+                #[cfg(not(feature = "jev"))]
+                eprintln!("jev: skipped (build with the `jev` feature)");
+            }
         }
     }
 
     let mut reports = Vec::new();
     for (kind, ranker) in &rankers {
         let mut report = RankerReport {
-            ranker: kind.clone(),
+            ranker: if kind == "jev" {
+                format!(
+                    "jev({}{})",
+                    if args.family { "family" } else { "retrieve" },
+                    if args.embedding {
+                        "+embedding"
+                    } else {
+                        "+bm25"
+                    }
+                )
+            } else {
+                kind.clone()
+            },
             rows: rows.len(),
             ..RankerReport::default()
         };
@@ -499,11 +489,27 @@ async fn main() -> Result<()> {
                 continue;
             }
             report.labelled += 1;
-            if got.first().map(String::as_str) == Some(row.expected.as_str()) {
+            let source = if catalogue.iter().any(|e| {
+                e.name == row.expected
+                    && e.family
+                        .as_deref()
+                        .is_some_and(|f| FIXTURE_TOOLKITS.contains(&f))
+            }) {
+                "composio"
+            } else {
+                "core"
+            };
+            let bucket = report.by_source.entry(source.to_string()).or_default();
+            bucket.0 += 1;
+            let hit1 = got.first().map(String::as_str) == Some(row.expected.as_str());
+            let hit3 = got.iter().any(|g| g == &row.expected);
+            if hit1 {
                 report.top1 += 1;
+                bucket.1 += 1;
             }
-            if got.iter().any(|g| g == &row.expected) {
+            if hit3 {
                 report.top3 += 1;
+                bucket.2 += 1;
             } else if args.misses {
                 report.misses.push(Miss {
                     intent: row.intent.clone(),
@@ -511,9 +517,36 @@ async fn main() -> Result<()> {
                     got: got.clone(),
                 });
             }
-            let retrieved = Bm25Ranker::rank_sync(&candidates, &row.intent, args.retrieval_k);
-            if retrieved.iter().any(|h| h.key == row.expected) {
+            // Recall of the retriever Jev sits on: the embedding index when
+            // `--embedding`, BM25 otherwise. For the standalone rankers it is
+            // their own recall at `retrieval_k`.
+            let retrieved: Vec<String> = if kind == "jev" && !args.embedding || kind == "bm25" {
+                Bm25Ranker::rank_sync(&candidates, &row.intent, args.retrieval_k)
+                    .into_iter()
+                    .map(|h| h.key)
+                    .collect()
+            } else {
+                let retriever: Arc<dyn ToolRanker> = if kind == "jev" {
+                    embedding_retriever()
+                } else {
+                    ranker.clone()
+                };
+                retriever
+                    .rank(
+                        &row.intent,
+                        &RankContext::empty(),
+                        &candidates,
+                        args.retrieval_k,
+                    )
+                    .await
+                    .map(|hits| hits.into_iter().map(|h| h.key).collect())
+                    .unwrap_or_default()
+            };
+            if retrieved.iter().any(|h| h == &row.expected) {
                 report.recall_at_20 += 1;
+                if let Some(bucket) = report.by_source.get_mut(source) {
+                    bucket.3 += 1;
+                }
             }
             let expected_family = row
                 .family
@@ -537,7 +570,7 @@ async fn main() -> Result<()> {
     if let Some(report) = reports.iter_mut().find(|r| r.ranker == "jev") {
         // Tokens and cost: one detailed pass over the labelled rows so the
         // number is the provider's own `usage`, not an estimate.
-        if let Some((_, detailed)) = jev_ranker(args.retrieval_k) {
+        if let Some((_, detailed)) = jev_ranker(args.retrieval_k, args.family, args.embedding) {
             let mut tokens = 0_u64;
             let mut counted = 0_u64;
             for row in rows.iter().take(25) {
@@ -559,7 +592,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("| ranker | rows | top-1 | top-3 | recall@{} (bm25) | needless (of {}) | errors | p50 ms | p95 ms | tokens/search | USD/search |",
+    println!("| ranker | rows | top-1 | top-3 | retriever recall@{} | needless (of {}) | errors | p50 ms | p95 ms | tokens/search | USD/search |",
         args.retrieval_k,
         reports.first().map_or(0, |r| r.none_rows));
     println!("|---|---|---|---|---|---|---|---|---|---|---|");
@@ -593,6 +626,31 @@ async fn main() -> Result<()> {
                 format!("${:.5}", r.usd)
             },
         );
+    }
+    println!(
+        "\n| ranker | source | labelled | top-1 | top-3 | recall@{} |",
+        args.retrieval_k
+    );
+    println!("|---|---|---|---|---|---|");
+    for r in &reports {
+        for (source, (n, t1, t3, rk)) in &r.by_source {
+            let pct = |x: usize| {
+                if *n == 0 {
+                    "n/a".to_string()
+                } else {
+                    format!("{:.1}%", 100.0 * x as f64 / *n as f64)
+                }
+            };
+            println!(
+                "| {} | {} | {} | {} | {} | {} |",
+                r.ranker,
+                source,
+                n,
+                pct(*t1),
+                pct(*t3),
+                pct(*rk)
+            );
+        }
     }
     for r in &reports {
         println!(
