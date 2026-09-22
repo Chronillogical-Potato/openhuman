@@ -81,7 +81,7 @@ can always outgrow any fixed number.
 
 ---
 
-## 3. `main` does not build — three vendor gitlinks point at non-ancestor commits
+## 2. `main` does not build — three vendor gitlinks point at non-ancestor commits
 
 **Severity: critical. Nothing in Rust compiles on `main`.**
 
@@ -115,9 +115,9 @@ its upstream default branch would have caught the cause.
 
 ---
 
-## 2. The model never sees its own tool calls in the replayed transcript
+## 3. The model never sees its own tool calls in the replayed transcript
 
-**Severity: high. This is the main reason scenarios fail.**
+**Severity: high.**
 
 Every assistant turn that made a tool call is persisted with **empty content
 and no `tool_calls`**, and the tool result comes back as a plain `user`
@@ -208,7 +208,7 @@ does not reach it.
 
 ---
 
-## 6. `config.update_model_settings` accepts a BYOK config it cannot honour
+## 6. `config.update_model_settings` accepted a BYOK config it could not honour — FIXED on this branch
 
 **Severity: medium. Every subsequent turn fails.**
 
