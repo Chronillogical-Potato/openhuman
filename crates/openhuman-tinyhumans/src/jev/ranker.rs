@@ -66,12 +66,14 @@ impl Default for TinyHumansJevRanker {
 }
 
 impl TinyHumansJevRanker {
-    /// A ranker with the product defaults: family-then-decide (the
-    /// evaluator picks the toolkit or pack, then the tool), the process's
-    /// embedding provider as the retriever for any family too large for one
-    /// choice, a 3 s deadline per evaluation.
+    /// A ranker with the product defaults: the process's embedding provider
+    /// retrieves the top 20 tools by meaning, one Jev evaluation decides
+    /// (`RetrieveThenDecide`), 6 s deadline per evaluation. Without a usable
+    /// embedding provider the search does not run and the harness ranks
+    /// with BM25 alone — a lexical shortlist would cap Jev at BM25's recall,
+    /// which the bench measured at 70% on the Composio catalogue.
     pub fn new() -> Self {
-        Self::with_config(JevRankerConfig::new().with_strategy(JevStrategy::FamilyThenDecide))
+        Self::with_config(JevRankerConfig::new().with_strategy(JevStrategy::RetrieveThenDecide))
     }
 
     /// A ranker with an explicit `tinytools-jev` configuration.
@@ -139,7 +141,7 @@ impl TinyHumansJevRanker {
         // across rebuilds so the catalogue is embedded once per process.
         let retriever: Arc<dyn ToolRanker> = match cached.as_ref() {
             Some(entry) => entry.retriever.clone(),
-            None => retriever_for(&config),
+            None => retriever_for(&config)?,
         };
         let ranker = JevRanker::new(
             evaluator,
@@ -163,32 +165,39 @@ impl TinyHumansJevRanker {
     }
 }
 
-/// The semantic retriever for `config`'s embedding provider, or BM25 when
-/// the provider cannot embed (`none`, or a managed provider with no route).
-fn retriever_for(config: &Config) -> Arc<dyn ToolRanker> {
+/// The semantic retriever for `config`'s embedding provider.
+///
+/// A provider that cannot embed (`none`) is an error, not a BM25 substitute:
+/// the harness answers the search with its own BM25 catalogue in that case,
+/// and a Jev decision over a lexical shortlist would only add a network
+/// round trip to the same recall.
+fn retriever_for(config: &Config) -> Result<Arc<dyn ToolRanker>, RankError> {
     let provider = openhuman_core::inference::embedding_host::default_embedding_provider_with_config(
         config,
     );
     if !EmbeddingToolRanker::provider_is_usable(provider.as_ref()) {
         log::info!(
-            "[tool-search] embedding provider `{}` cannot embed; retrieving with bm25",
+            "[tool-search] embedding provider `{}` cannot embed; jev search disabled, bm25 answers",
             provider.name()
         );
-        return Arc::new(tinytools::Bm25Ranker);
+        return Err(RankError::backend(format!(
+            "no usable embedding provider (`{}`); jev search disabled",
+            provider.name()
+        )));
     }
     log::info!(
         "[tool-search] retrieving with embeddings ({} / {})",
         provider.name(),
         provider.model_id()
     );
-    Arc::new(
+    Ok(Arc::new(
         EmbeddingToolRanker::new(provider).with_disk_cache(
             config
                 .workspace_dir
                 .join("cache")
                 .join("tool_search_embeddings.json"),
         ),
-    )
+    ))
 }
 
 fn fingerprint(secret: &str, base_url: &str) -> u64 {
