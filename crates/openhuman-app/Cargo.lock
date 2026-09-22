@@ -4296,8 +4296,8 @@ dependencies = [
  "tinymemory-sources",
  "tinyruntime-bus",
  "tinyskills",
- "tinytools 0.3.0",
- "tinytools-agent 0.3.0",
+ "tinytools 0.4.1",
+ "tinytools-agent 0.4.1",
  "tinyvoice-bus",
  "tinywallet-bus",
  "tokio",
@@ -4410,6 +4410,9 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
  "tinyhumans-sdk",
+ "tinyjevclient",
+ "tinytools 0.4.1",
+ "tinytools-jev",
  "tokio",
  "url",
  "urlencoding",
@@ -7033,7 +7036,7 @@ dependencies = [
  "serde_json",
  "tinyagents-harness",
  "tinyinference-llm",
- "tinytools 0.3.0",
+ "tinytools 0.4.1",
  "tokio",
  "tracing",
 ]
@@ -7060,8 +7063,8 @@ dependencies = [
  "tinyagents-definition",
  "tinyinference-embeddings",
  "tinyinference-llm",
- "tinytools 0.3.0",
- "tinytools-agent 0.3.0",
+ "tinytools 0.4.1",
+ "tinytools-agent 0.4.1",
  "tokio",
  "tracing",
  "uuid",
@@ -7084,7 +7087,7 @@ dependencies = [
  "tinyagents-runtime",
  "tinyagents-session",
  "tinyinference-llm",
- "tinytools 0.3.0",
+ "tinytools 0.4.1",
  "tokio",
  "uuid",
 ]
@@ -7100,7 +7103,7 @@ dependencies = [
  "tinyagents-definition",
  "tinyagents-harness",
  "tinyinference-llm",
- "tinytools 0.3.0",
+ "tinytools 0.4.1",
 ]
 
 [[package]]
@@ -7113,7 +7116,7 @@ dependencies = [
  "tinyagents-harness",
  "tinyagents-session",
  "tinyinference-llm",
- "tinytools 0.3.0",
+ "tinytools 0.4.1",
  "tokio",
 ]
 
@@ -7409,7 +7412,7 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
- "tinytools-agent 0.3.0 (git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71)",
+ "tinytools-agent 0.3.0",
  "tokio",
  "tracing",
 ]
@@ -7469,6 +7472,19 @@ dependencies = [
  "tinyinference-local",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "tinyjevclient"
+version = "0.2.1"
+source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=e53d5f088ff03fa38c53bac219dab7697b5016c9#e53d5f088ff03fa38c53bac219dab7697b5016c9"
+dependencies = [
+ "httpdate",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -7590,6 +7606,7 @@ dependencies = [
 [[package]]
 name = "tinytools"
 version = "0.3.0"
+source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7599,8 +7616,7 @@ dependencies = [
 
 [[package]]
 name = "tinytools"
-version = "0.3.0"
-source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7611,6 +7627,7 @@ dependencies = [
 [[package]]
 name = "tinytools-agent"
 version = "0.3.0"
+source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
 dependencies = [
  "regex",
  "serde",
@@ -7620,13 +7637,20 @@ dependencies = [
 
 [[package]]
 name = "tinytools-agent"
-version = "0.3.0"
-source = "git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71#a5d04a7f3af0abc1dd748f87f94871b36ae9fe71"
+version = "0.4.1"
 dependencies = [
  "regex",
  "serde",
  "serde_json",
- "tinytools 0.3.0 (git+https://github.com/tinyhumansai/tinytools?rev=a5d04a7f3af0abc1dd748f87f94871b36ae9fe71)",
+ "tinytools 0.4.1",
+]
+
+[[package]]
+name = "tinytools-jev"
+version = "0.4.1"
+dependencies = [
+ "async-trait",
+ "tinytools 0.4.1",
 ]
 
 [[package]]
