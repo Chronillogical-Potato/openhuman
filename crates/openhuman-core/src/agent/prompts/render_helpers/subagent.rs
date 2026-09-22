@@ -192,7 +192,9 @@ pub fn render_subagent_system_prompt_with_format(
         description: tool.description().to_string(),
         parameters: tool.parameters_schema(),
     }));
-    out.push_str(&render_tool_dialect_prompt(tool_call_format, &tool_specs));
+    if !tool_specs.is_empty() {
+        out.push_str(&render_tool_dialect_prompt(tool_call_format, &tool_specs));
+    }
     out.push_str("\nUse the provided tools to accomplish the task. Reply with a concise, dense final answer when you have one — the parent agent will weave it back into the user-visible response.\n\n");
 
     // 3b. Optional safety preamble. Definitions that do work with real
@@ -273,7 +275,7 @@ fn render_tool_dialect_prompt(format: ToolCallFormat, tools: &[tinytools::ToolSp
 
 /// Use TinyAgents' complete text-mode prompt contract rather than teaching a
 /// local JSON convention that could drift from transcript replay and parsing.
-fn harness_json_tool_prompt(tools: &[tinytools::ToolSpec]) -> String {
+pub(crate) fn harness_json_tool_prompt(tools: &[tinytools::ToolSpec]) -> String {
     let schemas: Vec<tinyinference_llm::tool::ToolSchema> = tools
         .iter()
         .map(|tool| {
