@@ -7,10 +7,11 @@
  * JSON-RPC, and reports tokens, prompt-cache hit rate, cost, latency and a
  * graded completion score.
  *
- * It measures the *core*, not the desktop app: no Tauri, no frontend. The
- * spawned core reuses the operator's `~/.openhuman` for credentials so the
- * turns run on the real logged-in route, but writes all of its own state into
- * a throwaway run directory.
+ * It measures the *core*, not the desktop app: no Tauri, no frontend, and a
+ * `HOME` of its own so it never reads or writes the operator's `~/.openhuman`
+ * — installing a credential there would sign a running desktop app out. Every
+ * external dependency is pinned: inference goes to OpenRouter on the caller's
+ * key, and Composio is a local mock. Nothing hosted is required.
  *
  * Usage:
  *   node scripts/life-scenarios/run.mjs                      # all scenarios
@@ -209,13 +210,17 @@ class Core {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, approvalGate }) {
+  async start({ actionDir, logPath, approvalGate, home, composioBase }) {
     this.port = await freePort();
     this.logPath = logPath;
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
     const env = {
       ...process.env,
+      // A private HOME is the isolation boundary: `default_root_openhuman_dir`
+      // resolves `<home>/.openhuman`, so config, keyring, auth profiles,
+      // workspace and session db all land inside the run directory.
+      HOME: home,
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
@@ -228,9 +233,13 @@ class Core {
       ...(approvalGate ? {} : { OPENHUMAN_APPROVAL_GATE: "0" }),
       RUST_LOG: process.env.RUST_LOG || "info",
     };
-    // The operator config may point `api_url` at a local capture proxy that is
-    // not running. Let the caller pin the backend explicitly.
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
+    if (composioBase) {
+      // Both are read by `integrations/composio/client/factory.rs`; setting
+      // them points the direct Composio client at the local mock.
+      env.OPENHUMAN_COMPOSIO_DIRECT_BASE_V3 = composioBase;
+      env.OPENHUMAN_COMPOSIO_DIRECT_BASE_V2 = composioBase;
+    }
 
     this.proc = spawn(this.opts.coreBin, ["serve", "--jsonrpc-only"], {
       env,
