@@ -464,13 +464,6 @@ jobs:
           bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman \
             --features "$(bash scripts/ci/product-features.sh)" -- -D warnings
 
-      - name: Guard — the fixed prompt prefix may not grow
-        if: needs.changes.outputs['rust-core'] == 'true'
-        # Until this step no lane ran check-prompt-budget.sh, and the recorded
-        # limits rotted unnoticed. It builds openhuman-core with the same
-        # product feature set clippy just resolved.
-        run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
-
       - name: Run clippy (core crate, contributor default set)
         if: needs.changes.outputs['rust-core'] == 'true'
         # The set a contributor's editor and pre-push hook actually compile. A
@@ -510,6 +503,22 @@ jobs:
       - name: Run clippy (Tauri shell)
         if: needs.changes.outputs['rust-tauri'] == 'true'
         run: bash scripts/ci-cancel-aware.sh cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings
+
+      # LAST on purpose. A failing step halts its job, so every step after it
+      # reports SKIPPED rather than running. This guard went red between
+      # 2026-09-21T21:26Z and 22:24Z (#6423) and from then on skipped the five
+      # steps that used to sit behind it on every Rust-touching PR -- including
+      # `cargo test -p openhuman-embed` and `cargo test -p openhuman-tinyhumans`,
+      # which are test suites, not lints. Keeping this step last means a budget
+      # overrun can never conceal a lint or a test suite again. It is NOT
+      # suppressed: the step still runs, still fails, the job still goes red and
+      # `PR CI Gate` still blocks the PR.
+      #
+      # It builds openhuman-core with the product feature set from
+      # scripts/ci/product-features.sh, the same set the clippy steps above use.
+      - name: Guard — the fixed prompt prefix may not grow
+        if: needs.changes.outputs['rust-core'] == 'true'
+        run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
 
   # Feature-gate smoke: proves the core still compiles with a domain gate turned
   # OFF. The disabled build is the ONLY thing that catches stub-facade signature
