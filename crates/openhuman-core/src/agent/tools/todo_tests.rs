@@ -173,12 +173,11 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
     crate::agent::todos::ops::clear(&a).await.unwrap();
     crate::agent::todos::ops::clear(&b).await.unwrap();
 
-    let mut card = TaskBoardCard::new("only in a");
-    card.status = TaskCardStatus::InProgress;
-    crate::agent::todos::ops::replace(&a, vec![card]).await.unwrap();
+    let item = TodoItem::with_status("only in a", TodoStatus::InProgress);
+    crate::agent::todos::ops::replace(&a, vec![item]).await.unwrap();
 
     let a_again = crate::agent::todos::ops::list(&a).await.unwrap();
-    assert_eq!(a_again.cards.len(), 1, "a later turn of the same session reads it back");
+    assert_eq!(a_again.items.len(), 1, "a later turn of the same session reads it back");
     assert_eq!(a_again.session_id.as_deref(), Some("sess-a"));
-    assert!(crate::agent::todos::ops::list(&b).await.unwrap().cards.is_empty());
+    assert!(crate::agent::todos::ops::list(&b).await.unwrap().items.is_empty());
 }

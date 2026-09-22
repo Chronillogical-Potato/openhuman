@@ -1,8 +1,8 @@
 //! `todo` — the session's todo list, the way Claude Code and Codex have it.
 //!
 //! One call writes the whole list: `{"todos": [{"content", "status"}]}`.
-//! There is no per-card CRUD, no approval gate, no evidence, no plan; the
-//! list is a progress checklist the model rewrites as it works. It is scoped
+//! There is no per-item CRUD; the list is a progress checklist the model
+//! rewrites as it works. It is scoped
 //! to the agent session the turn runs in (in memory, for the life of the
 //! process) via [`crate::agent::todos::ops`]; without a session (a bare
 //! `execute` in a test) it falls back to a scratch list. Calling with no
@@ -10,7 +10,7 @@
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, TodoScope};
-use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
+use crate::agent::todos::types::{TodoItem, TodoStatus};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
@@ -142,58 +142,33 @@ impl TodoTool {
             Some(raw) => {
                 let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
                     .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
-                let mut cards = Vec::with_capacity(items.len());
+                let mut todos = Vec::with_capacity(items.len());
                 for item in items {
                     let content = item.content.trim();
                     if content.is_empty() {
                         anyhow::bail!("every todo needs non-empty `content`");
                     }
-                    let mut card = TaskBoardCard::new(content);
-                    card.status = match item.status.as_deref() {
-                        None => TaskCardStatus::Todo,
+                    let status = match item.status.as_deref() {
+                        None => TodoStatus::Pending,
                         Some(raw) => ops::parse_status(raw).map_err(anyhow::Error::msg)?,
                     };
-                    cards.push(card);
+                    todos.push(TodoItem::with_status(content, status));
                 }
-                ops::replace(&scope, cards).await
+                ops::replace(&scope, todos).await
             }
         };
 
         match result {
             Ok(snap) => {
-                let todos: Vec<serde_json::Value> = snap
-                    .cards
-                    .iter()
-                    .map(|card| {
-                        json!({
-                            "content": card.title,
-                            "status": wire_status(card.status),
-                        })
-                    })
-                    .collect();
                 let payload = json!({
                     "sessionId": snap.session_id,
-                    "todos": todos,
+                    "todos": snap.items,
                     "markdown": snap.markdown,
                 });
                 Ok(ToolResult::success(payload.to_string()))
             }
             Err(err) => Ok(ToolResult::error(err)),
         }
-    }
-}
-
-/// The three states the model is told about. Store states the list can no
-/// longer produce (`ready`, `awaiting_approval`, `rejected`, `blocked`) fold
-/// into the nearest one so an old thread still reads sensibly.
-fn wire_status(status: TaskCardStatus) -> &'static str {
-    match status {
-        TaskCardStatus::InProgress => "in_progress",
-        TaskCardStatus::Done | TaskCardStatus::Rejected => "completed",
-        TaskCardStatus::Todo
-        | TaskCardStatus::Ready
-        | TaskCardStatus::AwaitingApproval
-        | TaskCardStatus::Blocked => "pending",
     }
 }
 
