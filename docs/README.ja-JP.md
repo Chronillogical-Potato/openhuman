@@ -65,7 +65,7 @@ OpenHuman は、ほとんどのアシスタントが持っていない 3 つの�
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: あなたのデータはスコアリングされた Markdown ツリーへ圧縮されてあなたのマシン上の SQLite に保存され、開いて編集できる [Obsidian ボルト](https://x.com/karpathy/status/2039805659525644595)としてミラーリングされます。ベクトルスープのブラックボックスではありません。
 - **[100+ の OAuth 統合、5,000+ の MCP サーバー、90,000+ の Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: Gmail、Notion、GitHub、Slack などのスタックにワンクリックで接続。[自動取得](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)が 20 分ごとに脳に栄養を与えるので、今朝の時点で明日のコンテキストを持っています。
-- **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: 長期ゴール、スレッドごとの永続ゴール、そして会話ごとの共有かんばんボード。
+- **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: 長期ゴール、スレッドごとの永続ゴール、そしてチャットに表示されるエージェントのToDoリスト。
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ツール出力はモデルに届く前に圧縮され、同じ情報を最大 80% 少ないトークンで扱えます。これがなければ、これほど大きな脳は維持できません。
 
 ### 🕸️ オーケストレーター
