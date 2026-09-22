@@ -355,6 +355,7 @@ async fn runtime_adapter_passes_host_context_commits_before_finalize_and_emits_o
                 request_id: Some("request-1".into()),
                 thread_id: Some("thread-1".into()),
                 stream: false,
+                session: None,
                 resume: Default::default(),
                 cancellation: cancellation.clone(),
                 run_context: context

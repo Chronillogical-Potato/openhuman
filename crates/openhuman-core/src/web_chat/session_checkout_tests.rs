@@ -251,7 +251,6 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
         None,
         None,
         CheckoutPolicy::Fork,
-        "",
     )
     .await
     .unwrap();
