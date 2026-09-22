@@ -252,7 +252,9 @@ const server = http.createServer((req, res) => {
           res.write(chunk);
         });
         upstreamRes.on('end', () => {
-          res.end();
+          // Summarise before closing the client side, so anything waiting on
+          // the response (a test, a script driving turns) can read the record
+          // as soon as its call returns.
           const text = Buffer.concat(pieces).toString('utf8');
           const status = upstreamRes.statusCode || 502;
           const record = {
@@ -270,6 +272,7 @@ const server = http.createServer((req, res) => {
             record.response_body = path.join(captureAllDir, name);
           }
           appendSummary(record);
+          res.end();
         });
         upstreamRes.on('error', error => {
           process.stderr.write(`[capture] upstream stream error: ${error.message}\n`);
