@@ -1,8 +1,11 @@
 //! OpenHuman host adapter over [`tinyagents_graph::todos`].
 //!
-//! OpenHuman keeps its board-location and optional-thread snapshot shapes for
-//! agent runtime callers. All todo data, normalization, CRUD,
-//! and compare-and-set behavior is owned by TinyAgents.
+//! A todo list is scoped to one conversation thread ([`TodoScope::Thread`])
+//! or, when a tool runs with no thread at all, to a process-global scratch
+//! list ([`TodoScope::Scratch`]). The store, normalisation and rendering are
+//! TinyAgents'; this file only picks the store for a scope and reshapes the
+//! snapshot for OpenHuman callers. The whole-list `replace` is the only
+//! write the `todo` tool needs; `clear` is for tests and cleanup.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,11 +16,9 @@ use tinyagents_harness::store::Store;
 
 use crate::agent::tinyagents::todos::{scratch_todos_store, todos_store, SCRATCH_THREAD_ID};
 use crate::agent::todos::types::normalize_cards_for_wire;
-pub use crate::agent::todos::types::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
+pub use crate::agent::todos::types::{TaskBoardCard, TaskCardStatus};
 
-pub const USER_TASKS_THREAD_ID: &str = "user-tasks";
-
-pub use tinyagents_graph::todos::{parse_status, render_markdown, CardPatch};
+pub use tinyagents_graph::todos::{parse_status, render_markdown};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,7 +29,7 @@ pub struct TodosSnapshot {
 }
 
 #[derive(Debug, Clone)]
-pub enum BoardLocation {
+pub enum TodoScope {
     Thread {
         workspace_dir: PathBuf,
         thread_id: String,
@@ -36,7 +37,7 @@ pub enum BoardLocation {
     Scratch,
 }
 
-impl BoardLocation {
+impl TodoScope {
     pub fn thread_id(&self) -> Option<&str> {
         match self {
             Self::Thread { thread_id, .. } => Some(thread_id),
@@ -45,143 +46,49 @@ impl BoardLocation {
     }
 }
 
-pub(super) fn target(location: &BoardLocation) -> (Arc<dyn Store>, &str) {
-    match location {
-        BoardLocation::Thread {
+fn target(scope: &TodoScope) -> (Arc<dyn Store>, &str) {
+    match scope {
+        TodoScope::Thread {
             workspace_dir,
             thread_id,
         } => (todos_store(workspace_dir), thread_id),
-        BoardLocation::Scratch => (scratch_todos_store(), SCRATCH_THREAD_ID),
+        TodoScope::Scratch => (scratch_todos_store(), SCRATCH_THREAD_ID),
     }
 }
 
-fn snapshot(
-    location: &BoardLocation,
-    value: tinyagents_graph::todos::TodosSnapshot,
-) -> TodosSnapshot {
+fn snapshot(scope: &TodoScope, value: tinyagents_graph::todos::TodosSnapshot) -> TodosSnapshot {
     TodosSnapshot {
-        thread_id: location.thread_id().map(str::to_owned),
+        thread_id: scope.thread_id().map(str::to_owned),
         cards: value.cards,
         markdown: value.markdown,
     }
 }
 
 fn finish(
-    location: &BoardLocation,
+    scope: &TodoScope,
     result: tinyagents_harness::error::Result<tinyagents_graph::todos::TodosSnapshot>,
 ) -> Result<TodosSnapshot, String> {
     let mut value = result.map_err(|error| error.to_string())?;
     normalize_cards_for_wire(&mut value.cards);
-    Ok(snapshot(location, value))
+    Ok(snapshot(scope, value))
 }
 
-pub async fn add(
-    location: &BoardLocation,
-    content: &str,
-    patch: CardPatch,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(
-        location,
-        todos::add(&store, thread_id, content, patch).await,
-    )
+pub async fn replace(scope: &TodoScope, cards: Vec<TaskBoardCard>) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(scope);
+    finish(scope, todos::replace(&store, thread_id, cards).await)
 }
 
-pub async fn edit(
-    location: &BoardLocation,
-    id: &str,
-    patch: CardPatch,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(location, todos::edit(&store, thread_id, id, patch).await)
+pub async fn clear(scope: &TodoScope) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(scope);
+    finish(scope, todos::clear(&store, thread_id).await)
 }
 
-pub async fn update_status(
-    location: &BoardLocation,
-    id: &str,
-    status: TaskCardStatus,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(
-        location,
-        todos::update_status(&store, thread_id, id, status).await,
-    )
-}
-
-pub async fn set_session_thread(
-    location: &BoardLocation,
-    id: &str,
-    session_thread_id: Option<String>,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(
-        location,
-        todos::set_session_thread(&store, thread_id, id, session_thread_id).await,
-    )
-}
-
-pub async fn decide_plan(
-    location: &BoardLocation,
-    id: &str,
-    approve: bool,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(
-        location,
-        todos::decide_plan(&store, thread_id, id, approve).await,
-    )
-}
-
-pub async fn revise_plan(
-    location: &BoardLocation,
-    feedback: &str,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    tracing::info!(
-        thread_id,
-        feedback_len = feedback.len(),
-        "[todos][ops] revise_plan requested re-plan"
-    );
-    finish(location, todos::revise_plan(&store, thread_id).await)
-}
-
-pub async fn remove(location: &BoardLocation, id: &str) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(location, todos::remove(&store, thread_id, id).await)
-}
-
-pub async fn replace(
-    location: &BoardLocation,
-    cards: Vec<TaskBoardCard>,
-) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(location, todos::replace(&store, thread_id, cards).await)
-}
-
-pub async fn clear(location: &BoardLocation) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
-    finish(location, todos::clear(&store, thread_id).await)
-}
-
-pub async fn list(location: &BoardLocation) -> Result<TodosSnapshot, String> {
-    let (store, thread_id) = target(location);
+pub async fn list(scope: &TodoScope) -> Result<TodosSnapshot, String> {
+    let (store, thread_id) = target(scope);
     todos::list(&store, thread_id)
         .await
-        .map(|value| snapshot(location, value))
+        .map(|value| snapshot(scope, value))
         .map_err(|error| error.to_string())
-}
-
-pub async fn claim_card(
-    location: &BoardLocation,
-    card_id: &str,
-    expected: &[TaskCardStatus],
-    target_status: TaskCardStatus,
-) -> Result<TaskBoardCard, String> {
-    let (store, thread_id) = target(location);
-    let card = todos::claim_card(&store, thread_id, card_id, expected, target_status)
-        .await
-        .map_err(|error| error.to_string())?;
-    Ok(card)
 }
 
 #[cfg(test)]
