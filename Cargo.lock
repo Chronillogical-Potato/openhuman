@@ -4178,6 +4178,7 @@ dependencies = [
  "tinymemory-api",
  "tinytools 0.3.0",
  "tinytools-agent 0.3.0",
+ "tinytools-jev",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
