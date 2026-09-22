@@ -229,7 +229,11 @@ named = [
     # strips this name from the allowlist and keeps the deferred set beside it
     # (`agent/session_host/builder/builder_build.rs`).
     "tool_search",
-    "ask_user_clarification",
+    # `ask_user_clarification` is deliberately absent. On the chat surface it
+    # is a no-op with a schema cost: it ends the turn with the question as the
+    # reply, which is exactly what asking in prose does. It stays on the
+    # sub-agent belts, where a headless child has no other way to pause into
+    # `awaiting_user` for `continue_subagent`.
 # Direct coding surface. The Master Agent owns the normal inspect → edit →
 # verify loop in the action sandbox. `apply_patch` is the one edit mechanism
 # for existing files, `file_write` creates new files, and `shell` runs builds
