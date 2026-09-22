@@ -38,7 +38,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use tinytools::{Bm25Ranker, RankCandidate, RankContext, RankHit, ToolRanker};
+use tinytools::{Bm25Ranker, RankCandidate, RankContext, ToolRanker};
 
 /// jev-1.13 list price for input tokens, USD per million; output is free.
 const JEV_USD_PER_MILLION_INPUT: f64 = 0.042;
