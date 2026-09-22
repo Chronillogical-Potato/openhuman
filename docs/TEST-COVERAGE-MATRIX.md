@@ -525,6 +525,22 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 > Removed. The Rewards page, its API client, slice and Playwright specs were deleted; the section id is kept so later numbering is stable.
 
+### 12.1 Role Unlocking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.1.1 | Activity-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.2 | Integration-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.3 | Plan-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+
+### 12.2 Progress Tracking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.2.1 | Message Count Tracking | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.2 | Usage Metrics | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.3 | State Persistence | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+
 ---
 
 ## 13. Settings & Developer Tools

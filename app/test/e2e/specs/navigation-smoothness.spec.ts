@@ -53,7 +53,6 @@ const ROUTES: RouteCheck[] = [
     hash: '/notifications',
     markers: ['Notifications', 'Alerts', 'Notification', 'No notifications'],
   },
-  { hash: '/rewards', markers: ['Rewards', 'Referral', 'Credits', 'Earn', 'Invite'] },
   { hash: '/settings', markers: ['Settings', 'Account', 'Billing', 'Advanced'] },
   // Brain page (the old /activity & /intelligence pages were retired; memory
   // lives here now). Tabs: Graph, Memory, Sources, Sync.

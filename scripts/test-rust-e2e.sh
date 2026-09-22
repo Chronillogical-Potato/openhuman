@@ -152,6 +152,18 @@ if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
   export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
 fi
 
+# Module-backed Composio coverage must use the pinned local artifact as well.
+# Without this override the core resolves TinyConnectors through release
+# metadata, turning an otherwise hermetic mock-backend suite into a network
+# dependency and permanently faulting that process when the lookup fails.
+if [ -z "${TINYCONNECTORS_TEST_MODULE:-}" ]; then
+  connectors_manifest="vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml"
+  connectors_module="vendor/tinyconnectors/target/release/libtinyconnectors.so"
+  echo "[rust-e2e] Building pinned TinyConnectors test module ..."
+  "$CARGO_BIN" build --release --manifest-path "$connectors_manifest"
+  export TINYCONNECTORS_TEST_MODULE="$REPO_ROOT/$connectors_module"
+fi
+
 echo "[rust-e2e] Running ${#SUITES[@]} suite(s) serially."
 
 run_json_rpc_e2e_suite() {

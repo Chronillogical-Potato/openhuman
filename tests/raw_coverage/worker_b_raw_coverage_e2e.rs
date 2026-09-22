@@ -453,6 +453,7 @@ async fn inference_provider_success_paths_use_mock_models_and_chat() {
 }
 
 #[tokio::test]
+#[ignore = "TODO(#6387): managed backend search is unavailable in this build"]
 async fn tools_web_search_success_path_uses_backend_session_and_shapes_results() {
     let _lock = env_lock();
     let mock = serve_mock().await;

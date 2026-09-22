@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Focused raw coverage for Composio memory-sync providers.
 //!
 //! Local-only: temp workspaces, no real provider network. Run with

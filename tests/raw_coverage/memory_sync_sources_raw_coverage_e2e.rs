@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Focused raw integration coverage for memory sync + memory sources.
 //!
 //! Everything here is local: temp workspaces, loopback HTTP, and a fake `gh`

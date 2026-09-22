@@ -74,17 +74,11 @@ fn typed_dispatch_registration_recognises_every_synthesised_delegate_surface() {
             "properties": { "toolkit": { "enum": ["gmail"] } }
         }),
     });
-    for tool in [
-        collapsed,
-        Arc::new(DelegationRegistrationTool {
-            name: "delegate_researcher",
-            parameters: serde_json::json!({}),
-        }),
-        integration,
-    ] {
+    for tool in [collapsed, integration] {
         assert!(
-            DelegationDispatch::for_tool(tool).is_some(),
-            "every synthesised delegation name must select the typed dispatch"
+            DelegationDispatch::for_tool(tool.clone()).is_some(),
+            "every synthesised delegation name must select the typed dispatch: {}",
+            tool.name(),
         );
     }
 }

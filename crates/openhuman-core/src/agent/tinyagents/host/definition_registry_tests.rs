@@ -228,20 +228,19 @@ fn denylist_supports_exact_and_prefix_forms() {
     assert!(!disallows_tool(&denied, "file_read"));
 }
 
-/// A wildcard scope with nothing denied is the one case where the crate's
-/// "empty means unrestricted" marker is the faithful projection.
+/// A wildcard scope materializes the session's registered tool surface.
 #[test]
-fn an_undenied_wildcard_scope_projects_the_unrestricted_marker() {
+fn an_undenied_wildcard_scope_projects_registered_tools() {
     let mut def = synthetic("wide", AgentTier::Worker, &[]);
     def.tools = ToolScope::Wildcard;
     def.disallowed_tools = Vec::new();
 
-    assert!(
+    assert_eq!(
         registry_of(vec![def.clone()])
+            .with_registered_tools(Arc::new(vec!["file_read".to_string()]))
             .project(&def)
-            .tools
-            .is_empty(),
-        "an undenied wildcard is genuinely unrestricted"
+            .tools,
+        vec!["file_read".to_string()]
     );
 }
 

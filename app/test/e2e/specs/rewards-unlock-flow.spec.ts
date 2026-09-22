@@ -93,7 +93,8 @@ async function waitForRewardsSnapshot(timeout = 15_000): Promise<void> {
   throw new Error('[RewardsUnlockE2E] Rewards page did not finish loading snapshot in time');
 }
 
-describe('Rewards role-unlock flows', () => {
+// TODO(#6399): Rewards was retired; remove or replace this desktop suite.
+describe.skip('Rewards role-unlock flows', () => {
   before(async function beforeSuite() {
     if (!supportsExecuteScript()) {
       stepLog('Skipping suite on Mac2 — Rewards bottom-tab label not mapped for Appium');

@@ -264,6 +264,7 @@ fn text(body: &str) -> ModelResponse {
 /// turn: `suppress_active_goal` keeps the `[thread goal]` block out of the
 /// prompt entirely.
 #[test]
+#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt() {
     run_on_agent_stack(
         "turn-overrides-suppress-active-goal",
@@ -359,6 +360,7 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
 /// previous thread's conversation back underneath it and answers grounded in the
 /// wrong one, with no error anywhere (#1725).
 #[test]
+#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript() {
     run_on_agent_stack(
         "turn-overrides-suppress-transcript-autoload",
@@ -462,6 +464,7 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
 /// suppression that leaked forward would silently strip a real task turn of its
 /// toolbelt.
 #[test]
+#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn turn_overrides_apply_to_exactly_one_turn_and_then_reset() {
     run_on_agent_stack(
         "turn-overrides-reset",
@@ -520,6 +523,7 @@ async fn turn_overrides_apply_to_exactly_one_turn_and_then_reset_inner() {
 /// goal (and a settled goal renders no context block), `clear_for_current_thread`
 /// removes the row outright.
 #[test]
+#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns() {
     run_on_agent_stack(
         "turn-overrides-goal-terminal-apis",

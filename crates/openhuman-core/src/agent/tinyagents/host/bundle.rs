@@ -123,9 +123,28 @@ impl OpenHumanHostBundleFactory {
         turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
         let context = Arc::new(OpenHumanContextComposer::new(Arc::clone(&inputs.config)));
+        let registered_tools = Arc::new(
+            inputs
+                .tool_sets
+                .iter()
+                .flat_map(|set| set.iter())
+                .map(|tool| tool.name().to_string())
+                .collect(),
+        );
+        let session_delegation_tools = Arc::new(
+            inputs
+                .tool_sets
+                .iter()
+                .skip(1)
+                .flat_map(|set| set.iter())
+                .map(|tool| tool.name().to_string())
+                .collect(),
+        );
         let definitions = Arc::new(
             OpenHumanDefinitionRegistry::new(inputs.definitions)
-                .with_config(Arc::clone(&inputs.config)),
+                .with_config(Arc::clone(&inputs.config))
+                .with_registered_tools(registered_tools)
+                .with_session_delegation_tools(session_delegation_tools),
         );
         let mut security = OpenHumanSecurityGate::new(inputs.security_policy, inputs.tool_sets);
         if let Some(policy) = inputs.tool_policy {
