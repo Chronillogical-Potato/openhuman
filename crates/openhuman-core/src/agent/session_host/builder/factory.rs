@@ -751,7 +751,7 @@ impl OpenHumanSessionHost {
         // (e.g. the orchestrator's curated list). An empty set already means
         // "no filter", so it needs nothing. Added BEFORE the disallow filter
         // below so an agent that explicitly disallows it still has it removed.
-        super::ensure_recovery_tool_visible(&mut visible);
+        super::ensure_recovery_tool_visible(&mut visible, config.context.compaction_enabled);
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {

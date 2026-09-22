@@ -102,19 +102,19 @@ pub struct ContextConfig {
     #[serde(default = "default_true")]
     pub prefer_markdown_tool_output: bool,
 
-    /// Master switch for native tool-output compaction (Stage 1a). When
-    /// `true` (the default), large structured tool outputs (build/test logs,
-    /// diffs, JSON arrays) are content-aware compressed in
-    /// `OpenHumanSessionHost::execute_tool_call` *before* the [`Self::tool_result_budget_bytes`]
-    /// byte cap and before they enter history. The compression never drops the
-    /// first/last/high-signal lines and only ever shrinks output, so it is on
-    /// by default.
+    /// Switch for tokenjuice tool-output compaction (Stage 1a). When `true`,
+    /// large structured tool outputs (build/test logs, diffs, JSON arrays) are
+    /// content-aware compressed *before* the [`Self::tool_result_budget_bytes`]
+    /// byte cap and before they enter history, with a `⟦tj:<hash>⟧` marker the
+    /// model can redeem through `tinyjuice_retrieve`.
     ///
-    /// This is invisible infrastructure (like microcompact/autocompact): no
-    /// user-facing UI. The only reason to flip it off is a support / debugging
-    /// / A/B bisect, via config or the `OPENHUMAN_COMPACTION=0` env override.
-    /// See `compaction-plan.md`.
-    #[serde(default = "default_true")]
+    /// **Off by default** since the 2026-09 latency work: in practice the
+    /// compacted view cost the model a retrieval round trip more often than it
+    /// saved context, and every curated belt paid for the retrieve tool's
+    /// schema on every turn. The per-tool char cap and the shared byte
+    /// backstop (which persists oversized output for `file_read`) stay on.
+    /// Turn it back on via config or `OPENHUMAN_COMPACTION=1`.
+    #[serde(default)]
     pub compaction_enabled: bool,
 }
 
@@ -159,7 +159,7 @@ impl Default for ContextConfig {
             session_memory: SessionMemoryConfig::default(),
             summarizer_model: None,
             prefer_markdown_tool_output: default_true(),
-            compaction_enabled: default_true(),
+            compaction_enabled: false,
         }
     }
 }

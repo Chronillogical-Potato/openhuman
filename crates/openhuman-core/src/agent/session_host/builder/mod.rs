@@ -179,7 +179,15 @@ pub(super) fn visible_tool_specs_for_policy(
 /// off the wire. An empty set already means "no filter" (all tools visible),
 /// so it is left untouched — including the deliberately tool-less
 /// `Named([])` case, which must stay tool-less.
-pub(super) fn ensure_recovery_tool_visible(visible: &mut std::collections::HashSet<String>) {
+pub(super) fn ensure_recovery_tool_visible(
+    visible: &mut std::collections::HashSet<String>,
+    compaction_enabled: bool,
+) {
+    // With compaction off nothing ever emits a `⟦tj:…⟧` marker, so the
+    // recovery tool would be a schema with nothing to recover.
+    if !compaction_enabled {
+        return;
+    }
     // `is_empty_tool_scope`, not `is_empty`: a belt holding only
     // `NO_TOOLS_SENTINEL` is a deliberate zero-tool agent, and the compaction
     // recovery tool has nothing to recover for one — there are no tool outputs
