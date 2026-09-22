@@ -1623,7 +1623,7 @@ impl OpenHumanSessionHost {
                         + usize::from(view.history.last() != Some(&request.input));
                     let resumed_prefix = view
                         .resumed
-                        .then(|| super::prefix_snapshot::leading_system_prefix(&view.history));
+                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
