@@ -14,7 +14,7 @@ use crate::rpc::RpcOutcome;
 use super::types::{
     FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch,
 };
-use super::{filter, pipeline, route, store};
+use super::{filter, pipeline, store};
 
 /// List all configured task sources.
 pub async fn list(config: &Config) -> Result<RpcOutcome<Vec<TaskSource>>, String> {
