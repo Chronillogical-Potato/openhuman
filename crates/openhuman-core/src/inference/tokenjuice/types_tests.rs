@@ -25,7 +25,12 @@ fn content_hint_matches_the_module_wire_shape() {
             "extension": null,
             "sourceTool": "shell",
             "query": null,
-            "explicit": "plainText"
+            "explicit": "plainText",
+            // Added to the contract alongside the source-stub work. `Exact`
+            // is the default and the shape the module expects; pinning it
+            // here keeps this test doing its job — catching a wire change
+            // rather than absorbing one.
+            "readIntent": "Exact"
         })
     );
 }
