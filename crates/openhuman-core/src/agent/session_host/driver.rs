@@ -32,6 +32,7 @@ pub struct OpenHumanSessionDriver {
     model_name: String,
     temperature: f64,
     max_iterations: usize,
+    max_history_messages: usize,
     model_vision: bool,
     run_queue:
         Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
@@ -49,6 +50,7 @@ impl OpenHumanSessionDriver {
         model_name: String,
         temperature: f64,
         max_iterations: usize,
+        max_history_messages: usize,
         model_vision: bool,
         run_queue: Option<
             Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>,
@@ -64,6 +66,7 @@ impl OpenHumanSessionDriver {
             model_name,
             temperature,
             max_iterations,
+            max_history_messages,
             model_vision,
             run_queue,
             workspace,
@@ -255,6 +258,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             appended.push(Message::assistant(output.clone()));
         }
         history.extend(appended);
+        trim_history(&mut history, self.max_history_messages);
 
         let required_output = request.run_context.data.required_output.clone();
         let required_repair = match required_output.as_ref() {
@@ -349,6 +353,22 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             partial: None,
             interrupted: outcome.early_exit_tool.is_some() || outcome.hit_cap,
         })
+    }
+}
+
+/// Keep the system prelude and the most recent conversation rows within the
+/// host-configured history budget. The runtime owns durable history, while the
+/// OpenHuman configuration remains the compatibility contract for callers.
+fn trim_history(history: &mut Vec<Message>, max_history_messages: usize) {
+    if history.len() <= max_history_messages.saturating_add(1) {
+        return;
+    }
+    let system = matches!(history.first(), Some(Message::System(_))).then(|| history.remove(0));
+    let keep = max_history_messages.min(history.len());
+    let start = history.len().saturating_sub(keep);
+    history.drain(..start);
+    if let Some(system) = system {
+        history.insert(0, system);
     }
 }
 
