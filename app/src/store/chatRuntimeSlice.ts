@@ -985,7 +985,7 @@ function orderTranscriptBySeq(items: ProcessingTranscriptItem[]): ProcessingTran
  * settled turn) additionally seed {@link ChatRuntimeState.toolTimelineSeqByThread}
  * with the row count so subsequent live events keep counting up from there.
  */
-function toolTimelineFromPersisted(
+export function toolTimelineFromPersisted(
   entry: PersistedToolTimelineEntry,
   seq: number
 ): ToolTimelineEntry {
