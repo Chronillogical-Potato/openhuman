@@ -5,7 +5,7 @@
 
 mod curl;
 mod gitbooks;
-mod html_text;
+mod html_markdown;
 mod gmail_unsubscribe;
 mod http_request;
 // Leaf-gated: the only consumers of these two are the `#[cfg(feature = "mcp")]`
