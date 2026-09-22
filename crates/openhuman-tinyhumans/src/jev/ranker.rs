@@ -9,11 +9,17 @@ use std::{
 
 use std::{future::Future, pin::Pin, sync::Arc};
 
+use async_trait::async_trait;
 use openhuman_core::api::config::effective_backend_api_url;
+use openhuman_core::api::headers::build_backend_client;
+use openhuman_core::api::transport::TransportProfile;
 use openhuman_core::config::Config;
 use openhuman_core::security::credentials::session_support::resolve_backend_credential;
+use serde_json::{json, Value};
 use tinytools::{RankCandidate, RankContext, RankError, RankHit, ToolRanker};
-use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
+use tinytools_jev::{JevDecision, JevEvaluator, JevRanker, JevRankerConfig, JevRequest};
+
+const SYSTEM_ONE_PATH: &str = "agent-integrations/openrouter/systemone";
 
 /// How the ranker reads the config a search runs under. The default is the
 /// core's own read path (the embedder's config when one is bound, else the
@@ -32,6 +38,127 @@ pub struct TinyHumansJevRanker {
 struct Cached {
     fingerprint: u64,
     ranker: JevRanker,
+}
+
+/// OpenHuman's System One transport. `tinytools-jev` deliberately keeps this
+/// policy at the host boundary, where backend headers and credentials belong.
+struct TinyHumansJevEvaluator {
+    client: reqwest::Client,
+    base_url: String,
+    credential: String,
+}
+
+impl std::fmt::Debug for TinyHumansJevEvaluator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TinyHumansJevEvaluator")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
+    }
+}
+
+#[async_trait]
+impl JevEvaluator for TinyHumansJevEvaluator {
+    async fn evaluate(&self, request: &JevRequest) -> Result<JevDecision, RankError> {
+        let response = self
+            .client
+            .post(format!(
+                "{}/{SYSTEM_ONE_PATH}",
+                self.base_url.trim_end_matches('/')
+            ))
+            .bearer_auth(&self.credential)
+            .json(&system_one_request(request))
+            .send()
+            .await
+            .map_err(|error| RankError::Backend {
+                reason: format!("Jev request failed: {error}"),
+            })?
+            .error_for_status()
+            .map_err(|error| RankError::Backend {
+                reason: format!("Jev request was rejected: {error}"),
+            })?;
+        let value: Value = response.json().await.map_err(|error| RankError::Backend {
+            reason: format!("Jev response could not be decoded: {error}"),
+        })?;
+        system_one_decision(value)
+    }
+}
+
+fn system_one_request(request: &JevRequest) -> Value {
+    let criteria = request
+        .options
+        .iter()
+        .map(|option| {
+            (
+                option.key.clone(),
+                Value::String(option.description.clone()),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let instructions = request.instructions.clone().unwrap_or_else(|| {
+        "Which tool accomplishes the user's `request`? Judge by what each tool does, not by shared words. Pick `none` when no listed tool does it.".into()
+    });
+    json!({
+        "state": {
+            "request": request.intent,
+            "recent_user_turns": request.recent_turns,
+        },
+        "model": request.model,
+        "questions": {
+            "tool": {
+                "type": "choice",
+                "instructions": instructions,
+                "criteria": criteria,
+            },
+            "needs_tool": {
+                "type": "noul",
+                "instructions": "Does fulfilling the user's `request` require calling a tool — an action or a lookup outside the assistant's own knowledge?",
+                "criteria": {
+                    "true": "The request asks for an action or for information that must be fetched.",
+                    "false": "The request can be answered by replying, with no tool.",
+                },
+            },
+        },
+    })
+}
+
+fn system_one_decision(value: Value) -> Result<JevDecision, RankError> {
+    let answers = value
+        .get("answers")
+        .and_then(Value::as_object)
+        .ok_or_else(|| RankError::Backend {
+            reason: "Jev response has no answers object".into(),
+        })?;
+    let tool = answers.get("tool").ok_or_else(|| RankError::Backend {
+        reason: "Jev response has no tool answer".into(),
+    })?;
+    let probabilities =
+        serde_json::from_value(tool.get("probabilities").cloned().ok_or_else(|| {
+            RankError::Backend {
+                reason: "Jev tool answer has no probabilities".into(),
+            }
+        })?)
+        .map_err(|error| RankError::Backend {
+            reason: format!("Jev tool probabilities are invalid: {error}"),
+        })?;
+    let choice_confidence = tool
+        .get("confidence")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| RankError::Backend {
+            reason: "Jev tool answer has no confidence".into(),
+        })?;
+    Ok(JevDecision {
+        probabilities,
+        choice_confidence,
+        needs_tool: answers
+            .get("needs_tool")
+            .and_then(|answer| answer.get("noul"))
+            .and_then(Value::as_f64),
+        input_tokens: value
+            .get("usage")
+            .and_then(|usage| usage.get("input_tokens"))
+            .and_then(Value::as_u64),
+        attempts: 1,
+    })
 }
 
 impl std::fmt::Debug for TinyHumansJevRanker {
@@ -104,9 +231,16 @@ impl TinyHumansJevRanker {
         {
             return Ok(entry.ranker.clone());
         }
-        let mut client = ClientConfig::tinyhumans_openrouter(credential.into_secret());
-        client.base_url = base_url.clone();
-        let ranker = JevRanker::from_config(client, self.config.clone())?;
+        let evaluator = TinyHumansJevEvaluator {
+            client: build_backend_client(TransportProfile::Integrations).map_err(|error| {
+                RankError::Backend {
+                    reason: format!("Jev client is unavailable: {error}"),
+                }
+            })?,
+            base_url: base_url.clone(),
+            credential: credential.into_secret(),
+        };
+        let ranker = JevRanker::new(Arc::new(evaluator), self.config.clone());
         log::info!(
             "[tool-search] jev ranker bound to backend {} ({})",
             openhuman_core::util::redact::redact_url_for_log(&base_url),

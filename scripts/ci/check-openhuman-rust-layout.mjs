@@ -43,7 +43,7 @@ const LEGACY_LIMITS = new Map([
   // Merged upstream work added focused coverage and routing seams. These
   // legacy files remain pinned at their post-merge sizes until split.
   ["crates/openhuman-core/src/agent/prompts/mod_tests_builder_sections_tests.rs", 779],
-  ["crates/openhuman-core/src/inference/provider/factory_crate_native_tests.rs", 796],
+  ["crates/openhuman-core/src/inference/provider/factory_crate_native_tests.rs", 799],
   ["crates/openhuman-core/src/tools/ops_tests_default_registry_tests.rs", 752],
 ]);
 

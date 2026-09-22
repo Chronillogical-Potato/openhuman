@@ -1473,7 +1473,6 @@ impl OpenHumanSessionHost {
             self.model_name.clone(),
             self.temperature,
             self.config.max_tool_iterations,
-            self.config.max_history_messages,
             self.model_vision,
             self.run_queue.clone(),
             self.workspace_descriptor.clone(),

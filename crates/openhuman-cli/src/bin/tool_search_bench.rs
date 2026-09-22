@@ -34,7 +34,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -278,28 +278,124 @@ fn load_intents(path: &PathBuf) -> Result<Vec<IntentRow>> {
 use openhuman_core::agent::tinyagents::discovery::OverlapRanker;
 
 #[cfg(feature = "jev")]
+#[derive(Debug)]
+struct BenchmarkJevEvaluator {
+    client: reqwest::Client,
+    endpoint: String,
+    api_key: String,
+}
+
+#[cfg(feature = "jev")]
+#[async_trait::async_trait]
+impl tinytools_jev::JevEvaluator for BenchmarkJevEvaluator {
+    async fn evaluate(
+        &self,
+        request: &tinytools_jev::JevRequest,
+    ) -> Result<tinytools_jev::JevDecision, tinytools::RankError> {
+        let criteria = request
+            .options
+            .iter()
+            .map(|option| {
+                (
+                    option.key.clone(),
+                    serde_json::Value::String(option.description.clone()),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        let instructions = request.instructions.clone().unwrap_or_else(|| {
+            "Which tool accomplishes the user's `request`? Judge by what each tool does, not by shared words. Pick `none` when no listed tool does it.".into()
+        });
+        let response: serde_json::Value = self
+            .client
+            .post(&self.endpoint)
+            .bearer_auth(&self.api_key)
+            .json(&serde_json::json!({
+                "state": { "request": request.intent, "recent_user_turns": request.recent_turns },
+                "model": request.model,
+                "questions": {
+                    "tool": { "type": "choice", "instructions": instructions, "criteria": criteria },
+                    "needs_tool": { "type": "noul", "instructions": "Does fulfilling the user's `request` require calling a tool — an action or a lookup outside the assistant's own knowledge?" },
+                },
+            }))
+            .send()
+            .await
+            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev request failed: {error}") })?
+            .error_for_status()
+            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev request was rejected: {error}") })?
+            .json()
+            .await
+            .map_err(|error| tinytools::RankError::Backend { reason: format!("Jev response could not be decoded: {error}") })?;
+        let answers = response
+            .get("answers")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| tinytools::RankError::Backend {
+                reason: "Jev response has no answers object".into(),
+            })?;
+        let tool = answers
+            .get("tool")
+            .ok_or_else(|| tinytools::RankError::Backend {
+                reason: "Jev response has no tool answer".into(),
+            })?;
+        Ok(tinytools_jev::JevDecision {
+            probabilities: serde_json::from_value(tool.get("probabilities").cloned().ok_or_else(
+                || tinytools::RankError::Backend {
+                    reason: "Jev tool answer has no probabilities".into(),
+                },
+            )?)
+            .map_err(|error| tinytools::RankError::Backend {
+                reason: format!("Jev tool probabilities are invalid: {error}"),
+            })?,
+            choice_confidence: tool
+                .get("confidence")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| tinytools::RankError::Backend {
+                    reason: "Jev tool answer has no confidence".into(),
+                })?,
+            needs_tool: answers
+                .get("needs_tool")
+                .and_then(|answer| answer.get("noul"))
+                .and_then(serde_json::Value::as_f64),
+            input_tokens: response
+                .get("usage")
+                .and_then(|usage| usage.get("input_tokens"))
+                .and_then(serde_json::Value::as_u64),
+            attempts: 1,
+        })
+    }
+}
+
+#[cfg(feature = "jev")]
 fn jev_ranker(retrieval_k: usize) -> Option<(Arc<dyn ToolRanker>, Arc<tinytools_jev::JevRanker>)> {
-    use tinytools_jev::{ClientConfig, JevRanker, JevRankerConfig};
-    let client = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
-        let mut client = ClientConfig::tinyhumans_openrouter(key);
-        if let Ok(base) = std::env::var("BACKEND_URL") {
-            if !base.trim().is_empty() {
-                client.base_url = base.trim().trim_end_matches('/').to_string();
-            }
-        }
-        client
+    use tinytools_jev::{JevRanker, JevRankerConfig};
+    let (endpoint, api_key) = if let Ok(key) = std::env::var("OPENHUMAN_BACKEND_API_KEY") {
+        let base = std::env::var("BACKEND_URL")
+            .ok()
+            .filter(|base| !base.trim().is_empty())
+            .unwrap_or_else(|| "https://api.tinyhumans.ai".into());
+        (
+            format!(
+                "{}/agent-integrations/openrouter/systemone",
+                base.trim_end_matches('/')
+            ),
+            key,
+        )
     } else if let Ok(key) = std::env::var("TYPESAFE_API_KEY") {
-        ClientConfig::new(key)
+        ("https://api.typesafe.ai/v1/systemone".into(), key)
     } else {
         return None;
     };
-    let ranker = JevRanker::from_config(
-        client,
-        JevRankerConfig::new()
-            .with_retrieval_k(retrieval_k)
-            .with_timeout(Duration::from_secs(15)),
-    )
-    .ok()?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .ok()?;
+    let ranker = JevRanker::new(
+        Arc::new(BenchmarkJevEvaluator {
+            client,
+            endpoint,
+            api_key,
+        }),
+        JevRankerConfig::new().with_retrieval_k(retrieval_k),
+    );
     let ranker = Arc::new(ranker);
     Some((ranker.clone() as Arc<dyn ToolRanker>, ranker))
 }
