@@ -16,7 +16,7 @@ use crate::agent::{
     session_host::turn_checkpoint::{
         self, build_deterministic_checkpoint, build_deterministic_final_summary,
         close_verification_prompt, final_answer_instruction, parse_close_verdict,
-        render_tool_results, results_from_tool_outcomes, CloseVerdict,
+        render_tool_results, results_from_tool_outcomes, wrap_harness_instruction, CloseVerdict,
     },
     tinyagents::{TinyagentsTurnOutcome, TurnModelSource},
 };
@@ -77,7 +77,9 @@ pub(super) async fn repair_required_output(
         .iter()
         .filter_map(message_to_native_chat_message)
         .collect();
-    prompt_history.push(ChatMessage::user(required::repair_instruction(contract)));
+    prompt_history.push(ChatMessage::user(wrap_harness_instruction(
+        &required::repair_instruction(contract),
+    )));
     let (candidate, candidate_usage) =
         completion(source, model, temperature, thread_id, prompt_history).await;
     let mut usage = RepairUsage::default();
@@ -147,7 +149,7 @@ pub(super) async fn close_if_needed(
     let instruction = if needs_cap_close {
         format!(
             "{}\n\n<tool_records>\n{}\n</tool_records>",
-            turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION,
+            wrap_harness_instruction(turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION),
             if rendered.is_empty() {
                 "(no tool calls completed)"
             } else {
