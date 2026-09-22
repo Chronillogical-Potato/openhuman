@@ -92,7 +92,7 @@ impl OpenHumanHostBundleFactory {
     /// and this invocation's tool/security authority.
     pub fn build_for_invocation(
         inputs: OpenHumanHostInvocationInputs,
-        _turn: &OpenHumanRunContext,
+        turn: &OpenHumanRunContext,
     ) -> OpenHumanHostBundle {
         let mut bundle = Self::build(
             OpenHumanHostBundleInputs {
@@ -115,9 +115,9 @@ impl OpenHumanHostBundleFactory {
     /// Constructs all ten concrete adapters from a single session input set.
     ///
     /// The run context supplies per-turn state, while `inputs` supplies durable
-    /// session/runtime dependencies. No adapter is optional for OpenHuman. An
-    /// unobserved context gets an unconsumed bounded sink, preserving the
-    /// concrete progress seam without discovering state through a task-local.
+    /// session/runtime dependencies. No adapter is optional for OpenHuman. The
+    /// progress seam is registered but unconsumed: the turn's live channel is
+    /// owned by `OpenhumanEventBridge` (see below).
     pub fn build(
         inputs: OpenHumanHostBundleInputs,
         _turn: &OpenHumanRunContext,
