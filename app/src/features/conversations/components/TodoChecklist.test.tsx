@@ -4,9 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TodoListView } from '../utils/harnessState';
 import { TodoChecklist } from './TodoChecklist';
 
-// Echo i18n keys so assertions read the stable key string; interpolation
-// placeholders stay in the key so the count substitution is visible.
-vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
+// Echo i18n keys so assertions read the stable key string; the one
+// interpolated key gets its English template so the count substitution is
+// visible.
+vi.mock('../../../lib/i18n/I18nContext', () => ({
+  useT: () => ({
+    t: (key: string) =>
+      key === 'conversations.todos.progress' ? '{completed} of {total} done' : key,
+  }),
+}));
 
 function list(partial: Partial<TodoListView> = {}): TodoListView {
   const items = partial.items ?? [
@@ -42,7 +48,6 @@ describe('TodoChecklist', () => {
 
   it('shows the completed count and exposes it as data attributes', () => {
     render(<TodoChecklist list={list()} />);
-    // The key carries its placeholders; the numbers are substituted in.
     expect(screen.getByTestId('todo-progress').textContent).toBe('1 of 3 done');
     const section = screen.getByTestId('todo-checklist');
     expect(section.getAttribute('data-todo-completed')).toBe('1');

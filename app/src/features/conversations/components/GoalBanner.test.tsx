@@ -4,7 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ThreadGoalView } from '../utils/harnessState';
 import { formatTokens, GoalBanner } from './GoalBanner';
 
-vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
+// Echo i18n keys so assertions read the stable key string; the interpolated
+// usage keys get their English templates so the substitution is visible.
+const TEMPLATES: Record<string, string> = {
+  'conversations.goal.tokens': '{used} tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokens',
+};
+vi.mock('../../../lib/i18n/I18nContext', () => ({
+  useT: () => ({ t: (key: string) => TEMPLATES[key] ?? key }),
+}));
 
 function goal(partial: Partial<ThreadGoalView> = {}): ThreadGoalView {
   return {
