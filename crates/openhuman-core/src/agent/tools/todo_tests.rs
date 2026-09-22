@@ -130,3 +130,56 @@ async fn replace_accepts_full_card_list() {
     assert_eq!(payload["cards"].as_array().unwrap().len(), 2);
     reset_scratch().await;
 }
+
+/// The orchestrator's board is the conversation thread's board. It used to be
+/// routed to one app-wide `orchestrator-tasks` board that nothing renders, so
+/// the cards the model wrote never showed up in the thread the user was in.
+#[test]
+fn orchestrator_binds_to_the_live_thread_not_a_global_board() {
+    struct ThreadContext(&'static str);
+    impl ToolRunContext for ThreadContext {
+        fn thread_id(&self) -> Option<&str> {
+            Some(self.0)
+        }
+    }
+    let parent = ParentExecutionContext {
+        agent_definition_id: "orchestrator".into(),
+        allowed_subagent_ids: std::collections::HashSet::new(),
+        turn_model_source: crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(
+            tinyagents_harness::testkit::ScriptedModel::replies(vec!["done"]),
+        )),
+        all_tools: Arc::new(Vec::new()),
+        all_tool_specs: Arc::new(Vec::new()),
+        visible_tool_specs: Arc::new(Vec::new()),
+        visible_tool_names: std::collections::HashSet::new(),
+        subagent_tool_ceiling_names: std::collections::HashSet::new(),
+        model_name: "test-model".into(),
+        temperature: 0.0,
+        workspace_dir: std::path::PathBuf::from("/tmp/openhuman-todo-parent"),
+        workspace_descriptor: None,
+        memory: crate::memory::test_support::noop_memory(),
+        agent_config: crate::config::AgentConfig::default(),
+        workflows: Arc::new(Vec::new()),
+        memory_context: Arc::new(None),
+        session_id: "parent-session".into(),
+        channel: "test".into(),
+        connected_integrations: Vec::new(),
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
+        session_key: "parent-key".into(),
+        session_parent_prefix: None,
+        on_progress: None,
+        run_queue: None,
+    };
+    let context = ThreadContext("thread-live");
+
+    let location = current_location(Some(&parent), Some(&context));
+
+    assert_eq!(location.thread_id(), Some("thread-live"));
+    assert!(
+        matches!(
+            current_location(Some(&parent), None),
+            BoardLocation::Scratch
+        ),
+        "without a thread there is no board to persist to"
+    );
+}
