@@ -43,9 +43,21 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for T
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
-        TodoTool::new()
+        // A dispatch `Err` is fatal to the whole run in the harness
+        // ("canonical execution errors remain fatal"), so nothing about a bad
+        // argument may escape as one: it goes back to the model as a tool
+        // error it can correct. A turn died this way when a model sent the
+        // retired `{"cards": …}` shape.
+        match TodoTool::new()
             .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
             .await
+        {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                tracing::warn!(%error, "[tool][todo] rejected call");
+                Ok(ToolResult::error(format!("todo failed: {error}")))
+            }
+        }
     }
 }
 
@@ -138,25 +150,20 @@ impl TodoTool {
         tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
 
         let result = match args.get("todos") {
-            None | Some(serde_json::Value::Null) => ops::list(&scope).await,
-            Some(raw) => {
-                let items: Vec<TodoItem> = serde_json::from_value(raw.clone())
-                    .map_err(|e| anyhow::anyhow!("invalid `todos`: {e}"))?;
-                let mut cards = Vec::with_capacity(items.len());
-                for item in items {
-                    let content = item.content.trim();
-                    if content.is_empty() {
-                        anyhow::bail!("every todo needs non-empty `content`");
-                    }
-                    let mut card = TaskBoardCard::new(content);
-                    card.status = match item.status.as_deref() {
-                        None => TaskCardStatus::Todo,
-                        Some(raw) => ops::parse_status(raw).map_err(anyhow::Error::msg)?,
-                    };
-                    cards.push(card);
-                }
-                ops::replace(&scope, cards).await
-            }
+            None | Some(serde_json::Value::Null) => match args.as_object() {
+                // A write that used some other key (`cards`, `items`, …) is a
+                // shape error to report, not a request to read the list.
+                Some(map) if !map.is_empty() => Err(format!(
+                    "unknown arguments {:?}: pass `todos` (the full list of \
+                     {{content, status}}), or no arguments to read the list",
+                    map.keys().collect::<Vec<_>>()
+                )),
+                _ => ops::list(&scope).await,
+            },
+            Some(raw) => match parse_items(raw) {
+                Ok(cards) => ops::replace(&scope, cards).await,
+                Err(error) => Err(error),
+            },
         };
 
         match result {
@@ -181,6 +188,27 @@ impl TodoTool {
             Err(err) => Ok(ToolResult::error(err)),
         }
     }
+}
+
+/// Turn the model's `todos` array into store cards; every problem is a
+/// message for the model, never a harness error.
+fn parse_items(raw: &serde_json::Value) -> Result<Vec<TaskBoardCard>, String> {
+    let items: Vec<TodoItem> =
+        serde_json::from_value(raw.clone()).map_err(|e| format!("invalid `todos`: {e}"))?;
+    let mut cards = Vec::with_capacity(items.len());
+    for item in items {
+        let content = item.content.trim();
+        if content.is_empty() {
+            return Err("every todo needs non-empty `content`".to_string());
+        }
+        let mut card = TaskBoardCard::new(content);
+        card.status = match item.status.as_deref() {
+            None => TaskCardStatus::Todo,
+            Some(raw) => ops::parse_status(raw)?,
+        };
+        cards.push(card);
+    }
+    Ok(cards)
 }
 
 /// The three states the model is told about. Store states the list can no

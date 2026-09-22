@@ -77,20 +77,22 @@ async fn two_in_progress_items_are_rejected() {
     reset_scratch().await;
 }
 
+/// Bad input is a tool error the model can correct, never an `Err`: a
+/// dispatch `Err` is fatal to the whole run in the harness, and a turn died
+/// exactly that way when a model sent the retired `{"cards": …}` shape.
 #[tokio::test]
-async fn empty_content_and_unknown_status_are_errors() {
+async fn bad_input_is_a_tool_error_not_a_harness_error() {
     let tool = TodoTool::new();
-    let err = tool
-        .execute(json!({ "todos": [{ "content": "  ", "status": "pending" }] }))
-        .await
-        .unwrap_err();
-    assert!(err.to_string().contains("content"), "{err}");
-
-    let err = tool
-        .execute(json!({ "todos": [{ "content": "x", "status": "someday" }] }))
-        .await
-        .unwrap_err();
-    assert!(err.to_string().contains("invalid status"), "{err}");
+    for (args, expect) in [
+        (json!({ "todos": [{ "content": "  ", "status": "pending" }] }), "content"),
+        (json!({ "todos": [{ "content": "x", "status": "someday" }] }), "invalid status"),
+        (json!({ "todos": "not a list" }), "invalid `todos`"),
+        (json!({ "cards": [{ "content": "x", "status": "todo" }] }), "pass `todos`"),
+    ] {
+        let result = tool.execute(args.clone()).await.expect("never an Err: {args}");
+        assert!(result.is_error, "{args}");
+        assert!(result.output().contains(expect), "{args}: {}", result.output());
+    }
 }
 
 #[test]
