@@ -117,7 +117,11 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('send-message-button').click();
 }
 
-async function toolTimelineIncludes(page: Page, threadId: string, toolName: string): Promise<boolean> {
+async function toolTimelineIncludes(
+  page: Page,
+  threadId: string,
+  toolName: string
+): Promise<boolean> {
   return page.evaluate(
     ({ currentThreadId, expectedTool }) => {
       const store = (
@@ -129,7 +133,8 @@ async function toolTimelineIncludes(page: Page, threadId: string, toolName: stri
           };
         }
       ).__OPENHUMAN_STORE__;
-      const entries = store?.getState?.().chatRuntime?.toolTimelineByThread?.[currentThreadId] ?? [];
+      const entries =
+        store?.getState?.().chatRuntime?.toolTimelineByThread?.[currentThreadId] ?? [];
       return entries.some(entry => entry.name === expectedTool);
     },
     { currentThreadId: threadId, expectedTool: toolName }
