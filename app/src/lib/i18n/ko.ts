@@ -1,4 +1,4 @@
-import type { TranslationMap } from './types';
+﻿import type { TranslationMap } from './types';
 
 // Korean (한국어) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1657,7 +1657,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': '변수 이름',
   'mcp.form.envValue': '값',
   'mcp.form.value': '값',
-  'mcp.form.keepStored': '저장됨 — 유지하려면 비워 두세요',
+  'mcp.form.keepStored': '저장됨 - 유지하려면 비워 두세요',
   'mcp.form.removeRow': '행 제거',
   'mcp.form.addEnv': '변수 추가',
   'mcp.form.url': 'URL',
@@ -1719,7 +1719,7 @@ const messages: TranslationMap = {
   'mcp.json.saveFailed': 'mcp.json을 저장할 수 없습니다.',
   'mcp.json.parseError.empty':
     '문서가 비어 있습니다. 서버가 없는 상태는 { "mcpServers": {} }입니다.',
-  'mcp.json.parseError.invalidJson': '유효하지 않은 JSON — {detail}',
+  'mcp.json.parseError.invalidJson': '유효하지 않은 JSON - {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json은 `mcpServers` 키를 가진 객체여야 합니다.',
   'mcp.json.parseError.missingRoot':
     '`mcpServers` 키가 없습니다. 모든 서버는 그 아래에 있어야 합니다.',

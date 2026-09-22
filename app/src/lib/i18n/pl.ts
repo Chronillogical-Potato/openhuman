@@ -1,4 +1,4 @@
-import type { TranslationMap } from './types';
+﻿import type { TranslationMap } from './types';
 
 // Polish (Polski) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1700,7 +1700,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nazwa zmiennej',
   'mcp.form.envValue': 'Wartość',
   'mcp.form.value': 'Wartość',
-  'mcp.form.keepStored': 'Zapisane — pozostaw puste, aby zachować',
+  'mcp.form.keepStored': 'Zapisane - pozostaw puste, aby zachować',
   'mcp.form.removeRow': 'Usuń wiersz',
   'mcp.form.addEnv': 'Dodaj zmienną',
   'mcp.form.url': 'URL',
@@ -1747,7 +1747,7 @@ const messages: TranslationMap = {
     'Katalog serwerów MCP. Otwarcie serwera prowadzi do jego własnej strony z instrukcją instalacji; dodaj go w zakładce mcp.json.',
   'mcp.json.loadFailedTitle': 'Nie udało się odczytać mcp.json',
   'mcp.json.loadFailedBody':
-    'Rdzeń nie odpowiedział, więc dokument nie jest wyświetlany — pusty edytor zachęcałby do zapisu, który usunąłby twoje serwery.',
+    'Rdzeń nie odpowiedział, więc dokument nie jest wyświetlany - pusty edytor zachęcałby do zapisu, który usunąłby twoje serwery.',
   'mcp.json.intro':
     'Twoje serwery MCP jako jeden dokument, w formacie używanym przez inne klienty MCP. Wklej blok serwera z jego strony instalacji i zapisz.',
   'mcp.json.credentialsNote':
@@ -1761,12 +1761,12 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Przykład',
   'mcp.json.saveFailed': 'Nie udało się zapisać mcp.json.',
   'mcp.json.parseError.empty': 'Dokument jest pusty. Brak serwerów to { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'Nieprawidłowy JSON — {detail}',
+  'mcp.json.parseError.invalidJson': 'Nieprawidłowy JSON - {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json zawiera obiekt z kluczem `mcpServers`.',
   'mcp.json.parseError.missingRoot':
-    'Brak klucza `mcpServers` — każdy serwer znajduje się pod nim.',
+    'Brak klucza `mcpServers` - każdy serwer znajduje się pod nim.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` przypisuje nazwie serwera jego ustawienia.',
-  'mcp.json.parseError.emptyName': 'Serwer potrzebuje nazwy — klucz jednego wpisu jest pusty.',
+  'mcp.json.parseError.emptyName': 'Serwer potrzebuje nazwy - klucz jednego wpisu jest pusty.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` zawiera obiekt, np. { "command": "npx", "args": ["-y", "…"] } lub { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

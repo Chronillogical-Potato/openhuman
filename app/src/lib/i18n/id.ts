@@ -1,4 +1,4 @@
-import type { TranslationMap } from './types';
+﻿import type { TranslationMap } from './types';
 
 // Indonesian (Bahasa Indonesia) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
@@ -1685,7 +1685,7 @@ const messages: TranslationMap = {
   'mcp.form.envKey': 'Nama variabel',
   'mcp.form.envValue': 'Nilai',
   'mcp.form.value': 'Nilai',
-  'mcp.form.keepStored': 'Tersimpan — kosongkan untuk mempertahankan',
+  'mcp.form.keepStored': 'Tersimpan - kosongkan untuk mempertahankan',
   'mcp.form.removeRow': 'Hapus baris',
   'mcp.form.addEnv': 'Tambah variabel',
   'mcp.form.url': 'URL',
@@ -1732,7 +1732,7 @@ const messages: TranslationMap = {
     'Direktori server MCP. Membuka server membawa Anda ke halamannya sendiri, tempat petunjuk pemasangan berada; tambahkan di tab mcp.json.',
   'mcp.json.loadFailedTitle': 'Tidak dapat membaca mcp.json',
   'mcp.json.loadFailedBody':
-    'Inti tidak menjawab, jadi dokumen tidak ditampilkan — editor kosong akan mengundang penyimpanan yang menghapus server Anda.',
+    'Inti tidak menjawab, jadi dokumen tidak ditampilkan - editor kosong akan mengundang penyimpanan yang menghapus server Anda.',
   'mcp.json.intro':
     'Server MCP Anda sebagai satu dokumen, dalam bentuk yang digunakan klien MCP lain. Tempel blok server dari halaman pemasangannya lalu simpan.',
   'mcp.json.credentialsNote':
@@ -1746,12 +1746,12 @@ const messages: TranslationMap = {
   'mcp.json.exampleTitle': 'Contoh',
   'mcp.json.saveFailed': 'Tidak dapat menyimpan mcp.json.',
   'mcp.json.parseError.empty': 'Dokumen kosong. Tanpa server berarti { "mcpServers": {} }.',
-  'mcp.json.parseError.invalidJson': 'JSON tidak valid — {detail}',
+  'mcp.json.parseError.invalidJson': 'JSON tidak valid - {detail}',
   'mcp.json.parseError.rootNotObject': 'mcp.json berisi objek dengan kunci `mcpServers`.',
   'mcp.json.parseError.missingRoot':
-    'Tidak ada kunci `mcpServers` — setiap server berada di bawahnya.',
+    'Tidak ada kunci `mcpServers` - setiap server berada di bawahnya.',
   'mcp.json.parseError.rootNotMap': '`mcpServers` memetakan nama server ke pengaturannya.',
-  'mcp.json.parseError.emptyName': 'Server memerlukan nama — kunci salah satu entri kosong.',
+  'mcp.json.parseError.emptyName': 'Server memerlukan nama - kunci salah satu entri kosong.',
   'mcp.json.parseError.entryNotObject':
     '`{name}` berisi objek, mis. { "command": "npx", "args": ["-y", "…"] } atau { "url": "https://…" }.',
   'mcp.json.parseError.needsUrlOrCommand':

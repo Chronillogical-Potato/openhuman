@@ -230,7 +230,7 @@ const RecoveryPhraseViewMode = ({
               <span>Loading...</span>
             </>
           ) : (
-            'Secret Recovery Phrase'
+            t('mnemonic.revealRecoveryPhrase')
           )}
         </Button>
 
@@ -248,8 +248,12 @@ const RecoveryPhraseViewMode = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64" align="center">
-            <DropdownMenuItem onClick={onGenerateClick}>Create a New Wallet</DropdownMenuItem>
-            <DropdownMenuItem onClick={onImportClick}>Import an Existing Wallet</DropdownMenuItem>
+            <DropdownMenuItem onClick={onGenerateClick}>
+              {t('mnemonic.createANewWallet')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onImportClick}>
+              {t('mnemonic.importAnExistingWallet')}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenuRoot>
       </div>
