@@ -59,9 +59,9 @@
 //! [`Self::with_registered_tools`], failing closed when that is absent.
 //!
 //! **4. `SubagentEntry::Skills` entries are omitted.** A `{ skills = "*" }`
-//! entry is not an agent id — it collapses into the single
-//! `delegate_to_integrations_agent` tool. Emitting a synthetic id here would
-//! invent a delegate the host never authorized.
+//! entry is not an agent id — it expands to the connected integrations'
+//! actions as searchable tools. Emitting a synthetic id here would invent a
+//! delegate the host never authorized.
 //!
 
 use std::collections::HashSet;
@@ -397,8 +397,8 @@ impl OpenHumanDefinitionRegistry {
 /// Declared subagent **agent ids** only.
 ///
 /// [`SubagentEntry::Skills`] entries are skipped: they are a wildcard that
-/// collapses to the single `delegate_to_integrations_agent` tool, not an agent
-/// the parent may address by id.
+/// expands to searchable integration actions, not an agent the parent may
+/// address by id.
 fn declared_subagent_ids(def: &HostAgentDefinition) -> Vec<String> {
     def.subagents
         .iter()

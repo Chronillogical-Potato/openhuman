@@ -583,10 +583,9 @@ impl OpenHumanSessionHost {
         //
         // For an agent with `[subagents] allowlist = [...]` in its TOML (today:
         // orchestrator), `collect_orchestrator_tools` synthesises one
-        // `ArchetypeDelegationTool` per named sub-agent plus a single
-        // collapsed `SkillDelegationTool`
-        // (`delegate_to_integrations_agent`) whose `toolkit` argument
-        // selects among the connected Composio toolkits (#1335).
+        // `ArchetypeDelegationTool` per named sub-agent plus, for the
+        // `{ skills = "*" }` wildcard, one `Deferred` action tool per
+        // connected Composio action (reached through `tool_search`).
         //
         // For an agent without `subagents` (today: welcome, critic,
         // archivist, etc.), no delegation tools are synthesised — the
