@@ -221,18 +221,23 @@
 #   2026-09-20  Re-measured after the fresh-turn and cost-routing changes merged
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
+#
+#   2026-09-22  TinyAgents 2.1.2 expands the shared `todo` tool schema from
+#               860 B to 1,127 B. Ratchet the six agents that advertise it
+#               (and their aggregate schema budgets) to the measured values;
+#               unrelated prompt and schema reductions are ratcheted too.
 
-morning_briefing:10769:59391
+morning_briefing:10751:59658
 trigger_triage:7537:0
 workflow_builder:76501:28987
 summarizer:7351:0
-tools_agent:5229:59391
-orchestrator:9717:20761
-code_executor:11455:13355
+tools_agent:5211:59658
+orchestrator:9699:21007
+code_executor:11455:13622
 crypto_agent:10992:10454
 task_manager_agent:4531:7602
-planner:7829:5633
-skill_creator:5464:11607
+planner:7774:5900
+skill_creator:5464:11874
 flow_discovery:8522:8285
 profile_memory_agent:5515:11010
 settings_agent:4721:9652
@@ -328,10 +333,10 @@ tool:cron:3340
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
-tool:spawn_async_subagent:1556
+tool:spawn_async_subagent:1535
 tool:save_workflow:1957
 tool:spawn_parallel_agents:1839
-tool:todo:860
+tool:todo:1127
 tool:search_tool_catalog:1695
 tool:use_skill:1711
 # One action-dispatched memory surface replaces the separately registered
