@@ -149,6 +149,82 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             }
         }
 
+        // The harness answers `tool_search` without running a tool, so the
+        // journal carries no `ToolStarted`/`ToolCompleted` for it. Replay the
+        // same synthetic pair the live bridge emits, so a replayed trace has
+        // the `tool.tool_search` span with the ranking facts.
+        AgentEvent::ToolSearched {
+            call_id,
+            query,
+            matched,
+            ranker,
+            top_confidence,
+            fallback,
+            shadow_matched,
+            latency_ms,
+        } => {
+            let tool_name = tinyagents_harness::tool::discover::TOOL_SEARCH_NAME.to_string();
+            let arguments = serde_json::json!({ "query": query });
+            let output = serde_json::json!({
+                "matched": matched,
+                "ranker": ranker,
+                "top_confidence": top_confidence,
+                "fallback": fallback,
+                "shadow_matched": shadow_matched,
+                "latency_ms": latency_ms,
+            })
+            .to_string();
+            let output_chars = output.chars().count();
+            match state.active_subagent() {
+                Some(scope) => vec![
+                    AgentProgress::SubagentToolCallStarted {
+                        agent_id: scope.agent_id.clone(),
+                        task_id: scope.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: arguments.clone(),
+                        iteration: scope.iteration,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                    },
+                    AgentProgress::SubagentToolCallCompleted {
+                        agent_id: scope.agent_id.clone(),
+                        task_id: scope.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name,
+                        success: true,
+                        output_chars,
+                        output,
+                        arguments: Some(arguments),
+                        elapsed_ms: *latency_ms,
+                        iteration: scope.iteration,
+                        failure: None,
+                    },
+                ],
+                None => vec![
+                    AgentProgress::ToolCallStarted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: arguments.clone(),
+                        iteration: state.iteration,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                    },
+                    AgentProgress::ToolCallCompleted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name,
+                        success: true,
+                        output_chars,
+                        output,
+                        arguments: Some(arguments),
+                        elapsed_ms: *latency_ms,
+                        iteration: state.iteration,
+                        failure: None,
+                    },
+                ],
+            }
+        }
+
         AgentEvent::ToolStarted { call_id, tool_name } => match state.active_subagent() {
             Some(scope) => vec![AgentProgress::SubagentToolCallStarted {
                 agent_id: scope.agent_id.clone(),
@@ -486,7 +562,6 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         // `AgentProgress` for any of them either.
         | AgentEvent::ToolsFiltered { .. }
         | AgentEvent::ToolsAdvertised { .. }
-        | AgentEvent::ToolSearched { .. }
         | AgentEvent::DeferredToolCall { .. }
         | AgentEvent::WorkspacePrepared { .. }
         | AgentEvent::WorkspaceViolation { .. }
