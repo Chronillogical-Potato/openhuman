@@ -321,11 +321,26 @@ impl OpenHumanSessionHost {
 
     /// Bind the OpenHuman conversation thread for the next and subsequent
     /// turns. Empty input intentionally clears the binding.
+    ///
+    /// This also binds the session's durable identity, which is what makes a
+    /// thread resolve to one transcript instead of a new timestamped stem per
+    /// cold boot. A sub-agent is excluded: each spawn is genuinely its own
+    /// transcript, and it inherits its parent's thread id only for
+    /// correlation.
     pub fn set_thread_id(&mut self, thread_id: Option<impl AsRef<str>>) {
         self.thread_id = thread_id.and_then(|thread_id| {
             let thread_id = thread_id.as_ref().trim();
             (!thread_id.is_empty()).then(|| thread_id.to_owned())
         });
+        self.session = match (&self.thread_id, self.session_parent_prefix.is_some()) {
+            (Some(thread_id), false) => Some(
+                tinyagents_session::transcript::SessionRef::scoped(
+                    thread_id.clone(),
+                    self.agent_definition_id.clone(),
+                ),
+            ),
+            _ => None,
+        };
     }
 
     pub(crate) fn thread_id(&self) -> Option<&str> {
