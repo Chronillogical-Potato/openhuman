@@ -215,8 +215,37 @@ impl OpenHumanSessionHost {
         // prompt build. The synthesised delegates belong here: the catalogue
         // this renders is what tells the model a `delegate_*` tool exists.
         let all_tools = self.all_tool_refs();
-        let prompt_tools = PromptTool::from_tool_refs(all_tools.iter().copied());
-        let prompt_visible_tool_names = self.tool_policy_session.visible_tool_names_for_prompt();
+        let mut prompt_tools = PromptTool::from_tool_refs(all_tools.iter().copied());
+        let mut prompt_visible_tool_names =
+            self.tool_policy_session.visible_tool_names_for_prompt();
+        // A `Deferred` tool is off the advertised surface, and on a TEXT
+        // dialect the catalogue this prompt renders IS that surface — the
+        // harness clears `request.tools` and the model calls what it reads
+        // here. The policy's allow-set is the wrong filter for it: the host
+        // deliberately admits the deferred names there so they stay
+        // *callable* (`reachable_names` in the session builder), so filtering
+        // by it rendered every deferred schema into the prompt. That cost the
+        // bytes deferral exists to save (measured: 107 connected Composio
+        // actions rendered 55 KB of a 71 KB prompt) and, worse, contradicted
+        // the prompt: the model was told to `tool_search` for an action whose
+        // signature was already in its catalogue.
+        //
+        // The bridge takes their place, when there is one. The harness mints
+        // `tool_search` / `tool_call` schemas onto `request.tools` for a run
+        // with a deferred catalogue, but a text dialect drops that set, and
+        // with `host_renders_tool_catalogue` the harness appends nothing of
+        // its own — so without these two entries the model is told to invoke
+        // matches with a `tool_call` it can never see a signature for, and
+        // answers with intent instead of a call.
+        if !self.deferred_tool_names.is_empty() {
+            prompt_visible_tool_names.retain(|name| !self.deferred_tool_names.contains(name));
+            for bridge in crate::agent::tinyagents::discovery::bridge_prompt_tools(
+                self.deferred_tool_names.len(),
+            ) {
+                prompt_visible_tool_names.insert(bridge.name.to_string());
+                prompt_tools.push(bridge);
+            }
+        }
         // Load AGENTS.md instruction layers once per system-prompt build (never
         // re-read per turn — the caller builds the prompt once at session start
         // and reuses the bytes, preserving the frozen-prefix / KV-cache
