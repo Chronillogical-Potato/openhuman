@@ -57,7 +57,7 @@ fn grounding_contract_appended_to_every_build_path() {
 
     // A distinctive clause from GROUNDING_BODY — present regardless of which
     // builder produced the prompt (single source of truth, central append).
-    let marker = "Your tools are exactly the ones listed in this prompt";
+    let marker = "Your tools are exactly the ones you have been given for this turn";
 
     // 1. Static default chain.
     let defaults = SystemPromptBuilder::with_defaults().build(&ctx).unwrap();
