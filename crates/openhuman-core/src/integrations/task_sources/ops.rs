@@ -86,9 +86,6 @@ pub async fn remove(config: &Config, id: &str) -> Result<RpcOutcome<Value>, Stri
     let ingested = store::list_ingested_refs(config, id).map_err(|e| e.to_string())?;
     let mut pruned = 0usize;
     for item in ingested {
-        if let Some(card_id) = item.card_id.as_deref().filter(|id| !id.trim().is_empty()) {
-            route::remove_card(config, card_id).await?;
-        }
         if store::remove_ingested(config, id, &item.external_id).map_err(|e| e.to_string())? {
             pruned += 1;
         }

@@ -267,64 +267,55 @@ pub fn is_ingested(
 
 /// Record a routed task in the dedup ledger (idempotent upsert).
 ///
-/// `card_id` is the board card UUID returned by `route::add_card`; it is
-/// persisted so that a later edit of the same upstream task can remove the
-/// stale card before creating a fresh one (preventing duplicate board cards).
-pub fn mark_ingested(
-    config: &Config,
-    source_id: &str,
-    task: &NormalizedTask,
-    card_id: &str,
-) -> Result<()> {
+/// The `card_id` column is left `NULL`: tasks are no longer mirrored onto a
+/// todo board, the ledger row itself is the record. The column stays so
+/// older databases open unchanged.
+pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
     let hash = content_hash(task);
     let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
     let now = Utc::now().to_rfc3339();
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO ingested_tasks (source_id, external_id, content_hash, title, payload, ingested_at, card_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL)
              ON CONFLICT(source_id, external_id) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 title = excluded.title,
                 payload = excluded.payload,
                 ingested_at = excluded.ingested_at,
-                card_id = excluded.card_id",
-            params![source_id, task.external_id, hash, task.title, payload, now, card_id],
+                card_id = NULL",
+            params![source_id, task.external_id, hash, task.title, payload, now],
         )
         .context("Failed to mark task ingested")?;
         Ok(())
     })
 }
 
-/// Return the board card id previously stored for `(source_id, external_id)`,
-/// if any. Used by the pipeline to remove stale board cards when an upstream
-/// task is edited and re-ingested.
-pub fn get_card_id(config: &Config, source_id: &str, external_id: &str) -> Result<Option<String>> {
+/// Whether `(source_id, external_id)` has been ingested before under any
+/// content hash. The pipeline uses it to tell an edited upstream task from a
+/// brand-new one in its logs.
+pub fn is_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
-            "SELECT card_id FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
+            "SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
         )?;
         let mut rows = stmt.query(params![source_id, external_id])?;
-        match rows.next()? {
-            Some(row) => Ok(row.get(0)?),
-            None => Ok(None),
-        }
+        Ok(rows.next()?.is_some())
     })
 }
 
-/// Return ingested task ids/card ids for one source. Used by reconciliation
-/// to prune board cards that no longer match the upstream source/filter.
+/// Return ingested task ids for one source. Used by reconciliation to prune
+/// ledger rows that no longer match the upstream source/filter.
 pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<IngestedTaskRef>> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
-            "SELECT external_id, card_id FROM ingested_tasks
+            "SELECT external_id FROM ingested_tasks
              WHERE source_id = ?1
              ORDER BY ingested_at ASC, external_id ASC",
         )?;
         let rows = stmt.query_map(params![source_id], |row| {
             Ok(IngestedTaskRef {
                 external_id: row.get(0)?,
-                card_id: row.get(1)?,
             })
         })?;
         let mut out = Vec::new();
