@@ -372,54 +372,18 @@ impl PromptSection for ToolsSection {
             }
             return Ok(ctx.dispatcher_instructions.to_string());
         }
-        // Render P-Format signatures from the parser's schemas and argument order. For
-        // `Native` dispatchers the provider already has the full JSON schema in
-        // the API request (handled above); for `Json` / `PFormat` text
-        // dispatchers the dispatcher's own `prompt_instructions` block
-        // (appended below) carries whatever schema detail the wire format needs.
-        let has_filter = !ctx.visible_tool_names.is_empty();
-        let visible: Vec<ToolSpec> = ctx
-            .tools
-            .iter()
-            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name))
-            .map(|tool| {
-                let parameters = match tool.parameters_schema.as_deref() {
-                    Some(schema) => match serde_json::from_str(schema) {
-                        Ok(value) => value,
-                        Err(err) => {
-                            log::warn!(
-                                "[prompts][tools] tool '{}' has an unparsable parameters_schema \
-                                 ({err}); rendering it with no arguments",
-                                tool.name
-                            );
-                            serde_json::Value::Null
-                        }
-                    },
-                    None => serde_json::Value::Null,
-                };
-                ToolSpec {
-                    name: tool.name.to_string(),
-                    description: tool.description.to_string(),
-                    parameters,
-                }
-            })
-            .collect();
-        // The JSON dialect's protocol block embeds its own full-schema
-        // catalogue (`XmlDialect::embeds_tool_catalogue`), so rendering the
-        // signature catalogue as well listed every tool twice — 13 KB of
-        // P-Format signatures on top of 28 KB of schemas for the orchestrator.
-        let mut out = match ctx.tool_call_format {
-            ToolCallFormat::Json if !ctx.dispatcher_instructions.trim().is_empty() => String::new(),
-            format => match format.code_style() {
-                Some(style) => tinytools_agent::render::render_code_catalogue(&visible, style),
-                None => render_pformat_catalogue(&visible),
-            },
-        };
-        if !ctx.dispatcher_instructions.is_empty() {
-            out.push('\n');
-            out.push_str(ctx.dispatcher_instructions);
-        }
-        Ok(out)
+        // Text dialects (`xml`, `pformat`, `python`, `typescript`): the
+        // catalogue is owned by the harness. The session pins the same
+        // dialect on `RunPolicy::tool_dialect`, and the tinyagents run loop
+        // folds the protocol block plus the full catalogue of the tools it
+        // actually advertises into the system prompt right before dispatch,
+        // then clears `tools` off the wire. Rendering it here as well shipped
+        // every signature twice (11 KB + 6 KB on the orchestrator under
+        // `python`), and the copy here could disagree with the harness's on
+        // which tools are callable. The harness copy is the one bound to the
+        // registry that parses the calls back, so it is the one that stays.
+        let _ = ctx.tools;
+        Ok(String::new())
     }
 }
 
