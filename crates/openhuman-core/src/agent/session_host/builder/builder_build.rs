@@ -94,13 +94,17 @@ impl SessionHostBuilder {
         // that is still empty — see the matching strip there.
         let discovery_opted_in =
             visible_names.remove(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
-        let deferred_names = if belt_is_wildcard {
-            crate::tools::implementations::meta::strip_deferred_from_visible(
-                &mut visible_names,
-                tools.as_slice(),
-            )
-        } else if discovery_opted_in {
-            let deferred = crate::tools::implementations::meta::deferred_tool_names(tools.as_slice());
+        let discovery_enabled = belt_is_wildcard || discovery_opted_in;
+        let deferred_names = if discovery_enabled {
+            // Durable AND synthesised: a per-action integration tool is
+            // synthesised per session (`collect_orchestrator_tools`) and
+            // declares `Deferred` too. The synthesised set's `Hidden` members
+            // are left alone on purpose — see the comment above.
+            let mut deferred =
+                crate::tools::implementations::meta::deferred_tool_names(tools.as_slice());
+            deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+                synthesized_tools.as_slice(),
+            ));
             visible_names.retain(|name| !deferred.contains(name));
             deferred
         } else {
@@ -300,6 +304,7 @@ impl SessionHostBuilder {
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
             deferred_tool_names: deferred_names,
+            discovery_enabled,
             subagent_tool_ceiling_names,
             tool_policy_session,
             memory,

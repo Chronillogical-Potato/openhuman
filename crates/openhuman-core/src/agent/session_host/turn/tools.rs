@@ -646,6 +646,10 @@ impl OpenHumanSessionHost {
                 &agent_id,
             );
         }
+        // The synthesis above can carry `Deferred` entries (per-action
+        // integration tools for a newly connected toolkit); keep them off the
+        // wire and in the searchable set, exactly as the build did.
+        self.recompute_deferred_tool_names();
 
         // Rebuild the visible-spec cache from the new tool_specs so the
         // next provider call carries the reconciled schema. Dedup

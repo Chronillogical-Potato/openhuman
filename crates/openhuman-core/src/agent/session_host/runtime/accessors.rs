@@ -441,10 +441,32 @@ impl OpenHumanSessionHost {
             &mut self.visible_tool_names,
             &self.agent_definition_name,
         );
-        self.deferred_tool_names = crate::tools::implementations::meta::strip_deferred_from_visible(
+        // Durable `Hidden` members leave the wire here; the deferred split
+        // over both sets is the shared recompute below.
+        let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
             &mut self.visible_tool_names,
             self.tools.as_slice(),
         );
+        self.recompute_deferred_tool_names();
+    }
+
+    /// Re-derive [`Self::deferred_tool_names`] from the current durable and
+    /// synthesised sets and take those names off the advertised set. Called
+    /// wherever either set changes; a no-op for a belt that never opted into
+    /// discovery.
+    pub(in crate::agent::session_host) fn recompute_deferred_tool_names(&mut self) {
+        if !self.discovery_enabled {
+            self.deferred_tool_names.clear();
+            return;
+        }
+        let mut deferred =
+            crate::tools::implementations::meta::deferred_tool_names(self.tools.as_slice());
+        deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+            self.synthesized_tools.as_slice(),
+        ));
+        self.visible_tool_names
+            .retain(|name| !deferred.contains(name));
+        self.deferred_tool_names = deferred;
     }
 
     /// The names the harness registers for a turn: the advertised set plus
