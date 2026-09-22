@@ -85,8 +85,7 @@ async function scrollMetrics(): Promise<{
       candidates.find(node => {
         const overflowY = getComputedStyle(node).overflowY;
         return (
-          node.scrollHeight > node.clientHeight &&
-          (overflowY === 'auto' || overflowY === 'scroll')
+          node.scrollHeight > node.clientHeight && (overflowY === 'auto' || overflowY === 'scroll')
         );
       }) ?? messageColumn;
     if (!el) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0, found: false };
@@ -112,8 +111,7 @@ async function scrollMessageColumn(top: number): Promise<void> {
       candidates.find(node => {
         const overflowY = getComputedStyle(node).overflowY;
         return (
-          node.scrollHeight > node.clientHeight &&
-          (overflowY === 'auto' || overflowY === 'scroll')
+          node.scrollHeight > node.clientHeight && (overflowY === 'auto' || overflowY === 'scroll')
         );
       }) ?? messageColumn;
     if (el) el.scrollTo({ top: y, behavior: 'auto' });
