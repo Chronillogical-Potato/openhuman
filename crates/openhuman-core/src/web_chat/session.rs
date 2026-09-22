@@ -184,10 +184,6 @@ pub(crate) async fn checkout_session_agent(
     temperature: Option<f64>,
     locale: Option<&str>,
     policy: CheckoutPolicy,
-    // The message this turn is about to send, so a cold-boot seed from the
-    // conversation log can drop it when the client already stored it. Empty for
-    // a host-authored turn, whose notice is never in the store.
-    current_user_message: &str,
 ) -> Result<CheckedOutSession, String> {
     let map_key = super::ops::key_for(thread_id);
     let target_agent_id = pick_target_agent_id(config);
@@ -209,7 +205,7 @@ pub(crate) async fn checkout_session_agent(
         sessions.remove(&map_key)
     };
 
-    let (mut agent, fingerprint, was_built_fresh) = match prior {
+    let (agent, fingerprint) = match prior {
         Some(entry)
             if entry.fingerprint == fingerprint || policy == CheckoutPolicy::AdoptCached =>
         {
@@ -219,7 +215,7 @@ pub(crate) async fn checkout_session_agent(
                 client_id,
                 thread_id
             );
-            (entry.agent, entry.fingerprint, false)
+            (entry.agent, entry.fingerprint)
         }
         Some(prior_entry) => {
             log::info!(
@@ -244,7 +240,6 @@ pub(crate) async fn checkout_session_agent(
                     locale,
                 )?,
                 fingerprint,
-                true,
             )
         }
         None => (
@@ -258,7 +253,6 @@ pub(crate) async fn checkout_session_agent(
                 locale,
             )?,
             fingerprint,
-            true,
         ),
     };
 
@@ -270,8 +264,6 @@ pub(crate) async fn checkout_session_agent(
     // conversation log's prose pairs when that failed; the prose fallback also
     // carried no system message, so such a turn reached the provider with no
     // system prompt and no prompt-cache key at all.
-    let _ = (config, current_user_message);
-
     Ok(CheckedOutSession { agent, fingerprint })
 }
 
