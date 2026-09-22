@@ -948,7 +948,7 @@ fn summarizer_advertises_no_tools() {
         entry: Entry::WebChat,
         user_message: "What is the state of my workspace?",
         scripted_completions: vec![
-            call("read_workspace_state", json!({})),
+            call("resolve_time", json!({ "expr": "now" })),
             text_completion("Workspace summary: nothing notable."),
             text_completion("Your workspace has nothing notable."),
         ],
