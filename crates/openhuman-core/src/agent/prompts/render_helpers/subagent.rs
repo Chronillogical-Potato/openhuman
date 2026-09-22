@@ -243,7 +243,10 @@ pub fn render_subagent_system_prompt_with_format(
 /// corresponding dialect accepts. OpenHuman deliberately owns no syntax here.
 fn render_tool_dialect_prompt(format: ToolCallFormat, tools: &[tinytools::ToolSpec]) -> String {
     match format {
-        ToolCallFormat::Native => NativeDialect.prompt_instructions(tools),
+        // Native providers receive the catalogue in the request's structured
+        // `tools` field. Rendering it in the system prompt duplicates large
+        // integration toolkits and can exhaust the context window.
+        ToolCallFormat::Native => NativeDialect.prompt_instructions(&[]),
         ToolCallFormat::Json => harness_json_tool_prompt(tools),
         ToolCallFormat::PFormat => {
             let registry = tinytools_agent::build_registry(

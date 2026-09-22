@@ -492,8 +492,9 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
             )
         })
         .collect();
-    let dispatcher_instructions =
-        tinyagents_harness::tool::prompt_tool_instructions(&text_mode_schemas);
+    let dispatcher_instructions = (!text_mode_schemas.is_empty())
+        .then(|| tinyagents_harness::tool::prompt_tool_instructions(&text_mode_schemas))
+        .unwrap_or_default();
     let ctx = PromptContext {
         workspace_dir: agent.workspace_dir(),
         model_name: &model_name,
