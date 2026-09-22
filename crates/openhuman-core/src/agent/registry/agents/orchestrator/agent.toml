@@ -357,15 +357,14 @@ named = [
     # arithmetic to the leaf (which once computed "24h ago" ~10 months off and
     # missed the latest data). Never hand-compute Unix seconds.
     "resolve_time",
-    # `todo` is the registered unified thread task-board tool
-    # (`TodoTool::name() == "todo"`; the legacy `todowrite` alias resolves to no
-    # registered tool). It tracks multi-step work across delegations. The
-    # chat orchestrator does not hold `request_plan_review`: a research or
-    # lookup question must never park the turn behind an approval card, and
-    # destructive actions are already gated by the shell/file approval layer.
-    # Planner and cron agents keep the plan-review tool. `plan_exit` and
-    # `update_task` left this belt with it: nothing consumes the plan-exit
-    # marker, and `update_task` was `todo` with a different default board.
+    # `todo` is the session todo list, Claude/Codex style: one whole-list
+    # write per call, scoped to this conversation thread (`TodoTool::name()
+    # == "todo"`; the legacy `todowrite` alias resolves to no registered
+    # tool). The chat orchestrator does not hold `request_plan_review`: a
+    # research or lookup question must never park the turn behind an approval
+    # card, and destructive actions are already gated by the shell/file
+    # approval layer. Planner and cron agents keep the plan-review tool.
+    # `plan_exit` left this belt with it: nothing consumes the marker.
     "todo",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
