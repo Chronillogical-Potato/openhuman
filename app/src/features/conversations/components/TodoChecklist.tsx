@@ -32,7 +32,7 @@ const Marker: React.FC<{ status: TodoItemStatus }> = ({ status }) => {
     return (
       <span
         aria-hidden
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sage-500 text-white">
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sage-500 text-content-inverted">
         <LuCheck className="h-3 w-3" strokeWidth={3} />
       </span>
     );
