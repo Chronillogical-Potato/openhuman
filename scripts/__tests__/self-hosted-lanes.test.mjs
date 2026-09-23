@@ -220,7 +220,7 @@ test("sccache summary reports hit rate and the store in use", () => {
   assert.equal(
     sccacheSummary({
       stats: { cache_hits: { counts: {} }, cache_misses: { counts: {} } },
-      cache_location: "Local disk: \"/cache/sccache\"",
+      cache_location: 'Local disk: "/cache/sccache"',
     }),
     "sccache (slot disk): 0 Rust hits, 0 misses.",
   );
