@@ -3,7 +3,7 @@
 //! content-aware compaction), per-tool char cap, shared byte-budget backstop,
 //! disclosure.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
