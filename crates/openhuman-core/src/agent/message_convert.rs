@@ -146,7 +146,7 @@ const REASONING_BLOCK_SEPARATOR: &str = "\n\n";
 /// line — keeping only the first silently dropped every later span from the
 /// persisted transcript and the reasoning shown for that step.
 pub(crate) fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
-    let parts: Vec<String> = content
+    let mut parts: Vec<String> = content
         .iter()
         .filter_map(|block| match block {
             ContentBlock::Thinking { text, .. } => Some(text.clone()),
@@ -158,6 +158,9 @@ pub(crate) fn reasoning_from_content(content: &[ContentBlock]) -> Option<String>
         })
         .filter(|text| !text.trim().is_empty())
         .collect();
+    // A legacy row can carry the same reasoning both as a thinking block and
+    // under the provider-extension key; do not render it twice.
+    parts.dedup();
     match parts.len() {
         0 => None,
         1 => parts.into_iter().next(),
