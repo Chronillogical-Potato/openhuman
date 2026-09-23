@@ -341,7 +341,7 @@ const RecoveryPhrasePanel = () => {
 
             {(mode === 'generate' || mode === 'import') && (
               <>
-                {walletStatus?.configured && (
+                {walletStatus?.configured && walletStatus.onboardingCompleted && (
                   <button
                     onClick={() => {
                       setMode('view');
