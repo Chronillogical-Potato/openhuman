@@ -237,6 +237,15 @@ pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
 /// no text. Never delivered to chat — used only for the run-history record.
 pub(super) const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 
+/// Keep a scheduled turn from auto-resuming another session's transcript.
+pub(super) fn start_cron_turn_clean(agent: &mut OpenHumanSessionHost) {
+    tracing::debug!("[cron] suppressing transcript autoload for scheduled turn");
+    agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
+        suppress_transcript_autoload: true,
+        ..Default::default()
+    });
+}
+
 pub(super) struct BuiltCronAgent {
     pub(crate) agent: OpenHumanSessionHost,
 }
