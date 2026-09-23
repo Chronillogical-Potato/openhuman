@@ -227,16 +227,16 @@
 #               (and their aggregate schema budgets) to the measured values;
 #               unrelated prompt and schema reductions are ratcheted too.
 
-morning_briefing:10754:59658
+morning_briefing:10769:59658
 trigger_triage:7537:0
 workflow_builder:76501:28987
 summarizer:7351:0
-tools_agent:5211:59658
-orchestrator:9699:21007
+tools_agent:5229:59658
+orchestrator:9717:21007
 code_executor:11455:13622
 crypto_agent:10992:10454
 task_manager_agent:4531:7602
-planner:7774:5900
+planner:7829:5900
 skill_creator:5464:11874
 flow_discovery:8522:8285
 profile_memory_agent:5515:11010

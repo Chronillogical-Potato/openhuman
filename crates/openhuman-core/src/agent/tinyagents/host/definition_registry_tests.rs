@@ -434,3 +434,93 @@ async fn an_empty_catalogue_misses_everything_without_erroring() {
         .expect("delegates")
         .is_empty());
 }
+
+/// The defect behind #6404 / #6392 / #6393, at the layer that caused it.
+///
+/// A library host builds its agent from a definition it owns and never
+/// registers: `AgentSpec::into_core` re-stamps the built-in orchestrator under
+/// the caller's id, so `harness` / `alpha` / `beta` reach hosted resolution as
+/// ids no registry holds. Before the session-definition seam this lookup
+/// missed, `prepare_agent_turn` raised `TinyAgentsError::Validation`, and the
+/// harness's `hosted_error` sanitized that into "hosted agent invocation was
+/// rejected by policy" — reported with zero provider calls, because the miss
+/// happens during turn preparation, before the loop runs.
+#[tokio::test]
+async fn a_caller_supplied_definition_resolves_under_its_own_unregistered_id() {
+    // Exactly the shape the embed harness produces: an id no registry knows.
+    let caller = synthetic("harness", AgentTier::Worker, &[]);
+    let registry = registry_of(vec![synthetic("orchestrator", AgentTier::Chat, &[])]);
+
+    // Without the session definition the id is simply absent — this is the
+    // miss that became "rejected by policy".
+    assert!(
+        registry.resolve("harness").await.unwrap().is_none(),
+        "precondition: an unregistered caller id must not resolve from the registry alone"
+    );
+
+    let with_session = registry_of(vec![synthetic("orchestrator", AgentTier::Chat, &[])])
+        .with_session_definition(Arc::new(caller));
+    let resolved = with_session
+        .resolve("harness")
+        .await
+        .unwrap()
+        .expect("the session's own definition must resolve under its own id");
+    assert_eq!(resolved.id, "harness");
+}
+
+/// The session's own definition outranks a same-id registry entry.
+///
+/// This is the precedence `OpenHumanSessionHost::resolved_definition` already
+/// documents and `resolved_definition_prefers_the_sessions_own_over_a_same_id_registry_entry`
+/// pins for the session's own reads; hosted resolution must not disagree with
+/// it, or a library host reusing a built-in id would silently run the
+/// built-in's definition instead of its own.
+#[tokio::test]
+async fn the_sessions_own_definition_outranks_a_same_id_registry_entry() {
+    let mut caller = synthetic("orchestrator", AgentTier::Worker, &[]);
+    caller.display_name = Some("the caller's own".to_string());
+
+    let registry = registry_of(vec![synthetic("orchestrator", AgentTier::Chat, &[])])
+        .with_session_definition(Arc::new(caller));
+
+    let resolved = registry
+        .resolve("orchestrator")
+        .await
+        .unwrap()
+        .expect("orchestrator resolves");
+    // `project` maps `name` from `display_name()`, which only the caller's copy
+    // sets — had the registry entry won, this would be its own display name.
+    assert_eq!(
+        resolved.name, "the caller's own",
+        "the session's own definition must win over the same-id registry entry"
+    );
+    // And the tier travels with it: the registry entry is Chat-tier (what the
+    // real `orchestrator` is), the caller's copy is a Worker, so a stale
+    // registry hit would show up here too.
+    assert_eq!(
+        resolved.role.as_deref(),
+        Some(AgentTier::Worker.to_string()).as_deref(),
+        "the winning definition's tier must be the caller's"
+    );
+}
+
+/// A session definition must not answer for an id that is not its own.
+#[tokio::test]
+async fn a_session_definition_does_not_shadow_other_ids() {
+    let registry = registry_of(vec![synthetic("orchestrator", AgentTier::Chat, &[])])
+        .with_session_definition(Arc::new(synthetic("harness", AgentTier::Worker, &[])));
+
+    assert_eq!(
+        registry
+            .resolve("orchestrator")
+            .await
+            .unwrap()
+            .map(|def| def.id),
+        Some("orchestrator".to_string()),
+        "a session definition must not capture lookups for other ids"
+    );
+    assert!(
+        registry.resolve("no-such-agent").await.unwrap().is_none(),
+        "a session definition must not answer for an unrelated missing id"
+    );
+}

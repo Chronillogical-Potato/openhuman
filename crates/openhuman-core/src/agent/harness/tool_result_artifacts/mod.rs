@@ -176,8 +176,25 @@ fn apply_tool_result_budget(content: String, budget_bytes: usize) -> (String, Bu
     let dropped_bytes = original_bytes.saturating_sub(cut);
     let mut out = String::with_capacity(cut + TRAILER_RESERVED);
     out.push_str(&content[..cut]);
+    // Say what was lost, and say what NOT to do about it (#6408).
+    //
+    // The previous wording ended "re-run with a narrower query to see the
+    // rest", which is an instruction to repeat the call. For a listing tool
+    // with no narrowing argument in reach — `GITHUB_LIST_PULL_REQUESTS` is the
+    // reported case — the model has nothing to narrow, so it re-issues the
+    // identical call, gets the identical truncation, and repeats until the
+    // successful-repeat tracker halts the run: 8-14 calls per question, the
+    // token and quota burn, and an "Incomplete" the user cannot explain.
+    //
+    // Truncation here is deterministic: the same call returns the same bytes
+    // and the same cut. Saying so is what makes the retry stop, and giving the
+    // totals lets the model judge whether the head it kept is enough to answer
+    // from. Keep the `truncated by tool_result_budget` phrase — it is the
+    // grep handle several suites and the runbooks match on.
     out.push_str(&format!(
-        "\n\n[… {dropped_bytes} bytes truncated by tool_result_budget — re-run with a narrower query to see the rest …]"
+        "\n\n[… {dropped_bytes} of {original_bytes} bytes truncated by tool_result_budget. \
+         Repeating this call returns the same truncation — narrow the request \
+         (filter, paginate, or request a smaller range) or answer from the {cut} bytes above …]"
     ));
 
     let final_bytes = out.len();

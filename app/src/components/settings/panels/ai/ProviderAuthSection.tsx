@@ -77,7 +77,7 @@ export const AddProviderButton = ({ onClick }: { onClick: () => void }) => {
   return (
     <Button
       type="button"
-      variant="secondary"
+      variant="primary"
       size="sm"
       leadingIcon={<LuPlus className="h-3.5 w-3.5" />}
       onClick={onClick}

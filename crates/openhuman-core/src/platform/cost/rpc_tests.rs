@@ -1,17 +1,14 @@
 use super::*;
+// Shared with `global_tests.rs`: the lock now serialises every test that
+// touches the process-global tracker, not just the ones that mutate
+// `FALLBACK_TRACKER`. `dashboard_query_includes_persisted_record` guards on
+// `try_global().is_some()`, and that guard is only sound while no other test
+// can install the global between the check and the use.
+use crate::platform::cost::tracker_test_lock;
 use crate::platform::cost::types::TokenUsage;
 use chrono::Utc;
 use std::collections::HashMap;
 use tempfile::TempDir;
-
-/// Serialize all tests that mutate the process-global `FALLBACK_TRACKER`
-/// so they don't race each other within the same test binary.
-fn tracker_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-}
 
 fn tempdir_config() -> (TempDir, Config) {
     let tmp = TempDir::new().unwrap();

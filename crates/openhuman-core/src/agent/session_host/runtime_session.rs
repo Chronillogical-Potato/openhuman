@@ -1369,43 +1369,6 @@ impl OpenHumanSessionHost {
             .map_err(|error| anyhow::anyhow!(error.to_string()))
     }
 
-    /// Seed a cold runtime session from the lossless transcript selected for a
-    /// conversation thread. The original raw rows travel with the seed so the
-    /// next runtime append can reconcile rather than reserialize them.
-    pub fn seed_resume_from_thread_transcript(&mut self, thread_id: &str) -> bool {
-        self.seed_resume_from_thread_transcript_scoped(thread_id, None)
-    }
-
-    pub fn seed_resume_from_thread_transcript_scoped(
-        &mut self,
-        thread_id: &str,
-        agent_id: Option<&str>,
-    ) -> bool {
-        if self.runtime_session.is_some() {
-            return false;
-        }
-        let Some(handle) = self
-            .session_locator()
-            .root_for_thread_scoped(thread_id, agent_id)
-        else {
-            return false;
-        };
-        let Ok(Some(transcript)) = handle.read_session() else {
-            return false;
-        };
-        let Ok(history) = OpenHumanTranscriptCodec.decode_history(&transcript) else {
-            return false;
-        };
-        if history.is_empty() || self.ensure_runtime_session().is_err() {
-            return false;
-        }
-        self.runtime_session
-            .as_mut()
-            .expect("runtime session initialized")
-            .seed_history(history, transcript.messages)
-            .is_ok()
-    }
-
     /// Dispatch one public OpenHuman turn through the neutral runtime.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
         self.ensure_runtime_session()?;
@@ -1420,7 +1383,13 @@ impl OpenHumanSessionHost {
             request_id: crate::agent::turn_origin::current_request_id(),
             thread_id: self.thread_id.clone(),
             stream: self.on_progress.is_some(),
-            resume: if self
+            session: self.session.clone(),
+            resume: if self.session.is_some() {
+                // Exact, identity-keyed resume. Unlike `LatestForAgent` it
+                // cannot splice a different thread's transcript into this
+                // turn, and the file it reads is the file the turn appends to.
+                ResumeMode::Session
+            } else if self
                 .runtime_session
                 .as_ref()
                 .is_some_and(|session| session.history().is_empty())
@@ -1445,7 +1414,7 @@ impl OpenHumanSessionHost {
         Ok(outcome.output.unwrap_or_default())
     }
 
-    fn ensure_runtime_session(&mut self) -> Result<()> {
+    pub(in crate::agent::session_host) fn ensure_runtime_session(&mut self) -> Result<()> {
         if self.runtime_session.is_some() {
             return Ok(());
         }
@@ -1495,12 +1464,24 @@ impl OpenHumanSessionHost {
             self.hosted_base.clone(),
             self.agent_definition_id.clone(),
         ));
-        let resume_target = TranscriptTarget::new(
-            self.session_locator(),
-            self.runtime_transcript_stem(),
-            self.runtime_transcript_meta(),
-        )
-        .with_resume_agent(self.agent_definition_name.clone());
+        // A thread-bound root session addresses its transcript by durable
+        // identity, so a restart appends to the conversation's own file rather
+        // than minting a new stem and resuming whichever one happens to be
+        // newest. Everything else — sub-agents, unthreaded CLI turns — keeps
+        // the stem path, where a fresh transcript per run is correct.
+        let resume_target = match self.session.clone() {
+            Some(session) => TranscriptTarget::for_session(
+                self.session_locator(),
+                session,
+                self.runtime_transcript_meta(),
+            ),
+            None => TranscriptTarget::new(
+                self.session_locator(),
+                self.runtime_transcript_stem(),
+                self.runtime_transcript_meta(),
+            )
+            .with_resume_agent(self.agent_definition_name.clone()),
+        };
         {
             let mut state = self
                 .runtime_state
@@ -1876,10 +1857,24 @@ impl OpenHumanSessionHost {
                 }
             },
         ));
+        // Bind the transcript at construction for a thread-bound session,
+        // rather than leaving it to the per-turn `before_resume` hook. The
+        // hook still supplies the same target, but binding it here means the
+        // session knows its own durable destination before any turn runs —
+        // which is what lets a host read the conversation back without
+        // driving a provider first.
+        let mut builder = SessionBuilder::new(driver)
+            .codec(Arc::new(OpenHumanTranscriptCodec))
+            .hooks(hooks);
+        if let Some(session) = self.session.clone() {
+            builder = builder.session(
+                self.session_locator(),
+                session,
+                self.runtime_transcript_meta(),
+            );
+        }
         self.runtime_session = Some(
-            SessionBuilder::new(driver)
-                .codec(Arc::new(OpenHumanTranscriptCodec))
-                .hooks(hooks)
+            builder
                 .build()
                 .map_err(|error| anyhow::anyhow!(error.to_string()))?,
         );
@@ -1940,7 +1935,9 @@ impl OpenHumanSessionHost {
         }
     }
 
-    fn session_locator(&self) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
+    pub(in crate::agent::session_host) fn session_locator(
+        &self,
+    ) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
         self.session_history_locator.clone().unwrap_or_else(|| {
             Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
                 self.workspace_dir.clone(),
@@ -1974,6 +1971,11 @@ impl OpenHumanSessionHost {
             charged_amount_usd: 0.0,
             thread_id: self.thread_id.clone(),
             task_id: None,
+            session_id: self.session.as_ref().map(|session| session.session_id()),
+            parent_session_id: self
+                .session
+                .as_ref()
+                .and_then(|session| session.parent_session_id()),
         }
     }
 }

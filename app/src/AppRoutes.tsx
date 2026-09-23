@@ -10,6 +10,7 @@ import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
 import Activity from './pages/Activity';
 import Brain from './pages/Brain';
+import { IS_DEV } from './utils/config';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
 import AssistantUiDemoPage from './pages/dev/assistant-ui-demo';
 import UiGallery from './pages/dev/UiGallery';
@@ -244,14 +245,25 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
 
       <Route path="/ptt-overlay" element={<PttOverlayPage />} />
 
-      {/* Dev-only visual preview of the Agentic task insights surface. */}
-      <Route path="/dev/agent-insights" element={<AgentInsightsPreview />} />
+      {/* Dev-only harnesses. Registered behind `IS_DEV` so their component
+          trees are dead code in a production build and drop out of the bundle
+          entirely — `import.meta.env.DEV` is substituted at build time, so
+          `false && <Route/>` folds away and the imports above become
+          unreferenced. These pages exist to preview UI in isolation and have
+          never been part of the shipped product; before this they were
+          registered unconditionally and every user downloaded them. */}
+      {IS_DEV && (
+        <>
+          {/* Visual preview of the Agentic task insights surface. */}
+          <Route path="/dev/agent-insights" element={<AgentInsightsPreview />} />
 
-      {/* Dev-only gallery of every shared UI primitive, in the active theme. */}
-      <Route path="/dev/ui" element={<UiGallery />} />
+          {/* Gallery of every shared UI primitive, in the active theme. */}
+          <Route path="/dev/ui" element={<UiGallery />} />
 
-      {/* Dev-only: the upstream assistant-ui `base` demo on a mock runtime. */}
-      <Route path="/dev/assistant-ui" element={<AssistantUiDemoPage />} />
+          {/* The upstream assistant-ui `base` demo on a mock runtime. */}
+          <Route path="/dev/assistant-ui" element={<AssistantUiDemoPage />} />
+        </>
+      )}
 
       {/* Default redirect based on auth status */}
       <Route path="*" element={<DefaultRedirect />} />
