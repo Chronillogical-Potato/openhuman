@@ -10,7 +10,7 @@ import { type EvmNetwork, type WalletChain } from '../../../../services/walletAp
 import { type RootState } from '../../../../store';
 import { toggleTokenHidden } from '../../../../store/walletPreferencesSlice';
 import Switch from '../../../ui/Switch';
-import { ChainIcon } from '../WalletBalancesPanel';
+import { ChainIcon } from './chainIcons';
 
 interface ManageTokensModalProps {
   open: boolean;

@@ -20,7 +20,7 @@ import Button from '../../../ui/Button';
 import { InputGroupAddon, InputGroupInput, InputGroupRoot } from '../../../ui/InputGroup';
 import Label from '../../../ui/Label';
 import TextField from '../../../ui/TextField';
-import { ChainIcon } from '../WalletBalancesPanel';
+import { ChainIcon } from './chainIcons';
 
 interface SendCryptoModalProps {
   balance: BalanceInfo;
