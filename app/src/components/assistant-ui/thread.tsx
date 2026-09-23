@@ -128,6 +128,20 @@ export type ThreadComponents = {
    * process behind it, so a plain answer gets no footer.
    */
   TurnFooter?: ComponentType | undefined;
+  /**
+   * Host-owned list of the web sources this turn visited, rendered at the end
+   * of the message *content* rather than in the footer row.
+   *
+   * Deliberately not part of the footer: that row is a single-line
+   * `flex items-center` whose height is reserved by `ACTION_BAR_HEIGHT` and
+   * asserted in `thread.actionBarSpacing.test.tsx`, so a block that can grow
+   * to several lines does not belong in it. Placed inside the content div it
+   * inherits the `[&>*+*]:mt-3` rhythm the other blocks use.
+   *
+   * Like `TurnFooter`, the component reads the message's own metadata and
+   * returns `null` when the turn visited none, so a plain answer gets nothing.
+   */
+  TurnSources?: ComponentType | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -922,6 +936,7 @@ const AssistantMessage: FC = () => {
     ToolGroup,
     ReasoningGroup,
     TurnFooter,
+    TurnSources,
   } = useContext(ThreadComponentsContext);
 
   const ACTION_BAR_PT = 'pt-1.5';
@@ -1040,6 +1055,7 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
+        {TurnSources ? <TurnSources /> : null}
         <MessageError />
       </div>
 
