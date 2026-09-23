@@ -36,11 +36,8 @@ pub(crate) const DEFAULT_TOOL_RESULT_BUDGET_BYTES: usize = 16 * 1024;
 pub(crate) struct TurnContextMiddleware {
     /// Per-tool-result byte cap. `0` disables the cap.
     pub(crate) tool_result_budget_bytes: usize,
-    /// Optional semantic tool-output summarizer (progressive disclosure).
+    /// The model behind TinyJuice's tool-output summary. `None` disables it.
     pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
-    /// The user's request for this turn, passed to the payload summarizer as
-    /// its task hint. `None` when the turn has no user message to offer.
-    pub(crate) task_hint: Option<String>,
     /// Optional action-workspace artifact sink for oversized tool results.
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     /// Whether TokenJuice content-aware compaction runs before output caps.
@@ -347,7 +344,6 @@ impl TurnContextMiddleware {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
-            task_hint: None,
             // Deliberately `None` on the channel / sub-agent path (#6408).
             //
             // This constructor has no session context, so it has no
@@ -427,13 +423,13 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
-                task_hint: self.task_hint,
                 artifact_store: self.artifact_store,
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,
                 runtime_config: self.runtime_config,
                 tool_policies,
                 artifact_reads: Default::default(),
+                focus_by_call: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the

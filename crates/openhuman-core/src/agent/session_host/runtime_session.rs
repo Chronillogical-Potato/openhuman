@@ -1443,7 +1443,6 @@ impl OpenHumanSessionHost {
         let context_mw = TurnContextMiddleware {
             tool_result_budget_bytes,
             payload_summarizer: self.payload_summarizer.clone(),
-            task_hint: None,
             // Was `None` in both production constructors; `artifact_wiring`
             // documents why its root is the correctness question (#6408, #6483).
             artifact_store: Some(artifact_store),
