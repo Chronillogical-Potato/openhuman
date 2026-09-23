@@ -37,52 +37,62 @@ fn backend_repair_message_explains_why_the_graph_was_preserved() {
     );
 }
 
-#[tokio::test]
-async fn repair_backend_failure_returns_no_proposal_before_starting_the_builder() {
-    let req = BuilderRequest {
-        mode: BuildMode::Repair,
-        instruction: "repair the failed workflow".to_string(),
-        graph: Some(json!({"nodes": [], "edges": []})),
-        flow_id: Some("flow-1".to_string()),
-        run_id: Some("run-1".to_string()),
-        error: Some("Backend returned 503 Service Unavailable".to_string()),
-        failing_node_ids: vec!["fetch".to_string()],
-    };
+#[test]
+fn repair_backend_failure_returns_no_proposal_before_starting_the_builder() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .thread_stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .enable_all()
+        .build()
+        .expect("build agent-sized test runtime");
 
-    let outcome = flows_build_with_extra_hidden_tools(&Config::default(), req.clone(), None, &[])
-        .await
-        .expect("backend failure should short-circuit before the builder starts");
+    runtime.block_on(async {
+        let req = BuilderRequest {
+            mode: BuildMode::Repair,
+            instruction: "repair the failed workflow".to_string(),
+            graph: Some(json!({"nodes": [], "edges": []})),
+            flow_id: Some("flow-1".to_string()),
+            run_id: Some("run-1".to_string()),
+            error: Some("Backend returned 503 Service Unavailable".to_string()),
+            failing_node_ids: vec!["fetch".to_string()],
+        };
 
-    assert_eq!(outcome.value["proposal"], Value::Null);
-    assert_eq!(outcome.value["error"], Value::Null);
-    assert!(outcome.value["assistant_text"]
-        .as_str()
-        .expect("assistant text")
-        .contains("workflow was not changed"));
+        let outcome =
+            flows_build_with_extra_hidden_tools(&Config::default(), req.clone(), None, &[])
+                .await
+                .expect("backend failure should short-circuit before the builder starts");
 
-    let request_id = format!("backend-repair-{}", uuid::Uuid::new_v4());
-    let stream = FlowStreamTarget {
-        thread_id: "backend-repair-thread".to_string(),
-        request_id: request_id.clone(),
-    };
-    let mut events = crate::web_chat::subscribe_web_channel_events();
+        assert_eq!(outcome.value["proposal"], Value::Null);
+        assert_eq!(outcome.value["error"], Value::Null);
+        assert!(outcome.value["assistant_text"]
+            .as_str()
+            .expect("assistant text")
+            .contains("workflow was not changed"));
 
-    flows_build_with_extra_hidden_tools(&Config::default(), req, Some(stream), &[])
-        .await
-        .expect("streamed backend failure should short-circuit before the builder starts");
+        let request_id = format!("backend-repair-{}", uuid::Uuid::new_v4());
+        let stream = FlowStreamTarget {
+            thread_id: "backend-repair-thread".to_string(),
+            request_id: request_id.clone(),
+        };
+        let mut events = crate::web_chat::subscribe_web_channel_events();
 
-    let done = loop {
-        match events.try_recv() {
-            Ok(event) if event.request_id == request_id => break event,
-            Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
-            Err(error) => panic!("missing streamed backend-repair event: {error}"),
-        }
-    };
-    assert_eq!(done.event, "chat_done");
-    assert_eq!(done.thread_id, "backend-repair-thread");
-    assert!(done
-        .full_response
-        .as_deref()
-        .expect("terminal response text")
-        .contains("workflow was not changed"));
+        flows_build_with_extra_hidden_tools(&Config::default(), req, Some(stream), &[])
+            .await
+            .expect("streamed backend failure should short-circuit before the builder starts");
+
+        let done = loop {
+            match events.try_recv() {
+                Ok(event) if event.request_id == request_id => break event,
+                Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+                Err(error) => panic!("missing streamed backend-repair event: {error}"),
+            }
+        };
+        assert_eq!(done.event, "chat_done");
+        assert_eq!(done.thread_id, "backend-repair-thread");
+        assert!(done
+            .full_response
+            .as_deref()
+            .expect("terminal response text")
+            .contains("workflow was not changed"));
+    });
 }
