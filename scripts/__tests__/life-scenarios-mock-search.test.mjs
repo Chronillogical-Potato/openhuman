@@ -41,7 +41,17 @@ async function search(objective, maxResults = 5) {
     }),
   });
   assert.equal(res.status, 200);
-  return res.json();
+  const envelope = await res.json();
+  // `integrations/client/errors.rs::parse_envelope` deserializes
+  // `{ success, data, error }` and returns `data`. A bare payload fails as
+  // `missing field 'success'` — and fails late enough to look like a broken
+  // tool rather than an empty result, so the agent abandons the task.
+  assert.equal(
+    envelope.success,
+    true,
+    "every response must carry the backend envelope",
+  );
+  return envelope.data;
 }
 
 test("the corpus loads past the fixture's _comment key", () => {
@@ -107,16 +117,20 @@ test("the cost is reported as zero, because it was", async () => {
 
 test("the unauthenticated backend calls get benign stubs", async () => {
   // Answered so the core's log shows the run's own behaviour rather than one
-  // fixed auth failure repeated every turn.
+  // fixed auth failure repeated every turn. Enveloped like everything else.
   const usage = await fetch(`${server.url}/teams/me/usage`);
   assert.equal(usage.status, 200);
+  assert.equal((await usage.json()).success, true);
+
   const toolkits = await fetch(
     `${server.url}/agent-integrations/composio/toolkits`,
   );
   assert.equal(toolkits.status, 200);
+  const body = await toolkits.json();
+  assert.equal(body.success, true);
   // Empty on purpose: Composio is served by mock-composio.mjs over the direct
   // base, and a competing list here would shadow it.
-  assert.deepEqual((await toolkits.json()).items, []);
+  assert.deepEqual(body.data.items, []);
 });
 
 test("an unhandled route 404s and is recorded", async () => {
