@@ -27,7 +27,7 @@ provisioning, deploys and the runner token.
 | `frontend` | pnpm install, tsc, prettier, eslint, i18n, docs, script self-tests |
 | `frontend-tests` | the complete vitest suite with coverage |
 | `rust-cov` | test modules from the registry, then `scripts/ci/rust-coverage.sh` |
-| `rust-lint` | clippy (product set; embed's clippy covers the core's contributor set), embed and tinyhumans lint, embed gates-off check, prompt budget |
+| `rust-lint` | clippy (product set; embed's clippy covers the core's contributor set), embed and tinyhumans lint, embed gates-off check |
 | `rust-gates-off` | gates-off checks and gate-contract tests, kernel floor, dep-sim calibration |
 | `tauri` | Tauri clippy and coverage |
 | `pester` | `install.ps1` tests |
@@ -61,7 +61,10 @@ Some checks do not run on pull requests. CI Lite runs them on every push to
   product features;
 - `cargo check -p openhuman --no-default-features`, which
   `embed-check-no-default` already covers: it builds the core with the same
-  (empty) feature set.
+  (empty) feature set;
+- `cargo check -p openhuman --no-default-features --features
+  e2e-test-support`: `rust-gates-off` already compiles that feature set for
+  its tests, in one build together with `mcp`.
 
 ## Profiles
 
