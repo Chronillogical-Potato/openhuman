@@ -298,11 +298,11 @@ export function mapDisplayItems(
         }
         const turn = ensureTurn(turns, anchorRequestId);
         const activity = buildSubagentActivity(item.id, item.items);
-        turn.entries.push({
-          id: `subagent:${item.id}`,
+        placeSubagentRow(turn, {
+          id: uniqueSubagentRowId(turn, item.id),
           name: `subagent:${item.id}`,
           round: turn.round,
-          seq: turn.seq++,
+          seq: 0,
           status: 'success',
           subagent: activity,
         });
