@@ -81,3 +81,37 @@ async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
     assert!(request.prompt.contains("Caller focus: the rate limits"));
     assert!(request.system.contains("caller focus"));
 }
+
+/// A result that was registered for a summary and never reached the module
+/// still says it is unsummarized, exactly as a module-side failure would.
+#[tokio::test]
+async fn an_unreachable_module_discloses_a_wanted_summary() {
+    if std::env::var_os("TINYJUICE_TEST_MODULE").is_some() {
+        return; // A fixture forces the module on; this pins the host path.
+    }
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = false;
+    let config = std::sync::Arc::new(config);
+    let call = |context_token: Option<String>| ToolOutputCompaction {
+        content: "raw".to_string(),
+        tool_name: "web_fetch",
+        enabled: false,
+        profile: AgentTokenjuiceCompression::Light,
+        runtime_config: Some(&config),
+        arguments: None,
+        focus: Some("the pricing".to_string()),
+        context_token,
+        scope: None,
+    };
+
+    let wanted = compact_tool_output(call(Some("token".to_string()))).await;
+    assert_eq!(wanted.text, "raw");
+    assert_eq!(wanted.notice, Some(summary_failed_notice()));
+
+    let unwanted = compact_tool_output(ToolOutputCompaction {
+        enabled: true,
+        ..call(None)
+    })
+    .await;
+    assert_eq!(unwanted.notice, None);
+}
