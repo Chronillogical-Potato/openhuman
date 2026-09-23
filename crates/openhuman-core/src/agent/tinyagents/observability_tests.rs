@@ -1,6 +1,47 @@
 use super::*;
 use tinyagents_harness::events::EventSink;
 
+/// A tool whose `display_label`/`display_detail` depend on the call
+/// arguments — the shape a dynamic Composio/MCP/integration tool takes (e.g.
+/// [`crate::integrations::composio::action_tool::ComposioActionTool`]'s
+/// "Gmail send email"). Used to prove the bridge calls the tool's OWN
+/// presentation methods instead of always deriving a label from the bare
+/// tool name.
+struct FakeLabeledTool;
+
+#[async_trait::async_trait]
+impl tinytools::Tool for FakeLabeledTool {
+    fn name(&self) -> &str {
+        "fake_send_email"
+    }
+
+    fn description(&self) -> &str {
+        "sends an email (test double)"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("sent"))
+    }
+
+    fn display_label(&self, _args: &serde_json::Value) -> Option<String> {
+        Some("Sending email".to_string())
+    }
+
+    fn display_detail(&self, args: &serde_json::Value) -> Option<String> {
+        args.get("to").and_then(|v| v.as_str()).map(str::to_string)
+    }
+}
+
+fn fake_tool_sets() -> Vec<Arc<Vec<Box<dyn tinytools::Tool>>>> {
+    vec![Arc::new(vec![
+        Box::new(FakeLabeledTool) as Box<dyn tinytools::Tool>
+    ])]
+}
+
 #[tokio::test]
 async fn bridge_forwards_tool_and_cost_progress() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(64);
