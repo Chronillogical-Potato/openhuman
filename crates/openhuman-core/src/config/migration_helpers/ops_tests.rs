@@ -50,6 +50,9 @@ async fn migrate_openclaw_dry_run_on_empty_source_returns_report() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn migrate_openclaw_apply_imports_markdown_entries_into_target_workspace() {
+    // Apply writes through the memory module: wait out its load first (see
+    // `migrate_hermes_apply_imports_markdown_entries`).
+    crate::memory::test_support::settle_memory_module().await;
     // Regression for #1440: prior to this PR the Apply path
     // (`dry_run = false`) bailed at `create_memory_for_migration`
     // because the unified namespace memory core hard-disabled it.
@@ -244,8 +247,11 @@ async fn migrate_hermes_dry_run_on_empty_source_returns_report() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn migrate_hermes_apply_imports_markdown_entries() {
-    // Apply does real memory work; install the embedding host seam so this
-    // test stands on its own under `--no-default-features` (idempotent).
+    // Apply does real memory work: wait out the memory module's load first,
+    // or the import races it and answers "memory is still starting". A test
+    // that runs in its own process (cargo nextest) always hits that window;
+    // one sharing a process with earlier memory tests usually misses it.
+    crate::memory::test_support::settle_memory_module().await;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 

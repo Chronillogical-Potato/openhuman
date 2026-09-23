@@ -4,7 +4,8 @@
 //! Split by responsibility:
 //! - [`env_guard`]: leading inline env-assignment detection.
 //! - [`command_name`]: basename normalization and "executes arbitrary code" bases.
-//! - [`quoting`]: quote-aware segment splitting and unquoted-character detection.
+//! - [`quoting`]: quote-aware segment splitting, unquoted-character detection,
+//!   and the quoted-heredoc body pre-pass.
 //! - [`classification`]: read/write/network/install/destructive bucket lists
 //!   and the hidden-execution structural guard.
 
@@ -20,4 +21,5 @@ pub(super) use env_guard::{
 };
 pub(super) use quoting::{
     contains_unquoted_char, contains_unquoted_single_ampersand, split_unquoted_segments,
+    strip_quoted_heredoc_bodies,
 };

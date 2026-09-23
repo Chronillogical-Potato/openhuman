@@ -19,6 +19,7 @@ pub(crate) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
     Box::pin(async move {
         let update = deserialize_params::<AutonomySettingsUpdate>(params)?;
         let patch = config_rpc::AutonomySettingsPatch {
+            enabled: update.enabled,
             level: update.level,
             workspace_only: update.workspace_only,
             allowed_commands: update.allowed_commands,

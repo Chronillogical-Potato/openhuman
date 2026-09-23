@@ -54,11 +54,6 @@ rust-core:
   # entry, resolved to `["rust-tauri"]` alone, skipping every lane
   # that would have compiled the family it enabled.
   - 'scripts/ci/product-features.*'
-  # The prompt-budget ratchet runs in rust-quality; editing its
-  # limits or the script must arm the lane that checks them.
-  - 'scripts/prompt-budget.limits'
-  - 'scripts/check-prompt-budget.sh'
-  - 'scripts/prompt-size-measure.sh'
   # The feature-gate smoke owns the dependency-floor ratchet. Its
   # limits and measurement logic must arm that lane themselves.
   - 'scripts/kernel-floor.limits'

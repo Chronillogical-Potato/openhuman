@@ -906,11 +906,11 @@ impl OpenHumanSessionHost {
         //
         // Issue #574 — when a tool returns a huge payload (Composio
         // dump, long file read, web scrape), it should be compressed
-        // by a dedicated `summarizer` sub-agent before entering the
-        // orchestrator's history. We resolve the summarizer agent
-        // definition from the global registry and construct a
-        // `SubagentPayloadSummarizer` parameterized from the
-        // [`ContextConfig`] thresholds. Every other agent id gets
+        // by TinyJuice's summary stage before entering the orchestrator's
+        // history. TinyJuice owns the prompt and the thresholds (installed
+        // from [`ContextConfig`]); the host supplies only the model call,
+        // through a `SubagentPayloadSummarizer` built from the `summarizer`
+        // agent definition. Every other agent id gets
         // `None` and their tool results stay untouched (the summarizer
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
@@ -929,8 +929,6 @@ impl OpenHumanSessionHost {
                         Some(std::sync::Arc::new(
                             crate::agent::tinyagents::payload_summarizer::SubagentPayloadSummarizer::new(
                                 summarizer_def.clone(),
-                                config.context.summarizer_payload_threshold_tokens,
-                                config.context.summarizer_max_payload_tokens,
                             ),
                         ))
                     }

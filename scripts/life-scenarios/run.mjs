@@ -44,6 +44,7 @@ import { fileURLToPath } from "node:url";
 
 import { SCENARIOS, scenarioById } from "./scenarios.mjs";
 import { startMockComposio } from "./mock-composio.mjs";
+import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -69,6 +70,8 @@ function parseArgs(argv) {
     managed: false,
     mockComposio: true,
     composioPort: 0,
+    mockSearch: true,
+    searchPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
     coreBin:
@@ -99,6 +102,7 @@ function parseArgs(argv) {
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
     else if (a === "--no-mock-composio") o.mockComposio = false;
+    else if (a === "--no-mock-search") o.mockSearch = false;
     else if (a === "--no-approvals") o.approvals = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
@@ -211,7 +215,7 @@ function mintLocalSessionToken(userId) {
  * to have, and a benchmark that silently inherits those measures the machine
  * rather than the harness.
  */
-async function prepareHome(runDir) {
+async function prepareHome(runDir, { searchBase } = {}) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -219,15 +223,30 @@ async function prepareHome(runDir) {
 
   const config = [
     "schema_version = 13",
-    'api_url = "https://api.tinyhumans.ai"',
+    // The backend base every non-inference call resolves through
+    // (`api::config::effective_backend_api_url`). Pointed at the local mock so
+    // `web_search_tool` has something to talk to: it posts to
+    // `/agent-integrations/parallel/search` on this base, and against the
+    // hosted backend this run's offline token is rejected 401 every time.
+    // See also BACKEND_URL in `Core.start` — this file alone is not enough.
+    searchBase
+      ? `api_url = "${searchBase}"`
+      : 'api_url = "https://api.tinyhumans.ai"',
     "default_temperature = 0.7",
     "onboarding_completed = true",
     "chat_onboarding_completed = true",
     "",
     "[autonomy]",
-    // The shipped desktop default. The gate stays installed and an approval
-    // responder answers it, rather than the usual headless shortcut of
-    // turning it off — a disabled gate measures a product nobody runs.
+    // The shipped desktop default is `enabled = false`: the policy is opt-in,
+    // because the product's agents run in containers and jails that already
+    // bound them. Written explicitly rather than left to the default so a
+    // reader of this file can see which product is being measured, and so
+    // flipping it to `true` is a one-line comparison arm.
+    //
+    // With it off, `gate_decision` answers Allow for every class, so nothing
+    // parks and the ApprovalResponder below has little to answer. That is the
+    // measurement, not a shortcut: see README.md.
+    "enabled = false",
     'level = "supervised"',
     "workspace_only = false",
     "",
@@ -260,6 +279,21 @@ async function prepareHome(runDir) {
   return home;
 }
 
+/** Retry `fn` until it stops throwing, then give up with the last error. */
+async function withRetries(fn, { attempts, delayMs, what }) {
+  let last;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error(`${what} never settled after ${attempts} attempts: ${last?.message ?? last}`);
+}
+
 // ---------------------------------------------------------------------------
 // core lifecycle
 // ---------------------------------------------------------------------------
@@ -277,7 +311,7 @@ class Core {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, home, composioBase, approvals }) {
+  async start({ actionDir, logPath, home, composioBase, searchBase, approvals }) {
     this.port = await freePort();
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
@@ -291,19 +325,30 @@ class Core {
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
+      // Just this one now. It used to need OPENHUMAN_PROJECTS_DIR beside it:
+      // `action_dir` was only the base that relative tool paths are joined
+      // onto, and the *permission* to write came from a trusted root that
+      // `security/policy/enforcement.rs` granted for `default_projects_dir()`
+      // alone — so setting ACTION_DIR by itself got every file-tool write
+      // refused "Resolved path escapes workspace" (FINDINGS.md #1).
+      // `from_config` now grants the configured action dir itself, which is
+      // what this single variable proves end to end.
       OPENHUMAN_ACTION_DIR: actionDir,
-      // Both, and the second one is not redundant. `action_dir` is only the
-      // base that relative tool paths are joined onto; the *permission* to
-      // write comes from a trusted root, and `security/policy/enforcement.rs`
-      // grants one for `default_projects_dir()` — which reads
-      // OPENHUMAN_PROJECTS_DIR and knows nothing about OPENHUMAN_ACTION_DIR.
-      // Set ACTION_DIR alone and every file-tool write into it is refused with
-      // "Resolved path escapes workspace". See FINDINGS.md #1.
-      OPENHUMAN_PROJECTS_DIR: actionDir,
       RUST_LOG: process.env.RUST_LOG || "info",
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
+    // The same backend base as `api_url` above, set again as an env var
+    // because the config file loses a race that is easy to miss:
+    // `auth.set_credential` activates a per-user config dir
+    // (`users/<id>/config.toml`) whose id the core derives at runtime, and a
+    // config there takes precedence over the root one. `prepareHome` cannot
+    // know that id, so it writes `users/local/`; the core activates
+    // `users/local-dragonfly/`, finds no `api_url` and falls back to the
+    // hosted backend. `api_base_from_env` reads BACKEND_URL ahead of the
+    // compile-time default whichever config wins, so this is the override
+    // that actually holds.
+    if (searchBase) env.BACKEND_URL = searchBase;
     if (composioBase) {
       // Both are read by `integrations/composio/client/factory.rs`; the match
       // arm is `(Some, Some)`, so setting only one silently falls through to
@@ -922,7 +967,19 @@ async function main() {
   console.log(`run dir : ${runDir}`);
   console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
 
-  const home = await prepareHome(runDir);
+  let search = null;
+  if (opts.mockSearch) {
+    search = await startMockSearch({
+      indexPath: DEFAULT_INDEX_PATH,
+      requestsPath: path.join(runDir, "search-requests.json"),
+      port: opts.searchPort,
+    });
+    console.log(
+      `search  : mock at ${search.url} (${search.ctx.documents.length} documents)`,
+    );
+  }
+
+  const home = await prepareHome(runDir, { searchBase: search ? search.url : "" });
 
   let composio = null;
   if (opts.mockComposio) {
@@ -942,6 +999,7 @@ async function main() {
     logPath: path.join(runDir, "core.log"),
     home,
     composioBase: composio ? composio.url : "",
+    searchBase: search ? search.url : "",
     approvals: opts.approvals,
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
@@ -970,11 +1028,38 @@ async function main() {
     // endpoint there; the caller had to hand-build a provider entry and pin
     // four roles. That this short form now routes is the end-to-end check on
     // that fix.
-    await core.rpc("openhuman.config_update_model_settings", {
-      inference_url: opts.inferenceUrl,
-      api_key: opts.apiKey,
-      default_model: opts.model,
-    });
+    //
+    // Written in a loop, and read back, because of a startup race: the write
+    // lands in whichever config is active *now*, and `auth_set_credential`
+    // above activates a per-user dir (`users/<id>/config.toml`) a moment
+    // later, whose config then takes precedence and carries no BYOK route.
+    // Lose that race and every scenario dies in under a second with
+    // `provider=openhuman ... 401 Invalid token` — which reads like a broken
+    // harness and is really a config that arrived too early. Observed doing
+    // exactly that: one run green, the next 0/9 on the same binary.
+    await withRetries(
+      async () => {
+        await core.rpc("openhuman.config_update_model_settings", {
+          inference_url: opts.inferenceUrl,
+          api_key: opts.apiKey,
+          default_model: opts.model,
+        });
+        // `config.get` wraps the config under `config` (see
+        // `snapshot_config_json`), and the RPC envelope may wrap that again.
+        const snap = await core.rpc("openhuman.config_get", {});
+        const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+        const providers = cfg.cloud_providers ?? [];
+        const routed =
+          cfg.inference_url === opts.inferenceUrl &&
+          providers.some((p) => p?.endpoint === opts.inferenceUrl);
+        if (!routed)
+          throw new Error(
+            `BYOK route not in the active config yet (inference_url=${cfg.inference_url ?? "unset"}, ` +
+              `${providers.length} cloud_providers)`,
+          );
+      },
+      { attempts: 10, delayMs: 500, what: "BYOK route" },
+    );
   }
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
@@ -1038,6 +1123,10 @@ async function main() {
       );
       await composio.close();
     }
+    // `close` flushes the search log itself, so the record survives a run that
+    // failed partway: it is the only evidence of what discovery returned, and
+    // a post-mortem needs it most on the runs that went wrong.
+    if (search) await search.close();
   }
 
   printReport(results);
