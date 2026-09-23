@@ -221,6 +221,11 @@
 #   2026-09-20  Re-measured after the fresh-turn and cost-routing changes merged
 #               without their generated budget update. The morning briefing's
 #               fixed prefix is 3 B larger; all other recorded ceilings stay put.
+#
+#   2026-09-22  TinyAgents 2.1.2 expands the shared `todo` tool schema from
+#               860 B to 1,127 B. Ratchet the six agents that advertise it
+#               (and their aggregate schema budgets) to the measured values;
+#               unrelated prompt and schema reductions are ratcheted too.
 
 morning_briefing:10769:59658
 trigger_triage:7537:0
@@ -328,7 +333,7 @@ tool:cron:3340
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
-tool:spawn_async_subagent:1556
+tool:spawn_async_subagent:1535
 tool:save_workflow:1957
 tool:spawn_parallel_agents:1839
 tool:todo:1127

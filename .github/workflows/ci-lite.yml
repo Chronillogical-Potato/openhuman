@@ -633,7 +633,10 @@ jobs:
         # graph split adds four unique crate names without native dependencies.
         # 279 -> 277 on 2026-09-20: the merged fresh-turn and cost-routing
         # dependency refresh sheds two of those resolved names again.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 277
+        # 277 -> 280 on 2026-09-22: TinyAgents 2.1.2 moves its required
+        # runtime/session/graph split into the harness path; it adds three
+        # crate names and no native build dependency.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 280
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

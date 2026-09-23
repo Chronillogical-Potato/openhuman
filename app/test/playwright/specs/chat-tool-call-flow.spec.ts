@@ -161,7 +161,7 @@ async function toolTimelineNames(page: Page, threadId: string): Promise<string[]
 }
 
 test.describe('Chat Tool Call Flow', () => {
-  test('runs one tool call round, renders the final answer, and clears in-flight state', async ({
+  test('renders a terminal tool call, final answer, and clears in-flight state', async ({
     page,
   }) => {
     await resetMock();
@@ -190,11 +190,15 @@ test.describe('Chat Tool Call Flow', () => {
     const toolCard = page.getByTestId('assistant-ui-tool-call');
     await expect(toolCard).toBeVisible();
     await expect(toolCard).toContainText('Fetched from the web');
+    // Web-channel turns retain supervised access even if the stored config is
+    // wider. The external fetch is therefore cancelled without an approval
+    // surface, and must render its actual terminal state instead of a false
+    // success or a forever-running card.
+    await expect(toolCard).toContainText('cancelled');
     await expect(toolCard).not.toContainText('running');
     const toolTrigger = toolCard.getByRole('button').first();
     if ((await toolTrigger.getAttribute('aria-expanded')) !== 'true') await toolTrigger.click();
-    await expect(toolCard.getByText('Output', { exact: true })).toBeVisible();
-    await expect(toolCard.getByRole('link', { name: 'https://example.com/' })).toBeVisible();
+    await expect(toolCard.getByText('Input', { exact: true })).toBeVisible();
 
     await expect
       .poll(
