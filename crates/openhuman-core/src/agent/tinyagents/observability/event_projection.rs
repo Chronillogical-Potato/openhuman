@@ -473,6 +473,9 @@ impl EventListener for OpenhumanEventBridge {
                             elapsed_ms: *latency_ms,
                             iteration,
                             failure: None,
+                            display_label: Some("Searching tools".to_string()),
+                            display_detail: None,
+                            structured: None,
                         });
                     }
                 }
