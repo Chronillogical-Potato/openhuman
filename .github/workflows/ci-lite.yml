@@ -535,61 +535,8 @@ jobs:
         run: bash scripts/check-kernel-floor.sh --verbose
 
       - name: Guard — the removal simulator still agrees with cargo
-        # scripts/dep-sim.py projects the effect of cutting a dependency cohort,
-        # and every gating decision in the kernelization program is sized with
-        # it. It parses `cargo tree` precisely so it cannot drift from cargo's
-        # own feature resolution — an earlier version walked `cargo metadata`'s
-        # resolve graph instead and over-reported by 36 crates, counting
-        # dev-dependencies and unenabled target-specific edges.
-        #
-        # This asserts the calibration still holds. If it fails, every
-        # projection built on the simulator is suspect until it is fixed.
-        #
-        # The number is the Linux name count of the `flows` profile, so it moves
-        # whenever scripts/kernel-floor.limits does and belongs in the same PR.
-        # 264 -> 265 on 2026-08-21: the tinymemory #76/#77 bump adds exactly one
-        # name, `tinymemory-bus`. 265 -> 267 on 2026-08-22: the MCP extraction
-        # adds `tinymcp` and `tinymcp-bus`. 267 -> 268 on 2026-08-22: language
-        # runtimes moved behind the `tinyruntime` TinyBus module, adding
-        # `tinyruntime-bus`. 268 -> 269 on 2026-08-23: the TinyJuice wire
-        # contract moved into `tinyjuice-bus`, which cannot be gated because
-        # `inference::tokenjuice` compiles in every build. 269 -> 270 on
-        # 2026-08-29: `tinytools` becomes the dependency behind the `Tool`
-        # trait/types, which cannot be gated because `tools/` is kernel
-        # surface — zero transitive additions, native build count unchanged
-        # at 2. 270 -> 273 on 2026-08-30: the `tinyflows` crate's catalog/
-        # storage/copilot surface split into three sibling path-crates in the
-        # SAME vendored workspace (`tinyflows-catalog`, `tinyflows-sqlite`,
-        # `tinyflows-copilot`) — one name each, no new external crate, native
-        # build count unchanged at 2. 273 -> 275 on 2026-08-31: the compatible
-        # dependency refresh recorded in `kernel-floor.limits` raised the
-        # resolved Linux name count while keeping the native build count at 2.
-        # 269 -> 270 on 2026-09-13: the core/wrapper split adds the required
-        # `openhuman-rpc` workspace crate; its five dependencies were already
-        # in the profile, so this is one package/name and no native build.
-        # 270 -> 271 on 2026-09-18: `tinytools-agent` becomes the shared
-        # provider-neutral tool-call protocol crate; it adds one Rust crate
-        # and no native build dependency.
-        # See the kernel-floor history for why
-        # these raises are temporary/justified. macOS resolves one higher per
-        # the host skew recorded in the limits history — this expects the CI
-        # host.
-        #
-        # This number MUST move in lockstep with scripts/kernel-floor.limits —
-        # it is a second source of truth for the same Linux name count and is
-        # not derived from that file. Bump both in the same PR that raises
-        # (or lowers) the floor.
-        # 271 -> 275 on 2026-09-18: the inference migration replaces the
-        # monolithic `tinyinference` package with four additional resolved
-        # packages in the flows profile; native build count remains 2.
-        # 275 -> 279 on 2026-09-20: the required TinyAgents runtime/session/
-        # graph split adds four unique crate names without native dependencies.
-        # 279 -> 277 on 2026-09-20: the merged fresh-turn and cost-routing
-        # dependency refresh sheds two of those resolved names again.
-        # 277 -> 280 on 2026-09-22: TinyAgents 2.1.2 moves its required
-        # runtime/session/graph split into the harness path; it adds three
-        # crate names and no native build dependency.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 280
+        # History and lockstep rule: see scripts/ci/check-dep-sim-calibration.sh.
+        run: bash scripts/ci/check-dep-sim-calibration.sh
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
