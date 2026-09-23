@@ -489,14 +489,25 @@ impl EventListener for OpenhumanEventBridge {
                     .lock()
                     .unwrap_or_else(|p| p.into_inner())
                     .insert(call_id.as_str().to_string(), std::time::Instant::now());
+                // The harness start event carries no call input (`ToolStarted`
+                // has only `call_id`/`tool_name`), so the label/detail are
+                // computed against empty args here — a tool whose label
+                // doesn't depend on its arguments (the common case: a policy
+                // label, or a name-derived default) already reads correctly;
+                // one whose detail DOES depend on args (e.g. a search query)
+                // is recomputed with the real arguments on `ToolCallCompleted`
+                // below and forwarded on the wire as
+                // `tool_display_label`/`tool_display_detail` there too.
+                let (display_label, display_detail) =
+                    self.resolve_display(tool_name, &serde_json::Value::Null);
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallStarted {
                         call_id: call_id.as_str().to_string(),
                         tool_name: tool_name.clone(),
                         arguments: serde_json::Value::Null,
                         iteration,
-                        display_label: Some(humanize_tool_name(tool_name)),
-                        display_detail: None,
+                        display_label,
+                        display_detail,
                     }),
                     Some(s) => self.send(AgentProgress::SubagentToolCallStarted {
                         agent_id: s.agent_id.clone(),
@@ -505,8 +516,8 @@ impl EventListener for OpenhumanEventBridge {
                         tool_name: tool_name.clone(),
                         arguments: serde_json::Value::Null,
                         iteration,
-                        display_label: Some(humanize_tool_name(tool_name)),
-                        display_detail: None,
+                        display_label,
+                        display_detail,
                     }),
                 }
             }
