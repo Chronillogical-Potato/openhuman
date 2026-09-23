@@ -15,6 +15,7 @@ import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
 import IntegrationConnectCard from '../../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
+import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
@@ -46,6 +47,7 @@ import {
 } from '../../features/human/chatMascot';
 import MicComposer from '../../features/human/MicComposer';
 import { useFlowApprovalRequests } from '../../hooks/useFlowApprovalRequests';
+import { useUnroutedApprovals } from '../../hooks/useUnroutedApprovals';
 import { useUsageState } from '../../hooks/useUsageState';
 import {
   type Attachment,
@@ -418,6 +420,17 @@ const Conversations = ({
   // selected thread and surfaced regardless of which one is open.
   const { requests: flowApprovalRequests, dismiss: dismissFlowApprovalRequest } =
     useFlowApprovalRequests();
+  // Approvals no other surface will show: a background trigger run has no chat
+  // thread and no flow context, so the gate parks it, nothing asks the user,
+  // and it TTL-denies after 600s (#6406; general form #5746). Polled from the
+  // durable `approval_list_pending` queue rather than a socket event, because
+  // the whole point is that it can be raised while nobody is watching.
+  const {
+    approvals: unroutedApprovals,
+    decidingId: unroutedDecidingId,
+    error: unroutedApprovalError,
+    decide: decideUnroutedApproval,
+  } = useUnroutedApprovals();
   const pendingPlanReviewByThread = useAppSelector(
     state => state.chatRuntime.pendingPlanReviewByThread
   );
@@ -2139,6 +2152,29 @@ const Conversations = ({
       </div>
     ) : null;
 
+  // Background-approval surface: parks raised with no chat thread and no flow
+  // run. Sits beside the flow deck because it is the same affordance with a
+  // different origin, and is likewise not thread-scoped — a pending row has no
+  // thread to be scoped to, which is exactly why it had no surface.
+  const unroutedApprovalDeck =
+    unroutedApprovals.length > 0 ? (
+      <div className="mb-2 flex flex-col gap-2" data-testid="unrouted-approval-deck">
+        {unroutedApprovalError && (
+          <p className="text-xs text-destructive" role="alert">
+            {unroutedApprovalError}
+          </p>
+        )}
+        {unroutedApprovals.map(approval => (
+          <UnroutedApprovalCard
+            key={approval.request_id}
+            approval={approval}
+            busy={unroutedDecidingId !== null}
+            onDecide={decideUnroutedApproval}
+          />
+        ))}
+      </div>
+    ) : null;
+
   // Surface in-flight + failed artifact cards above the composer (#2779).
   // Mirrors the approval-card placement so the user sees the spinner / error
   // without scrolling. `ready` cards are delegated to the header ChatFilesChip
@@ -2345,6 +2381,8 @@ const Conversations = ({
 
         {flowApprovalDeck}
 
+        {unroutedApprovalDeck}
+
         {liveArtifactDeck}
 
         {agentGateCards}
@@ -2528,6 +2566,10 @@ const Conversations = ({
           banner carries the only Approve/Reject affordance — so they belong
           with the gates, above the transient banners. */}
       {flowApprovalDeck}
+      {/* Same reasoning, different origin: a background trigger's park blocks
+          until someone answers it, and this is the only place it is ever
+          asked. */}
+      {unroutedApprovalDeck}
       {attachError && (
         <div className="rounded-lg border border-coral-200 bg-coral-50 px-3 py-2">
           <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
