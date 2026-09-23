@@ -8,23 +8,14 @@
 use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
-/// The summarizer archetype, verbatim.
+/// The summarizer archetype: TinyJuice's extraction contract, verbatim.
 ///
-/// `pub` since issue #6014, for the same reason
-/// [`payload_summarizer`](crate::agent::tinyagents::payload_summarizer)
-/// is: the trait invites an embedder to supply its own summarizer — the default
-/// implementation dispatches a sub-agent, which an embedder may be unable to do
-/// — and the archetype is where the extraction contract is actually written
-/// down. Without it, anyone taking that invitation has to reinvent the prompt,
-/// and will reinvent it worse: the identifier rule, the structural hints that
-/// let a caller decide whether to re-fetch, the error-payload and
-/// binary-payload edge cases, and the "do not solve the parent task" boundary
-/// are all easy to omit and expensive to discover missing.
-///
-/// [`build`] remains the entry point for the sub-agent path, which additionally
-/// wants the user-files, tools and workspace sections. A caller running one
-/// tool-less model call wants this and nothing else.
-pub const ARCHETYPE: &str = include_str!("prompt.md");
+/// TinyJuice owns the tool-output summary — it writes this prompt into every
+/// `MlHost.Generate` request it sends — so this is a re-export rather than a
+/// second copy that could drift. It stays `pub` (issue #6014) so an embedder
+/// supplying its own [`PayloadSummarizer`](crate::agent::tinyagents::payload_summarizer::PayloadSummarizer)
+/// can read the contract its model is asked to follow.
+pub const ARCHETYPE: &str = tinyjuice::summarize::SYSTEM_PROMPT;
 
 pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     let mut out = String::with_capacity(4096);
