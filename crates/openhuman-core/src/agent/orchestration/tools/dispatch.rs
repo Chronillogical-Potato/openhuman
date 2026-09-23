@@ -508,6 +508,10 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                                     output: outcome.output.clone(),
                                     // Synchronous delegate dispatch has no worktree
                                     // isolation (that is a `spawn_subagent` concept).
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
@@ -572,6 +576,10 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
                                     output: outcome.output.clone(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,

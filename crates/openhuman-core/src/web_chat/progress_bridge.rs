@@ -833,6 +833,7 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iterations,
                     output_chars,
+                    usage,
                     worktree_path,
                     changed_files,
                     dirty_status,
@@ -904,6 +905,16 @@ pub(crate) fn spawn_progress_bridge(
                                 elapsed_ms: Some(elapsed_ms),
                                 iterations: Some(iterations),
                                 output_chars: Some(output_chars as u64),
+                                // Present only when this child's spend is NOT
+                                // already in the parent turn's totals — the
+                                // emitting site decides, because only it can
+                                // see whether the usage reached
+                                // `parent_subagent_usage`. Absent is the safe
+                                // default and means "add nothing".
+                                input_tokens: usage.as_ref().map(|u| u.input_tokens),
+                                output_tokens: usage.as_ref().map(|u| u.output_tokens),
+                                cached_input_tokens: usage.as_ref().map(|u| u.cached_input_tokens),
+                                cost_usd: usage.as_ref().map(|u| u.charged_amount_usd),
                                 // Worktree isolation metadata (#3376) — drives the
                                 // inline subagent worktree row's open/diff/remove
                                 // actions. All `None`/absent for non-isolated workers.

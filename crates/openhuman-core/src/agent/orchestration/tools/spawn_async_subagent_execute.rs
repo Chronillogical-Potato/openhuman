@@ -543,6 +543,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,
@@ -615,6 +623,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,
