@@ -1345,13 +1345,16 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
 
         dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
-        // Nothing visible is cleared here. The streaming buffer, the status
-        // line and the running rows used to be torn down first, before the
-        // reply was even persisted, and every one of those was a render: the
-        // answer vanished, then reappeared above its own tools, then the tools
-        // moved back and remounted collapsed. The live tail now stays exactly
-        // as it is until `finishChatDoneTurn` swaps it for the persisted reply
-        // in one `turnSettled` update (the reply row is hidden behind the tail
+        // A parked gate cannot outlive its turn, so those go now.
+        dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
+        // Nothing the turn RENDERED is cleared here. The streaming buffer, the
+        // status line and the running rows used to be torn down first, before
+        // the reply was even persisted, and every one of those was a render:
+        // the answer vanished, then reappeared above its own tools, then the
+        // tools moved back and remounted collapsed. The live tail now stays as
+        // it is until `finishChatDoneTurn` swaps it for the persisted reply in
+        // one `turnSettled` update (the reply row is hidden behind the tail
         // until then — see `buildRuntimeMessages`).
         if (!event.segment_total) {
           void (async () => {
