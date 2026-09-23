@@ -44,6 +44,7 @@ import { fileURLToPath } from "node:url";
 
 import { SCENARIOS, scenarioById } from "./scenarios.mjs";
 import { startMockComposio } from "./mock-composio.mjs";
+import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -69,6 +70,8 @@ function parseArgs(argv) {
     managed: false,
     mockComposio: true,
     composioPort: 0,
+    mockSearch: true,
+    searchPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
     coreBin:
@@ -99,6 +102,7 @@ function parseArgs(argv) {
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
     else if (a === "--no-mock-composio") o.mockComposio = false;
+    else if (a === "--no-mock-search") o.mockSearch = false;
     else if (a === "--no-approvals") o.approvals = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
@@ -211,7 +215,7 @@ function mintLocalSessionToken(userId) {
  * to have, and a benchmark that silently inherits those measures the machine
  * rather than the harness.
  */
-async function prepareHome(runDir) {
+async function prepareHome(runDir, { searchBase } = {}) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -219,7 +223,17 @@ async function prepareHome(runDir) {
 
   const config = [
     "schema_version = 13",
-    'api_url = "https://api.tinyhumans.ai"',
+    // The backend base every non-inference call resolves through
+    // (`api::config::effective_backend_api_url`). Pointing it at the local
+    // mock is what gives `web_search_tool` something to talk to: it posts to
+    // `/agent-integrations/parallel/search` on this base, and against the
+    // hosted backend the run's offline token is rejected 401 on every call.
+    // Loopback on an ephemeral port is passed through as a backend override —
+    // `looks_like_local_ai_endpoint` only treats loopback as an inference
+    // signal when it is paired with an LLM-ish port or path.
+    searchBase
+      ? `api_url = "${searchBase}"`
+      : 'api_url = "https://api.tinyhumans.ai"',
     "default_temperature = 0.7",
     "onboarding_completed = true",
     "chat_onboarding_completed = true",
@@ -944,7 +958,21 @@ async function main() {
   console.log(`run dir : ${runDir}`);
   console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
 
-  const home = await prepareHome(runDir);
+  let search = null;
+  if (opts.mockSearch) {
+    search = await startMockSearch({
+      indexPath: DEFAULT_INDEX_PATH,
+      requestsPath: path.join(runDir, "search-requests.json"),
+      port: opts.searchPort,
+    });
+    console.log(
+      `search  : mock at ${search.url} (${search.ctx.documents.length} documents)`,
+    );
+  }
+
+  const home = await prepareHome(runDir, {
+    searchBase: search ? search.url : "",
+  });
 
   let composio = null;
   if (opts.mockComposio) {
