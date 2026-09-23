@@ -1,10 +1,27 @@
 ---
+# Builds ghcr.io/tinyhumansai/openhuman_ci, the container ci-lite and the
+# hosted CI Fast lanes run in (and the base of the EX63 microVM guest image).
+#
+# Rebuilds on every push to main that changes an input of the image, so the
+# published image can no longer lag its Dockerfile: `latest` shipped Rust
+# 1.93.0 for months while the Dockerfile and rust-toolchain.toml said 1.96.1,
+# because this workflow only ever ran by hand. Manual dispatch still works.
 name: Build CI Image
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/Dockerfile
+      - .github/workflows/build-ci-image.yml
+      - rust-toolchain.toml
+      - e2e/docker-entrypoint.sh
   workflow_dispatch:
 permissions:
   contents: read
   packages: write
+concurrency:
+  group: build-ci-image
+  cancel-in-progress: false
 jobs:
   build-image:
     name: Build and push CI image
@@ -13,10 +30,11 @@ jobs:
     environment: Production
     steps:
       - name: Checkout code
+        # No submodules: the build context only needs e2e/docker-entrypoint.sh
+        # (the vendored tauri-cef fork it used to compile is gone).
         uses: actions/checkout@v7
         with:
-          # vendored tauri-cef fork is compiled into the image
-          submodules: recursive
+          persist-credentials: false
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
@@ -30,6 +48,8 @@ jobs:
           file: .github/Dockerfile
           push: true
           provenance: false
+          # The sha tag says exactly which commit `latest` was built from.
           tags: |-
             ghcr.io/tinyhumansai/openhuman_ci:latest
             ghcr.io/tinyhumansai/openhuman_ci:rust-1.96.1
+            ghcr.io/tinyhumansai/openhuman_ci:sha-${{ github.sha }}
