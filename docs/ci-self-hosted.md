@@ -1,8 +1,9 @@
 # CI Fast: the lane flow and the EX63 runners
 
-CI Fast runs every check CI Lite runs as parallel **lanes** in fewer jobs. It
-runs next to `ci-lite.yml` and is not a required check yet. The goal is to
-measure how much faster the same work runs on a dedicated machine.
+CI Fast runs every check CI Lite runs as parallel **lanes** in fewer jobs.
+For org members it replaces CI Lite: CI Lite skips every job on a commit that
+CI Fast runs on the EX63. The one check to require is **CI Gate** (see
+[CI Gate](#ci-gate)).
 
 | Who opened the PR         | Workflow                              | Where it runs                                                             |
 | ------------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
@@ -65,6 +66,47 @@ Some checks do not run on pull requests. CI Lite runs them on every push to
 - `cargo check -p openhuman --no-default-features --features
 e2e-test-support`: `rust-gates-off` already compiles that feature set for
   its tests, in one build together with `mcp`.
+
+## CI Gate
+
+`.github/workflows/ci-gate.yml` posts one commit status, `CI Gate`, on each PR
+head commit. It is the check branch protection should require, whichever flow
+ran the PR. It is re-evaluated whenever CI Fast, CI Fast (hosted) or CI Lite
+starts or finishes, from the decisive job of each:
+
+| Flow             | Decisive job                    |
+| ---------------- | ------------------------------- |
+| CI Fast          | `Lanes / CI Fast (EX63)`        |
+| CI Fast (hosted) | `Lanes / CI Fast (hosted) Gate` |
+| CI Lite          | `PR CI Gate`                    |
+
+- **success** as soon as one of those jobs passes. The GitHub-hosted runs
+  still working on that commit are then cancelled. The EX63 run is never
+  cancelled.
+- **pending** while nothing has passed and a flow is still running. An EX63
+  failure does not fail the gate while CI Lite is still running.
+- **failure** once every flow has finished without a pass.
+
+A skipped job is never a pass. That is why CI Lite skips `PR CI Gate` along
+with everything else when the EX63 runs the commit.
+
+Who runs what:
+
+- **Org members:** `ci-lite.yml`'s `route` job reads `ci-fast.yml`'s decision
+  for the commit (`scripts/ci/ci-fast-route.sh`, shared with
+  `ci-fast-hosted.yml`). When the EX63 runs it, CI Lite skips. It runs anyway
+  when that decision is only the fallback (no CI Fast run within three
+  minutes) or routing errors.
+- **Outsiders:** CI Lite and CI Fast (hosted) both run, and the first to pass
+  cancels the other.
+- **Pushes to `main`:** CI Lite runs, and the gate ignores them.
+
+The workflow runs from the default branch through `workflow_run`, with
+`statuses: write` and `actions: write`. It never checks out PR code; the
+decision (`scripts/ci/ci-gate.mjs`, tested in
+`scripts/__tests__/ci-gate.test.mjs`) reads run and job state from the API.
+`CI_GATE_DRY_RUN=1` with `GH_TOKEN`, `REPO` and `HEAD_SHA` prints the verdict
+for any commit without posting it.
 
 ## Profiles
 

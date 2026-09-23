@@ -1,0 +1,55 @@
+---
+# CI Gate — the single PR check branch protection should require.
+#
+# CI Fast (EX63, org members), CI Fast (hosted, outsiders) and CI Lite
+# (GitHub-hosted, everyone) all run on a PR. This workflow posts one commit
+# status, "CI Gate", on the PR head commit: success as soon as any of them
+# passes, pending while any is still running, failure once all have finished
+# without a pass. On success it cancels the GitHub-hosted runs still working on
+# that commit, so a member PR that passed on the EX63 stops burning hosted
+# minutes. The decision is scripts/ci/ci-gate.mjs.
+#
+# Why workflow_run: it runs from the default branch with a write token for
+# every PR, forks included, and never runs PR code. The checkout below is the
+# default branch (the event's own ref), sparse to the one script.
+name: CI Gate
+
+on:
+  workflow_run:
+    workflows: ["CI Fast", "CI Fast (hosted)", "CI Lite"]
+    types: [requested, completed]
+
+permissions:
+  actions: write # cancel the superseded GitHub-hosted runs
+  contents: read
+  statuses: write # post the "CI Gate" commit status
+
+# One evaluation per commit at a time. Every run re-reads the live state, so a
+# newer queued run replacing an older queued one loses nothing.
+concurrency:
+  group: ci-gate-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Update CI Gate status
+    # Only PR runs gate anything; CI Lite's pushes to main are not PRs.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' ||
+      github.event.workflow_run.event == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the gate script (default branch)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci/ci-gate.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Decide and post CI Gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/ci/ci-gate.mjs

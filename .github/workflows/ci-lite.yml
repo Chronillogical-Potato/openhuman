@@ -44,8 +44,59 @@ defaults:
     shell: bash
 
 jobs:
+  # Org members' PRs run on the EX63 (ci-fast.yml); CI Lite then skips every
+  # job, PR CI Gate included, and ci-gate.yml's "CI Gate" follows CI Fast.
+  # Outsiders' PRs, pushes to main, and any commit ci-fast.yml did not route
+  # to the EX63 run CI Lite as before.
+  route:
+    name: Route (EX63 runs org members' PRs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      run: ${{ steps.route.outputs.run }}
+    steps:
+      - name: Checkout the routing script
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci/ci-fast-route.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Follow ci-fast.yml's routing decision
+        id: route
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ACTOR: ${{ github.actor }}
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -uo pipefail
+          if [ "${EVENT}" != "pull_request" ]; then
+            echo "[ci][route] event=${EVENT}: CI Lite runs"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          out="$(mktemp)"
+          # Skip only on ci-fast.yml's own decision. Its fallback (no CI Fast
+          # run within 3 minutes) or any error runs CI Lite: skipping is the
+          # only unsafe answer.
+          if GITHUB_OUTPUT="${out}" bash scripts/ci/ci-fast-route.sh &&
+            grep -q '^outsider=false$' "${out}" && grep -q '^source=ci-fast$' "${out}"; then
+            echo "[ci][route] the EX63 runs this commit: CI Lite skips"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "[ci][route] CI Lite runs"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   changes:
     name: Detect Changed Areas
+    needs: [route]
+    if: needs.route.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -863,6 +914,8 @@ jobs:
 
   orch-ip-gate:
     name: Orchestration IP Gate (no local brain re-entry)
+    needs: [route]
+    if: needs.route.outputs.run == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
@@ -879,6 +932,8 @@ jobs:
 
   feature-forwarding-gate:
     name: Feature Forwarding Gate (shell forwards core defaults)
+    needs: [route]
+    if: needs.route.outputs.run == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
@@ -903,6 +958,8 @@ jobs:
 
   module-pin-gate:
     name: Module Pin Gate (registry pin matches submodule pin)
+    needs: [route]
+    if: needs.route.outputs.run == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -977,6 +1034,7 @@ jobs:
   pr-ci-gate:
     name: PR CI Gate
     needs:
+      - route
       - changes
       - frontend-checks
       - rust-quality
@@ -989,7 +1047,9 @@ jobs:
       - orch-ip-gate
       - feature-forwarding-gate
       - module-pin-gate
-    if: always()
+    # Skipped with the rest when the EX63 runs this commit, so a skipped CI
+    # Lite never reads as a pass (ci-gate.yml counts only a success).
+    if: always() && needs.route.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
