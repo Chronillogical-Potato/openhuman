@@ -11,6 +11,7 @@ use tinyinference_llm::usage::Usage;
 
 use crate::agent::progress::AgentProgress;
 use crate::inference::provider::UsageInfo;
+use tinytools::humanize_tool_name;
 
 use super::cap_pauser::{
     IterationCursor, ProviderUsageCarry, SubagentScope, ToolFailureMap, ToolNameMap,
