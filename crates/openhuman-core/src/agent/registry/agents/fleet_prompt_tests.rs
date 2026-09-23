@@ -8,7 +8,7 @@
 use super::load_builtins;
 use crate::agent::harness::definition::{AgentDefinition, PromptSource, SubagentEntry, ToolScope};
 use crate::agent::prompts::{LearnedContextData, PromptContext, ToolCallFormat};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::Arc;
 
 /// Render `def`'s prompt through its own `PromptSource`, with no tools,
@@ -341,6 +341,71 @@ const SKILL_SETUP_NAME: Option<&str> = if cfg!(feature = "skills") {
 ///
 /// Catches a belt narrowed out from under its prompt, which otherwise reads
 /// as an improvement: the tool bytes fall and nothing else moves.
+/// Tools a prompt names and the belt carries, but which **do not exist in this
+/// build at all** — compiled out by a Cargo feature rather than withheld by
+/// policy.
+///
+/// The guard below iterates `universe`, so a tool absent from it is never
+/// examined: the prompt can name it, the belt can carry it, and the agent still
+/// reads as naming nothing it can call. That is indistinguishable in the
+/// assertion output from the defect this test exists to catch — a belt narrowed
+/// out from under its prompt — and the confusion is not hypothetical. It
+/// produced openhuman#6507: a product defect filed against `skill_creator`'s
+/// prompt and attributed to a PR, retracted once the tools turned out simply
+/// not to be compiled.
+///
+/// `is_withheld_from` is real code that produces this exact symptom under
+/// different circumstances, which is why the wrong explanation survived
+/// scrutiny — it was correct about a situation that did not apply.
+fn belt_tools_absent_from_build(
+    def: &AgentDefinition,
+    prompt: &str,
+    universe: &BTreeSet<String>,
+) -> Vec<String> {
+    let ToolScope::Named(names) = &def.tools else {
+        // A wildcard belt carries whatever exists, so nothing it names can be
+        // "absent from the belt's perspective".
+        return Vec::new();
+    };
+    names
+        .iter()
+        .chain(&def.extra_tools)
+        .filter(|name| !universe.contains(name.as_str()))
+        .filter(|name| prompt.contains(&format!("`{name}`")))
+        .cloned()
+        .collect()
+}
+
+/// The profile note appended to the guard's failure when any agent it flagged
+/// names a tool this build does not contain.
+///
+/// Deliberately a **decision procedure, not a diagnosis**: it reports the tools
+/// it found missing (a fact, derived here) and the command that settles the
+/// question (authoritative by construction). It does not try to name which
+/// feature gates which tool — that mapping lives in `#[cfg]` attributes across
+/// `tools/ops.rs`, and a copy of it here would be a second authority free to
+/// rot into a confident wrong answer. Running the command cannot be wrong.
+fn profile_note(missing: &BTreeMap<String, Vec<String>>) -> String {
+    if missing.is_empty() {
+        return String::new();
+    }
+    let detail = missing
+        .iter()
+        .map(|(agent, tools)| format!("  {agent}: {}", tools.join(", ")))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "\n\nNOTE — this may be a feature-profile artefact, not a prompt defect.\n\
+         These agents name tools that do not exist in THIS build's tool universe:\n\
+         {detail}\n\
+         Tools are registered behind Cargo features, and `default` is a smaller \
+         product than CI builds. Settle it by reproducing CI exactly:\n\
+         \n    cargo test -p openhuman --lib --features \"$(bash scripts/ci/product-features.sh)\"\n\
+         \nIf it passes there, the prompt is fine and this profile simply lacks the \
+         tools. If it still fails, the failure is real. See openhuman#6512."
+    )
+}
+
 #[test]
 fn every_prompt_names_at_least_one_tool_it_can_call() {
     let universe = tool_universe();
@@ -362,9 +427,22 @@ fn every_prompt_names_at_least_one_tool_it_can_call() {
         })
         .map(|def| def.id.clone())
         .collect();
+    // Built only for the agents the guard actually flagged, so a passing run
+    // does no extra work and the note can never appear on a green result.
+    let unexpected: BTreeMap<String, Vec<String>> = silent
+        .iter()
+        .filter(|id| !expected.contains(&id.as_str()))
+        .filter_map(|id| {
+            let def = defs.iter().find(|d| &d.id == id)?;
+            let absent = belt_tools_absent_from_build(def, &render(def, &defs), &universe);
+            (!absent.is_empty()).then(|| (id.clone(), absent))
+        })
+        .collect();
     assert_eq!(
-        silent, expected,
-        "agents that carry tools but whose prompt names none of them"
+        silent,
+        expected,
+        "agents that carry tools but whose prompt names none of them{}",
+        profile_note(&unexpected)
     );
 }
 
