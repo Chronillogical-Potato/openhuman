@@ -81,7 +81,6 @@ import {
   ScanEyeIcon,
   ScanSearchIcon,
   ScrollTextIcon,
-  SearchIcon,
   ServerIcon,
   SettingsIcon,
   ShieldIcon,
@@ -577,7 +576,6 @@ export const FAMILY_TOOL_SPECS: ReadonlyArray<{ test: RegExp; spec: ToolSpec }> 
   { test: /^artifact_/, spec: spec('checkArtifacts', PackageIcon, 'system') },
   { test: /^cron_/, spec: spec('checkSchedules', CalendarClockIcon, 'schedule') },
   { test: /^goal_/, spec: spec('checkGoal', FlagIcon, 'plan') },
-  { test: /_search$/, spec: webSearch('searchWeb', SearchIcon) },
 ];
 
 /**
