@@ -52,11 +52,17 @@ How lanes behave:
 
 ## Profiles
 
-- **`ex63`**: every lane at once on one VM (10 vCPU, 24 GiB).
+- **`ex63`**: every lane at once on one VM (10 vCPU, 28 GiB).
   - Each Rust lane has its own target dir on the per-job scratch disk, so
     lanes never wait on cargo's build lock.
-  - Dependency builds hit sccache, which lives on a cache disk capped at
-    10 GB per slot, along with the cargo and pnpm caches.
+  - Every Rust build, the instrumented coverage builds included, goes
+    through sccache. Its cache is one store on the host shared by both VMs,
+    capped at 8 GB on a 10 GB disk. If the store is down, sccache falls back
+    to the VM's own cache disk.
+  - sccache keys include the target dir, so a lane reuses the same lane's
+    work from any earlier job, not other lanes' work.
+  - The cargo registry and pnpm store live on a 10 GB cache disk per slot.
+  - The step summary reports sccache's Rust hit rate.
   - Target dirs are not kept between jobs.
   - vitest runs with 8 workers.
 - **`hosted`**: lanes grouped into jobs sized for 4-core, ~14 GB runners:
