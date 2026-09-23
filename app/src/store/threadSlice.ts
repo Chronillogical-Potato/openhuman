@@ -377,6 +377,71 @@ export const persistReaction = createAsyncThunk(
   }
 );
 
+/** The rating a user gave one assistant reply. */
+export type MessageFeedback = 'positive' | 'negative';
+
+/** `extraMetadata` key holding the rating. */
+export const FEEDBACK_METADATA_KEY = 'feedback';
+
+/**
+ * `extraMetadata` key holding every persisted row id that made up the assistant
+ * run the user actually rated.
+ *
+ * One visible assistant message is often several persisted rows (see
+ * `mergeAssistantRun`), and the adapter only ever hands us the last row's id.
+ * Recording the whole set means the rating stays attributable to what was on
+ * screen rather than to the fragment that happened to be last.
+ */
+export const FEEDBACK_ROW_IDS_METADATA_KEY = 'feedbackRowIds';
+
+/**
+ * Persist a thumbs rating on one assistant message, modelled on
+ * [`persistReaction`] — same read-from-Redux, patch-`extraMetadata`,
+ * write-back-the-persisted-row shape.
+ *
+ * Pressing the same rating again clears it, so a mis-click is recoverable: the
+ * assistant-ui action bar has no third "unrated" control to offer.
+ */
+export const persistMessageFeedback = createAsyncThunk(
+  'thread/persistMessageFeedback',
+  async (
+    payload: {
+      threadId: string;
+      messageId: string;
+      feedback: MessageFeedback;
+      /** Row ids of the merged run, when the rated message spans several. */
+      rowIds?: readonly string[];
+    },
+    { getState, rejectWithValue }
+  ) => {
+    const state = getState() as { thread: ThreadState };
+    const stored = state.thread.messagesByThreadId[payload.threadId] ?? [];
+    const message = stored.find(e => e.id === payload.messageId);
+    if (!message) return rejectWithValue('Message not found');
+
+    const previous = message.extraMetadata[FEEDBACK_METADATA_KEY];
+    const next = previous === payload.feedback ? undefined : payload.feedback;
+    const extraMetadata: Record<string, unknown> = {
+      ...message.extraMetadata,
+      [FEEDBACK_METADATA_KEY]: next,
+    };
+    if (payload.rowIds && payload.rowIds.length > 1) {
+      extraMetadata[FEEDBACK_ROW_IDS_METADATA_KEY] = [...payload.rowIds];
+    }
+
+    try {
+      const persisted = await threadApi.updateMessage(
+        payload.threadId,
+        payload.messageId,
+        extraMetadata
+      );
+      return { threadId: payload.threadId, message: persisted };
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to save feedback');
+    }
+  }
+);
+
 export const updateThreadTitle = createAsyncThunk(
   'thread/updateThreadTitle',
   async (payload: { threadId: string; title: string }, { rejectWithValue }) => {
@@ -573,6 +638,9 @@ const threadSlice = createSlice({
         // would re-enable the composer while the turn is still in-flight.
       })
       .addCase(persistReaction.fulfilled, (state, action) => {
+        appendMessageToCache(state, action.payload.threadId, action.payload.message, true);
+      })
+      .addCase(persistMessageFeedback.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message, true);
       })
       .addCase(deleteThread.fulfilled, (state, action) => {

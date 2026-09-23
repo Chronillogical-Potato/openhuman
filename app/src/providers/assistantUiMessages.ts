@@ -14,6 +14,11 @@ import {
   type StreamingAssistantState,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
+import {
+  FEEDBACK_METADATA_KEY,
+  FEEDBACK_ROW_IDS_METADATA_KEY,
+  type MessageFeedback,
+} from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
 
 /**
@@ -49,6 +54,19 @@ const EMPTY_TIMELINE: readonly ToolTimelineEntry[] = [];
 const EMPTY_TRANSCRIPT: readonly ProcessingTranscriptItem[] = [];
 
 const RECOVERED_TOOL_NAMES_KEY = 'assistantUiToolNames';
+
+/**
+ * The rating persisted on a message, when it is one of the two values the
+ * runtime accepts.
+ *
+ * `extraMetadata` is untyped JSON from disk, so this narrows rather than casts:
+ * a stale or hand-edited value must render as "unrated" instead of reaching the
+ * runtime as a bad `submittedFeedback`.
+ */
+function persistedFeedback(msg: ThreadMessage): MessageFeedback | undefined {
+  const value = msg.extraMetadata?.[FEEDBACK_METADATA_KEY];
+  return value === 'positive' || value === 'negative' ? value : undefined;
+}
 
 /** Synthetic id for the live streaming tail. Stable so React reconciles it. */
 export const STREAMING_TAIL_ID = '__openhuman_streaming_tail__';
@@ -401,6 +419,16 @@ function mergeAssistantRun(messages: readonly ThreadMessage[]): ThreadMessage {
   );
   if (requestId) extraMetadata.requestId = requestId;
   if (toolNames.length > 0) extraMetadata[RECOVERED_TOOL_NAMES_KEY] = toolNames;
+  // Defect B: this one visible message is several persisted rows, and the
+  // feedback adapter is only ever handed the last row's id (`...last` below).
+  // Carry the whole set so a rating written against that id stays attributable
+  // to what the user actually saw, rather than to the final fragment of it.
+  extraMetadata[FEEDBACK_ROW_IDS_METADATA_KEY] = messages.map(message => message.id);
+  // A merged run inherits a rating from ANY of its rows: the row the adapter
+  // wrote to is the last one, but an earlier persist (or a re-merge with
+  // different boundaries) can leave it elsewhere.
+  const merged = messages.map(persistedFeedback).find(Boolean);
+  if (merged) extraMetadata[FEEDBACK_METADATA_KEY] = merged;
   return {
     ...last,
     content: mergedAssistantText(messages),
@@ -519,6 +547,7 @@ export function toThreadMessageLike(
     ...stringArray(msg.extraMetadata?.[RECOVERED_TOOL_NAMES_KEY]),
   ];
   const effectiveTimeline = recoverTimelineToolNames(timeline, recoveredToolNames);
+  const feedback = msg.sender === 'agent' ? persistedFeedback(msg) : undefined;
 
   const converted: ThreadMessageLike = {
     id: msg.id,
@@ -530,6 +559,15 @@ export function toThreadMessageLike(
       ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
       : {}),
     metadata: {
+      // Defect A (#6459-adjacent, but its own bug): the runtime writes
+      // `submittedFeedback` onto its OWN repository copy when a thumb is
+      // pressed, and we supply `messages` rather than `messageRepository` — so
+      // the runtime rebuilds from this converter's output on every store update
+      // (`external-store-thread-runtime-core.js`) and that write is discarded.
+      // Re-emitting it from the persisted value is what makes a pressed thumb
+      // survive the next turn, a thread switch and a reload. Without this the
+      // control silently un-presses, which is worse than having no control.
+      ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
       custom: {
         extraMetadata: msg.extraMetadata ?? {},
         sourceType: msg.type,

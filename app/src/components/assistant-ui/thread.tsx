@@ -69,6 +69,8 @@ import {
   RefreshCwIcon,
   SlashIcon,
   SquareIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
 } from 'lucide-react';
 import {
   type ComponentType,
@@ -1113,6 +1115,36 @@ const AssistantActionBar: FC = () => {
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
       {reloadAction}
+      {/* Thumbs render only because the external store now supplies
+          `adapters.feedback`; the runtime gates them on that key alone. The
+          pressed state comes from `message.submittedFeedback`, which our message
+          converter re-emits from the persisted rating — see the Defect A note
+          there, without which a pressed thumb silently un-presses on the next
+          store update.
+
+          Deliberately NOT gated the way `reloadAction` above is. That gate
+          exists because assistant-ui's Reload ignores `capabilities.reload` and
+          the runtime *throws* on click when the adapter supplies no `onReload`.
+          These primitives instead compute `disabled = disabled || !callback`
+          from the adapter's own hook, so with no adapter they render disabled
+          rather than throwing — and we supply `adapters.feedback`
+          unconditionally, so they are always live here. */}
+      <ActionBarPrimitive.FeedbackPositive asChild>
+        <TooltipIconButton
+          tooltip="Good response"
+          data-testid="assistant-feedback-positive"
+          className="data-[submitted=true]:text-primary-600 dark:data-[submitted=true]:text-primary-400">
+          <ThumbsUpIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.FeedbackPositive>
+      <ActionBarPrimitive.FeedbackNegative asChild>
+        <TooltipIconButton
+          tooltip="Bad response"
+          data-testid="assistant-feedback-negative"
+          className="data-[submitted=true]:text-coral-600 dark:data-[submitted=true]:text-coral-400">
+          <ThumbsDownIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.FeedbackNegative>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
           <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">
