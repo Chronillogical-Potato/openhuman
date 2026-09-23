@@ -504,7 +504,7 @@ pub(super) fn is_backend_or_infrastructure_failure(error: &str) -> bool {
         "gateway timeout",
         "connection refused",
         "connection reset",
-        "connection timed out while calling",
+        "connection timed out",
         "transport error while calling",
         "bucket does not exist",
         "http 5",

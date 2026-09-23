@@ -18,6 +18,9 @@ fn classifies_backend_failures_without_classifying_graph_timeouts() {
     assert!(is_backend_or_infrastructure_failure(
         "connection timed out while calling file storage"
     ));
+    assert!(is_backend_or_infrastructure_failure(
+        "POST https://api.example.test/files failed: connection timed out"
+    ));
     assert!(!is_backend_or_infrastructure_failure(
         "agent node fetch_profile timed out after 30 seconds"
     ));
