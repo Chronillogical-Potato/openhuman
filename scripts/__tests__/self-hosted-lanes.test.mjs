@@ -121,6 +121,12 @@ test("doctests, tui coverage and the TinyJuice regression are left to pushes to 
     /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/,
   );
   assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
+  for (const cmd of [
+    "cargo test -p openhuman-embed",
+    "cargo test -p openhuman-tinyhumans",
+    "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
+  ])
+    assert.ok(lite.includes(cmd), `CI Lite no longer runs: ${cmd}`);
 });
 
 test("the complete suites run, not subsets", () => {
