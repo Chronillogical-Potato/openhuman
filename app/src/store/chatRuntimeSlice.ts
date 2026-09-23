@@ -1388,7 +1388,6 @@ const chatRuntimeSlice = createSlice({
         );
       }
       // Fold the processing-transcript pointer (was a second dispatch).
-      const list = (state.processingByThread[threadId] ??= []);
       if (!list.some(i => i.kind === 'toolCall' && i.callId === rowId)) {
         list.push({ kind: 'toolCall', round, seq: list.length, callId: rowId });
       }
