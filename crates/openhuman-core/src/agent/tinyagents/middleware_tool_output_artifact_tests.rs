@@ -11,7 +11,6 @@ fn artifact_mw(
     ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: summarizer,
-        task_hint: None,
         artifact_store: Some(
             crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
                 action_dir.to_path_buf(),
@@ -23,6 +22,7 @@ fn artifact_mw(
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 

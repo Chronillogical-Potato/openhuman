@@ -14,7 +14,6 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
     let middleware = ToolOutputMiddleware {
         budget_bytes: 8,
         payload_summarizer: None,
-        task_hint: None,
         artifact_store: Some(ToolResultArtifactStore::new(
             temp.path().to_path_buf(),
             "identity-session",
@@ -24,6 +23,7 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     };
     let mut ctx = context();
 

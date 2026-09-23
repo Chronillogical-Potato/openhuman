@@ -210,13 +210,13 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: 1_000_000,
         payload_summarizer: None,
-        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: true,
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 
@@ -259,13 +259,13 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
         payload_summarizer: None,
-        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 
