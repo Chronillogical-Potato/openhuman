@@ -331,16 +331,14 @@ pub struct WebChannelEvent {
     /// gets real timing instead of guessing from wall-clock deltas.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elapsed_ms: Option<u64>,
-    /// Structured, tool-specific result payload copied from
-    /// [`tinytools::ToolResult::metadata`][tinytools_metadata] when it is a
-    /// JSON object carrying a `"kind"` discriminator, e.g.
+    /// Structured, tool-specific result payload copied from a tool's
+    /// `ToolResult::metadata` when it is a JSON object carrying a `"kind"`
+    /// discriminator, e.g.
     /// `{"kind":"web_search","query":"...","provider":"...","results":[...]}`.
     /// Present on `tool_result` / `subagent_tool_result` only for tools that
     /// populate metadata of that shape (currently the web-search tools); the
     /// model-facing `output` text is unaffected and stays byte-identical to
     /// what the model itself saw.
-    ///
-    /// [tinytools_metadata]: tinytools::ToolResult
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structured: Option<serde_json::Value>,
     /// Holistic token/cost/context usage for a completed turn (parent +
