@@ -130,6 +130,11 @@ jobs:
               - 'scripts/ci/check-openhuman-rust-layout.mjs'
               - 'scripts/ci/check-agent-runtime-boundary.mjs'
               - 'scripts/ci/agent-runtime-boundary-baseline.json'
+              # The ignored-test ratchet lives in rust-quality. Its checker and
+              # its baseline must arm that lane themselves, or a PR that raises
+              # the baseline skips the only gate that reads it.
+              - 'scripts/ci/check-ignored-tests.mjs'
+              - 'scripts/ci/ignored-test-baseline.json'
               - 'scripts/ci/list-feature-gated-rust-tests.mjs'
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
@@ -194,6 +199,11 @@ jobs:
               - 'scripts/ci/check-module-pins.mjs'
               - 'scripts/ci/check-submodule-monotonic.mjs'
               - 'scripts/ci/module-pin-exemptions.json'
+              # The ignored-test ratchet has node --test coverage in
+              # scripts/__tests__/ — editing the gate must run the tests that
+              # pin its clauses, or the counter's anchoring and its
+              # cfg_attr guard can be loosened with nothing watching.
+              - 'scripts/ci/check-ignored-tests.mjs'
             # Test-wiring surface: a change here can orphan a test or add an
             # untested controller domain → run the inventory guard.
             inventory:
@@ -372,6 +382,16 @@ jobs:
       - name: Enforce agent runtime ownership boundary
         if: needs.changes.outputs['rust-core'] == 'true'
         run: pnpm agent:runtime-boundary
+
+      - name: Enforce the ignored-test ratchet
+        # Counts `#[ignore]` attributes in the source tree per crate and refuses
+        # any increase. Deliberately static: `#[ignore]` is a source attribute,
+        # so this needs no build, no feature-set choice and no dependence on the
+        # dispatch-only full-suite lane (#5021) — which is why it can sit here,
+        # ahead of clippy, rather than waiting for a lane that runs tests.
+        # Covers openhuman-app too, hence both filters.
+        if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
+        run: pnpm rust:ignored-tests
 
       - name: Enforce Linux TLS dependency policy
         if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
