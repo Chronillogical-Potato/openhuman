@@ -141,6 +141,12 @@ fn oh_tier_vision_map_is_exhaustively_pinned() {
         "hint:reasoning",
         "vision-v1",
         "hint:vision",
+        // The dedicated OpenRouter passthrough models the media agents
+        // (`vision_agent`, `image_agent`, `video_agent`) are pinned to now
+        // that `hint:vision` / `vision-v1` is deprecated (regression R4).
+        crate::config::MODEL_MEDIA_UNDERSTANDING,
+        crate::config::MODEL_IMAGE_GENERATION_AGENT,
+        crate::config::MODEL_VIDEO_GENERATION_AGENT,
     ] {
         assert!(
             oh_tier_supports_vision(tier),
