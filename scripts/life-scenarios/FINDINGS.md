@@ -73,9 +73,18 @@ Ordered by severity.
 
 ---
 
-## 1. The assistant cannot reliably create a file
+## 1. The assistant cannot reliably create a file — FIXED
 
 **Severity: high. The cause of four of the six empty scenarios.**
+
+**Fixed** by, in order of how much each mattered: unpacking `file_write` from
+the `files` pack (`tools/toolpacks/registry.rs`) so `close_handed_off_packs` can
+no longer deny the orchestrator its only file creator; granting the configured
+`action_dir` as a `ReadWrite` trusted root in `SecurityPolicy::from_config`;
+`strip_quoted_heredoc_bodies` (`policy_command/quoting.rs`), so a `&` in a
+`<< 'EOF'` body is data rather than a background operator; an `apply_patch`
+create mode (empty `old_string` on a path that does not exist); and
+`[autonomy] enabled`, now defaulting to `false`. See the post-fix table above.
 
 Four mechanisms compose so that the orchestrator has no working route to
 writing a new file. Full trace, with the transcript for each step, in
