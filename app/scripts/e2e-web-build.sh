@@ -41,14 +41,14 @@ export VITE_CHAT_ATTACHMENTS="true"
 echo "Building web E2E bundle with backend ${VITE_BACKEND_URL}"
 # Drop all build markers before compiling. A failed `build:web` leaves the
 # preceding dist-web intact, and the session must not accept that stale bundle.
-rm -f "$APP_DIR/dist-web/.openhuman-e2e-bundle" "$APP_DIR/dist-web/.e2e-build-ports.json"
+rm -f "$APP_DIR/dist-web/openhuman-e2e-bundle.marker" "$APP_DIR/dist-web/.e2e-build-ports.json"
 pnpm run build:web
 # Mark dist-web as an E2E bundle for e2e-web-session.sh. `pnpm build:web` on its
 # own compiles in the wrong backend and none of the E2E affordances, and Vite
 # empties dist-web on every build, so any later non-E2E build removes this
 # marker and the session refuses that bundle instead of serving it (#5920).
 # The recorded values are for diagnosing a bundle, not read back.
-cat >"$APP_DIR/dist-web/.openhuman-e2e-bundle" <<MARKER
+cat >"$APP_DIR/dist-web/openhuman-e2e-bundle.marker" <<MARKER
 VITE_BACKEND_URL=${VITE_BACKEND_URL}
 VITE_OPENHUMAN_TARGET=${VITE_OPENHUMAN_TARGET}
 VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE=${VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE}

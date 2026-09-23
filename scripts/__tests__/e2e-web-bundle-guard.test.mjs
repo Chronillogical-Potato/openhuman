@@ -24,7 +24,7 @@ const repoRoot = path.join(
   "..",
   "..",
 );
-const MARKER = ".openhuman-e2e-bundle";
+const MARKER = "openhuman-e2e-bundle.marker";
 
 function writeExecutable(file, body) {
   fs.mkdirSync(path.dirname(file), { recursive: true });

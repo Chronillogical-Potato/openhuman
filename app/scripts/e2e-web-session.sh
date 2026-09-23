@@ -160,7 +160,7 @@ EOF
 # backend URL and the E2E affordances. A plain `pnpm build:web` exits 0 with a
 # bundle this harness cannot drive, and every spec then fails as though the
 # product had regressed. Refuse it before starting anything (#5920).
-E2E_BUNDLE_MARKER="$APP_DIR/dist-web/.openhuman-e2e-bundle"
+E2E_BUNDLE_MARKER="$APP_DIR/dist-web/openhuman-e2e-bundle.marker"
 if [ ! -f "$E2E_BUNDLE_MARKER" ]; then
   echo "ERROR: $APP_DIR/dist-web was not built for E2E (no $(basename "$E2E_BUNDLE_MARKER")). Run pnpm --filter openhuman-app test:e2e:web:build first; pnpm build:web alone omits the E2E backend and affordances." >&2
   exit 1
