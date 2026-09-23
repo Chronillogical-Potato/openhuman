@@ -27,7 +27,8 @@ import {
 import { basename } from '../../../utils/pathUtils';
 import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
-import { AssistantUiToolCallCard } from './AssistantUiToolCall';
+import { describeToolCall } from '../tools/toolPresentation';
+import { AssistantUiToolCallCard, TimelineNode } from './AssistantUiToolCall';
 
 type ChildToolCall = SubagentToolCallEntry | Extract<SubagentTranscriptItem, { kind: 'tool' }>;
 
@@ -331,7 +332,14 @@ export function AssistantUiSubagentCall({
   // long as the delegation is actually blocked on the user, and the user's own
   // open/closed choice is remembered underneath and restored on resume.
   const disclosureOpen = open || awaiting;
+  const presentation = describeToolCall({ name: `subagent:${activity.agentId ?? 'subagent'}` });
+  const [before, after] = t('conversations.tools.delegatedTo').split('{agent}');
   return (
+    <div className="relative min-w-0 pl-9" data-slot="tool-timeline-step">
+      <TimelineNode
+        presentation={presentation}
+        state={failed ? 'failed' : awaiting ? 'awaiting' : active ? 'running' : 'done'}
+      />
     <Collapsible
       open={disclosureOpen}
       onOpenChange={setOpen}
@@ -344,9 +352,10 @@ export function AssistantUiSubagentCall({
         awaiting && 'border-solid border-amber-300 dark:border-amber-400/40'
       )}>
       <CollapsibleTrigger className="group/subagent text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors">
-        <WorkflowIcon className="size-4 shrink-0" />
-        <span className="text-start leading-none">
-          Delegated to <b className="text-foreground">{name}</b>
+        <span className={cn('text-start leading-none', active && !awaiting && 'tool-shimmer')}>
+          {before}
+          <b className="text-foreground">{name}</b>
+          {after}
         </span>
         {awaiting ? (
           // Not a spinner: the child is not working, it is blocked on the user.
@@ -358,7 +367,8 @@ export function AssistantUiSubagentCall({
           </span>
         ) : active ? (
           <span className="bg-muted text-muted-foreground flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] leading-none">
-            <Loader2Icon className="size-3 animate-spin [animation-duration:0.6s]" /> running
+            <Loader2Icon className="size-3 animate-spin [animation-duration:0.6s]" />{' '}
+            {t('conversations.tools.status.running')}
           </span>
         ) : (
           <span className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-[11px] leading-none">
@@ -379,5 +389,6 @@ export function AssistantUiSubagentCall({
         <SubagentDetails subagent={activity} onView={onView} />
       </CollapsibleContent>
     </Collapsible>
+    </div>
   );
 }
