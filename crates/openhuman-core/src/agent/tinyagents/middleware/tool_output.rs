@@ -1,6 +1,6 @@
 //! [`ToolOutputMiddleware`]: the `after_tool` ladder every tool result passes
-//! through before it enters the transcript — payload summarizer, TokenJuice
-//! compaction, per-tool char cap, shared byte-budget backstop, disclosure.
+//! through before it enters the transcript — TokenJuice compaction, payload
+//! summarizer, per-tool char cap, shared byte-budget backstop, disclosure.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -69,7 +69,7 @@ pub(crate) const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
 /// backstop keeps these calls from blowing the context budget.
 pub(crate) const SAMPLING_TOOLS: &[&str] = &["get_tool_output_sample", "get_tool_contract"];
 
-/// Steps 1 (payload summarizer) + 2 (tokenjuice compaction) exemption:
+/// Steps 1 (tokenjuice compaction) + 2 (payload summarizer) exemption:
 /// proposal tools (final-output contract, see [`COMPACTION_EXEMPT_TOOLS`])
 /// plus sampling tools (tabulation would corrupt the schema they exist to
 /// reveal, see [`SAMPLING_TOOLS`]).
@@ -205,7 +205,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             tracing::debug!(
                 tool = tool_name,
                 bytes = content.len(),
-                "[tinyagents::mw] compaction-exempt: skipping payload summarizer + tokenjuice"
+                "[tinyagents::mw] compaction-exempt: skipping tokenjuice + payload summarizer"
             );
         }
         if truncation_exempt {
