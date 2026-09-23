@@ -115,3 +115,149 @@ async fn an_unreachable_module_discloses_a_wanted_summary() {
     .await;
     assert_eq!(unwanted.notice, None);
 }
+
+/// A module disabled in configuration cannot install, even when the process
+/// also carries a `TINYJUICE_TEST_MODULE` fixture: the config check runs
+/// first. Exercises the config-driven passthrough independent of whatever
+/// module happens to be installed for other tests in this binary.
+#[tokio::test]
+async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
+    let _lock = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let previous = std::env::var_os("TINYJUICE_TEST_MODULE");
+    // SAFETY: serialized by TEST_ENV_LOCK; restored below for every exit path.
+    unsafe { std::env::remove_var("TINYJUICE_TEST_MODULE") };
+    struct RestoreEnv(Option<std::ffi::OsString>);
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            // SAFETY: still under TEST_ENV_LOCK for the guarded test's scope.
+            match self.0.take() {
+                Some(value) => unsafe { std::env::set_var("TINYJUICE_TEST_MODULE", value) },
+                None => unsafe { std::env::remove_var("TINYJUICE_TEST_MODULE") },
+            }
+        }
+    }
+    let _restore = RestoreEnv(previous);
+
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = false;
+    let config = std::sync::Arc::new(config);
+
+    let output = compact_tool_output(ToolOutputCompaction {
+        content: "raw".to_string(),
+        tool_name: "web_fetch",
+        enabled: true,
+        profile: AgentTokenjuiceCompression::Light,
+        runtime_config: Some(&config),
+        arguments: None,
+        focus: None,
+        context_token: Some("token".to_string()),
+        scope: None,
+    })
+    .await;
+
+    assert_eq!(output.text, "raw");
+    assert_eq!(
+        output.notice,
+        Some(summary_failed_notice()),
+        "installation failure must disclose the unsummarized notice"
+    );
+}
+
+#[test]
+fn passthrough_discloses_a_notice_only_when_a_summary_was_wanted() {
+    let silent = CompactedToolOutput::passthrough("raw".to_string(), false);
+    assert_eq!(silent.text, "raw");
+    assert_eq!(silent.notice, None);
+    assert_eq!(silent.summarized_from_bytes, None);
+
+    let disclosed = CompactedToolOutput::passthrough("raw".to_string(), true);
+    assert_eq!(disclosed.text, "raw");
+    assert_eq!(disclosed.notice, Some(summary_failed_notice()));
+    assert_eq!(disclosed.summarized_from_bytes, None);
+}
+
+fn synthetic_compact_response(text: &str) -> types::CompactResponse {
+    types::CompactResponse {
+        text: text.to_string(),
+        original_bytes: text.len(),
+        compacted_bytes: text.len(),
+        rule_id: "none/plain_text".into(),
+        applied: false,
+        content_kind: "plain_text".into(),
+        compressor: "none".into(),
+        original_tokens: text.len().div_ceil(4) as u64,
+        compacted_tokens: text.len().div_ceil(4) as u64,
+        notice: None,
+    }
+}
+
+fn unknown_method_error() -> tinybus::Error {
+    tinybus::Error::UnknownMethod {
+        interface: tinybus::InterfaceName::new("ai.tinyhumans.tinyjuice.Compaction").unwrap(),
+        member: tinybus::MemberName::new("CompactWith").unwrap(),
+    }
+}
+
+fn method_failed_error() -> tinybus::Error {
+    tinybus::Error::MethodFailed {
+        name: "ai.tinyhumans.tinyjuice.Error.Internal".into(),
+        message: "boom".into(),
+    }
+}
+
+#[test]
+fn a_successful_compact_with_reply_is_used_as_is() {
+    let response = synthetic_compact_response("compacted");
+    match classify_compact_with_reply(Ok(response.clone()), "shell") {
+        CompactWithOutcome::Response(got) => assert_eq!(got.text, response.text),
+        _ => panic!("expected Response"),
+    }
+}
+
+#[test]
+fn an_unknown_method_error_asks_to_retry_as_compact() {
+    assert!(matches!(
+        classify_compact_with_reply(Err(unknown_method_error()), "shell"),
+        CompactWithOutcome::RetryAsCompact
+    ));
+}
+
+#[test]
+fn any_other_compact_with_error_gives_up() {
+    assert!(matches!(
+        classify_compact_with_reply(Err(method_failed_error()), "shell"),
+        CompactWithOutcome::GiveUp
+    ));
+}
+
+#[test]
+fn a_legacy_compact_reply_gains_the_summary_notice_when_one_was_wanted_and_missing() {
+    let response = synthetic_compact_response("legacy");
+    let finished = finish_legacy_compact_reply(Ok(response), true)
+        .expect("a successful reply is never dropped");
+    assert_eq!(finished.notice, Some(summary_failed_notice()));
+}
+
+#[test]
+fn a_legacy_compact_reply_keeps_its_own_notice_when_it_already_has_one() {
+    let mut response = synthetic_compact_response("legacy");
+    response.notice = Some("module notice".to_string());
+    let finished =
+        finish_legacy_compact_reply(Ok(response), true).expect("a successful reply is kept");
+    assert_eq!(finished.notice, Some("module notice".to_string()));
+}
+
+#[test]
+fn a_legacy_compact_reply_is_silent_when_no_summary_was_wanted() {
+    let response = synthetic_compact_response("legacy");
+    let finished = finish_legacy_compact_reply(Ok(response), false)
+        .expect("a successful reply is never dropped");
+    assert_eq!(finished.notice, None);
+}
+
+#[test]
+fn a_failed_legacy_compact_reply_gives_up() {
+    assert!(finish_legacy_compact_reply(Err(method_failed_error()), true).is_none());
+}
