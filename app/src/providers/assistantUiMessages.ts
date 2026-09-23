@@ -223,6 +223,25 @@ function withApproval(
 }
 
 /**
+ * A reasoning part, carrying the block's timing (epoch ms) under
+ * `providerMetadata.openhuman` when it is known. `OpenHumanReasoningGroup`
+ * reads it back (`reasoningTimingOf`) to show "Thinking… Ns" while the block
+ * streams and "Thought for Ns" once it settles. Blocks recorded before timing
+ * existed carry none and settle to a plain "Thought".
+ */
+export function reasoningPart(
+  text: string,
+  startedAt: number | undefined,
+  endedAt: number | undefined
+): ThreadAssistantMessagePart {
+  if (startedAt === undefined && endedAt === undefined) return { type: 'reasoning', text };
+  const timing: { startedAt?: number; endedAt?: number } = {};
+  if (startedAt !== undefined) timing.startedAt = startedAt;
+  if (endedAt !== undefined) timing.endedAt = endedAt;
+  return { type: 'reasoning', text, providerMetadata: { openhuman: timing } };
+}
+
+/**
  * Project one assistant message into assistant-ui parts.
  *
  * The surface carries the turn as it happened: the agent's reasoning as a
@@ -230,8 +249,9 @@ function withApproval(
  *
  * ## What is here, and what stays in the rail
  *
- * Reasoning (`kind: 'thinking'`) renders inline again. It is collapsed by
- * default and expands while it streams, so a turn that thought for ten seconds
+ * Reasoning (`kind: 'thinking'`) renders inline again, through the static
+ * reasoning panel: collapsed by default to one "Thought for Ns" line, expanded
+ * into titled steps while it streams, so a turn that thought for ten seconds
  * shows one quiet line rather than ten seconds of prose — which is what made it
  * clutter the first time round.
  *
@@ -312,7 +332,9 @@ function assistantParts(
 
   for (const item of transcript) {
     if (item.kind === 'thinking') {
-      if (item.text.trim().length > 0) parts.push({ type: 'reasoning', text: item.text });
+      if (item.text.trim().length > 0) {
+        parts.push(reasoningPart(item.text, item.startedAt, item.endedAt));
+      }
       continue;
     }
     // Narration is the turn explaining itself; it stays in the rail.
@@ -613,7 +635,15 @@ export function streamingTailMessage(
   // `RunningStatus`.
   if (streaming?.thinking.trim()) {
     const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
-    if (!hasTranscriptThinking) parts.unshift({ type: 'reasoning', text: streaming.thinking });
+    if (!hasTranscriptThinking) {
+      parts.unshift(
+        reasoningPart(
+          streaming.thinking,
+          streaming.thinkingStartedAt,
+          streaming.thinkingEndedAt
+        )
+      );
+    }
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
