@@ -164,9 +164,10 @@ if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
   # Every integration target in one parallel run, one process per test: the
   # raw_coverage modules and the JSON-RPC tests are then isolated from each
   # other without the per-module and serial invocations below. Cargo skips a
-  # target whose required-features are not in the product set.
+  # target whose required-features are not in the product set; `kind(test)`
+  # keeps the run to the integration targets, as the loop below runs them.
   suite "openhuman-cli integration tests (nextest)" llvm_cov nextest --profile ci \
-    --no-report --no-fail-fast -p openhuman-cli --tests
+    --no-report --no-fail-fast -p openhuman-cli --tests -E 'kind(test)'
 else
   while IFS= read -r target; do
     [ -n "${target}" ] || continue
