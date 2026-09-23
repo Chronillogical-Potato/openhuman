@@ -300,11 +300,77 @@ impl Store for ToolResultArtifactIndexStore {
 }
 
 impl ToolResultArtifactStore {
+    /// The root artifacts are written under. Test-only: production never needs
+    /// to ask, but a caller choosing the wrong root produces a pointer the model
+    /// cannot dereference, and that is only assertable from outside (#6483).
+    #[cfg(test)]
+    pub(crate) fn root(&self) -> &std::path::Path {
+        &self.action_dir
+    }
+
     pub(crate) fn new(action_dir: PathBuf, session_key: impl Into<String>) -> Self {
         Self {
             action_dir,
             session_key: sanitize_component(&session_key.into()),
         }
+    }
+
+    /// Delete artifact directories for sessions other than this one that have
+    /// not been touched within `max_age`.
+    ///
+    /// Artifacts are written under the user's action workspace and nothing else
+    /// removes them, so without a bound the directory grows for the life of the
+    /// install — a connector returning 17-65 KB across 8-14 calls per question
+    /// (#6408) writes a file per call. Trading a token-burn bug for a
+    /// disk-growth bug is not a fix.
+    ///
+    /// Pruning on session START rather than on session end is deliberate. There
+    /// is no single point where a session host ends — cached agents are evicted
+    /// on fingerprint mismatch or poisoning, and a crash ends a session with no
+    /// hook at all — so an end-of-session sweep would miss exactly the runs most
+    /// likely to have left artifacts behind. An age sweep at start is
+    /// self-healing instead: whatever the last run did, the next one tidies it.
+    ///
+    /// The current session is never pruned, no matter its age, so a long-lived
+    /// session cannot delete artifacts the model may still be reading back.
+    ///
+    /// Best-effort by design: a failure here must not fail a turn. The caller
+    /// logs and carries on, because the worst case is disk left uncollected,
+    /// which the next session retries.
+    pub(crate) fn prune_stale_sessions(
+        &self,
+        max_age: std::time::Duration,
+    ) -> std::io::Result<u32> {
+        let root = self.action_dir.join(ARTIFACT_ROOT);
+        let entries = match std::fs::read_dir(&root) {
+            Ok(entries) => entries,
+            // No artifact root yet is the common case on a first run.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(error) => return Err(error),
+        };
+
+        let now = std::time::SystemTime::now();
+        let mut removed = 0;
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            // Never prune the directory this store is actively writing into.
+            if name.to_str() == Some(self.session_key.as_str()) {
+                continue;
+            }
+            if !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                continue;
+            }
+            let stale = entry
+                .metadata()
+                .and_then(|meta| meta.modified())
+                .ok()
+                .and_then(|modified| now.duration_since(modified).ok())
+                .is_some_and(|age| age > max_age);
+            if stale && std::fs::remove_dir_all(entry.path()).is_ok() {
+                removed += 1;
+            }
+        }
+        Ok(removed)
     }
 
     pub(crate) fn path_for_read_tool(&self, tool_name: &str, call_id: Option<&str>) -> String {

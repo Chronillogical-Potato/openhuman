@@ -12,6 +12,7 @@ import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-s
 import { Image } from '@/components/assistant-ui/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
+import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
 import {
   Reasoning,
   ReasoningContent,
@@ -33,6 +34,7 @@ import {
   useAuiEditCapabilities,
   useAuiReloadCapability,
 } from '@/features/conversations/components/aui/auiThreadState';
+import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -69,6 +71,10 @@ import {
   RefreshCwIcon,
   SlashIcon,
   SquareIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  Volume2Icon,
+  VolumeXIcon,
 } from 'lucide-react';
 import {
   type ComponentType,
@@ -321,6 +327,8 @@ const ThreadRoot: FC<{
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
 
+  useOpenThreadAtBottom(viewportRef);
+
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
@@ -383,9 +391,85 @@ const ThreadRoot: FC<{
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
+
+      {/*
+       * Select text in any message and a floating "Quote" button appears over
+       * the selection; clicking it drops the excerpt into the composer.
+       *
+       * It lives OUTSIDE the viewport on purpose: it portals itself to the
+       * selection's screen position, so nesting it inside the scroller would
+       * only give it a clipped, scrolling ancestor for no benefit. It finds the
+       * message by the `data-message-id` that `MessagePrimitive.Root` already
+       * emits, so neither message component needed changing.
+       */}
+      <SelectionToolbar />
     </ThreadPrimitive.Root>
   );
 };
+
+/**
+ * Opening a thread lands on its newest message.
+ *
+ * assistant-ui has two stock knobs for this and BOTH are inert here:
+ *
+ * - `scrollToBottomOnThreadSwitch` listens for `threads.selectionChanged`,
+ *   which fires only when its `mainThreadId` changes. That id is
+ *   `adapter.threadId ?? DEFAULT_THREAD_ID`, and `useOpenHumanExternalStore`
+ *   returns no `threadId` — the real thread travels out-of-band through
+ *   `AuiThreadIdContext` — so `mainThreadId` never leaves the default and the
+ *   event never fires.
+ * - `scrollToBottomOnInitialize` latches on the first non-empty render and
+ *   re-arms only while the thread has zero messages. `<AssistantUiChat>` is
+ *   mounted without a `key`, so this viewport survives thread switches with
+ *   that latch still set.
+ *
+ * The second one is why the defect is intermittent rather than total, and it
+ * is the case to keep in mind. `useOpenHumanExternalStore` reads
+ * `state.thread.messagesByThreadId[threadId]`, a cache cleared only on delete
+ * or sign-out, so a thread visited earlier this session hands its messages
+ * over on the very render the id changes: it never passes through the empty
+ * state that re-arms the latch, and the viewport keeps the PREVIOUS thread's
+ * `scrollTop`. A thread not yet cached does briefly read empty and therefore
+ * scrolls correctly even unfixed — so a fix checked only against a fresh
+ * thread looks right and fixes nothing.
+ *
+ * Hence: latch on the thread id rather than on emptiness. Nothing here is
+ * conditional on the reader's scroll position, unlike `ThreadBottomFollower`
+ * below — "don't yank the reader who scrolled up" is about a new turn arriving
+ * in the thread being read, and a scroll offset left over from a different
+ * thread is not a reading position worth restoring.
+ *
+ * This lives in `ThreadRoot`, which owns `viewportRef`, rather than in
+ * `ThreadBottomFollower`, which is handed it: a descendant's layout effect
+ * runs before its ancestor's ref is attached, so the follower sees
+ * `viewportRef.current === null` on the mount that matters and would burn the
+ * latch without scrolling.
+ */
+function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
+  const hasMessages = useAuiState(s => s.thread.messages.length > 0);
+  const threadId = useAuiThreadId();
+  // Which thread this viewport has already been dropped to the bottom for.
+  // `undefined` (nothing opened yet) is deliberately distinct from the
+  // `string | null` a thread id can be, so the initial value cannot collide
+  // with a genuine "no thread selected".
+  const openedThreadRef = useRef<string | null | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    // Wait for the transcript: on the uncached path the messages arrive a tick
+    // after the id changes, and a scroll issued against an empty viewport goes
+    // nowhere. Leaving the latch alone here is what lets that second pass run.
+    if (!hasMessages) return;
+    if (openedThreadRef.current === threadId) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    openedThreadRef.current = threadId;
+    // `behavior: 'instant'` overrides the viewport's `scroll-smooth` class:
+    // opening a thread should start at the bottom, not animate down through the
+    // entire history to get there.
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+  }, [hasMessages, threadId, viewportRef]);
+}
 
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
 
@@ -689,6 +773,8 @@ const Composer: FC<{
             // `border-ring` on drag is untouched — that state is meant to break
             // the pattern.
             className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.09),0_30px_44px_-16px_rgb(0_0_0/0.12)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            {/* Renders only while a quote is set; dismissing it clears the quote. */}
+            <ComposerQuotePreview />
             {HostComposerAttachments ? <HostComposerAttachments /> : <ComposerAttachments />}
             {/*
              * Lexical rather than the plain `ComposerPrimitive.Input` textarea,
@@ -1113,6 +1199,61 @@ const AssistantActionBar: FC = () => {
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
       {reloadAction}
+      {/* Thumbs render only because the external store now supplies
+          `adapters.feedback`; the runtime gates them on that key alone. The
+          pressed state comes from `message.submittedFeedback`, which our message
+          converter re-emits from the persisted rating — see the Defect A note
+          there, without which a pressed thumb silently un-presses on the next
+          store update.
+
+          Deliberately NOT gated the way `reloadAction` above is. That gate
+          exists because assistant-ui's Reload ignores `capabilities.reload` and
+          the runtime *throws* on click when the adapter supplies no `onReload`.
+          These primitives instead compute `disabled = disabled || !callback`
+          from the adapter's own hook, so with no adapter they render disabled
+          rather than throwing — and we supply `adapters.feedback`
+          unconditionally, so they are always live here. */}
+      <ActionBarPrimitive.FeedbackPositive asChild>
+        <TooltipIconButton
+          tooltip="Good response"
+          data-testid="assistant-feedback-positive"
+          className="data-[submitted=true]:text-primary-600 dark:data-[submitted=true]:text-primary-400">
+          <ThumbsUpIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.FeedbackPositive>
+      <ActionBarPrimitive.FeedbackNegative asChild>
+        <TooltipIconButton
+          tooltip="Bad response"
+          data-testid="assistant-feedback-negative"
+          className="data-[submitted=true]:text-coral-600 dark:data-[submitted=true]:text-coral-400">
+          <ThumbsDownIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.FeedbackNegative>
+      {/*
+       * Read aloud, through the same TTS the chat mascot uses. Gated on the
+       * capability rather than rendered unconditionally: `actionBarSpeakDisabled`
+       * checks only the message's role and running status, NOT
+       * `capabilities.speech`, so an ungated Speak button on a runtime with no
+       * `adapters.speech` is enabled, clickable, and throws. The gate makes the
+       * control appear exactly when it can work — the same rule `UserActionBar`
+       * applies to Edit (#5897).
+       */}
+      <AuiIf condition={s => s.thread.capabilities.speech}>
+        <AuiIf condition={s => s.message.speech == null}>
+          <ActionBarPrimitive.Speak asChild>
+            <TooltipIconButton tooltip="Read aloud">
+              <Volume2Icon />
+            </TooltipIconButton>
+          </ActionBarPrimitive.Speak>
+        </AuiIf>
+        <AuiIf condition={s => s.message.speech != null}>
+          <ActionBarPrimitive.StopSpeaking asChild>
+            <TooltipIconButton tooltip="Stop reading">
+              <VolumeXIcon className="text-destructive" />
+            </TooltipIconButton>
+          </ActionBarPrimitive.StopSpeaking>
+        </AuiIf>
+      </AuiIf>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
           <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">

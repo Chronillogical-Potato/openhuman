@@ -398,9 +398,20 @@ async fn errors_clearly_when_no_parent_thread_for_delivery() {
     assert!(result.is_error);
     let out = result.output();
     assert!(out.contains("no parent chat thread"), "{out}");
-    // The recommended escape hatch must name `blocking: true` — plain
-    // `spawn_subagent` defaults to async and would otherwise be steered
-    // straight back into this same guard.
+    // The recommended escape hatch must name a route that does NOT loop back
+    // into this guard: a synchronous one, with the argument that makes it
+    // synchronous.
+    //
+    // The literal `spawn_subagent` is deliberately no longer asserted. The
+    // guidance used to name it; it now recommends `delegate_*` instead, which
+    // is the better advice for the reason this comment already gave — plain
+    // `spawn_subagent` defaults to async and would steer the model straight
+    // back here. Verified callable under the product feature profile:
+    // `delegate_<agent_id>` tools are generated in
+    // `tools/orchestrator_tools.rs:116`, and they accept `blocking`
+    // (`archetype_delegation.rs:115` declares it, `:245` reads it) — so the
+    // guidance names a real tool family with a real argument, not a route the
+    // model cannot take.
     assert!(out.contains("blocking: true"), "{out}");
     assert!(out.contains("delegate_"), "{out}");
 }

@@ -618,6 +618,7 @@ fn subagent_span_records_prompt_and_final_output_when_capture_on() {
                 worktree_path: None,
                 changed_files: vec![],
                 dirty_status: None,
+                usage: None,
             },
             105,
         ),
