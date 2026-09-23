@@ -20,6 +20,13 @@ import {
   type MessageFeedback,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
+import { extractAgentSources, formatTimelineEntry } from '../utils/toolTimelineFormatting';
+
+/**
+ * UI-only label for a tool part, carried on assistant-ui's `artifact` field
+ * (see `toolLabelArtifact`). Read back by `OpenHumanToolCall`.
+ */
+export type ToolLabelArtifact = { displayName?: string; detail?: string };
 
 /**
  * Redux -> assistant-ui message mapping.
@@ -74,12 +81,11 @@ export const STREAMING_TAIL_ID = '__openhuman_streaming_tail__';
 /**
  * Convert one persisted message.
  *
- * Agent content is passed through `unwrapToolCallEnvelope` for the same reason
- * the transcript renderer does it: a `{content, tool_calls}` provider envelope
- * must never reach a rendered surface as raw JSON. Tool *activity* is not
- * projected as assistant-ui tool-call parts — it lives in the far richer
- * `toolTimelineByThread` projection that `ToolTimelineBlock` renders, and
- * duplicating it here would paint every tool twice.
+ * Agent content is passed through `unwrapToolCallEnvelope` so a
+ * `{content, tool_calls}` provider envelope never reaches a rendered surface as
+ * raw JSON. The turn's reasoning, tool calls and web sources are projected as
+ * assistant-ui parts by `assistantParts`; there is no second copy of them
+ * anywhere else on the message.
  */
 function jsonObject(value: unknown): Record<string, never> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -259,8 +265,7 @@ function withApproval(
  *
  * Narration is deliberately NOT restored. It is the turn's running commentary,
  * it duplicates the answer on the final round, and it is the bulk of what made
- * the old surface a firehose. It stays in `processingByThread` and renders in
- * the process rail behind {@link TurnProcessTrail}, which is unchanged.
+ * the old surface a firehose.
  *
  * ## Ordering
  *
@@ -279,8 +284,9 @@ function withApproval(
  *
  * The answer text is appended last, and that is correct rather than merely
  * convenient: it is the persisted `msg.content`, i.e. what the agent said when
- * it had finished, so nothing it produced can belong after it. Anything the
- * agent said BEFORE a tool call is narration, which lives in the rail.
+ * it had finished, so nothing it produced can belong after it. The web pages
+ * the turn fetched follow it as `source` parts, which the thread groups into
+ * one collapsed "Sources" disclosure under the answer.
  *
  * **Every tool part must have a distinct `toolCallId`.** assistant-ui keys them
  * as `toolCallId-${id}` and *throws* on a repeat ("Duplicate key … in
@@ -347,35 +353,18 @@ function assistantParts(
   drainBefore(null);
 
   if (text.length > 0) parts.push({ type: 'text', text });
+  // `extractAgentSources` is the one place a model-supplied URL is admitted
+  // (http(s) only), so sources are derived through it rather than here.
+  for (const source of extractAgentSources([...timeline])) {
+    parts.push({
+      type: 'source',
+      sourceType: 'url',
+      id: source.id,
+      url: source.url,
+      title: source.title,
+    });
+  }
   return parts;
-}
-
-/**
- * The one-line summary the settled turn footer renders, and the trail its click
- * opens. Counted from what the store already holds — no new telemetry.
- *
- * `steps` is every process item the turn recorded (reasoning blocks, narration
- * segments and tool pointers); `tools` is the tool rows. `null` when the turn
- * recorded no process at all, which is the footer's signal to render nothing —
- * a plain answer with no trail behind it gets no door.
- */
-export type TurnProcessTrail = {
-  steps: number;
-  tools: number;
-  timeline: readonly ToolTimelineEntry[];
-  transcript: readonly ProcessingTranscriptItem[];
-};
-
-function processTrail(
-  timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
-): TurnProcessTrail | null {
-  if (timeline.length === 0 && transcript.length === 0) return null;
-  // Prefer the transcript's own length when it has one: it is the ordered
-  // record of what happened. A legacy snapshot with tool rows but no transcript
-  // still has a step per row.
-  const steps = transcript.length > 0 ? transcript.length : timeline.length;
-  return { steps, tools: timeline.length, timeline, transcript };
 }
 
 function stringArray(value: unknown): string[] {
@@ -593,11 +582,6 @@ export function toThreadMessageLike(
       custom: {
         extraMetadata: msg.extraMetadata ?? {},
         sourceType: msg.type,
-        // The settled turn's one-line footer + the trail its click opens.
-        // Only on the assistant side: a user message has no process behind it.
-        ...(msg.sender === 'agent'
-          ? { processTrail: processTrail(effectiveTimeline, transcript) }
-          : {}),
       },
     },
   };
