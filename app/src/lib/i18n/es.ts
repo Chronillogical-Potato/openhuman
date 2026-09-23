@@ -2375,8 +2375,6 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': 'Nuevo hilo (/new)',
   'chat.new': 'Nuevo',
   'chat.failedToLoadMessages': 'No se pudieron cargar los mensajes',
-  'chat.thinkingIteration': 'Pensando... ({n})',
-  'chat.thinkingDots': 'Pensando...',
   'chat.approachingLimit': 'Acercándote al límite de uso',
   'chat.approachingLimitMsg': 'Has usado el {pct}% de tu cuota disponible.',
   'chat.upgrade': 'Mejorar plan',

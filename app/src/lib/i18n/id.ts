@@ -2341,8 +2341,6 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': 'Thread baru (/new)',
   'chat.new': 'Baru',
   'chat.failedToLoadMessages': 'Gagal memuat pesan',
-  'chat.thinkingIteration': 'Berpikir... ({n})',
-  'chat.thinkingDots': 'Berpikir...',
   'chat.approachingLimit': 'Mendekati batas pemakaian',
   'chat.approachingLimitMsg': 'Anda telah memakai {pct}% dari kuota yang tersedia.',
   'chat.upgrade': 'Tingkatkan',

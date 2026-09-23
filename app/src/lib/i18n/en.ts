@@ -2582,8 +2582,6 @@ const en: TranslationMap = {
   'chat.newThreadShortcut': 'New thread (/new)',
   'chat.new': 'New',
   'chat.failedToLoadMessages': 'Failed to load messages',
-  'chat.thinkingIteration': 'Thinking... ({n})',
-  'chat.thinkingDots': 'Thinking...',
   'chat.approachingLimit': 'Approaching usage limit',
   'chat.approachingLimitMsg': 'You have used {pct}% of your available quota.',
   'chat.upgrade': 'Upgrade',
