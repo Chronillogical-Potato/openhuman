@@ -66,6 +66,7 @@ async fn model_completed_projects_generation_with_content_and_provider() {
         Arc::default(),
         Arc::default(),
         Arc::default(),
+        Vec::new(),
     );
     let sink = EventSink::new();
     sink.subscribe(bridge.clone());
@@ -138,6 +139,7 @@ async fn subagent_model_completed_carries_task_attribution() {
         Arc::default(),
         Arc::default(),
         Arc::default(),
+        Vec::new(),
     );
     let sink = EventSink::new();
     sink.subscribe(bridge.clone());
