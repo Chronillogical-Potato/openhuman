@@ -3,9 +3,8 @@
 # schemas — one row per agent, largest first, then their sum (a size measure,
 # not a cost: each prefix is paid only on the turns that agent runs).
 #
-# Report-only: nothing here fails on a number. The ratchet that does is
-# `scripts/check-prompt-budget.sh`; both consume the JSON from
-# `scripts/prompt-size-measure.sh`, so their setup cannot drift.
+# Report-only: nothing here fails on a number. It consumes the JSON from
+# `scripts/prompt-size-measure.sh`.
 #
 # Usage: scripts/prompt-report.sh [--workspace <dir>]
 #
