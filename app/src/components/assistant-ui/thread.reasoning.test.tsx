@@ -38,7 +38,7 @@ function Harness({ messages, running }: { messages: ThreadMessageLike[]; running
 
 const user: ThreadMessageLike = { role: 'user', content: [{ type: 'text', text: 'fix it' }] };
 
-function assistant(running: boolean): ThreadMessageLike {
+function assistant(): ThreadMessageLike {
   return {
     id: 'a1',
     role: 'assistant',
@@ -47,13 +47,13 @@ function assistant(running: boolean): ThreadMessageLike {
       reasoningPart('**Planning the fix**\nPatch the parser.', T0 + 5_000, T0 + 12_000),
       { type: 'text', text: 'Done.' },
     ],
-    status: running ? { type: 'running' } : { type: 'complete', reason: 'stop' },
+    status: { type: 'complete', reason: 'stop' },
   };
 }
 
 describe('thread reasoning panel', () => {
   it('renders one collapsed "Thought for Ns" panel for a settled run of reasoning parts', () => {
-    render(<Harness messages={[user, assistant(false)]} running={false} />);
+    render(<Harness messages={[user, assistant()]} running={false} />);
 
     const panels = screen.getAllByTestId('reasoning-panel');
     expect(panels).toHaveLength(1);
@@ -75,7 +75,18 @@ describe('thread reasoning panel', () => {
   });
 
   it('streams open with the newest heading as its live label', () => {
-    render(<Harness messages={[user, assistant(true)]} running />);
+    // Still reasoning: the trace is the message's trailing part, so its group
+    // is the one running (a later text part would settle it).
+    const live: ThreadMessageLike = {
+      id: 'a1',
+      role: 'assistant',
+      content: [
+        reasoningPart('**Reading the request**\nok', T0, T0 + 4_000),
+        reasoningPart('**Planning the fix**\nPatch', T0 + 5_000, T0 + 6_000),
+      ],
+      status: { type: 'running' },
+    };
+    render(<Harness messages={[user, live]} running />);
     const panel = screen.getByTestId('reasoning-panel');
     expect(panel.querySelector('button')?.getAttribute('aria-expanded')).toBe('true');
     expect(panel.querySelector('[data-slot="reasoning-panel-live-label"]')?.textContent).toBe(
