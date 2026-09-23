@@ -414,6 +414,23 @@ pub struct SubagentProgressDetail {
     /// Elapsed wall-clock for the call/run in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elapsed_ms: Option<u64>,
+    /// This child's own token + cost spend (on `subagent_completed`), and
+    /// **only when it is not already inside the parent turn's totals**.
+    ///
+    /// The consumer adds these unconditionally, so an emit site that leaves
+    /// them absent contributes nothing — the safe direction. Populating them
+    /// for a child whose usage DID reach `parent_subagent_usage` silently
+    /// doubles the user's reported tokens and money, because
+    /// `holistic_last_turn_usage` already folded both into `chat_done`. See
+    /// `AgentProgress::SubagentCompleted::usage`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_input_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
     /// Total iterations the sub-agent used (on `subagent_completed`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,

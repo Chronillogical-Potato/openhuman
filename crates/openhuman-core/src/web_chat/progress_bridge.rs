@@ -234,92 +234,6 @@ fn session_profile_user_attribution(config: &crate::config::Config) -> Option<St
         .or(state.user_id)
 }
 
-fn span_projection_signature(spans: &[crate::agent::progress_tracing::TraceSpan]) -> Vec<String> {
-    spans
-        .iter()
-        .map(|span| {
-            let attr_keys = span
-                .attributes
-                .keys()
-                .map(String::as_str)
-                .collect::<Vec<_>>()
-                .join(",");
-            format!(
-                "{:?}|{}|{:?}|attrs:[{}]",
-                span.kind, span.name, span.status, attr_keys
-            )
-        })
-        .collect()
-}
-
-async fn shadow_compare_journal_projection(
-    request_id: &str,
-    trace_ctx: crate::agent::progress_tracing::TraceContext,
-    max_iterations: u32,
-    live_spans: &[crate::agent::progress_tracing::TraceSpan],
-) -> Option<Vec<tinyagents_harness::observability::AgentObservation>> {
-    let Some(journal_run_id) =
-        crate::agent::tinyagents::journal::take_request_journal_run(request_id)
-    else {
-        log::debug!(
-            "[agent-tracing][journal-shadow] no journal run registered request_id={}",
-            request_id
-        );
-        return None;
-    };
-
-    let observations = match crate::agent::tinyagents::journal::read_run_events(&journal_run_id, 0)
-        .await
-    {
-        Ok(observations) => observations,
-        Err(err) => {
-            log::warn!(
-                "[agent-tracing][journal-shadow] read failed request_id={} journal_run_id={} err={err}",
-                request_id,
-                journal_run_id
-            );
-            return None;
-        }
-    };
-    if observations.is_empty() {
-        log::warn!(
-            "[agent-tracing][journal-shadow] journal empty request_id={} journal_run_id={}",
-            request_id,
-            journal_run_id
-        );
-        return None;
-    }
-
-    let projected = crate::agent::progress_tracing::journal_projection::spans_from_observations(
-        trace_ctx,
-        max_iterations,
-        &observations,
-    );
-    let live_sig = span_projection_signature(live_spans);
-    let projected_sig = span_projection_signature(&projected);
-    if live_sig == projected_sig {
-        log::debug!(
-            "[agent-tracing][journal-shadow] parity ok request_id={} journal_run_id={} spans={} observations={}",
-            request_id,
-            journal_run_id,
-            live_spans.len(),
-            observations.len()
-        );
-    } else {
-        log::warn!(
-            "[agent-tracing][journal-shadow] parity divergence request_id={} journal_run_id={} live_spans={} journal_spans={} observations={} live_sig={:?} journal_sig={:?}",
-            request_id,
-            journal_run_id,
-            live_spans.len(),
-            projected.len(),
-            observations.len(),
-            live_sig,
-            projected_sig
-        );
-    }
-    Some(observations)
-}
-
 /// Spawn a background task that reads [`AgentProgress`] events from the
 /// agent turn loop and translates them into [`WebChannelEvent`]s tagged
 /// with the correct client/thread/request IDs. The task runs until the
@@ -833,6 +747,7 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iterations,
                     output_chars,
+                    usage,
                     worktree_path,
                     changed_files,
                     dirty_status,
@@ -904,6 +819,16 @@ pub(crate) fn spawn_progress_bridge(
                                 elapsed_ms: Some(elapsed_ms),
                                 iterations: Some(iterations),
                                 output_chars: Some(output_chars as u64),
+                                // Present only when this child's spend is NOT
+                                // already in the parent turn's totals — the
+                                // emitting site decides, because only it can
+                                // see whether the usage reached
+                                // `parent_subagent_usage`. Absent is the safe
+                                // default and means "add nothing".
+                                input_tokens: usage.as_ref().map(|u| u.input_tokens),
+                                output_tokens: usage.as_ref().map(|u| u.output_tokens),
+                                cached_input_tokens: usage.as_ref().map(|u| u.cached_input_tokens),
+                                cost_usd: usage.as_ref().map(|u| u.charged_amount_usd),
                                 // Worktree isolation metadata (#3376) — drives the
                                 // inline subagent worktree row's open/diff/remove
                                 // actions. All `None`/absent for non-isolated workers.
@@ -1468,7 +1393,7 @@ pub(crate) fn spawn_progress_bridge(
             collector.finish(unix_epoch_ms());
             let live_spans = collector.spans().to_vec();
             let journal_export = if let Some(trace_ctx) = journal_trace_ctx.take() {
-                shadow_compare_journal_projection(
+                super::journal_shadow::shadow_compare_journal_projection(
                     &request_id,
                     trace_ctx.clone(),
                     parent_max_iterations,

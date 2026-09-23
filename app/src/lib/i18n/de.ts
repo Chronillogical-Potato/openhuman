@@ -744,6 +744,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Legen wir los, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Zeit zum Fokussieren 🧘🏻',
   'chat.newWindowPrompt': 'Wie kann ich dir heute helfen?',
+  'chat.welcomeSuggestion.calendarToday': 'Was steht heute in meinem Kalender?',
+  'chat.welcomeSuggestion.unreadEmail': 'Fasse meine ungelesenen E-Mails zusammen.',
+  'chat.welcomeSuggestion.draftReply': 'Entwirf eine Antwort auf meine letzte Nachricht.',
+  'chat.welcomeSuggestion.followUps': 'Was wollte ich diese Woche nachverfolgen?',
+  'chat.welcomeSuggestion.connectIntegration': 'Verbinde eine neue Integration.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Erstelle einen Flow, der mir täglich eine Zusammenfassung per E-Mail schickt.',
   'chat.typeMessage': 'Nachricht senden...',
   'chat.send': 'Nachricht senden',
   'chat.stopGeneration': 'Generierung stoppen',
@@ -3286,6 +3293,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian-Subdomain-Label',
   'composio.connect.cancelConnection': 'Verbindung abbrechen',
   'composio.connect.cancelFailed': 'Verbindung konnte nicht abgebrochen werden: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio hat das Entfernen der Verbindung nicht bestätigt. Bitte erneut versuchen.',
   'composio.connect.cancelling': 'Wird abgebrochen…',
   'composio.connect.connect': 'Verbinden',
   'composio.connect.connectedAccounts': 'Verbundene Konten',

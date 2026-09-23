@@ -206,6 +206,19 @@ impl CostTracker {
 
     /// Return recent persisted usage records, newest first.
     ///
+    /// `days` is a rolling window ending now: `days = 1` is the last 24 hours,
+    /// matching what the dashboard promises the user ("Newest records from the
+    /// last {days} days").
+    ///
+    /// The window is `days * 24h` back from this instant, NOT `days - 1`.
+    /// [`Self::get_daily_history`] subtracts `span - 1` and is right to: it
+    /// compares *dates* and needs N calendar days counting today, so
+    /// `today - (N - 1)` is the Nth day back. Here the comparison is against an
+    /// *instant*, so the same `- 1` shortens the window by a full day — and at
+    /// `days = 1` collapses it to zero, making `earliest == now` and rejecting
+    /// every record ever written (#6482). Wider windows hid it: `days = 30`,
+    /// the dashboard's default, quietly returned 29.
+    ///
     /// `days` is clamped to `[1, 366]` and `limit` to `[1, 1000]` to keep
     /// dashboard calls bounded while still allowing a detailed audit log.
     pub fn get_recent_records(&self, days: u32, limit: usize) -> Result<Vec<CostRecord>> {
@@ -213,7 +226,7 @@ impl CostTracker {
         let limit = limit.clamp(1, 1000);
         let now = Utc::now();
         let earliest = now
-            .checked_sub_signed(Duration::days(span - 1))
+            .checked_sub_signed(Duration::days(span))
             .ok_or_else(|| anyhow!("Usage log range underflowed"))?;
 
         let mut records: Vec<CostRecord> = Vec::new();

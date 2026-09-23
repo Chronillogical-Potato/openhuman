@@ -59,6 +59,36 @@ async fn fallback_truncates_when_store_missing() {
     assert!(out.len() < 4096);
 }
 
+/// The truncation trailer must not tell the model to re-run the call (#6408).
+///
+/// The old wording ended "re-run with a narrower query to see the rest". A
+/// listing tool with no narrowing argument in reach leaves the model only the
+/// identical call, which returns the identical truncation, until the
+/// successful-repeat tracker halts the run. Assert the retry instruction is
+/// gone and the deterministic-truncation statement that replaces it is
+/// present, so a revert to the old trailer fails here.
+#[tokio::test]
+async fn truncation_trailer_does_not_instruct_a_retry() {
+    let raw = "z".repeat(4096);
+    let (out, outcome) =
+        apply_per_result_persistence(raw, None, None, "GITHUB_LIST_PULL_REQUESTS", None, 512).await;
+
+    assert!(!outcome.persisted, "fixture must truncate inline, not persist");
+    assert!(
+        !out.contains("re-run"),
+        "trailer must not instruct a re-run; got: {out}"
+    );
+    assert!(
+        out.contains("Repeating this call returns the same truncation"),
+        "trailer must say the truncation is deterministic; got: {out}"
+    );
+    // Both totals, so the model can judge whether the retained head suffices.
+    assert!(
+        out.contains("of 4096 bytes truncated by tool_result_budget"),
+        "trailer must report dropped-of-original bytes; got: {out}"
+    );
+}
+
 #[tokio::test]
 async fn persisted_preview_is_bounded_for_small_budget() {
     let tmp = tempfile::tempdir().unwrap();

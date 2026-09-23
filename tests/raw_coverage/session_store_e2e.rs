@@ -479,8 +479,8 @@ async fn session_import_rejects_malformed_params() {
 ///
 /// What is asserted unconditionally is what must hold on every branch:
 ///
-///  1. `compress` and `detect` agree on the content kind — two controllers, one
-///     classifier, and nothing else checks they stay in step;
+///  1. an applied `compress` and `detect` agree on the content kind — two
+///     controllers, one classifier, and nothing else checks they stay in step;
 ///  2. the reported byte counts describe the actual strings, not estimates;
 ///  3. **nothing is lost**: a lossy compaction is recoverable through the token
 ///     byte-for-byte, and a pass-through returns the input unchanged.
@@ -527,13 +527,6 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
     .await;
     let compressed = payload(&compressed, "tokenjuice_compress");
 
-    // (1) One classifier, two controllers.
-    assert_eq!(
-        compressed.get("kind").and_then(Value::as_str),
-        Some(detected_kind.as_str()),
-        "compress must route on the same kind detect reports: {compressed}"
-    );
-
     // (2) The byte counts describe the actual strings.
     let text = compressed
         .get("text")
@@ -564,6 +557,11 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
 
     if !applied {
         assert!(!lossy, "a pass-through cannot be lossy: {compressed}");
+        let kind = compressed.get("kind").and_then(Value::as_str);
+        assert!(
+            kind == Some("plain_text") || kind == Some(detected_kind.as_str()),
+            "a pass-through uses either its plain-text wire kind or the detector's routed kind: {compressed}"
+        );
         assert_eq!(
             text, content,
             "a pass-through must return the input unchanged — byte for byte"
@@ -579,6 +577,11 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
             "nothing was offloaded, so there is no token to hand back: {compressed}"
         );
     } else {
+        assert_eq!(
+            compressed.get("kind").and_then(Value::as_str),
+            Some(detected_kind.as_str()),
+            "an applied compression must route on the same kind detect reports: {compressed}"
+        );
         assert!(
             text.len() < content.len(),
             "an applied compaction must shrink the payload: {compressed}"

@@ -11,6 +11,7 @@ mod url_validation;
 pub use fetch::{
     install_workflow_from_url, InstallWorkflowFromUrlOutcome, InstallWorkflowFromUrlParams,
     DEFAULT_INSTALL_TIMEOUT_SECS, MAX_INSTALL_TIMEOUT_SECS, MAX_WORKFLOW_MD_BYTES,
+    RATE_LIMITED_ERROR_PREFIX,
 };
 pub use uninstall::{uninstall_workflow, UninstallWorkflowOutcome, UninstallWorkflowParams};
 pub use url_validation::{validate_install_url, validate_resolved_host, MAX_INSTALL_URL_LEN};

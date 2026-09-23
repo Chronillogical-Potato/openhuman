@@ -728,6 +728,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Do dzieła, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Czas się skupić 🧘🏻',
   'chat.newWindowPrompt': 'Jak mogę ci dziś pomóc?',
+  'chat.welcomeSuggestion.calendarToday': 'Co mam dzisiaj w kalendarzu?',
+  'chat.welcomeSuggestion.unreadEmail': 'Podsumuj moje nieprzeczytane e-maile.',
+  'chat.welcomeSuggestion.draftReply': 'Przygotuj odpowiedź na moją ostatnią wiadomość.',
+  'chat.welcomeSuggestion.followUps': 'Co miałem w tym tygodniu doprowadzić do końca?',
+  'chat.welcomeSuggestion.connectIntegration': 'Połącz nową integrację.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Zbuduj przepływ, który codziennie wyśle mi podsumowanie e-mailem.',
   'chat.typeMessage': 'Wyślij wiadomość...',
   'chat.send': 'Wyślij wiadomość',
   'chat.stopGeneration': 'Zatrzymaj generowanie',
@@ -3233,6 +3240,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Subdomena Atlassian',
   'composio.connect.cancelConnection': 'Anuluj połączenie',
   'composio.connect.cancelFailed': 'Nie udało się anulować połączenia: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio nie potwierdziło usunięcia połączenia. Spróbuj ponownie.',
   'composio.connect.cancelling': 'Anulowanie…',
   'composio.connect.connect': 'Połącz',
   'composio.connect.connectedAccounts': 'Połączone konta',

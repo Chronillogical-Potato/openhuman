@@ -160,15 +160,15 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
     assert!(rendered.contains("## Safety"));
     // Json is a prompt-driven format (the model wraps JSON tool
     // calls in `<tool_call>` tags); it does NOT use the provider's
-    // native function-calling channel. So the prose `## Tools`
-    // section MUST still be rendered for Json, with each tool's
-    // parameter schema inline so the model knows what to emit.
+    // native function-calling channel. So the prose tool catalogue
+    // MUST still be rendered for Json, with each tool's compact
+    // argument signature so the model knows what to emit.
     // Only `ToolCallFormat::Native` gets the section omitted (see
     // the `native` branch below and the `!matches!(…, Native)`
     // guard in the renderer).
-    assert!(rendered.contains("## Tools"));
-    assert!(rendered.contains("Parameters:"));
-    assert!(rendered.contains("\"type\""));
+    assert!(rendered.contains("### Available Tools"));
+    assert!(rendered.contains("**test_tool**"));
+    assert!(rendered.contains("Arguments: `object`"));
 
     let native = render_subagent_system_prompt_with_format(
         &workspace,
@@ -183,7 +183,7 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
         None,
         None,
     );
-    assert!(native.contains("native tool-calling output"));
+    assert!(native.contains("through native tool-calling."));
     assert!(!native.contains("## Safety"));
     // Native is the only format where the prose `## Tools` section
     // is intentionally omitted — schemas travel through the

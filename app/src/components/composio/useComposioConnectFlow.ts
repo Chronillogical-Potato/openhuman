@@ -75,6 +75,12 @@ export function useComposioConnectFlow({
   const pollDeadlineRef = useRef<number>(0);
   const pollIntervalRef = useRef<number>(POLL_INTERVAL_START_MS);
   const isPollingRef = useRef<boolean>(false);
+  // Bumped by every `stopPolling`. A `tick` captures it before awaiting and
+  // drops its response if the value moved while the request was in flight —
+  // clearing the timer alone cannot un-send a request, so without this a poll
+  // that resolves after Cancel could still push the modal back to `connected`
+  // for an account that has just been deleted.
+  const pollEpochRef = useRef<number>(0);
   const inFlightRef = useRef<boolean>(false);
   // Set while polling to fire an immediate re-poll (e.g. on window focus).
   const pokePollRef = useRef<() => void>(() => {});
@@ -131,6 +137,7 @@ export function useComposioConnectFlow({
   const [savingScope, setSavingScope] = useState<keyof ComposioUserScopePref | null>(null);
 
   const stopPolling = useCallback(() => {
+    pollEpochRef.current += 1;
     isPollingRef.current = false;
     pokePollRef.current = () => {};
     if (pollTimerRef.current != null) {
@@ -162,6 +169,7 @@ export function useComposioConnectFlow({
       // Guard against overlapping executions: if a previous tick is still
       // in flight or we've already stopped/deadlined, skip this round.
       if (inFlightRef.current || !isPollingRef.current) return;
+      const epoch = pollEpochRef.current;
       if (Date.now() > pollDeadlineRef.current) {
         stopPolling();
         setPhase('error');
@@ -171,6 +179,10 @@ export function useComposioConnectFlow({
       inFlightRef.current = true;
       try {
         const resp = await listConnections();
+        // Cancelled (or otherwise stopped) while this request was in flight:
+        // the answer describes a connection state the user has already moved
+        // on from, so applying it would resurrect a dead phase.
+        if (epoch !== pollEpochRef.current) return;
         const allForToolkit = resp.connections.filter(
           c => c.toolkit.toLowerCase() === toolkit.slug.toLowerCase()
         );
@@ -478,14 +490,41 @@ export function useComposioConnectFlow({
     setPhase('cancelling');
     setError(null);
 
-    const pendingId = pendingConnectionIdRef.current;
     console.debug(
       '[composio][cancel] → toolkit=%s connection_id=%s',
       toolkit.slug,
-      pendingId ?? 'none'
+      pendingConnectionIdRef.current ?? 'none'
     );
     try {
-      if (pendingId) await deleteConnection(pendingId);
+      let pendingId = pendingConnectionIdRef.current;
+      if (!pendingId) {
+        // Direct mode's authorize returns no stable connection id, so the row
+        // Composio created for this handoff can only be found by listing. It
+        // has to be found: leaving it behind is exactly the stuck `PENDING`
+        // this button exists to clear, and the poll loop would rediscover it
+        // by toolkit the next time the modal opens.
+        const resp = await listConnections();
+        pendingId =
+          resp.connections.find(
+            c =>
+              c.toolkit.toLowerCase() === toolkit.slug.toLowerCase() &&
+              deriveComposioState(c) === 'pending'
+          )?.id ?? null;
+        console.debug(
+          '[composio][cancel] direct-mode lookup toolkit=%s resolved=%s',
+          toolkit.slug,
+          pendingId ?? 'none'
+        );
+      }
+      if (pendingId) {
+        const resp = await deleteConnection(pendingId);
+        // The backend reports whether the row actually went away. Reporting
+        // success on an unconfirmed delete would tell the user the handoff is
+        // gone while Composio still holds it.
+        if (!resp.deleted) {
+          throw new Error(t('composio.connect.cancelNotConfirmed'));
+        }
+      }
       pendingConnectionIdRef.current = null;
       setConnectUrl(null);
       if (activeConnections.length > 0) {

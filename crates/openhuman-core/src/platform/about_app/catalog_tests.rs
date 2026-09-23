@@ -57,6 +57,37 @@ fn composio_direct_mode_capabilities_are_registered() {
 }
 
 #[test]
+fn suggested_questions_stays_coming_soon_until_a_producer_exists() {
+    // #6464: this entry shipped at Beta with how_to "Home or Conversations >
+    // Suggested prompts", sending users to look for a control that cannot
+    // appear. Both surfaces that would render suggestions — the welcome chips
+    // and the follow-up row — read `s.thread.suggestions`, which is filled only
+    // by the `suggestions` key on the assistant-ui ExternalStoreAdapter.
+    // `useOpenHumanExternalStore` does not declare it and nothing else produces
+    // suggestions, so the array is permanently empty.
+    //
+    // This assertion is a ratchet, not a description. The precondition for
+    // moving it back to Beta is a producer that actually fills that array —
+    // whoever lands one changes this test in the same commit and reads this
+    // comment on the way past. The cross-language tie (a Rust catalogue entry
+    // versus a TypeScript render path) cannot be asserted from this crate; this
+    // is the part that can.
+    let cap = lookup("conversation.suggested_questions").expect("entry exists");
+    assert_eq!(
+        cap.status,
+        CapabilityStatus::ComingSoon,
+        "suggested questions must not advertise Beta while nothing fills \
+         `s.thread.suggestions`"
+    );
+    assert!(
+        !cap.how_to.contains('>'),
+        "how_to must not read as a navigation breadcrumb while there is no \
+         control to navigate to — it was `Home or Conversations > Suggested \
+         prompts`, which is what #6464 reported"
+    );
+}
+
+#[test]
 fn search_matches_keyword_across_multiple_fields() {
     let matches = search("invite");
     let ids: Vec<&str> = matches.iter().map(|capability| capability.id).collect();

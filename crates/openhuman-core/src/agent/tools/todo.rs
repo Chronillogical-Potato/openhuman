@@ -2,11 +2,9 @@
 //!
 //! The tool itself is TinyAgents' `todos::TodoTool` (schema, argument
 //! validation, the whole-list write, markdown). This file is only the host
-//! adapter: it decides **which** list a call is about — the agent session the
-//! turn runs in, in memory for the life of the process — and registers the
-//! harness dispatch. Nothing here may turn a bad argument into an `Err`: a
-//! dispatch `Err` is fatal to the run, and a turn died that way when a model
-//! sent the retired `{"cards": …}` shape to a previous host-side copy.
+//! adapter: it selects the session-scoped list for a turn and registers the
+//! harness dispatch. Bad arguments must become a tool error, never a fatal
+//! harness error.
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, TodoScope};
@@ -24,35 +22,31 @@ pub struct TodoTool {
 pub(crate) struct TodoToolDispatch {
     tool: Arc<dyn Tool>,
 }
+
 impl TodoToolDispatch {
     pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
         Self { tool }
     }
 }
+
 #[async_trait]
 impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for TodoToolDispatch {
     fn tool(&self) -> Arc<dyn Tool> {
         self.tool.clone()
     }
+
     async fn execute(
         &self,
         _state: &(),
-        _call_id: tinyagents_harness::CallId,
+        call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
-        match TodoTool::new()
+        let context = ToolExecutionContext::from_run_context(parent, call_id);
+        TodoTool::new()
             .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
             .await
-        {
-            Ok(result) => Ok(result),
-            Err(error) => {
-                tracing::warn!(%error, "[tool][todo] rejected call");
-                Ok(ToolResult::error(format!("todo failed: {error}")))
-            }
-        }
     }
 }
 
@@ -70,11 +64,7 @@ impl Default for TodoTool {
     }
 }
 
-/// The scope's store key, handed to the crate tool the only way it accepts
-/// one: as the `thread_id` of a tool context. The crate keys a list by the
-/// caller's thread; OpenHuman keys it by the agent session the turn runs in
-/// (see [`current_scope`]), so the host substitutes its own key here rather
-/// than letting the crate read a thread id that would address the wrong list.
+/// Supplies the selected session key to TinyAgents' tool implementation.
 struct ScopedKey<'a>(&'a str);
 
 impl ToolRunContext for ScopedKey<'_> {
@@ -133,12 +123,6 @@ impl TodoTool {
     }
 }
 
-/// The list belongs to the agent session the tool runs in: the orchestrator's
-/// session for a chat thread, a sub-agent's own session for its run. The
-/// orchestrator used to be routed to one app-wide `orchestrator-tasks` board
-/// instead; nothing rendered it, so the list the model kept was invisible to
-/// the thread the user was looking at. The parent context names the session;
-/// a tool that is only handed a thread id (older callers, tests) keys on that.
 fn current_scope(
     parent: Option<&ParentExecutionContext>,
     tool_context: Option<&dyn ToolRunContext>,
