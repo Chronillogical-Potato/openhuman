@@ -99,13 +99,7 @@ export function createChatDeltaCoalescer<E extends CoalescibleDelta>(
     cancel ??= schedule(flush);
   };
 
-  return {
-    push,
-    flush,
-    dispose: () => {
-      flush();
-    },
-  };
+  return { push, flush, dispose: flush };
 }
 
 type DeltaListeners<E extends CoalescibleDelta> = {
@@ -118,16 +112,16 @@ type DeltaListeners<E extends CoalescibleDelta> = {
  * every other listener flushes them first (see the ordering note above).
  * `dispose` delivers anything still queued and stops the scheduled flush.
  */
-export function withCoalescedDeltas<
-  E extends CoalescibleDelta,
-  L extends DeltaListeners<E> & Record<string, unknown>,
->(listeners: L, schedule: FlushScheduler = frameScheduler): { listeners: L; dispose: () => void } {
+export function withCoalescedDeltas<E extends CoalescibleDelta, L extends DeltaListeners<E>>(
+  listeners: L,
+  schedule: FlushScheduler = frameScheduler
+): { listeners: L; dispose: () => void } {
   const coalescer = createChatDeltaCoalescer<E>((channel, event) => {
     if (channel === 'content') listeners.onTextDelta?.(event);
     else listeners.onThinkingDelta?.(event);
   }, schedule);
   const wrapped: Record<string, unknown> = {};
-  for (const [name, listener] of Object.entries(listeners)) {
+  for (const [name, listener] of Object.entries(listeners as Record<string, unknown>)) {
     if (typeof listener !== 'function') {
       wrapped[name] = listener;
       continue;

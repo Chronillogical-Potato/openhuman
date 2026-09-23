@@ -602,7 +602,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     rtLog('subscribe_chat_events', { socket: socketStatus });
-    const cleanup = subscribeChatEvents({
+    // Deltas are coalesced per frame; every other event flushes them first so
+    // ordering holds. See `chatDeltaCoalescer`.
+    const coalesced = withCoalescedDeltas<ChatTextDeltaEvent, ChatEventListeners>({
       onInferenceStart: (event: ChatInferenceStartEvent) => {
         rtLog('inference_start', { thread: event.thread_id, request: event.request_id });
         // Fresh turn: drop the previous turn's live processing transcript so a
@@ -1587,9 +1589,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearThreadInferenceActive(event.thread_id));
       },
     });
+    const cleanup = subscribeChatEvents(coalesced.listeners);
 
     return () => {
       rtLog('unsubscribe_chat_events');
+      coalesced.dispose();
       cleanup();
     };
   }, [dispatch, resolveVisibleThreadForProactive, socketStatus, refetchSnapshot]);
