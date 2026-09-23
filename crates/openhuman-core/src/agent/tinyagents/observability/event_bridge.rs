@@ -88,6 +88,14 @@ pub(crate) struct OpenhumanEventBridge {
     /// `ToolStarted` and taken on `ToolCompleted` so the projected completion
     /// event carries a real `elapsed_ms` (the crate event has no timing).
     pub(super) tool_started_at: Mutex<std::collections::HashMap<String, std::time::Instant>>,
+    /// The turn's registered tool sets, retained (cheap `Arc` clones — never
+    /// the tools themselves) so the bridge can resolve a live `&dyn Tool` by
+    /// name and call its own [`tinytools::Tool::display_label`] /
+    /// [`tinytools::Tool::display_detail`] instead of only ever guessing from
+    /// the bare tool name (issue: tool-call presentation). Empty for a bridge
+    /// built without a turn's tool sets (e.g. a bare unit-test bridge), in
+    /// which case every lookup falls back to [`humanize_tool_name`].
+    pub(super) tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     pub(super) state: Mutex<BridgeState>,
     /// Ordered overflow buffer for progress events that hit backpressure
     /// (channel `Full`). Once ANY event spills here, `draining` stays set and
