@@ -22,7 +22,12 @@ export const CONTEXT = "CI Gate";
 
 // Order is preference: when several passed, the first names the status.
 export const SOURCES = [
-  { workflow: "ci-fast.yml", name: "CI Fast", job: "Lanes / CI Fast (EX63)", hosted: false },
+  {
+    workflow: "ci-fast.yml",
+    name: "CI Fast",
+    job: "Lanes / CI Fast (EX63)",
+    hosted: false,
+  },
   {
     workflow: "ci-fast-hosted.yml",
     name: "CI Fast (hosted)",
@@ -46,7 +51,9 @@ export function latestPrRun(runs) {
   return (
     runs
       .filter((run) => PR_EVENTS.has(run.event))
-      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null
+      .sort((a, b) =>
+        String(b.created_at).localeCompare(String(a.created_at)),
+      )[0] ?? null
   );
 }
 
@@ -58,7 +65,9 @@ export function decide(entries) {
   const winner = entries.find((e) => e.job?.conclusion === "success");
   if (winner) {
     const cancel = entries
-      .filter((e) => e !== winner && e.source.hosted && e.run.status !== "completed")
+      .filter(
+        (e) => e !== winner && e.source.hosted && e.run.status !== "completed",
+      )
       .map((e) => ({ id: e.run.id, name: e.source.name }));
     return {
       state: "success",
@@ -72,12 +81,17 @@ export function decide(entries) {
     const names = running.map((e) => e.source.name).join(", ");
     return {
       state: "pending",
-      description: entries.length === 0 ? "Waiting for CI to start" : `Waiting on ${names}`,
+      description:
+        entries.length === 0
+          ? "Waiting for CI to start"
+          : `Waiting on ${names}`,
       targetUrl: running[0]?.run.html_url ?? null,
       cancel: [],
     };
   }
-  const ran = entries.filter((e) => e.job && e.job.conclusion && e.job.conclusion !== "skipped");
+  const ran = entries.filter(
+    (e) => e.job && e.job.conclusion && e.job.conclusion !== "skipped",
+  );
   const failed = ran.find((e) => e.job.conclusion !== "success");
   return {
     state: "failure",
@@ -85,7 +99,11 @@ export function decide(entries) {
       ran.length === 0
         ? "No CI flow ran its checks"
         : ran.map((e) => `${e.source.name}: ${e.job.conclusion}`).join("; "),
-    targetUrl: failed?.job.html_url ?? failed?.run.html_url ?? entries[0].run.html_url ?? null,
+    targetUrl:
+      failed?.job.html_url ??
+      failed?.run.html_url ??
+      entries[0].run.html_url ??
+      null,
     cancel: [],
   };
 }
@@ -112,15 +130,20 @@ async function collect(repo, sha) {
     const runs = await api(
       `/repos/${repo}/actions/workflows/${source.workflow}/runs?head_sha=${sha}&per_page=20`,
     );
-    if (runs.status !== 200) throw new Error(`list ${source.workflow} runs: HTTP ${runs.status}`);
+    if (runs.status !== 200)
+      throw new Error(`list ${source.workflow} runs: HTTP ${runs.status}`);
     const run = latestPrRun(runs.data.workflow_runs ?? []);
     if (!run) {
       log(`${source.name}: no PR run for ${sha.slice(0, 10)}`);
       continue;
     }
-    const jobs = await api(`/repos/${repo}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`);
-    if (jobs.status !== 200) throw new Error(`list jobs of run ${run.id}: HTTP ${jobs.status}`);
-    const job = (jobs.data.jobs ?? []).find((j) => j.name === source.job) ?? null;
+    const jobs = await api(
+      `/repos/${repo}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`,
+    );
+    if (jobs.status !== 200)
+      throw new Error(`list jobs of run ${run.id}: HTTP ${jobs.status}`);
+    const job =
+      (jobs.data.jobs ?? []).find((j) => j.name === source.job) ?? null;
     log(
       `${source.name}: run=${run.id} status=${run.status} conclusion=${run.conclusion} ` +
         `job="${source.job}" ${job ? `${job.status}/${job.conclusion}` : "absent"}`,
@@ -132,8 +155,10 @@ async function collect(repo, sha) {
 
 async function main() {
   const { REPO: repo, HEAD_SHA: sha, GH_TOKEN: token } = process.env;
-  if (!repo || !sha || !token) throw new Error("REPO, HEAD_SHA and GH_TOKEN are required");
-  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`HEAD_SHA is not a commit sha: ${sha}`);
+  if (!repo || !sha || !token)
+    throw new Error("REPO, HEAD_SHA and GH_TOKEN are required");
+  if (!/^[0-9a-f]{40}$/.test(sha))
+    throw new Error(`HEAD_SHA is not a commit sha: ${sha}`);
   const dry = process.env.CI_GATE_DRY_RUN === "1";
 
   const verdict = decide(await collect(repo, sha));
@@ -149,11 +174,14 @@ async function main() {
       ...(verdict.targetUrl ? { target_url: verdict.targetUrl } : {}),
     },
   });
-  if (status.status !== 201) throw new Error(`post status: HTTP ${status.status}`);
+  if (status.status !== 201)
+    throw new Error(`post status: HTTP ${status.status}`);
 
   for (const { id, name } of verdict.cancel) {
     // 409: it finished between the listing and now. Nothing to do.
-    const res = await api(`/repos/${repo}/actions/runs/${id}/cancel`, { method: "POST" });
+    const res = await api(`/repos/${repo}/actions/runs/${id}/cancel`, {
+      method: "POST",
+    });
     log(`cancel ${name} run=${id}: HTTP ${res.status}`);
   }
 }

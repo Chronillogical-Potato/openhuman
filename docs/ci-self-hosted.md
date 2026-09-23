@@ -74,11 +74,11 @@ head commit. It is the check branch protection should require, whichever flow
 ran the PR. It is re-evaluated whenever CI Fast, CI Fast (hosted) or CI Lite
 starts or finishes, from the decisive job of each:
 
-| Flow | Decisive job |
-| --- | --- |
-| CI Fast | `Lanes / CI Fast (EX63)` |
+| Flow             | Decisive job                    |
+| ---------------- | ------------------------------- |
+| CI Fast          | `Lanes / CI Fast (EX63)`        |
 | CI Fast (hosted) | `Lanes / CI Fast (hosted) Gate` |
-| CI Lite | `PR CI Gate` |
+| CI Lite          | `PR CI Gate`                    |
 
 - **success** as soon as one of those jobs passes. The GitHub-hosted runs
   still working on that commit are then cancelled. The EX63 run is never

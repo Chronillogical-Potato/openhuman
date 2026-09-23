@@ -15,8 +15,14 @@ function entry(source, id, status, conclusion, job) {
 
 test("the EX63 lanes passing wins and cancels the hosted runs still going", () => {
   const verdict = decide([
-    entry(EX63, 1, "completed", "success", { status: "completed", conclusion: "success" }),
-    entry(HOSTED, 2, "completed", "success", { status: "completed", conclusion: "skipped" }),
+    entry(EX63, 1, "completed", "success", {
+      status: "completed",
+      conclusion: "success",
+    }),
+    entry(HOSTED, 2, "completed", "success", {
+      status: "completed",
+      conclusion: "skipped",
+    }),
     entry(LITE, 3, "in_progress", null, null),
   ]);
   assert.equal(verdict.state, "success");
@@ -27,8 +33,14 @@ test("the EX63 lanes passing wins and cancels the hosted runs still going", () =
 
 test("CI Lite passing first also passes the gate, and never cancels the EX63", () => {
   const verdict = decide([
-    entry(EX63, 1, "in_progress", null, { status: "in_progress", conclusion: null }),
-    entry(LITE, 3, "completed", "success", { status: "completed", conclusion: "success" }),
+    entry(EX63, 1, "in_progress", null, {
+      status: "in_progress",
+      conclusion: null,
+    }),
+    entry(LITE, 3, "completed", "success", {
+      status: "completed",
+      conclusion: "success",
+    }),
   ]);
   assert.equal(verdict.state, "success");
   assert.equal(verdict.description, "CI Lite passed");
@@ -37,8 +49,14 @@ test("CI Lite passing first also passes the gate, and never cancels the EX63", (
 
 test("a skipped decisive job is not a pass: an outsider's CI Fast run is pending on the rest", () => {
   const verdict = decide([
-    entry(EX63, 1, "completed", "success", { status: "completed", conclusion: "skipped" }),
-    entry(HOSTED, 2, "in_progress", null, { status: "queued", conclusion: null }),
+    entry(EX63, 1, "completed", "success", {
+      status: "completed",
+      conclusion: "skipped",
+    }),
+    entry(HOSTED, 2, "in_progress", null, {
+      status: "queued",
+      conclusion: null,
+    }),
     entry(LITE, 3, "queued", null, null),
   ]);
   assert.equal(verdict.state, "pending");
@@ -47,7 +65,10 @@ test("a skipped decisive job is not a pass: an outsider's CI Fast run is pending
 
 test("an EX63 failure waits for CI Lite instead of failing the gate early", () => {
   const verdict = decide([
-    entry(EX63, 1, "completed", "failure", { status: "completed", conclusion: "failure" }),
+    entry(EX63, 1, "completed", "failure", {
+      status: "completed",
+      conclusion: "failure",
+    }),
     entry(LITE, 3, "in_progress", null, null),
   ]);
   assert.equal(verdict.state, "pending");
@@ -55,9 +76,18 @@ test("an EX63 failure waits for CI Lite instead of failing the gate early", () =
 
 test("everything finished with no pass fails and points at the failed job", () => {
   const verdict = decide([
-    entry(EX63, 1, "completed", "failure", { status: "completed", conclusion: "failure" }),
-    entry(HOSTED, 2, "completed", "success", { status: "completed", conclusion: "skipped" }),
-    entry(LITE, 3, "completed", "failure", { status: "completed", conclusion: "failure" }),
+    entry(EX63, 1, "completed", "failure", {
+      status: "completed",
+      conclusion: "failure",
+    }),
+    entry(HOSTED, 2, "completed", "success", {
+      status: "completed",
+      conclusion: "skipped",
+    }),
+    entry(LITE, 3, "completed", "failure", {
+      status: "completed",
+      conclusion: "failure",
+    }),
   ]);
   assert.equal(verdict.state, "failure");
   assert.equal(verdict.description, "CI Fast: failure; CI Lite: failure");
@@ -67,7 +97,10 @@ test("everything finished with no pass fails and points at the failed job", () =
 test("finished flows whose decisive jobs never ran fail rather than pass", () => {
   const verdict = decide([
     entry(EX63, 1, "completed", "cancelled", null),
-    entry(LITE, 3, "completed", "cancelled", { status: "completed", conclusion: "skipped" }),
+    entry(LITE, 3, "completed", "cancelled", {
+      status: "completed",
+      conclusion: "skipped",
+    }),
   ]);
   assert.equal(verdict.state, "failure");
   assert.equal(verdict.description, "No CI flow ran its checks");
