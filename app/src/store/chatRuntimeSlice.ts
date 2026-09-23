@@ -726,6 +726,35 @@ interface ChatRuntimeState {
    */
   turnTranscriptsByThread: Record<string, Record<string, ProcessingTranscriptItem[]>>;
   /**
+   * The process trail of a turn that settled IN THIS SESSION, frozen at the
+   * moment its reply landed, keyed `threadId -> requestId`.
+   *
+   * The live turn renders from {@link toolTimelineByThread} /
+   * {@link processingByThread}. When it settles, those arrays are what the user
+   * was just looking at, and the thread's settled message must keep rendering
+   * exactly them. Every other source is a different shape of the same turn:
+   * the completed turn-state snapshot and the core's transcript projection
+   * mint different row ids (a sub-agent row is `subagent:<agent>` there, not the
+   * socket's `rowId`) and can differ in what they recorded. Swapping to either
+   * mid-session remounts every tool card, resets its disclosure state and jumps
+   * the scroll. So the frozen copy wins for this session and the core
+   * projection only takes over on the next load, when nothing is on screen to
+   * move. Written by {@link chatRuntimeSlice.actions.turnSettled}; ephemeral,
+   * like the rest of this slice (never persisted).
+   */
+  settledTurnsByThread: Record<
+    string,
+    Record<string, { timeline: ToolTimelineEntry[]; transcript: ProcessingTranscriptItem[] }>
+  >;
+  /**
+   * `request_id` of the primary turn currently live on a thread, set when its
+   * first event lands and cleared when it settles. The streaming buffer carries
+   * a request id too, but only once text arrives; a turn that opens with tool
+   * calls has none, and the projection needs the id from the first event to
+   * tell the live turn's own persisted rows apart from earlier ones.
+   */
+  liveRequestIdByThread: Record<string, string>;
+  /**
    * The partial assistant answer left behind by an INTERRUPTED turn (the core
    * process that was streaming it is gone), keyed by thread. Surfaced on restore
    * so a turn that crashed mid-answer keeps its visible partial reply + hidden
