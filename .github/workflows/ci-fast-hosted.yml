@@ -31,6 +31,13 @@ jobs:
     outputs:
       outsider: ${{ steps.route.outputs.outsider }}
     steps:
+      - name: Checkout the routing script
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci/ci-fast-route.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Follow ci-fast.yml's routing decision
         id: route
         env:
