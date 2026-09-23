@@ -64,10 +64,48 @@ import path from "node:path";
 
 /** Words too common to carry a topic; dropped before scoring. */
 const STOPWORDS = new Set([
-  "a", "an", "and", "are", "as", "at", "be", "by", "current", "do", "does",
-  "for", "from", "how", "i", "in", "is", "it", "its", "me", "my", "of", "on",
-  "or", "s", "that", "the", "their", "there", "they", "this", "to", "was",
-  "what", "when", "where", "which", "who", "will", "with", "you", "your",
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "current",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "its",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "s",
+  "that",
+  "the",
+  "their",
+  "there",
+  "they",
+  "this",
+  "to",
+  "was",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "will",
+  "with",
+  "you",
+  "your",
 ]);
 
 /** Lowercase alphanumeric terms, stopwords and one-character noise removed. */
@@ -155,7 +193,11 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
       if (!requestsPath) return;
       fs.writeFileSync(
         requestsPath,
-        JSON.stringify({ searches: ctx.searches, requests: ctx.requests }, null, 2),
+        JSON.stringify(
+          { searches: ctx.searches, requests: ctx.requests },
+          null,
+          2,
+        ),
       );
     },
   };
@@ -178,7 +220,10 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
       body.query,
     ].filter((q) => typeof q === "string" && q.trim());
     const queryTerms = [...new Set(queries.flatMap(terms))];
-    const limit = Math.min(Math.max(Number(body?.excerpts?.maxResults) || 5, 1), 10);
+    const limit = Math.min(
+      Math.max(Number(body?.excerpts?.maxResults) || 5, 1),
+      10,
+    );
 
     // An off-topic query must come back empty rather than with the least-bad
     // rows in the corpus: a confidently wrong result set is worse for the
@@ -228,9 +273,16 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
         }
       }
       const p = url.pathname.replace(/\/+$/, "");
-      ctx.requests.push({ at: new Date().toISOString(), method: req.method, path: p });
+      ctx.requests.push({
+        at: new Date().toISOString(),
+        method: req.method,
+        path: p,
+      });
 
-      if (p === "/agent-integrations/parallel/search" && req.method === "POST") {
+      if (
+        p === "/agent-integrations/parallel/search" &&
+        req.method === "POST"
+      ) {
         try {
           return json(res, 200, search(body));
         } catch (e) {

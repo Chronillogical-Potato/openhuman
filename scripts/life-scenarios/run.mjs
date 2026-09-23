@@ -94,7 +94,10 @@ function parseArgs(argv) {
       return v;
     };
     if (a === "--only")
-      o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
+      o.only = next()
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     else if (a === "--driver") o.driver = next();
     else if (a === "--agent") o.agentId = next();
     else if (a === "--model") o.model = next();
@@ -164,7 +167,11 @@ async function snapshotTree(root) {
       else {
         const st = await fsp.stat(p).catch(() => null);
         if (st)
-          out.push({ rel: path.relative(root, p), bytes: st.size, mtimeMs: st.mtimeMs });
+          out.push({
+            rel: path.relative(root, p),
+            bytes: st.size,
+            mtimeMs: st.mtimeMs,
+          });
       }
     }
   }
@@ -293,7 +300,9 @@ async function withRetries(fn, { attempts, delayMs, what }) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
-  throw new Error(`${what} never settled after ${attempts} attempts: ${last?.message ?? last}`);
+  throw new Error(
+    `${what} never settled after ${attempts} attempts: ${last?.message ?? last}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +386,9 @@ class Core {
       }
       await sleep(500);
     }
-    throw new Error(`core did not become healthy on ${this.url}; see ${logPath}`);
+    throw new Error(
+      `core did not become healthy on ${this.url}; see ${logPath}`,
+    );
   }
 
   async rpc(method, params, timeoutMs = 120_000) {
@@ -387,12 +398,19 @@ class Core {
         "content-type": "application/json",
         authorization: `Bearer ${this.token}`,
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: `ls-${Date.now()}`, method, params }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: `ls-${Date.now()}`,
+        method,
+        params,
+      }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await res.text();
     if (!res.ok)
-      throw new Error(`RPC ${method} HTTP ${res.status}: ${text.slice(0, 400)}`);
+      throw new Error(
+        `RPC ${method} HTTP ${res.status}: ${text.slice(0, 400)}`,
+      );
     let body;
     try {
       body = JSON.parse(text);
@@ -400,10 +418,13 @@ class Core {
       throw new Error(`RPC ${method} non-JSON: ${text.slice(0, 300)}`);
     }
     if (body.error)
-      throw new Error(`RPC ${method} error: ${JSON.stringify(body.error).slice(0, 500)}`);
+      throw new Error(
+        `RPC ${method} error: ${JSON.stringify(body.error).slice(0, 500)}`,
+      );
     // `apply_log_envelope` wraps a result that carried log lines.
     const r = body.result;
-    if (r && typeof r === "object" && "result" in r && "logs" in r) return r.result;
+    if (r && typeof r === "object" && "result" in r && "logs" in r)
+      return r.result;
     return r;
   }
 
@@ -441,7 +462,10 @@ class EventStream {
   async connect() {
     const url = `${this.core.url}/events?client_id=${encodeURIComponent(this.clientId)}`;
     const res = await fetch(url, {
-      headers: { authorization: `Bearer ${this.core.token}`, accept: "text/event-stream" },
+      headers: {
+        authorization: `Bearer ${this.core.token}`,
+        accept: "text/event-stream",
+      },
       signal: this.controller.signal,
     });
     if (!res.ok || !res.body)
@@ -515,10 +539,16 @@ class ApprovalResponder {
     this.loop = (async () => {
       while (this.running) {
         try {
-          const pending = await this.core.rpc("openhuman.approval_list_pending", {}, 15_000);
+          const pending = await this.core.rpc(
+            "openhuman.approval_list_pending",
+            {},
+            15_000,
+          );
           const rows = Array.isArray(pending)
             ? pending
-            : (pending && (pending.requests || pending.pending || pending.items)) || [];
+            : (pending &&
+                (pending.requests || pending.pending || pending.items)) ||
+              [];
           for (const row of rows) {
             // `PendingApproval.request_id` — the decide RPC takes `request_id`,
             // not `id`, and a wrong key comes back as a redacted
@@ -571,7 +601,10 @@ class ApprovalResponder {
  * while a turn runs, and a window would sweep them in.
  */
 async function usageIds(core) {
-  const log = await core.rpc("openhuman.cost_get_usage_log", { days: 1, limit: 1000 });
+  const log = await core.rpc("openhuman.cost_get_usage_log", {
+    days: 1,
+    limit: 1000,
+  });
   const records = (log && log.records) || [];
   return new Map(records.map((r) => [r.id, r]));
 }
@@ -602,7 +635,8 @@ function foldUsage(rows) {
     ...t,
     models: [...models],
     cost_sources: [...sources],
-    cache_hit_pct: t.input_tokens > 0 ? (t.cached_input_tokens / t.input_tokens) * 100 : 0,
+    cache_hit_pct:
+      t.input_tokens > 0 ? (t.cached_input_tokens / t.input_tokens) * 100 : 0,
   };
 }
 
@@ -652,7 +686,11 @@ function gradeScenario(scenario, sandbox, transcript) {
     ({ checks } = scenario.grade(ctx));
   } catch (e) {
     checks = [
-      { id: "grader_crashed", ok: false, detail: String(e.message).slice(0, 200) },
+      {
+        id: "grader_crashed",
+        ok: false,
+        detail: String(e.message).slice(0, 200),
+      },
     ];
   }
   const passed = checks.filter((c) => c.ok).length;
@@ -672,7 +710,14 @@ function gradeScenario(scenario, sandbox, transcript) {
  * The desktop path: `channel_web_chat` acks immediately and the answer arrives
  * on the event stream as `chat_done`, carrying the turn's own usage payload.
  */
-async function sendDesktopTurn({ core, events, clientId, threadId, message, opts }) {
+async function sendDesktopTurn({
+  core,
+  events,
+  clientId,
+  threadId,
+  message,
+  opts,
+}) {
   const toolCalls = [];
   let done = null;
   let requestId = null;
@@ -717,7 +762,11 @@ async function sendDesktopTurn({ core, events, clientId, threadId, message, opts
   const timeout = sleep(opts.turnTimeoutMs).then(() => "timeout");
   const outcome = await Promise.race([finished, timeout]);
   if (outcome === "timeout")
-    return { error: `turn did not emit chat_done within ${opts.turnTimeoutMs}ms`, requestId, toolCalls };
+    return {
+      error: `turn did not emit chat_done within ${opts.turnTimeoutMs}ms`,
+      requestId,
+      toolCalls,
+    };
 
   if (done && done.event === "chat_error")
     return {
@@ -755,14 +804,28 @@ async function sendRpcTurn({ core, threadId, message, sandbox, opts }) {
     },
     opts.turnTimeoutMs,
   );
-  return { reply: typeof reply === "string" ? reply : "", usage: null, requestId: null, toolCalls: [] };
+  return {
+    reply: typeof reply === "string" ? reply : "",
+    usage: null,
+    requestId: null,
+    toolCalls: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
 // run one scenario
 // ---------------------------------------------------------------------------
 
-async function runScenario({ core, events, clientId, approvals, scenario, runDir, opts, attempt }) {
+async function runScenario({
+  core,
+  events,
+  clientId,
+  approvals,
+  scenario,
+  runDir,
+  opts,
+  attempt,
+}) {
   const sandboxRoot = path.join(runDir, "sandbox");
   const sandbox = path.join(sandboxRoot, scenario.id);
   await fsp.rm(sandbox, { recursive: true, force: true });
@@ -788,7 +851,14 @@ async function runScenario({ core, events, clientId, approvals, scenario, runDir
   try {
     turn =
       opts.driver === "desktop"
-        ? await sendDesktopTurn({ core, events, clientId, threadId, message, opts })
+        ? await sendDesktopTurn({
+            core,
+            events,
+            clientId,
+            threadId,
+            message,
+            opts,
+          })
         : await sendRpcTurn({ core, threadId, message, sandbox, opts });
     if (turn.error) error = turn.error;
   } catch (e) {
@@ -833,7 +903,8 @@ async function runScenario({ core, events, clientId, approvals, scenario, runDir
     ok: !error,
     error,
     latency_ms: latencyMs,
-    ledger_elapsed_ms: ledger && ledger.telemetry ? ledger.telemetry.elapsedMs : null,
+    ledger_elapsed_ms:
+      ledger && ledger.telemetry ? ledger.telemetry.elapsedMs : null,
     tool_calls: turn.toolCalls,
     tool_call_count:
       ledger && ledger.telemetry && ledger.telemetry.toolCount != null
@@ -887,7 +958,17 @@ function printReport(results) {
       a.total += r.grade.total;
       return a;
     },
-    { input: 0, cached: 0, output: 0, cost: 0, latency: 0, tools: 0, approvals: 0, passed: 0, total: 0 },
+    {
+      input: 0,
+      cached: 0,
+      output: 0,
+      cost: 0,
+      latency: 0,
+      tools: 0,
+      approvals: 0,
+      passed: 0,
+      total: 0,
+    },
   );
   console.log(
     `TOTAL  completion ${tot.passed}/${tot.total} (${Math.round(
@@ -956,7 +1037,9 @@ async function main() {
     );
 
   console.log(`run dir : ${runDir}`);
-  console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
+  console.log(
+    `driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`,
+  );
 
   let search = null;
   if (opts.mockSearch) {
@@ -994,7 +1077,9 @@ async function main() {
     composioBase: composio ? composio.url : "",
     approvals: opts.approvals,
   });
-  console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
+  console.log(
+    `core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`,
+  );
 
   // Stand in for login.
   const localUserId = "life-scenarios-local";
@@ -1039,7 +1124,12 @@ async function main() {
         // `config.get` wraps the config under `config` (see
         // `snapshot_config_json`), and the RPC envelope may wrap that again.
         const snap = await core.rpc("openhuman.config_get", {});
-        const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+        const cfg =
+          snap?.config ??
+          snap?.snapshot?.config ??
+          snap?.snapshot ??
+          snap ??
+          {};
         const providers = cfg.cloud_providers ?? [];
         const routed =
           cfg.inference_url === opts.inferenceUrl &&
@@ -1071,7 +1161,9 @@ async function main() {
   try {
     for (let attempt = 1; attempt <= opts.repeat; attempt += 1) {
       for (const scenario of selected) {
-        process.stdout.write(`running ${scenario.id} (attempt ${attempt}) ... `);
+        process.stdout.write(
+          `running ${scenario.id} (attempt ${attempt}) ... `,
+        );
         const r = await runScenario({
           core,
           events,
@@ -1102,7 +1194,11 @@ async function main() {
     if (approvals)
       await fsp.writeFile(
         path.join(runDir, "approvals.json"),
-        JSON.stringify({ decisions: approvals.decisions, errors: approvals.errors }, null, 2),
+        JSON.stringify(
+          { decisions: approvals.decisions, errors: approvals.errors },
+          null,
+          2,
+        ),
       );
     if (composio) {
       await fsp.writeFile(
