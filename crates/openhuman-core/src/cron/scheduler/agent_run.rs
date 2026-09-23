@@ -135,6 +135,12 @@ pub(super) async fn run_agent_job(
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
                     agent.set_event_context(format!("cron:{}", job.id), "cron");
+                    // A cron agent has no thread, so its first turn would fall
+                    // back to `ResumeMode::LatestForAgent` and resume the newest
+                    // unthreaded transcript for the agent name — some unrelated
+                    // conversation, with its frozen system prompt and stale tool
+                    // names. Every run starts from a fresh prompt instead.
+                    start_cron_turn_clean(&mut agent);
                     // Scope a `TrustedAutomation { Cron }` origin around the
                     // turn. The approval gate treats this as user-authorized
                     // automation and lets external_effect tools run without
