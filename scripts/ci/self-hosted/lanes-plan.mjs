@@ -259,7 +259,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     {
       // Split from `frontend` so the long vitest run overlaps the lint checks.
       name: "frontend-tests",
-      env: { NODE_ENV: "test", VITEST_MAX_WORKERS: ex63 ? "8" : "3" },
+      env: {
+        NODE_ENV: "test",
+        VITEST_MAX_WORKERS: ex63 ? "8" : "3",
+        ...(ex63 ? { VITEST_POOL: "threads" } : {}),
+      },
       checks: [
         {
           name: "vitest-coverage",
