@@ -85,7 +85,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const core = areas.rustCore;
 
   // ex63: one throwaway target dir per lane so lanes never queue on cargo's
-  // build-dir lock; sccache (on the capped /cache disk) warms the deps.
+  // build-dir lock; sccache warms the build from the host's shared, capped
+  // store (or the slot's /cache disk when the store is down). sccache keys
+  // include the target dir, so a lane shares with the same lane of every
+  // earlier job on any VM, not with the other lanes.
   // hosted: cargo's default target dirs, which Swatinem/rust-cache restores.
   const targetDir = (lane) => (ex63 ? `${scratch}/target/${lane}` : null);
   const sccache = ex63 ? { RUSTC_WRAPPER: "sccache" } : {};
@@ -93,14 +96,17 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     CARGO_INCREMENTAL: "0",
     RUSTFLAGS: "-C link-arg=-fuse-ld=mold",
   };
-  // Instrumented builds: no sccache (cargo-llvm-cov owns the wrapper and
-  // RUSTFLAGS, exactly as in ci-lite), no DWARF, a large test stack, and on
-  // hosted the serialized build ci-lite needs to fit the runner's disk.
+  // Instrumented builds: no DWARF, a large test stack, and on hosted the
+  // serialized build ci-lite needs to fit the runner's disk. On ex63 they go
+  // through sccache too: cargo-llvm-cov chains an existing RUSTC_WRAPPER in
+  // both its wrapper and RUSTFLAGS modes, and cache hits give byte-identical
+  // lcov (checked with cargo-llvm-cov 0.8 and sccache 0.10). Hosted keeps
+  // ci-lite's wrapper-free setup.
   const covEnv = {
     ...rustEnv,
     CARGO_PROFILE_DEV_DEBUG: "0",
     RUST_MIN_STACK: "67108864",
-    ...(ex63 ? {} : { CARGO_BUILD_JOBS: "1" }),
+    ...(ex63 ? sccache : { CARGO_BUILD_JOBS: "1" }),
   };
   const modulesDir = ex63
     ? `${scratch}/test-modules`
@@ -402,13 +408,14 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings",
         },
         {
-          // llvm-cov's RUSTFLAGS mode, with the linker flag cleared, exactly as
-          // ci-lite: a rustc wrapper would silently drop .profraw output.
+          // llvm-cov's RUSTFLAGS mode with the linker flag cleared, as in
+          // ci-lite. ci-lite also clears RUSTC_WRAPPER because its container
+          // config installs sccache; on ex63 covEnv sets sccache on purpose.
           name: "tauri-coverage",
           when: areas.rustTauri,
           env: { ...covEnv },
           run:
-            "unset RUSTFLAGS RUSTC_WRAPPER" +
+            (ex63 ? "unset RUSTFLAGS" : "unset RUSTFLAGS RUSTC_WRAPPER") +
             " && cargo llvm-cov clean --manifest-path crates/openhuman-app/Cargo.toml" +
             " && cargo llvm-cov --no-rustc-wrapper --manifest-path crates/openhuman-app/Cargo.toml" +
             " --lcov --output-path ci-out/lcov/lcov-tauri.info",
