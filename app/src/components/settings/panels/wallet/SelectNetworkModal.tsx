@@ -84,11 +84,7 @@ export default function SelectNetworkModal({
                         </svg>
                       </div>
                     )}
-                    <span
-                      className={cn(
-                        'text-sm font-medium',
-                        'text-content'
-                      )}>
+                    <span className={cn('text-sm font-medium', 'text-content')}>
                       {filter.label}
                     </span>
                   </div>

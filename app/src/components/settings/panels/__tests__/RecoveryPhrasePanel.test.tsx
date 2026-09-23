@@ -290,7 +290,8 @@ describe('RecoveryPhrasePanel — replace save calls persistLocalWalletFromMnemo
     fireEvent.click(screen.getByText(/Create a New Wallet/i));
     fireEvent.click(screen.getByText(/I understand, replace my wallet/i));
 
-    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
+    const revealButton = await screen.findByLabelText(/Reveal recovery phrase/i);
+    fireEvent.click(revealButton);
 
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
@@ -317,6 +318,7 @@ describe('RecoveryPhrasePanel — no wallet → generate calls persistLocalWalle
     renderWithProviders(<RecoveryPhrasePanel />);
     await waitFor(() => screen.getByRole('checkbox'));
 
+    fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
 
@@ -691,8 +693,8 @@ describe('RecoveryPhrasePanel — view mode: reveal existing recovery phrase', (
     await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
     await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
-    // The modal opens and shows the save instructions
-    await waitFor(() => expect(screen.queryByText(/Save Secret Recovery Phrase/i)).toBeTruthy());
+    // The modal opens and shows the localized save instructions.
+    await waitFor(() => expect(screen.queryByText(/Save Recovery Phrase/i)).toBeTruthy());
   });
 
   it('shows error message when revealRecoveryPhrase rejects', async () => {
