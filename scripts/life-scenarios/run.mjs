@@ -267,6 +267,21 @@ async function prepareHome(runDir) {
   return home;
 }
 
+/** Retry `fn` until it stops throwing, then give up with the last error. */
+async function withRetries(fn, { attempts, delayMs, what }) {
+  let last;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error(`${what} never settled after ${attempts} attempts: ${last?.message ?? last}`);
+}
+
 // ---------------------------------------------------------------------------
 // core lifecycle
 // ---------------------------------------------------------------------------
@@ -977,11 +992,36 @@ async function main() {
     // endpoint there; the caller had to hand-build a provider entry and pin
     // four roles. That this short form now routes is the end-to-end check on
     // that fix.
-    await core.rpc("openhuman.config_update_model_settings", {
-      inference_url: opts.inferenceUrl,
-      api_key: opts.apiKey,
-      default_model: opts.model,
-    });
+    //
+    // Written in a loop, and read back, because of a startup race: the write
+    // lands in whichever config is active *now*, and `auth_set_credential`
+    // above activates a per-user dir (`users/<id>/config.toml`) a moment
+    // later, whose config then takes precedence and carries no BYOK route.
+    // Lose that race and every scenario dies in under a second with
+    // `provider=openhuman ... 401 Invalid token` — which reads like a broken
+    // harness and is really a config that arrived too early. Observed doing
+    // exactly that: one run green, the next 0/9 on the same binary.
+    await withRetries(
+      async () => {
+        await core.rpc("openhuman.config_update_model_settings", {
+          inference_url: opts.inferenceUrl,
+          api_key: opts.apiKey,
+          default_model: opts.model,
+        });
+        const snap = await core.rpc("openhuman.config_get", {});
+        const cfg = snap?.snapshot ?? snap ?? {};
+        const providers = cfg.cloud_providers ?? [];
+        const routed =
+          cfg.inference_url === opts.inferenceUrl &&
+          providers.some((p) => p?.endpoint === opts.inferenceUrl);
+        if (!routed)
+          throw new Error(
+            `BYOK route not in the active config yet (inference_url=${cfg.inference_url ?? "unset"}, ` +
+              `${providers.length} cloud_providers)`,
+          );
+      },
+      { attempts: 10, delayMs: 500, what: "BYOK route" },
+    );
   }
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
