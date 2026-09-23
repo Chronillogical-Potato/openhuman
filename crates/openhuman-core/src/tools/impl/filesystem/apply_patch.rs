@@ -377,7 +377,10 @@ impl ApplyPatchTool {
                 )));
             }
             written.push(buf);
-            summary.push(format!("{path}: {} replacement(s)", buf.edit_count));
+            summary.push(match buf.original {
+                None => format!("{path}: created ({} bytes)", buf.contents.len()),
+                Some(_) => format!("{path}: {} replacement(s)", buf.edit_count),
+            });
         }
         // Record writes in the file-state coordinator.
         if let Some(agent_id) = file_state::current_file_state_agent_id() {
