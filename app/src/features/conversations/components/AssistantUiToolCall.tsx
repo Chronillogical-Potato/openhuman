@@ -14,6 +14,7 @@ import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
+import { parseWebSearchResult } from '../tools/parseWebSearchResult';
 import { FetchBody, FileBody, ShellBody, WebSearchResults } from '../tools/ToolBodies';
 import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
 import { ToolIcon } from '../tools/ToolIcon';
@@ -108,13 +109,16 @@ function ToolBody({
   running: boolean;
 }): ReactNode {
   if (running) return null;
+  // Called as functions, not mounted: each returns `null` when the call left
+  // nothing to show, and the caller needs that answer to decide whether the
+  // generic Input/Output view renders instead. None of them use hooks.
   switch (presentation.body) {
     case 'shell':
-      return <ShellBody args={args} result={result} />;
+      return ShellBody({ args, result });
     case 'webFetch':
-      return <FetchBody args={args} result={result} />;
+      return FetchBody({ args, result });
     case 'file':
-      return <FileBody args={args} result={result} />;
+      return FileBody({ args, result });
     default:
       return null;
   }
@@ -182,7 +186,9 @@ export function AssistantUiToolCallCard({
         ? 'running'
         : 'done';
   const richBody = ToolBody({ presentation, args: parsedArgs, result: output, running });
-  const isSearch = presentation.body === 'webSearch';
+  const isSearch =
+    presentation.body === 'webSearch' &&
+    (running || parseWebSearchResult(output, structured) !== undefined);
   const searchBody = isSearch ? (
     <WebSearchResults
       args={parsedArgs}

@@ -321,7 +321,7 @@ impl EventListener for OpenhumanEventBridge {
                             tool_name: requested_name.clone(),
                             arguments: arguments.clone(),
                             iteration,
-                            display_label: Some(label),
+                            display_label: Some(label.clone()),
                             display_detail: Some("tool not available".to_string()),
                         });
                         self.send(AgentProgress::ToolCallCompleted {
@@ -334,6 +334,9 @@ impl EventListener for OpenhumanEventBridge {
                             elapsed_ms: 0,
                             iteration,
                             failure,
+                            display_label: Some(label),
+                            display_detail: Some("tool not available".to_string()),
+                            structured: None,
                         });
                     }
                     Some(s) => {
@@ -344,7 +347,7 @@ impl EventListener for OpenhumanEventBridge {
                             tool_name: requested_name.clone(),
                             arguments: arguments.clone(),
                             iteration,
-                            display_label: Some(label),
+                            display_label: Some(label.clone()),
                             display_detail: Some("tool not available".to_string()),
                         });
                         self.send(AgentProgress::SubagentToolCallCompleted {
@@ -359,6 +362,9 @@ impl EventListener for OpenhumanEventBridge {
                             elapsed_ms: 0,
                             iteration,
                             failure,
+                            display_label: Some(label),
+                            display_detail: Some("tool not available".to_string()),
+                            structured: None,
                         });
                     }
                 }
