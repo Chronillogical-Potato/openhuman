@@ -2,23 +2,20 @@
 //!
 //! Turns the append-only log's [`DisplayRecord`]s (message lines, compaction
 //! markers, interrupted partials) into the frontend's chat vocabulary
-//! ([`DisplayItem`]), sanitizing injected scaffolding as it goes. Sub-agent
-//! sibling files are discovered and nested one level deep.
+//! ([`DisplayItem`]), sanitizing injected scaffolding as it goes. File
+//! resolution lives in [`super::resolve`]; sub-agent trails are placed by
+//! [`super::subagents`].
 
-use std::collections::VecDeque;
-use std::fs;
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
 
+use super::resolve;
+use super::subagents;
 use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
 
 const LOG_PREFIX: &str = "[threads][transcript]";
-
-/// Max sub-agent nesting depth the projection descends. The plan calls for
-/// one level of recursion; we allow a small bound so a delegated worker that
-/// itself delegates still surfaces, without unbounded fan-out.
-const MAX_SUBAGENT_DEPTH: usize = 3;
 
 /// The scaffolding line injected onto every user message (see
 /// `agent::prompts::current_datetime_line`). Stripped at projection so the UI
@@ -41,34 +38,24 @@ pub fn project_thread(workspace_dir: &Path, thread_id: &str) -> Option<Projected
 }
 
 /// Resolve the on-disk file set backing a thread's transcript view: the root
-/// transcript path plus every sub-agent sibling file. `None` when the thread
-/// has no root transcript yet. Exposed so the cache can key on these paths
-/// (and their mtimes/lengths) without re-projecting.
+/// generations in chain order plus every sub-agent sibling file. `None` when
+/// the thread has no root transcript yet. Exposed so the cache can key on
+/// these paths (and their mtimes/lengths) without re-projecting.
 pub fn resolve_files(
     workspace_dir: &Path,
     thread_id: &str,
 ) -> Option<(Vec<PathBuf>, Vec<PathBuf>)> {
-    let root_paths = transcript::find_root_transcripts_for_thread(workspace_dir, thread_id);
-    if root_paths.is_empty() {
-        return None;
-    }
-    let mut sub_paths = Vec::new();
-    for root_path in &root_paths {
-        let Some(root_stem) = root_path.file_stem().and_then(|stem| stem.to_str()) else {
-            continue;
-        };
-        let Some(raw_dir) = root_path.parent() else {
-            continue;
-        };
-        sub_paths.extend(discover_subagent_files(raw_dir, root_stem));
-    }
-    sub_paths.sort();
-    sub_paths.dedup();
-    Some((root_paths, sub_paths))
+    resolve::resolve_files(workspace_dir, thread_id)
 }
 
-/// Project a thread from an already-resolved file set (root + sub-agent
-/// siblings). Missing/unreadable files degrade to empty rather than failing.
+/// Project a thread from an already-resolved file set (root generations +
+/// sub-agent siblings). Missing/unreadable files degrade to empty rather than
+/// failing.
+///
+/// A root whose `_meta.parent_session_id` names the previous root is that
+/// session's next compaction generation: it opens with the retained set
+/// rewritten, so those rows are dropped (see [`resolve::drop_retained_rows`])
+/// and a [`DisplayItem::Compaction`] marks the seam instead.
 pub fn project_from_files(
     thread_id: &str,
     root_paths: &[PathBuf],
@@ -80,219 +67,63 @@ pub fn project_from_files(
         sub_paths.len()
     );
 
-    // Read the root display records once: they feed both the top-level items
-    // and the per-turn timestamp ranges used to anchor sub-agent trails.
-    let mut items = Vec::new();
-    let mut segments = Vec::new();
+    let mut records: Vec<DisplayRecord> = Vec::new();
+    let mut previous: Option<(Option<String>, Vec<DisplayRecord>)> = None;
     for root_path in root_paths {
-        match transcript::read_transcript_display(root_path) {
-            Ok(display) => {
-                items.extend(project_records(&display.records));
-                segments.extend(turn_segments(&display.records));
-            }
+        let display = match transcript::read_transcript_display(root_path) {
+            Ok(display) => display,
             Err(err) => {
                 log::warn!(
                     "{LOG_PREFIX} failed to read root transcript {}: {err}",
                     root_path.display()
                 );
+                continue;
             }
+        };
+        let successor_of_previous = matches!(
+            (&previous, display.meta.parent_session_id.as_deref()),
+            (Some((Some(prev_id), _)), Some(parent)) if prev_id == parent
+        );
+        if successor_of_previous {
+            let predecessor = previous
+                .as_ref()
+                .map(|(_, prev_records)| resolve::generation_rows(prev_records))
+                .unwrap_or_default();
+            let (kept, retained) = resolve::drop_retained_rows(&display.records, predecessor);
+            log::debug!(
+                "{LOG_PREFIX} generation {} retained={} new_records={}",
+                root_path.display(),
+                retained.len(),
+                kept.len()
+            );
+            let request_id = kept.iter().find_map(|record| match record {
+                DisplayRecord::Message(msg) => msg.request_id.clone(),
+                DisplayRecord::Compaction(_) => None,
+            });
+            records.push(DisplayRecord::Compaction(CompactionMarker {
+                replacement: retained,
+                ts: Some(display.meta.created.clone()).filter(|ts| !ts.is_empty()),
+                request_id,
+            }));
+            records.extend(kept);
+        } else {
+            records.extend(display.records.iter().cloned());
         }
+        previous = Some((display.meta.session_id.clone(), display.records));
     }
 
-    let mut subagents = Vec::new();
-    for root_path in root_paths {
-        let root_stem = root_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
-        let prefix = format!("{root_stem}__");
-        let siblings: Vec<PathBuf> = sub_paths
-            .iter()
-            .filter(|path| {
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .is_some_and(|stem| stem.starts_with(&prefix))
-            })
-            .cloned()
-            .collect();
-        subagents.extend(build_subagent_items(&siblings, root_stem, 0, &segments));
-    }
+    let mut items = project_records(&records);
+    let top_level = items.len();
+    subagents::attach(&mut items, sub_paths, &subagents::turn_segments(&records));
     log::debug!(
-        "{LOG_PREFIX} projected thread={thread_id} top_level_items={} subagents={}",
-        items.len(),
-        subagents.len()
+        "{LOG_PREFIX} projected thread={thread_id} top_level_items={top_level} subagents={}",
+        items.len() - top_level
     );
-    items.extend(subagents);
 
     ProjectedTranscript {
         thread_id: thread_id.to_string(),
         items,
     }
-}
-
-/// Discover every sub-agent transcript file beside the resolved root.
-/// Sub-agent stems are `{root_stem}__…`; results are sorted so the
-/// timestamp-prefixed suffixes order by creation time.
-fn discover_subagent_files(raw_dir: &Path, root_stem: &str) -> Vec<PathBuf> {
-    let prefix = format!("{root_stem}__");
-    let entries = match fs::read_dir(raw_dir) {
-        Ok(entries) => entries,
-        Err(error) => {
-            log::debug!(
-                "{LOG_PREFIX} subagent discovery read_dir failed dir={} error={error}",
-                raw_dir.display()
-            );
-            return Vec::new();
-        }
-    };
-    let mut paths: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
-        .filter(|p| {
-            p.file_stem()
-                .and_then(|s| s.to_str())
-                .is_some_and(|stem| stem.starts_with(&prefix))
-        })
-        .collect();
-    paths.sort();
-    paths
-}
-
-/// Build nested [`DisplayItem::Subagent`] items for the direct children of
-/// `parent_stem` among `all_sub_paths`, recursing one level per depth up to
-/// [`MAX_SUBAGENT_DEPTH`]. Attachment is flat (ordered by file timestamp): the
-/// transcript doesn't record a robust delegation-call → file link, so we nest
-/// by stem lineage rather than guessing the parent tool call.
-///
-/// Each item is anchored to a parent turn via [`anchor_request_id`] so the
-/// frontend can render the trail under the turn that spawned it rather than the
-/// most recent turn. `segments` are the root turns' start timestamps.
-fn build_subagent_items(
-    all_sub_paths: &[PathBuf],
-    parent_stem: &str,
-    depth: usize,
-    segments: &[(String, i64)],
-) -> Vec<DisplayItem> {
-    if depth >= MAX_SUBAGENT_DEPTH {
-        return Vec::new();
-    }
-    let child_prefix = format!("{parent_stem}__");
-    let mut out = Vec::new();
-    for path in all_sub_paths {
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        let Some(rest) = stem.strip_prefix(&child_prefix) else {
-            continue;
-        };
-        // Direct child only — no further `__` in the remainder.
-        if rest.contains("__") {
-            continue;
-        }
-        let display = match transcript::read_transcript_display(path) {
-            Ok(d) => d,
-            Err(err) => {
-                log::warn!(
-                    "{LOG_PREFIX} failed to read sub-agent transcript {}: {err}",
-                    path.display()
-                );
-                continue;
-            }
-        };
-        let mut items = project_records(&display.records);
-        items.extend(build_subagent_items(
-            all_sub_paths,
-            stem,
-            depth + 1,
-            segments,
-        ));
-        // Prefer the archetype id from meta; fall back to the stem suffix.
-        let id = if display.meta.agent_name.is_empty() {
-            rest.to_string()
-        } else {
-            display.meta.agent_name.clone()
-        };
-        // Anchor to the parent turn active at the sub-agent's spawn time.
-        let request_id = anchor_request_id(child_spawn_unix(rest), segments);
-        log::debug!("{LOG_PREFIX} subagent id={id} stem={rest} anchored request_id={request_id:?}");
-        out.push(DisplayItem::Subagent {
-            id,
-            request_id,
-            items,
-        });
-    }
-    out
-}
-
-/// The root turns' start timestamps as `(request_id, unix_seconds)` in file
-/// order — one entry per turn boundary. Built from the first timestamped line
-/// of each `request_id` run. Turns whose lines carry no `request_id` or no
-/// parseable timestamp contribute nothing (legacy/CLI transcripts yield an
-/// empty list, so sub-agents there stay unanchored).
-fn turn_segments(records: &[DisplayRecord]) -> Vec<(String, i64)> {
-    let mut segments: Vec<(String, i64)> = Vec::new();
-    let mut last_request_id: Option<String> = None;
-    for record in records {
-        let DisplayRecord::Message(msg) = record else {
-            continue;
-        };
-        let (Some(rid), Some(ts)) = (msg.request_id.as_deref(), msg.ts.as_deref()) else {
-            continue;
-        };
-        if last_request_id.as_deref() == Some(rid) {
-            continue;
-        }
-        let Some(unix) = parse_rfc3339_unix(ts) else {
-            continue;
-        };
-        segments.push((rid.to_string(), unix));
-        last_request_id = Some(rid.to_string());
-    }
-    segments
-}
-
-/// Extract a sub-agent's spawn unix timestamp (seconds) from its file-stem
-/// suffix. Stems are `{unix_ts}_{agent_id}`; the leading integer is the agent
-/// build/spawn time (see the transcript module's stem docs). `None` for
-/// non-numeric legacy stems.
-fn child_spawn_unix(stem_suffix: &str) -> Option<i64> {
-    stem_suffix
-        .split('_')
-        .next()
-        .and_then(|s| s.parse::<i64>().ok())
-}
-
-/// Parse an RFC-3339 timestamp into unix seconds.
-fn parse_rfc3339_unix(ts: &str) -> Option<i64> {
-    chrono::DateTime::parse_from_rfc3339(ts)
-        .ok()
-        .map(|dt| dt.timestamp())
-}
-
-/// Anchor a sub-agent to the parent turn that was active at its `child_unix`
-/// spawn time: the last turn segment whose start is `<= child_unix`.
-///
-/// Fallbacks (documented heuristic, since sub-agent files carry no explicit
-/// delegation-call back-link):
-/// - No segments (legacy/CLI root): `None` — the item stays unanchored and the
-///   frontend leaves it under the current turn cursor, as before.
-/// - Unknown spawn time (non-numeric stem): the newest turn (best effort).
-/// - Spawn time precedes every turn start: the first turn.
-fn anchor_request_id(child_unix: Option<i64>, segments: &[(String, i64)]) -> Option<String> {
-    if segments.is_empty() {
-        return None;
-    }
-    let Some(child_unix) = child_unix else {
-        return segments.last().map(|(rid, _)| rid.clone());
-    };
-    let mut chosen = &segments[0];
-    for seg in segments {
-        if seg.1 <= child_unix {
-            chosen = seg;
-        }
-    }
-    Some(chosen.0.clone())
 }
 
 /// Project one file's display records into display items, in file order.
