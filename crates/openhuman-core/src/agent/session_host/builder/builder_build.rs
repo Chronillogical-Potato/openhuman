@@ -296,6 +296,9 @@ impl SessionHostBuilder {
                 definitions,
                 memory: Arc::clone(&memory),
                 post_turn_hooks: self.post_turn_hooks.clone(),
+                // This path names a registry id; it never carries a
+                // caller-supplied definition.
+                session_definition: None,
             })
         });
 

@@ -1036,6 +1036,14 @@ impl OpenHumanSessionHost {
                 security_policy: security,
                 memory: agent.memory_arc(),
                 post_turn_hooks: agent.post_turn_hooks.clone(),
+                // The caller's own definition, when this session was built from
+                // one rather than from a registry id. `AgentSpec::into_core`
+                // re-stamps the built-in orchestrator under the caller's id, so
+                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
+                // names no registry holds; without handing the definition over
+                // here the lookup misses and the turn is rejected as a policy
+                // failure before any provider call (#6404/#6392/#6393).
+                session_definition: target_def.cloned().map(Arc::new),
             })
         });
         if agent.hosted_base.is_none() {
