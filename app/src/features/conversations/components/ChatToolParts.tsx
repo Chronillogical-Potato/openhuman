@@ -1,9 +1,11 @@
 import {
+  type AssistantState,
   type ToolCallMessagePart,
   type ToolCallMessagePartComponent,
   useAui,
+  useAuiState,
 } from '@assistant-ui/react';
-import { type FC, type PropsWithChildren, useCallback } from 'react';
+import { type FC, type PropsWithChildren, useCallback, useMemo } from 'react';
 
 import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
 import {
@@ -13,12 +15,16 @@ import {
 } from '../../../components/assistant-ui/tool-group';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
+import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
+import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
 import type { PendingApproval, SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
 import { isApprovalPending, OpenHumanToolCall } from './AssistantUiToolCall';
 import { useSubagentDrawerHost } from './aui/subagentDrawerHost';
+import { describeToolCall, toolLabel } from '../tools/toolPresentation';
+import { summarizeToolCalls } from '../../../utils/toolTimelineFormatting';
 
 function asSubagentActivity(value: unknown): SubagentActivity | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -211,16 +217,85 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   return <GatedToolCall {...props} />;
 };
 
-/** Keep the assistant-ui tool cards visible; each card owns its detail collapse. */
+const selectMessageParts = (state: AssistantState) => state.message.parts;
+
+/** The vertical rail every step's node sits on. */
+function TimelineRail({ children }: PropsWithChildren) {
+  return (
+    <div
+      data-slot="tool-timeline"
+      data-testid="tool-timeline"
+      className="relative flex flex-col gap-0.5 before:absolute before:top-3 before:bottom-3 before:left-[11.5px] before:w-px before:bg-border">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The chat's tool timeline: a run of adjacent tool calls under one header.
+ *
+ * The header reads what is happening now ("Searching the web…") while the
+ * run is in flight, and a summary once it settles ("5 steps · Read file ×3,
+ * Searched the web ×2"). A lone call needs no header over itself, so it
+ * renders as a bare step. The steps sit on a rail, each with its own icon.
+ */
 export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = ({
   group,
   children,
 }) => {
+  const { t } = useT();
+  const parts = useAuiState(selectMessageParts);
   const running = group.status.type === 'running';
+  const presentations = useMemo(
+    () =>
+      group.indices
+        .map(index => parts[index])
+        .filter((part): part is ToolCallMessagePart => part?.type === 'tool-call')
+        .map(toolPartPresentation),
+    [group.indices, parts]
+  );
+  if (group.indices.length <= 1) return <TimelineRail>{children}</TimelineRail>;
+  const active = [...presentations].reverse().find(p => p.tense === 'active');
+  const label = running
+    ? `${active ? toolLabel(active, t) : t('conversations.tools.working')}…`
+    : summarizeToolCalls(presentations, t);
   return (
     <ToolGroupRoot variant="ghost" defaultOpen>
-      <ToolGroupTrigger count={group.indices.length} active={running} />
-      <ToolGroupContent>{children}</ToolGroupContent>
+      <ToolGroupTrigger
+        count={group.indices.length}
+        label={label}
+        active={running}
+        data-testid="tool-timeline-trigger"
+      />
+      <ToolGroupContent>
+        <TimelineRail>{children}</TimelineRail>
+      </ToolGroupContent>
     </ToolGroupRoot>
   );
 };
+
+/** Resolve a raw assistant-ui tool part (status packed into `result`). */
+function toolPartPresentation(part: ToolCallMessagePart) {
+  const result = part.result as { status?: unknown } | undefined;
+  const envelopeStatus =
+    result && typeof result === 'object' && !Array.isArray(result) ? result.status : undefined;
+  const status =
+    envelopeStatus === 'error' || envelopeStatus === 'cancelled'
+      ? envelopeStatus
+      : part.result === undefined
+        ? 'running'
+        : 'success';
+  if (part.toolName === 'task') {
+    const args = part.args as { subagent_type?: unknown } | undefined;
+    const agent = typeof args?.subagent_type === 'string' ? args.subagent_type : 'subagent';
+    return describeToolCall({ name: `subagent:${agent}`, status });
+  }
+  const artifact = readOpenHumanToolArtifact(part.artifact);
+  return describeToolCall({
+    name: part.toolName,
+    args: part.args,
+    status,
+    serverLabel: artifact?.displayName,
+    serverDetail: artifact?.detail,
+  });
+}
