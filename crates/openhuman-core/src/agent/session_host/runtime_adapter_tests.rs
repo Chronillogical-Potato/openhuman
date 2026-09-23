@@ -467,7 +467,9 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     // suffix) belongs to tinyagents and is pinned by its own tests. What
     // OpenHuman owns, and what this asserts, is that a root chat session is
     // addressed by its conversation at all.
-    let root_session = root.session_id().expect("a root chat session has an identity");
+    let root_session = root
+        .session_id()
+        .expect("a root chat session has an identity");
     assert!(
         root_session.starts_with("thread-1"),
         "a root chat session is addressed by its conversation, got {root_session}"
@@ -478,4 +480,104 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     child.session_parent_prefix = Some("1713000000_orchestrator".into());
     child.set_thread_id(Some("thread-1"));
     assert_eq!(child.session_id(), None);
+}
+
+/// The PRODUCTION turn path must wire an artifact store, rooted where the READ
+/// path will look for it (#6408).
+///
+/// Two assertions, and both were dead code before this PR. The existing artifact
+/// tests construct `TurnContextMiddleware` with `artifact_store: Some(..)`
+/// themselves, so they prove the offload code works while saying nothing about
+/// whether production ever reaches it — and it did not: the production
+/// constructor hard-coded `None`, which is how a whole feature shipped dead.
+///
+/// The root matters as much as the wiring. The store hands the model a RELATIVE
+/// pointer, resolved later by `file_read` through `security_for_tool_context`,
+/// which overwrites `action_dir` with `ctx.workspace().root` when the turn
+/// carries a descriptor. Rooting the store at `action_dir` regardless would
+/// write artifacts the model cannot dereference — strictly worse than the
+/// truncation it replaces. So this drives a real host with a descriptor whose
+/// root is NOT `action_dir`, and pins that the store followed the descriptor.
+///
+#[tokio::test]
+async fn production_turn_path_wires_an_artifact_store_at_the_read_path_root() {
+    let action_dir = tempfile::tempdir().expect("tempdir");
+    let turn_root = tempfile::tempdir().expect("turn root");
+    assert_ne!(
+        action_dir.path(),
+        turn_root.path(),
+        "the two roots must differ or this test cannot tell them apart"
+    );
+
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
+        Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
+    let mut host = crate::agent::SessionHostBuilder::new()
+        .chat_model(model)
+        .tools(Vec::new())
+        .action_dir(action_dir.path().to_path_buf())
+        .memory(crate::memory::test_support::noop_memory())
+        .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
+        .workspace_descriptor(Some(
+            tinytools::WorkspaceDescriptor::new(turn_root.path().to_path_buf())
+                .with_policy_id("turn-workspace"),
+        ))
+        .build()
+        .expect("session build");
+
+    host.ensure_runtime_session()
+        .expect("ensure runtime session");
+
+    let state = host
+        .runtime_state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let middleware = state
+        .context_middleware
+        .as_ref()
+        .expect("the turn path must retain its context middleware");
+    let store = middleware.artifact_store.as_ref().expect(
+        "the production turn path must wire an artifact store, or oversized \
+         tool results are truncated with their tail discarded (#6408)",
+    );
+    assert_eq!(
+        store.root(),
+        turn_root.path(),
+        "the store must be rooted at the turn workspace the read path resolves \
+         against, not at action_dir — otherwise the pointer handed to the model \
+         dereferences to nothing (#6483)"
+    );
+}
+
+/// With no workspace descriptor the read path keeps the policy's own
+/// `action_dir`, so the store must too. The mirror of the test above: pinning
+/// only one branch would let the other regress silently.
+#[tokio::test]
+async fn artifact_store_falls_back_to_action_dir_without_a_descriptor() {
+    let action_dir = tempfile::tempdir().expect("tempdir");
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
+        Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
+    let mut host = crate::agent::SessionHostBuilder::new()
+        .chat_model(model)
+        .tools(Vec::new())
+        .action_dir(action_dir.path().to_path_buf())
+        .memory(crate::memory::test_support::noop_memory())
+        .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
+        .build()
+        .expect("session build");
+
+    host.ensure_runtime_session()
+        .expect("ensure runtime session");
+
+    let state = host
+        .runtime_state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let store = state
+        .context_middleware
+        .as_ref()
+        .expect("context middleware")
+        .artifact_store
+        .as_ref()
+        .expect("artifact store");
+    assert_eq!(store.root(), action_dir.path());
 }

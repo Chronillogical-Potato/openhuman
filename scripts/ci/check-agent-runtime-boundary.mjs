@@ -336,9 +336,17 @@ findings.sort((a, b) => a.rule.localeCompare(b.rule) || a.path.localeCompare(b.p
 function stable(records) {
   const occurrences = new Map();
   return records.map(({ rule, path, line, text }) => {
-    // Physical source locations are part of the temporary debt contract: a
-    // moved violation is stale debt, not a silently accepted occurrence.
-    const base = `${rule}\0${path}\0${line}\0${text}`;
+    // Deliberately excludes `line`. The identity of a violation is the rule it
+    // breaks, the file it is in, and the source text — not where in the file it
+    // sits. Keying on the line answers "did anything ABOVE this change?", which
+    // is a proximity alarm rather than debt tracking, and it made the gate red
+    // on every unrelated edit to a file containing a violation (#6525).
+    //
+    // `occurrence` carries the load the line was credited with: a file that
+    // gains a SECOND identical violation goes 1 -> 2 and is correctly reported
+    // as unbaselined. `line` is retained on the record as advisory metadata for
+    // the error output, and is refreshed whenever the baseline is regenerated.
+    const base = `${rule}\0${path}\0${text}`;
     const occurrence = (occurrences.get(base) ?? 0) + 1;
     occurrences.set(base, occurrence);
     return { rule, path, line, text, occurrence };
@@ -360,11 +368,18 @@ if (!noBaseline) {
     process.exit(1);
   }
 }
+// Compared on identity rather than on the whole record: `JSON.stringify` would
+// reintroduce `line`, and because the two sets are compared in both directions
+// a moved violation would land in `added` AND `stale` at once — which is why a
+// set of five that merely shifted used to report as "5 unbaselined + 5 stale",
+// inviting a triager to believe ten things had changed.
+const identity = ({ rule, path, text, occurrence }) =>
+  `${rule}\0${path}\0${text}\0${occurrence}`;
 const actualStable = stable(findings);
-const expectedKeys = new Set(expected.map(JSON.stringify));
-const actualKeys = new Set(actualStable.map(JSON.stringify));
-const added = findings.filter((_, index) => !expectedKeys.has(JSON.stringify(actualStable[index])));
-const stale = expected.filter((record) => !actualKeys.has(JSON.stringify(record)));
+const expectedKeys = new Set(expected.map(identity));
+const actualKeys = new Set(actualStable.map(identity));
+const added = findings.filter((_, index) => !expectedKeys.has(identity(actualStable[index])));
+const stale = expected.filter((record) => !actualKeys.has(identity(record)));
 if (added.length || stale.length) {
   console.error("Agent-runtime ownership boundary changed.");
   if (added.length) {

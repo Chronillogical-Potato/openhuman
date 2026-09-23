@@ -147,3 +147,6 @@ __pycache__/
 # Coverage/diff-cover artifacts (generated locally, never shipped)
 lcov*.info
 diff-coverage.md
+
+# CI lane runner output (scripts/ci/self-hosted/lanes.mjs)
+/ci-out/
