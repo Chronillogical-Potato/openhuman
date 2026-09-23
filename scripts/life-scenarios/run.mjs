@@ -1008,8 +1008,10 @@ async function main() {
           api_key: opts.apiKey,
           default_model: opts.model,
         });
+        // `config.get` wraps the config under `config` (see
+        // `snapshot_config_json`), and the RPC envelope may wrap that again.
         const snap = await core.rpc("openhuman.config_get", {});
-        const cfg = snap?.snapshot ?? snap ?? {};
+        const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
         const providers = cfg.cloud_providers ?? [];
         const routed =
           cfg.inference_url === opts.inferenceUrl &&
