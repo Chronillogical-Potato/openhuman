@@ -230,6 +230,61 @@ impl FinalCallWrapUpMiddleware {
 
 }
 
+impl FinalCallWrapUpMiddleware {
+    /// The call *before* the conclusion: narrow the belt to
+    /// [`DELIVERABLE_TOOLS`] so a turn that owes a file can still write it.
+    ///
+    /// Clearing the belt one call later makes the conclusion structural, which
+    /// is right — but for a turn whose product is an artifact rather than
+    /// prose it makes *failure* structural too. See
+    /// [`FINAL_WRITE_INSTRUCTION`](crate::agent::session_host::turn_checkpoint::FINAL_WRITE_INSTRUCTION)
+    /// for the case that motivated this and the trade it accepts.
+    ///
+    /// Returns `true` when the narrowing fired, so the caller can skip the
+    /// instruction otherwise.
+    fn reserve_final_write(
+        &self,
+        ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        request: &mut ModelRequest,
+    ) -> bool {
+        // Below three, reserving would eat the turn rather than shape its end:
+        // a two-call budget would be one write-only call plus the conclusion,
+        // leaving no round in which anything could be gathered to write.
+        if ctx.limits.limits().max_model_calls <= 2 {
+            return false;
+        }
+        // Nothing to reserve the call *for*. A read-only or delegating agent
+        // has no writer on its belt, and telling it "the only tools left are
+        // the ones that write files" would be false — so leave the call as an
+        // ordinary one and let the conclusion handle the cap.
+        if !request.tools.iter().any(|t| is_deliverable_tool(&t.name)) {
+            return false;
+        }
+        let before = request.tools.len();
+        request.tools.retain(|t| is_deliverable_tool(&t.name));
+        // `Auto`, never `Required`: a turn that has already written its file,
+        // or was only ever asked for an answer, must be free to spend this call
+        // on text instead. Forcing a call here would make it invent a write.
+        request.tool_choice = tinyinference_llm::model::ToolChoice::Auto;
+        tracing::info!(
+            model_calls = ctx.limits.model_calls(),
+            max_model_calls = ctx.limits.limits().max_model_calls,
+            tools_withdrawn = before.saturating_sub(request.tools.len()),
+            tools_kept = request.tools.len(),
+            "[tinyagents::mw] penultimate model call — narrowing the belt to the tools that can \
+             persist a deliverable"
+        );
+        // The same restoration the conclusion gets, and for a sharper reason:
+        // this call is being asked to write the findings into a file, so it
+        // needs to be able to read them.
+        self.restore_cleared_outcomes(request, self.final_write_instruction);
+        request
+            .messages
+            .push(TaMessage::user(self.final_write_instruction.to_string()));
+        true
+    }
+}
+
 #[async_trait]
 impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     for FinalCallWrapUpMiddleware
@@ -244,7 +299,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
-        if ctx.limits.remaining_model_calls() > 0 {
+        let remaining = ctx.limits.remaining_model_calls();
+        if remaining > 1 {
             return Ok(());
         }
         // A budget of one call would make the very first call the concluding
@@ -253,6 +309,12 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // answering it with a "you have run out of tool calls" instruction
         // would misreport it — leave such a run alone.
         if ctx.limits.limits().max_model_calls <= 1 {
+            return Ok(());
+        }
+        // One call before the conclusion: keep the writers rather than clear
+        // the belt, so a turn whose deliverable is a file can still produce it.
+        if remaining == 1 {
+            self.reserve_final_write(ctx, request);
             return Ok(());
         }
         tracing::info!(
