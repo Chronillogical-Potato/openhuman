@@ -595,15 +595,42 @@ function useFollowBottom(
     // bottom" contract. Keying on `scrollTop` alone holds in both cases.
     lastScrollTopRef.current = viewport.scrollTop;
 
+    // ...and the move up has to be the READER's. A falling `scrollTop` is not
+    // proof of that: a disclosure collapsing above the fold, content shrinking
+    // under a reply that swaps parts, and assistant-ui's `useScrollLock`
+    // (which writes the old `scrollTop` back on every scroll event while a
+    // disclosure animates) all lower it with nobody touching anything — and
+    // each used to switch following off mid-turn, leaving the reply streaming
+    // below the fold. So a decrease only counts within a short window after
+    // an input that can scroll: wheel, touch, a scroll key, or a press on the
+    // viewport itself (its scrollbar).
+    let userIntentAt = Number.NEGATIVE_INFINITY;
+    const markIntent = () => {
+      userIntentAt = performance.now();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(event.key)) markIntent();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target === viewport) markIntent();
+    };
+
     const onScroll = () => {
       if (distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX) {
         followRef.current = true;
-      } else if (viewport.scrollTop < lastScrollTopRef.current) {
+      } else if (
+        viewport.scrollTop < lastScrollTopRef.current &&
+        performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS
+      ) {
         followRef.current = false;
       }
       lastScrollTopRef.current = viewport.scrollTop;
     };
     viewport.addEventListener('scroll', onScroll, { passive: true });
+    viewport.addEventListener('wheel', markIntent, { passive: true });
+    viewport.addEventListener('touchmove', markIntent, { passive: true });
+    viewport.addEventListener('keydown', onKeyDown);
+    viewport.addEventListener('pointerdown', onPointerDown);
 
     const observer = new ResizeObserver(() => {
       // Read the flag; do NOT recompute the distance here. By the time this
@@ -645,6 +672,10 @@ function useFollowBottom(
 
     return () => {
       viewport.removeEventListener('scroll', onScroll);
+      viewport.removeEventListener('wheel', markIntent);
+      viewport.removeEventListener('touchmove', markIntent);
+      viewport.removeEventListener('keydown', onKeyDown);
+      viewport.removeEventListener('pointerdown', onPointerDown);
       observer.disconnect();
     };
   }, [contentRef, viewportRef]);
