@@ -175,25 +175,8 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       ],
     },
     {
-      name: "rust-lint",
-      targetDir: targetDir("lint"),
-      env: { ...rustEnv, ...sccache },
-      checks: [
-        // `--features` is load-bearing: `default` is the contributor set.
-        { name: "clippy-product", when: core, run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings` },
-        { name: "clippy-default", when: core, run: "cargo clippy -p openhuman -- -D warnings" },
-        { name: "embed-clippy", when: core, run: "cargo clippy -p openhuman-embed --all-targets -- -D warnings" },
-        { name: "embed-check-no-default", when: core, run: "cargo check -p openhuman-embed --no-default-features" },
-        { name: "embed-test", when: core, run: "cargo test -p openhuman-embed" },
-        { name: "tinyhumans-clippy", when: core, run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings" },
-        { name: "tinyhumans-test", when: core, run: "cargo test -p openhuman-tinyhumans" },
-        { name: "prompt-budget", when: core, run: "bash scripts/check-prompt-budget.sh --verbose" },
-        ...(ex63 ? [juiceRegression] : []),
-        // Report-only in ci-lite (never in the gate), so report-only here.
-        { name: "rss-bench-fixture-tests", when: core, reportOnly: true, run: "cargo test --features rss-bench --bin rss-bench" },
-      ],
-    },
-    {
+      // First among the Rust lanes: it is the long pole, and rust-lint waits
+      // on its test-modules check.
       name: "rust-cov",
       targetDir: targetDir("cov"),
       env: covEnv,
@@ -212,6 +195,25 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
         ...(ex63 ? [] : [juiceRegression]),
+      ],
+    },
+    {
+      name: "rust-lint",
+      targetDir: targetDir("lint"),
+      env: { ...rustEnv, ...sccache },
+      checks: [
+        // `--features` is load-bearing: `default` is the contributor set.
+        { name: "clippy-product", when: core, run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings` },
+        { name: "clippy-default", when: core, run: "cargo clippy -p openhuman -- -D warnings" },
+        { name: "embed-clippy", when: core, run: "cargo clippy -p openhuman-embed --all-targets -- -D warnings" },
+        { name: "embed-check-no-default", when: core, run: "cargo check -p openhuman-embed --no-default-features" },
+        { name: "embed-test", when: core, run: "cargo test -p openhuman-embed" },
+        { name: "tinyhumans-clippy", when: core, run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings" },
+        { name: "tinyhumans-test", when: core, run: "cargo test -p openhuman-tinyhumans" },
+        { name: "prompt-budget", when: core, run: "bash scripts/check-prompt-budget.sh --verbose" },
+        ...(ex63 ? [juiceRegression] : []),
+        // Report-only in ci-lite (never in the gate), so report-only here.
+        { name: "rss-bench-fixture-tests", when: core, reportOnly: true, run: "cargo test --features rss-bench --bin rss-bench" },
       ],
     },
     {
