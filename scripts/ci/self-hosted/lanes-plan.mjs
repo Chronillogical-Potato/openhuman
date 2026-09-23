@@ -97,6 +97,20 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const withModules = (cmd) =>
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
+  // Non-instrumented, but needs the downloaded modules. On ex63 it rides the
+  // lint lane's graph instead of lengthening the coverage critical path; on
+  // hosted it stays in the coverage job beside the modules, as in ci-lite.
+  const juiceRegression = {
+    name: "tinyjuice-host-regression",
+    when: core,
+    needs: [ex63 ? "rust-cov:test-modules" : "test-modules"],
+    run: withModules(
+      "cargo test --lib --features modules" +
+        " openhuman::agent::tinyagents::middleware::tests::tool_output_tabulates_a_large_graph_for_a_non_exempt_tool" +
+        " -- --ignored --exact",
+    ),
+  };
+
   /** @type {Lane[]} */
   const lanes = [
     {
@@ -174,16 +188,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
         { name: "tinyhumans-clippy", when: core, run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings" },
         { name: "tinyhumans-test", when: core, run: "cargo test -p openhuman-tinyhumans" },
         { name: "prompt-budget", when: core, run: "bash scripts/check-prompt-budget.sh --verbose" },
-        {
-          name: "tinyjuice-host-regression",
-          when: core,
-          needs: ["rust-cov:test-modules"],
-          run: withModules(
-            "cargo test --lib --features modules" +
-              " openhuman::agent::tinyagents::middleware::tests::tool_output_tabulates_a_large_graph_for_a_non_exempt_tool" +
-              " -- --ignored --exact",
-          ),
-        },
+        ...(ex63 ? [juiceRegression] : []),
         // Report-only in ci-lite (never in the gate), so report-only here.
         { name: "rss-bench-fixture-tests", when: core, reportOnly: true, run: "cargo test --features rss-bench --bin rss-bench" },
       ],
@@ -206,6 +211,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           env: { OUT: "ci-out/lcov/lcov-core.info" },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
+        ...(ex63 ? [] : [juiceRegression]),
       ],
     },
     {
