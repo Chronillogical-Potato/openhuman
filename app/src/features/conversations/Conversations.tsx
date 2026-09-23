@@ -858,6 +858,46 @@ const Conversations = ({
     sendingTimeoutsRef.current.set(threadId, timeout);
   };
 
+  // A turn this client did not start still needs the 120s watchdog.
+  //
+  // `armSilenceTimer` is only called on the local send path, so a client that
+  // reloads or reconnects mid-turn — hydrating through
+  // `fetchAndHydrateTurnState` on thread selection — renders a live-looking
+  // "Thinking..." pill with no timer behind it. If the terminal event is then
+  // missed, nothing ever clears it: in the observed incident two sockets
+  // connected mid-turn, the turn ended 95s later, and the UI still read
+  // "Thinking... (15)" 25 minutes on. A core restart heals it today
+  // (`mark_all_interrupted` sweeps non-terminal snapshots at startup), which is
+  // why it only bites long-lived sessions.
+  //
+  // Arm only for a turn that is genuinely in flight. A terminal snapshot
+  // deletes `inferenceStatusByThread` in the reducer's interrupted/completed
+  // branch, so the status check alone already excludes one; the `interrupted`
+  // guard is belt-and-braces, so this cannot start firing `safety_timeout` on a
+  // settled thread if that branch ever changes. (`completed` is not a member of
+  // `InferenceTurnLifecycle` — the reducer deletes the key instead of storing a
+  // terminal value — so there is no such case to guard.)
+  //
+  // Arming is the whole fix: the rearm effect below iterates
+  // `sendingTimeoutsRef` keys, so a thread holding no timer is invisible to it.
+  // Once a timer exists, heartbeats (#4270), streaming text and sub-agent tool
+  // activity rearm it exactly as for a locally-sent turn, and the
+  // done-transition clears it — an inherited turn gets the same treatment as an
+  // owned one rather than a second, parallel mechanism.
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    // A local send already armed one. Never replace it: re-arming here would
+    // hand the turn a fresh 120s every time this effect re-ran.
+    if (sendingTimeoutsRef.current.has(selectedThreadId)) return;
+    if (!inferenceStatusByThread[selectedThreadId]) return;
+    if (inferenceTurnLifecycleByThread[selectedThreadId] === 'interrupted') return;
+    debug(`inherited in-flight turn on ${selectedThreadId} — arming silence timer`);
+    armSilenceTimer(selectedThreadId);
+    // `armSilenceTimer` reads only refs and `dispatch`, so it is stable enough
+    // to omit; including it would re-run this on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedThreadId, inferenceStatusByThread, inferenceTurnLifecycleByThread]);
+
   // Rearm the silence timer on every inference signal for the sending
   // thread. Top-level tool / iteration events bump `inferenceStatusByThread`;
   // pure-text streams (no tools) only bump `streamingAssistantByThread`;

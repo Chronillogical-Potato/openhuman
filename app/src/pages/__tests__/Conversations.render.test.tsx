@@ -1438,6 +1438,119 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     }
   });
 
+  // A snapshot describing a turn that is still running, as the core would have
+  // persisted it at its last flush boundary.
+  function inFlightSnapshot(lifecycle: 'started' | 'streaming' = 'streaming') {
+    return {
+      threadId: 'send-thread',
+      requestId: 'req-inherited-1',
+      lifecycle,
+      iteration: 15,
+      maxIterations: 50,
+      phase: 'thinking' as const,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [],
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  it('arms the silence timer for a turn inherited through hydration', async () => {
+    // Regression: `armSilenceTimer` was only called on the local send path, so
+    // a client that reloaded or reconnected mid-turn hydrated a live-looking
+    // "Thinking…" pill with no watchdog behind it. If the terminal event was
+    // then missed the pill never cleared — observed sitting on "Thinking… (15)"
+    // 25 minutes after the turn had ended.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Hydration produced a live turn — without this the test could pass by
+      // asserting a timeout on a thread that was never rendered as running.
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+      expect(screen.queryByTestId('chat-send-error')).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeUndefined();
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['interrupted', 'completed'] as const)(
+    'does not arm the silence timer for a %s snapshot',
+    async lifecycle => {
+      // A terminal snapshot has no live driver. Arming here would fire a
+      // spurious `safety_timeout` on a thread that has already settled.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.mocked(threadApi.getTurnState).mockResolvedValue({ ...inFlightSnapshot(), lifecycle });
+      try {
+        const { store } = await renderSelectedConversation();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(120_000);
+        });
+
+        expect(screen.queryByTestId('chat-send-error')).toBeNull();
+        expect(
+          store?.getState().chatRuntime.inferenceStatusByThread['send-thread']
+        ).toBeUndefined();
+      } finally {
+        vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('rearms an inherited silence timer on a heartbeat', async () => {
+    // #4270: a silent reasoning phase emits only heartbeats. A hydrated timer
+    // must take part in the rearm effect exactly as a locally-armed one does,
+    // or a genuinely live inherited turn trips the watchdog mid-run.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80_000);
+      });
+      await act(async () => {
+        store?.dispatch(bumpInferenceHeartbeatForThread({ threadId: 'send-thread' }));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80_000);
+      });
+
+      // 160s since hydration, but only 80s since the beat — still armed.
+      expect(screen.queryByTestId('chat-send-error')).toBeNull();
+
+      // Control: the timer was rearmed, NOT cancelled. Without this, the
+      // assertion above would pass just as well if the heartbeat had cleared
+      // the timer outright.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
   it('rearms the silence timer on sub-agent tool-timeline updates', async () => {
     // Regression: when a delegated sub-agent (`Research`, `Tools Agent`,
     // …) is running, the parent thread's `inferenceStatusByThread` and
