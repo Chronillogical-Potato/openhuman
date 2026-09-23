@@ -128,20 +128,29 @@ run_integration_target() {
   fi
 }
 
-log "running complete instrumented Rust suite"
+log "running complete instrumented Rust suite (runner: ${OH_COV_RUNNER:-cargo})"
 llvm_cov clean --workspace
 
-# Keep the aggregate unit-test process aligned with the canonical Rust runner.
-# The isolated reaper test installs one-shot process globals, so it cannot run
-# in the same process as the rest of the library tests.
-suite "openhuman lib+bins" llvm_cov --no-report --no-fail-fast -p openhuman --lib --bins -- \
-  --test-threads=1 \
-  --skip a_build_only_runtime_is_swept_before_it_can_be_invoked
+if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
+  # cargo-nextest runs every test in its own process, in parallel. Process
+  # globals (the event bus, registries, env vars, one-shot OnceLocks) are then
+  # per test, so the serial runner and the isolated reaper run below are not
+  # needed: every test is isolated. Settings: .config/nextest.toml [profile.ci].
+  suite "openhuman lib+bins (nextest)" llvm_cov nextest --profile ci --no-report \
+    --no-fail-fast -p openhuman --lib --bins
+else
+  # Keep the aggregate unit-test process aligned with the canonical Rust runner.
+  # The isolated reaper test installs one-shot process globals, so it cannot run
+  # in the same process as the rest of the library tests.
+  suite "openhuman lib+bins" llvm_cov --no-report --no-fail-fast -p openhuman --lib --bins -- \
+    --test-threads=1 \
+    --skip a_build_only_runtime_is_swept_before_it_can_be_invoked
 
-log "running isolated build-only reaper test"
-suite "openhuman reaper (isolated)" llvm_cov --no-report --no-fail-fast -p openhuman --lib -- \
-  openhuman::agent::tinyagents::reaper::tests::a_build_only_runtime_is_swept_before_it_can_be_invoked \
-  --exact --test-threads=1
+  log "running isolated build-only reaper test"
+  suite "openhuman reaper (isolated)" llvm_cov --no-report --no-fail-fast -p openhuman --lib -- \
+    openhuman::agent::tinyagents::reaper::tests::a_build_only_runtime_is_swept_before_it_can_be_invoked \
+    --exact --test-threads=1
+fi
 
 # Run every root-workspace Rust support crate rather than only crates named by
 # changed paths. Product features are forwarded to the embedding facade; the
@@ -151,11 +160,21 @@ suite "openhuman-rpc" llvm_cov_package --no-report --no-fail-fast -p openhuman-r
 suite "openhuman-tinyhumans" llvm_cov_embed --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
 suite "openhuman-tui" llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
 
-while IFS= read -r target; do
-  [ -n "${target}" ] || continue
-  log "running integration target: ${target}"
-  run_integration_target "${target}"
-done < <(integration_test_targets)
+if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
+  # Every integration target in one parallel run, one process per test: the
+  # raw_coverage modules and the JSON-RPC tests are then isolated from each
+  # other without the per-module and serial invocations below. Cargo skips a
+  # target whose required-features are not in the product set; `kind(test)`
+  # keeps the run to the integration targets, as the loop below runs them.
+  suite "openhuman-cli integration tests (nextest)" llvm_cov nextest --profile ci \
+    --no-report --no-fail-fast -p openhuman-cli --tests -E 'kind(test)'
+else
+  while IFS= read -r target; do
+    [ -n "${target}" ] || continue
+    log "running integration target: ${target}"
+    run_integration_target "${target}"
+  done < <(integration_test_targets)
+fi
 
 # Doctests are not collected by cargo-llvm-cov, but they are still part of the
 # complete Rust test suite and must run whenever the Rust-core area changes.

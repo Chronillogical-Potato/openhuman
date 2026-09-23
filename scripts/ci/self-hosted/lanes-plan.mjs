@@ -275,7 +275,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           needs: ["test-modules"],
           // The doctests run on pushes to main instead (see above).
-          env: { OUT: "ci-out/lcov/lcov-core.info", OH_COV_DOCTESTS: "0" },
+          // ex63: the core's unit tests run under cargo-nextest, one process
+          // per test and in parallel (the guest image ships cargo-nextest).
+          env: {
+            OUT: "ci-out/lcov/lcov-core.info",
+            OH_COV_DOCTESTS: "0",
+            ...(ex63 ? { OH_COV_RUNNER: "nextest" } : {}),
+          },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
       ],
