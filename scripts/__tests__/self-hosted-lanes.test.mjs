@@ -186,15 +186,43 @@ test("ex63 needs a scratch dir and gives every Rust lane its own target dir unde
   );
 });
 
-test("instrumented coverage never runs under a rustc wrapper", () => {
+test("instrumented coverage uses sccache on ex63 and no wrapper on hosted", () => {
   for (const plan of plans()) {
+    const ex63 = plan.profile === "ex63";
     const cov = plan.lanes.find((l) => l.name === "rust-cov");
-    assert.equal(cov.env.RUSTC_WRAPPER, undefined);
+    assert.equal(cov.env.RUSTC_WRAPPER, ex63 ? "sccache" : undefined);
     const tauriCov = plan.lanes
       .find((l) => l.name === "tauri")
       .checks.find((c) => c.name === "tauri-coverage");
-    assert.match(tauriCov.run, /^unset RUSTFLAGS RUSTC_WRAPPER/);
+    assert.equal(tauriCov.env.RUSTC_WRAPPER, ex63 ? "sccache" : undefined);
+    // The linker flag always goes: llvm-cov sets RUSTFLAGS itself.
+    assert.match(
+      tauriCov.run,
+      ex63 ? /^unset RUSTFLAGS &&/ : /^unset RUSTFLAGS RUSTC_WRAPPER &&/,
+    );
+    assert.match(tauriCov.run, /--no-rustc-wrapper/);
   }
+});
+
+test("sccache summary reports hit rate and the store in use", () => {
+  assert.equal(sccacheSummary(null), null);
+  assert.equal(
+    sccacheSummary({
+      stats: {
+        cache_hits: { counts: { Rust: 30 } },
+        cache_misses: { counts: { Rust: 10 } },
+      },
+      cache_location: "webdav, name: , prefix: /",
+    }),
+    "sccache (shared store): 30 Rust hits, 10 misses (75%).",
+  );
+  assert.equal(
+    sccacheSummary({
+      stats: { cache_hits: { counts: {} }, cache_misses: { counts: {} } },
+      cache_location: "Local disk: \"/cache/sccache\"",
+    }),
+    "sccache (slot disk): 0 Rust hits, 0 misses.",
+  );
 });
 
 test("area flags are read strictly from CI_AREA_*", () => {

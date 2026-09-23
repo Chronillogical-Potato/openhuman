@@ -125,6 +125,20 @@ export function orderProblems(plan) {
   return problems;
 }
 
+/** One line on sccache's Rust hit rate and where its cache lives, or null. */
+export function sccacheSummary(sccache) {
+  const stats = sccache?.stats;
+  if (!stats) return null;
+  const hits = stats.cache_hits?.counts?.Rust ?? 0;
+  const misses = stats.cache_misses?.counts?.Rust ?? 0;
+  const total = hits + misses;
+  const rate = total ? ` (${Math.round((100 * hits) / total)}%)` : "";
+  const where = /webdav/i.test(sccache.cache_location ?? "")
+    ? "shared store"
+    : "slot disk";
+  return `sccache (${where}): ${hits} Rust hits, ${misses} misses${rate}.`;
+}
+
 /** Render the per-check outcome table for $GITHUB_STEP_SUMMARY. */
 export function renderSummary(results) {
   const rows = [
@@ -155,6 +169,8 @@ export function renderSummary(results) {
       "",
       `VM memory: ${(mem.totalMiB / 1024).toFixed(1)} GiB, lowest available ${mem.minAvailableMiB == null ? "?" : `${(mem.minAvailableMiB / 1024).toFixed(1)} GiB`}; heavy-compile slots: ${results.heavySlots ?? "uncapped"}.`,
     );
+  const sc = sccacheSummary(results.sccache);
+  if (sc) rows.push("", sc);
   rows.push(
     "",
     "`skipped` = area untouched; `blocked` = a check it needs did not succeed. Neither is a pass for the check itself.",
