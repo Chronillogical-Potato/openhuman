@@ -358,6 +358,13 @@ fn verb_class(args: &[String], read_verbs: &[&str]) -> CommandClass {
 /// that made Supervised mode unusable: every command the agent wrote carried a
 /// `2>&1`, got approved, then silently failed this in-tool guard and never ran.
 pub(in crate::security::policy) fn has_hidden_execution(command: &str) -> bool {
+    // A quoted heredoc body (`<< 'EOF' … EOF`) is data, not shell: the shell
+    // performs no expansion inside it, so an `&`, a backtick or a `$(` there
+    // cannot run anything. Scanning it as live text refused ordinary documents
+    // — the life-scenario `meal-plan` write was blocked because four recipe
+    // titles read "Chicken & Spinach". An *unquoted* delimiter is left in place
+    // by the helper, because expansion IS live in that body.
+    let command = &super::quoting::strip_quoted_heredoc_bodies(command);
     // The backtick check is deliberately NOT quote-aware: any backtick in the
     // command string is blocked, even inside a double-quoted literal. Over-
     // blocking is the safe direction here. (By contrast the `&` case below is
