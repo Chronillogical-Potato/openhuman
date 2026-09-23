@@ -392,7 +392,7 @@ pub async fn install_from_catalog(
 
     let params = crate::skills::ops_install::InstallWorkflowFromUrlParams {
         url,
-        timeout_secs: Some(60),
+        timeout_secs: Some(CATALOG_INSTALL_TIMEOUT_SECS),
     };
 
     crate::skills::ops_install::install_workflow_from_url(workspace_dir, params)
@@ -411,6 +411,18 @@ pub async fn install_from_catalog(
             }
         })
 }
+
+/// Wall-clock budget for a catalog-driven SKILL.md fetch.
+///
+/// Deliberately the same 15s as `download::PROBE_TIMEOUT_SECS` — the two bound
+/// requests to the same hosts in the same flow, so tuning one without the other
+/// is almost always a mistake. This path used the 60s
+/// `DEFAULT_INSTALL_TIMEOUT_SECS` instead, which is the documented default for
+/// the public `skills.install_from_url` tool and is left alone; a user clicking
+/// Install in the registry is waiting on a UI, not scripting a long fetch, and
+/// a minute of a disabled button with no reason was the whole of #6409's
+/// reported symptom.
+const CATALOG_INSTALL_TIMEOUT_SECS: u64 = 15;
 
 /// How many alternative ids an install error lists.
 const MAX_SUGGESTED_IDS: usize = 5;
