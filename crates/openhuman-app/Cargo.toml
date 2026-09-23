@@ -6,7 +6,7 @@
 
 [package]
 name = "openhuman-app"
-version = "0.63.29"
+version = "0.63.31"
 description = "OpenHuman - AI-powered Super Assistant"
 authors = ["OpenHuman"]
 edition = "2021"
@@ -40,7 +40,10 @@ openhuman-rpc = { path = "../openhuman-rpc", features = ["http-client"] }
 # boot. `default-features = false`: the shell controls every product gate
 # through the `openhuman_core` line above, and this crate must not re-enable
 # defaults behind `check-feature-forwarding`'s back.
-openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
+# `jev` is that crate's own gate (not a core gate, so not in
+# `scripts/ci/product-features.txt`): the Jev-backed `tool_search` ranker the
+# product ships.
+openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false, features = ["jev"] }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.
 tauri = { version = "2.11", default-features = false, features = [

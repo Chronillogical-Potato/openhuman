@@ -19,12 +19,12 @@ import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
 import { PttOverlayPage } from './pages/PttOverlayPage';
-import Rewards from './pages/Rewards';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
 import Welcome from './pages/Welcome';
 import WorkflowsRun from './pages/WorkflowsRun';
+import { IS_DEV } from './utils/config';
 
 interface AppRoutesProps {
   /**
@@ -215,15 +215,6 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
           first-level module — redirect surviving deep links to /flows. */}
       <Route path="/routines" element={<Navigate to="/flows" replace />} />
 
-      <Route
-        path="/rewards"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Rewards />
-          </ProtectedRoute>
-        }
-      />
-
       {/* Installed SKILL.md workflows remain a separate runtime surface from
           visual Flows. Keep the legacy top-level hub reachable. */}
       <Route
@@ -254,14 +245,25 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
 
       <Route path="/ptt-overlay" element={<PttOverlayPage />} />
 
-      {/* Dev-only visual preview of the Agentic task insights surface. */}
-      <Route path="/dev/agent-insights" element={<AgentInsightsPreview />} />
+      {/* Dev-only harnesses. Registered behind `IS_DEV` so their component
+          trees are dead code in a production build and drop out of the bundle
+          entirely — `import.meta.env.DEV` is substituted at build time, so
+          `false && <Route/>` folds away and the imports above become
+          unreferenced. These pages exist to preview UI in isolation and have
+          never been part of the shipped product; before this they were
+          registered unconditionally and every user downloaded them. */}
+      {IS_DEV && (
+        <>
+          {/* Visual preview of the Agentic task insights surface. */}
+          <Route path="/dev/agent-insights" element={<AgentInsightsPreview />} />
 
-      {/* Dev-only gallery of every shared UI primitive, in the active theme. */}
-      <Route path="/dev/ui" element={<UiGallery />} />
+          {/* Gallery of every shared UI primitive, in the active theme. */}
+          <Route path="/dev/ui" element={<UiGallery />} />
 
-      {/* Dev-only: the upstream assistant-ui `base` demo on a mock runtime. */}
-      <Route path="/dev/assistant-ui" element={<AssistantUiDemoPage />} />
+          {/* The upstream assistant-ui `base` demo on a mock runtime. */}
+          <Route path="/dev/assistant-ui" element={<AssistantUiDemoPage />} />
+        </>
+      )}
 
       {/* Default redirect based on auth status */}
       <Route path="*" element={<DefaultRedirect />} />

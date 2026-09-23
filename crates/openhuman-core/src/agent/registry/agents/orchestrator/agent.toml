@@ -49,9 +49,11 @@ omit_memory_md = false
 #     as the tool name, and the target's `when_to_use` as the
 #     LLM-visible tool description.
 #
-#   * `{ skills = "*" }` → one `SkillDelegationTool` per connected
-#     Composio toolkit, all routing to the generic `integrations_agent` with
-#     the toolkit slug pre-filled as `skill_filter`.
+#   * `{ skills = "*" }` → one `Deferred` action tool per action of every
+#     connected Composio toolkit. Off the wire, found through `tool_search`,
+#     called directly. This used to be a `delegate_to_integrations_agent`
+#     spawn; one clear service action is now a search and a call, and the
+#     wildcard admits no sub-agent id (`AgentDefinition::allowed_subagent_ids`).
 #
 # The orchestrator LLM sees these as first-class entries in its
 # function-calling schema, so routing decisions happen at the tool-
@@ -99,10 +101,10 @@ allowlist = [
     "researcher",
     "planner",
     "code_executor",
-    # Task-board/source/workflow specialist. Route any request to create,
-    # edit, approve/reject, fetch, clear, remove, or summarize agent tasks,
-    # proactive task sources, workflow bundles, task evidence, or artifacts
-    # here instead of letting the generic tools agent see the full family.
+    # Task-source/workflow/artifact specialist. Route any request to add,
+    # preview, fetch, update, remove, or summarize proactive task sources,
+    # workflow bundles, or artifacts here instead of letting the generic
+    # tools agent see the full family.
     "task_manager_agent",
     # Settings/system specialist. Route app/core config, diagnostics,
     # service lifecycle, update, proxy, health, model-health, and cost
@@ -120,7 +122,7 @@ allowlist = [
     "agent_memory",
     # Image-understanding specialist. Route anything that hinges on the content
     # of an attached or on-disk user-provided image file here — it rides the
-    # multimodal `vision-v1` tier, so it can actually see the image.
+    # multimodal `hint:vision` tier, so it can actually see the image.
     "vision_agent",
     # Image-generation specialist. Synthesised into a `delegate_create_image`
     # tool. Route make/generate/edit an image requests here — it owns prompt
@@ -148,21 +150,14 @@ allowlist = [
     # the agent enforces a strict read → simulate → confirm → execute
     # contract that the generic delegation surface does not.
     "crypto_agent",
-    # MCP setup specialist (#3039). Synthesised into a `delegate_setup_mcp_server`
-    # tool at agent-build time. Route any "install / add / set up / connect an MCP
-    # server" request here — the agent owns the full flow: search registries →
-    # request required secrets via a native dialog (raw values never enter the
-    # agent context) → test the connection → commit the install + connect. Without
-    # this entry the agent-native install path (issue #3039 gap B5) is unreachable
-    # from chat.
-    "mcp_setup",
     # MCP execution specialist. Synthesised into a `delegate_use_mcp_server`
     # tool at agent-build time. Route any request that should be fulfilled by
     # calling a tool on an ALREADY-CONNECTED MCP server (e.g. "answer from the
     # connected docs MCP", "query the connected X server") here — the agent
     # discovers connected servers, lists the chosen server's tools, and invokes
-    # the right one. Installing/connecting a NEW server still goes to
-    # `mcp_setup`; this entry is the missing "use what's connected" route
+    # the right one. Installing a NEW server is the user's own action in
+    # Connections → MCP Servers (mcp.json); this entry is the "use what's
+    # connected" route
     # (the orchestrator carries no `mcp_registry_*` tool itself and must not
     # carry every connected server's full toolset; #6302).
     "mcp_agent",
@@ -213,21 +208,34 @@ hint = "coding"
 # delegating.
 #
 # `composio_list_connections` lets the agent detect newly-authorised
-# integrations mid-session (the session-start fetch froze the Delegation
-# Guide's connected list). `composio_connect` lets it raise an inline
+# integrations mid-session (the session-start fetch froze the Connected
+# Integrations block). `composio_connect` lets it raise an inline
 # connect card for ANY toolkit the user asks to connect — including ones
 # not yet connected (#3993); the tool validates the slug against the
 # backend allowlist and the OAuth handoff itself runs inside the card.
-# Toolkit *action* listing and execution still live downstream in
-# `integrations_agent` — the orchestrator never calls composio_list_tools
-# / composio_execute directly.
+# Toolkit *actions* are the per-action `Deferred` tools synthesised from
+# `{ skills = "*" }` below and reached through `tool_search` — the
+# orchestrator never calls composio_list_tools / composio_execute directly.
 named = [
     # Tool packs add this proxy to the visible set when they withhold member
     # schemas. The hosted runtime also enforces this definition as its dispatch
     # allowlist, so the proxy must be declared here as well as injected there.
     "use_skill",
-    "read_workspace_state",
-    "ask_user_clarification",
+    # Not a registered tool: naming it opts this belt into on-demand tool
+    # discovery. Every registration marked `ToolExposure::Deferred` (rarely
+    # needed lookups such as `stock_*`, and the per-action / per-server /
+    # per-skill entries the long tail registers) stays off the wire and is
+    # reachable through the harness's intrinsic `tool_search` — ranked by Jev
+    # when the process has a TinyHumans credential, BM25 otherwise — and
+    # callable by name or via `tool_call` afterwards. The session builder
+    # strips this name from the allowlist and keeps the deferred set beside it
+    # (`agent/session_host/builder/builder_build.rs`).
+    "tool_search",
+    # `ask_user_clarification` is deliberately absent. On the chat surface it
+    # is a no-op with a schema cost: it ends the turn with the question as the
+    # reply, which is exactly what asking in prose does. It stays on the
+    # sub-agent belts, where a headless child has no other way to pause into
+    # `awaiting_user` for `continue_subagent`.
 # Direct coding surface. The Master Agent owns the normal inspect → edit →
 # verify loop in the action sandbox. `apply_patch` is the one edit mechanism
 # for existing files, `file_write` creates new files, and `shell` runs builds
@@ -318,7 +326,7 @@ named = [
     # is built from.
     "list_subagents",
     # Resume a sub-agent that paused on `ask_user_clarification` (#4291). When
-    # a delegated sub-agent (e.g. mcp_setup via `delegate_setup_mcp_server`)
+    # a delegated sub-agent (e.g. crypto_agent via `delegate_do_crypto`)
     # asks the user a question, the runner checkpoints it and the orchestrator
     # gets a `[SUBAGENT_AWAITING_USER]` envelope with the task_id/agent_id. The
     # orchestrator MUST resume that exact checkpoint with the user's answer via
@@ -333,9 +341,9 @@ named = [
     # allowlist and raises the in-chat Connect card.
     "composio_connect",
     # No `mcp_registry_*` and no `skill_registry_*` tools here (#6302). The
-    # orchestrator installs and uses MCP servers and skills only by handing the
-    # task to the specialist that owns the family: `setup_mcp_server`
-    # (mcp_setup), `use_mcp_server` (mcp_agent), `setup_skills` (skill_setup)
+    # orchestrator uses MCP servers and installs and uses skills only by handing
+    # the task to the specialist that owns the family: `use_mcp_server`
+    # (mcp_agent), `setup_skills` (skill_setup)
     # and `run_skill` (skill_executor), all synthesised from `[subagents]` and
     # advertised directly. With those hand-offs on its belt, the `integrations`
     # and `skills` packs are closed to it (`toolpacks::closed_by_direct_handoff`),
@@ -351,43 +359,27 @@ named = [
     # arithmetic to the leaf (which once computed "24h ago" ~10 months off and
     # missed the latest data). Never hand-compute Unix seconds.
     "resolve_time",
-    # Coding-harness coordination primitives from #1208. `todo` is the
-    # registered unified thread task-board tool (`TodoTool::name() == "todo"`);
-    # it gives the orchestrator a shared todo store to track multi-step work
-    # across delegations and is what the interactive plan-review gate hooks
-    # (WebChat turns stamp new cards `approval_mode = Required` → parked for
-    # user review). The named scope matches tool names exactly, so the
-    # orchestrator must list `todo` (not the legacy `todowrite` alias, which
-    # resolves to no registered tool) to be able to call it. `plan_exit` is the
-    # stable marker that the (forthcoming) plan→build mode runner consumes when
-    # a planner subagent hands a plan back up. The Master Agent now owns the
-    # normal inspect/edit/verify loop directly; specialised workers remain
-    # available for parallel or independent work.
+    # `todo` is the session todo list, Claude/Codex style: one whole-list
+    # write per call, scoped to this conversation thread (`TodoTool::name()
+    # == "todo"`; the legacy `todowrite` alias resolves to no registered
+    # tool). The chat orchestrator does not hold `request_plan_review`: a
+    # research or lookup question must never park the turn behind an approval
+    # card, and destructive actions are already gated by the shell/file
+    # approval layer. Planner and cron agents keep the plan-review tool.
+    # `plan_exit` left this belt with it: nothing consumes the marker.
     "todo",
-    # Interactive plan-review gate (Codex/Claude plan mode). After laying out a
-    # multi-step plan on an interactive turn, call `request_plan_review` to PAUSE
-    # the turn until the user approves / rejects / sends feedback — nothing
-    # executes until they approve. Auto-approves on non-interactive turns.
-    "request_plan_review",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);
     # `goal_get` reads it back (status + token budget); `goal_complete` closes it
-    # out only when evidence confirms success. Distinct from `todowrite` (this
-    # thread's task board) and the long-term `goals_*` list (cross-thread). The
+    # out only when evidence confirms success. Distinct from `todo` (this
+    # thread's step checklist) and the long-term `goals_*` list (cross-thread). The
     # harness injects the active goal into context each turn and can auto-continue
     # it when the thread goes idle, so keeping the objective current here is what
     # keeps that loop on-target.
     "goal_set",
     "goal_get",
     "goal_complete",
-    # `update_task` moves/updates a specific task card by id on a target board
-    # (defaults to the proactive `task-sources` board) — so the orchestrator can
-    # advance the task it's working: → in_progress when it starts, → done with
-    # evidence when finished, or → blocked with a reason when stuck. Complements
-    # `todowrite`, which only touches the current thread's board.
-    "update_task",
-    "plan_exit",
     # Workflow composition. `run_workflow` runs another workflow as a
     # subagent and (by default) waits on its result like a function call;
     # `await_workflow` re-attaches to a run that outlived its inline wait.

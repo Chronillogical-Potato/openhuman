@@ -41,13 +41,13 @@ const VOICE_AGENT_NAME: &str = "voice";
 /// Model pinned for realtime voice turns. The cloud voice session cancels a turn
 /// that has produced no spoken token in ~11-12s ("Generating the LLM response
 /// took too long"), and the orchestrator's default reasoning model spends that
-/// whole budget *thinking* before its first word. `chat-v1` (DeepSeek-V4-Flash,
+/// whole budget *thinking* before its first word. The chat route (DeepSeek-V4-Flash,
 /// thinking off) is a short-turn, tool-capable SKU: the master still routes
 /// delegation through the prompt (per-turn classification is disabled — see the
 /// model pin in `agent/session_host/turn/core.rs`), so tool turns keep working
 /// while spoken replies start in ~1s instead of ~6s. Reasoning models are the
 /// wrong tool for a latency-capped realtime channel.
-const VOICE_MODEL: &str = "chat-v1";
+const VOICE_MODEL: &str = "hint:chat";
 
 /// Spoken-output directive appended to the orchestrator profile so replies read
 /// naturally through TTS instead of as markdown.

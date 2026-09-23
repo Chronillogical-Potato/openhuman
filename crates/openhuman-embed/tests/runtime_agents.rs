@@ -205,7 +205,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             );
 
             // Layout: every agent has its own home, transcripts and action dir.
-            assert_eq!(alpha.home_dir(), workspace_dir.join("personalities/alpha"));
+            assert_eq!(alpha.home_dir(), workspace_dir.join("agents/alpha"));
             assert_eq!(alpha.transcripts_dir(), workspace_dir.join("session_raw"));
             assert_eq!(alpha.action_dir(), root_dir.join("agents/alpha/action"));
             assert!(alpha.action_dir().is_dir());
@@ -294,14 +294,43 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .flatten()
                 .map(|e| e.file_name().to_string_lossy().into_owned())
                 .collect();
-            assert!(
-                transcripts.iter().any(|f| f.ends_with("_alpha.jsonl")),
-                "alpha's transcript carries its id: {transcripts:?}"
-            );
-            assert!(
-                transcripts.iter().any(|f| f.ends_with("_beta.jsonl")),
-                "beta's transcript carries its id: {transcripts:?}"
-            );
+            // Asserted against names the writer itself produced, not a shape
+            // of our own. A turn's `session_id` is the raw session key the
+            // runtime minted; TinyAgents derives the transcript stem from it
+            // as `{key}-{digest}.{agent}-{digest}` (`session_stem`, with each
+            // component carrying a disambiguating digest). The previous
+            // `_alpha.jsonl` expectation predates that encoding — hosts used
+            // to mint `{unix_ts}_{agent}` stems — so it can no longer match.
+            for (agent_id, session_id) in [("alpha", &a1.session_id), ("beta", &b0.session_id)] {
+                let transcript = transcripts
+                    .iter()
+                    .find(|f| f.starts_with(&format!("{session_id}-")))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "{agent_id}'s transcript is derived from the session \
+                             the runtime returned ({session_id}): {transcripts:?}"
+                        )
+                    });
+                // ...and that transcript is scoped to its agent. The agent is
+                // the last `.`-separated component of the stem. Asserting its
+                // position and prefix rather than "contains the agent id":
+                // a substring would also be satisfied by an agent id that
+                // happened to appear in the session key, and would not fail if
+                // the agent scope were dropped from the stem altogether.
+                let stem = transcript
+                    .strip_suffix(".jsonl")
+                    .expect("a transcript file name ends in .jsonl");
+                let component = stem
+                    .rsplit('.')
+                    .next()
+                    .expect("rsplit always yields at least one component");
+                assert!(
+                    component.starts_with(&format!("{agent_id}-")),
+                    "{agent_id}'s transcript is scoped to its agent, so the final \
+                     stem component is `{agent_id}-<digest>`: {transcript}"
+                );
+            }
+
             let a2 = alpha
                 .turn("and again")
                 .session(&a1.session_id)

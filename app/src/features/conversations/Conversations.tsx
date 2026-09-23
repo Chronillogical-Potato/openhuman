@@ -15,6 +15,7 @@ import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
 import IntegrationConnectCard from '../../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
+import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
@@ -25,13 +26,16 @@ import {
   ChatThreadView,
   type ChatThreadViewHandle,
 } from '../../features/conversations/components/ChatThreadView';
+import { GoalBanner } from '../../features/conversations/components/GoalBanner';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
+import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
+import { useThreadHarnessState } from '../../features/conversations/hooks/useThreadHarnessState';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
@@ -43,6 +47,7 @@ import {
 } from '../../features/human/chatMascot';
 import MicComposer from '../../features/human/MicComposer';
 import { useFlowApprovalRequests } from '../../hooks/useFlowApprovalRequests';
+import { useUnroutedApprovals } from '../../hooks/useUnroutedApprovals';
 import { useUsageState } from '../../hooks/useUsageState';
 import {
   type Attachment,
@@ -415,6 +420,17 @@ const Conversations = ({
   // selected thread and surfaced regardless of which one is open.
   const { requests: flowApprovalRequests, dismiss: dismissFlowApprovalRequest } =
     useFlowApprovalRequests();
+  // Approvals no other surface will show: a background trigger run has no chat
+  // thread and no flow context, so the gate parks it, nothing asks the user,
+  // and it TTL-denies after 600s (#6406; general form #5746). Polled from the
+  // durable `approval_list_pending` queue rather than a socket event, because
+  // the whole point is that it can be raised while nobody is watching.
+  const {
+    approvals: unroutedApprovals,
+    decidingId: unroutedDecidingId,
+    error: unroutedApprovalError,
+    decide: decideUnroutedApproval,
+  } = useUnroutedApprovals();
   const pendingPlanReviewByThread = useAppSelector(
     state => state.chatRuntime.pendingPlanReviewByThread
   );
@@ -462,8 +478,11 @@ const Conversations = ({
     onCancel: () => {},
   });
   const [resolvedModel, setResolvedModel] = useState<string | null>(null);
-  // A picker choice belongs to this composer session. It overrides the model
-  // route for subsequent sends without mutating shared configuration.
+  // The composer's picker choice. It overrides the model route for subsequent
+  // sends immediately, and is also written to the core's `default_model` so
+  // the pick survives an app restart and is what every managed turn runs on
+  // (the same field Settings → Routing → "Default model" edits). `null` clears
+  // the pin back to the managed default.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
@@ -471,6 +490,24 @@ const Conversations = ({
   const [composerModelContextWindow, setComposerModelContextWindow] = useState<
     number | null | undefined
   >(undefined);
+  const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
+    setComposerModelOverride(value);
+    setComposerModelContextWindow(contextWindow ?? null);
+    void callCoreRpc({
+      method: 'openhuman.inference_update_model_settings',
+      params: { default_model: value ?? '' },
+    })
+      .then(() => {
+        console.debug('[chat][composer-model] persisted default_model', { pinned: value !== null });
+      })
+      .catch((err: unknown) => {
+        // The in-session override still applies; only persistence failed.
+        console.warn('[chat][composer-model] failed to persist default_model', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, []);
+
   // Whether the resolved model accepts image input.
   // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
   // the composer's image-attachment affordance (docs flow regardless). Resolved
@@ -480,7 +517,7 @@ const Conversations = ({
   // When it is, an image may be attached and routed to that sub-agent even if
   // the active orchestrator model is non-vision — the orchestrator sees a text
   // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload tier (vision-v1 on the managed backend, or the BYOK
+  // the `vision` workload route (the managed default on the managed backend, or the BYOK
   // model routed to the Vision workload).
   const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
 
@@ -1713,6 +1750,16 @@ const Conversations = ({
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
   );
+  // Harness work state the agent keeps for this thread — its todo list and
+  // the thread goal — read off the newest `todo` / `goal_*` tool results
+  // across this turn and the thread's settled turns
+  // (`hooks/useThreadHarnessState.ts`). Rendered above the composer next to
+  // the gate cards so a five-step task shows as a checklist ticking off while
+  // the agent works through it.
+  const { todoList, goal: threadGoal } = useThreadHarnessState(
+    selectedThreadId ?? null,
+    selectedThreadToolTimeline
+  );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // `TranscriptOverlays` resolves the open delegation out of this same live
   // timeline and renders nothing when the id is absent, so an inline card must
@@ -1727,7 +1774,7 @@ const Conversations = ({
   const memorySyncActive = useMemorySyncActive();
   // A plan the orchestrator parked for interactive review (request_plan_review
   // gate). When present, the PlanReviewCard renders above the composer and
-  // resolves the parked turn; the todo strip stays read-only progress.
+  // resolves the parked turn.
   const pendingPlanReview = selectedThreadId
     ? (pendingPlanReviewByThread[selectedThreadId] ?? null)
     : null;
@@ -1977,6 +2024,13 @@ const Conversations = ({
   // losing them; the two panels are mutually exclusive, so nothing doubles up.
   const agentGateCards = (
     <>
+      {/* Harness work state: the thread goal and the agent's todo list. Both
+          are read-only progress the agent wrote via its tools; they sit above
+          the gate cards so a parked decision is always the closest thing to
+          the composer. */}
+      {selectedThreadId && threadGoal && <GoalBanner goal={threadGoal} />}
+      {selectedThreadId && todoList && <TodoChecklist list={todoList} />}
+
       {/* Plan-mode review: the orchestrator parked the live turn on a
           thread-scoped plan (request_plan_review gate). Surface it for the
           user to Approve / Reject / send feedback on before anything executes;
@@ -2093,6 +2147,29 @@ const Conversations = ({
             key={request.request_id}
             request={request}
             onResolved={dismissFlowApprovalRequest}
+          />
+        ))}
+      </div>
+    ) : null;
+
+  // Background-approval surface: parks raised with no chat thread and no flow
+  // run. Sits beside the flow deck because it is the same affordance with a
+  // different origin, and is likewise not thread-scoped — a pending row has no
+  // thread to be scoped to, which is exactly why it had no surface.
+  const unroutedApprovalDeck =
+    unroutedApprovals.length > 0 ? (
+      <div className="mb-2 flex flex-col gap-2" data-testid="unrouted-approval-deck">
+        {unroutedApprovalError && (
+          <p className="text-xs text-destructive" role="alert">
+            {unroutedApprovalError}
+          </p>
+        )}
+        {unroutedApprovals.map(approval => (
+          <UnroutedApprovalCard
+            key={approval.request_id}
+            approval={approval}
+            busy={unroutedDecidingId !== null}
+            onDecide={decideUnroutedApproval}
           />
         ))}
       </div>
@@ -2304,6 +2381,8 @@ const Conversations = ({
 
         {flowApprovalDeck}
 
+        {unroutedApprovalDeck}
+
         {liveArtifactDeck}
 
         {agentGateCards}
@@ -2386,10 +2465,7 @@ const Conversations = ({
               ]}
               mascotDock={mascotDock}
               modelOverride={composerModelOverride ?? resolvedModel}
-              onModelOverrideChange={(value, contextWindow) => {
-                setComposerModelOverride(value);
-                setComposerModelContextWindow(contextWindow ?? null);
-              }}
+              onModelOverrideChange={applyComposerModel}
             />
           </>
         ) : (
@@ -2490,6 +2566,10 @@ const Conversations = ({
           banner carries the only Approve/Reject affordance — so they belong
           with the gates, above the transient banners. */}
       {flowApprovalDeck}
+      {/* Same reasoning, different origin: a background trigger's park blocks
+          until someone answers it, and this is the only place it is ever
+          asked. */}
+      {unroutedApprovalDeck}
       {attachError && (
         <div className="rounded-lg border border-coral-200 bg-coral-50 px-3 py-2">
           <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
@@ -2556,10 +2636,7 @@ const Conversations = ({
         // The settled turn's one-line footer opens the process rail on THAT
         // turn's trail, which the footer carries with the click.
         onOpenTurnProcess={setTurnProcessTrail}
-        onModelChange={(value, contextWindow) => {
-          setComposerModelOverride(value);
-          setComposerModelContextWindow(contextWindow ?? null);
-        }}
+        onModelChange={applyComposerModel}
       />
       {/* The three transcript-local modals. `ChatThreadView` hosts an identical
           trio, but it is the legacy panel's transcript and is not mounted here,

@@ -9,9 +9,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
-    CommitReceipt, PrefixSnapshot, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
-    SessionTurnRequest, ToolSnapshot, TranscriptCodec, TranscriptTarget, TurnOptions,
-    TurnPreparation,
+    CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
+    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnOptions, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
@@ -23,6 +22,10 @@ use crate::agent::{
     tinyagents::{host::OpenHumanRunContext, TurnContextMiddleware},
 };
 
+use super::announcement_notes::{
+    integration_announcement_note, mcp_announcement_note, skill_announcement_note,
+    skill_retraction_note,
+};
 use super::types::OpenHumanSessionHost;
 
 /// Mutable product state observed by the runtime hooks.
@@ -35,9 +38,10 @@ pub(super) struct OpenHumanSessionState {
     terminals: Vec<SessionTerminal>,
     pub(super) last_turn_hit_cap: bool,
     pub(super) last_turn_usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
-    context_middleware: Option<TurnContextMiddleware>,
+    pub(super) context_middleware: Option<TurnContextMiddleware>,
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
+    pub(super) active_turn_overrides: super::types::TurnOverrides,
     prelude: Option<OpenHumanTurnPrelude>,
     pub(crate) pending_citations:
         Option<tokio::task::JoinHandle<Vec<crate::memory::agent::memory_loader::MemoryCitation>>>,
@@ -91,6 +95,14 @@ struct OpenHumanTurnPrelude {
     mutable: Arc<std::sync::Mutex<OpenHumanTurnPreludeMutable>>,
 }
 
+pub(super) fn begin_turn_resume(state: &mut OpenHumanSessionState, resume: &mut ResumeMode) {
+    let overrides = std::mem::take(&mut state.pending_turn_overrides);
+    if overrides.suppress_transcript_autoload {
+        *resume = ResumeMode::Never;
+    }
+    state.active_turn_overrides = overrides;
+}
+
 /// Host-owned tool composition from which one runtime request is prepared.
 /// All three views are rebuilt together so a prompt schema, execution source,
 /// and fail-closed policy cannot describe different authority.
@@ -101,6 +113,13 @@ struct OpenHumanTurnToolSurface {
     durable_tool_specs: Arc<Vec<Arc<tinytools::ToolSpec>>>,
     visible_tool_specs: Arc<Vec<Arc<tinytools::ToolSpec>>>,
     visible_tool_names: std::collections::HashSet<String>,
+    /// Registered but never advertised: the `Deferred` tools the harness's
+    /// `tool_search` bridge can reach. Part of the snapshot the driver treats
+    /// as the final allowlist, and classified `Allow` by the policy, so a
+    /// found tool is callable. See `OpenHumanSessionHost::deferred_tool_names`.
+    deferred_tool_names: std::collections::HashSet<String>,
+    /// Whether this belt reaches deferred tools at all; fixed at build.
+    discovery_enabled: bool,
     /// Whether newly connected delegates may enter the visible belt without a
     /// caller explicitly allowing them. A hide/named restriction turns this
     /// off so refresh cannot reopen withdrawn authority.
@@ -170,10 +189,21 @@ impl OpenHumanTurnPrelude {
                 .tool_surface
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            // The snapshot is the declaration set the session grants — the
+            // driver reads it back as the harness allowlist — so it carries
+            // the deferred tools beside the advertised ones. The harness
+            // still advertises only the `Direct` registrations and reaches
+            // the rest through its `tool_search` bridge.
             ToolSnapshot::new(
                 surface
                     .visible_tool_specs
                     .iter()
+                    .chain(
+                        surface
+                            .tool_specs
+                            .iter()
+                            .filter(|spec| surface.deferred_tool_names.contains(&spec.name)),
+                    )
                     .map(|spec| spec.as_ref().clone())
                     .collect(),
             )
@@ -181,9 +211,8 @@ impl OpenHumanTurnPrelude {
         };
         let prefix = if cold {
             let learned = self.fetch_learned_context().await;
-            Some(PrefixSnapshot::new(vec![Message::system(
-                self.build_system_prompt(learned)?,
-            )]))
+            let tiered = self.build_system_prompt_tiered(learned)?;
+            Some(super::prefix_snapshot::tiered_prefix_snapshot(&tiered))
         } else {
             None
         };
@@ -306,10 +335,10 @@ impl OpenHumanTurnPrelude {
         }
     }
 
-    fn build_system_prompt(
+    fn build_system_prompt_tiered(
         &self,
         learned: crate::agent::prompts::LearnedContextData,
-    ) -> Result<String> {
+    ) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -327,8 +356,13 @@ impl OpenHumanTurnPrelude {
             .chain(surface.synthesized_tools.iter())
             .map(|tool| tool.as_ref())
             .collect::<Vec<_>>();
-        let prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
-        let visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        let mut prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
+        let mut visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        crate::agent::prompts::swap_deferred_for_discovery_bridge(
+            &mut prompt_tools,
+            &mut visible_tool_names,
+            &surface.deferred_tool_names,
+        );
         let agents_md = if self.config.agents_md_enabled {
             crate::agent::prompts::load_agents_md_layers(&self.workspace_dir, &self.action_dir)
         } else {
@@ -363,7 +397,7 @@ impl OpenHumanTurnPrelude {
         self.context
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .build_system_prompt(&context)
+            .build_system_prompt_tiered(&context)
     }
 
     async fn refresh_cold_integrations(&self) {
@@ -529,6 +563,20 @@ impl OpenHumanTurnPrelude {
             &mut surface.visible_tool_names,
             &agent_definition_name,
         );
+        // Same split as the session host's `recompute_deferred_tool_names`:
+        // a `Deferred` synthesised tool leaves the wire and joins the
+        // searchable set, on a belt that opted into discovery.
+        if surface.discovery_enabled {
+            let mut deferred =
+                crate::tools::implementations::meta::deferred_tool_names(surface.tools.as_slice());
+            deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+                synthesized.as_slice(),
+            ));
+            surface
+                .visible_tool_names
+                .retain(|name| !deferred.contains(name));
+            surface.deferred_tool_names = deferred;
+        }
 
         let specs = surface
             .durable_tool_specs
@@ -544,13 +592,27 @@ impl OpenHumanTurnPrelude {
             .chain(synthesized_tools.iter())
             .map(|tool| tool.as_ref())
             .collect::<Vec<_>>();
+        // Advertised plus deferred, like the session host: a deferred tool
+        // outside the set would be `HideFromPrompt`, which the direct-call
+        // gate refuses.
+        let reachable: std::collections::HashSet<String> = if surface.visible_tool_names.is_empty()
+        {
+            std::collections::HashSet::new()
+        } else {
+            surface
+                .visible_tool_names
+                .iter()
+                .chain(surface.deferred_tool_names.iter())
+                .cloned()
+                .collect()
+        };
         let mut policy = ToolPolicyEngine::build_session_from_refs(
             &surface.agent_definition_name,
             &surface.event_channel,
             "session",
             &self.config.channel_permissions,
             &all_tools,
-            &surface.visible_tool_names,
+            &reachable,
         );
         crate::tools::toolpacks::close_handed_off_packs(
             &mut policy,
@@ -658,10 +720,34 @@ impl OpenHumanTurnPrelude {
                 run_context.stop_hooks.push(Arc::new(hook));
             }
         }
+        // Build the roster from this turn's *effective* visible tool set
+        // (snapshotted under the tool-surface lock, then released) rather
+        // than the parent definition's static scope alone: a hide or named
+        // restriction can narrow what this turn can actually call below the
+        // definition's baseline, and the roster must not advertise a fleet
+        // control the turn cannot invoke.
+        let turn_fleet = {
+            let visible = self
+                .tool_surface
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .visible_tool_names
+                .clone();
+            if visible.is_empty() {
+                crate::agent::orchestration::fleet_tools::FleetToolSet::for_parent(
+                    &self.agent_definition_id,
+                )
+            } else {
+                crate::agent::orchestration::fleet_tools::FleetToolSet::from_visible_tool_names(
+                    &visible,
+                )
+            }
+        };
         if let Some(block) =
             crate::agent::orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
                 &self.workspace_dir,
+                &turn_fleet,
             )
         {
             context.push_str(&block);
@@ -683,12 +769,12 @@ impl OpenHumanTurnPrelude {
             .inject_agent_experience_context(original_user_message, enriched)
             .await;
 
-        let parent = self.parent_context();
+        let parent = run_context.attach_parent(self.parent_context());
         let (enriched_with_memory_agent, memory_agent_context_injected) = self
             .inject_triggered_memory_agent_context(
                 original_user_message,
                 enriched,
-                &parent,
+                parent,
                 overrides.suppress_memory_agent,
             )
             .await;
@@ -708,7 +794,6 @@ impl OpenHumanTurnPrelude {
         }
         self.apply_pending_announcements(&mut enriched);
 
-        run_context.parent = Some(parent);
         run_context.prepared_context_sources = Arc::new(prepared_sources);
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),
@@ -720,6 +805,14 @@ impl OpenHumanTurnPrelude {
             ),
         ));
         run_context.sandbox_mode = Some(self.sandbox_mode);
+        // Same pin as `SessionDriver::run_turn`: the harness speaks the dialect
+        // the prompt was composed for, so a text dialect keeps its schemas off
+        // the wire and renders the catalogue itself (`ToolsSection` no longer
+        // does), and a code call is recovered against the positional registry.
+        run_context.tool_dialect = crate::agent::prompts::tool_call_format_from_dialect(
+            self.tool_dispatcher.tool_call_format(),
+        )
+        .harness_dispatcher();
         run_context
             .stop_hooks
             .extend(crate::agent::stop_hooks::current_stop_hooks());
@@ -921,14 +1014,17 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn finalize_after_durable_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
-        self.flush_user_autosave().await;
+        if self.flush_user_autosave().await {
+            self.flush_assistant_autosave(receipt.outcome.output.as_deref())
+                .await;
+        }
         self.mirror_transcript_after_commit(receipt);
         self.spawn_transcript_ingestion_after_commit(receipt);
         self.spawn_session_memory_extraction_after_commit(receipt)
             .await;
     }
 
-    async fn flush_user_autosave(&self) {
+    async fn flush_user_autosave(&self) -> bool {
         let message = self
             .mutable
             .lock()
@@ -936,23 +1032,35 @@ impl OpenHumanTurnPrelude {
             .pending_user_autosave
             .take();
         let Some(message) = message else {
+            return false;
+        };
+        self.store_autosave_message("user_msg", &message).await
+    }
+
+    async fn flush_assistant_autosave(&self, message: Option<&str>) {
+        let Some(message) = message.filter(|message| !message.trim().is_empty()) else {
             return;
         };
-        let key = format!("user_msg:{}", uuid::Uuid::new_v4());
+        self.store_autosave_message("assistant_msg", message).await;
+    }
+
+    async fn store_autosave_message(&self, kind: &str, message: &str) -> bool {
+        let key = format!("{kind}:{}", uuid::Uuid::new_v4());
         if let Err(error) = self
             .memory
             .store(
                 crate::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
                 &key,
-                &message,
+                message,
                 crate::memory::MemoryCategory::Conversation,
                 self.thread_id.as_deref(),
             )
             .await
         {
-            log::warn!(
-                "[agent_autosave] durable user-message autosave failed key={key} err={error}"
-            );
+            log::warn!("[agent_autosave] durable message autosave failed kind={kind} key={key} err={error}");
+            false
+        } else {
+            true
         }
     }
 
@@ -1198,38 +1306,6 @@ fn render_agent_context_status_note(
     )
 }
 
-fn integration_announcement_note(slugs: &[String]) -> Option<String> {
-    (!slugs.is_empty()).then(|| format!(
-        "[integration update] These integration(s) connected during this conversation and are available right now: {}. \
-Use delegate_to_integrations_agent with the matching toolkit slug to act on them immediately — do not tell the user to reconnect or restart.",
-        slugs.join(", ")
-    ))
-}
-
-fn mcp_announcement_note(servers: &[String]) -> Option<String> {
-    (!servers.is_empty()).then(|| format!(
-        "[MCP update] These MCP server(s) connected during this conversation and are available right now: {}. \
-Use the use_mcp_server delegate to act on them immediately — do not tell the user to reconnect or restart.",
-        servers.join(", ")
-    ))
-}
-
-fn skill_announcement_note(skill_ids: &[String]) -> Option<String> {
-    (!skill_ids.is_empty()).then(|| format!(
-        "[skills update] These skill(s) were installed during this conversation and are available right now: {}. \
-They are in your `## Installed Skills` list — run one with `run_skill` immediately; do not tell the user to reinstall or restart.",
-        skill_ids.join(", ")
-    ))
-}
-
-fn skill_retraction_note(skill_ids: &[String]) -> Option<String> {
-    (!skill_ids.is_empty()).then(|| format!(
-        "[skills retracted] These skill(s) were uninstalled during this conversation and are no longer available: {}. \
-Do not attempt to run them with `run_skill` — they have been removed. Tell the user to reinstall if they want to use them again.",
-        skill_ids.join(", ")
-    ))
-}
-
 async fn collect_prelude_tree_roots(
     per_namespace_cap: usize,
     total_cap: usize,
@@ -1292,43 +1368,6 @@ impl OpenHumanSessionHost {
             .map_err(|error| anyhow::anyhow!(error.to_string()))
     }
 
-    /// Seed a cold runtime session from the lossless transcript selected for a
-    /// conversation thread. The original raw rows travel with the seed so the
-    /// next runtime append can reconcile rather than reserialize them.
-    pub fn seed_resume_from_thread_transcript(&mut self, thread_id: &str) -> bool {
-        self.seed_resume_from_thread_transcript_scoped(thread_id, None)
-    }
-
-    pub fn seed_resume_from_thread_transcript_scoped(
-        &mut self,
-        thread_id: &str,
-        agent_id: Option<&str>,
-    ) -> bool {
-        if self.runtime_session.is_some() {
-            return false;
-        }
-        let Some(handle) = self
-            .session_locator()
-            .root_for_thread_scoped(thread_id, agent_id)
-        else {
-            return false;
-        };
-        let Ok(Some(transcript)) = handle.read_session() else {
-            return false;
-        };
-        let Ok(history) = OpenHumanTranscriptCodec.decode_history(&transcript) else {
-            return false;
-        };
-        if history.is_empty() || self.ensure_runtime_session().is_err() {
-            return false;
-        }
-        self.runtime_session
-            .as_mut()
-            .expect("runtime session initialized")
-            .seed_history(history, transcript.messages)
-            .is_ok()
-    }
-
     /// Dispatch one public OpenHuman turn through the neutral runtime.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
         self.ensure_runtime_session()?;
@@ -1343,7 +1382,13 @@ impl OpenHumanSessionHost {
             request_id: crate::agent::turn_origin::current_request_id(),
             thread_id: self.thread_id.clone(),
             stream: self.on_progress.is_some(),
-            resume: if self
+            session: self.session.clone(),
+            resume: if self.session.is_some() {
+                // Exact, identity-keyed resume. Unlike `LatestForAgent` it
+                // cannot splice a different thread's transcript into this
+                // turn, and the file it reads is the file the turn appends to.
+                ResumeMode::Session
+            } else if self
                 .runtime_session
                 .as_ref()
                 .is_some_and(|session| session.history().is_empty())
@@ -1368,7 +1413,7 @@ impl OpenHumanSessionHost {
         Ok(outcome.output.unwrap_or_default())
     }
 
-    fn ensure_runtime_session(&mut self) -> Result<()> {
+    pub(in crate::agent::session_host) fn ensure_runtime_session(&mut self) -> Result<()> {
         if self.runtime_session.is_some() {
             return Ok(());
         }
@@ -1389,11 +1434,19 @@ impl OpenHumanSessionHost {
                 context.autocompact_enabled(),
             )
         };
+        let artifact_store = super::artifact_wiring::build_artifact_store(
+            self.workspace_descriptor.as_ref(),
+            &self.action_dir,
+            &self.event_session_id,
+        );
+
         let context_mw = TurnContextMiddleware {
             tool_result_budget_bytes,
             payload_summarizer: self.payload_summarizer.clone(),
             task_hint: None,
-            artifact_store: None,
+            // Was `None` in both production constructors; `artifact_wiring`
+            // documents why its root is the correctness question (#6408, #6483).
+            artifact_store: Some(artifact_store),
             tokenjuice_compaction_enabled,
             tokenjuice_compression: self.tokenjuice_compression,
             runtime_config: self.runtime_config.clone(),
@@ -1408,6 +1461,7 @@ impl OpenHumanSessionHost {
             self.model_name.clone(),
             self.temperature,
             self.config.max_tool_iterations,
+            self.config.max_history_messages,
             self.model_vision,
             self.run_queue.clone(),
             self.workspace_descriptor.clone(),
@@ -1417,12 +1471,24 @@ impl OpenHumanSessionHost {
             self.hosted_base.clone(),
             self.agent_definition_id.clone(),
         ));
-        let resume_target = TranscriptTarget::new(
-            self.session_locator(),
-            self.runtime_transcript_stem(),
-            self.runtime_transcript_meta(),
-        )
-        .with_resume_agent(self.agent_definition_name.clone());
+        // A thread-bound root session addresses its transcript by durable
+        // identity, so a restart appends to the conversation's own file rather
+        // than minting a new stem and resuming whichever one happens to be
+        // newest. Everything else — sub-agents, unthreaded CLI turns — keeps
+        // the stem path, where a fresh transcript per run is correct.
+        let resume_target = match self.session.clone() {
+            Some(session) => TranscriptTarget::for_session(
+                self.session_locator(),
+                session,
+                self.runtime_transcript_meta(),
+            ),
+            None => TranscriptTarget::new(
+                self.session_locator(),
+                self.runtime_transcript_stem(),
+                self.runtime_transcript_meta(),
+            )
+            .with_resume_agent(self.agent_definition_name.clone()),
+        };
         {
             let mut state = self
                 .runtime_state
@@ -1465,23 +1531,7 @@ impl OpenHumanSessionHost {
                 run_queue: self.run_queue.clone(),
                 allowed_subagent_ids: self
                     .resolved_definition()
-                    .map(|definition| {
-                        definition
-                            .subagents
-                            .iter()
-                            .filter_map(|entry| match entry {
-                                crate::agent::harness::definition::SubagentEntry::AgentId(id) => {
-                                    Some(id.clone())
-                                }
-                                crate::agent::harness::definition::SubagentEntry::Skills(
-                                    wildcard,
-                                ) if wildcard.matches_all() => {
-                                    Some("integrations_agent".to_string())
-                                }
-                                crate::agent::harness::definition::SubagentEntry::Skills(_) => None,
-                            })
-                            .collect()
-                    })
+                    .map(|definition| definition.allowed_subagent_ids().into_iter().collect())
                     .unwrap_or_default(),
                 sandbox_mode: self
                     .resolved_definition()
@@ -1496,6 +1546,8 @@ impl OpenHumanSessionHost {
                     durable_tool_specs: self.durable_tool_specs.clone(),
                     visible_tool_specs: self.visible_tool_specs.clone(),
                     visible_tool_names: self.visible_tool_names.clone(),
+                    deferred_tool_names: self.deferred_tool_names.clone(),
+                    discovery_enabled: self.discovery_enabled,
                     auto_include_new_synthesized_tools: true,
                     synthesized_tool_names: self.synthesized_tool_names.clone(),
                     tool_policy_session: self.tool_policy_session.clone(),
@@ -1524,8 +1576,15 @@ impl OpenHumanSessionHost {
         let hooks = Arc::new(OpenHumanSessionHooks::new(
             {
                 let resume_target = resume_target.clone();
-                move |_, _, _| {
+                let state = self.runtime_state.clone();
+                move |_, options, _| {
                     let resume_target = resume_target.clone();
+                    begin_turn_resume(
+                        &mut state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+                        &mut options.resume,
+                    );
                     Box::pin(async move {
                         Ok(ResumePreparation {
                             transcript: Some(resume_target),
@@ -1539,13 +1598,9 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    let resumed_prefix = view.resumed.then(|| {
-                        view.history
-                            .first()
-                            .filter(|message| matches!(message, Message::System(_)))
-                            .cloned()
-                            .map(|message| PrefixSnapshot::new(vec![message]))
-                    });
+                    let resumed_prefix = view
+                        .resumed
+                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
@@ -1566,10 +1621,6 @@ impl OpenHumanSessionHost {
                         prelude
                             .refresh_turn_boundary(!view.resumed && view.history.is_empty())
                             .await;
-                        // The driver resolves the same model source, but the
-                        // host sidecar needs this metadata before either the
-                        // successful or partial runtime append asks the codec
-                        // for atomic billing data.
                         let context_window = prelude
                             .turn_model_source
                             .effective_context_window(&prelude.model_name)
@@ -1593,7 +1644,7 @@ impl OpenHumanSessionHost {
                             &mut state
                                 .lock()
                                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                                .pending_turn_overrides,
+                                .active_turn_overrides,
                         );
                         let enriched = prelude
                             .enrich_request(
@@ -1620,10 +1671,6 @@ impl OpenHumanSessionHost {
                             policy_channel,
                         ) = prelude.current_tool_source();
                         if overrides.suppress_tools {
-                            // The execution source must narrow with the wire
-                            // snapshot. Leaving instances here would make a
-                            // tool-less override advisory instead of a hard
-                            // authority boundary.
                             current_tools = Arc::new(Vec::new());
                             current_synthesized_tools = Arc::new(Vec::new());
                         }
@@ -1648,11 +1695,6 @@ impl OpenHumanSessionHost {
                                 session: policy_session,
                                 session_id: policy_session_id,
                                 channel: policy_channel,
-                                // This is the stable agent definition key
-                                // used for driver diagnostics and policy
-                                // enforcement. The mutable surface carries
-                                // its current display name separately when it
-                                // rebuilds the policy session.
                                 agent_definition_id: prelude.agent_definition_id.clone(),
                             });
                         options.run_context.data.required_output = state
@@ -1753,15 +1795,7 @@ impl OpenHumanSessionHost {
                             .pending_citations
                             .take();
                         if let Some(prelude) = prelude {
-                            // `after_commit` is only reached after runtime
-                            // transcript durability. Every host write below is
-                            // therefore receipt-gated.
                             prelude.finalize_after_durable_commit(&receipt).await;
-                            // Account the same committed direct + child totals
-                            // that the codec atomically attached to the
-                            // transcript. A continuation's suppression state
-                            // is intentionally cleared by the goals runtime
-                            // only after this receipt exists.
                             account_committed_turn_against_goal(
                                 &prelude.workspace_dir,
                                 receipt.options.context.thread_id.as_deref(),
@@ -1830,10 +1864,24 @@ impl OpenHumanSessionHost {
                 }
             },
         ));
+        // Bind the transcript at construction for a thread-bound session,
+        // rather than leaving it to the per-turn `before_resume` hook. The
+        // hook still supplies the same target, but binding it here means the
+        // session knows its own durable destination before any turn runs —
+        // which is what lets a host read the conversation back without
+        // driving a provider first.
+        let mut builder = SessionBuilder::new(driver)
+            .codec(Arc::new(OpenHumanTranscriptCodec))
+            .hooks(hooks);
+        if let Some(session) = self.session.clone() {
+            builder = builder.session(
+                self.session_locator(),
+                session,
+                self.runtime_transcript_meta(),
+            );
+        }
         self.runtime_session = Some(
-            SessionBuilder::new(driver)
-                .codec(Arc::new(OpenHumanTranscriptCodec))
-                .hooks(hooks)
+            builder
                 .build()
                 .map_err(|error| anyhow::anyhow!(error.to_string()))?,
         );
@@ -1875,6 +1923,8 @@ impl OpenHumanSessionHost {
             durable_tool_specs: self.durable_tool_specs.clone(),
             visible_tool_specs: self.visible_tool_specs.clone(),
             visible_tool_names: self.visible_tool_names.clone(),
+            deferred_tool_names: self.deferred_tool_names.clone(),
+            discovery_enabled: self.discovery_enabled,
             auto_include_new_synthesized_tools: auto_include_new_synthesized_tools
                 .unwrap_or(prior_auto_include),
             synthesized_tool_names: self.synthesized_tool_names.clone(),
@@ -1892,7 +1942,9 @@ impl OpenHumanSessionHost {
         }
     }
 
-    fn session_locator(&self) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
+    pub(in crate::agent::session_host) fn session_locator(
+        &self,
+    ) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
         self.session_history_locator.clone().unwrap_or_else(|| {
             Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
                 self.workspace_dir.clone(),
@@ -1926,6 +1978,11 @@ impl OpenHumanSessionHost {
             charged_amount_usd: 0.0,
             thread_id: self.thread_id.clone(),
             task_id: None,
+            session_id: self.session.as_ref().map(|session| session.session_id()),
+            parent_session_id: self
+                .session
+                .as_ref()
+                .and_then(|session| session.parent_session_id()),
         }
     }
 }

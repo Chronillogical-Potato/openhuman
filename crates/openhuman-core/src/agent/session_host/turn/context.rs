@@ -215,8 +215,14 @@ impl OpenHumanSessionHost {
         // prompt build. The synthesised delegates belong here: the catalogue
         // this renders is what tells the model a `delegate_*` tool exists.
         let all_tools = self.all_tool_refs();
-        let prompt_tools = PromptTool::from_tool_refs(all_tools.iter().copied());
-        let prompt_visible_tool_names = self.tool_policy_session.visible_tool_names_for_prompt();
+        let mut prompt_tools = PromptTool::from_tool_refs(all_tools.iter().copied());
+        let mut prompt_visible_tool_names =
+            self.tool_policy_session.visible_tool_names_for_prompt();
+        crate::agent::prompts::swap_deferred_for_discovery_bridge(
+            &mut prompt_tools,
+            &mut prompt_visible_tool_names,
+            &self.deferred_tool_names,
+        );
         // Load AGENTS.md instruction layers once per system-prompt build (never
         // re-read per turn — the caller builds the prompt once at session start
         // and reuses the bytes, preserving the frozen-prefix / KV-cache

@@ -41,7 +41,7 @@ fn cli_model_and_provider_flags_override_the_loaded_session_without_persisting()
     }
     assert_eq!(
         result.get("default_model").and_then(Value::as_str),
-        Some("chat-v1"),
+        Some("openrouter/deepseek/deepseek-v4-flash"),
         "a local route override must not replace the managed default model"
     );
 

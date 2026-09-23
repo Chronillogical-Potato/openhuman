@@ -158,7 +158,7 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     },
     ToolFamily {
         id: "mcp_manage",
-        rust_names: &["mcp_registry_install", "mcp_registry_uninstall"],
+        rust_names: &["mcp_registry_uninstall"],
         default_enabled: false,
     },
     ToolFamily {
@@ -188,7 +188,7 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     // expansion). Only the destructive/persistent-config mutators are listed
     // here so the onboarding toggle surface can default them OFF and let users
     // opt in; the read-only + bounded-write siblings (e.g. `artifact_list`,
-    // `todo_add`, `task_source_fetch`) are intentionally NOT listed, so they
+    // `task_source_fetch`) are intentionally NOT listed, so they
     // are always-retained infrastructure. Grouped one toggle per risk family.
     ToolFamily {
         id: "agent_workflow_uninstall",
@@ -198,11 +198,6 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     ToolFamily {
         id: "artifact_delete",
         rust_names: &["artifact_delete"],
-        default_enabled: false,
-    },
-    ToolFamily {
-        id: "todo_destructive",
-        rust_names: &["todo_remove", "todo_replace", "todo_clear"],
         default_enabled: false,
     },
     ToolFamily {

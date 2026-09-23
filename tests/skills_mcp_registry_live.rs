@@ -243,16 +243,19 @@ async fn live_every_skill_catalog_source_offers_installable_skills() {
     );
 }
 
-/// A server found in the official MCP registry installs, connects, lists tools,
-/// and answers a tool call.
+/// A server found in the official MCP registry, declared in `mcp.json` from
+/// its own listing, connects, lists tools, and answers a tool call.
 ///
-/// Walks the search results for `OPENHUMAN_LIVE_MCP_QUERY` and takes the first
-/// server that connects without credentials, then calls one of its tools that
-/// needs no arguments. Requires `npx` (or `uvx`) on PATH for stdio servers.
+/// Walks the search results for `OPENHUMAN_LIVE_MCP_QUERY`, reads each entry's
+/// detail the way a user reading its page would, writes the declaration the
+/// listing implies (`url` for a hosted endpoint, else the stdio command), and
+/// takes the first server that connects without credentials, then calls one
+/// of its tools that needs no arguments. Requires `npx` (or `uvx`) on PATH for
+/// stdio servers.
 #[cfg(feature = "mcp")]
 #[tokio::test]
 #[ignore = "live: official MCP registry + npm/pypi packages"]
-async fn live_official_mcp_registry_server_installs_connects_and_answers_a_tool_call() {
+async fn live_official_mcp_registry_server_declares_connects_and_answers_a_tool_call() {
     let _lock = env_lock();
     let stack = live_stack().await;
     let query = std::env::var("OPENHUMAN_LIVE_MCP_QUERY").unwrap_or_else(|_| "everything".into());
@@ -284,27 +287,87 @@ async fn live_official_mcp_registry_server_installs_connects_and_answers_a_tool_
             continue;
         };
 
-        let server_id = match rpc(
+        // What the listing says about dialling it — the same facts a user reads
+        // off the server's page before writing their mcp.json entry.
+        let detail = match rpc(
             &stack,
-            "openhuman.mcp_clients_install",
-            json!({ "qualified_name": name, "env": {} }),
+            "openhuman.mcp_clients_registry_get",
+            json!({ "qualified_name": name }),
         )
         .await
         {
-            Ok(installed) => match installed
-                .pointer("/server/server_id")
+            Ok(detail) => detail,
+            Err(error) => {
+                attempts.push(format!("{name}: registry_get failed: {error}"));
+                continue;
+            }
+        };
+        let connections = detail
+            .pointer("/server/connections")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let hosted = connections.iter().find_map(|c| {
+            let kind = c.get("type").and_then(Value::as_str)?;
+            matches!(kind, "http" | "http_remote" | "sse")
+                .then(|| c.get("deployment_url").or_else(|| c.get("deploymentUrl")))
+                .flatten()
                 .and_then(Value::as_str)
-            {
-                Some(id) => id.to_string(),
-                None => {
-                    attempts.push(format!(
-                        "{name}: install returned no server_id: {installed}"
-                    ));
+                .map(str::to_string)
+        });
+        let declaration = match hosted {
+            Some(url) => json!({ "url": url }),
+            None => {
+                let example = connections.iter().find_map(|c| {
+                    (c.get("type").and_then(Value::as_str) == Some("stdio"))
+                        .then(|| c.get("example_config").or_else(|| c.get("exampleConfig")))
+                        .flatten()
+                });
+                match example
+                    .and_then(|e| e.get("command"))
+                    .and_then(Value::as_str)
+                {
+                    Some(command) => json!({
+                        "command": command,
+                        "args": example.and_then(|e| e.get("args")).cloned().unwrap_or(json!([])),
+                    }),
+                    None => json!({ "command": "npx", "args": ["-y", name] }),
+                }
+            }
+        };
+
+        let server_id = match rpc(
+            &stack,
+            "openhuman.mcp_clients_config_set",
+            json!({ "mcpServers": { name: declaration } }),
+        )
+        .await
+        {
+            Ok(_) => match rpc(&stack, "openhuman.mcp_clients_installed_list", json!({})).await {
+                Ok(listed) => match listed
+                    .get("installed")
+                    .and_then(Value::as_array)
+                    .and_then(|rows| {
+                        rows.iter().find(|row| {
+                            row.get("qualified_name").and_then(Value::as_str) == Some(name)
+                        })
+                    })
+                    .and_then(|row| row.get("server_id"))
+                    .and_then(Value::as_str)
+                {
+                    Some(id) => id.to_string(),
+                    None => {
+                        attempts.push(format!("{name}: declared but not listed: {listed}"));
+                        continue;
+                    }
+                },
+                Err(error) => {
+                    attempts.push(format!("{name}: installed_list failed: {error}"));
                     continue;
                 }
             },
             Err(error) => {
-                attempts.push(format!("{name}: install failed: {error}"));
+                attempts.push(format!("{name}: config_set refused: {error}"));
                 continue;
             }
         };
@@ -357,7 +420,7 @@ async fn live_official_mcp_registry_server_installs_connects_and_answers_a_tool_
         {
             Ok(called) if called.get("is_error").and_then(Value::as_bool) == Some(false) => {
                 eprintln!(
-                    "\n{name}: installed, connected, {} tools, `{tool_name}` answered",
+                    "\n{name}: declared, connected, {} tools, `{tool_name}` answered",
                     tools.len()
                 );
                 return;
@@ -370,7 +433,7 @@ async fn live_official_mcp_registry_server_installs_connects_and_answers_a_tool_
     }
 
     panic!(
-        "no server from the official registry search {query:?} installed, connected and answered a tool call:\n  {}",
+        "no server from the official registry search {query:?} declared, connected and answered a tool call:\n  {}",
         attempts.join("\n  ")
     );
 }

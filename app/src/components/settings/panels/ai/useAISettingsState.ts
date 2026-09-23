@@ -56,7 +56,14 @@ function toPanelRoutingFromApi(api: ApiAISettings): { panel: AISettings } {
     learning: liftRef(api.routing.learning),
     subconscious: liftRef(api.routing.subconscious),
   };
-  return { panel: { cloudProviders, routing, modelRegistry: api.modelRegistry } };
+  return {
+    panel: {
+      cloudProviders,
+      routing,
+      modelRegistry: api.modelRegistry,
+      defaultModel: api.defaultModel ?? '',
+    },
+  };
 }
 
 function toApiSettings(panel: AISettings): ApiAISettings {
@@ -81,6 +88,7 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       subconscious: panel.routing.subconscious,
     },
     modelRegistry: panel.modelRegistry,
+    defaultModel: panel.defaultModel ?? '',
   };
 }
 
@@ -259,8 +267,8 @@ export function useOllamaStatus() {
 
 export function useInstalledModels(snapshot: LocalProviderSnapshot | null): OllamaModel[] {
   // Hide embedding-only models (e.g. `bge-m3`) from every LLM/chat workload
-  // picker — both consumers of this hook (CustomRoutingDialog and
-  // GlobalOwnModelSelector) route a chat model, never the embedder (which is
+  // picker — the consumer of this hook (CustomRoutingDialog) routes a chat
+  // model, never the embedder (which is
   // configured separately in EmbeddingsPanel). Selecting an embedding model as
   // chat 400s every turn on Ollama (TAURI-RUST-4P6). Filter + map live in the
   // pure, unit-tested `toSelectableChatModels` helper.

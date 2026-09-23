@@ -203,8 +203,6 @@ export interface AgentRun {
   status: AgentRunStatus;
   promptRef?: string | null;
   workerThreadId?: string | null;
-  taskBoardId?: string | null;
-  taskCardId?: string | null;
   checkpointPath?: string | null;
   checkpoint?: Record<string, unknown> | null;
   summary?: string | null;

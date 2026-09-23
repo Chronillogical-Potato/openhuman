@@ -120,8 +120,8 @@ pub fn cached_active_integrations(config: &Config) -> Option<Vec<ConnectedIntegr
 ///
 /// Intended ONLY as a transient-failure fallback: when a live fetch reports
 /// `Unavailable`/times out, preserving the last-known integrations is strictly
-/// better than collapsing the delegation surface to an empty set (which drops
-/// `delegate_to_integrations_agent` and silently disables channel tool-calling).
+/// better than collapsing the integration surface to an empty set (which drops
+/// every searchable integration action and silently disables channel tool-calling).
 /// Without this, a backend blip that lands just after the 60 s TTL expiry still
 /// wipes tool-calling despite having a perfectly good previous snapshot. A fresh
 /// fetch repopulates the cache the moment the backend recovers, so the stale

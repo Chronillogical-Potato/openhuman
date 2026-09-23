@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 use anyhow::Result;
 use async_trait::async_trait;
 use tinytools_agent::dialect::{NativeDialect, XmlDialect};

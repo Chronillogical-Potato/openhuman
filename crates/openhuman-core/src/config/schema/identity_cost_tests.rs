@@ -4,9 +4,7 @@ use super::*;
 fn cost_config_defaults() {
     let c = CostConfig::default();
     assert!(c.enabled);
-    assert_eq!(c.daily_limit_usd, 10.0);
     assert_eq!(c.monthly_limit_usd, 100.0);
-    assert_eq!(c.warn_at_percent, 80);
     assert!(!c.prices.is_empty());
     assert!(c.dashboard.enabled);
     assert_eq!(c.dashboard.currency, "USD");
@@ -31,10 +29,20 @@ fn cost_dashboard_config_serde_roundtrip() {
     assert!((c.dashboard.alert_threshold - 0.9).abs() < f64::EPSILON);
 }
 
+/// Pre-existing failure, unrelated to the spend cap: dc5c014da consolidated
+/// pricing onto a single managed default and left this asserting `>= 3`, which
+/// `get_default_pricing` — one entry — can never satisfy. Pinning the entry
+/// that must exist says what the default pricing is actually for; a count says
+/// nothing and goes stale the next time the catalogue is consolidated.
 #[test]
 fn cost_config_default_pricing_has_known_models() {
     let c = CostConfig::default();
-    assert!(c.prices.len() >= 3);
+    assert!(
+        c.prices
+            .contains_key(crate::config::schema::types::MODEL_MANAGED_DEFAULT),
+        "default pricing must cover the managed default model; got {:?}",
+        c.prices.keys().collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -42,7 +50,6 @@ fn cost_config_serde_roundtrip() {
     let c = CostConfig::default();
     let json = serde_json::to_string(&c).unwrap();
     let back: CostConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.daily_limit_usd, 10.0);
     assert_eq!(back.monthly_limit_usd, 100.0);
 }
 
@@ -50,15 +57,29 @@ fn cost_config_serde_roundtrip() {
 fn cost_config_toml_with_custom_values() {
     let toml = r#"
         enabled = true
-        daily_limit_usd = 50.0
         monthly_limit_usd = 500.0
-        warn_at_percent = 90
     "#;
     let c: CostConfig = toml::from_str(toml).unwrap();
     assert!(c.enabled);
-    assert_eq!(c.daily_limit_usd, 50.0);
     assert_eq!(c.monthly_limit_usd, 500.0);
-    assert_eq!(c.warn_at_percent, 90);
+}
+
+/// Every install that ran a build with the daily cap still has
+/// `daily_limit_usd` in its `config.toml`. Retiring the field must not make
+/// those files unparseable: `CostConfig` does not `deny_unknown_fields`, so the
+/// key is accepted and ignored. If that ever changes, every such user fails to
+/// load their config on upgrade — a far worse bug than the cap was.
+#[test]
+fn retired_daily_limit_key_is_accepted_and_ignored() {
+    let toml = r#"
+        enabled = true
+        daily_limit_usd = 10.0
+        monthly_limit_usd = 500.0
+    "#;
+    let c: CostConfig =
+        toml::from_str(toml).expect("a config carrying the retired daily key must still parse");
+    assert!(c.enabled);
+    assert_eq!(c.monthly_limit_usd, 500.0);
 }
 
 #[test]

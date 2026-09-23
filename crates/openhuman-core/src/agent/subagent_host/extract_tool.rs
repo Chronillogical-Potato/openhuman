@@ -9,10 +9,10 @@
 //! directly. Both the provider AND the model id are resolved by the runner
 //! through the `summarization` role (`create_chat_provider("summarization")`)
 //! and handed in, so this extraction follows the user's `memory_provider`
-//! routing — managed (`summarization-v1`), BYOK, or local — exactly like every
+//! routing — managed (`hint:summarization`), BYOK, or local — exactly like every
 //! other summarization path, instead of borrowing the parent agent's provider
 //! with a hardcoded tier string (which 400'd on BYOK/local providers that don't
-//! know the literal `summarization-v1`).
+//! know the literal `hint:summarization`).
 //!
 //! Transcript discipline: the LLM call still costs tokens, so every
 //! extraction round-trip is persisted as its own `session_raw/` JSONL (+
@@ -604,6 +604,8 @@ fn write_extract_transcript(
     };
 
     let meta = TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: format!("{owner_agent_id}::extract_from_result"),
         agent_id: Some(owner_agent_id.to_string()),
         agent_type: Some("extractor".to_string()),

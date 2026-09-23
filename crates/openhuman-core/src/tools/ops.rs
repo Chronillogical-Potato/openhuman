@@ -183,7 +183,7 @@ pub fn all_tools_with_runtime(
         // (checkpoint → `AwaitingUser`, see `subagent_host`) and
         // the orchestrator resumes them via `continue_subagent` (#4291).
         // Several agent scopes (orchestrator, crypto, markets, scheduler,
-        // mcp_setup, desktop control) name it, so it must exist in the base
+        // desktop control) name it, so it must exist in the base
         // registry or none of them can actually ask the user anything.
         Box::new(AskClarificationTool::new()),
         // Read-only project overview (git status, recent commits, top-level
@@ -210,20 +210,13 @@ pub fn all_tools_with_runtime(
         // checkpointed to the session DB. Heavier than spawn_subagent; for
         // sub-tasks that benefit from a self-review/revision loop.
         Box::new(DelegateGraphTool::new()),
-        // Coding-harness control flow (issue #1205): a process-global
-        // todo registry the agent can rewrite end-to-end, plus the
-        // `plan_exit` marker that hands a plan-mode pass off to a
-        // build-mode pass. The plan→build mode switch itself is a
-        // follow-up; the tool emits a stable marker today.
+        // The session todo list (Claude/Codex style): one whole-list write per
+        // call, scoped to the conversation thread. `plan_exit` is the marker
+        // that hands a plan-mode pass off to a build-mode pass.
         Box::new(TodoTool::new()),
         // Interactive plan-review gate: parks the live turn on a thread-scoped
         // plan the user must approve before execution (Codex/Claude plan mode).
         Box::new(crate::agent::plan_review::RequestPlanReviewTool::new()),
-        // Move/update a specific task card by id on a target board (defaults to
-        // the proactive `task-sources` board) — lets the agent advance the task
-        // it's working (in_progress / done+evidence / blocked+reason) from any
-        // thread, complementing `todo` which only touches the current thread.
-        Box::new(UpdateTaskTool::new()),
         Box::new(PlanExitTool::new()),
         // Workflow composition: `run_workflow` runs another workflow as a
         // subagent and (by default) waits on its result like a function call;
@@ -538,22 +531,13 @@ pub fn all_tools_with_runtime(
         Box::new(LearningEnrichProfileTool),
         // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
-        // destructive/overextending siblings (artifact_delete, todo_remove/
-        // replace/clear, task_source_add/update/remove) are registered too
-        // but ship default-OFF via `tools::user_filter` (their toggle IDs
-        // default off in onboarding). The per-call permission ladder still
-        // gates them.
+        // destructive/overextending siblings (artifact_delete,
+        // task_source_add/update/remove) are registered too but ship
+        // default-OFF via `tools::user_filter` (their toggle IDs default off
+        // in onboarding). The per-call permission ladder still gates them.
         Box::new(ArtifactListTool::new(config.clone())),
         Box::new(ArtifactGetTool::new(config.clone())),
         Box::new(ArtifactDeleteTool::new(config.clone())),
-        Box::new(TodoListTool::new(config.clone())),
-        Box::new(TodoAddTool::new(config.clone())),
-        Box::new(TodoEditTool::new(config.clone())),
-        Box::new(TodoUpdateStatusTool::new(config.clone())),
-        Box::new(TodoDecidePlanTool::new(config.clone())),
-        Box::new(TodoRemoveTool::new(config.clone())),
-        Box::new(TodoReplaceTool::new(config.clone())),
-        Box::new(TodoClearTool::new(config.clone())),
         Box::new(TaskSourceListTool::new(config.clone())),
         Box::new(TaskSourceGetTool::new(config.clone())),
         Box::new(TaskSourceFetchTool::new(config.clone())),
@@ -605,8 +589,9 @@ pub fn all_tools_with_runtime(
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
         // MCP registry and workspace persona. Observe/connect/call tools
-        // default-ON; MCP install/uninstall (mcp_manage), and persona/workspace writers
-        // (workspace_manage) ship default-OFF via `tools::user_filter`.
+        // default-ON; MCP uninstall (mcp_manage), and persona/workspace writers
+        // (workspace_manage) ship default-OFF via `tools::user_filter`. There
+        // is no install tool: servers are declared by the user in mcp.json.
         //
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
@@ -627,10 +612,6 @@ pub fn all_tools_with_runtime(
         Box::new(McpRegistryDisconnectTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryToolCallTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryConfigAssistTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryInstallTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryUninstallTool::new(config.clone())),
         Box::new(WorkspaceReadPersonaTool::new(config.clone())),
@@ -789,22 +770,6 @@ pub fn all_tools_with_runtime(
                 tracing::warn!("[gitbooks] tools not registered: {error}");
             }
         }
-    }
-
-    // MCP setup-agent tool surface (search/get/request_secret/test/install).
-    // Registered unconditionally — the `mcp_setup` sub-agent filters to just
-    // these via its `[tools] named = [...]` allowlist, and the host agent's
-    // own tool list is wide enough that the extra five entries are negligible.
-    // Compiled out entirely with the `mcp` feature.
-    #[cfg(feature = "mcp")]
-    {
-        let cfg = Arc::new(root_config.clone());
-        tools.push(Box::new(McpSetupSearchTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupGetTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupRequestSecretTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupTestConnectionTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupInstallAndConnectTool::new(cfg)));
-        tracing::debug!("[mcp_setup] registered 5 setup-agent tools");
     }
 
     // Generic remote MCP bridge tools. These let the agent enumerate
@@ -1104,17 +1069,11 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::tools::toolpacks::append_pack_tools(&mut tools);
-
-    // The lookup half of `ToolExposure::Deferred`. Always registered, for the
-    // same reason `use_skill` is: whether anything is actually deferred depends
-    // on the agent's belt, which is resolved later in the session builder, and
-    // a search tool that arrived *after* the tools it searches were hidden
-    // would be one release of silently unreachable capabilities. Its index
-    // starts empty and costs one small schema; the builder fills it via
-    // `bind_tool_search_index`.
-    tools.push(Box::new(
-        crate::tools::implementations::meta::ToolSearchTool::new(),
-    ));
+    // The lookup half of `ToolExposure::Deferred` is not registered here: the
+    // tinyagents harness advertises its intrinsic `tool_search` / `tool_call`
+    // bridge whenever a run has a deferred tool (`tool::discover`), ranked by
+    // whatever `agent::tinyagents::discovery` installed. A host-registered
+    // `tool_search` would shadow that bridge.
     tools
 }
 
@@ -1223,7 +1182,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "goals",
     ];
 
-    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*, mcp_setup_*,
+    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*,
     // mcp_call_tool, mcp_list_servers, mcp_list_tools).
     if name.starts_with("mcp_") {
         return DomainGroup::Mcp;
@@ -1264,12 +1223,12 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     {
         return DomainGroup::Memory;
     }
-    // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
+    // Threads family (harness-kept): thread_* + per-thread goal + search.
     // `thread_` is kept as a prefix even though the `thread_*` agent-tool
-    // family was removed: `todo_`, `goal_*` and the THREADS_EXTRA entries still
+    // family was removed: `goal_*` and the THREADS_EXTRA entries still
     // classify here, and a future threads tool should land in Threads rather
     // than falling through to Platform.
-    if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
+    if name.starts_with("thread_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
     // Harness families realigned out of Platform.
@@ -1284,7 +1243,6 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
                 | "delegate_graph"
                 | "delegate_to_personality"
                 | "todo"
-                | "update_task"
                 | "wait"
                 | "wait_loop"
                 | "request_plan_review"

@@ -29,7 +29,6 @@ import Button from '../../ui/Button';
 import { ModalShell } from '../../ui/ModalShell';
 import NativeSelect from '../../ui/NativeSelect';
 import TextField from '../../ui/TextField';
-import ConfigHelpModal from './ConfigHelpModal';
 import type { InstalledServer, McpTool, SmitheryServerDetail } from './types';
 
 const log = debug('mcp-clients:connect-auth');
@@ -248,7 +247,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
   // the token/header fields. `detecting` until the probe returns.
   const [authKind, setAuthKind] = useState<'detecting' | 'none' | 'token' | 'oauth'>('detecting');
   const [oauthWaiting, setOauthWaiting] = useState(false);
-  const [showConfigHelp, setShowConfigHelp] = useState(false);
   const oauthPollTimer = useRef<number | null>(null);
   const oauthCancelled = useRef(false);
   // Host of the server's HTTP-remote endpoint (from the registry detail's
@@ -498,18 +496,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
       onClose={handleClose}
       titleId={titleId}
       title={t('mcp.connectAuth.title').replace('{name}', server.display_name)}
-      subtitle={
-        <>
-          {t('mcp.connectAuth.hint')}{' '}
-          <Button
-            variant="tertiary"
-            size="xs"
-            onClick={() => setShowConfigHelp(true)}
-            className="h-auto p-0 align-baseline text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400">
-            {t('mcp.connectAuth.howToGetToken')}
-          </Button>
-        </>
-      }
+      subtitle={t('mcp.connectAuth.hint')}
       maxWidthClassName="max-w-md"
       contentClassName="space-y-4 p-5"
       closePolicy={{
@@ -553,31 +540,22 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             the provider host up front (from the registry's deployment_url) so
             the user isn't sent on a 401 round-trip just to discover where the
             token comes from, and offers the per-server config assistant. */}
-        {authKind !== 'oauth' && (
-          <div className="space-y-1 rounded-lg border border-line bg-surface-muted px-3 py-2">
-            {endpointHost && (
-              <p className="text-[11px] text-content-secondary">
-                {t('mcp.connectAuth.tokenProvider')}{' '}
-                <Button
-                  variant="tertiary"
-                  size="xs"
-                  onClick={() => void openUrl(providerUrlFromHost(endpointHost))}
-                  title={providerUrlFromHost(endpointHost)}
-                  className="h-auto p-0 align-baseline font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 break-all">
-                  {endpointHost}
-                  <span aria-hidden="true"> ↗</span>
-                </Button>
-              </p>
-            )}
+        {/* Where the token comes from, when the server's endpoint says so.
+            Nothing is rendered otherwise — an empty box reads as something
+            still loading. */}
+        {authKind !== 'oauth' && endpointHost && (
+          <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-[11px] text-content-secondary">
+            {t('mcp.connectAuth.tokenProvider')}{' '}
             <Button
               variant="tertiary"
               size="xs"
-              onClick={() => setShowConfigHelp(true)}
-              className="h-auto gap-1 p-0 align-baseline text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400">
-              {t('mcp.connectAuth.findToken')}
-              <span aria-hidden="true">↗</span>
+              onClick={() => void openUrl(providerUrlFromHost(endpointHost))}
+              title={providerUrlFromHost(endpointHost)}
+              className="h-auto p-0 align-baseline font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 break-all">
+              {endpointHost}
+              <span aria-hidden="true"> ↗</span>
             </Button>
-          </div>
+          </p>
         )}
 
         {/* Declared fields — one labelled input per key the server asks for. */}
@@ -645,7 +623,7 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                   {field.secret && (
                     <Button
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() =>
                         setReveal(prev => ({ ...prev, [field.name]: !prev[field.name] }))
                       }
@@ -709,7 +687,8 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
                 </NativeSelect>
                 <Button
                   variant="secondary"
-                  size="xs"
+                  size="sm"
+                  iconOnly
                   onClick={() => removeCustomHeader(h.id)}
                   disabled={busy}
                   aria-label={t('mcp.connectAuth.removeHeader')}
@@ -736,20 +715,6 @@ const ConnectAuthModal = ({ server, onClose, onConnected }: ConnectAuthModalProp
             </div>
           ))}
         </div>
-
-        {/* Stacked configuration-help chat modal (above this one). Rendered
-            inside this Dialog's own tree — not as a separate top-level
-            sibling — so Radix's aria-hidden-others bookkeeping recognizes it
-            as part of the same branch instead of hiding this dialog behind
-            it. */}
-        {showConfigHelp && (
-          <ConfigHelpModal
-            qualifiedName={server.qualified_name}
-            displayName={server.display_name}
-            description={server.description}
-            onClose={() => setShowConfigHelp(false)}
-          />
-        )}
       </>
     </ModalShell>
   );

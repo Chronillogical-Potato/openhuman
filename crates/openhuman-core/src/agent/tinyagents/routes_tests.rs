@@ -186,26 +186,21 @@ async fn resolved_route_middleware_isolates_concurrent_run_contexts() {
 #[test]
 fn route_fallback_policy_matches_legacy_chains() {
     let cases: &[(&str, Option<&[&str]>)] = &[
-        (MODEL_CHAT_V1, Some(&[MODEL_CHAT_V1, MODEL_BURST_V1])),
-        (MODEL_BURST_V1, Some(&[MODEL_BURST_V1, MODEL_CHAT_V1])),
+        (ROUTE_CHAT, Some(&[ROUTE_CHAT, ROUTE_BURST])),
+        (ROUTE_BURST, Some(&[ROUTE_BURST, ROUTE_CHAT])),
+        (ROUTE_REASONING, Some(&[ROUTE_REASONING, ROUTE_AGENTIC])),
+        (ROUTE_AGENTIC, Some(&[ROUTE_AGENTIC, ROUTE_REASONING])),
+        (ROUTE_CODING, Some(&[ROUTE_CODING, ROUTE_AGENTIC])),
         (
-            MODEL_REASONING_V1,
-            Some(&[MODEL_REASONING_V1, MODEL_AGENTIC_V1]),
+            ROUTE_SUMMARIZATION,
+            Some(&[ROUTE_SUMMARIZATION, ROUTE_CHAT]),
         ),
-        (
-            MODEL_AGENTIC_V1,
-            Some(&[MODEL_AGENTIC_V1, MODEL_REASONING_V1]),
-        ),
-        (MODEL_CODING_V1, Some(&[MODEL_CODING_V1, MODEL_AGENTIC_V1])),
-        (
-            MODEL_SUMMARIZATION_V1,
-            Some(&[MODEL_SUMMARIZATION_V1, MODEL_CHAT_V1]),
-        ),
-        // Vision is primary-only (an image_in gate no text tier can satisfy).
-        (MODEL_VISION_V1, None),
-        ("hint:vision", None),
-        // A raw non-tier model installs no chain.
+        // Vision is primary-only (an image_in gate no text route can satisfy).
+        (ROUTE_VISION, None),
+        // A concrete model id installs no chain — including the managed
+        // default, which is the model every managed route resolves to.
         ("gpt-4o", None),
+        (crate::config::MODEL_MANAGED_DEFAULT, None),
     ];
     for (model, expected) in cases {
         let got = route_fallback_policy(model).map(|p| p.models);
@@ -214,21 +209,19 @@ fn route_fallback_policy_matches_legacy_chains() {
     }
 }
 
-/// Only the vision tier (and its hint form) imposes an `image_in` gate; the
+/// Only the vision route imposes an `image_in` gate; the
 /// common text turn stays ungated.
 #[test]
 fn turn_required_capabilities_gates_only_vision() {
-    let vision = turn_required_capabilities(MODEL_VISION_V1).expect("vision is gated");
+    let vision = turn_required_capabilities(ROUTE_VISION).expect("vision is gated");
     assert!(vision.image_in);
-    let hint = turn_required_capabilities("hint:vision").expect("hint:vision is gated");
-    assert!(hint.image_in);
     for model in [
-        MODEL_CHAT_V1,
-        MODEL_REASONING_V1,
-        MODEL_AGENTIC_V1,
-        MODEL_CODING_V1,
-        MODEL_BURST_V1,
-        MODEL_SUMMARIZATION_V1,
+        ROUTE_CHAT,
+        ROUTE_REASONING,
+        ROUTE_AGENTIC,
+        ROUTE_CODING,
+        ROUTE_BURST,
+        ROUTE_SUMMARIZATION,
         "gpt-4o",
     ] {
         assert!(
@@ -238,8 +231,7 @@ fn turn_required_capabilities_gates_only_vision() {
     }
 }
 
-/// The router covers exactly the projected tier inventory (plus the hint:vision
-/// gate alias), so the fallback/capability source of truth stays aligned with
+/// The router covers exactly the projected route inventory, so the fallback/capability source of truth stays aligned with
 /// `WORKLOAD_ROUTE_TIERS`.
 #[test]
 fn router_covers_the_workload_tier_inventory() {

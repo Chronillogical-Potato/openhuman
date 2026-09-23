@@ -14,8 +14,12 @@ import {
   type StreamingAssistantState,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
+import {
+  FEEDBACK_METADATA_KEY,
+  FEEDBACK_ROW_IDS_METADATA_KEY,
+  type MessageFeedback,
+} from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
-import { categorizeTool, type ToolCategory } from '../utils/toolTimelineFormatting';
 
 /**
  * Redux -> assistant-ui message mapping.
@@ -50,6 +54,19 @@ const EMPTY_TIMELINE: readonly ToolTimelineEntry[] = [];
 const EMPTY_TRANSCRIPT: readonly ProcessingTranscriptItem[] = [];
 
 const RECOVERED_TOOL_NAMES_KEY = 'assistantUiToolNames';
+
+/**
+ * The rating persisted on a message, when it is one of the two values the
+ * runtime accepts.
+ *
+ * `extraMetadata` is untyped JSON from disk, so this narrows rather than casts:
+ * a stale or hand-edited value must render as "unrated" instead of reaching the
+ * runtime as a bad `submittedFeedback`.
+ */
+function persistedFeedback(msg: ThreadMessage): MessageFeedback | undefined {
+  const value = msg.extraMetadata?.[FEEDBACK_METADATA_KEY];
+  return value === 'positive' || value === 'negative' ? value : undefined;
+}
 
 /** Synthetic id for the live streaming tail. Stable so React reconciles it. */
 export const STREAMING_TAIL_ID = '__openhuman_streaming_tail__';
@@ -206,78 +223,51 @@ function withApproval(
 }
 
 /**
- * Categories `categorizeTool` can prove are read-only. Everything else —
- * including its `other` default, which is where every unmapped tool lands — is
- * treated as potentially side-effecting.
- *
- * The direction is the point: this is a fail-SAFE allowlist, not a
- * classification. An agent sending an email or writing a file behind a
- * collapsed panel is a trust problem, not a clutter fix, so an unrecognised
- * tool keeps its line on the main surface. Being wrong here costs one extra
- * row; being wrong the other way hides a real-world action.
- *
- * `web_fetch` / `http_request` / `curl` (`fetch`) and `browser*` (`browse`) are
- * deliberately NOT here: a `curl` can POST and a browser click can buy
- * something.
- *
- * **This is a stand-in.** The core already models exactly this, precisely, as
- * `PermissionLevel` (`ReadOnly` / `Write` / `Execute` / `Dangerous`,
- * `vendor/tinyagents/vendor/tinytools/.../permission/types.rs:18-30`) on every
- * tool. It is simply not on the wire: `AgentProgress::ToolCallStarted`
- * (`crates/openhuman-core/src/agent/progress.rs:31-47`) carries no permission field, so the
- * renderer cannot see it. When that field is plumbed through to
- * `ToolTimelineEntry`, delete this set and the function below and test
- * `entry.permissionLevel === 'read_only'` instead.
- */
-const READ_ONLY_TOOL_CATEGORIES: ReadonlySet<ToolCategory> = new Set<ToolCategory>([
-  'read',
-  'search',
-]);
-
-/**
- * Whether this tool row still earns a line on the main `/chat` surface.
- *
- * Read-only steps (reading a file, searching memory, listing) are process, and
- * move to the rail behind the turn footer. Everything else keeps one line:
- *
- * - anything not provably read-only — the side-effect exception above;
- * - a failed call, because an error is the user's to see;
- * - a parked call, because an approval gate is the user's to answer. The part's
- *   `approval` is attached later by {@link withApproval}, so the check here is
- *   on the row's own `awaiting_user` status.
- *
- * A `subagent:*` delegation also stays, for two reasons that outrank tidiness:
- * its card is the only route to the sub-agent drawer on this surface (see
- * `ChatToolParts.SubagentCall`), and a delegation spends real money and can act
- * outside the app through its own tools. Its *transcript* is already behind the
- * drawer, which is where the brief wanted it; the row itself is one line.
- */
-function toolRowStaysOnMainSurface(entry: ToolTimelineEntry): boolean {
-  if (entry.status === 'error' || entry.status === 'awaiting_user') return true;
-  if (entry.name.startsWith('subagent:')) return true;
-  return !READ_ONLY_TOOL_CATEGORIES.has(categorizeTool(entry.name));
-}
-
-/**
  * Project one assistant message into assistant-ui parts.
  *
- * The main surface carries **the answer, plus anything the user must see or
- * act on** — a failed or parked tool call, and any call that might have changed
- * something outside the app. The agent's *explanation* of how it got there —
- * reasoning, narration prose, and the arguments and results of read-only steps
- * — is not dropped: it stays in Redux and in the persisted transcript, and
- * renders in the process rail reached from the turn footer
- * (`TurnFooter` → `AgentProcessSourcePanel`). Nothing here changes what is
- * stored, only what is painted.
+ * The surface carries the turn as it happened: the agent's reasoning as a
+ * COLLAPSED disclosure, every tool row in issue order, then the answer.
+ *
+ * ## What is here, and what stays in the rail
+ *
+ * Reasoning (`kind: 'thinking'`) renders inline again. It is collapsed by
+ * default and expands while it streams, so a turn that thought for ten seconds
+ * shows one quiet line rather than ten seconds of prose — which is what made it
+ * clutter the first time round.
+ *
+ * Narration is deliberately NOT restored. It is the turn's running commentary,
+ * it duplicates the answer on the final round, and it is the bulk of what made
+ * the old surface a firehose. It stays in `processingByThread` and renders in
+ * the process rail behind {@link TurnProcessTrail}, which is unchanged.
+ *
+ * ## Ordering
+ *
+ * The transcript is the ordered record of the turn and is walked in array
+ * order. Timeline rows the transcript never names — a legacy snapshot has no
+ * transcript at all, and a live turn can mint a row before its pointer lands —
+ * are merged in by their own `seq` rather than appended after everything else,
+ * which is what previously let a row the agent issued FIRST render last.
+ *
+ * The two `seq` fields are NOT one ordering space, whatever
+ * `PersistedToolTimelineEntry.seq`'s doc comment says: a transcript item's
+ * `seq` is its index in the transcript array (`chatRuntimeSlice.ts`, the
+ * `toolCall` push uses `seq: list.length`) while a timeline row's comes from
+ * the per-thread `toolTimelineSeqByThread` counter. So the merge below compares
+ * timeline `seq` to timeline `seq` only, never across the two.
+ *
+ * The answer text is appended last, and that is correct rather than merely
+ * convenient: it is the persisted `msg.content`, i.e. what the agent said when
+ * it had finished, so nothing it produced can belong after it. Anything the
+ * agent said BEFORE a tool call is narration, which lives in the rail.
  *
  * **Every tool part must have a distinct `toolCallId`.** assistant-ui keys them
  * as `toolCallId-${id}` and *throws* on a repeat ("Duplicate key … in
  * useResources"), which takes the whole thread render down rather than dropping
  * a row — so this is a hard invariant, not a tidiness rule, and it is enforced
- * here at the boundary as well as at each producer. `emittedToolIds` guards
- * both passes below; the sources upstream (the live Redux slice and the derived
- * transcript mapper) also mint unique ids, but threads persisted before those
- * fixes still carry colliding ones.
+ * here at the boundary as well as at each producer. `claim` guards every emit
+ * below; the sources upstream (the live Redux slice and the derived transcript
+ * mapper) also mint unique ids, but threads persisted before those fixes still
+ * carry colliding ones.
  */
 function assistantParts(
   text: string,
@@ -287,36 +277,53 @@ function assistantParts(
   const parts: ThreadAssistantMessagePart[] = [];
   const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
   const emittedToolIds = new Set<string>();
-  // A row is considered once, whether or not it is painted. Both passes apply
-  // the same filter, so this is belt-and-braces rather than load-bearing — it
-  // is here so the two can never disagree and mint a duplicate `toolCallId`,
-  // which assistant-ui throws on.
   const claim = (entry: ToolTimelineEntry): boolean => {
     if (emittedToolIds.has(entry.id)) return false;
     emittedToolIds.add(entry.id);
     return true;
   };
 
+  // Rows the transcript names. Two pointers can resolve to the same row (a
+  // provider that emits tool calls without ids writes the empty string for all
+  // of them), which is why this is a set of resolved row ids rather than a
+  // count of pointers.
+  const referenced = new Set<string>();
   for (const item of transcript) {
-    // `thinking` and `narration` are the turn's explanation of itself. Both
-    // live on in `processingByThread` / the persisted transcript and render in
-    // the rail; neither belongs in the answer stream.
-    if (item.kind === 'toolCall') {
-      const entry = timelineById.get(item.callId);
-      // Guarded here too, not only in the timeline pass below: two transcript
-      // pointers can name the same `callId` (a provider that emits tool calls
-      // without ids writes the empty string for all of them), and both resolve
-      // to the same timeline row.
-      if (entry && claim(entry) && toolRowStaysOnMainSurface(entry)) {
-        parts.push(toolPart(entry));
-      }
-    }
+    if (item.kind !== 'toolCall') continue;
+    const entry = timelineById.get(item.callId);
+    if (entry) referenced.add(entry.id);
   }
 
-  for (const entry of [...timeline].sort((a, b) => a.seq - b.seq)) {
-    if (!claim(entry)) continue;
-    if (toolRowStaysOnMainSurface(entry)) parts.push(toolPart(entry));
+  // Rows with no pointer, oldest first. These are merged into the walk below
+  // rather than appended after it.
+  const unreferenced = timeline
+    .filter(entry => !referenced.has(entry.id))
+    .sort((a, b) => a.seq - b.seq);
+  let nextUnreferenced = 0;
+  /** Emit every unreferenced row the agent issued before `seq` (all of them at the end). */
+  const drainBefore = (seq: number | null) => {
+    while (nextUnreferenced < unreferenced.length) {
+      const entry = unreferenced[nextUnreferenced];
+      if (entry === undefined || (seq !== null && entry.seq >= seq)) break;
+      nextUnreferenced += 1;
+      if (claim(entry)) parts.push(toolPart(entry));
+    }
+  };
+
+  for (const item of transcript) {
+    if (item.kind === 'thinking') {
+      if (item.text.trim().length > 0) parts.push({ type: 'reasoning', text: item.text });
+      continue;
+    }
+    // Narration is the turn explaining itself; it stays in the rail.
+    if (item.kind !== 'toolCall') continue;
+    const entry = timelineById.get(item.callId);
+    if (!entry) continue;
+    drainBefore(entry.seq);
+    if (claim(entry)) parts.push(toolPart(entry));
   }
+  drainBefore(null);
+
   if (text.length > 0) parts.push({ type: 'text', text });
   return parts;
 }
@@ -412,6 +419,16 @@ function mergeAssistantRun(messages: readonly ThreadMessage[]): ThreadMessage {
   );
   if (requestId) extraMetadata.requestId = requestId;
   if (toolNames.length > 0) extraMetadata[RECOVERED_TOOL_NAMES_KEY] = toolNames;
+  // Defect B: this one visible message is several persisted rows, and the
+  // feedback adapter is only ever handed the last row's id (`...last` below).
+  // Carry the whole set so a rating written against that id stays attributable
+  // to what the user actually saw, rather than to the final fragment of it.
+  extraMetadata[FEEDBACK_ROW_IDS_METADATA_KEY] = messages.map(message => message.id);
+  // A merged run inherits a rating from ANY of its rows: the row the adapter
+  // wrote to is the last one, but an earlier persist (or a re-merge with
+  // different boundaries) can leave it elsewhere.
+  const merged = messages.map(persistedFeedback).find(Boolean);
+  if (merged) extraMetadata[FEEDBACK_METADATA_KEY] = merged;
   return {
     ...last,
     content: mergedAssistantText(messages),
@@ -530,6 +547,7 @@ export function toThreadMessageLike(
     ...stringArray(msg.extraMetadata?.[RECOVERED_TOOL_NAMES_KEY]),
   ];
   const effectiveTimeline = recoverTimelineToolNames(timeline, recoveredToolNames);
+  const feedback = msg.sender === 'agent' ? persistedFeedback(msg) : undefined;
 
   const converted: ThreadMessageLike = {
     id: msg.id,
@@ -541,6 +559,15 @@ export function toThreadMessageLike(
       ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
       : {}),
     metadata: {
+      // Defect A (#6459-adjacent, but its own bug): the runtime writes
+      // `submittedFeedback` onto its OWN repository copy when a thumb is
+      // pressed, and we supply `messages` rather than `messageRepository` — so
+      // the runtime rebuilds from this converter's output on every store update
+      // (`external-store-thread-runtime-core.js`) and that write is discarded.
+      // Re-emitting it from the persisted value is what makes a pressed thumb
+      // survive the next turn, a thread switch and a reload. Without this the
+      // control silently un-presses, which is worse than having no control.
+      ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
       custom: {
         extraMetadata: msg.extraMetadata ?? {},
         sourceType: msg.type,
@@ -574,11 +601,20 @@ export function streamingTailMessage(
 ): ThreadMessageLike | null {
   if (!approval && !streaming && timeline.length === 0 && transcript.length === 0) return null;
   const text = streaming?.content ?? '';
-  // `streaming.thinking` is deliberately not projected: reasoning does not
-  // render on the main surface any more. While the turn runs, `RunningStatus`
-  // is the in-flight signal; the thinking itself is in `processingByThread`
-  // and reachable through the rail. See `assistantParts`.
   let parts = assistantParts(text, timeline, transcript);
+  // The live reasoning block. Only when the transcript has not yet recorded a
+  // `thinking` item for this turn — once it has, `assistantParts` above is
+  // already emitting it in its proper place and this would double it.
+  //
+  // It goes FIRST because it is what the agent thought before it answered, and
+  // `Reasoning` renders it expanded while it streams, then collapses it. A turn
+  // that has so far produced only thinking now mints a tail rather than
+  // nothing, which is the point: the block is the in-flight signal, alongside
+  // `RunningStatus`.
+  if (streaming?.thinking.trim()) {
+    const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
+    if (!hasTranscriptThinking) parts.unshift({ type: 'reasoning', text: streaming.thinking });
+  }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
   return {

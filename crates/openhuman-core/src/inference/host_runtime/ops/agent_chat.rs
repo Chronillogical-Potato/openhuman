@@ -108,11 +108,10 @@ fn build_turn_agent(
 ///
 /// Two differences from the historical `agent_chat` beyond the target:
 ///
-/// * A non-empty `thread_id` resumes **that thread's** transcript
-///   (`OpenHumanSessionHost::seed_resume_from_thread_transcript`). When the thread has no
-///   transcript yet, auto-resume is suppressed for the turn so a fresh thread
-///   never splices in the agent's newest transcript from some other thread —
-///   `OpenHumanSessionHost::turn` resolves the latest transcript per agent *name*, not per
+/// * A non-empty `thread_id` binds the session's durable identity, so the turn
+///   resumes **that conversation's** transcript exactly
+///   (`ResumeMode::Session`). A fresh thread simply has nothing to resume; it
+///   can no longer fall back to the agent's newest transcript from some other
 ///   thread.
 /// * The agent is built by `target`, so a library host can run one booted
 ///   core with many independently defined agents.
@@ -181,28 +180,14 @@ pub async fn agent_chat_for(
         .map(str::trim)
         .filter(|id| !id.is_empty())
     {
+        // Binding the thread also binds the session's durable identity, and
+        // the turn resumes by that identity. Nothing here has to seed history
+        // by hand, suppress an autoload, or reason about which transcript is
+        // newest: one conversation resolves to one transcript, scoped to this
+        // agent so a caller-supplied thread id shared by several runtime
+        // agents cannot splice one agent's history into another's turn.
         agent.set_thread_id(Some(id));
-        // Scoped to this call's agent identity, when it has one: a library
-        // host can hand the same caller-supplied thread_id to several
-        // independently configured runtime agents, and unscoped matching
-        // would resume whichever agent's transcript for that thread is
-        // newest into this one's turn. `Orchestrator` has no such identity
-        // and keeps the original unscoped lookup (#5351's cross-profile
-        // resume depends on it).
-        let resume_agent_id: Option<&str> = match &target {
-            AgentChatTarget::Orchestrator => None,
-            AgentChatTarget::AgentId(agent_id) => Some(agent_id),
-            AgentChatTarget::Definition { definition, .. } => Some(definition.id.as_str()),
-        };
-        if agent.seed_resume_from_thread_transcript_scoped(id, resume_agent_id) {
-            log::debug!("[inference] agent_chat resumed thread transcript thread_id={id}");
-        } else {
-            log::debug!("[inference] agent_chat fresh thread thread_id={id}; autoload suppressed");
-            agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
-                suppress_transcript_autoload: true,
-                ..Default::default()
-            });
-        }
+        log::debug!("[inference] agent_chat bound session for thread_id={id}");
     }
     // Live progress for in-process embedders. `OpenHumanSessionHost::from_config` never
     // attaches a sink itself, so there is nothing to clobber here; callers that

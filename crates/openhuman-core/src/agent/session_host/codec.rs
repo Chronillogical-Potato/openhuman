@@ -91,6 +91,24 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         Ok(rows)
     }
 
+    /// The durable per-turn usage record: **this agent's own spend, excluding
+    /// its children.**
+    ///
+    /// Every transcript in `session_raw` now means the same thing — what the
+    /// agent that owns the file spent on its own provider calls. A sub-agent's
+    /// transcript has always been written that way (`SubagentUsage` is
+    /// "accumulated across every provider call this sub-agent made", and
+    /// `subagent_host::ops::graph::transcript` stores exactly that), so a reader
+    /// that walks a root plus its descendants counts every token once, at any
+    /// delegation depth. Folding children in here instead made the root record
+    /// overlap its own children's records, and `threads::ops::usage` added both
+    /// — a double count masked only by the dead `_meta` rollup (#6460).
+    ///
+    /// Exclusivity also makes the record independent of whether a child's usage
+    /// reached the parent's in-turn ledger at all. A detached delegation's does
+    /// not (#6459), so an inclusive record was silently inclusive for a blocking
+    /// spawn and exclusive for the default async one, with nothing in the file
+    /// saying which. The child's own transcript is written either way.
     fn turn_usage(
         &self,
         options: &TranscriptTurnOptions<OpenHumanRunContext>,
@@ -106,27 +124,11 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         // completed. Snapshot their explicit ledger here, immediately before
         // the runtime's atomic append, so durable billing cannot lag the UI.
         sidecar.subagents = subagents;
-        let child_input = sidecar
-            .subagents
-            .iter()
-            .map(|entry| entry.usage.input_tokens)
-            .sum::<u64>();
-        let child_output = sidecar
-            .subagents
-            .iter()
-            .map(|entry| entry.usage.output_tokens)
-            .sum::<u64>();
-        let child_cached_input = sidecar
-            .subagents
-            .iter()
-            .map(|entry| entry.usage.cached_input_tokens)
-            .sum::<u64>();
-        let child_cost = sidecar
-            .subagents
-            .iter()
-            .map(|entry| entry.usage.charged_amount_usd)
-            .sum::<f64>();
-        // Keep the sidecar authoritative for the post-commit UI too.
+        // Keep the sidecar authoritative for the post-commit UI too. The live
+        // `chat_done` projection (`holistic_last_turn_usage`) still folds these
+        // child entries in, because a turn's *spend* is parent + children; only
+        // the durable record below stays the parent's own, for the reason in
+        // this method's own doc comment.
         *options
             .context
             .session_sidecar
@@ -136,13 +138,10 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         // Preserve the old contract of omitting a synthetic all-zero usage
         // record, while ensuring every observed driver sidecar travels in the
         // same atomic runtime append as its transcript rows.
-        if sidecar.input_tokens.saturating_add(child_input) == 0
-            && sidecar.output_tokens.saturating_add(child_output) == 0
-            && sidecar
-                .cached_input_tokens
-                .saturating_add(child_cached_input)
-                == 0
-            && sidecar.cost_usd + child_cost == 0.0
+        if sidecar.input_tokens == 0
+            && sidecar.output_tokens == 0
+            && sidecar.cached_input_tokens == 0
+            && sidecar.cost_usd == 0.0
             && route.is_none()
         {
             return Ok(None);
@@ -157,13 +156,11 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
                 .map(|route| route.model.clone())
                 .unwrap_or_default(),
             usage: MessageUsage {
-                input: sidecar.input_tokens.saturating_add(child_input),
-                output: sidecar.output_tokens.saturating_add(child_output),
-                cached_input: sidecar
-                    .cached_input_tokens
-                    .saturating_add(child_cached_input),
+                input: sidecar.input_tokens,
+                output: sidecar.output_tokens,
+                cached_input: sidecar.cached_input_tokens,
                 context_window: sidecar.context_window,
-                cost_usd: sidecar.cost_usd + child_cost,
+                cost_usd: sidecar.cost_usd,
             },
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,

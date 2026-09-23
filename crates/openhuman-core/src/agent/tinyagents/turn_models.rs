@@ -88,6 +88,23 @@ impl TurnModels {
 /// Host resolver for one live invocation. It exposes the exact pre-built
 /// primary and fallback route models already selected by OpenHuman, rather
 /// than constructing a fresh config-routed model during hosted preparation.
+///
+/// # Who wins: the turn's selection or the definition's pin
+///
+/// The **primary** is the model OpenHuman already chose for this turn — the
+/// user's per-thread `model_override`, else `config.default_model` — and for
+/// the turn's lead (the depth-0 agent, `is_team_lead`) it always wins. The
+/// harness forwards the definition's `[model] hint`/`model` as `model_pin`
+/// on every resolve; honouring it for the lead let the orchestrator's
+/// `hint = "coding"` silently reroute every chat turn onto `hint:coding`
+/// (DeepSeek V4 Pro) no matter which model the user picked in the UI, since
+/// `hint:coding` is always a registered tier route. A pin is advisory
+/// (`ModelResolveRequest::model_pin` docs) and the lead's selection is the
+/// stronger, more explicit signal.
+///
+/// Sub-agents (depth > 0) keep resolving their pin against the tier routes —
+/// that is how `integrations_agent`'s `hint = "burst"` reaches `hint:burst` —
+/// and fall back to the primary when the pin names no built route.
 pub(crate) struct TurnModelResolver {
     primary: TurnChatModel,
     routes: std::collections::HashMap<String, TurnChatModel>,
@@ -95,10 +112,17 @@ pub(crate) struct TurnModelResolver {
 
 impl TurnModelResolver {
     pub(crate) fn from_turn_models(models: &TurnModels) -> Self {
-        Self {
-            primary: models.primary.clone(),
-            routes: models.routes.iter().cloned().collect(),
-        }
+        Self::new(
+            models.primary.clone(),
+            models.routes.iter().cloned().collect(),
+        )
+    }
+
+    pub(crate) fn new(
+        primary: TurnChatModel,
+        routes: std::collections::HashMap<String, TurnChatModel>,
+    ) -> Self {
+        Self { primary, routes }
     }
 }
 
@@ -108,8 +132,19 @@ impl ModelResolver<()> for TurnModelResolver {
         &self,
         request: &ModelResolveRequest,
     ) -> tinyagents_harness::Result<TurnChatModel> {
-        Ok(request
-            .model_pin()
+        let pin = request.model_pin();
+        if request.is_team_lead {
+            if let Some(pin) = pin.filter(|pin| self.routes.contains_key(*pin)) {
+                tracing::debug!(
+                    target: "tinyagents",
+                    agent_id = %request.agent_id,
+                    pin,
+                    "[models][resolver] lead keeps the turn's selected primary; definition model pin ignored"
+                );
+            }
+            return Ok(self.primary.clone());
+        }
+        Ok(pin
             .and_then(|name| self.routes.get(name))
             .cloned()
             .unwrap_or_else(|| self.primary.clone()))
@@ -561,3 +596,7 @@ impl TurnModelSource {
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 }
+
+#[cfg(test)]
+#[path = "turn_models_tests.rs"]
+mod tests;

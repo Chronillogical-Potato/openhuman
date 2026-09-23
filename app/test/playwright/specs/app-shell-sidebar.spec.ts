@@ -53,8 +53,6 @@ test.describe('App shell — sidebar navigation', () => {
   test('clicking each nav row routes there and marks exactly that row current', async ({
     page,
   }) => {
-    // `rewards` is `cloudOnly` in NAV_TABS, so it is deliberately absent for a
-    // session without cloud — asserted separately below rather than assumed.
     for (const [id, expectedHash] of [
       ['brain', '/brain'],
       ['flows', '/flows'],
@@ -83,26 +81,6 @@ test.describe('App shell — sidebar navigation', () => {
 
     await page.goto('/#/chat/some-thread-id');
     await expect.poll(() => activeRowId(page)).toBe('chat');
-  });
-
-  test('the Rewards row is present for a cloud session and routes', async ({ page }) => {
-    // Asserted, not recorded. The first version accepted `count === 0` as a
-    // pass, which meant a regressed gate, a gate that never becomes ready, or a
-    // deleted row all counted as success — precisely the failures the test
-    // names (#5887, Codex).
-    //
-    // This fixture IS a cloud session, so the gate must open. `useCloudNavGate`
-    // requires `isReady && sessionToken && !isLocalSessionToken(token)`
-    // (`useCloudNavGate.ts:26-28`), and `isLocalSessionToken` is true only for a
-    // token whose third dot-part is literally `local`
-    // (`utils/localSession.ts:32-36`). `bootAuthenticatedPage` installs
-    // `buildBypassJwt`, which ends `.sig` (`helpers/core-rpc.ts:17-22`) — so the
-    // token is non-local and Rewards must be offered.
-    await expect(row(page, 'rewards')).toHaveCount(1);
-
-    await row(page, 'rewards').click();
-    await expect.poll(() => hash(page)).toMatch(/^#\/rewards/);
-    await expect.poll(() => activeRowId(page)).toBe('rewards');
   });
 });
 

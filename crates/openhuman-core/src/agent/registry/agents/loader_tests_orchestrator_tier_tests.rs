@@ -112,7 +112,6 @@ fn crypto_agent_has_narrow_wallet_market_tools_and_safety_on() {
                 "composio_list_tools",
                 "spawn_subagent",
                 "spawn_worker_thread",
-                "delegate_to_integrations_agent",
                 // Synthesised delegation tools use the unprefixed
                 // `delegate_name` overrides — forbid those names too.
                 "run_code",
@@ -162,9 +161,8 @@ fn orchestrator_subagents_include_crypto_agent() {
 
 /// Routing: the orchestrator must list `mcp_agent` in its `subagents`
 /// so a `delegate_use_mcp_server` tool is synthesised at agent-build
-/// time. Without this entry the orchestrator can only *set up* MCP
-/// servers (via `mcp_setup`) and has no route to actually *use* an
-/// already-connected server's tools from chat (issue #3495).
+/// time. Without this entry the orchestrator has no route to actually *use*
+/// an already-connected server's tools from chat (issue #3495).
 #[test]
 fn orchestrator_subagents_include_mcp_agent() {
     use crate::agent::harness::definition::SubagentEntry;
@@ -268,7 +266,7 @@ fn orchestrator_reaches_mcp_and_skills_through_hand_offs_not_registry_tools() {
         }
         ToolScope::Wildcard => panic!("orchestrator must have a Named tool scope"),
     }
-    for specialist in ["mcp_setup", "mcp_agent", "skill_setup", "skill_executor"] {
+    for specialist in ["mcp_agent", "skill_setup", "skill_executor"] {
         assert!(
             def.subagents
                 .iter()
@@ -280,8 +278,9 @@ fn orchestrator_reaches_mcp_and_skills_through_hand_offs_not_registry_tools() {
 
 /// `mcp_agent` is the connected-server execution specialist: it must hold
 /// the discover + call surface and a stable `use_mcp_server` delegate name,
-/// but must NOT hold the secret-handling install/uninstall tools (those are
-/// `mcp_setup`'s) or any shell/file/network capability.
+/// but must NOT hold the uninstall tool or any shell/file/network
+/// capability. There is no install tool at all: servers are declared by the
+/// user in mcp.json.
 ///
 /// Gated: `find` panics on a missing id, and the `mcp` feature drops
 /// `mcp_agent` from [`BUILTINS`] entirely.
@@ -319,7 +318,7 @@ fn mcp_agent_drives_connected_servers_without_install_or_shell() {
                 assert!(
                     !tools.iter().any(|t| t == forbidden),
                     "mcp_agent must NOT have `{forbidden}` — it only relays through \
-                     already-connected servers; install/secrets belong to mcp_setup"
+                     already-connected servers; servers are declared in mcp.json"
                 );
             }
         }
@@ -504,9 +503,8 @@ fn rejects_worker_with_subagents() {
 
 #[test]
 fn allows_skill_wildcards_on_any_non_worker_tier() {
-    // Skills wildcards collapse to delegate_to_integrations_agent
-    // and must not be policed by the tier check (it'd be a false
-    // positive — they fan out to a worker anyway).
+    // Skills wildcards expand to searchable integration actions, not to
+    // an agent, so there is no tier pair for the check to police.
     let mut defs = load_builtins().unwrap();
     let planner = defs.iter_mut().find(|d| d.id == "planner").unwrap();
     planner.subagents.push(SubagentEntry::Skills(

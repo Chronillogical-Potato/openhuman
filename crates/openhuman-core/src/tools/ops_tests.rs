@@ -131,14 +131,6 @@ const PRODUCTIVITY_TOOLS: &[&str] = &[
     "artifact_list",
     "artifact_get",
     "artifact_delete",
-    "todo_list",
-    "todo_add",
-    "todo_edit",
-    "todo_update_status",
-    "todo_decide_plan",
-    "todo_remove",
-    "todo_replace",
-    "todo_clear",
     "task_source_list",
     "task_source_get",
     "task_source_fetch",
@@ -152,9 +144,6 @@ const PRODUCTIVITY_TOOLS: &[&str] = &[
 
 const PRODUCTIVITY_DEFAULT_OFF: &[&str] = &[
     "artifact_delete",
-    "todo_remove",
-    "todo_replace",
-    "todo_clear",
     "task_source_add",
     "task_source_update",
     "task_source_remove",
@@ -163,8 +152,6 @@ const PRODUCTIVITY_DEFAULT_OFF: &[&str] = &[
 const PRODUCTIVITY_ALWAYS_ON: &[&str] = &[
     "artifact_list",
     "artifact_get",
-    "todo_list",
-    "todo_add",
     "task_source_fetch",
     "task_source_status",
 ];
@@ -315,10 +302,6 @@ const DESKTOP_TOOLS: &[&str] = &[
     #[cfg(feature = "mcp")]
     "mcp_registry_tool_call",
     #[cfg(feature = "mcp")]
-    "mcp_registry_config_assist",
-    #[cfg(feature = "mcp")]
-    "mcp_registry_install",
-    #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
     "workspace_read_persona",
     "workspace_update_persona",
@@ -327,8 +310,6 @@ const DESKTOP_TOOLS: &[&str] = &[
 ];
 
 const DESKTOP_DEFAULT_OFF: &[&str] = &[
-    #[cfg(feature = "mcp")]
-    "mcp_registry_install",
     #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
     "workspace_update_persona",
@@ -352,7 +333,7 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
     &[
         ("delegate", G::Agent),
         ("memory_search", G::Memory),
-        ("todo_add", G::Threads),
+        ("goal_get", G::Threads),
         ("mcp_list_servers", G::Mcp),
         ("wallet_get_address", G::Web3),
         ("media_generate_image", G::Media),

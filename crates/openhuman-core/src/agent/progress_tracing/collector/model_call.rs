@@ -27,7 +27,7 @@ impl SpanCollector {
     ///    a delegation (e.g. the Context Scout) surfaces its model natively.
     ///
     /// The Langfuse-facing model label is `{provider_id}.{model}` (e.g.
-    /// `managed.chat-v1`, `openai.gpt-4o`).
+    /// `managed.hint:chat`, `openai.gpt-4o`).
     ///
     /// Generation start is approximated by the enclosing iteration span's
     /// start (the iteration opens on `ModelStarted`); end is the observation

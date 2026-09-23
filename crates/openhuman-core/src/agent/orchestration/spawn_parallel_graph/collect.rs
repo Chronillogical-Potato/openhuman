@@ -109,6 +109,9 @@ pub(crate) async fn project_spawn_parallel_result(
                         iterations: *iterations,
                         output_chars: output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
                         output: output.clone().unwrap_or_default(),
+                        // Rebuilt from an already-observed event, which carries no
+                        // usage to copy — so this path stays silent. See the field's docs.
+                        usage: None,
                         worktree_path: worktree_path.clone(),
                         changed_files: changed_files.clone(),
                         dirty_status: *dirty_status,

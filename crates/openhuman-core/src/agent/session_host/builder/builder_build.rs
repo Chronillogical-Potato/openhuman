@@ -75,39 +75,71 @@ impl SessionHostBuilder {
         );
         // Per-tool exposure: `Hidden` members of a collapsed tool (`memory_*`,
         // `todo_*`) and `Deferred` tools leave the wire; they stay registered
-        // and dispatchable. Only for a wildcard belt — a hand-written `[tools]
-        // named` list is already the answer to "what should this agent see".
+        // and dispatchable. A wildcard belt always gets this; a hand-written
+        // `[tools] named` list is already the answer to "what should this
+        // agent see", so it opts into discovery by naming `tool_search` — the
+        // harness's intrinsic bridge, not a registered tool, so the name is
+        // taken off the allowlist here and stands for "every deferred
+        // registration is reachable through the bridge".
         //
         // Only the DURABLE registry is passed, never `synthesized_tools`: every
         // `ArchetypeDelegationTool` reports `Hidden`, and on a wildcard belt the
         // synthesised delegates are the agent's only hand-off routes. Stripping
         // them would delete every `research`/`run_code`/… route.
-        // `strip_deferred_from_visible` only looks at the tools it is given.
         //
         // This is the one site that turns the "all visible" sentinel into a
         // concrete set for a session, so the refresh paths never re-admit a
         // durable Hidden tool: `refresh_delegation_tools` (turn/tools.rs) only
         // swaps synthesised names, and `OpenHumanSessionHost::hide_tools` only seeds a set
         // that is still empty — see the matching strip there.
-        let deferred = if belt_is_wildcard {
+        let discovery_opted_in =
+            visible_names.remove(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
+        let discovery_enabled = belt_is_wildcard || discovery_opted_in;
+        // A wildcard belt was seeded from the whole registry, so its durable
+        // `Hidden` members (collapsed `memory_*` / `todo_*`) leave here too.
+        // A named belt never listed them.
+        let mut deferred_names = if belt_is_wildcard {
             crate::tools::implementations::meta::strip_deferred_from_visible(
                 &mut visible_names,
                 tools.as_slice(),
             )
         } else {
-            Vec::new()
+            std::collections::HashSet::new()
         };
-        if !deferred.is_empty() {
+        if discovery_enabled {
+            // Durable AND synthesised: a per-action integration tool is
+            // synthesised per session (`collect_orchestrator_tools`) and
+            // declares `Deferred` too. The synthesised set's `Hidden` members
+            // are left alone on purpose — see the comment above.
+            deferred_names.extend(crate::tools::implementations::meta::deferred_tool_names(
+                tools.as_slice(),
+            ));
+            deferred_names.extend(crate::tools::implementations::meta::deferred_tool_names(
+                synthesized_tools.as_slice(),
+            ));
+            visible_names.retain(|name| !deferred_names.contains(name));
+        } else {
+            deferred_names.clear();
+        }
+        if !deferred_names.is_empty() {
             tracing::info!(
                 agent = %agent_definition_name,
-                deferred = deferred.len(),
-                "[tools] withheld deferred tool schemas; reachable via tool_search"
+                deferred = deferred_names.len(),
+                "[tools] withheld deferred tool schemas; reachable via the harness tool_search bridge"
             );
         }
-        // Index them where the model can find them again. Done here rather than
-        // at registration because which tools are deferred depends on the belt.
-        crate::tools::implementations::meta::bind_tool_search_index(tools.as_slice(), deferred);
+        // What the policy classifies and the harness registers: the advertised
+        // set plus the deferred set. A deferred tool outside this union would
+        // be `HideFromPrompt`, and the direct-call gate refuses those.
+        let reachable_names: std::collections::HashSet<String> = visible_names
+            .iter()
+            .chain(deferred_names.iter())
+            .cloned()
+            .collect();
         let config = self.config.clone().unwrap_or_default();
+        // The turn harness is assembled without a config in hand; record the
+        // `tool_search` settings here so every later turn ranks as configured.
+        crate::agent::tinyagents::discovery::apply_tool_search_config(&config.tool_search);
         let event_session_id = self
             .event_session_id
             .clone()
@@ -128,7 +160,7 @@ impl SessionHostBuilder {
             "session",
             &config.channel_permissions,
             &all_tools,
-            &visible_names,
+            &reachable_names,
         );
         // A pack whose owner this agent can hand off to directly is that
         // specialist's belt, not this agent's: close it (#6302).
@@ -234,31 +266,41 @@ impl SessionHostBuilder {
             .memory
             .ok_or_else(|| anyhow::anyhow!("memory is required"))?;
 
-        // Direct builder callers (notably embedding fixtures) do not pass
-        // through `build_session_agent_inner`, which normally creates the
-        // durable host authority for a root TinyAgents invocation. When the
-        // caller has initialized the registry, provide an equivalent minimal
-        // base from the builder's isolated workspace and supplied memory.
-        // Leave it absent when no registry exists so custom-runtime callers
-        // still receive the explicit hosted-authority error at turn time.
+        // Direct builder callers (notably unit fixtures) do not pass through
+        // `build_session_agent_inner`, which normally creates the durable host
+        // authority for a root TinyAgents invocation. Unit-test binaries do
+        // not promise an ordering for global-registry initialization, so use
+        // the built-in test definitions when the process registry is absent.
+        // Production callers keep the explicit hosted-authority error: a
+        // builtins-only fallback there could hide a missing workspace load.
         let mut hosted_config = crate::config::Config::default();
         hosted_config.workspace_dir = workspace_dir.clone();
         hosted_config.action_dir = action_dir.clone();
         let hosted_config = Arc::new(hosted_config);
-        let hosted_base =
-            crate::agent::harness::AgentDefinitionRegistry::global_arc().map(|definitions| {
-                Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
-                    security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
-                        &hosted_config.autonomy,
-                        &workspace_dir,
-                        &action_dir,
-                    )),
-                    config: Arc::clone(&hosted_config),
-                    definitions,
-                    memory: Arc::clone(&memory),
-                    post_turn_hooks: self.post_turn_hooks.clone(),
-                })
-            });
+        #[cfg(test)]
+        let definitions = Some(
+            crate::agent::harness::AgentDefinitionRegistry::global_arc().unwrap_or_else(|| {
+                Arc::new(crate::agent::harness::AgentDefinitionRegistry::builtins_only())
+            }),
+        );
+        #[cfg(not(test))]
+        let definitions = crate::agent::harness::AgentDefinitionRegistry::global_arc();
+        let hosted_base = definitions.map(|definitions| {
+            Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
+                security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
+                    &hosted_config.autonomy,
+                    &workspace_dir,
+                    &action_dir,
+                )),
+                config: Arc::clone(&hosted_config),
+                definitions,
+                memory: Arc::clone(&memory),
+                post_turn_hooks: self.post_turn_hooks.clone(),
+                // This path names a registry id; it never carries a
+                // caller-supplied definition.
+                session_definition: None,
+            })
+        });
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);
@@ -282,6 +324,8 @@ impl SessionHostBuilder {
             durable_tool_specs: Arc::new(durable_tool_specs),
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
+            deferred_tool_names: deferred_names,
+            discovery_enabled,
             subagent_tool_ceiling_names,
             tool_policy_session,
             memory,
@@ -332,6 +376,7 @@ impl SessionHostBuilder {
                 format!("{unix_ts}_{sanitized}")
             },
             session_parent_prefix: self.session_parent_prefix,
+            session: None,
             context: std::sync::Arc::new(std::sync::Mutex::new(context)),
             on_progress: None,
             run_queue: None,

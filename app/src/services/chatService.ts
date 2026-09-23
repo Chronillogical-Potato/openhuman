@@ -412,6 +412,20 @@ export interface SubagentProgressDetail {
   changed_files?: string[];
   /** Whether the worker's worktree had uncommitted changes (on `subagent_completed`). */
   dirty_status?: boolean;
+  /**
+   * This child's own spend (on `subagent_completed`) — present **only when it
+   * is not already inside the parent turn's totals**.
+   *
+   * A blocking spawn records into the parent's ledger and `chat_done` already
+   * carries the child's tokens AND cost; a detached spawn does not, and the
+   * core populates these instead. So the consumer adds whatever arrives
+   * unconditionally: absent means "already counted, or this emit site does not
+   * know", and both resolve to "add nothing".
+   */
+  input_tokens?: number;
+  output_tokens?: number;
+  cached_input_tokens?: number;
+  cost_usd?: number;
 }
 
 /** Extended payload for `subagent_spawned`. */

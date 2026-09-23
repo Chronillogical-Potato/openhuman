@@ -30,9 +30,6 @@ enum DelegationDispatchKind {
     Collapsed {
         targets: Result<Vec<super::collapsed_delegation::DelegateTarget>, String>,
     },
-    Integrations {
-        connected_toolkits: Vec<String>,
-    },
     Archetype,
 }
 
@@ -45,17 +42,6 @@ impl DelegationDispatch {
                         &tool.parameters_schema(),
                     ),
                 }
-            }
-            super::skill_delegation::INTEGRATIONS_DELEGATE_TOOL_NAME => {
-                let connected_toolkits = tool
-                    .parameters_schema()
-                    .pointer("/properties/toolkit/enum")
-                    .and_then(serde_json::Value::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|value| value.as_str().map(str::to_owned))
-                    .collect();
-                DelegationDispatchKind::Integrations { connected_toolkits }
             }
             // Only synthesized archetype delegate names enter this path.
             // `delegate_graph` is a concrete durable graph tool with its own
@@ -107,22 +93,6 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for D
                 };
                 super::collapsed_delegation::execute_collapsed_delegation_with_live_parent(
                     targets,
-                    arguments,
-                    Some(&tool_context),
-                    child,
-                    Some(parent),
-                )
-                .await
-            }
-            DelegationDispatchKind::Integrations { connected_toolkits } => {
-                let connected_toolkits: Vec<(String, String)> = connected_toolkits
-                    .iter()
-                    .cloned()
-                    .map(|slug| (slug, String::new()))
-                    .collect();
-                super::skill_delegation::execute_skill_delegation_with_live_parent(
-                    self.tool.name(),
-                    &connected_toolkits,
                     arguments,
                     Some(&tool_context),
                     child,
@@ -214,11 +184,6 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "delegation requires a live harness run context.",
-        ));
-    };
     let parent_workspace_descriptor = tool_context
         .and_then(|ctx| ctx.workspace().cloned())
         .or_else(|| run_context.workspace.clone());
@@ -258,6 +223,15 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
             )));
         }
     }
+
+    // Registry and policy failures are deterministic and safe to report even
+    // to a raw tool caller. Executing a valid delegation still requires the
+    // typed harness carrier below, which supplies cancellation and authority.
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "delegation requires a live harness run context.",
+        ));
+    };
 
     // ── Forward the current turn's attached image(s) to a vision sub-agent ──
     // The orchestrator runs on a non-vision tier and keeps the user's image as a
@@ -414,16 +388,11 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
         prompt.chars().count()
     );
 
-    // Propagate the per-call toolkit scope into the subagent runner so
-    // that the collapsed `SkillDelegationTool` can narrow
-    // `integrations_agent` to a single Composio toolkit (e.g.
-    // `delegate_to_integrations_agent { toolkit: "gmail" }` →
-    // integrations_agent + toolkit="gmail"). Earlier code plumbed this through
-    // `skill_filter_override` (which matches `{skill}__` QuickJS-style
-    // names), but Composio actions are named `GMAIL_*` / `NOTION_*` —
-    // so the filter excluded every Composio tool instead of narrowing
-    // them. `toolkit_override` applies the correct `{TOOLKIT}_` prefix
-    // check, restricted to skill-category tools.
+    // Propagate a per-call toolkit scope into the subagent runner as
+    // `toolkit_override` (the `{TOOLKIT}_` prefix check on skill-category
+    // tools), never as `skill_filter_override` (which matches `{skill}__`
+    // QuickJS-style names and would exclude every Composio action). The
+    // delegation tools synthesised today all pass `None` here.
     let worktree_action_dir = parent_workspace_descriptor
         .as_ref()
         .map(|descriptor| descriptor.root.clone());
@@ -466,7 +435,7 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                 // orchestrator must relay the question and resume via
                 // `continue_subagent` — NOT re-spawn a fresh, stateless
                 // sub-agent. Dropping this status was the #4291 infinite re-spawn
-                // loop: a paused mcp_setup was reported as a plain success, the
+                // loop: a paused sub-agent was reported as a plain success, the
                 // orchestrator's only continuation was to re-delegate, and the new
                 // run paused again. Mirrors the `spawn_subagent` AwaitingUser path.
                 SubagentRunStatus::AwaitingUser {
@@ -539,6 +508,10 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                                     output: outcome.output.clone(),
                                     // Synchronous delegate dispatch has no worktree
                                     // isolation (that is a `spawn_subagent` concept).
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
@@ -603,6 +576,10 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
                                     output: outcome.output.clone(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,

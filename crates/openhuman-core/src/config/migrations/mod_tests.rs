@@ -52,6 +52,8 @@ fn tainted_prompt() -> String {
 
 fn meta() -> TranscriptMeta {
     TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "main".into(),
         agent_id: None,
         agent_type: None,
@@ -244,6 +246,52 @@ async fn run_pending_v7_to_v8_rolls_back_default_model_when_save_fails() {
         Some("reasoning-v1"),
         "save failed → default_model must roll back to its pre-migration value"
     );
+}
+
+#[tokio::test]
+async fn run_pending_v12_to_v13_retires_persisted_tier_slugs() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+
+    let mut config = config_in(&tmp);
+    config.schema_version = 12;
+    config.default_model = Some("chat-v1".to_string());
+    config.orchestrator.model = Some("reasoning-v1".to_string());
+
+    run_pending(&mut config).await;
+
+    assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
+    assert_eq!(
+        config.default_model.as_deref(),
+        Some(crate::config::MODEL_MANAGED_DEFAULT)
+    );
+    assert_eq!(
+        config.orchestrator.model.as_deref(),
+        Some(crate::config::MODEL_MANAGED_DEFAULT)
+    );
+    let on_disk = std::fs::read_to_string(&config.config_path).unwrap();
+    assert!(
+        !on_disk.contains("chat-v1") && !on_disk.contains("reasoning-v1"),
+        "no retired tier slug may survive on disk, got:\n{on_disk}"
+    );
+}
+
+#[tokio::test]
+async fn run_pending_v12_to_v13_rolls_back_when_save_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+
+    let mut config = config_in(&tmp);
+    config.schema_version = 12;
+    config.default_model = Some("chat-v1".to_string());
+    let blocker = tmp.path().join("blocker");
+    fs::write(&blocker, "not a directory").unwrap();
+    config.config_path = blocker.join("nested").join("config.toml");
+
+    run_pending(&mut config).await;
+
+    assert_eq!(config.schema_version, 12);
+    assert_eq!(config.default_model.as_deref(), Some("chat-v1"));
 }
 
 #[tokio::test]

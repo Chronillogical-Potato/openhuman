@@ -14,15 +14,30 @@ import {
   resolveThreadKey,
 } from "./llm/shared.mjs";
 
-// The scripted `llmForcedResponses` FIFO models the *interactive* agent turn,
-// which always advertises tools (the orchestrator's delegate_* tools). Ancillary
-// completions that share the endpoint but carry no tools — thread-title/summary
-// generation via `chat_with_system` (tools: None), fired fire-and-forget and
-// racing the visible turn — must NOT drain the queue, or the scripted responses
-// desync and the turn falls through to the dynamic fallback
-// (tinyhumansai/openhuman#4517).
+// The scripted `llmForcedResponses` FIFO models the *interactive* agent turn.
+// Older harnesses advertised tools in the OpenAI request. Current harnesses
+// render that same catalogue in the stable system prompt to preserve the
+// provider's prompt-cache prefix, and deliberately omit the duplicate request
+// field. Interactive turns also stream a user message, unlike the ancillary
+// non-streaming completions (thread-title/summary generation via
+// `chat_with_system`) that race them. Those helpers must not drain the queue,
+// or scripted responses desynchronise and the turn falls through to the
+// dynamic fallback (tinyhumansai/openhuman#4517).
 function isPrimaryTurn(parsedBody) {
-  return Array.isArray(parsedBody?.tools) && parsedBody.tools.length > 0;
+  if (Array.isArray(parsedBody?.tools) && parsedBody.tools.length > 0) return true;
+
+  const hasRenderedCatalogue = (parsedBody?.messages ?? []).some(
+    message =>
+      (message?.role === "system" || message?.role === "developer") &&
+      typeof message?.content === "string" &&
+      message.content.includes("## Tools")
+  );
+  if (hasRenderedCatalogue) return true;
+
+  return (
+    parsedBody?.stream === true &&
+    (parsedBody?.messages ?? []).some(message => message?.role === "user")
+  );
 }
 
 function requestRuleMatches(rule, ctx) {
@@ -769,10 +784,10 @@ export function handleLlmCompletions(ctx) {
  * Two deliberately different shapes behind one path, because that distinction
  * is the whole point of the feature:
  *
- *   * **no `catalog` param** → only the curated tier list (`chat-v1`,
- *     `reasoning-v1`, …), bare OpenAI-compatible entries with no display name
- *     and no pricing. This is the legacy payload the client saw before the
- *     OpenRouter passthrough existed.
+ *   * **no `catalog` param** → only the managed default model as a bare
+ *     OpenAI-compatible entry with no display name and no pricing. This is
+ *     the legacy-shaped payload the client saw before the OpenRouter
+ *     passthrough existed (it used to list the retired `chat-v1`-style tiers).
  *   * **`?catalog=openrouter`** → the passthrough catalog: `openrouter/<author>/<slug>`
  *     ids, each with `name` and `pricing.{inputPer1M,outputPer1M}` so the picker
  *     can label by name and charged price rather than a bare slug.
@@ -783,11 +798,19 @@ export function handleLlmCompletions(ctx) {
  * pre-feature behaviour (no select) rather than showing an error.
  */
 const MANAGED_TIER_MODELS = [
-  { id: "chat-v1", object: "model", owned_by: "openhuman" },
-  { id: "reasoning-v1", object: "model", owned_by: "openhuman" },
+  { id: "openrouter/deepseek/deepseek-v4-flash", object: "model", owned_by: "openhuman" },
 ];
 
 const MANAGED_OPENROUTER_CATALOG = [
+  {
+    // The managed default model, so a picker that opens on it finds its row.
+    id: "openrouter/deepseek/deepseek-v4-flash",
+    object: "model",
+    owned_by: "openrouter",
+    name: "DeepSeek V4 Flash",
+    context_window: 1000000,
+    pricing: { inputPer1M: 0.0886, outputPer1M: 0.1772 },
+  },
   {
     id: "openrouter/nex-agi/nex-n2.5-mini",
     object: "model",

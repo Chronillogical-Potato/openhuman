@@ -1,7 +1,7 @@
 id = "skill_executor"
 display_name = "Skill Executor Agent"
 delegate_name = "run_skill"
-when_to_use = "Skill execution specialist — runs installed agent skills. Loads skill instructions from SKILL.md, follows the skill's procedure, and executes any bundled scripts. Use when the user invokes a skill by name or asks to run a specific installed skill."
+when_to_use = "Run an installed skill by id: loads its SKILL.md, follows the procedure, runs bundled scripts."
 temperature = 0.4
 max_iterations = 15
 iteration_policy = "extended"

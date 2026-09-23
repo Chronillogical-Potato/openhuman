@@ -414,6 +414,23 @@ pub struct SubagentProgressDetail {
     /// Elapsed wall-clock for the call/run in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elapsed_ms: Option<u64>,
+    /// This child's own token + cost spend (on `subagent_completed`), and
+    /// **only when it is not already inside the parent turn's totals**.
+    ///
+    /// The consumer adds these unconditionally, so an emit site that leaves
+    /// them absent contributes nothing — the safe direction. Populating them
+    /// for a child whose usage DID reach `parent_subagent_usage` silently
+    /// doubles the user's reported tokens and money, because
+    /// `holistic_last_turn_usage` already folded both into `chat_done`. See
+    /// `AgentProgress::SubagentCompleted::usage`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_input_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
     /// Total iterations the sub-agent used (on `subagent_completed`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,
@@ -817,7 +834,6 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
     let io_notify = io.clone();
     let io_transcription = io.clone();
     let io_auth = io.clone();
-    let io_mcp_setup = io.clone();
     let io_memory_sync = io.clone();
     let io_channel_status = io.clone();
     let io_companion = io.clone();
@@ -1036,59 +1052,6 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
             }
         }
         log::debug!("[socketio] workspace_changed bridge stopped");
-    });
-
-    // 6b. McpSetupSecretRequested → broadcast `mcp_setup:secret_requested`
-    //     so the UI can render a native input dialog. Only the opaque
-    //     ref + safe display fields are forwarded; raw secret values
-    //     are not part of the event payload.
-    tokio::spawn(async move {
-        let bus = {
-            const RETRY_INTERVAL_MS: u64 = 250;
-            const MAX_WAIT_SECS: u64 = 30;
-            let max_attempts = (MAX_WAIT_SECS * 1000) / RETRY_INTERVAL_MS;
-            let mut attempts: u64 = 0;
-            loop {
-                if let Some(bus) = crate::core::bus::BUS.get() {
-                    break bus;
-                }
-                attempts += 1;
-                if attempts > max_attempts {
-                    log::warn!(
-                        "[socketio] event_bus not initialised after {}s — mcp_setup bridge giving up",
-                        MAX_WAIT_SECS
-                    );
-                    return;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
-            }
-        };
-        let mut rx = bus.receiver();
-        loop {
-            let Some(event) = rx.recv().await else {
-                break;
-            };
-            if let crate::core::events::DomainEvent::McpSetupSecretRequested {
-                ref_id,
-                key_name,
-                prompt,
-            } = event
-            {
-                log::info!(
-                    "[socketio] broadcast mcp_setup:secret_requested ref={} key={}",
-                    ref_id,
-                    key_name
-                );
-                let payload = serde_json::json!({
-                    "ref_id": ref_id,
-                    "key_name": key_name,
-                    "prompt": prompt,
-                });
-                let _ = io_mcp_setup.emit("mcp_setup:secret_requested", &payload);
-                let _ = io_mcp_setup.emit("mcp_setup_secret_requested", &payload);
-            }
-        }
-        log::debug!("[socketio] mcp_setup secret_requested bridge stopped");
     });
 
     // 5. Transcription results → broadcast to all connected clients.

@@ -18,9 +18,9 @@ use std::path::{Path, PathBuf};
 /// Resolved per-agent paths.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentLayout {
-    /// `<workspace>/personalities/<id>/`.
+    /// `<workspace>/agents/<id>/`.
     pub home: PathBuf,
-    /// `<workspace>/personalities/<id>/skills/`.
+    /// `<workspace>/agents/<id>/skills/`.
     pub skills: PathBuf,
     /// The transcript directory the harness writes for this agent.
     pub transcripts: PathBuf,

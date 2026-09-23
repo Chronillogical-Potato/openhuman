@@ -319,6 +319,13 @@ pub async fn prepare_messages_for_provider(
 
         let mut normalized_image_refs = Vec::with_capacity(image_refs.len());
         for reference in image_refs {
+            // A `data:` image is an inline byte payload, not a fetchable URL.
+            // Keep the wire contract strict before handing it to TinyAgents:
+            // accepting a non-base64 form silently turned malformed image
+            // input into a provider-visible marker after the resolver update.
+            if reference.trim_start().starts_with("data:") && !data_uri_uses_base64(&reference) {
+                return Err(anyhow::anyhow!("only base64 data URIs are supported"));
+            }
             normalized_image_refs
                 .push(resolve_image(&reference, &images, max_image_bytes, &client).await?);
         }
@@ -354,6 +361,21 @@ pub async fn prepare_messages_for_provider(
         contains_images: found_images > 0,
         contains_files: found_files > 0,
     })
+}
+
+/// Whether a `data:` URI declares a base64 payload before its first comma.
+///
+/// Callers first establish that the value starts with `data:`; ordinary image
+/// paths and remote URLs intentionally do not pass through this check.
+fn data_uri_uses_base64(reference: &str) -> bool {
+    reference
+        .split_once(',')
+        .map(|(header, _)| {
+            header
+                .split(';')
+                .any(|parameter| parameter.trim().eq_ignore_ascii_case("base64"))
+        })
+        .unwrap_or(false)
 }
 
 // ── Ingress ──────────────────────────────────────────────────────────────

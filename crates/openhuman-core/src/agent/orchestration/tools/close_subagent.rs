@@ -93,8 +93,12 @@ impl Tool for CloseSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_parent_context(args, None, tool_context)
-            .await
+        self.execute_with_parent_context(
+            args,
+            crate::agent::harness::current_parent(),
+            tool_context,
+        )
+        .await
     }
 }
 
@@ -131,9 +135,10 @@ impl CloseSubagentTool {
             &parent.session_id,
             parent_thread_id,
         ) {
-            Ok(sessions) => sessions
-                .iter()
-                .any(|session| session.subagent_session_id == subagent_session_id),
+            Ok(sessions) => sessions.iter().any(|session| {
+                session.subagent_session_id == subagent_session_id
+                    && session.parent_thread_id.as_deref() == parent_thread_id
+            }),
             Err(err) => {
                 return Ok(ToolResult::error(format!(
                     "close_subagent: failed to read sub-agent sessions: {err}"

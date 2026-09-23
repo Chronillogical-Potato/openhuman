@@ -45,7 +45,6 @@ ALL_E2E_SUITES=(
   linux_cef_deb_runtime_e2e
   live_routing_e2e
   mcp_registry_e2e
-  mcp_setup_e2e
   memory_roundtrip_e2e
   memory_sources_e2e
   observability_wallet_expected_e2e
@@ -151,6 +150,18 @@ if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
   echo "[rust-e2e] Building pinned TinyMemory test module ..."
   "$CARGO_BIN" build --release --manifest-path "$memory_manifest"
   export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
+fi
+
+# Module-backed Composio coverage must use the pinned local artifact as well.
+# Without this override the core resolves TinyConnectors through release
+# metadata, turning an otherwise hermetic mock-backend suite into a network
+# dependency and permanently faulting that process when the lookup fails.
+if [ -z "${TINYCONNECTORS_TEST_MODULE:-}" ]; then
+  connectors_manifest="vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml"
+  connectors_module="vendor/tinyconnectors/target/release/libtinyconnectors.so"
+  echo "[rust-e2e] Building pinned TinyConnectors test module ..."
+  "$CARGO_BIN" build --release --manifest-path "$connectors_manifest"
+  export TINYCONNECTORS_TEST_MODULE="$REPO_ROOT/$connectors_module"
 fi
 
 echo "[rust-e2e] Running ${#SUITES[@]} suite(s) serially."

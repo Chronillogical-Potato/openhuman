@@ -179,16 +179,135 @@ async fn prompt_cache_segments_fingerprint_full_tool_schema() {
         .find(|segment| segment.role == SegmentRole::Tools)
         .expect("tool segment");
 
+    // Segment ids are the harness-layout constants, never content-suffixed:
+    // `refresh_prompt_cache_fingerprint` only recognises exactly `system` /
+    // `tools`, and any other id is fingerprinted over the whole request, which
+    // re-rolls the provider `prompt_cache_key` (OpenRouter's sticky-routing
+    // key) on every call.
+    assert_eq!(first_tool_segment.id, "tools");
+    assert_eq!(second_tool_segment.id, "tools");
+    assert!(first.cache_segments.iter().all(|s| s.cacheable));
+    assert_eq!(
+        first
+            .cache_segments
+            .iter()
+            .find(|s| s.role == SegmentRole::System)
+            .expect("system segment")
+            .id,
+        "system"
+    );
+    // The content difference is carried by the request fingerprint instead.
     assert_ne!(
-        first_tool_segment.id, second_tool_segment.id,
+        first.prompt_fingerprint, second.prompt_fingerprint,
         "same-name tools with different schemas must bust the stable prefix"
     );
-    assert_ne!(first.prompt_fingerprint, second.prompt_fingerprint);
     assert_eq!(
         first.prompt_fingerprint.as_deref().unwrap().len(),
         64,
         "request prompt fingerprints use TinyAgents' SHA-256 shape"
     );
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
+    // The whole point: two calls of one thread — same system prompt, same
+    // tools, longer conversation — must declare identical segments and an
+    // identical request fingerprint, so the provider routing key derived from
+    // them (`tap-<fingerprint>`) does not change turn to turn.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let mut turn_one = ModelRequest::new(vec![TaMessage::system("sys"), TaMessage::user("hi")])
+        .with_tools(tools.clone());
+    let mut turn_two = ModelRequest::new(vec![
+        TaMessage::system("sys"),
+        TaMessage::user("hi"),
+        TaMessage::assistant("hello"),
+        TaMessage::user("and again, later"),
+    ])
+    .with_tools(tools);
+    mw.before_model(&mut ctx(), &(), &mut turn_one)
+        .await
+        .unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_two)
+        .await
+        .unwrap();
+
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role, s.cacheable))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&turn_one), ids(&turn_two));
+    assert_eq!(
+        ids(&turn_one),
+        vec![
+            ("system".to_string(), SegmentRole::System, true),
+            ("tools".to_string(), SegmentRole::Tools, true),
+        ]
+    );
+    assert_eq!(turn_one.prompt_fingerprint, turn_two.prompt_fingerprint);
+    assert!(turn_one.prompt_fingerprint.is_some());
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
+    // Two leading system messages (stable+context, then volatile) are two
+    // segments named the way the harness's `refresh_prompt_cache_fingerprint`
+    // expects (`system`, `system.1`). Under a text dialect the harness folds
+    // the catalogue into the prompt and clears `tools` after this hook, so
+    // no `tools` segment is declared: declaring one would not match the
+    // rebuilt layout and would demote the request to a per-call digest.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let messages = vec![
+        TaMessage::system("stable"),
+        TaMessage::system("volatile"),
+        TaMessage::user("hi"),
+    ];
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role))
+            .collect::<Vec<_>>()
+    };
+
+    let mut native = ModelRequest::new(messages.clone()).with_tools(tools.clone());
+    mw.before_model(&mut ctx(), &(), &mut native).await.unwrap();
+    assert_eq!(
+        ids(&native),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+            ("tools".to_string(), SegmentRole::Tools),
+        ]
+    );
+
+    let mut python_ctx = ctx();
+    python_ctx.data = python_ctx
+        .data
+        .clone()
+        .with_tool_dialect(tinyagents_harness::config::ToolDispatcher::Python);
+    let mut python = ModelRequest::new(messages).with_tools(tools);
+    mw.before_model(&mut python_ctx, &(), &mut python)
+        .await
+        .unwrap();
+    assert_eq!(
+        ids(&python),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+        ]
+    );
+    assert!(python.prompt_fingerprint.is_some());
 }
 
 #[tokio::test]
@@ -429,7 +548,13 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
 /// fragment that still reads as tool output. The notice is applied after
 /// every cap now, so it survives intact whatever the tool declared.
 #[tokio::test]
-async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
+async fn a_tool_that_caps_itself_is_never_sent_to_the_summarizer() {
+    // The cost bug this replaced. The per-tool cap used to be applied
+    // *after* the summarizer, so a tool declaring `max_result_size_chars`
+    // still shipped its full body to an LLM and the cap only bounded the
+    // summary. One research turn paid 1,083,069 input tokens that way.
+    // A tool that caps itself is already bounded, and step 4 spills the
+    // remainder to a pageable artifact, so the model call buys nothing.
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
@@ -440,19 +565,17 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
             idempotent: false,
             cancelable: true,
             sandbox: tinytools::SandboxMode::Inherit,
-            // Far shorter than the ~165-char notice.
-            max_result_bytes: Some(12),
+            max_result_bytes: Some(64),
             streaming: false,
             replay: Default::default(),
         }),
     );
+    let stub = StubSummarizer::ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
     let mw = ToolOutputMiddleware {
-        // Large enough that the byte-budget backstop never fires, so this
+        // Large enough that the shared backstop never fires, so this
         // observes the per-tool cap alone.
         budget_bytes: 10_000_000,
-        payload_summarizer: Some(StubSummarizer::ok(SummarizeOutcome::Unavailable(
-            UnavailableReason::Failed,
-        ))),
+        payload_summarizer: Some(stub.clone()),
         task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
@@ -472,26 +595,14 @@ async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
     .await
     .unwrap();
 
-    let notice = UnavailableReason::Failed.notice();
     assert!(
-        result_text(&result).starts_with(notice),
-        "the complete notice must lead the content, got {:?}",
-        result_text(&result).chars().take(200).collect::<String>()
+        !stub.was_called(),
+        "a tool with its own cap must not be dispatched to the summarizer"
     );
     assert!(
-        result_text(&result).contains("Do not re-run the tool for a summary"),
-        "the do-not-re-run instruction is the whole point of the notice and must survive"
-    );
-    // The payload itself is still capped — deferring the notice must not
-    // smuggle the tool past its own declared limit.
-    let rendered = result_text(&result);
-    let payload = rendered
-        .strip_prefix(notice)
-        .expect("notice prefix")
-        .trim_start();
-    assert!(
-        payload.contains("[truncated by tool cap:"),
-        "the raw payload must still be truncated to the tool's cap, got {payload:?}"
+        result_text(&result).len() < 1_600,
+        "the cap must still bound the result: {} bytes",
+        result_text(&result).len()
     );
 }
 
@@ -532,10 +643,15 @@ async fn tool_output_honors_a_tools_own_cap() {
     )
     .await
     .unwrap();
+    let text = result_text(&result);
     assert!(
-        result_text(&result).contains("truncated by tool cap: 480 more chars not shown"),
-        "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
-        result_text(&result)
+        text.len() < 500,
+        "the tool's own 20-byte cap must bound the result: {text}"
+    );
+    assert!(
+        text.contains("truncated by tool_result_budget"),
+        "a capped tool now takes the shared spill path, which says how much \
+         is missing and how to get it: {text}"
     );
 }
 

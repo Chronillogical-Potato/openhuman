@@ -21,6 +21,7 @@
 //! | [`types`]     | `OpenHumanSessionHost` and `SessionHostBuilder` struct definitions (no logic).        |
 //! | [`builder`]   | `SessionHostBuilder` fluent API + `OpenHumanSessionHost::from_config` factory.        |
 //! | [`runtime_session`] | Runtime session composition and public `turn()`.          |
+//! | [`session_api`] | Start / read / list the durable session.                       |
 //! | [`driver`]    | OpenHuman model/harness `SessionDriver`.                         |
 //! | [`hooks`]     | Product preparation/commit/terminal hooks.                       |
 //! | [`runtime`]   | Public accessors and `run_single` / `run_interactive`.           |
@@ -37,8 +38,10 @@ mod driver;
 mod factory;
 mod hooks;
 mod policy;
+mod prefix_snapshot;
 mod runtime;
 mod runtime_session;
+mod session_api;
 #[cfg(test)]
 mod tool_progress;
 mod turn;
@@ -59,6 +62,9 @@ pub use types::{OpenHumanSessionHost, SessionHostBuilder, TurnOverrides};
 // (`session::runtime`, `subagent_host`) so all provider call sites
 // share one tested implementation.
 pub(crate) use builder::dedup_visible_tool_specs;
+
+mod announcement_notes;
+mod artifact_wiring;
 
 #[cfg(test)]
 mod runtime_adapter_tests;

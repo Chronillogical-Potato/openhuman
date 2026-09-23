@@ -1,4 +1,5 @@
-//! [`CostBudgetMiddleware`]: enforce daily/monthly cost budgets before a model
+//! [`CostBudgetMiddleware`]: token-accounting parity observer. It used to
+//! enforce daily/monthly cost budgets before a model
 //! call spends, and shadow-compare token accounting against the crate
 //! `BudgetMiddleware`.
 
@@ -7,12 +8,11 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware};
-use tinyinference_llm::model::ModelRequest;
 
-/// `before_model`: enforce OpenHuman's daily/monthly cost budgets **before** a
-/// model call spends (issue #4249, Phase 5). Reads the global
-/// [`CostTracker`](crate::platform::cost) and, when cost budgets are configured
-/// and already exceeded, fails the run before the provider call; a warning
+/// Token-accounting parity observer. It once enforced OpenHuman's
+/// daily/monthly cost budgets before a model call spent (issue #4249, Phase 5),
+/// failing the run before the provider call when a budget was already
+/// exceeded. That cap is gone and nothing here refuses any more; a warning
 /// threshold logs but proceeds. This enforcement path stays **authoritative**.
 ///
 /// Self-gating: a no-op unless a global tracker exists and `config.enabled` with
@@ -68,69 +68,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Cos
         "cost_budget"
     }
 
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        use crate::platform::cost::types::BudgetCheck;
-        let Some(tracker) = crate::platform::cost::try_global() else {
-            return Ok(());
-        };
-
-        // #5016: exempt the CURRENT request when it is BYOK, not just BYOK
-        // history. Excluding BYOK from the managed totals alone still refuses a
-        // mixed-route user's own-key calls once their managed spend has
-        // legitimately crossed the cap — managed exhaustion would disable the
-        // provider OpenHuman never bills for, which is the whole bug. Classify
-        // this call's route and skip the gate when OpenHuman is not the biller.
-        if let Some(model) = request.model.as_deref() {
-            let route = crate::platform::cost::route::route_for_model(model);
-            if !route.counts_toward_budget() {
-                tracing::debug!(
-                    %model,
-                    ?route,
-                    "[tinyagents::mw] BYOK/local route — skipping the managed budget gate (#5016)"
-                );
-                return Ok(());
-            }
-        }
-
-        // Pass 0.0 to test whether we are *already* over budget before spending
-        // more (rather than projecting this call's cost, which needs a token
-        // estimate).
-        match tracker.check_budget(0.0) {
-            Ok(BudgetCheck::Exceeded {
-                current_usd,
-                limit_usd,
-                period,
-            }) => {
-                tracing::warn!(
-                    %current_usd, %limit_usd, ?period,
-                    "[tinyagents::mw] cost budget exceeded — failing before model call"
-                );
-                Err(tinyagents_harness::TinyAgentsError::LimitExceeded(format!(
-                    "cost budget exceeded: {period:?} spend ${current_usd:.4} \u{2265} limit ${limit_usd:.4}"
-                )))
-            }
-            Ok(BudgetCheck::Warning {
-                current_usd,
-                limit_usd,
-                period,
-            }) => {
-                tracing::warn!(
-                    %current_usd, %limit_usd, ?period,
-                    "[tinyagents::mw] cost budget warning threshold reached"
-                );
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    }
-
-    /// Shadow parity check (W2-budget-dedupe). Enforcement already happened per
-    /// call in `before_model`; here we only observe. Compares the observe-only
+    /// Shadow parity check (W2-budget-dedupe). This middleware no longer
+    /// enforces anything — the spend cap is gone — so observing is all it
+    /// does. Compares the observe-only
     /// crate `BudgetMiddleware`'s accumulated token spend against the runtime's
     /// authoritative `AgentRun::usage` and logs `[budget_shadow]` divergence.
     /// Never fails the run.

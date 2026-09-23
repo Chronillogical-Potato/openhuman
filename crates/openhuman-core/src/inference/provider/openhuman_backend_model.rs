@@ -378,9 +378,9 @@ fn resolve_model(model: &str) -> String {
         log::debug!(
             "[providers][openhuman-backend] empty model passed to OpenHuman backend; \
              substituting default `{}` (TAURI-RUST-RS)",
-            crate::config::MODEL_REASONING_V1
+            crate::config::MODEL_MANAGED_DEFAULT
         );
-        crate::config::MODEL_REASONING_V1.to_string()
+        crate::config::MODEL_MANAGED_DEFAULT.to_string()
     } else {
         trimmed.to_string()
     }

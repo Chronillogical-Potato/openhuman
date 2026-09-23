@@ -11,47 +11,16 @@ impl SpawnAsyncSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(detached_parent) = detached_parent else {
-            return Ok(ToolResult::error(
-                "spawn_async_subagent requires a live harness run context.",
-            ));
-        };
-        let agent_id = args
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let prompt = args
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let context = args
-            .get("context")
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-        let model_override = args
-            .get("model")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        let toolkit_override = args
-            .get("toolkit")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        let task_title = args
-            .get("task_title")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or("Background subagent")
-            .to_string();
-        let task_key_source = durable_task_key_source(&args, &prompt, context.as_deref());
-        let task_key = subagent_sessions::normalize_task_key(&task_key_source);
-        let force_fresh = args.get("fresh").and_then(|v| v.as_bool()).unwrap_or(false);
+        let AsyncSpawnArgs {
+            agent_id,
+            prompt,
+            context,
+            model_override,
+            toolkit_override,
+            task_title,
+            task_key,
+            force_fresh,
+        } = decode_async_spawn_args(&args);
 
         if agent_id.is_empty() {
             return Ok(ToolResult::error(
@@ -63,6 +32,11 @@ impl SpawnAsyncSubagentTool {
                 "spawn_async_subagent: `prompt` is required",
             ));
         }
+        let Some(detached_parent) = detached_parent else {
+            return Ok(ToolResult::error(
+                "spawn_async_subagent requires a live harness run context.",
+            ));
+        };
 
         let parent = match run_context.parent.clone() {
             Some(parent) => parent,
@@ -90,6 +64,18 @@ impl SpawnAsyncSubagentTool {
                     available.join(", ")
                 )));
             }
+        };
+
+        // The follow-up vocabulary offered back to the parent is limited to
+        // the fleet tools visible on *this turn* (see `fleet_tools`), not
+        // just the parent definition's static scope: a hide or named
+        // restriction can narrow the turn's real tool surface below what the
+        // definition alone would suggest, and offering a control the parent
+        // cannot currently call invites a denied tool call.
+        let fleet = if parent.visible_tool_names.is_empty() {
+            FleetToolSet::for_parent(&parent.agent_definition_id)
+        } else {
+            FleetToolSet::from_visible_tool_names(&parent.visible_tool_names)
         };
 
         if !parent.allowed_subagent_ids.contains(&definition.id) {
@@ -144,10 +130,9 @@ impl SpawnAsyncSubagentTool {
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
                  chat turn). Fire-and-forget delegation has nowhere to land its result here and \
                  the sub-agent's work would be silently discarded. Use synchronous delegation \
-                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
-                 tool — both run the sub-agent inline and hand you its output in this turn. \
-                 For parallel work, model it as parallel flow nodes rather than background \
-                 sub-agents.",
+                 instead: a `delegate_*` tool with `blocking: true` runs the sub-agent inline \
+                 and hands you its output in this turn. For parallel work, model it as \
+                 parallel flow nodes rather than background sub-agents.",
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
@@ -256,11 +241,18 @@ impl SpawnAsyncSubagentTool {
                                 true,
                                 reuse_decision.as_str(),
                                 "running",
+                                &fleet,
                             );
+                            let follow_up = if fleet.can_wait() {
+                                "Use the structured reference below to send more input, wait, or perform a short timeout tick."
+                            } else {
+                                "Its result is delivered to you automatically on a later turn; do not wait or poll for it."
+                            };
                             return Ok(ToolResult::success(format!(
                                 "Continued reusable async sub-agent `{}`. It is already running and will pick up the new instruction at its next step. \
-                                 Use the structured reference below to send more input, wait, or perform a short timeout tick.\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
+                                 {}\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
                                 payload["agent_id"].as_str().unwrap_or("subagent"),
+                                follow_up,
                                 serde_json::to_string(&payload)
                                     .unwrap_or_else(|_| "{}".to_string())
                             )));
@@ -525,6 +517,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,
@@ -597,6 +597,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,
@@ -785,6 +793,7 @@ impl SpawnAsyncSubagentTool {
             reusable.is_some(),
             reuse_decision.as_str(),
             "running",
+            &fleet,
         );
         let payload_json = match serde_json::to_string(&payload) {
             Ok(serialized) => {
@@ -806,6 +815,7 @@ impl SpawnAsyncSubagentTool {
         Ok(ToolResult::success(format_async_subagent_accepted(
             payload["agent_id"].as_str().unwrap_or("subagent"),
             &payload_json,
+            &fleet,
         )))
     }
 }

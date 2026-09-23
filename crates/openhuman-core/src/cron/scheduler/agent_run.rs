@@ -50,7 +50,7 @@ pub(super) async fn run_agent_job(
                 // exact model id. `ModelSpec::resolve` synthesises
                 // `{hint}-v1` for Hint specs, which only the OpenHuman
                 // backend understands as a tier hint — Anthropic and
-                // every other provider 404 on names like `agentic-v1`.
+                // every other provider 404 on names like `hint:agentic`.
                 // Route Hint specs through the per-workload factory so
                 // we get the exact model the user has configured for
                 // that workload, regardless of which provider it lives

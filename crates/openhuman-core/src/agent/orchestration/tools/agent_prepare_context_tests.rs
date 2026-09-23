@@ -36,14 +36,14 @@ fn build_scout_prompt_includes_request_focus_and_catalog() {
     let prompt = AgentPrepareContextTool::build_scout_prompt(
         "summarise my unread gmail",
         Some("last 24h"),
-        "- delegate_to_integrations_agent: route to a connected integration\n",
+        "- research: web and docs crawler\n",
     );
     assert!(prompt.contains("[Request]"));
     assert!(prompt.contains("summarise my unread gmail"));
     assert!(prompt.contains("[Focus]"));
     assert!(prompt.contains("last 24h"));
     assert!(prompt.contains("[Orchestrator tools]"));
-    assert!(prompt.contains("delegate_to_integrations_agent"));
+    assert!(prompt.contains("research"));
     assert!(prompt.contains("[context_bundle]"));
 }
 
@@ -398,16 +398,13 @@ async fn catalog_lists_the_parents_synthesised_delegates_from_its_visible_specs(
         ],
         vec![
             catalog_spec("echo", "durable"),
-            catalog_spec(
-                "delegate_to_integrations_agent",
-                "route to a connected integration",
-            ),
+            catalog_spec("research", "web and docs crawler"),
             catalog_spec("agent_prepare_context", "this tool"),
         ],
     );
     let catalog = AgentPrepareContextTool::render_parent_tool_catalog(Some(&ctx));
     assert!(
-        catalog.contains("- delegate_to_integrations_agent: route to a connected integration\n"),
+        catalog.contains("- research: web and docs crawler\n"),
         "the parent's delegate must be recommendable: {catalog:?}"
     );
     assert!(catalog.contains("- echo: durable\n"));

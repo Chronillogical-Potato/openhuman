@@ -48,7 +48,7 @@ fn background_contract_forbids_user_attention() {
 #[test]
 fn accepted_message_hides_task_id_from_prose() {
     let payload = r#"{"task_id":"sub-internal-123","agent_id":"archivist","mode":"async"}"#;
-    let message = format_async_subagent_accepted("archivist", payload);
+    let message = format_async_subagent_accepted("archivist", payload, &FleetToolSet::all());
     let prose = message
         .split("[async_subagent_ref]")
         .next()
@@ -58,6 +58,54 @@ fn accepted_message_hides_task_id_from_prose() {
     assert!(!prose.contains("sub-internal-123"));
     assert!(message.contains("[async_subagent_ref]"));
     assert!(message.contains("sub-internal-123"));
+}
+
+/// A parent with `wait_subagent` but not `steer_subagent` (a wait-only
+/// fleet) must be told it can wait/poll but never invited to "send more
+/// input" — that guidance, and the `send_message` instruction, require
+/// `steer_subagent` specifically. Regression for CodeRabbit finding on
+/// `format_async_subagent_accepted`/`async_subagent_ref_payload` gating both
+/// messages on `can_wait()` alone.
+#[test]
+fn wait_only_fleet_omits_steering_guidance_and_instruction() {
+    let fleet = FleetToolSet::from_scope(
+        &crate::agent::harness::definition::ToolScope::Named(vec!["wait_subagent".to_string()]),
+        &[],
+    );
+    assert!(fleet.can_wait());
+    assert!(!fleet.has("steer_subagent"));
+
+    let payload = async_subagent_ref_payload(
+        "sub-123",
+        "subsess-456",
+        "researcher",
+        Some("thread-worker"),
+        false,
+        "created",
+        "running",
+        &fleet,
+    );
+    assert_eq!(payload["instructions"]["wait"]["tool"], "wait_subagent");
+    assert!(
+        !payload["instructions"]
+            .as_object()
+            .expect("instructions map")
+            .contains_key("send_message"),
+        "send_message offered to a parent without steer_subagent"
+    );
+    let serialized = serde_json::to_string(&payload).unwrap();
+    assert!(
+        !serialized.contains("steer_subagent"),
+        "steer_subagent leaked into the envelope"
+    );
+
+    let message = format_async_subagent_accepted("researcher", &serialized, &fleet);
+    let prose = message.split("[async_subagent_ref]").next().unwrap();
+    assert!(prose.contains("wait for completion"));
+    assert!(
+        !prose.contains("send more input"),
+        "wait-only parent told to send more input it cannot send"
+    );
 }
 
 #[test]
@@ -70,6 +118,7 @@ fn async_reference_payload_includes_agent_id_and_control_instructions() {
         false,
         "created",
         "running",
+        &FleetToolSet::all(),
     );
 
     assert_eq!(payload["agent_id"], "researcher");
@@ -85,6 +134,72 @@ fn async_reference_payload_includes_agent_id_and_control_instructions() {
         payload["instructions"]["send_message"]["tool"],
         "steer_subagent"
     );
+}
+
+/// The shipped orchestrator (#5701) has no wait/steer/close tools; the envelope
+/// must not name them, and must say the result arrives on its own.
+#[test]
+fn async_reference_matches_the_orchestrator_fleet_vocabulary() {
+    let registry = AgentDefinitionRegistry::builtins_only();
+    let def = registry.get("orchestrator").expect("built-in orchestrator");
+    let fleet = FleetToolSet::from_scope(&def.tools, &def.disallowed_tools);
+
+    let payload = async_subagent_ref_payload(
+        "sub-123",
+        "subsess-456",
+        "integrations_agent",
+        None,
+        false,
+        "created",
+        "running",
+        &fleet,
+    );
+    let instructions = payload["instructions"]
+        .as_object()
+        .expect("instructions map");
+    for absent in [
+        "wait",
+        "timeout_tick",
+        "delayed_tick",
+        "delayed_loop",
+        "send_message",
+    ] {
+        assert!(
+            !instructions.contains_key(absent),
+            "{absent} offered to a parent without it"
+        );
+    }
+    assert_eq!(
+        payload["instructions"]["answer_or_resume"]["tool"],
+        "continue_subagent"
+    );
+    assert_eq!(payload["result_delivery"], "automatic");
+    let serialized = serde_json::to_string(&payload).unwrap();
+    for name in [
+        "wait_subagent",
+        "steer_subagent",
+        "wait_loop",
+        "close_subagent",
+    ] {
+        assert!(
+            !serialized.contains(name),
+            "{name} leaked into the envelope"
+        );
+    }
+    let next: Vec<&str> = payload["next_actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(next
+        .iter()
+        .any(|a| a.contains("delivered to you automatically")));
+
+    let message = format_async_subagent_accepted("integrations_agent", &serialized, &fleet);
+    let prose = message.split("[async_subagent_ref]").next().unwrap();
+    assert!(prose.contains("delivered to you automatically"));
+    assert!(!prose.contains("wait for completion"));
 }
 
 #[test]
@@ -283,10 +398,20 @@ async fn errors_clearly_when_no_parent_thread_for_delivery() {
     assert!(result.is_error);
     let out = result.output();
     assert!(out.contains("no parent chat thread"), "{out}");
-    // The recommended escape hatch must name `blocking: true` — plain
-    // `spawn_subagent` defaults to async and would otherwise be steered
-    // straight back into this same guard.
-    assert!(out.contains("spawn_subagent"), "{out}");
+    // The recommended escape hatch must name a route that does NOT loop back
+    // into this guard: a synchronous one, with the argument that makes it
+    // synchronous.
+    //
+    // The literal `spawn_subagent` is deliberately no longer asserted. The
+    // guidance used to name it; it now recommends `delegate_*` instead, which
+    // is the better advice for the reason this comment already gave — plain
+    // `spawn_subagent` defaults to async and would steer the model straight
+    // back here. Verified callable under the product feature profile:
+    // `delegate_<agent_id>` tools are generated in
+    // `tools/orchestrator_tools.rs:116`, and they accept `blocking`
+    // (`archetype_delegation.rs:115` declares it, `:245` reads it) — so the
+    // guidance names a real tool family with a real argument, not a route the
+    // model cannot take.
     assert!(out.contains("blocking: true"), "{out}");
     assert!(out.contains("delegate_"), "{out}");
 }

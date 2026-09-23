@@ -1,6 +1,7 @@
 //! `OpenHumanSessionHost::from_config` factory methods and the internal
 //! `build_session_agent_inner` constructor.
 
+use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
 use super::helpers::prefetch_tool_memory_rules_blocking;
 use super::should_synthesize_delegation_tools;
 use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
@@ -17,7 +18,9 @@ use crate::tools;
 use anyhow::Result;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool};
-use tinytools_agent::dialect::{NativeDialect, PFormatDialect, ToolDialect, XmlDialect};
+use tinytools_agent::dialect::{
+    CodeDialect, NativeDialect, PFormatDialect, ToolDialect, XmlDialect,
+};
 
 impl OpenHumanSessionHost {
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
@@ -256,7 +259,7 @@ impl OpenHumanSessionHost {
         // tuple — the resolved model wins over the legacy `default_model`
         // fallback so explicit picks like `anthropic:claude-sonnet-4-5`
         // actually use claude-sonnet-4-5 end to end (sending the abstract
-        // "reasoning-v1" tier name to Anthropic would 404).
+        // "hint:reasoning" tier name to Anthropic would 404).
         //
         // When `reasoning_provider` is unset or `"cloud"`, the factory
         // resolves to the primary cloud (OpenHuman by default), so the
@@ -274,7 +277,7 @@ impl OpenHumanSessionHost {
         // the configured chat default. Other specialised roles still select
         // their model in the sub-agent runner.
         // Only the explicit `hint:<role>` form routes to a specialised
-        // workload — legacy tier literals like `reasoning-v1` (which the
+        // workload — legacy tier literals like `hint:reasoning` (which the
         // bootstrap historically pinned as `default_model` for everyone)
         // fall through to `chat`. This preserves `config.chat_provider` for
         // legacy callers. A built-in Master OpenHumanSessionHost has an explicit
@@ -580,10 +583,9 @@ impl OpenHumanSessionHost {
         //
         // For an agent with `[subagents] allowlist = [...]` in its TOML (today:
         // orchestrator), `collect_orchestrator_tools` synthesises one
-        // `ArchetypeDelegationTool` per named sub-agent plus a single
-        // collapsed `SkillDelegationTool`
-        // (`delegate_to_integrations_agent`) whose `toolkit` argument
-        // selects among the connected Composio toolkits (#1335).
+        // `ArchetypeDelegationTool` per named sub-agent plus, for the
+        // `{ skills = "*" }` wildcard, one `Deferred` action tool per
+        // connected Composio action (reached through `tool_search`).
         //
         // For an agent without `subagents` (today: welcome, critic,
         // archivist, etc.), no delegation tools are synthesised — the
@@ -594,7 +596,7 @@ impl OpenHumanSessionHost {
         // This builder is synchronous and sits on the CLI / REPL /
         // Tauri-web code path. It still opportunistically reuses the
         // process-wide Composio cache when one is already warm, which
-        // lets the session start with the right `delegate_<toolkit>`
+        // lets the session start with the right integration action
         // surface and prompt block without paying a turn-1 fetch. On a
         // cold cache we still fall back to the empty slice and let the
         // first turn repair the session state if needed.
@@ -638,8 +640,14 @@ impl OpenHumanSessionHost {
                         // The tool stays in `synthed`, so it stays registered
                         // and dispatchable for a replayed transcript or a saved
                         // skill that names it — exactly like a packed tool.
+                        //
+                        // A synthesised `Deferred` tool (a per-action
+                        // integration tool) is likewise not advertised: it is
+                        // reachable through `tool_search` when the belt opts
+                        // in, and the session builder keeps it in the deferred
+                        // set beside the visible one.
                         for t in &synthed {
-                            if t.exposure() == tinytools::ToolExposure::Hidden {
+                            if t.exposure() != tinytools::ToolExposure::Direct {
                                 continue;
                             }
                             set.insert(t.name().to_string());
@@ -747,11 +755,11 @@ impl OpenHumanSessionHost {
         // tool must be a *real* member of any non-empty allowlist — this is the
         // single source of truth that the policy session, advertised specs, and
         // the run-time visible-name gate all consume, so adding it here makes a
-        // `retrieve_tool_output("…")` footer actionable for Named-scope agents
+        // `⟦tj:…⟧` marker actionable for Named-scope agents
         // (e.g. the orchestrator's curated list). An empty set already means
         // "no filter", so it needs nothing. Added BEFORE the disallow filter
         // below so an agent that explicitly disallows it still has it removed.
-        super::ensure_recovery_tool_visible(&mut visible);
+        super::ensure_recovery_tool_visible(&mut visible, config.context.compaction_enabled);
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -837,6 +845,9 @@ impl OpenHumanSessionHost {
             DispatcherKind::Native => Box::new(NativeDialect),
             DispatcherKind::Xml => Box::new(XmlDialect),
             DispatcherKind::PFormat => Box::new(PFormatDialect::new(pformat_registry.clone())),
+            DispatcherKind::Code(style) => {
+                Box::new(CodeDialect::new(style, pformat_registry.clone()))
+            }
         };
 
         log::debug!(
@@ -1025,6 +1036,14 @@ impl OpenHumanSessionHost {
                 security_policy: security,
                 memory: agent.memory_arc(),
                 post_turn_hooks: agent.post_turn_hooks.clone(),
+                // The caller's own definition, when this session was built from
+                // one rather than from a registry id. `AgentSpec::into_core`
+                // re-stamps the built-in orchestrator under the caller's id, so
+                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
+                // names no registry holds; without handing the definition over
+                // here the lookup misses and the turn is rejected as a policy
+                // failure before any provider call (#6404/#6392/#6393).
+                session_definition: target_def.cloned().map(Arc::new),
             })
         });
         if agent.hosted_base.is_none() {
@@ -1122,50 +1141,6 @@ fn definition_disallows_tool(disallowed: &[String], name: &str) -> bool {
             entry == name
         }
     })
-}
-
-/// Which tool-call dialect a session speaks to its provider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DispatcherKind {
-    /// Provider-native structured function calling (JSON tool specs on the wire).
-    Native,
-    /// JSON-in-tag: `<tool_call>{"name":…,"arguments":{…}}</tool_call>` in text.
-    Xml,
-    /// Compact positional P-Format (`tool[a|b]`) — opt-in only.
-    PFormat,
-}
-
-/// Pick the tool-call dialect from the configured `agent.tool_dispatcher`
-/// choice, the provider's native-tool support, and the agent id.
-///
-/// `"auto"` (and any unrecognized value) resolves to native when the provider
-/// supports it, otherwise JSON-in-tag — **never** P-Format, which is opt-in
-/// (`"pformat"`) because its compact positional syntax mis-parses on some
-/// models.
-///
-/// `integrations_agent` is special-cased off native: provider-side grammar
-/// decoders (e.g. Fireworks) compile every JSON tool schema into a grammar
-/// indexed by a `uint16_t` (max 65 535 rules), and large Composio toolkits
-/// (Notion, Salesforce, Gmail) blow past that ceiling, so a native request is
-/// rejected with a 400 before any generation. Falling back to JSON-in-tag puts
-/// the catalogue in the prompt as prose, so no grammar is compiled.
-fn resolve_dispatcher_kind(
-    dispatcher_choice: &str,
-    supports_native: bool,
-    agent_id: &str,
-) -> DispatcherKind {
-    let base = match dispatcher_choice {
-        "native" => DispatcherKind::Native,
-        "xml" => DispatcherKind::Xml,
-        "pformat" => DispatcherKind::PFormat,
-        _ if supports_native => DispatcherKind::Native,
-        _ => DispatcherKind::Xml,
-    };
-    if agent_id == "integrations_agent" && base == DispatcherKind::Native {
-        DispatcherKind::Xml
-    } else {
-        base
-    }
 }
 
 /// Resolve the provider/workload role for a session build.

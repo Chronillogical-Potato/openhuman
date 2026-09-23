@@ -2836,8 +2836,7 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
                 }],
                 "allow_tool_install": false,
                 "max_actions_per_hour": 42,
-                "auto_approve": ["memory.search"],
-                "require_task_plan_approval": true
+                "auto_approve": ["memory.search"]
             }),
         ),
         (

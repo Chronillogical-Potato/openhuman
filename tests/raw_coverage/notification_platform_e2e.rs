@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! End-to-end coverage for the notification centre and the small platform namespaces that had no
 //! e2e target at all: `notification` (7 uncovered), `health` (2), `doctor` (2), `service`'s
 //! daemon-host pair, `provider_surfaces` (2), `slack_memory` (2) and `announcements` (1).

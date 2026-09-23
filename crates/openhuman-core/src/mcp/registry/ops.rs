@@ -16,10 +16,10 @@
 //! host policy: the detector, its rules, and what a hit means belong to this
 //! application's threat model.
 //!
-//! **The configuration assistant's agent turn.** `tinymcp` gathers the catalog
-//! detail and the credential names a model would need and stops. Running the
-//! turn needs the agent, the tool surface, and the approval gate, all of which
-//! are here.
+//! **The `mcp.json` document.** Installing a server is no longer a catalog
+//! action: the user declares servers in one `mcp.json` document and
+//! [`super::config_ops`] reconciles the store against it (`config_get` /
+//! `config_set`). The catalog is browse-only.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -33,7 +33,6 @@ use crate::mcp::host;
 use crate::rpc::RpcOutcome;
 
 use super::helpers::{encode, inject_required_env_keys, require, resolve};
-use super::types::ChatTurn;
 
 // ── registry_search ──────────────────────────────────────────────────────────
 
@@ -87,8 +86,8 @@ pub async fn mcp_clients_registry_get(
         .await
         .map_err(|error| error.to_string())?;
 
-    // The install dialog needs both, and fetching them separately would be two
-    // catalog round trips for one screen.
+    // The registry tab shows what a server would ask for, and fetching the two
+    // separately would be two catalog round trips for one screen.
     let mut server = encode(&detail)?;
     inject_required_env_keys(&mut server, &required_env_keys);
 
@@ -113,44 +112,6 @@ pub async fn mcp_clients_installed_list(config: &Config) -> Result<RpcOutcome<Va
     Ok(RpcOutcome::new(
         json!({ "installed": installed }),
         vec![format!("installed_list returned {count} servers")],
-    ))
-}
-
-// ── install ──────────────────────────────────────────────────────────────────
-
-pub async fn mcp_clients_install(
-    config: &Config,
-    qualified_name: String,
-    env: HashMap<String, String>,
-    config_value: Option<Value>,
-) -> Result<RpcOutcome<Value>, String> {
-    let qualified_name = require(&qualified_name, "qualified_name")?;
-
-    let outcome = resolve(config)?
-        .dynamic()
-        .install(&qualified_name, env.into_iter().collect(), config_value)
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !outcome.already_installed {
-        BUS.publish(DomainEvent::McpServerInstalled {
-            server_id: outcome.server.server_id.clone(),
-            qualified_name: outcome.server.qualified_name.clone(),
-        });
-    }
-
-    let note = if outcome.already_installed {
-        format!("already installed qualified_name={qualified_name}")
-    } else {
-        format!("installed server_id={}", outcome.server.server_id)
-    };
-
-    Ok(RpcOutcome::new(
-        json!({
-            "server": outcome.server,
-            "already_installed": outcome.already_installed,
-        }),
-        vec![note],
     ))
 }
 
@@ -520,162 +481,6 @@ pub async fn mcp_clients_tool_call(
                 "tool_call error server_id={server_id} tool={tool_name}: {error}"
             )],
         )),
-    }
-}
-
-// ── config_assist ────────────────────────────────────────────────────────────
-
-pub async fn mcp_clients_config_assist(
-    config: &Config,
-    qualified_name: String,
-    user_message: String,
-    history: Option<Vec<ChatTurn>>,
-) -> Result<RpcOutcome<Value>, String> {
-    let qualified_name = require(&qualified_name, "qualified_name")?;
-
-    tracing::debug!(
-        "[mcp-client] config_assist qualified_name={} message_len={}",
-        qualified_name,
-        user_message.len()
-    );
-
-    // The module gathers the catalog detail and the credential names; running
-    // the turn below is this layer's, because it needs the agent, the tool
-    // surface and the approval gate.
-    let (detail, required_env_keys) = resolve(config)?
-        .dynamic()
-        .config_assist(&qualified_name)
-        .await
-        .map_err(|error| format!("Failed to fetch registry detail: {error}"))?;
-
-    let system_prompt = build_config_assist_system_prompt(
-        &detail.display_name,
-        &qualified_name,
-        &required_env_keys,
-    );
-
-    // Build a conversation with the current system prompt + history + new message
-    let history = history.unwrap_or_default();
-
-    // Call the agent inference path using the existing infrastructure.
-    // We use a simple inline approach: ask the agent to reply in JSON
-    // `{ "reply": "...", "suggested_env": { "KEY": "value" } }`.
-    let reply_json =
-        invoke_config_assist_agent(config, &system_prompt, &history, &user_message).await?;
-
-    let reply = reply_json
-        .get("reply")
-        .and_then(Value::as_str)
-        .unwrap_or("I can help you configure this MCP server. What do you need?")
-        .to_string();
-
-    let suggested_env: Option<HashMap<String, String>> = reply_json
-        .get("suggested_env")
-        .and_then(|v| serde_json::from_value(v.clone()).ok());
-
-    Ok(RpcOutcome::new(
-        json!({ "reply": reply, "suggested_env": suggested_env }),
-        vec!["config_assist replied".to_string()],
-    ))
-}
-
-fn build_config_assist_system_prompt(
-    display_name: &str,
-    qualified_name: &str,
-    required_env_keys: &[String],
-) -> String {
-    let keys_list = if required_env_keys.is_empty() {
-        "none detected".to_string()
-    } else {
-        required_env_keys.join(", ")
-    };
-    format!(
-        "You are helping a non-technical user configure an MCP server called `{display_name}` ({qualified_name}). \
-         The server requires these env vars: {keys_list}. \
-         Walk them through getting each one (where to obtain API keys, etc). \
-         If they share values in their message, extract them into the `suggested_env` field. \
-         Always respond with a JSON object containing exactly two keys: \
-         `reply` (a friendly markdown string explaining what to do next) and \
-         `suggested_env` (an object mapping env var names to values, or null if none detected). \
-         Do not include any text outside the JSON object."
-    )
-}
-
-/// Invoke a lightweight inference call for config_assist.
-/// Uses the existing `inference` domain to run a structured-output chat turn.
-async fn invoke_config_assist_agent(
-    config: &Config,
-    // The legacy JSON-asking system prompt is intentionally unused: the agent
-    // turn returns its text verbatim, so we want natural markdown, not a JSON
-    // envelope. Server context comes through `user_message`.
-    _system_prompt: &str,
-    history: &[ChatTurn],
-    user_message: &str,
-) -> Result<Value, String> {
-    // Run a real agent turn (not a bare completion) so the model can use
-    // `web_search` / `web_fetch` / `curl` to look up the provider's actual docs
-    // and give accurate, current token-acquisition steps instead of guessing
-    // from training memory. The research directive + server context go in the
-    // message; the default agent already carries the web tools (always
-    // registered), gated by the usual SecurityPolicy.
-    let mut message = String::new();
-    message.push_str(
-        "You are an MCP setup helper. Use web_search and web_fetch/curl to look up the \
-         provider's OFFICIAL documentation, then tell the user exactly how to obtain the \
-         credential needed to connect this MCP server: where to sign up / log in, where to \
-         generate the API key or token, which scopes/permissions to enable, and the exact \
-         header name and value format to paste. Reply with concise numbered steps and cite \
-         the source URL. Do not invent URLs — verify them with the tools. Respond in plain \
-         markdown prose, NOT JSON and with no wrapping object.\n\n",
-    );
-    for turn in history {
-        message.push_str(&format!("{}: {}\n", turn.role, turn.content));
-    }
-    message.push_str(&format!("user: {user_message}"));
-
-    tracing::debug!(
-        "[mcp-client] config_assist running agent turn (web tools) prompt_len={}",
-        message.len()
-    );
-
-    let mut agent = match crate::agent::OpenHumanSessionHost::from_config(config) {
-        Ok(a) => a,
-        Err(e) => {
-            return Ok(json!({
-                "reply": format!(
-                    "Couldn't start the assistant: {e}. Make sure AI/inference is configured (Connections → API keys → LLM)."
-                ),
-                "suggested_env": null
-            }));
-        }
-    };
-    // Scope this docs helper to web-research tools only. `from_config` builds
-    // the full default agent surface (filesystem, shell, MCP, browser, …), but
-    // a credential-help turn must not be able to pivot into unrelated local
-    // capabilities — it only needs to read the provider's public docs (#3648).
-    agent.set_visible_tool_names(
-        ["web_search_tool", "web_fetch", "curl"]
-            .into_iter()
-            .map(String::from)
-            .collect(),
-    );
-
-    // Trusted desktop-initiated turn — label as CLI so the approval gate doesn't
-    // fail closed on an unlabelled call site (mirrors `agent_chat`).
-    let reply_result = crate::agent::turn_origin::with_origin(
-        crate::agent::turn_origin::AgentTurnOrigin::Cli,
-        agent.run_single(&message),
-    )
-    .await;
-
-    match reply_result {
-        Ok(reply) => Ok(json!({ "reply": reply, "suggested_env": null })),
-        Err(e) => Ok(json!({
-            "reply": format!(
-                "I couldn't research that right now: {e}. Make sure AI/inference is configured (Connections → API keys → LLM)."
-            ),
-            "suggested_env": null
-        })),
     }
 }
 

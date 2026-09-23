@@ -124,6 +124,18 @@ impl OpenHumanSessionHost {
     }
 
     #[cfg(test)]
+    pub(crate) fn deferred_tool_names_for_test(&self) -> &std::collections::HashSet<String> {
+        &self.deferred_tool_names
+    }
+
+    #[cfg(test)]
+    pub(crate) fn tool_policy_session_for_test(
+        &self,
+    ) -> &crate::tools::agent_policy::ToolPolicySession {
+        &self.tool_policy_session
+    }
+
+    #[cfg(test)]
     pub(crate) fn subagent_tool_ceiling_names_for_test(
         &self,
     ) -> &std::collections::HashSet<String> {
@@ -309,15 +321,54 @@ impl OpenHumanSessionHost {
 
     /// Bind the OpenHuman conversation thread for the next and subsequent
     /// turns. Empty input intentionally clears the binding.
+    ///
+    /// This also binds the session's durable identity, which is what makes a
+    /// thread resolve to one transcript instead of a new timestamped stem per
+    /// cold boot. A sub-agent is excluded: each spawn is genuinely its own
+    /// transcript, and it inherits its parent's thread id only for
+    /// correlation.
     pub fn set_thread_id(&mut self, thread_id: Option<impl AsRef<str>>) {
         self.thread_id = thread_id.and_then(|thread_id| {
             let thread_id = thread_id.as_ref().trim();
             (!thread_id.is_empty()).then(|| thread_id.to_owned())
         });
+        self.session = match (&self.thread_id, self.session_parent_prefix.is_some()) {
+            (Some(thread_id), false) => Some(tinyagents_session::transcript::SessionRef::scoped(
+                thread_id.clone(),
+                self.agent_definition_id.clone(),
+            )),
+            _ => None,
+        };
     }
 
     pub(crate) fn thread_id(&self) -> Option<&str> {
         self.thread_id.as_deref()
+    }
+
+    /// Durable id of the session this host is bound to, or `None` when it has
+    /// no conversation identity (a sub-agent, or an unthreaded CLI turn).
+    ///
+    /// This is TinyAgents' identity, not a host-invented one: it is what
+    /// addresses the transcript, and it is stamped into `_meta.session_id`.
+    pub fn session_id(&self) -> Option<String> {
+        self.session.as_ref().map(|session| session.session_id())
+    }
+
+    /// Every generation of this conversation, oldest first.
+    ///
+    /// A compaction seals a generation and opens the next rather than
+    /// rewriting history, so a long conversation is a chain of transcripts.
+    /// The model sees only the head; this is how a host reads back the whole
+    /// thing. Empty when nothing has been persisted yet.
+    pub fn session_generations(&self) -> Vec<String> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        self.session_locator()
+            .session_chain(session)
+            .iter()
+            .map(|generation| generation.session_id())
+            .collect()
     }
 
     /// Override the agent definition name used for session transcript
@@ -431,14 +482,49 @@ impl OpenHumanSessionHost {
             &mut self.visible_tool_names,
             &self.agent_definition_name,
         );
-        let deferred = crate::tools::implementations::meta::strip_deferred_from_visible(
+        // Durable `Hidden` members leave the wire here; the deferred split
+        // over both sets is the shared recompute below.
+        let _ = crate::tools::implementations::meta::strip_deferred_from_visible(
             &mut self.visible_tool_names,
             self.tools.as_slice(),
         );
-        crate::tools::implementations::meta::bind_tool_search_index(
-            self.tools.as_slice(),
-            deferred,
-        );
+        self.recompute_deferred_tool_names();
+    }
+
+    /// Re-derive [`Self::deferred_tool_names`] from the current durable and
+    /// synthesised sets and take those names off the advertised set. Called
+    /// wherever either set changes; a no-op for a belt that never opted into
+    /// discovery.
+    pub(in crate::agent::session_host) fn recompute_deferred_tool_names(&mut self) {
+        if !self.discovery_enabled {
+            self.deferred_tool_names.clear();
+            return;
+        }
+        let mut deferred =
+            crate::tools::implementations::meta::deferred_tool_names(self.tools.as_slice());
+        deferred.extend(crate::tools::implementations::meta::deferred_tool_names(
+            self.synthesized_tools.as_slice(),
+        ));
+        self.visible_tool_names
+            .retain(|name| !deferred.contains(name));
+        self.deferred_tool_names = deferred;
+    }
+
+    /// The names the harness registers for a turn: the advertised set plus
+    /// the deferred set the `tool_search` bridge can reach. The empty
+    /// wildcard sentinel stays empty — "no filter" already admits the
+    /// deferred tools.
+    pub(in crate::agent::session_host) fn reachable_tool_names(
+        &self,
+    ) -> std::collections::HashSet<String> {
+        if self.visible_tool_names.is_empty() {
+            return std::collections::HashSet::new();
+        }
+        self.visible_tool_names
+            .iter()
+            .chain(self.deferred_tool_names.iter())
+            .cloned()
+            .collect()
     }
 
     /// Remove `names` from the main agent's callable set for this session,
@@ -477,13 +563,14 @@ impl OpenHumanSessionHost {
         // registry alone would leave every `delegate_*` tool with no decision
         // at all.
         let all_tools = self.all_tool_refs();
+        let reachable = self.reachable_tool_names();
         let mut session = ToolPolicyEngine::build_session_from_refs(
             &self.agent_definition_name,
             &self.event_channel,
             "session",
             &self.config.channel_permissions,
             &all_tools,
-            &self.visible_tool_names,
+            &reachable,
         );
         // Same narrowing as the builder, re-applied on every rebuild so a
         // delegation refresh cannot reopen a closed pack (#6302).

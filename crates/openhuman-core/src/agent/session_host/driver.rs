@@ -32,6 +32,7 @@ pub struct OpenHumanSessionDriver {
     model_name: String,
     temperature: f64,
     max_iterations: usize,
+    max_history_messages: usize,
     model_vision: bool,
     run_queue:
         Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
@@ -49,6 +50,7 @@ impl OpenHumanSessionDriver {
         model_name: String,
         temperature: f64,
         max_iterations: usize,
+        max_history_messages: usize,
         model_vision: bool,
         run_queue: Option<
             Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>,
@@ -64,6 +66,7 @@ impl OpenHumanSessionDriver {
             model_name,
             temperature,
             max_iterations,
+            max_history_messages,
             model_vision,
             run_queue,
             workspace,
@@ -178,8 +181,16 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .map(|spec| spec.name.clone())
             .collect();
         ensure_snapshot_tools_are_executable(&visible_tool_names, &tools, &synthesized_tools)?;
-        let run_context = request.run_context.data.clone();
-        let outcome = match graph::run_chat_turn_graph(ChatTurnGraph {
+        // The harness must speak the dialect this session's prompt was
+        // composed for: a text dialect strips schemas off the wire and needs
+        // the positional registry to recover P-Format / code-style calls.
+        let run_context = request.run_context.data.clone().with_tool_dialect(
+            crate::agent::prompts::tool_call_format_from_dialect(
+                self.dispatcher.tool_call_format(),
+            )
+            .harness_dispatcher(),
+        );
+        let mut outcome = match graph::run_chat_turn_graph(ChatTurnGraph {
             turn_models,
             model: self.model_name.clone(),
             messages,
@@ -213,6 +224,35 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             }
         };
 
+        if outcome.text.trim().is_empty() && outcome.tool_outcomes.is_empty() {
+            return Err(driver_error(
+                crate::agent::error::AgentError::EmptyProviderResponse {
+                    iteration: outcome.model_calls,
+                },
+            ));
+        }
+        // A cap pause is advisory in the harness.  Treat an exhausted loop
+        // without a usable final response as capped even if that pause arrived
+        // after the loop's own limit check.
+        outcome.hit_cap |= outcome.text.trim().is_empty()
+            && (outcome.model_calls >= self.max_iterations
+                || outcome.tool_calls >= self.max_iterations
+                || outcome.tool_outcomes.len() >= self.max_iterations);
+        // Older hosted-harness paths materialize this fallback before exposing
+        // the outcome, which leaves the raw call counters unavailable here.
+        // It is only produced when the loop exhausted a tool round without a
+        // model conclusion, so normalize it to the same resumable cap state.
+        let exhausted_fallback = outcome
+            .text
+            .starts_with("I finished this turn without writing up a result.");
+        outcome.hit_cap |= exhausted_fallback;
+        // The fallback is not a model-authored wrap-up, even when the shared
+        // middleware reports that it attempted one.  Let the grounded close
+        // replace it with the explicit resumable checkpoint.
+        if exhausted_fallback {
+            outcome.wrap_up_injected = false;
+        }
+
         let close = grounded_close::close_if_needed(
             &self.turn_model_source,
             &self.model_name,
@@ -228,6 +268,20 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .as_ref()
             .map(|close| close.output.clone())
             .unwrap_or_else(|| outcome.text.clone());
+        // A tools-only loop may reach the close path after the hosted runtime
+        // has already dropped its cap metadata.  Its generic final-summary
+        // fallback is not a completed answer; preserve resumability by making
+        // the durable reply an explicit checkpoint.
+        if outcome.text.trim().is_empty()
+            && output.starts_with("I finished this turn without writing up a result.")
+        {
+            output = crate::agent::session_host::turn_checkpoint::build_deterministic_checkpoint(
+                &crate::agent::session_host::turn_checkpoint::results_from_tool_outcomes(
+                    &outcome.tool_outcomes,
+                ),
+                self.max_iterations,
+            );
+        }
         let mut history = request.history;
         let conversation = crate::agent::message_convert::provider_messages_from_conversation(
             self.dispatcher.as_ref(),
@@ -278,6 +332,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             }
             history.push(Message::assistant(output.clone()));
         }
+        trim_history(&mut history, self.max_history_messages);
 
         // This is deliberately an out-of-band observation rather than a
         // second history or transcript.  The runtime only reads it from
@@ -341,6 +396,20 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             partial: None,
             interrupted: outcome.early_exit_tool.is_some() || outcome.hit_cap,
         })
+    }
+}
+
+/// Preserve the stable system prefix while bounding durable conversational
+/// history.  The runtime owns history replacement, so this must happen before
+/// its successful `DriverOutcome` is committed.
+fn trim_history(history: &mut Vec<Message>, max_history_messages: usize) {
+    let prefix_len = history
+        .iter()
+        .take_while(|message| matches!(message, Message::System(_)))
+        .count();
+    let retained = history.len().saturating_sub(prefix_len);
+    if retained > max_history_messages {
+        history.drain(prefix_len..prefix_len + retained - max_history_messages);
     }
 }
 

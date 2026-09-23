@@ -196,3 +196,49 @@ async fn early_exit_only_fires_after_a_successful_canonical_result() {
     assert_eq!(early_exit.tool, "recording");
     assert_eq!(early_exit.question, "markdown content");
 }
+
+struct ExposedTool(&'static str, tinytools::ToolExposure);
+
+#[async_trait]
+impl Tool for ExposedTool {
+    fn name(&self) -> &str {
+        self.0
+    }
+
+    fn description(&self) -> &str {
+        "exposure probe"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    fn exposure(&self) -> tinytools::ToolExposure {
+        self.1
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        Ok(ToolResult::default())
+    }
+}
+
+/// The host decides what a belt advertises; the harness only needs to know
+/// which admitted registrations are searchable rather than advertised. A
+/// `Hidden` tool that reached registration was named by the belt, so it is
+/// advertised; `Deferred` stays deferred (#6370).
+#[test]
+fn adapter_advertises_admitted_hidden_tools_and_keeps_deferred_ones_deferred() {
+    let set: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
+        Box::new(ExposedTool("direct", tinytools::ToolExposure::Direct)),
+        Box::new(ExposedTool("hidden", tinytools::ToolExposure::Hidden)),
+        Box::new(ExposedTool("deferred", tinytools::ToolExposure::Deferred)),
+    ]);
+    let exposure = |name: &str| {
+        CanonicalSharedToolAdapter::for_name(vec![set.clone()], name)
+            .expect("registered")
+            .exposure()
+    };
+    assert_eq!(exposure("direct"), tinytools::ToolExposure::Direct);
+    assert_eq!(exposure("hidden"), tinytools::ToolExposure::Direct);
+    assert_eq!(exposure("deferred"), tinytools::ToolExposure::Deferred);
+}

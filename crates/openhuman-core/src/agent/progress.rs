@@ -120,6 +120,26 @@ pub enum AgentProgress {
         iterations: u32,
         /// Character length of the sub-agent's final assistant text.
         output_chars: usize,
+        /// This child's own token + cost totals, **and only when they did not
+        /// already reach the parent turn's ledger**.
+        ///
+        /// ## Populate this ONLY when the spend is not already counted
+        ///
+        /// A blocking spawn records into `parent_subagent_usage`, and
+        /// `holistic_last_turn_usage` then folds those child tokens AND
+        /// `charged_amount_usd` into the figures `chat_done` carries. A
+        /// detached spawn does not: `detached_child()` sets
+        /// `parent_subagent_usage` to `None` and swaps in a fresh ledger, so
+        /// the entry lands somewhere the parent never reads.
+        ///
+        /// The consumer adds whatever arrives here, unconditionally. That is
+        /// what makes the omission safe — a site that does not populate this
+        /// contributes nothing, which is the status quo — and it is also why
+        /// populating it for a child that DID reach the parent ledger silently
+        /// doubles the user's reported spend, money included, with no test
+        /// failing. **Check the ledger, not the spawn mode**: spawn mode is a
+        /// proxy and proxies drift.
+        usage: Option<crate::agent::subagent_host::SubagentUsage>,
         /// The sub-agent's full final assistant text. Trace exporters record
         /// this (truncated + content-gated) as the subagent span's output.
         output: String,
@@ -328,7 +348,7 @@ pub enum AgentProgress {
         model: String,
         /// Provider that served this call (`"managed"`, `"openai"`,
         /// `"ollama"`, …). Trace exporters render the Langfuse model as
-        /// `{provider_id}.{model}` (e.g. `managed.chat-v1`).
+        /// `{provider_id}.{model}` (e.g. `managed.hint:chat`).
         provider_id: String,
         /// Owning subagent task id when this call ran inside a child run
         /// (`spawn_subagent` / Context Scout). `None` for parent-scope calls.

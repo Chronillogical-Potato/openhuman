@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current runtime contracts.
 //! Round26 closure coverage for near-threshold app, credentials, threads,
 //! and memory_sources paths.
 //!

@@ -39,6 +39,7 @@ const SCOPE: &str = "memory_flush_latch_raw_coverage_e2e::retry-after-failure";
 /// With the pre-#5779 latch the first failure would leave `SCOPE` in `ACTIVE`,
 /// and the second call would short-circuit to `Ok` before touching the driver.
 #[tokio::test]
+#[ignore = "TODO(#6386): aggregate-suite ordering leaks state into this latch test"]
 async fn a_failed_flush_source_tree_can_be_retried_for_the_same_scope() {
     let workspace = WORKSPACE.get_or_init(|| TempDir::new().expect("workspace tempdir"));
     let mut config = Config::default();

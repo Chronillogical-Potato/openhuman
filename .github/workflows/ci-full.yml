@@ -5,7 +5,7 @@
 #
 # Two-lane model:
 #   - ci-lite.yml (quick): pushes to main + PRs to main/release — quality
-#     checks + unit tests scoped to the changed files only.
+#     checks + complete unit-test suites for each changed area.
 #   - ci-full.yml (this file, slow): PRs targeting `release` (fix PRs opened
 #     while stabilising a cut — the "CI Full Gate" check gates their merge)
 #     and pushes to `release` (the maintainer-dispatched promotion merge from
@@ -137,14 +137,15 @@ jobs:
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"
+          connectors_dir="$module_root/tinyconnectors"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
           juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
-          rm -rf "$memory_dir" "$juice_dir"
-          mkdir -p "$memory_dir" "$juice_dir"
-          curl --fail --location --silent --show-error \
+          rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" \
@@ -153,9 +154,15 @@ jobs:
             | sha256sum --check
           tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
           tar --no-same-owner -xzf "$juice_archive" -C "$juice_dir"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
+          cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
+            "$connectors_dir/libtinyconnectors.so"
           echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" \
             >> "$GITHUB_ENV"
           echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" \
+            >> "$GITHUB_ENV"
+          echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" \
             >> "$GITHUB_ENV"
 
       - name: Run Rust E2E suite
@@ -329,10 +336,10 @@ jobs:
           juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
           mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" | sha256sum --check
