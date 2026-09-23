@@ -255,6 +255,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       // First among the Rust lanes: it is the long pole, and rust-lint waits
       // on its test-modules check.
       name: "rust-cov",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 0,
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
@@ -282,6 +285,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "rust-lint",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("lint"),
       env: { ...rustEnv, ...sccache },
       checks: [
@@ -338,6 +344,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "rust-gates-off",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
@@ -387,6 +396,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "tauri",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 2,
       targetDir: targetDir("tauri"),
       env: { ...rustEnv },
       checks: [
@@ -427,6 +439,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     // expensive compile here, so it yields the CPU to the gating lanes.
     lanes.push({
       name: "bench",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 9,
       targetDir: targetDir("bench"),
       env: { ...rustEnv, ...sccache },
       nice: 10,
@@ -517,5 +532,7 @@ export function validatePlan(plan) {
  * @property {string|null} [targetDir]  CARGO_TARGET_DIR for this lane
  * @property {object} [env]
  * @property {number} [nice]
+ * @property {number} [heavy]  compiles the core crate; priority for a
+ *   heavy-compile slot (lower first). Absent for light lanes.
  * @property {boolean} active
  */
