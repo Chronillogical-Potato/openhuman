@@ -27,7 +27,7 @@ provisioning, deploys and the runner token.
 | `frontend` | pnpm install, tsc, prettier, eslint, i18n, docs, script self-tests |
 | `frontend-tests` | the complete vitest suite with coverage |
 | `rust-cov` | test modules from the registry, then `scripts/ci/rust-coverage.sh` |
-| `rust-lint` | clippy (product and contributor sets), embed and tinyhumans lint and tests, prompt budget, TinyJuice host regression |
+| `rust-lint` | clippy (product set; embed's clippy covers the core's contributor set), embed and tinyhumans lint and tests, prompt budget |
 | `rust-gates-off` | gates-off checks and gate-contract tests, kernel floor, dep-sim calibration |
 | `tauri` | Tauri clippy and coverage |
 | `pester` | `install.ps1` tests |
@@ -49,6 +49,10 @@ How lanes behave:
   on that lane alone. `Lane summary` carries the overall result.
 - **Changed-line coverage** must be at least 80% through
   `scripts/ci/self-hosted/diff-cover.sh`, the same gate as `PR CI Gate`.
+
+Two checks do not run on pull requests: the core doctests and the TinyJuice
+host-module regression. CI Lite runs both on every push to `main` that touches
+the Rust core.
 
 ## Profiles
 

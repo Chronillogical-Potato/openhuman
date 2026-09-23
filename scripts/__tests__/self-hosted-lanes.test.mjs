@@ -18,6 +18,8 @@ import {
 } from "../ci/self-hosted/lanes-plan.mjs";
 import {
   PrioritySemaphore,
+  processTable,
+  treeRssMiB,
   sccacheSummary,
   Runner,
   defaultHeavySlots,
@@ -79,6 +81,29 @@ test("commands are static: no suite is ever narrowed to the diff", () => {
   }
 });
 
+test("doctests and the TinyJuice regression are left to pushes to main", () => {
+  for (const plan of plans()) {
+    const cov = plan.lanes
+      .find((l) => l.name === "rust-cov")
+      .checks.find((c) => c.name === "rust-core-coverage");
+    assert.equal(cov.env.OH_COV_DOCTESTS, "0");
+    const runs = allRuns(plan).join("\n");
+    assert.doesNotMatch(runs, /cargo test -p openhuman --doc/);
+    assert.doesNotMatch(runs, /tool_output_tabulates_a_large_graph/);
+  }
+  // ...where CI Lite still runs them.
+  const lite = fs.readFileSync(
+    path.join(repoRoot, ".github/workflows/ci-lite.yml"),
+    "utf8",
+  );
+  assert.match(lite, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/);
+  assert.match(
+    lite,
+    /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/,
+  );
+  assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
+});
+
 test("the complete suites run, not subsets", () => {
   const runs = allRuns(plans()[0]).join("\n");
   assert.match(runs, /pnpm --filter openhuman-app test:coverage(?! \S*\.test)/);
@@ -112,7 +137,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "pnpm docs:test",
     "pnpm docs:check",
     "pnpm test:scripts",
-    "cargo clippy -p openhuman -- -D warnings",
     "cargo clippy -p openhuman-embed --all-targets -- -D warnings",
     "cargo check -p openhuman-embed --no-default-features",
     "cargo test -p openhuman-embed",
@@ -445,4 +469,31 @@ test("runner: heavy lanes wait for a slot, light lanes never do", async () => {
     Date.parse(by.light.checks[0].start) < Date.parse(by.h1.checks[0].end),
   );
   fs.rmSync(out, { recursive: true, force: true });
+});
+
+test("peak RSS follows the process tree, including setsid'd descendants", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oh-proc-"));
+  const stat = (pid, ppid, pages) => {
+    fs.mkdirSync(path.join(dir, String(pid)));
+    // comm with a space and parens, as real process names can have.
+    const fields = ["S", ppid, pid, ...Array(18).fill(0), pages];
+    fs.writeFileSync(
+      path.join(dir, String(pid), "stat"),
+      `${pid} (cargo (x) y) ${fields.join(" ")}\n`,
+    );
+  };
+  stat(100, 1, 256); // the check's bash: 1 MiB
+  stat(101, 100, 512); // ci-cancel-aware.sh, own session after setsid: 2 MiB
+  stat(102, 101, 1024 * 256); // rustc: 1 GiB
+  stat(200, 1, 1024 * 256); // someone else's process
+  fs.mkdirSync(path.join(dir, "self")); // non-numeric entries are skipped
+  try {
+    const table = processTable(dir);
+    assert.equal(table.size, 4);
+    assert.equal(table.get(102).ppid, 101);
+    assert.equal(treeRssMiB(table, 100), 1 + 2 + 1024);
+    assert.equal(treeRssMiB(table, 999), 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -51,6 +51,7 @@ Three things are deliberately *not* the app, and each buys reproducibility:
   availability belong to someone else is not a benchmark. `--managed` opts
   back into the account's own configured route.
 - **A mock Composio.** See below.
+- **A mock search backend.** See below.
 
 `--driver rpc` switches to `openhuman.inference_agent_chat`, the only path that
 can scope a per-turn `cwd` and name an `agent_id`. That is the comparison arm,
@@ -93,6 +94,64 @@ Wiring it up needs three things together, and two of them are easy to miss:
    Composio URLs.
 3. A **debug** build. The env override in
    `integrations/composio/client/factory.rs` is `#[cfg(debug_assertions)]`-gated.
+
+### Mock search
+
+`web_search_tool` is not a local tool: it posts to
+`/agent-integrations/parallel/search` on the hosted backend, which resolves the
+query against a paid provider and bills the caller's team. This run has no
+session to spend — inference is BYOK and the credential is an offline local
+token — so every call came back `SESSION_EXPIRED … 401 Invalid token`.
+
+The tool was advertised anyway, so the model spent calls discovering it was dead
+and then routed around it by hand. In the 2026-09-23 run `baggage-policy` burned
+two calls on the 401s, improvised a DuckDuckGo HTML scrape, guessed delta.com
+paths and collected four 404s — then hit the 15-call cap with the answer
+assembled and the requested file unwritten, scoring 0/1. Offering a capability
+the run's own configuration cannot serve is a defect in the rig.
+
+`mock-search.mjs` fixes it by **mocking discovery, not retrieval**. It ranks the
+fixture corpus in `fixtures/search-index.json` and returns *real, live* URLs; the
+agent still fetches every page over the network with `web_fetch` and still has to
+read what the page says. So `baggage-policy`'s `cites_delta_com` and
+`states_carryon_dimensions` checks stay honest — what is gone is the search
+engine the run cannot pay for, not the comprehension being measured. Excerpts in
+the fixture stop short of the numbers the graders assert on, so an agent that
+answers from the excerpt alone still fails.
+
+Ranking is deliberately crude (weighted term overlap over keywords, title, URL
+and excerpt). A query the corpus does not cover returns **nothing** rather than
+the least-bad rows: a confidently wrong result set is worse for the agent than an
+empty one, because it spends fetches on it.
+
+Three things were easy to get wrong, and all three cost a run:
+
+1. **It has to take over the whole backend base.** `api_url` is the single base
+   every backend caller resolves through (`api::config::effective_backend_api_url`).
+   Loopback on an ephemeral port is what makes that work:
+   `looks_like_local_ai_endpoint` treats loopback as an inference signal only
+   when paired with an LLM-ish port or path, so a bare `http://127.0.0.1:<random>`
+   passes through as a backend override.
+2. **`api_url` in `config.toml` is not enough.** `auth.set_credential` activates
+   a per-user config dir whose id the core derives at runtime; `prepareHome`
+   writes `users/local/`, the core activates `users/local-dragonfly/`, finds no
+   `api_url` there and falls back to the hosted backend. The override that
+   actually holds is `BACKEND_URL`, which `api_base_from_env` reads whichever
+   config wins.
+3. **Every response needs the `{ success, data }` envelope.**
+   `integrations/client/errors.rs::parse_envelope` unwraps it. A bare payload
+   fails as `missing field 'success'` — and fails late enough to read as a
+   broken tool rather than an empty result, so the agent abandons the task. It
+   did exactly that, six times in a row.
+
+The other backend calls the run cannot authenticate (`/teams/me/usage`, the
+Composio toolkit list) get benign stubs, so the log shows the run's own
+behaviour rather than one fixed auth failure repeated every turn. Composio is
+untouched: it is redirected separately over `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*`.
+
+`--no-mock-search` opts out and dials the hosted backend.
+
+Self-test: `scripts/__tests__/life-scenarios-mock-search.test.mjs`.
 
 ## Approvals are answered, not switched off
 
@@ -148,6 +207,7 @@ target/life-scenarios/<run-id>/
   approvals.json          every approval decision the responder made
   composio-outbox.json    writes the agent attempted through Composio
   composio-requests.json  every request the mock received
+  search-requests.json    every query the mock search served, and what it matched
   core.log                the core's own log for the whole run
   home/                   the throwaway HOME (config, keyring, workspace)
   sandbox/<scenario>/     the corpus copy the agent worked in

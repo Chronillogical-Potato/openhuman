@@ -82,4 +82,3 @@ fn from_config_does_not_grant_an_action_dir_covering_the_workspace() {
         policy.trusted_roots
     );
 }
-

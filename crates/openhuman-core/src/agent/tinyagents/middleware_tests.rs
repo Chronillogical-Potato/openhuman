@@ -455,5 +455,7 @@ mod tool_output_artifact_tests;
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]
 mod tool_policy_tests;
+#[path = "middleware_wrap_up_final_write_tests.rs"]
+mod wrap_up_final_write_tests;
 #[path = "middleware_wrap_up_toc_tests.rs"]
 mod wrap_up_toc_tests;
