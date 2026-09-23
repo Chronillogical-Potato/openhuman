@@ -951,22 +951,17 @@ fn scheduler_agent_owns_the_cron_surface() {
     });
 }
 
-/// An oversized orchestrator tool result goes to TinyJuice's summary stage,
-/// which calls back for the summarizer's model — and the summarizer must run
-/// with no tools at all. TinyJuice decides whether a result is worth a summary,
-/// so the scripted tool returns a large one (~29 KB); a timestamp-sized result
-/// never reaches the summarizer.
+/// With the summarizer threshold at one token, any orchestrator tool result is
+/// runtime-dispatched to the summarizer, which must run with no tools at all.
 #[test]
 fn summarizer_advertises_no_tools() {
     run_case(Case {
         agent: "summarizer",
-        // The summarizer's prompt is TinyJuice's summary contract, verbatim
-        // (`tinyjuice::summarize::SYSTEM_PROMPT`, vendor/tinyjuice/src/summarize/prompt.md).
-        agent_marker: "You compress a single oversized tool result",
+        agent_marker: "# Summarizer Agent",
         entry: Entry::WebChat,
         user_message: "What is the state of my workspace?",
         scripted_completions: vec![
-            call("shell", json!({ "command": "seq 1 6000" })),
+            call("resolve_time", json!({ "expr": "now" })),
             text_completion("Workspace summary: nothing notable."),
             text_completion("Your workspace has nothing notable."),
         ],
