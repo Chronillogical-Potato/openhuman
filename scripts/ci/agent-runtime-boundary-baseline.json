@@ -151,7 +151,7 @@
     "path": "crates/openhuman-core/src/agent/harness/fork_context.rs",
     "line": 223,
     "text": "AGENT_CONTEXT_PREPARED_SOURCES",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "openhuman-task-local",
@@ -396,14 +396,14 @@
     "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
     "line": 210,
     "text": "let inherited_origin = crate::agent::turn_origin::capture();",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/workflow_runs/engine/lifecycle.rs",
     "line": 214,
     "text": "crate::agent::turn_origin::with_inherited_origin(",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "openhuman-task-local",
@@ -592,7 +592,7 @@
     "path": "crates/openhuman-core/src/agent/turn_origin.rs",
     "line": 300,
     "text": "Some(origin) => with_origin(origin, fut).await,",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "openhuman-task-local",
@@ -1250,7 +1250,7 @@
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
     "line": 167,
     "text": "&[ChatMessage::user(",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
@@ -1306,21 +1306,21 @@
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
     "line": 217,
     "text": "ChatMessage::user(\"latest\"),",
-    "occurrence": 1
+    "occurrence": 2
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
     "line": 227,
     "text": "&[ChatMessage::user(",
-    "occurrence": 1
+    "occurrence": 3
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/input_builder_tests.rs",
     "line": 242,
     "text": "&[ChatMessage::user(",
-    "occurrence": 1
+    "occurrence": 4
   },
   {
     "rule": "tinyagents-openhuman-domain-name",
