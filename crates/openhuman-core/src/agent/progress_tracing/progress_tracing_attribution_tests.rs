@@ -413,6 +413,9 @@ fn failed_tool_records_classified_cause_only_when_capture_on() {
             next_action: "Try again".to_string(),
             recoverable: true,
         }),
+        display_label: None,
+        display_detail: None,
+        structured: None,
     };
 
     // Capture ON → plain-language cause lands as error.message.
@@ -581,6 +584,9 @@ fn parent_tool_completion_backfills_arguments_and_records_output() {
                 elapsed_ms: 40,
                 iteration: 1,
                 failure: None,
+                display_label: None,
+                display_detail: None,
+                structured: None,
             },
             45,
         ),
