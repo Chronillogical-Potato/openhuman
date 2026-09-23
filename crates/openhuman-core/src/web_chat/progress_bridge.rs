@@ -1303,10 +1303,6 @@ pub(crate) fn spawn_progress_bridge(
                 }
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
-                    // Everything the parent queued before this event has been
-                    // forwarded; release a caller waiting to publish the
-                    // terminal event (after this arm's own events below).
-                    let release_drain = scopeguard_release(&drained_tx);
                     timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
                     // Turn is done — stop liveness beats (issue #4270). The FE
                     // clears its silence timer on `chat_done`/`chat_error`; this
@@ -1348,6 +1344,13 @@ pub(crate) fn spawn_progress_bridge(
                         metadata.speak_reply,
                         metadata.source,
                         metadata.session_id,
+                    );
+                    // Every event the parent queued before `TurnCompleted` has
+                    // now been forwarded, in order: release a caller waiting
+                    // to publish the terminal `chat_done`.
+                    let _ = drained_tx.send(true);
+                    log::debug!(
+                        "[web_channel][bridge] drained parent events_seen={events_seen} request_id={request_id}"
                     );
                 }
                 AgentProgress::TurnCostUpdated {
@@ -1470,7 +1473,11 @@ pub(crate) fn spawn_progress_bridge(
             round,
             events_seen,
         );
+        let _ = drained_tx.send(true);
     });
+    ProgressBridgeHandle {
+        drained: drained_rx,
+    }
 }
 
 #[cfg(test)]
