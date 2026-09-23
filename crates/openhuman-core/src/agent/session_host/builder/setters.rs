@@ -316,10 +316,14 @@ impl SessionHostBuilder {
     /// The definition outranks the registry for this session's own id (see
     /// [`OpenHumanDefinitionRegistry::with_session_definition`]), so a host
     /// that brings its own agents is not shadowed by a built-in that happens
-    /// to share an id. Set
-    /// [`agent_definition_name`](Self::agent_definition_name) to the same id,
-    /// or the definition is unresolvable by the id the session was stamped
-    /// with.
+    /// to share an id.
+    ///
+    /// The session is stamped with the definition's own id, so
+    /// [`agent_definition_name`](Self::agent_definition_name) does not have to
+    /// be set alongside this. Setting it to something the definition
+    /// contradicts fails the build: the session is resolved by the name it is
+    /// stamped with, so a definition filed under a different id could never
+    /// answer for it, and every turn would be refused for want of one.
     ///
     /// Note that the resolved definition's tool list *is* the turn's
     /// allow-list, intersected with the tools the session was built with, and

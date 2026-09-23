@@ -50,10 +50,27 @@ impl SessionHostBuilder {
         // Resolved here rather than at its historical position below: the pack
         // withholding is per-agent (a pack is skipped for the specialist that
         // owns its family), so the id has to exist before the strip.
-        let agent_definition_name = self
-            .agent_definition_name
-            .clone()
-            .unwrap_or_else(|| "main".to_string());
+        // A caller-supplied definition is resolved by the id the session was
+        // stamped with (`OpenHumanDefinitionRegistry::host_definition` matches
+        // `session_definition.id` against it), so the two must agree or the
+        // definition is unreachable and every turn is refused for want of it.
+        // Deriving the name from the definition makes the common case correct
+        // without a second call, and a name that contradicts the definition is
+        // a build error rather than a turn-time mystery.
+        let agent_definition_name = match (
+            self.agent_definition_name.clone(),
+            self.session_definition.as_deref(),
+        ) {
+            (Some(name), Some(definition)) if name.trim() != definition.id.trim() => {
+                return Err(anyhow::anyhow!(
+                    "agent_definition_name `{name}` does not match the supplied agent                      definition `{}`; the session is resolved by the name it is stamped                      with, so a definition under a different id can never answer for it",
+                    definition.id
+                ));
+            }
+            (Some(name), _) => name,
+            (None, Some(definition)) => definition.id.clone(),
+            (None, None) => "main".to_string(),
+        };
         // On-demand tool disclosure: withhold packed tools' schemas from the
         // provider and advertise `use_skill` in their place. The
         // tools stay in the registry below and stay executable — only the

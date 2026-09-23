@@ -29,17 +29,21 @@ fn definition(id: &str, tools: Vec<&str>) -> Arc<AgentDefinition> {
     Arc::new(def)
 }
 
-fn seat(
-    definition: Option<Arc<AgentDefinition>>,
-) -> crate::agent::session_host::types::OpenHumanSessionHost {
+/// A builder with everything a session needs and no identity yet.
+fn bare() -> crate::agent::SessionHostBuilder {
     let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
-    let mut builder = crate::agent::SessionHostBuilder::new()
+    crate::agent::SessionHostBuilder::new()
         .chat_model(model)
         .tools(Vec::new())
         .memory(crate::memory::test_support::noop_memory())
         .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
-        .agent_definition_name(SEAT);
+}
+
+fn seat(
+    definition: Option<Arc<AgentDefinition>>,
+) -> crate::agent::session_host::types::OpenHumanSessionHost {
+    let mut builder = bare().agent_definition_name(SEAT);
     if let Some(definition) = definition {
         builder = builder.agent_definition(definition);
     }
@@ -105,7 +109,12 @@ async fn the_sessions_own_definition_outranks_a_registry_entry_sharing_its_id() 
     // A library host may reuse an id the process registry also knows. Its own
     // definition must win, or the host silently runs someone else's agent.
     let _ = AgentDefinitionRegistry::init_global_builtins();
-    let agent = seat(Some(definition("orchestrator", vec!["desk_say"])));
+    // Named by the definition, which is the only spelling the build accepts:
+    // a session stamped with some other id could never resolve to it.
+    let agent = bare()
+        .agent_definition(definition("orchestrator", vec!["desk_say"]))
+        .build()
+        .expect("a seat may reuse a built-in id");
 
     let resolved = catalogue(&agent)
         .resolve("orchestrator")
@@ -139,4 +148,44 @@ async fn without_a_definition_the_same_id_is_still_unknown() {
             .is_none(),
         "the id must not resolve without the caller's definition"
     );
+}
+
+#[tokio::test]
+async fn the_session_is_stamped_with_the_definitions_own_id() {
+    // A caller that supplies a definition should not also have to name it:
+    // the two must agree or the definition is unreachable, so the name is
+    // derived rather than left to be got right twice.
+    let agent = bare()
+        .agent_definition(definition(SEAT, vec!["desk_say"]))
+        .build()
+        .expect("a definition alone is enough identity");
+
+    assert_eq!(agent.agent_definition_name(), SEAT);
+    assert!(
+        catalogue(&agent)
+            .resolve(SEAT)
+            .await
+            .expect("resolution never errors")
+            .is_some(),
+        "the derived id must be the one the definition answers for"
+    );
+}
+
+#[test]
+fn a_name_the_definition_contradicts_fails_the_build() {
+    // Silently preferring either one would leave a session that resolves to
+    // nothing, and every turn refused for want of a definition.
+    // `OpenHumanSessionHost` is not `Debug`, so the `Ok` arm cannot be
+    // unwrapped into a panic message.
+    let Err(error) = bare()
+        .agent_definition_name("some-other-id")
+        .agent_definition(definition(SEAT, vec!["desk_say"]))
+        .build()
+    else {
+        panic!("a name the definition contradicts must fail the build");
+    };
+
+    let message = error.to_string();
+    assert!(message.contains("some-other-id"), "{message}");
+    assert!(message.contains(SEAT), "{message}");
 }
