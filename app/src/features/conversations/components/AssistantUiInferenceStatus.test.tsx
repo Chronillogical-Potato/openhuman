@@ -106,7 +106,7 @@ function startTurn(store: ReturnType<typeof buildStore>) {
 }
 
 describe('inference status on the assistant-ui chat surface', () => {
-  it('shows the reasoning round while the model is thinking', async () => {
+  it('renders nothing while the model is thinking — the library dot owns that gap', async () => {
     const store = buildStore();
     renderChat(store);
     startTurn(store);
@@ -123,7 +123,29 @@ describe('inference status on the assistant-ui chat surface', () => {
       );
     });
 
-    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Thinking... (3)');
+    // `Thinking... (3)` used to render here. It duplicated assistant-ui's own
+    // in-flight marker: a synthetic `indicator` part, emitted by
+    // `MessagePrimitive.GroupedParts` for a running message with zero content
+    // parts and rendered by `thread.tsx` as
+    // `<span data-slot="aui_assistant-message-indicator">●</span>`. Probing the
+    // DOM in this exact state finds that span present and zero `.aui-md`
+    // elements, so it is not the `dot.css` `:empty::after` rule — see
+    // `AssistantUiInferenceStatus`'s doc comment. The iteration count was
+    // harness telemetry besides.
+    expect(screen.queryByTestId('inference-status-line')).not.toBeInTheDocument();
+
+    // The suppression must be specific to `thinking`, not a dead component:
+    // a `tool_use` phase with no timeline row still has to caption itself, or
+    // this assertion would pass with the whole line removed.
+    act(() => {
+      store.dispatch(
+        setInferenceStatusForThread({
+          threadId: THREAD_ID,
+          status: { phase: 'tool_use', iteration: 3, maxIterations: 8, activeTool: 'shell' },
+        })
+      );
+    });
+    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Running command');
   });
 
   it('names the running tool when no timeline row carries it', async () => {
@@ -151,15 +173,19 @@ describe('inference status on the assistant-ui chat surface', () => {
     renderChat(store);
     startTurn(store);
 
+    // Anchored on `tool_use` with an empty timeline — the phase that still
+    // captions itself. `thinking` renders nothing now, so anchoring there
+    // would leave the assertion below passing from a state where the line was
+    // never present: a guard that cannot fail.
     act(() => {
       store.dispatch(
         setInferenceStatusForThread({
           threadId: THREAD_ID,
-          status: { phase: 'thinking', iteration: 2, maxIterations: 8 },
+          status: { phase: 'tool_use', iteration: 2, maxIterations: 8, activeTool: 'shell' },
         })
       );
     });
-    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Thinking... (2)');
+    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Running command');
 
     // The tool call lands: the row is projected as a tool part that already
     // names the command, so the line must not caption it a second time.
@@ -258,15 +284,18 @@ describe('inference status on the assistant-ui chat surface', () => {
     renderChat(store);
     startTurn(store);
 
+    // `tool_use` with no timeline row, for the same reason as above: it is the
+    // phase that still renders, so the disappearance asserted below is a real
+    // transition rather than an absence that was already true.
     act(() => {
       store.dispatch(
         setInferenceStatusForThread({
           threadId: THREAD_ID,
-          status: { phase: 'thinking', iteration: 1, maxIterations: 8 },
+          status: { phase: 'tool_use', iteration: 1, maxIterations: 8, activeTool: 'shell' },
         })
       );
     });
-    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Thinking... (1)');
+    expect(await screen.findByTestId('inference-status-line')).toHaveTextContent('Running command');
 
     act(() => {
       store.dispatch(endInferenceTurn({ threadId: THREAD_ID }));
