@@ -120,8 +120,10 @@ describe('ProcessingTranscriptView live thinking', () => {
       />
     );
     const settled = screen.getByTestId('processing-thinking');
+    // `useT` is mocked to echo keys: the timed "Thought for {n}" key is
+    // chosen, not the untimed "Thought" fallback.
     expect(settled.querySelector('[data-swap-layer="resting"]')?.textContent).toBe(
-      'chat.reasoning.thoughtFor'.replace('{n}', '12s')
+      'chat.reasoning.thoughtFor'
     );
     expect(settled.querySelector('[data-slot="reasoning-step-title"]')?.textContent).toBe(
       'Planning'
