@@ -29,6 +29,19 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // timeline row — without this entry a real search rendered as the
   // humanized "Web Search Tool".
   web_search_tool: 'Searching the web',
+  // The harness's tool-discovery bridge — NOT a web search.
+  // `vendor/tinyagents/crates/tinyagents-harness/src/tool/discover/bridge.rs`
+  // advertises two intrinsics: `tool_search` ranks the *deferred tool
+  // catalogue* (Composio actions, MCP tools) and `tool_call` invokes a hit by
+  // name. Neither reaches the network.
+  //
+  // They are `ToolSchema` values rather than `Tool` impls, so they carry no
+  // server `display_label` and there is nothing upstream to override — the
+  // label is the client's to get right. Without these entries `tool_search`
+  // fell through to a substring heuristic that fires on "search", and a
+  // Composio calendar fetch rendered as "Searched the web".
+  tool_search: 'Finding the right tool',
+  tool_call: 'Using a tool',
   gitbooks_search: 'Searching docs',
   file_read: 'Reading file',
   file_write: 'Writing file',
@@ -654,7 +667,7 @@ function inferIntegrationName(input?: string): string | undefined {
  * an upper-case `<TOOLKIT>_<ACTION>` name on a known toolkit, so ordinary
  * tools and unknown toolkits keep their generic label.
  */
-function inferIntegrationActionName(
+export function inferIntegrationActionName(
   name: string
 ): { provider: string; action: string } | undefined {
   if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(name)) return undefined;
