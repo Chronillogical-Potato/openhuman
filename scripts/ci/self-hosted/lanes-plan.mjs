@@ -255,6 +255,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       // First among the Rust lanes: it is the long pole, and rust-lint waits
       // on its test-modules check.
       name: "rust-cov",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 0,
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
@@ -282,6 +285,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "rust-lint",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("lint"),
       env: { ...rustEnv, ...sccache },
       checks: [
@@ -327,17 +333,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "bash scripts/check-prompt-budget.sh --verbose",
         },
         ...(ex63 ? [juiceRegression] : []),
-        // Report-only in ci-lite (never in the gate), so report-only here.
-        {
-          name: "rss-bench-fixture-tests",
-          when: core,
-          reportOnly: true,
-          run: "cargo test --features rss-bench --bin rss-bench",
-        },
       ],
     },
     {
       name: "rust-gates-off",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
@@ -387,6 +389,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "tauri",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 2,
       targetDir: targetDir("tauri"),
       env: { ...rustEnv },
       checks: [
@@ -421,27 +426,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       ],
     },
   ];
-
-  if (ex63) {
-    // Report-only: ci-lite never gates on it. The release build is the most
-    // expensive compile here, so it yields the CPU to the gating lanes.
-    lanes.push({
-      name: "bench",
-      targetDir: targetDir("bench"),
-      env: { ...rustEnv, ...sccache },
-      nice: 10,
-      checks: [
-        {
-          name: "rss-bench",
-          when: core,
-          reportOnly: true,
-          run:
-            "cargo build --release --features rss-bench --bin rss-bench" +
-            ` && "${targetDir("bench")}/release/rss-bench" --out ci-out/bench-rss.json`,
-        },
-      ],
-    });
-  }
 
   for (const lane of lanes) {
     lane.checks = lane.checks.map((c) => ({
@@ -517,5 +501,7 @@ export function validatePlan(plan) {
  * @property {string|null} [targetDir]  CARGO_TARGET_DIR for this lane
  * @property {object} [env]
  * @property {number} [nice]
+ * @property {number} [heavy]  compiles the core crate; priority for a
+ *   heavy-compile slot (lower first). Absent for light lanes.
  * @property {boolean} active
  */
