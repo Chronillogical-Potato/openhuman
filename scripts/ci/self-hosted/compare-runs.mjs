@@ -10,7 +10,13 @@
 // downloads each fast run's ci-timings.json and prints per-lane durations.
 // Needs an authenticated `gh`.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,22 +50,35 @@ export function pairRuns(runsByKind) {
     for (const r of runs) {
       if (r.status !== "completed") continue;
       const row = bySha.get(r.headSha) ?? { sha: r.headSha };
-      if (!row[kind] || Date.parse(r.createdAt) > Date.parse(row[kind].createdAt)) row[kind] = r;
+      if (
+        !row[kind] ||
+        Date.parse(r.createdAt) > Date.parse(row[kind].createdAt)
+      )
+        row[kind] = r;
       bySha.set(r.headSha, row);
     }
   }
   return [...bySha.values()]
     .filter((row) => row.lite && (row.ex63 || row.hosted))
-    .sort((a, b) => Date.parse(b.lite.createdAt) - Date.parse(a.lite.createdAt));
+    .sort(
+      (a, b) => Date.parse(b.lite.createdAt) - Date.parse(a.lite.createdAt),
+    );
 }
 
 /** Per-lane wall-clock minutes from a ci-timings.json object. */
 export function laneMinutes(timings) {
   const out = {};
   for (const lane of timings.lanes ?? []) {
-    const starts = lane.checks.map((c) => c.start).filter(Boolean).sort();
-    const ends = lane.checks.map((c) => c.end).filter(Boolean).sort();
-    if (starts.length) out[lane.name] = minutesBetween(starts[0], ends[ends.length - 1]);
+    const starts = lane.checks
+      .map((c) => c.start)
+      .filter(Boolean)
+      .sort();
+    const ends = lane.checks
+      .map((c) => c.end)
+      .filter(Boolean)
+      .sort();
+    if (starts.length)
+      out[lane.name] = minutesBetween(starts[0], ends[ends.length - 1]);
   }
   return out;
 }
@@ -68,8 +87,16 @@ function listRuns(repo, workflow, limit) {
   try {
     return JSON.parse(
       gh([
-        "run", "list", "-R", repo, "--workflow", workflow, "--limit", String(limit),
-        "--json", "databaseId,headSha,createdAt,updatedAt,status,conclusion,event",
+        "run",
+        "list",
+        "-R",
+        repo,
+        "--workflow",
+        workflow,
+        "--limit",
+        String(limit),
+        "--json",
+        "databaseId,headSha,createdAt,updatedAt,status,conclusion,event",
       ]),
     );
   } catch {
@@ -82,7 +109,8 @@ function findTimings(dir) {
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) found.push(...findTimings(p));
-    else if (entry === "ci-timings.json") found.push(JSON.parse(readFileSync(p, "utf8")));
+    else if (entry === "ci-timings.json")
+      found.push(JSON.parse(readFileSync(p, "utf8")));
   }
   return found;
 }
@@ -90,7 +118,17 @@ function findTimings(dir) {
 function downloadTimings(repo, runId) {
   const dir = mkdtempSync(join(tmpdir(), "ci-timings-"));
   try {
-    gh(["run", "download", String(runId), "-R", repo, "-p", "ci-out-*", "-D", dir]);
+    gh([
+      "run",
+      "download",
+      String(runId),
+      "-R",
+      repo,
+      "-p",
+      "ci-out-*",
+      "-D",
+      dir,
+    ]);
     return findTimings(dir);
   } catch {
     return [];
@@ -110,29 +148,42 @@ function main(argv) {
     else throw new Error(`unknown argument ${argv[i]}`);
   }
   const runs = Object.fromEntries(
-    Object.entries(WORKFLOWS).map(([kind, wf]) => [kind, listRuns(repo, wf, limit)]),
+    Object.entries(WORKFLOWS).map(([kind, wf]) => [
+      kind,
+      listRuns(repo, wf, limit),
+    ]),
   );
   const rows = pairRuns(runs);
   if (rows.length === 0) {
     console.log("No commit has both a CI Lite run and a lane-flow run yet.");
     return;
   }
-  const fmt = (r) => (r ? `${minutesBetween(r.createdAt, r.updatedAt)}m ${r.conclusion}` : "—");
-  console.log("| sha | CI Lite | CI Fast (EX63) | CI Fast (hosted) | EX63 speed-up |");
+  const fmt = (r) =>
+    r ? `${minutesBetween(r.createdAt, r.updatedAt)}m ${r.conclusion}` : "—";
+  console.log(
+    "| sha | CI Lite | CI Fast (EX63) | CI Fast (hosted) | EX63 speed-up |",
+  );
   console.log("| --- | --- | --- | --- | --- |");
   for (const row of rows) {
     const lite = minutesBetween(row.lite.createdAt, row.lite.updatedAt);
-    const ex = row.ex63 ? minutesBetween(row.ex63.createdAt, row.ex63.updatedAt) : null;
+    const ex = row.ex63
+      ? minutesBetween(row.ex63.createdAt, row.ex63.updatedAt)
+      : null;
     const speed = ex ? `${Math.round((lite / ex) * 10) / 10}x` : "—";
-    console.log(`| ${row.sha.slice(0, 10)} | ${fmt(row.lite)} | ${fmt(row.ex63)} | ${fmt(row.hosted)} | ${speed} |`);
+    console.log(
+      `| ${row.sha.slice(0, 10)} | ${fmt(row.lite)} | ${fmt(row.ex63)} | ${fmt(row.hosted)} | ${speed} |`,
+    );
     if (lanes) {
       for (const kind of ["ex63", "hosted"]) {
         if (!row[kind]) continue;
         for (const t of downloadTimings(repo, row[kind].databaseId)) {
-          const per = Object.entries(laneMinutes(t)).map(([k, v]) => `${k}=${v}m`).join(" ");
+          const per = Object.entries(laneMinutes(t))
+            .map(([k, v]) => `${k}=${v}m`)
+            .join(" ");
           const hits = t.sccache?.stats?.cache_hits?.counts?.Rust;
           const misses = t.sccache?.stats?.cache_misses?.counts?.Rust;
-          const sc = hits != null ? ` sccache rust hits=${hits} misses=${misses}` : "";
+          const sc =
+            hits != null ? ` sccache rust hits=${hits} misses=${misses}` : "";
           console.log(`|   ↳ ${kind} lanes | ${per}${sc} | | | |`);
         }
       }

@@ -279,3 +279,44 @@ test("runner: a failure never stops later checks, blocks its dependants, and gat
   assert.match(summary, /\| a \| needs-failed \| blocked \|/);
   fs.rmSync(out, { recursive: true, force: true });
 });
+
+test("compare-runs pairs the newest completed run per workflow by head SHA", async () => {
+  const { pairRuns, laneMinutes, minutesBetween } =
+    await import("../ci/self-hosted/compare-runs.mjs");
+  const run = (sha, createdAt, updatedAt, status = "completed") => ({
+    headSha: sha,
+    createdAt,
+    updatedAt,
+    status,
+    conclusion: "success",
+  });
+  const rows = pairRuns({
+    lite: [run("a", "2026-09-01T00:00:00Z", "2026-09-01T01:30:00Z")],
+    ex63: [
+      run("a", "2026-09-01T00:00:00Z", "2026-09-01T00:40:00Z"),
+      run("a", "2026-09-01T02:00:00Z", "2026-09-01T02:20:00Z"),
+      run("a", "2026-09-01T03:00:00Z", "2026-09-01T03:05:00Z", "in_progress"),
+    ],
+    hosted: [run("b", "2026-09-01T00:00:00Z", "2026-09-01T00:10:00Z")],
+  });
+  assert.equal(rows.length, 1, "b has no CI Lite run, so it is not paired");
+  assert.equal(
+    minutesBetween(rows[0].ex63.createdAt, rows[0].ex63.updatedAt),
+    20,
+  );
+  assert.deepEqual(
+    laneMinutes({
+      lanes: [
+        {
+          name: "rust-cov",
+          checks: [
+            { start: "2026-09-01T00:00:00Z", end: "2026-09-01T00:05:00Z" },
+            { start: "2026-09-01T00:05:00Z", end: "2026-09-01T00:30:00Z" },
+            { start: null, end: null },
+          ],
+        },
+      ],
+    }),
+    { "rust-cov": 30 },
+  );
+});
