@@ -50,9 +50,14 @@ How lanes behave:
 - **Changed-line coverage** must be at least 80% through
   `scripts/ci/self-hosted/diff-cover.sh`, the same gate as `PR CI Gate`.
 
-Two checks do not run on pull requests: the core doctests and the TinyJuice
-host-module regression. CI Lite runs both on every push to `main` that touches
-the Rust core.
+Some checks do not run on pull requests. CI Lite runs them on every push to
+`main` that touches the Rust core:
+
+- the core doctests;
+- the TinyJuice host-module regression;
+- `cargo check -p openhuman --no-default-features --features
+  e2e-test-support`: `rust-gates-off` already compiles that feature set for
+  its tests, in one build together with `mcp`.
 
 ## Profiles
 
