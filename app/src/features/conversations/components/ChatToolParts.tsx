@@ -3,14 +3,8 @@ import {
   type ToolCallMessagePartComponent,
   useAui,
 } from '@assistant-ui/react';
-import { type FC, type PropsWithChildren, useCallback } from 'react';
+import { type FC, useCallback } from 'react';
 
-import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '../../../components/assistant-ui/tool-group';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
