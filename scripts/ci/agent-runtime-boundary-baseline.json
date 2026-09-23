@@ -345,7 +345,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/tools.rs",
-    "line": 76,
+    "line": 73,
     "text": "crate::agent::harness::current_parent().map(|parent| {",
     "occurrence": 1
   },
@@ -457,7 +457,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/builder/factory.rs",
-    "line": 1199,
+    "line": 1198,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
@@ -471,14 +471,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 927,
+    "line": 932,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 1415,
+    "line": 1420,
     "text": "request_id: crate::agent::turn_origin::current_request_id(),",
     "occurrence": 1
   },
@@ -520,21 +520,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
-    "line": 493,
+    "line": 492,
     "text": ".max(current_spawn_depth().saturating_add(1));",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
-    "line": 643,
+    "line": 642,
     "text": "let run_result = with_spawn_depth(attempted_depth, async {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
-    "line": 645,
+    "line": 644,
     "text": "with_current_sandbox_mode(definition.sandbox_mode, async {",
     "occurrence": 1
   },
@@ -1066,7 +1066,7 @@
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/goals/mod.rs",
-    "line": 15,
+    "line": 14,
     "text": "pub use tinyagents_graph::goals::{ThreadGoal, ThreadGoalStatus};",
     "occurrence": 1
   },
@@ -1116,7 +1116,7 @@
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/todos/types.rs",
     "line": 3,
-    "text": "pub use tinyagents_graph::todos::{TaskBoardCard, TaskCardStatus};",
+    "text": "pub use tinyagents_graph::todos::{TodoItem, TodoStatus};",
     "occurrence": 1
   },
   {
@@ -1458,7 +1458,7 @@
   {
     "rule": "tinyagents-upstream-reexport",
     "path": "vendor/tinyagents/crates/tinyagents-graph/src/lib.rs",
-    "line": 48,
+    "line": 47,
     "text": "pub use tinyagents_harness::error::{Result, TinyAgentsError};",
     "occurrence": 1
   },
