@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import css from '../index.css?raw';
+// Read from disk: vitest stubs CSS imports (even `?raw`) to empty modules.
+const css = readFileSync(fileURLToPath(new URL('../index.css', import.meta.url)), 'utf8');
 
 /**
  * The reasoning panel's live label (and the running tool group) apply the
