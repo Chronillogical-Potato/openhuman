@@ -130,6 +130,11 @@ jobs:
               - 'scripts/ci/check-openhuman-rust-layout.mjs'
               - 'scripts/ci/check-agent-runtime-boundary.mjs'
               - 'scripts/ci/agent-runtime-boundary-baseline.json'
+              # The ignored-test ratchet lives in rust-quality. Its checker and
+              # its baseline must arm that lane themselves, or a PR that raises
+              # the baseline skips the only gate that reads it.
+              - 'scripts/ci/check-ignored-tests.mjs'
+              - 'scripts/ci/ignored-test-baseline.json'
               - 'scripts/ci/list-feature-gated-rust-tests.mjs'
               - 'Cargo.toml'
               - 'crates/openhuman-core/**'
@@ -194,6 +199,11 @@ jobs:
               - 'scripts/ci/check-module-pins.mjs'
               - 'scripts/ci/check-submodule-monotonic.mjs'
               - 'scripts/ci/module-pin-exemptions.json'
+              # The ignored-test ratchet has node --test coverage in
+              # scripts/__tests__/ — editing the gate must run the tests that
+              # pin its clauses, or the counter's anchoring and its
+              # cfg_attr guard can be loosened with nothing watching.
+              - 'scripts/ci/check-ignored-tests.mjs'
             # Test-wiring surface: a change here can orphan a test or add an
             # untested controller domain → run the inventory guard.
             inventory:
@@ -362,23 +372,51 @@ jobs:
           # rust-cache and just doubled the cache footprint).
           shared-key: pr-rust-quality
 
+      # `!cancelled()` on every independent check below, so one failure stops
+      # concealing the rest (#6451). A step's `if` defaults to `success()`, so
+      # today a red `cargo fmt` reports the remaining eleven steps as SKIPPED —
+      # which reads as "not applicable" rather than "never ran".
+      #
+      # NOT `continue-on-error`. That SUPPRESSES the failure, making the job's
+      # redness depend on an aggregation step being written correctly — a
+      # false-green path installed into the gate that guards everything else.
+      # `!cancelled()` runs the step without suppressing it: each still fails
+      # the job on its own, exactly as today. `!cancelled()` rather than
+      # `always()` so a cancelled run still stops promptly instead of grinding
+      # through every remaining check.
       - name: Check Rust formatting
+        id: fmt
+        if: ${{ !cancelled() }}
         run: cargo fmt --all -- --check
 
       - name: Enforce OpenHuman Rust file layout
-        if: needs.changes.outputs['rust-core'] == 'true'
+        id: layout
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
         run: node scripts/ci/check-openhuman-rust-layout.mjs
 
       - name: Enforce agent runtime ownership boundary
-        if: needs.changes.outputs['rust-core'] == 'true'
+        id: runtime_boundary
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
         run: pnpm agent:runtime-boundary
 
-      - name: Enforce Linux TLS dependency policy
+      - name: Enforce the ignored-test ratchet
+        # Counts `#[ignore]` attributes in the source tree per crate and refuses
+        # any increase. Deliberately static: `#[ignore]` is a source attribute,
+        # so this needs no build, no feature-set choice and no dependence on the
+        # dispatch-only full-suite lane (#5021) — which is why it can sit here,
+        # ahead of clippy, rather than waiting for a lane that runs tests.
+        # Covers openhuman-app too, hence both filters.
         if: needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true'
+        run: pnpm rust:ignored-tests
+
+      - name: Enforce Linux TLS dependency policy
+        id: linux_tls
+        if: ${{ !cancelled() && (needs.changes.outputs['rust-core'] == 'true' || needs.changes.outputs['rust-tauri'] == 'true') }}
         run: bash scripts/check-linux-tls-dependencies.sh
 
       - name: Run clippy (core crate, product feature set)
-        if: needs.changes.outputs['rust-core'] == 'true'
+        id: clippy_product
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
         # `--features` is load-bearing. `[features] default` is the CONTRIBUTOR
         # set (see the comment above it in Cargo.toml) and omits voice, web3,
         # documents, meet, contacts, inference and crash-reporting — so a bare
@@ -390,7 +428,8 @@ jobs:
             --features "$(bash scripts/ci/product-features.sh)" -- -D warnings
 
       - name: Run clippy (core crate, contributor default set)
-        if: needs.changes.outputs['rust-core'] == 'true'
+        id: clippy_default
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
         # The set a contributor's editor and pre-push hook actually compile. A
         # lint that only fires with those gates OFF — an import left unused once
         # a domain is compiled out, say — is invisible to the product lane above
@@ -398,24 +437,53 @@ jobs:
         # green. Cheap: this graph is ~356 packages against the product's ~567.
         run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman -- -D warnings
 
-      - name: Check embedding facade
-        if: needs.changes.outputs['rust-core'] == 'true'
-        run: |
-          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-embed --all-targets -- -D warnings
-          bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
+      # Split one-command-per-step (#6451). These were a single `run:` block, and
+      # GitHub runs those under `bash -e`: a clippy failure meant the `check` and
+      # the TEST SUITE below it never ran and were reported as NOTHING — not even
+      # "skipped". Job-level, concealed work at least looks skipped; inside a
+      # multi-command step it looks like work that does not exist. Worse here
+      # because the step is named "Check", so reading the step list does not
+      # reveal that a test suite sits behind a lint.
+      - name: Lint embedding facade
+        id: embed_clippy
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
+        run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-embed --all-targets -- -D warnings
 
-      - name: Check tinyhumans crate
-        if: needs.changes.outputs['rust-core'] == 'true'
-        # `openhuman-tinyhumans` is the SDK-backed backend transport plus the
-        # host-side login/session owner shared by the Tauri shell and the TUI.
-        # Its tests run against wiremock / in-process stubs, never the backend.
-        run: |
-          bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-tinyhumans
+      - name: Check embedding facade builds without default features
+        id: embed_check
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
+        run: bash scripts/ci-cancel-aware.sh cargo check -p openhuman-embed --no-default-features
 
+      - name: Test embedding facade
+        id: embed_test
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
+        run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed
+
+      # `openhuman-tinyhumans` is the SDK-backed backend transport plus the
+      # host-side login/session owner shared by the Tauri shell and the TUI.
+      # Its tests run against wiremock / in-process stubs, never the backend.
+      # Split for the same reason as the embedding facade above.
+      - name: Lint tinyhumans crate
+        id: tinyhumans_clippy
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
+        run: bash scripts/ci-cancel-aware.sh cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings
+
+      - name: Test tinyhumans crate
+        id: tinyhumans_test
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
+        run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman-tinyhumans
+
+      # Unchained because the step BELOW it needs what it produces, not because
+      # it is independent. "Independent" is not "self-sufficient": `Run clippy
+      # (Tauri shell)` is logically unrelated to the core checks, but it needs
+      # the CEF binary distribution this restore puts on disk. This restore sits
+      # after the core checks, so leaving it chained while unchaining the clippy
+      # would have that clippy compile with no CEF present whenever any earlier
+      # step failed — failing or crawling for a reason unrelated to the code
+      # under test, and reading as a new flake rather than as a missing cache.
+      # When unchaining a step, check what it consumes, not only what it checks.
       - name: Cache CEF binary distribution
-        if: needs.changes.outputs['rust-tauri'] == 'true'
+        if: ${{ !cancelled() && needs.changes.outputs['rust-tauri'] == 'true' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
@@ -426,7 +494,8 @@ jobs:
             cef-x86_64-unknown-linux-gnu-v2-
 
       - name: Run clippy (Tauri shell)
-        if: needs.changes.outputs['rust-tauri'] == 'true'
+        id: clippy_tauri
+        if: ${{ !cancelled() && needs.changes.outputs['rust-tauri'] == 'true' }}
         run: bash scripts/ci-cancel-aware.sh cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings
 
       # LAST on purpose. A failing step halts its job, so every step after it
@@ -442,8 +511,41 @@ jobs:
       # It builds openhuman-core with the product feature set from
       # scripts/ci/product-features.sh, the same set the clippy steps above use.
       - name: Guard — the fixed prompt prefix may not grow
-        if: needs.changes.outputs['rust-core'] == 'true'
+        id: prompt_budget
+        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
         run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
+
+      # Report every check's own outcome (#6451).
+      #
+      # `skipped` and `success` are easy to conflate when scanning a job: a
+      # skipped step reads as "not applicable" rather than "never ran". This
+      # lists each check with its actual outcome so the distinction is explicit.
+      #
+      # INFORMATIONAL ONLY. It never fails and never decides the job's result —
+      # every check above still fails the job on its own. A reporting step that
+      # could gate would be a place for a red job to come out green, which is
+      # the whole defect this change exists to remove.
+      - name: Summarise Rust Quality checks
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          STEP_OUTCOMES: ${{ toJSON(steps) }}
+        run: |
+          {
+            echo "### Rust Quality — per-check outcome"
+            echo
+            echo "| check | outcome |"
+            echo "| --- | --- |"
+            node -e '
+              const steps = JSON.parse(process.env.STEP_OUTCOMES || "{}");
+              const rows = Object.entries(steps)
+                .filter(([, v]) => v && v.outcome)
+                .map(([id, v]) => `| ${id} | ${v.outcome} |`);
+              console.log(rows.length ? rows.join("\n") : "| (no step ids declared) | — |");
+            '
+            echo
+            echo "\`skipped\` means the step did not run. It is not a pass."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Feature-gate smoke: proves the core still compiles with a domain gate turned
   # OFF. The disabled build is the ONLY thing that catches stub-facade signature
@@ -633,7 +735,10 @@ jobs:
         # graph split adds four unique crate names without native dependencies.
         # 279 -> 277 on 2026-09-20: the merged fresh-turn and cost-routing
         # dependency refresh sheds two of those resolved names again.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 277
+        # 277 -> 280 on 2026-09-22: TinyAgents 2.1.2 moves its required
+        # runtime/session/graph split into the harness path; it adds three
+        # crate names and no native build dependency.
+        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 280
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on

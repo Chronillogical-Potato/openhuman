@@ -37,7 +37,6 @@ fn skills_fixture() -> tempfile::TempDir {
 }
 
 #[test]
-#[ignore = "TODO(#6393): TinyAgents policy migration rejects caller-provided agent providers"]
 fn one_runtime_hosts_independently_configured_agents() {
     let _ = env_logger::builder().is_test(true).try_init();
 

@@ -23,7 +23,7 @@ import { useT } from '../../lib/i18n/I18nContext';
  * and return only the language part (e.g. "typescript"), or null if not
  * present. rehype-highlight adds this class when a fenced block is tagged.
  */
-function extractLanguage(className?: string): string | null {
+export function extractLanguage(className?: string): string | null {
   if (!className) return null;
   const match = /\blanguage-(\S+)/.exec(className);
   return match ? match[1] : null;
@@ -42,7 +42,7 @@ function formatLanguageLabel(lang: string): string {
  * Walk a React child tree and collect all text nodes as a single string.
  * This gives us the raw source code for the clipboard copy.
  */
-function extractTextContent(node: unknown): string {
+export function extractTextContent(node: unknown): string {
   if (typeof node === 'string') return node;
   if (typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(extractTextContent).join('');

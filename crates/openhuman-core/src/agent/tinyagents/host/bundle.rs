@@ -40,6 +40,8 @@ pub struct OpenHumanHostBundleInputs {
     pub tool_policy: Option<Arc<ToolPolicySession>>,
     pub memory: Arc<dyn Memory>,
     pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
+    /// See [`OpenHumanHostBase::session_definition`].
+    pub session_definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
 }
 
 /// Process/session-owned dependencies shared by hosted invocations.
@@ -54,6 +56,13 @@ pub struct OpenHumanHostBase {
     pub security_policy: Arc<SecurityPolicy>,
     pub memory: Arc<dyn Memory>,
     pub post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
+    /// The session's own caller-supplied definition, when it was built from one
+    /// rather than from a registry id — see
+    /// [`OpenHumanDefinitionRegistry::with_session_definition`]. Lives here, beside
+    /// the registry it outranks, because it is fixed for the session's lifetime:
+    /// one `Runtime` hosts several independently defined agents, but each gets
+    /// its own session and therefore its own base.
+    pub session_definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
 }
 
 /// Explicit inputs which vary for every hosted agent invocation.
@@ -103,6 +112,7 @@ impl OpenHumanHostBundleFactory {
                 tool_policy: inputs.tool_policy,
                 memory: inputs.base.memory.clone(),
                 post_turn_hooks: inputs.base.post_turn_hooks.clone(),
+                session_definition: inputs.base.session_definition.clone(),
             },
             turn,
         );
@@ -140,12 +150,14 @@ impl OpenHumanHostBundleFactory {
                 .map(|tool| tool.name().to_string())
                 .collect(),
         );
-        let definitions = Arc::new(
-            OpenHumanDefinitionRegistry::new(inputs.definitions)
-                .with_config(Arc::clone(&inputs.config))
-                .with_registered_tools(registered_tools)
-                .with_session_delegation_tools(session_delegation_tools),
-        );
+        let mut definitions_adapter = OpenHumanDefinitionRegistry::new(inputs.definitions)
+            .with_config(Arc::clone(&inputs.config))
+            .with_registered_tools(registered_tools)
+            .with_session_delegation_tools(session_delegation_tools);
+        if let Some(definition) = inputs.session_definition {
+            definitions_adapter = definitions_adapter.with_session_definition(definition);
+        }
+        let definitions = Arc::new(definitions_adapter);
         let mut security = OpenHumanSecurityGate::new(inputs.security_policy, inputs.tool_sets);
         if let Some(policy) = inputs.tool_policy {
             security = security.with_tool_policy(policy);

@@ -21,11 +21,11 @@ function msg(over: Partial<ThreadMessage> = {}): ThreadMessage {
   };
 }
 
-// `file_write` rather than a read-only name on purpose: only tools that might
-// have changed something outside the app still render on the main surface
-// (`toolRowStaysOnMainSurface`), so a read-only default would make every
-// identity / status / naming assertion below vacuous. The visibility rule
-// itself is covered separately in `main-surface tool visibility`.
+// Every tool row renders on the main surface now, so this default is no longer
+// load-bearing the way it was while a read-only allowlist could drop a row and
+// quietly make the identity / status / naming assertions below vacuous. Left as
+// `file_write` so those assertions keep naming a concrete tool rather than a
+// category boundary.
 function tool(over: Partial<ToolTimelineEntry> = {}): ToolTimelineEntry {
   return { id: 'call-1', name: 'file_write', round: 1, seq: 0, status: 'running', ...over };
 }
@@ -85,20 +85,42 @@ describe('streamingTailMessage', () => {
     });
   });
 
-  it('keeps streamed thinking off the main surface', () => {
-    // Reasoning is not dropped — it stays in `processingByThread` and in the
-    // persisted transcript, and renders in the process rail. It just does not
-    // belong in the answer stream; `RunningStatus` is the in-flight signal.
+  it('renders streamed thinking as a reasoning part above the answer', () => {
+    // The disclosure is collapsed once settled and held open while it streams,
+    // so this is one quiet line rather than the prose firehose that got the
+    // block removed in the first place. It goes FIRST: it is what the agent
+    // thought before it answered.
     const tail = streamingTailMessage({ requestId: 'r', content: 'answer', thinking: 'reasoning' });
-    expect(tail?.content).toEqual([{ type: 'text', text: 'answer' }]);
+    expect(tail?.content).toEqual([
+      { type: 'reasoning', text: 'reasoning' },
+      { type: 'text', text: 'answer' },
+    ]);
   });
 
-  it('mints no tail at all for a turn that has only produced thinking', () => {
-    // Nothing to paint: no answer yet, no visible tool. The status line under
-    // the last message is what tells the user the turn is alive.
-    expect(streamingTailMessage({ requestId: 'r', content: '', thinking: 'still working' })).toBe(
-      null
+  it('does not double the reasoning once the transcript has recorded it', () => {
+    // `assistantParts` already emits the transcript's `thinking` item in its
+    // proper place; the live unshift must stand down or the block renders twice.
+    const tail = streamingTailMessage(
+      { requestId: 'r', content: 'answer', thinking: 'recorded' },
+      [],
+      [{ kind: 'thinking', round: 1, seq: 0, text: 'recorded' }]
     );
+    expect(tail?.content).toEqual([
+      { type: 'reasoning', text: 'recorded' },
+      { type: 'text', text: 'answer' },
+    ]);
+  });
+
+  it('mints a reasoning-only tail for a turn that has so far only thought', () => {
+    // There IS something to paint now: the live reasoning block, expanded while
+    // it streams. Before the block came back this minted nothing at all and the
+    // status line carried the whole burden of showing the turn was alive.
+    const tail = streamingTailMessage({ requestId: 'r', content: '', thinking: 'still working' });
+    expect(tail).toMatchObject({
+      id: STREAMING_TAIL_ID,
+      status: { type: 'running' },
+      content: [{ type: 'reasoning', text: 'still working' }],
+    });
   });
 
   it('keeps a running delegation on args and adds result only when complete', () => {
@@ -157,12 +179,13 @@ describe('buildRuntimeMessages', () => {
     expect(ids).toEqual(['answer']);
     expect(ids).not.toContain(STREAMING_TAIL_ID);
     expect(projected[0]?.content).toEqual([
+      { type: 'reasoning', text: 'already finished thinking' },
       expect.objectContaining({ type: 'tool-call', toolCallId: 'stale-tool' }),
       { type: 'text', text: 'hello' },
     ]);
   });
 
-  it('replays a settled turn tool calls from its request id, without its prose', () => {
+  it('replays a settled turn with its reasoning and tools, but without its narration', () => {
     const answer = msg({
       id: 'answer',
       sender: 'agent',
@@ -182,8 +205,10 @@ describe('buildRuntimeMessages', () => {
         turnTranscripts: { 'req-1': transcript },
       })[0]?.content
     ).toEqual([
-      // No `reasoning` part and no narration `text` part: both are process and
-      // live in the rail. Only the tool row and the answer remain.
+      // Reasoning comes back inline, in the transcript's own order. Narration
+      // does NOT: it is the turn's running commentary, it duplicates the answer
+      // on the final round, and it stays in the rail behind the turn footer.
+      { type: 'reasoning', text: 'need to search' },
       expect.objectContaining({
         type: 'tool-call',
         toolCallId: 'call-1',
@@ -213,6 +238,7 @@ describe('buildRuntimeMessages', () => {
     })[0]?.content;
 
     expect(content).toEqual([
+      { type: 'reasoning', text: 'delegate this research' },
       expect.objectContaining({ type: 'tool-call', toolCallId: 'async-tool' }),
       { type: 'text', text: 'Accepted background work' },
     ]);
@@ -265,12 +291,20 @@ describe('buildRuntimeMessages', () => {
     expect(projected[1]).toMatchObject({ id: 'final', role: 'assistant' });
     // One bubble, carrying the final text once — the intro segment is a prefix
     // of it and must not render twice.
-    expect(projected[1]?.content).toEqual([{ type: 'text', text: finalText }]);
-    // The trail still belongs to the coalesced bubble; it is just no longer
-    // painted inline. The timeline row is named `tool` and is renamed to
-    // `web_search_tool` from the envelope BEFORE the visibility filter runs, so
-    // a recovered name decides visibility exactly as a declared one does — and
-    // a search is read-only, so it moves to the rail behind the footer.
+    // The row is minted as `tool` and recovered to `web_search_tool` from the
+    // envelope. That rename used to be asserted only INDIRECTLY, through a
+    // read-only visibility filter that dropped the row once it was renamed —
+    // so with the filter gone the old assertion would have quietly stopped
+    // testing the rename at all. It is named directly here instead.
+    expect(projected[1]?.content).toEqual([
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call-search',
+        toolName: 'web_search_tool',
+      }),
+      { type: 'text', text: finalText },
+    ]);
+    // The trail still belongs to the coalesced bubble.
     expect(
       (projected[1]?.metadata as { custom?: { processTrail?: unknown } } | undefined)?.custom
         ?.processTrail
@@ -499,7 +533,7 @@ describe('terminal tool status', () => {
   });
 });
 
-describe('main-surface tool visibility', () => {
+describe('main-surface tool rows', () => {
   const partsOf = (entries: ToolTimelineEntry[]) =>
     toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), entries)
       .content as unknown as { type: string; toolCallId?: string }[];
@@ -508,15 +542,16 @@ describe('main-surface tool visibility', () => {
       .filter(part => part.type === 'tool-call')
       .map(part => part.toolCallId);
 
-  it('drops a read-only step to the rail', () => {
-    // Reading, listing and searching are process. The row is not lost — it is
-    // still in the timeline the turn footer opens — it just does not stack
-    // above the answer.
+  it('renders a read-only step instead of dropping it to the rail', () => {
+    // These four used to be filtered off the surface as "process". They are
+    // back: assistant-ui coalesces consecutive tool rows into ONE collapsed
+    // group, so the clutter argument that justified hiding them no longer
+    // holds — the cost is a count in a group header, and the benefit is that
+    // the transcript shows what the agent actually did.
     //
-    // `web_search_tool` is the name a real search row carries: `web_search` is
-    // the settings-family id the core expands from (`tools/user_filter.rs:79-80`),
-    // and it is the canonical name — not the alias — that a live turn produces.
-    // Both are asserted so neither can regress.
+    // `web_search_tool` is the name a real search row carries; `web_search` is
+    // the settings-family id the core expands from. Both are asserted so
+    // neither can regress.
     expect(
       visibleIds([
         tool({ id: 'r1', name: 'file_read', seq: 0, status: 'success' }),
@@ -524,13 +559,10 @@ describe('main-surface tool visibility', () => {
         tool({ id: 'r3', name: 'web_search_tool', seq: 2, status: 'success' }),
         tool({ id: 'r4', name: 'web_search', seq: 3, status: 'success' }),
       ])
-    ).toEqual([]);
+    ).toEqual(['r1', 'r2', 'r3', 'r4']);
   });
 
-  it('keeps a tool it cannot prove is read-only', () => {
-    // The fail-SAFE direction, and the whole point of the allowlist: an agent
-    // sending an email or spending money behind a collapsed panel is a trust
-    // problem. An unmapped name lands in `other` and keeps its line.
+  it('renders a side-effecting step', () => {
     expect(
       visibleIds([
         tool({ id: 'w', name: 'file_write', seq: 0, status: 'success' }),
@@ -541,9 +573,7 @@ describe('main-surface tool visibility', () => {
     ).toEqual(['w', 's', 'x', 'f']);
   });
 
-  it('keeps a read-only step that failed or is waiting on the user', () => {
-    // An error and a parked approval are the user's to see and to answer, so
-    // they outrank the category.
+  it('renders a step that failed or is waiting on the user', () => {
     expect(
       visibleIds([
         tool({ id: 'e', name: 'file_read', seq: 0, status: 'error' }),
@@ -552,10 +582,92 @@ describe('main-surface tool visibility', () => {
     ).toEqual(['e', 'a']);
   });
 
-  it('keeps a delegation row — it is the only door to the sub-agent drawer', () => {
+  it('renders a delegation row — it is the only door to the sub-agent drawer', () => {
     expect(visibleIds([tool({ id: 'd', name: 'subagent:researcher', status: 'success' })])).toEqual(
       ['d']
     );
+  });
+});
+
+describe('part ordering', () => {
+  const contentOf = (
+    entries: ToolTimelineEntry[],
+    transcript: Parameters<typeof toThreadMessageLike>[2]
+  ) =>
+    toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), entries, transcript)
+      .content as unknown as { type: string; toolCallId?: string; text?: string }[];
+
+  it('follows the transcript, reasoning first, answer last', () => {
+    expect(
+      contentOf(
+        [
+          tool({ id: 'c1', seq: 0, status: 'success' }),
+          tool({ id: 'c2', seq: 1, status: 'success' }),
+        ],
+        [
+          { kind: 'thinking', round: 1, seq: 0, text: 'plan it' },
+          { kind: 'toolCall', round: 1, seq: 1, callId: 'c1' },
+          { kind: 'toolCall', round: 1, seq: 2, callId: 'c2' },
+        ]
+      ).map(part => part.toolCallId ?? part.type)
+    ).toEqual(['reasoning', 'c1', 'c2', 'text']);
+  });
+
+  it('places a row the transcript never named by its own seq, not at the end', () => {
+    // THE ordering defect. `c-early` was issued FIRST (seq 0) but no transcript
+    // pointer ever landed for it — a live turn mints the row before the pointer
+    // arrives, and a legacy snapshot has no transcript at all. It used to be
+    // appended after every row the transcript DID name, so the first call the
+    // agent made rendered last.
+    expect(
+      contentOf(
+        [
+          tool({ id: 'c-early', seq: 0, status: 'success' }),
+          tool({ id: 'c-named', seq: 1, status: 'success' }),
+        ],
+        [{ kind: 'toolCall', round: 1, seq: 0, callId: 'c-named' }]
+      ).map(part => part.toolCallId ?? part.type)
+    ).toEqual(['c-early', 'c-named', 'text']);
+  });
+
+  it('keeps an unnamed later row after the named row it followed', () => {
+    // The mirror of the case above, so the fix cannot be "always put unnamed
+    // rows first", which would pass the previous test while still being wrong.
+    expect(
+      contentOf(
+        [
+          tool({ id: 'c-named', seq: 0, status: 'success' }),
+          tool({ id: 'c-late', seq: 1, status: 'success' }),
+        ],
+        [{ kind: 'toolCall', round: 1, seq: 0, callId: 'c-named' }]
+      ).map(part => part.toolCallId ?? part.type)
+    ).toEqual(['c-named', 'c-late', 'text']);
+  });
+
+  it('orders a legacy snapshot with no transcript by seq', () => {
+    expect(
+      contentOf(
+        [
+          tool({ id: 'second', seq: 5, status: 'success' }),
+          tool({ id: 'first', seq: 1, status: 'success' }),
+        ],
+        []
+      ).map(part => part.toolCallId ?? part.type)
+    ).toEqual(['first', 'second', 'text']);
+  });
+
+  it('emits one part for a row two transcript pointers both name', () => {
+    // assistant-ui THROWS on a duplicate `toolCallId` and takes the whole
+    // thread render down, so this is an invariant rather than tidiness.
+    expect(
+      contentOf(
+        [tool({ id: 'dup', seq: 0, status: 'success' })],
+        [
+          { kind: 'toolCall', round: 1, seq: 0, callId: 'dup' },
+          { kind: 'toolCall', round: 1, seq: 1, callId: 'dup' },
+        ]
+      ).filter(part => part.type === 'tool-call')
+    ).toHaveLength(1);
   });
 });
 

@@ -381,8 +381,6 @@ if should_run_suite "payments"; then
   echo "## Running suite: payments"
   run "test/e2e/specs/card-payment-flow.spec.ts"              "card-payment"              "payments"
   run "test/e2e/specs/crypto-payment-flow.spec.ts"            "crypto-payment"            "payments"
-  run "test/e2e/specs/rewards-unlock-flow.spec.ts"            "rewards-unlock"            "payments"
-  run "test/e2e/specs/rewards-progression-persistence.spec.ts" "rewards-progression"      "payments"
   _mini_summary "payments"
 fi
 

@@ -510,6 +510,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 iterations: scope.iteration,
                 output_chars: 0,
                 output: String::new(),
+                // Projection rebuild, not an originating emit; it has no
+                // outcome to read usage from. See the field's docs.
+                usage: None,
                 worktree_path: None,
                 changed_files: Vec::new(),
                 dirty_status: None,

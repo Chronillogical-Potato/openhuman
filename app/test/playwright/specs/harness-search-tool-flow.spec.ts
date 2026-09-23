@@ -117,13 +117,27 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('send-message-button').click();
 }
 
-function findToolInLlmLog(log: MockRequest[], toolName: string): boolean {
-  return log.some(
-    request =>
-      request.method === 'POST' &&
-      request.url.includes('/chat/completions') &&
-      typeof request.body === 'string' &&
-      request.body.includes(`"${toolName}"`)
+async function toolTimelineIncludes(
+  page: Page,
+  threadId: string,
+  toolName: string
+): Promise<boolean> {
+  return page.evaluate(
+    ({ currentThreadId, expectedTool }) => {
+      const store = (
+        window as unknown as {
+          __OPENHUMAN_STORE__?: {
+            getState?: () => {
+              chatRuntime?: { toolTimelineByThread?: Record<string, Array<{ name?: string }>> };
+            };
+          };
+        }
+      ).__OPENHUMAN_STORE__;
+      const entries =
+        store?.getState?.().chatRuntime?.toolTimelineByThread?.[currentThreadId] ?? [];
+      return entries.some(entry => entry.name === expectedTool);
+    },
+    { currentThreadId: threadId, expectedTool: toolName }
   );
 }
 
@@ -154,6 +168,8 @@ test.describe('Harness - Search tool-flow', () => {
     await setMockBehavior('llmForcedResponses', JSON.stringify(forced));
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
+    const threadId = await selectedThreadId(page);
+    expect(threadId).not.toBeNull();
     await sendMessage(page, 'what did we discuss about project Atlas');
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(agentMessageText(page, /Based on my memory search/i)).toBeVisible();
@@ -163,7 +179,7 @@ test.describe('Harness - Search tool-flow', () => {
       request => request.method === 'POST' && request.url.includes('/chat/completions')
     );
     expect(llmHits.length).toBeGreaterThanOrEqual(2);
-    expect(findToolInLlmLog(log, 'memory_recall')).toBe(true);
+    expect(await toolTimelineIncludes(page, threadId!, 'memory_recall')).toBe(true);
   });
 
   test('web_search_tool prompt completes the two-turn sequence', async ({ page }) => {
@@ -186,6 +202,8 @@ test.describe('Harness - Search tool-flow', () => {
     await setMockBehavior('llmForcedResponses', JSON.stringify(forced));
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
+    const threadId = await selectedThreadId(page);
+    expect(threadId).not.toBeNull();
     await sendMessage(page, 'search for Rust async best practices');
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(
@@ -197,7 +215,7 @@ test.describe('Harness - Search tool-flow', () => {
       request => request.method === 'POST' && request.url.includes('/chat/completions')
     );
     expect(llmHits.length).toBeGreaterThanOrEqual(2);
-    expect(findToolInLlmLog(log, 'web_search_tool')).toBe(true);
+    expect(await toolTimelineIncludes(page, threadId!, 'web_search_tool')).toBe(true);
   });
 
   test('file_read prompt completes the two-turn sequence', async ({ page }) => {
@@ -219,6 +237,8 @@ test.describe('Harness - Search tool-flow', () => {
     await setMockBehavior('llmForcedResponses', JSON.stringify(forced));
     await setMockBehavior('llmStreamChunkDelayMs', '10');
 
+    const threadId = await selectedThreadId(page);
+    expect(threadId).not.toBeNull();
     await sendMessage(page, 'read the README');
     await expect(agentMessageText(page, CANARY)).toBeVisible({ timeout: 60_000 });
     await expect(agentMessageText(page, /OpenHuman is an AI assistant/i)).toBeVisible();
@@ -228,6 +248,6 @@ test.describe('Harness - Search tool-flow', () => {
       request => request.method === 'POST' && request.url.includes('/chat/completions')
     );
     expect(llmHits.length).toBeGreaterThanOrEqual(2);
-    expect(findToolInLlmLog(log, 'file_read')).toBe(true);
+    expect(await toolTimelineIncludes(page, threadId!, 'file_read')).toBe(true);
   });
 });

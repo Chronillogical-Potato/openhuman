@@ -28,7 +28,6 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const REPLY: &str = "harness-embed-ok";
 
 #[test]
-#[ignore = "TODO(#6392): TinyAgents policy migration rejects the caller-supplied mock provider in CI"]
 fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
     let _ = env_logger::builder().is_test(true).try_init();
 

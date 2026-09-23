@@ -47,7 +47,13 @@ fn plant_fsmonitor_hook(dir: &std::path::Path) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
 
-    std::process::Command::new(&hook).status().unwrap();
+    // Running a newly-written file directly can race the overlay filesystem in
+    // CI with ETXTBSY. Invoke the same script through the shell instead; git
+    // executes the configured hook through its interpreter as well.
+    std::process::Command::new("sh")
+        .arg(&hook)
+        .status()
+        .unwrap();
     assert!(marker.exists(), "the planted hook does not run at all");
     std::fs::remove_file(&marker).unwrap();
 

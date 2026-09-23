@@ -817,6 +817,44 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
 
+        // A detached sub-agent's spend reaches the composer here or nowhere.
+        //
+        // The parent turn's `chat_done` fired before this child finished, and
+        // for a detached spawn the child's usage never entered the parent's
+        // ledger — `detached_child()` sets `parent_subagent_usage` to `None` —
+        // so `holistic_last_turn_usage` folded nothing and the reported totals
+        // are parent-only. The core populates these fields ONLY when that is
+        // the case, so adding them unconditionally is correct: for a blocking
+        // spawn they are absent, because its spend is already inside the
+        // `chat_done` figures (tokens AND cost). See #6459.
+        const childInput = event.subagent?.input_tokens;
+        const childOutput = event.subagent?.output_tokens;
+        if (childInput !== undefined || childOutput !== undefined) {
+          dispatch(
+            recordChatTurnUsage({
+              threadId: event.thread_id,
+              // The child's tokens go at the TOP level because that is what
+              // `applyTurnUsage` folds into the thread totals the composer
+              // shows — mirroring `chat_done`, whose top-level figures are
+              // already parent+child. The `subAgents` entry below is the
+              // per-agent breakdown, not the total.
+              inputTokens: childInput ?? 0,
+              outputTokens: childOutput ?? 0,
+              cachedTokens: event.subagent?.cached_input_tokens ?? 0,
+              costUsd: event.subagent?.cost_usd ?? 0,
+              subAgentSpendOnly: true,
+              subAgents: [
+                {
+                  agentId: event.tool_name ?? 'subagent',
+                  inputTokens: childInput ?? 0,
+                  outputTokens: childOutput ?? 0,
+                  costUsd: event.subagent?.cost_usd ?? 0,
+                },
+              ],
+            })
+          );
+        }
+
         const current = store.getState().chatRuntime.inferenceStatusByThread[event.thread_id];
         if (!current) return;
         dispatch(

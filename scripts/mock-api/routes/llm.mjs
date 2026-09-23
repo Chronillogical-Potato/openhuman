@@ -14,15 +14,30 @@ import {
   resolveThreadKey,
 } from "./llm/shared.mjs";
 
-// The scripted `llmForcedResponses` FIFO models the *interactive* agent turn,
-// which always advertises tools (the orchestrator's delegate_* tools). Ancillary
-// completions that share the endpoint but carry no tools — thread-title/summary
-// generation via `chat_with_system` (tools: None), fired fire-and-forget and
-// racing the visible turn — must NOT drain the queue, or the scripted responses
-// desync and the turn falls through to the dynamic fallback
-// (tinyhumansai/openhuman#4517).
+// The scripted `llmForcedResponses` FIFO models the *interactive* agent turn.
+// Older harnesses advertised tools in the OpenAI request. Current harnesses
+// render that same catalogue in the stable system prompt to preserve the
+// provider's prompt-cache prefix, and deliberately omit the duplicate request
+// field. Interactive turns also stream a user message, unlike the ancillary
+// non-streaming completions (thread-title/summary generation via
+// `chat_with_system`) that race them. Those helpers must not drain the queue,
+// or scripted responses desynchronise and the turn falls through to the
+// dynamic fallback (tinyhumansai/openhuman#4517).
 function isPrimaryTurn(parsedBody) {
-  return Array.isArray(parsedBody?.tools) && parsedBody.tools.length > 0;
+  if (Array.isArray(parsedBody?.tools) && parsedBody.tools.length > 0) return true;
+
+  const hasRenderedCatalogue = (parsedBody?.messages ?? []).some(
+    message =>
+      (message?.role === "system" || message?.role === "developer") &&
+      typeof message?.content === "string" &&
+      message.content.includes("## Tools")
+  );
+  if (hasRenderedCatalogue) return true;
+
+  return (
+    parsedBody?.stream === true &&
+    (parsedBody?.messages ?? []).some(message => message?.role === "user")
+  );
 }
 
 function requestRuleMatches(rule, ctx) {
