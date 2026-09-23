@@ -3,7 +3,7 @@ import {
   type ToolCallMessagePartComponent,
   useAui,
 } from '@assistant-ui/react';
-import { type FC, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
