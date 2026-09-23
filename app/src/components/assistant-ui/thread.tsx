@@ -1,5 +1,6 @@
 'use client';
 
+import { ActivityGroup as DefaultActivityGroup } from '@/components/assistant-ui/activity-group';
 import {
   ComposerAddAttachment,
   ComposerAttachments,
@@ -13,19 +14,8 @@ import { Image } from '@/components/assistant-ui/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningRoot,
-  ReasoningText,
-  ReasoningTrigger,
-} from '@/components/assistant-ui/reasoning';
+import { Reasoning } from '@/components/assistant-ui/reasoning';
 import { ToolFallback } from '@/components/assistant-ui/tool-fallback';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
@@ -103,8 +93,11 @@ export type ThreadComponents = {
   AssistantMessage?: ComponentType | undefined;
   Welcome?: ComponentType | undefined;
   ToolFallback?: ToolCallMessagePartComponent | undefined;
-  ToolGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
-  ReasoningGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
+  /**
+   * Wraps one run of reasoning and tool calls — everything between the input
+   * and the answer — as a single group. Defaults to `ActivityGroup`.
+   */
+  ActivityGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
   /**
    * Extra controls in the composer's action row, to the right of the model
    * selector. A seam rather than a fixed set because what belongs there is
@@ -1218,8 +1211,7 @@ const MessageError: FC = () => {
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
-    ToolGroup,
-    ReasoningGroup,
+    ActivityGroup = DefaultActivityGroup,
     TurnFooter,
     TurnSources,
   } = useContext(ThreadComponentsContext);
@@ -1258,58 +1250,37 @@ const AssistantMessage: FC = () => {
        * nothing else carried anything, so a reasoning block sat apart while a
        * tool group and the prose beneath it touched. `[&>*+*]:mt-3` spaces
        * adjacent blocks evenly and the `mb-0` override neutralises the one
-       * component with an opinion. The chain-of-thought wrapper below gets the
-       * same pair, because reasoning and tool groups are siblings *inside* it
-       * rather than of it, so spacing only the outer level misses them.
+       * component with an opinion.
+       *
+       * Reasoning and tool calls share ONE group per run, in the order they
+       * happened, so a turn reads input → work → answer. Splitting them into
+       * reasoning and tool sub-groups turned an interleaved turn (think, call,
+       * think, call) into a stack of unrelated collapsibles.
        */}
       <div
         data-slot="aui_assistant-message-content"
         className="text-foreground [&>*+*]:mt-3 [&_[data-slot=reasoning-root]]:mb-0 px-2 leading-relaxed wrap-break-word">
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
-            reasoning: ['group-chainOfThought', 'group-reasoning'],
-            'tool-call': ['group-chainOfThought', 'group-tool'],
+            reasoning: ['group-activity'],
+            'tool-call': ['group-activity'],
             'standalone-tool-call': [],
           })}>
           {({ part, children }) => {
             switch (part.type) {
-              case 'group-chainOfThought':
-                return (
-                  <div data-slot="aui_chain-of-thought" className="[&>*+*]:mt-3">
-                    {children}
-                  </div>
-                );
-              case 'group-tool':
-                if (ToolGroup) {
-                  return <ToolGroup group={part}>{children}</ToolGroup>;
-                }
-                return (
-                  <ToolGroupRoot variant="ghost">
-                    <ToolGroupTrigger
-                      count={part.indices.length}
-                      active={part.status.type === 'running'}
-                    />
-                    <ToolGroupContent>{children}</ToolGroupContent>
-                  </ToolGroupRoot>
-                );
-              case 'group-reasoning': {
-                if (ReasoningGroup) {
-                  return <ReasoningGroup group={part}>{children}</ReasoningGroup>;
-                }
-                const running = part.status.type === 'running';
-                return (
-                  <ReasoningRoot streaming={running}>
-                    <ReasoningTrigger active={running} />
-                    <ReasoningContent aria-busy={running}>
-                      <ReasoningText>{children}</ReasoningText>
-                    </ReasoningContent>
-                  </ReasoningRoot>
-                );
-              }
+              case 'group-activity':
+                return <ActivityGroup group={part}>{children}</ActivityGroup>;
               case 'text':
                 return <MarkdownText />;
               case 'reasoning':
-                return <Reasoning {...part} />;
+                // A step inside the activity group, not a disclosure of its own.
+                return (
+                  <div
+                    data-slot="aui_activity-reasoning"
+                    className="text-muted-foreground border-border border-s-2 ps-3 text-sm leading-relaxed">
+                    <Reasoning {...part} />
+                  </div>
+                );
               case 'tool-call':
                 return part.toolUI ?? <ToolFallbackComponent {...part} />;
               case 'data':
