@@ -84,3 +84,14 @@ export function ReasoningTrace({
     />
   );
 }
+
+/** One reasoning text (a single block) through {@link ReasoningTrace}. */
+export function ReasoningTraceText({
+  text,
+  timing,
+  ...rest
+}: Omit<ReasoningTraceProps, 'texts' | 'timings'> & { text: string; timing?: ReasoningTiming }) {
+  const texts = useMemo(() => [text], [text]);
+  const timings = useMemo(() => [timing], [timing?.startedAt, timing?.endedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <ReasoningTrace texts={texts} timings={timings} {...rest} />;
+}

@@ -1,6 +1,5 @@
-import { ReasoningTrace } from '@/components/assistant-ui/elements/reasoning-trace';
+import { ReasoningTraceText } from '@/components/assistant-ui/elements/reasoning-trace';
 import type { ReasoningTiming } from '@/components/assistant-ui/elements/reasoningSteps';
-import { useMemo } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type {
@@ -107,13 +106,11 @@ export function ProcessingTranscriptView({
  */
 function ThinkingBlock({ text, timing }: { text: string; timing?: ReasoningTiming }) {
   const clean = stripToolCallEnvelopes(text).trim();
-  const texts = useMemo(() => [clean], [clean]);
-  const timings = useMemo(() => [timing], [timing]);
   if (!clean) return null;
   return (
-    <ReasoningTrace
-      texts={texts}
-      timings={timings}
+    <ReasoningTraceText
+      text={clean}
+      timing={timing}
       streaming={false}
       collapsible={false}
       data-testid="processing-thinking"
@@ -128,14 +125,12 @@ function ThinkingBlock({ text, timing }: { text: string; timing?: ReasoningTimin
  *  narration or tool call exists to show. */
 function LiveThinkingBlock({ text, timing }: { text: string; timing?: ReasoningTiming }) {
   const clean = stripToolCallEnvelopes(text).trim();
-  const texts = useMemo(() => [clean], [clean]);
-  const timings = useMemo(() => [timing], [timing]);
   if (!clean) return null;
   return (
     <div aria-live="polite">
-      <ReasoningTrace
-        texts={texts}
-        timings={timings}
+      <ReasoningTraceText
+        text={clean}
+        timing={timing}
         streaming
         collapsible={false}
         data-testid="processing-thinking-live"
