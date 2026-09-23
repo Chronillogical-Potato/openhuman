@@ -58,7 +58,6 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
   return (
     <ToolGroupRoot
       variant="ghost"
-      data-slot="aui_activity-group"
       open={userOpen ?? live}
       onOpenChange={setUserOpen}>
       <ToolGroupTrigger
