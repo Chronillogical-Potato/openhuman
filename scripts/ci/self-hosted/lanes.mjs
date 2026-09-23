@@ -378,8 +378,135 @@ export class Runner {
   }
 }
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+/**
+ * Turn one lane-log line into workflow-command output: every check becomes a
+ * folded `::group::`, closed by the runner's own outcome line for it.
+ */
+export function foldLine(line, state) {
+  const start = line.match(/^\[ci\]\[lanes\] ===== (.+) =====$/);
+  if (start) {
+    const close = state.open ? "::endgroup::\n" : "";
+    state.open = true;
+    return `${close}::group::${start[1]}`;
+  }
+  const end = line.match(
+    /^\[ci\]\[lanes\] (\S+): (success|failure|cancelled) \(exit/,
+  );
+  if (end && state.open) {
+    state.open = false;
+    return `${line}\n::endgroup::`;
+  }
+  return line;
+}
+
+function runnerAlive(out) {
+  try {
+    process.kill(Number(readFileSync(join(out, "runner.pid"), "utf8")), 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function printRunnerTail(out) {
+  const p = join(out, "runner.log");
+  if (!existsSync(p)) return;
+  const lines = readFileSync(p, "utf8").split("\n");
+  console.log("::group::runner.log (last 80 lines)");
+  console.log(lines.slice(-80).join("\n"));
+  console.log("::endgroup::");
+}
+
+/** Per-check table for one lane, as plain step output. */
+export function renderLaneTable(lane) {
+  const rows = [`lane ${lane.name}:`];
+  for (const c of lane.checks) {
+    if (c.status === "skipped") continue;
+    const time = c.durationS == null ? "" : ` ${c.durationS}s`;
+    const note = c.reportOnly && c.status === "failure" ? " (report-only)" : "";
+    rows.push(`  ${c.status.padEnd(9)} ${c.name}${time}${note}`);
+  }
+  return rows.join("\n");
+}
+
+/** `--wait <lane>`: stream one lane's log live and exit with its result. */
+async function waitLane(out, name) {
+  const logPath = join(out, "logs", `${name}.log`);
+  const statusPath = join(out, "status", `${name}.json`);
+  const donePath = join(out, "status", "_done.json");
+  const state = { open: false };
+  let pos = 0;
+  let pending = "";
+  const pump = () => {
+    if (!existsSync(logPath)) return;
+    const size = statSync(logPath).size;
+    if (size <= pos) return;
+    const fd = openSync(logPath, "r");
+    const chunk = Buffer.alloc(size - pos);
+    readSync(fd, chunk, 0, chunk.length, pos);
+    closeSync(fd);
+    pos = size;
+    const lines = (pending + chunk.toString("utf8")).split("\n");
+    pending = lines.pop();
+    for (const l of lines) console.log(foldLine(l, state));
+  };
+  for (;;) {
+    pump();
+    if (existsSync(statusPath)) break;
+    if (existsSync(donePath)) {
+      console.log(`[ci][lanes] lane ${name} did not run in this job`);
+      return 0;
+    }
+    if (!runnerAlive(out)) {
+      console.error(
+        `::error::[ci][lanes] the lane runner exited before lane ${name} finished`,
+      );
+      printRunnerTail(out);
+      return 2;
+    }
+    await sleep(2000);
+  }
+  pump();
+  if (pending) console.log(foldLine(pending, state));
+  if (state.open) console.log("::endgroup::");
+  const lane = JSON.parse(readFileSync(statusPath, "utf8"));
+  console.log(renderLaneTable(lane));
+  const failures = gatingFailures({ lanes: [lane] });
+  for (const f of failures) console.log(`::error::[ci][lanes] ${f} did not pass`);
+  return failures.length > 0 ? 1 : 0;
+}
+
+/** `--wait-all`: wait for the detached run, summarise, exit with its code. */
+async function waitAll(out) {
+  const donePath = join(out, "status", "_done.json");
+  while (!existsSync(donePath)) {
+    if (!runnerAlive(out)) {
+      console.error("::error::[ci][lanes] the lane runner exited without finishing");
+      printRunnerTail(out);
+      return 2;
+    }
+    await sleep(2000);
+  }
+  const { code } = JSON.parse(readFileSync(donePath, "utf8"));
+  const timingsPath = join(out, "ci-timings.json");
+  if (existsSync(timingsPath)) {
+    const results = JSON.parse(readFileSync(timingsPath, "utf8"));
+    const summary = renderSummary(results);
+    console.log(summary);
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+    for (const f of gatingFailures(results))
+      console.log(`::error::[ci][lanes] ${f} did not pass`);
+  }
+  return code;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.wait) return waitLane(resolve(ROOT, args.out), args.wait);
+  if (args.waitAll) return waitAll(resolve(ROOT, args.out));
   const areas = areasFromEnv(process.env);
   const isPullRequest = (
     process.env.GITHUB_EVENT_NAME ?? "pull_request"
@@ -427,6 +554,37 @@ async function main() {
   const out = resolve(ROOT, args.out);
   mkdirSync(join(out, "logs"), { recursive: true });
   mkdirSync(join(out, "lcov"), { recursive: true });
+  mkdirSync(join(out, "status"), { recursive: true });
+
+  if (args.detach) {
+    // Re-run this same command in the background, under the cancellation
+    // watchdog, and return at once so the workflow can show one step per lane.
+    const childArgs = process.argv.slice(2).filter((a) => a !== "--detach");
+    const logFd = openSync(join(out, "runner.log"), "a");
+    const child = spawn(
+      "bash",
+      [
+        "scripts/ci-cancel-aware.sh",
+        process.execPath,
+        fileURLToPath(import.meta.url),
+        ...childArgs,
+      ],
+      {
+        cwd: ROOT,
+        detached: true,
+        stdio: ["ignore", logFd, logFd],
+        env: { ...process.env, OH_LANES_DETACHED: "1" },
+      },
+    );
+    writeFileSync(join(out, "runner.pid"), String(child.pid));
+    child.unref();
+    closeSync(logFd);
+    const lanesJson = JSON.stringify(plan.lanes.map((l) => l.name));
+    if (process.env.GITHUB_OUTPUT)
+      appendFileSync(process.env.GITHUB_OUTPUT, `lanes=${lanesJson}\n`);
+    log(`detached runner pid=${child.pid} lanes=${lanesJson}`);
+    return 0;
+  }
   if (args.profile === "ex63")
     spawnSync("sccache", ["--start-server"], { stdio: "ignore" });
 
@@ -450,18 +608,24 @@ async function main() {
     join(out, "ci-timings.json"),
     `${JSON.stringify(results, null, 2)}\n`,
   );
-  if (process.env.GITHUB_STEP_SUMMARY)
+  // Detached, the step that owns $GITHUB_STEP_SUMMARY has already ended;
+  // `--wait-all` writes the summary instead.
+  if (process.env.GITHUB_STEP_SUMMARY && process.env.OH_LANES_DETACHED !== "1")
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, renderSummary(results));
 
   const failures = gatingFailures(results);
-  if (runner.cancelled) return 143;
-  if (failures.length > 0) {
+  let code = 0;
+  if (runner.cancelled) code = 143;
+  else if (failures.length > 0) {
     for (const f of failures)
       console.error(`::error::[ci][lanes] ${f} did not pass`);
-    return 1;
-  }
-  log("all gating checks passed");
-  return 0;
+    code = 1;
+  } else log("all gating checks passed");
+  writeFileSync(
+    join(out, "status", "_done.json"),
+    `${JSON.stringify({ code })}\n`,
+  );
+  return code;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
