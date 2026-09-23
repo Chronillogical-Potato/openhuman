@@ -37,6 +37,7 @@ impl SessionHostBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
+            session_definition: None,
             session_parent_prefix: None,
             session_history_locator: None,
             omit_profile: None,
@@ -291,6 +292,48 @@ impl SessionHostBuilder {
     /// about any of the surfaces above.
     pub fn agent_definition_name(mut self, name: impl Into<String>) -> Self {
         self.agent_definition_name = Some(name.into());
+        self
+    }
+
+    /// Give this session its own agent definition, rather than a registry id
+    /// for it to be looked up by.
+    ///
+    /// Every session turn is a hosted root invocation: it resolves its agent
+    /// id against the host catalogue before composing a message, and refuses
+    /// the turn outright when the id is not there.
+    /// [`OpenHumanSessionHost::from_config_with_definition`] already stamps a
+    /// caller's definition on the session for that reason. A direct builder
+    /// caller had no equivalent, so the only catalogue it could be resolved
+    /// against was the process-wide registry, read once from
+    /// `<workspace>/agents/*.toml` at startup and never refreshed.
+    ///
+    /// That left a library host — one already supplying its own tools, tool
+    /// policy, memory, prompt and model through this same builder — writing
+    /// TOML into a directory so the runtime could read back what the host
+    /// already knew, and unable to add an agent or widen one's tools without
+    /// restarting the process.
+    ///
+    /// The definition outranks the registry for this session's own id (see
+    /// [`OpenHumanDefinitionRegistry::with_session_definition`]), so a host
+    /// that brings its own agents is not shadowed by a built-in that happens
+    /// to share an id. Set
+    /// [`agent_definition_name`](Self::agent_definition_name) to the same id,
+    /// or the definition is unresolvable by the id the session was stamped
+    /// with.
+    ///
+    /// Note that the resolved definition's tool list *is* the turn's
+    /// allow-list, intersected with the tools the session was built with, and
+    /// that the hosted allow-list is fail-closed: a definition declaring no
+    /// tools denies every call rather than allowing all of them. A caller
+    /// must name the belt it built the session with.
+    ///
+    /// [`OpenHumanSessionHost::from_config_with_definition`]: crate::agent::OpenHumanSessionHost::from_config_with_definition
+    /// [`OpenHumanDefinitionRegistry::with_session_definition`]: crate::agent::tinyagents::host::OpenHumanDefinitionRegistry::with_session_definition
+    pub fn agent_definition(
+        mut self,
+        definition: Arc<crate::agent::harness::definition::AgentDefinition>,
+    ) -> Self {
+        self.session_definition = Some(definition);
         self
     }
 
