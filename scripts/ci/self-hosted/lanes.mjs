@@ -111,7 +111,7 @@ function sccacheStats() {
   }
 }
 
-class Runner {
+export class Runner {
   constructor(plan, { out, maxParallel }) {
     this.plan = plan;
     this.out = out;
