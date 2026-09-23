@@ -1634,36 +1634,51 @@ const chatRuntimeSlice = createSlice({
       }
       const pending = findPendingDelegationContext(entries, round);
       // Collapse the parent spawn/delegate row into the subagent row so the
-      // timeline shows one entry per delegation.
-      if (pending.spawnEntryId) {
-        const spawnIdx = entries.findIndex(e => e.id === pending.spawnEntryId);
-        if (spawnIdx >= 0) entries.splice(spawnIdx, 1);
+      // timeline shows one entry per delegation — IN PLACE. The row takes the
+      // spawn row's slot, its `seq` and its transcript pointer, so the
+      // delegation renders exactly where the agent issued it. Splicing it out
+      // and appending a fresh row left the pointer dangling and the sub-agent
+      // card sorted to the end of the turn, below text that came after it,
+      // and every part after the old slot shifted index (and remounted).
+      const spawnIdx = pending.spawnEntryId
+        ? entries.findIndex(e => e.id === pending.spawnEntryId)
+        : -1;
+      const spawnSeq = spawnIdx >= 0 ? entries[spawnIdx].seq : undefined;
+      let seq = spawnSeq;
+      if (seq === undefined) {
+        seq = state.toolTimelineSeqByThread[threadId] ?? 0;
+        state.toolTimelineSeqByThread[threadId] = seq + 1;
       }
-      const seq = state.toolTimelineSeqByThread[threadId] ?? 0;
-      state.toolTimelineSeqByThread[threadId] = seq + 1;
-      entries.push(
-        decorateEntry({
-          id: rowId,
-          name: `subagent:${agentId}`,
-          round,
-          seq,
-          status: 'running',
-          detail: pending.prompt,
-          sourceToolName: pending.sourceToolName,
-          subagent: {
-            taskId,
-            agentId,
-            displayName,
-            workerThreadId,
-            spawnEventId,
-            mode,
-            dedicatedThread,
-            prompt: pending.prompt,
-            toolCalls: [],
-            transcript: [],
-          },
-        })
-      );
+      const row = decorateEntry({
+        id: rowId,
+        name: `subagent:${agentId}`,
+        round,
+        seq,
+        status: 'running',
+        detail: pending.prompt,
+        sourceToolName: pending.sourceToolName,
+        subagent: {
+          taskId,
+          agentId,
+          displayName,
+          workerThreadId,
+          spawnEventId,
+          mode,
+          dedicatedThread,
+          prompt: pending.prompt,
+          toolCalls: [],
+          transcript: [],
+        },
+      });
+      if (spawnIdx >= 0) {
+        entries[spawnIdx] = row;
+        const pointer = state.processingByThread[threadId]?.find(
+          item => item.kind === 'toolCall' && item.callId === pending.spawnEntryId
+        );
+        if (pointer && pointer.kind === 'toolCall') pointer.callId = rowId;
+      } else {
+        entries.push(row);
+      }
     },
     subagentAwaitingUser: (
       state,
