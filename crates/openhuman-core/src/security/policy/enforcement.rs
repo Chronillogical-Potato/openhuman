@@ -142,6 +142,40 @@ impl SecurityPolicy {
             });
         }
 
+        // The configured action dir is the agent's working root — `validate_path`
+        // joins every relative tool path onto it — but until now it was only the
+        // *join* base, never an allow root. The permission came from the
+        // `default_projects_dir()` grant above, which reads
+        // `OPENHUMAN_PROJECTS_DIR` and knows nothing about
+        // `OPENHUMAN_ACTION_DIR` / `action_dir_override`. On a stock install the
+        // two coincide and the gap is invisible; change the working folder in
+        // Settings and every file-tool write into it was refused with "Resolved
+        // path escapes workspace" — for a path inside the directory the agent
+        // was told to work in. Grant it here, the same chokepoint, deduplicated
+        // the same way.
+        //
+        // Guarded: an action dir at or above `workspace_dir` would hand a
+        // trusted root to the whole workspace, and
+        // `check_resolved_against_forbidden` lets a trusted root override
+        // `forbidden_paths`. `is_workspace_internal_path` and
+        // `is_always_forbidden` are checked *before* that shortcut and still
+        // hold, but the `forbidden_paths` bypass is not something a working
+        // directory should buy, so skip the grant in that shape.
+        let action_path = action_dir.to_string_lossy().to_string();
+        let action_covers_workspace = workspace_dir.starts_with(action_dir);
+        if action_path.is_empty() || action_covers_workspace {
+            tracing::debug!(
+                action_dir = %action_dir.display(),
+                workspace_dir = %workspace_dir.display(),
+                "[policy] not granting action_dir as a trusted root (empty, or an ancestor of workspace_dir)"
+            );
+        } else if !trusted_roots.iter().any(|r| r.path == action_path) {
+            trusted_roots.push(TrustedRoot {
+                path: action_path,
+                access: TrustedAccess::ReadWrite,
+            });
+        }
+
         // Dedicated, namespaced scratch dir (`/tmp/openhuman`) granted ReadWrite
         // so the LLM's natural `/tmp/...` temp-file habit lands in a sandboxed,
         // trusted location instead of the world-shared `/tmp`. Only this subdir
