@@ -1,6 +1,7 @@
 //! OpenHuman host adapter for the separately released TinyJuice module.
 
 pub mod config_patch;
+pub mod focus;
 pub mod generate;
 pub mod ml;
 pub mod savings;
