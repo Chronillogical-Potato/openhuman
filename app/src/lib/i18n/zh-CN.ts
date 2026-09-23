@@ -679,6 +679,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': '无法创建新会话。请重试。',
   'chat.parallelBranchLabel': '并行分支',
   'chat.thinking': '思考中...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': '思考中',
+  'chat.reasoning.thoughtFor': '已思考 {n}',
+  'chat.reasoning.thoughtBriefly': '短暂思考',
+  'chat.reasoning.thought': '已思考',
+  'chat.reasoning.elapsedSeconds': '{n} 秒',
+  'chat.reasoning.elapsedMinutes': '{m} 分 {s} 秒',
   'chat.noMessages': '暂无消息',
   'chat.startConversation': '开始对话',
   'chat.regenerate': '重新生成',

@@ -752,6 +752,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': 'No se pudo crear un nuevo hilo. Inténtalo de nuevo.',
   'chat.parallelBranchLabel': 'Rama paralela',
   'chat.thinking': 'Pensando...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': 'Pensando',
+  'chat.reasoning.thoughtFor': 'Pensó durante {n}',
+  'chat.reasoning.thoughtBriefly': 'Pensó brevemente',
+  'chat.reasoning.thought': 'Pensó',
+  'chat.reasoning.elapsedSeconds': '{n} s',
+  'chat.reasoning.elapsedMinutes': '{m} min {s} s',
   'chat.noMessages': 'Sin mensajes aún',
   'chat.startConversation': 'Inicia una conversación',
   'chat.regenerate': 'Regenerar',

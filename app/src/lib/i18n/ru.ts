@@ -743,6 +743,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': 'Не удалось создать новый диалог. Попробуйте ещё раз.',
   'chat.parallelBranchLabel': 'Параллельная ветка',
   'chat.thinking': 'Думаю...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': 'Размышляю',
+  'chat.reasoning.thoughtFor': 'Думал {n}',
+  'chat.reasoning.thoughtBriefly': 'Думал недолго',
+  'chat.reasoning.thought': 'Подумал',
+  'chat.reasoning.elapsedSeconds': '{n} с',
+  'chat.reasoning.elapsedMinutes': '{m} мин {s} с',
   'chat.noMessages': 'Сообщений пока нет',
   'chat.startConversation': 'Начни разговор',
   'chat.regenerate': 'Сгенерировать снова',

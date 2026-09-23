@@ -732,6 +732,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': 'নতুন থ্রেড তৈরি করা যায়নি: আবার চেষ্টা করুন।',
   'chat.parallelBranchLabel': 'সমান্তরাল শাখা',
   'chat.thinking': 'ভাবছে...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': 'ভাবছে',
+  'chat.reasoning.thoughtFor': '{n} ধরে ভেবেছে',
+  'chat.reasoning.thoughtBriefly': 'অল্প ভেবেছে',
+  'chat.reasoning.thought': 'ভেবেছে',
+  'chat.reasoning.elapsedSeconds': '{n} সে',
+  'chat.reasoning.elapsedMinutes': '{m} মি {s} সে',
   'chat.noMessages': 'এখনো কোনো বার্তা নেই',
   'chat.startConversation': 'একটি কথোপকথন শুরু করুন',
   'chat.regenerate': 'পুনরায় তৈরি করুন',
