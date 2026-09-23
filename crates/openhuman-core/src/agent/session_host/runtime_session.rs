@@ -231,7 +231,7 @@ impl OpenHumanTurnPrelude {
     /// Takes the declarations the tinyagents session restored for this
     /// thread. Called before the boundary refresh so the rebuilt surface can
     /// include them.
-    fn adopt_recorded_tools(&self, recorded: Option<&ToolSnapshot>) {
+    pub(super) fn adopt_recorded_tools(&self, recorded: Option<&ToolSnapshot>) {
         let Some(recorded) = recorded else {
             return;
         };
@@ -567,7 +567,16 @@ impl OpenHumanTurnPrelude {
     /// semantics, but keeps the mutable authority in hook state rather than a
     /// second turn loop. A revoked delegate is removed from the executable
     /// source, schema, and policy together before this request is prepared.
-    fn refresh_delegation_tool_surface(&self) {
+    #[cfg(test)]
+    pub(super) fn synthesized_tool_names_for_test(&self) -> std::collections::HashSet<String> {
+        self.tool_surface
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .synthesized_tool_names
+            .clone()
+    }
+
+    pub(super) fn refresh_delegation_tool_surface(&self) {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::agent_policy::ToolPolicyEngine;
         use crate::tools::orchestrator_tools::collect_orchestrator_tools;
