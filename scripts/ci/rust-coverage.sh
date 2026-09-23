@@ -159,8 +159,14 @@ done < <(integration_test_targets)
 
 # Doctests are not collected by cargo-llvm-cov, but they are still part of the
 # complete Rust test suite and must run whenever the Rust-core area changes.
-suite "openhuman doctests" bash scripts/ci-cancel-aware.sh cargo test -p openhuman \
-  --doc --features "${PRODUCT_FEATURES}"
+# They compile their own uninstrumented core, so a caller that runs them in a
+# parallel lane instead (CI Fast on the EX63) sets OH_COV_DOCTESTS=0.
+if [ "${OH_COV_DOCTESTS:-1}" = "1" ]; then
+  suite "openhuman doctests" bash scripts/ci-cancel-aware.sh cargo test -p openhuman \
+    --doc --features "${PRODUCT_FEATURES}"
+else
+  log "skipping doctests (OH_COV_DOCTESTS=${OH_COV_DOCTESTS}); the caller runs them"
+fi
 
 log "merging coverage into ${OUT}"
 suite "lcov report" llvm_cov report --lcov --output-path "${OUT}"

@@ -118,6 +118,12 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   // Non-instrumented, but needs the downloaded modules. On ex63 it rides the
   // lint lane's graph instead of lengthening the coverage critical path; on
   // hosted it stays in the coverage job beside the modules, as in ci-lite.
+  // The core doctests, as rust-coverage.sh runs them (OH_COV_DOCTESTS).
+  const doctests = {
+    name: "doctests",
+    when: core,
+    run: `bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc --features ${PRODUCT}`,
+  };
   const juiceRegression = {
     name: "tinyjuice-host-regression",
     when: core,
@@ -283,7 +289,12 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "rust-core-coverage",
           when: core,
           needs: ["test-modules"],
-          env: { OUT: "ci-out/lcov/lcov-core.info" },
+          // ex63: the doctests (an uninstrumented core build of their own)
+          // run in rust-lint instead, off this lane's critical path.
+          env: {
+            OUT: "ci-out/lcov/lcov-core.info",
+            ...(ex63 ? { OH_COV_DOCTESTS: "0" } : {}),
+          },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
         ...(ex63 ? [] : [juiceRegression]),
@@ -338,7 +349,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           run: "bash scripts/check-prompt-budget.sh --verbose",
         },
-        ...(ex63 ? [juiceRegression] : []),
+        ...(ex63 ? [juiceRegression, doctests] : []),
       ],
     },
     {
