@@ -4,10 +4,10 @@ CI Fast runs every check CI Lite runs as parallel **lanes** in fewer jobs. It
 runs next to `ci-lite.yml` and is not a required check yet. The goal is to
 measure how much faster the same work runs on a dedicated machine.
 
-| Who opened the PR | Workflow | Where it runs |
-| --- | --- | --- |
-| `tinyhumansai` org member | `ci-fast.yml` (`pull_request_target`) | one job on a throwaway Firecracker microVM on the Hetzner EX63 |
-| anyone else | `ci-fast-hosted.yml` (`pull_request`) | the same lanes split over GitHub-hosted jobs, with GitHub's Actions cache |
+| Who opened the PR         | Workflow                              | Where it runs                                                             |
+| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
+| `tinyhumansai` org member | `ci-fast.yml` (`pull_request_target`) | one job on a throwaway Firecracker microVM on the Hetzner EX63            |
+| anyone else               | `ci-fast-hosted.yml` (`pull_request`) | the same lanes split over GitHub-hosted jobs, with GitHub's Actions cache |
 
 Both call `.github/workflows/ci-lanes.yml`, which runs
 `scripts/ci/self-hosted/lanes.mjs`. The plan itself is in
@@ -21,16 +21,16 @@ provisioning, deploys and the runner token.
 
 ## Lanes
 
-| Lane | What runs |
-| --- | --- |
-| `static` | fmt, layout, runtime boundary, ignored-tests, TLS policy, gated-test allowlist, orch-ip gate, feature forwarding, module pins and monotonicity, toolchain drift, test inventory |
-| `frontend` | pnpm install, tsc, prettier, eslint, i18n, docs, script self-tests |
-| `frontend-tests` | the complete vitest suite with coverage |
-| `rust-cov` | test modules from the registry, then `scripts/ci/rust-coverage.sh` |
-| `rust-lint` | clippy (product set; embed's clippy covers the core's contributor set), embed and tinyhumans lint, embed gates-off check |
-| `rust-gates-off` | gates-off checks and gate-contract tests, kernel floor, dep-sim calibration |
-| `tauri` | Tauri clippy and coverage |
-| `pester` | `install.ps1` tests |
+| Lane             | What runs                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `static`         | fmt, layout, runtime boundary, ignored-tests, TLS policy, gated-test allowlist, orch-ip gate, feature forwarding, module pins and monotonicity, toolchain drift, test inventory |
+| `frontend`       | pnpm install, tsc, prettier, eslint, i18n, docs, script self-tests                                                                                                              |
+| `frontend-tests` | the complete vitest suite with coverage                                                                                                                                         |
+| `rust-cov`       | test modules from the registry, then `scripts/ci/rust-coverage.sh`                                                                                                              |
+| `rust-lint`      | clippy (product set; embed's clippy covers the core's contributor set), embed and tinyhumans lint, embed gates-off check                                                        |
+| `rust-gates-off` | gates-off checks and gate-contract tests, kernel floor, dep-sim calibration                                                                                                     |
+| `tauri`          | Tauri clippy and coverage                                                                                                                                                       |
+| `pester`         | `install.ps1` tests                                                                                                                                                             |
 
 How lanes behave:
 
@@ -63,7 +63,7 @@ Some checks do not run on pull requests. CI Lite runs them on every push to
   `embed-check-no-default` already covers: it builds the core with the same
   (empty) feature set;
 - `cargo check -p openhuman --no-default-features --features
-  e2e-test-support`: `rust-gates-off` already compiles that feature set for
+e2e-test-support`: `rust-gates-off` already compiles that feature set for
   its tests, in one build together with `mcp`.
 
 ## Profiles
@@ -96,7 +96,7 @@ Some checks do not run on pull requests. CI Lite runs them on every push to
   kills the VM for a non-member.
 
 **Optional repo secret `CI_MEMBERSHIP_TOKEN`:** a fine-grained token with only
-*Organization → Members: Read*. It lets the route job recognise *private* org
+_Organization → Members: Read_. It lets the route job recognise _private_ org
 members. Without it, only the PR's `author_association` is used, and private
 members may land on GitHub-hosted runners instead.
 
