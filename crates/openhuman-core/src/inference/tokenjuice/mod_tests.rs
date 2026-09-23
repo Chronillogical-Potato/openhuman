@@ -116,6 +116,43 @@ async fn an_unreachable_module_discloses_a_wanted_summary() {
     assert_eq!(unwanted.notice, None);
 }
 
+/// An agent whose profile bypasses TinyJuice's router entirely still
+/// discloses a summary that was registered anyway (openhuman#6581 review):
+/// the early `Off` return must not silently drop the notice the way an
+/// ordinary `unchanged` return would.
+#[tokio::test]
+async fn an_off_profile_still_discloses_a_registered_summary() {
+    let output = compact_tool_output(ToolOutputCompaction {
+        content: "raw".to_string(),
+        tool_name: "web_fetch",
+        enabled: true,
+        profile: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
+        arguments: None,
+        focus: None,
+        context_token: Some("token".to_string()),
+        scope: None,
+    })
+    .await;
+    assert_eq!(output.text, "raw");
+    assert_eq!(output.notice, Some(summary_failed_notice()));
+
+    let silent = compact_tool_output(ToolOutputCompaction {
+        content: "raw".to_string(),
+        tool_name: "web_fetch",
+        enabled: true,
+        profile: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
+        arguments: None,
+        focus: None,
+        context_token: None,
+        scope: None,
+    })
+    .await;
+    assert_eq!(silent.text, "raw");
+    assert_eq!(silent.notice, None);
+}
+
 /// A module disabled in configuration cannot install, even when the process
 /// also carries a `TINYJUICE_TEST_MODULE` fixture: the config check runs
 /// first. Exercises the config-driven passthrough independent of whatever
