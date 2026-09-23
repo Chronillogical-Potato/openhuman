@@ -127,29 +127,14 @@ export type ThreadComponents = {
    */
   RunningStatus?: ComponentType | undefined;
   /**
-   * Host-owned one-line footer for a **settled** assistant message — the
-   * turn's process summary and the single door to its detail.
+   * Host-owned renderer for the run of `source` parts at the end of an
+   * assistant message (the web pages the turn visited), grouped into one block.
    *
-   * A seam for the same reason `RunningStatus` is one: this file knows the
-   * message, not what the host recorded while producing it. The host component
-   * reads the message's own metadata and returns `null` when the turn has no
-   * process behind it, so a plain answer gets no footer.
+   * A seam because a source's `url` is model output: the host decides which
+   * sources exist (and filters their schemes) and how a link is drawn. With no
+   * host renderer, source parts render nothing rather than an unvetted link.
    */
-  TurnFooter?: ComponentType | undefined;
-  /**
-   * Host-owned list of the web sources this turn visited, rendered at the end
-   * of the message *content* rather than in the footer row.
-   *
-   * Deliberately not part of the footer: that row is a single-line
-   * `flex items-center` whose height is reserved by `ACTION_BAR_HEIGHT` and
-   * asserted in `thread.actionBarSpacing.test.tsx`, so a block that can grow
-   * to several lines does not belong in it. Placed inside the content div it
-   * inherits the `[&>*+*]:mt-3` rhythm the other blocks use.
-   *
-   * Like `TurnFooter`, the component reads the message's own metadata and
-   * returns `null` when the turn visited none, so a plain answer gets nothing.
-   */
-  TurnSources?: ComponentType | undefined;
+  SourceGroup?: ComponentType<{ sources: readonly SourceUrlPart[] }> | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -1215,13 +1200,35 @@ const MessageError: FC = () => {
   );
 };
 
+/** A url `source` part, the only kind this app emits. */
+export type SourceUrlPart = { id: string; url: string; title?: string };
+
+const selectSourceParts = (state: AssistantState): readonly SourceUrlPart[] =>
+  state.message.parts.flatMap(part =>
+    part.type === 'source' && part.sourceType === 'url'
+      ? [{ id: part.id, url: part.url, ...(part.title ? { title: part.title } : {}) }]
+      : []
+  );
+
+/**
+ * Hands the host the message's source parts in one list. The group node only
+ * carries part indices, and the host renders the whole disclosure (trigger with
+ * a count, then the rows), so it needs the parts themselves, not one child per
+ * part.
+ */
+const SourceGroupSlot: FC<{
+  Component: ComponentType<{ sources: readonly SourceUrlPart[] }>;
+}> = ({ Component }) => {
+  const sources = useAuiState(selectSourceParts, shallowArrayEqual);
+  return sources.length > 0 ? <Component sources={sources} /> : null;
+};
+
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
     ReasoningGroup,
-    TurnFooter,
-    TurnSources,
+    SourceGroup,
   } = useContext(ThreadComponentsContext);
 
   const ACTION_BAR_PT = 'pt-1.5';
@@ -1270,6 +1277,7 @@ const AssistantMessage: FC = () => {
             reasoning: ['group-chainOfThought', 'group-reasoning'],
             'tool-call': ['group-chainOfThought', 'group-tool'],
             'standalone-tool-call': [],
+            source: ['group-source'],
           })}>
           {({ part, children }) => {
             switch (part.type) {
@@ -1306,6 +1314,8 @@ const AssistantMessage: FC = () => {
                   </ReasoningRoot>
                 );
               }
+              case 'group-source':
+                return SourceGroup ? <SourceGroupSlot Component={SourceGroup} /> : null;
               case 'text':
                 return <MarkdownText />;
               case 'reasoning':
@@ -1340,7 +1350,6 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
-        {TurnSources ? <TurnSources /> : null}
         <MessageError />
       </div>
 
@@ -1355,7 +1364,6 @@ const AssistantMessage: FC = () => {
             Stopped
           </span>
         </AuiIf>
-        {TurnFooter ? <TurnFooter /> : null}
         <BranchPicker />
         <AssistantActionBar />
       </div>
