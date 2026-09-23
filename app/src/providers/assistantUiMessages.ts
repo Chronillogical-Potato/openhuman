@@ -225,20 +225,33 @@ function withApproval(
 /**
  * Project one assistant message into assistant-ui parts.
  *
- * The surface carries the turn as it happened: the agent's reasoning as a
- * COLLAPSED disclosure, every tool row in issue order, then the answer.
+ * The surface carries the turn as it happened, in the order it happened:
+ * reasoning as a disclosure, what the agent said between tool rounds, every
+ * tool row where it was issued, then the answer.
  *
- * ## What is here, and what stays in the rail
+ * ## One shape, live and settled
  *
- * Reasoning (`kind: 'thinking'`) renders inline again. It is collapsed by
- * default and expands while it streams, so a turn that thought for ten seconds
- * shows one quiet line rather than ten seconds of prose — which is what made it
- * clutter the first time round.
+ * The live tail and the settled message are the SAME projection of the same
+ * transcript, and that is the property everything else here serves. A live
+ * turn that projected differently from its settled self (text always last,
+ * narration shown then wiped, reasoning unshifted to the front) re-shaped on
+ * every event and again at completion — and assistant-ui keys text and
+ * reasoning parts by their INDEX, so each reshaping remounted the markdown,
+ * restarted its reveal from nothing, reset every disclosure and jumped the
+ * scroll. So:
  *
- * Narration is deliberately NOT restored. It is the turn's running commentary,
- * it duplicates the answer on the final round, and it is the bulk of what made
- * the old surface a firehose. It stays in `processingByThread` and renders in
- * the process rail behind {@link TurnProcessTrail}, which is unchanged.
+ * - **Narration renders inline** where it was said, live and on reload. It is
+ *   the agent explaining the call it is about to make; showing it and then
+ *   wiping it was the flicker, never showing it on reload was the mismatch.
+ * - **Parts are append-only while a turn streams.** New events add parts at
+ *   the end; nothing is inserted before an existing part.
+ * - **The answer takes the final narration's slot.** Live, the final round's
+ *   text IS a narration item (`streamDeltaReceived` coalesces every content
+ *   delta into one per round). Settled, the persisted `msg.content` is that
+ *   same text, so narration after the turn's last tool call is replaced by the
+ *   answer in place: same index, same key, no remount at completion. The core
+ *   projection (`mapDisplayItems`) only emits interim narration, so a reloaded
+ *   turn has no trailing narration and the answer lands in the same place.
  *
  * ## Ordering
  *
@@ -248,17 +261,10 @@ function withApproval(
  * are merged in by their own `seq` rather than appended after everything else,
  * which is what previously let a row the agent issued FIRST render last.
  *
- * The two `seq` fields are NOT one ordering space, whatever
- * `PersistedToolTimelineEntry.seq`'s doc comment says: a transcript item's
- * `seq` is its index in the transcript array (`chatRuntimeSlice.ts`, the
- * `toolCall` push uses `seq: list.length`) while a timeline row's comes from
+ * The two `seq` fields are NOT one ordering space: a live transcript item's
+ * `seq` is its index in the transcript array while a timeline row's comes from
  * the per-thread `toolTimelineSeqByThread` counter. So the merge below compares
  * timeline `seq` to timeline `seq` only, never across the two.
- *
- * The answer text is appended last, and that is correct rather than merely
- * convenient: it is the persisted `msg.content`, i.e. what the agent said when
- * it had finished, so nothing it produced can belong after it. Anything the
- * agent said BEFORE a tool call is narration, which lives in the rail.
  *
  * **Every tool part must have a distinct `toolCallId`.** assistant-ui keys them
  * as `toolCallId-${id}` and *throws* on a repeat ("Duplicate key … in
@@ -270,9 +276,10 @@ function withApproval(
  * carry colliding ones.
  */
 function assistantParts(
-  text: string,
+  answer: string,
   timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
+  transcript: readonly ProcessingTranscriptItem[],
+  mode: 'live' | 'settled'
 ): ThreadAssistantMessagePart[] {
   const parts: ThreadAssistantMessagePart[] = [];
   const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
@@ -288,10 +295,16 @@ function assistantParts(
   // of them), which is why this is a set of resolved row ids rather than a
   // count of pointers.
   const referenced = new Set<string>();
-  for (const item of transcript) {
+  let lastToolPointer = -1;
+  let hasNarration = false;
+  for (const [index, item] of transcript.entries()) {
+    if (item.kind === 'narration' && item.text.trim().length > 0) hasNarration = true;
     if (item.kind !== 'toolCall') continue;
     const entry = timelineById.get(item.callId);
-    if (entry) referenced.add(entry.id);
+    if (entry) {
+      referenced.add(entry.id);
+      lastToolPointer = index;
+    }
   }
 
   // Rows with no pointer, oldest first. These are merged into the walk below
@@ -310,13 +323,28 @@ function assistantParts(
     }
   };
 
-  for (const item of transcript) {
+  // Settled: narration after the last tool call is the answer, spoken live;
+  // the persisted answer replaces it in its slot. With no answer to show
+  // (an empty or stopped reply) the narration stays — it is all there is.
+  const answerText = answer.trim().length > 0 ? answer : '';
+  const replaceTrailingNarration = mode === 'settled' && answerText.length > 0;
+  let answerEmitted = false;
+
+  for (const [index, item] of transcript.entries()) {
     if (item.kind === 'thinking') {
       if (item.text.trim().length > 0) parts.push({ type: 'reasoning', text: item.text });
       continue;
     }
-    // Narration is the turn explaining itself; it stays in the rail.
-    if (item.kind !== 'toolCall') continue;
+    if (item.kind === 'narration') {
+      if (item.text.trim().length === 0) continue;
+      if (replaceTrailingNarration && index > lastToolPointer) {
+        if (!answerEmitted) parts.push({ type: 'text', text: answerText });
+        answerEmitted = true;
+        continue;
+      }
+      parts.push({ type: 'text', text: item.text });
+      continue;
+    }
     const entry = timelineById.get(item.callId);
     if (!entry) continue;
     drainBefore(entry.seq);
@@ -324,7 +352,15 @@ function assistantParts(
   }
   drainBefore(null);
 
-  if (text.length > 0) parts.push({ type: 'text', text });
+  // Settled with no trailing narration to stand in for (a reloaded turn, or a
+  // legacy trail): the answer closes the turn. Live, the streaming buffer is
+  // only a fallback for a transcript that recorded no narration at all (a
+  // snapshot-hydrated turn mid-answer) — otherwise it would repeat it.
+  if (mode === 'settled' && !answerEmitted && answerText.length > 0) {
+    parts.push({ type: 'text', text: answerText });
+  } else if (mode === 'live' && !hasNarration && answerText.length > 0) {
+    parts.push({ type: 'text', text: answerText });
+  }
   return parts;
 }
 
@@ -553,7 +589,9 @@ export function toThreadMessageLike(
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
     content:
-      msg.sender === 'agent' ? assistantParts(text, effectiveTimeline, transcript) : userParts(msg),
+      msg.sender === 'agent'
+        ? assistantParts(text, effectiveTimeline, transcript, 'settled')
+        : userParts(msg),
     createdAt: new Date(msg.createdAt),
     ...(msg.sender === 'agent' && msg.extraMetadata?.stopped === true
       ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
