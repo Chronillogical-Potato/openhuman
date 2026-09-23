@@ -130,8 +130,8 @@ export function renderSummary(results) {
   const rows = [
     "### CI lanes — per-check outcome",
     "",
-    "| lane | check | outcome | time |",
-    "| --- | --- | --- | --- |",
+    "| lane | check | outcome | time | peak RSS |",
+    "| --- | --- | --- | --- | --- |",
   ];
   for (const lane of results.lanes) {
     for (const c of lane.checks) {
@@ -543,12 +543,14 @@ function printRunnerTail(out) {
 
 /** Per-check table for one lane, as plain step output. */
 export function renderLaneTable(lane) {
-  const rows = [`lane ${lane.name}:`];
+  const wait = lane.heavyWaitS ? ` (waited ${lane.heavyWaitS}s for a heavy-compile slot)` : "";
+  const rows = [`lane ${lane.name}:${wait}`];
   for (const c of lane.checks) {
     if (c.status === "skipped") continue;
     const time = c.durationS == null ? "" : ` ${c.durationS}s`;
+    const mem = c.peakRssMiB ? ` peak ${(c.peakRssMiB / 1024).toFixed(1)} GiB` : "";
     const note = c.reportOnly && c.status === "failure" ? " (report-only)" : "";
-    rows.push(`  ${c.status.padEnd(9)} ${c.name}${time}${note}`);
+    rows.push(`  ${c.status.padEnd(9)} ${c.name}${time}${mem}${note}`);
   }
   return rows.join("\n");
 }
