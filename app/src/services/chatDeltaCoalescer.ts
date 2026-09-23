@@ -107,3 +107,41 @@ export function createChatDeltaCoalescer<E extends CoalescibleDelta>(
     },
   };
 }
+
+type DeltaListeners<E extends CoalescibleDelta> = {
+  onTextDelta?: (event: E) => void;
+  onThinkingDelta?: (event: E) => void;
+};
+
+/**
+ * Wrap a chat listener set so text/thinking deltas are coalesced per frame and
+ * every other listener flushes them first (see the ordering note above).
+ * `dispose` delivers anything still queued and stops the scheduled flush.
+ */
+export function withCoalescedDeltas<
+  E extends CoalescibleDelta,
+  L extends DeltaListeners<E> & Record<string, unknown>,
+>(listeners: L, schedule: FlushScheduler = frameScheduler): { listeners: L; dispose: () => void } {
+  const coalescer = createChatDeltaCoalescer<E>((channel, event) => {
+    if (channel === 'content') listeners.onTextDelta?.(event);
+    else listeners.onThinkingDelta?.(event);
+  }, schedule);
+  const wrapped: Record<string, unknown> = {};
+  for (const [name, listener] of Object.entries(listeners)) {
+    if (typeof listener !== 'function') {
+      wrapped[name] = listener;
+      continue;
+    }
+    if (name === 'onTextDelta') {
+      wrapped[name] = (event: E) => coalescer.push('content', event);
+    } else if (name === 'onThinkingDelta') {
+      wrapped[name] = (event: E) => coalescer.push('thinking', event);
+    } else {
+      wrapped[name] = (...args: unknown[]) => {
+        coalescer.flush();
+        return (listener as (...a: unknown[]) => unknown)(...args);
+      };
+    }
+  }
+  return { listeners: wrapped as L, dispose: coalescer.dispose };
+}
