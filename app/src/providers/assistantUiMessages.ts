@@ -123,6 +123,41 @@ function toolResultPayload(entry: ToolTimelineEntry): unknown {
   };
 }
 
+/**
+ * Presentation data that rides a tool part's `artifact`.
+ *
+ * assistant-ui's tool-call part has no slot for a display label, a duration
+ * or a structured result, and this adapter used to drop all three, so the
+ * chat card fell back to guessing a label from the tool name and arguments.
+ * `artifact` is the part's UI-only field, which is exactly this.
+ */
+export interface OpenHumanToolArtifact {
+  kind: 'openhuman-tool';
+  /** Server label, for dynamic tools the client registry cannot describe. */
+  displayName?: string;
+  detail?: string;
+  elapsedMs?: number;
+  structured?: unknown;
+}
+
+export function readOpenHumanToolArtifact(value: unknown): OpenHumanToolArtifact | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  return (value as { kind?: unknown }).kind === 'openhuman-tool'
+    ? (value as OpenHumanToolArtifact)
+    : undefined;
+}
+
+function toolArtifact(entry: ToolTimelineEntry): OpenHumanToolArtifact | undefined {
+  const artifact: OpenHumanToolArtifact = {
+    kind: 'openhuman-tool',
+    ...(entry.displayName ? { displayName: entry.displayName } : {}),
+    ...(entry.detail ? { detail: entry.detail } : {}),
+    ...(entry.elapsedMs !== undefined ? { elapsedMs: entry.elapsedMs } : {}),
+    ...(entry.structured !== undefined ? { structured: entry.structured } : {}),
+  };
+  return Object.keys(artifact).length > 1 ? artifact : undefined;
+}
+
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   const running = isActiveTimelineStatus(entry.status);
   const isSubagent = entry.name.startsWith('subagent:') || entry.subagent !== undefined;
@@ -140,6 +175,7 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
     toolName: isSubagent ? 'task' : entry.name,
     args,
     argsText: JSON.stringify(args, null, 2),
+    ...(!isSubagent && toolArtifact(entry) ? { artifact: toolArtifact(entry) } : {}),
     ...(!running
       ? {
           result: isSubagent
