@@ -356,7 +356,14 @@ impl ApplyPatchTool {
 async fn restore_originals(written: &[&FileBuffer]) -> Vec<String> {
     let mut errors = Vec::new();
     for buf in written {
-        if let Err(e) = tokio::fs::write(&buf.resolved, &buf.original).await {
+        let result = match &buf.original {
+            Some(original) => tokio::fs::write(&buf.resolved, original).await,
+            // The batch created this file, so "restore" means remove it —
+            // otherwise a failed multi-file patch leaves a half-written new
+            // file behind and the caller cannot tell it apart from a success.
+            None => tokio::fs::remove_file(&buf.resolved).await,
+        };
+        if let Err(e) = result {
             errors.push(format!("{}: {e}", buf.resolved.display()));
         }
     }
@@ -369,13 +376,17 @@ struct ParsedEdit {
     old_string: String,
     new_string: String,
     replace_all: bool,
+    /// Empty `old_string` against a path that does not exist: `new_string`
+    /// becomes the whole file.
+    create: bool,
 }
 
 struct FileBuffer {
     resolved: PathBuf,
     /// Snapshot of the file's contents as we first read them.
-    /// Used to restore on a partial-write failure.
-    original: String,
+    /// Used to restore on a partial-write failure. `None` for a file this batch
+    /// is creating — there is nothing to restore *to*, so rollback deletes it.
+    original: Option<String>,
     contents: String,
     edit_count: usize,
 }
