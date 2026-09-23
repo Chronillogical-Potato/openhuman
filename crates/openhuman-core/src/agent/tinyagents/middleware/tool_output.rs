@@ -23,8 +23,13 @@ use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
 use crate::inference::tokenjuice::generate::GenerateTicket;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 
-fn estimate_output_tokens(bytes: usize) -> u64 {
-    bytes.div_ceil(4) as u64
+/// TinyJuice's own estimate: `ceil(characters / 4)`, not bytes. Multibyte
+/// content has more bytes than characters, so a byte-based estimate here
+/// would register a summary ticket TinyJuice's own threshold check would
+/// call `NotNeeded` and silently skip — a wasted prepare-and-summarize call
+/// for content that never gets summarized.
+fn estimate_output_tokens(content: &str) -> u64 {
+    content.chars().count().div_ceil(4) as u64
 }
 
 /// Tools whose results are self-describing JSON payloads that downstream
