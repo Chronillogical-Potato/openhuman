@@ -212,6 +212,8 @@ describe('inline turn sources', () => {
     // One row, not two: the `javascript:` entry is dropped by
     // `extractAgentSources`, so it is never counted and never linked.
     expect(sourceHrefs()).toEqual(['https://example.com/safe']);
-    expect(document.body.innerHTML).not.toContain('javascript:');
+    // The fetch card may show the raw argument as text; it must never be a link.
+    const hrefs = Array.from(document.querySelectorAll('a[href]')).map(a => a.getAttribute('href'));
+    expect(hrefs.some(href => href?.startsWith('javascript:'))).toBe(false);
   });
 });
