@@ -3,6 +3,8 @@
 //! revokes between turns, and adopting the integration actions the tinyagents
 //! session restored for a resumed thread.
 
+use std::sync::Arc;
+
 use tinyagents_runtime::ToolSnapshot;
 
 use super::OpenHumanTurnPrelude;
