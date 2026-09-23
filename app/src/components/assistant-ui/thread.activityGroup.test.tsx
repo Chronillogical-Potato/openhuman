@@ -56,7 +56,9 @@ function Harness({ messages, isRunning }: { messages: ThreadMessageLike[]; isRun
 
 describe('activity group', () => {
   it('puts interleaved reasoning and tool calls under one trigger, answer outside', () => {
-    render(<Harness messages={interleaved({ type: 'complete', reason: 'stop' })} isRunning={false} />);
+    render(
+      <Harness messages={interleaved({ type: 'complete', reason: 'stop' })} isRunning={false} />
+    );
 
     const triggers = screen.getAllByRole('button', { name: /Reasoning · 2 tool calls/ });
     expect(triggers).toHaveLength(1);
@@ -78,7 +80,10 @@ describe('activity group', () => {
       <Harness
         messages={interleaved({ type: 'running' }).map((m, i) =>
           i === 1
-            ? { ...m, content: [{ type: 'reasoning', text: 'live thought' }, tool('t1', 'search_one')] }
+            ? {
+                ...m,
+                content: [{ type: 'reasoning', text: 'live thought' }, tool('t1', 'search_one')],
+              }
             : m
         )}
         isRunning

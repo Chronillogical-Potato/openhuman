@@ -34,9 +34,9 @@ export function activityGroupLabel(reasoningCount: number, toolCount: number): s
  * and the answer drowned among them. As one group the message reads input →
  * work → answer however the work interleaved.
  *
- * Open while the work is live (`running`, or `requires-action` for a tool
- * parked on an approval, whose decision card lives inside), closed once it
- * settles so the answer leads. The first manual toggle wins from then on.
+ * Open while the work is live (`running`, the running turn's tail, or
+ * `requires-action` for a tool parked on an approval, whose decision card lives
+ * inside), closed once it settles so the answer leads. The first manual toggle wins from then on.
  */
 export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> = ({
   group,
@@ -50,16 +50,20 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
   const reasoningCount = useAuiState(
     s => indices.filter(i => s.message.parts[i]?.type === 'reasoning').length
   );
+  // Between steps — a tool has returned, the next inference has not started —
+  // every part in the group is complete while the turn is not. Without this the
+  // group would close and reopen on every round trip. It stays open until the
+  // turn moves past it (the answer starts streaming) or ends.
+  const isTail = useAuiState(
+    s => s.message.status?.type === 'running' && indices.at(-1) === s.message.parts.length - 1
+  );
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
 
-  const running = group.status.type === 'running';
+  const running = group.status.type === 'running' || isTail;
   const live = running || group.status.type === 'requires-action';
 
   return (
-    <ToolGroupRoot
-      variant="ghost"
-      open={userOpen ?? live}
-      onOpenChange={setUserOpen}>
+    <ToolGroupRoot variant="ghost" open={userOpen ?? live} onOpenChange={setUserOpen}>
       <ToolGroupTrigger
         count={toolCount}
         label={activityGroupLabel(reasoningCount, toolCount)}
