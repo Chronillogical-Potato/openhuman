@@ -368,6 +368,15 @@ export interface ToolTimelineEntry {
    * and on rows from cores that predate output forwarding.
    */
   result?: string;
+  /**
+   * Machine-readable result the core attached to `tool_result` as
+   * `structured` (today `{ kind: "web_search", query, provider, results }`).
+   * Lets a rich renderer skip re-parsing `result` text. Absent on rows from
+   * older cores, which fall back to parsing.
+   */
+  structured?: unknown;
+  /** Wall time the call took, from `tool_result.elapsed_ms`. */
+  elapsedMs?: number;
 }
 
 export interface StreamingAssistantState {

@@ -6,7 +6,10 @@
  * adapts {@link ToolTimelineEntry} rows onto it and keeps the timeline-only
  * helpers (processing blocks, sources, envelope stripping).
  */
-import { parseWebSearchResult } from '../features/conversations/tools/parseWebSearchResult';
+import {
+  extractSearchProvider,
+  parseWebSearchResult,
+} from '../features/conversations/tools/parseWebSearchResult';
 import {
   describeToolCall,
   type ToolCallPresentation,
@@ -19,6 +22,7 @@ import type { ToolTimelineEntry } from '../store/chatRuntimeSlice';
 import type { PersistedTranscriptItem } from '../types/turnState';
 
 export type { ToolCategory, Translate };
+export { extractSearchProvider };
 
 /** Resolve a timeline row through the registry. */
 export function presentTimelineEntry(entry: ToolTimelineEntry): ToolCallPresentation {
@@ -265,31 +269,6 @@ function isHttpUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** Upper bound on a provider label, so a malformed marker can't blow up a row. */
-const MAX_SEARCH_PROVIDER_LENGTH = 32;
-
-/**
- * Extract the resolved search provider from a completed web-search result.
- * Every search engine tags its output with a `(via <Provider>)` marker on the
- * heading line (managed resolves to "Exa" by default, or to whatever the
- * backend reports; BYOK engines tag "Brave"/"Querit"/"Seltz"/"Tavily"). Reading it back
- * keeps the attribution dynamic: it is driven by what actually ran, never by
- * a hardcoded provider name (#5136).
- *
- * Only the first line is inspected, and only its *trailing* marker, so neither
- * a `(via …)` string inside a result excerpt nor one inside the echoed query
- * (`Search results for: login (via OAuth) (via Exa)`) can be mistaken for the
- * provider. Returns `undefined` while the call is still running (no result
- * yet) or if no marker is present.
- */
-export function extractSearchProvider(result: string | undefined): string | undefined {
-  if (!result) return undefined;
-  const headingLine = result.split('\n', 1)[0];
-  const provider = headingLine?.match(/\(via ([^)]+)\)\s*_?$/i)?.[1]?.trim();
-  if (!provider || provider.length > MAX_SEARCH_PROVIDER_LENGTH) return undefined;
-  return provider;
 }
 
 function parseArgsObject(argsBuffer?: string): Record<string, unknown> | null {

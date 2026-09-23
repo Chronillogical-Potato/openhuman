@@ -365,6 +365,9 @@ async fn stamps_monotonic_seq_on_emitted_events() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .unwrap();
