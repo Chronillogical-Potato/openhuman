@@ -1571,9 +1571,9 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       // lifecycle but NO status entry. If this ever flips, the test is no
       // longer covering the prefill gap it was written for.
       await waitFor(() => {
-        expect(
-          store?.getState().chatRuntime.inferenceTurnLifecycleByThread['send-thread']
-        ).toBe('started');
+        expect(store?.getState().chatRuntime.inferenceTurnLifecycleByThread['send-thread']).toBe(
+          'started'
+        );
       });
       expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeUndefined();
 
