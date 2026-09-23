@@ -4,7 +4,19 @@
 // Usage:
 //   node scripts/ci/self-hosted/lanes.mjs --profile ex63|hosted
 //        [--lanes a,b] [--max-parallel N] [--out ci-out] [--dry-run]
-//        [--print-matrix]
+//        [--print-matrix] [--detach]
+//   node scripts/ci/self-hosted/lanes.mjs --wait <lane> [--out ci-out]
+//   node scripts/ci/self-hosted/lanes.mjs --wait-all [--out ci-out]
+//
+// Step-per-lane mode, so a workflow shows every lane as its own step while
+// the lanes still run in parallel:
+//   1. `--detach` starts the runner in the background (under
+//      scripts/ci-cancel-aware.sh) and writes the active lanes as JSON to
+//      $GITHUB_OUTPUT `lanes`.
+//   2. one `--wait <lane>` step per lane streams that lane's log live, one
+//      folded group per check, and exits with that lane's own result.
+//   3. `--wait-all` waits for the whole run, writes the step summary and exits
+//      with the overall result.
 //
 // Area flags come from CI_AREA_* (see AREA_ENV). Outputs, under --out:
 //   logs/<lane>.log     full output of each lane
@@ -17,10 +29,15 @@
 import { spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
+  closeSync,
   createWriteStream,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
+  renameSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -50,6 +67,9 @@ export function parseArgs(argv) {
     out: "ci-out",
     dryRun: false,
     printMatrix: false,
+    detach: false,
+    wait: null,
+    waitAll: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -68,9 +88,13 @@ export function parseArgs(argv) {
     else if (a === "--out") args.out = next();
     else if (a === "--dry-run") args.dryRun = true;
     else if (a === "--print-matrix") args.printMatrix = true;
+    else if (a === "--detach") args.detach = true;
+    else if (a === "--wait") args.wait = next();
+    else if (a === "--wait-all") args.waitAll = true;
     else throw new Error(`unknown argument ${a}`);
   }
-  if (!args.profile) throw new Error("--profile is required");
+  if (!args.profile && !args.wait && !args.waitAll)
+    throw new Error("--profile is required");
   return args;
 }
 
@@ -231,6 +255,15 @@ export class Runner {
     });
   }
 
+  /** Publish a lane's outcome for its `--wait` step (atomic rename). */
+  writeStatus(name, value) {
+    const dir = join(this.out, "status");
+    mkdirSync(dir, { recursive: true });
+    const tmp = join(dir, `.${name}.json.tmp`);
+    writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+    renameSync(tmp, join(dir, `${name}.json`));
+  }
+
   async runLane(lane) {
     const logPath = join(this.out, "logs", `${lane.name}.log`);
     const logStream = createWriteStream(logPath);
@@ -310,12 +343,14 @@ export class Runner {
     console.log(`::group::lane ${lane.name} log${failed ? " (FAILED)" : ""}`);
     process.stdout.write(readFileSync(logPath, "utf8"));
     console.log("::endgroup::");
-    return {
+    const laneResult = {
       name: lane.name,
       targetDir: lane.targetDir ?? null,
       targetBytes: du(lane.targetDir),
       checks: results,
     };
+    this.writeStatus(lane.name, laneResult);
+    return laneResult;
   }
 
   async run() {
