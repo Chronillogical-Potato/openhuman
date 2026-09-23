@@ -124,9 +124,14 @@ describe('inference status on the assistant-ui chat surface', () => {
     });
 
     // `Thinking... (3)` used to render here. It duplicated assistant-ui's own
-    // in-flight marker: `react-markdown/styles/dot.css` paints a pulsing `●`
-    // on `.aui-md[data-status="running"]:empty`, which is live for exactly
-    // this phase. The iteration count was harness telemetry besides.
+    // in-flight marker: a synthetic `indicator` part, emitted by
+    // `MessagePrimitive.GroupedParts` for a running message with zero content
+    // parts and rendered by `thread.tsx` as
+    // `<span data-slot="aui_assistant-message-indicator">●</span>`. Probing the
+    // DOM in this exact state finds that span present and zero `.aui-md`
+    // elements, so it is not the `dot.css` `:empty::after` rule — see
+    // `AssistantUiInferenceStatus`'s doc comment. The iteration count was
+    // harness telemetry besides.
     expect(screen.queryByTestId('inference-status-line')).not.toBeInTheDocument();
 
     // The suppression must be specific to `thinking`, not a dead component:

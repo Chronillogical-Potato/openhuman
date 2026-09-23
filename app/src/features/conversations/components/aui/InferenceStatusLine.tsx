@@ -29,11 +29,12 @@ export interface InferenceStatusLineProps {
  * markdown, so nothing else indicates the pre-first-token gap for it.
  *
  * On the assistant-ui surface that caption WOULD stack a second indicator under
- * the library's own — `react-markdown/styles/dot.css` paints a pulsing `●` on
- * `.aui-md[data-status="running"]:empty`, live for exactly that gap, and the
- * `(N)` is the harness's iteration counter, internal telemetry a reader cannot
- * act on. That is suppressed one layer up: `AssistantUiInferenceStatus` returns
- * null for `thinking` before reaching this component.
+ * the library's own, and the `(N)` is the harness's iteration counter, internal
+ * telemetry a reader cannot act on. That is suppressed one layer up:
+ * `AssistantUiInferenceStatus` returns null for `thinking` before reaching this
+ * component — see its doc comment for what the library's marker actually is (a
+ * message-level synthetic `indicator` part, not a CSS rule on `.aui-md`) and why
+ * that is precisely why this surface has no equivalent.
  *
  * So the suppression is per-surface, at the surface-specific caller, rather than
  * by deleting a branch the other caller depends on.
@@ -53,7 +54,8 @@ export function InferenceStatusLine({
   // The duplicate this PR is fixing is an assistant-ui problem, and it is fixed
   // at the assistant-ui layer: `AssistantUiInferenceStatus` returns null for
   // `thinking` before it ever reaches this component, so the caption below
-  // cannot stack under the library's own `●` there.
+  // cannot stack under assistant-ui's own `●` there — a message-level
+  // `indicator` part that has no counterpart on this surface.
   const { t } = useT();
   return (
     <div

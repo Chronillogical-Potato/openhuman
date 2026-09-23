@@ -29,14 +29,29 @@ const selectThreadExtras = (state: AssistantState) => state.thread.extras;
  *
  * The `thinking` phase renders NOTHING here. It used to show
  * `Thinking... (N)` — a pulsing dot plus the harness's iteration counter — but
- * assistant-ui already marks a minted-and-empty assistant message as in
- * flight: `@assistant-ui/react-markdown/styles/dot.css` (imported by
- * `markdown-text.tsx`) paints a pulsing `●` via
- * `.aui-md[data-status="running"]:empty::after`, and the live tail carries
- * `status: { type: 'running' }` (`assistantUiMessages.ts`). So the library's
- * dot covers exactly the pre-first-token gap this line was added for, and ours
- * was a second indicator stacked under it. The iteration count was harness
- * telemetry the reader has no use for.
+ * assistant-ui already marks a running turn as in flight, so ours was a second
+ * indicator stacked under it, and the iteration count was harness telemetry the
+ * reader has no use for.
+ *
+ * The library's marker is a *message-level* part, which is the detail that
+ * matters here. While the thread is running assistant-ui mints a placeholder
+ * assistant message; `MessagePrimitive.GroupedParts` emits a synthetic
+ * `indicator` part for a running message with zero content parts
+ * (`@assistant-ui/core`, `contentLength === 0 && isRunning`), and
+ * `components/assistant-ui/thread.tsx` renders that part as
+ * `<span data-slot="aui_assistant-message-indicator">●</span>`. Being
+ * message-level, it exists only on this surface — `ChatThreadView` has no
+ * equivalent, which is why the shared `InferenceStatusLine` keeps its
+ * `thinking` branch and the suppression lives here instead.
+ *
+ * It is NOT `@assistant-ui/react-markdown/styles/dot.css` painting
+ * `.aui-md[data-status="running"]:empty::after`. That rule cannot fire in this
+ * window: `assistantParts` pushes a text part only when `text.length > 0` and
+ * `streamingTailMessage` returns `null` at `parts.length === 0`
+ * (`providers/assistantUiMessages.ts`), so no `.aui-md` element exists yet for
+ * `:empty` to match. Said here because believing the marker was CSS on a
+ * markdown element is what once made deleting the shared `thinking` branch look
+ * safe; it blanked the voice surface.
  */
 export function AssistantUiInferenceStatus() {
   const extras = readOpenHumanThreadExtras(useAuiState(selectThreadExtras));
