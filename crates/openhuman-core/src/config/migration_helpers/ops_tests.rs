@@ -244,8 +244,11 @@ async fn migrate_hermes_dry_run_on_empty_source_returns_report() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn migrate_hermes_apply_imports_markdown_entries() {
-    // Apply does real memory work; install the embedding host seam so this
-    // test stands on its own under `--no-default-features` (idempotent).
+    // Apply does real memory work: wait out the memory module's load first,
+    // or the import races it and answers "memory is still starting". A test
+    // that runs in its own process (cargo nextest) always hits that window;
+    // one sharing a process with earlier memory tests usually misses it.
+    crate::memory::test_support::settle_memory_module().await;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
