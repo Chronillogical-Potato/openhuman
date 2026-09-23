@@ -210,17 +210,3 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
 };
-
-/** Keep the assistant-ui tool cards visible; each card owns its detail collapse. */
-export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = ({
-  group,
-  children,
-}) => {
-  const running = group.status.type === 'running';
-  return (
-    <ToolGroupRoot variant="ghost" defaultOpen>
-      <ToolGroupTrigger count={group.indices.length} active={running} />
-      <ToolGroupContent>{children}</ToolGroupContent>
-    </ToolGroupRoot>
-  );
-};
