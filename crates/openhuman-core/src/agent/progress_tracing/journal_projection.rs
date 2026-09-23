@@ -24,14 +24,32 @@
 //!   counts are exact; treat a projected `gen_ai.usage.cost_usd` as an
 //!   estimate. `AgentEvent::CostRecorded` would close this if the crate ever
 //!   emits it.
-//! - Sub-agent prompt/output content is not on the crate lifecycle events, so
-//!   subagent spans carry lifecycle/timing and child tool/model structure but
-//!   empty delegated prompt/final output until a richer journal event exists.
-//! - `AgentProgress::SubagentAwaitingUser` has no journal source at all (the
-//!   crate emits no matching lifecycle event), so a subagent span parked on a
-//!   user prompt loses that attribute on replay.
+//! - **No sub-agent spans are projected at all** (openhuman#6419). The four
+//!   `AgentEvent::SubAgent*` arms below are dead in production: a survey of 900
+//!   real run journals found **zero** sub-agent events of any kind, and every
+//!   journalled run is its own root (`root_run_id == run_id` in all 588
+//!   `run_started` records sampled, and no `root_run_id` spans more than one
+//!   run file), so a child run is neither recorded in its parent's journal nor
+//!   reachable from it. A replayed delegating turn therefore loses the whole
+//!   sub-agent subtree — the delegate's turn span, its iterations, and its tool
+//!   and model spans — which is the bulk of the span-count divergence the
+//!   `[agent-tracing][journal-shadow]` parity check reports. This is a gap in
+//!   what the crate journals, not in the projection: the arms are kept so the
+//!   projection is correct the moment the events exist.
 //!
-//! Everything else is projected. In particular the match in
+//!   An earlier revision of this list said sub-agent spans "carry
+//!   lifecycle/timing and child tool/model structure but empty delegated
+//!   prompt/final output", i.e. that only their *content* was thin. That was
+//!   wrong in kind and stopped readers looking: there are no such spans to
+//!   carry anything.
+//! - `AgentProgress::SubagentAwaitingUser` has no journal source either (the
+//!   crate emits no matching lifecycle event). Moot while the gap above stands,
+//!   and listed separately because it survives it: even once sub-agent
+//!   lifecycle events are journalled, a span parked on a user prompt would lose
+//!   that attribute on replay.
+//!
+//! Everything else **that the crate journals** is projected. In particular the
+//! match in
 //! [`observation_to_progress`] is **exhaustive over `AgentEvent`** — a crate
 //! that adds a span-bearing event breaks the build here rather than silently
 //! diverging, which is exactly how the missing `UsageRecorded` roll-up went
