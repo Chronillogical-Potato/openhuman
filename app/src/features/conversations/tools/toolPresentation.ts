@@ -259,7 +259,7 @@ export function describeToolCall(input: DescribeToolCallInput): ToolCallPresenta
     }
     return {
       baseName,
-      icon: AGENT_SPECS.research ? EXACT_TOOL_SPECS.delegate.icon : FALLBACK_ICON,
+      icon: EXACT_TOOL_SPECS.delegate.icon,
       category: 'agent',
       body: 'generic',
       tense,
