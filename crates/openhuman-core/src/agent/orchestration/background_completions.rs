@@ -299,6 +299,38 @@ pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
         .lock()
         .expect("background_completions queue poisoned");
     state.tombstone(thread_id);
+    let removed = remove_pending_for_thread(&mut state, thread_id);
+    log::debug!(
+        "[background_completions] discard_for_thread thread_id={} removed={} sessions_left={}",
+        thread_id,
+        removed,
+        state.pending.len()
+    );
+    removed
+}
+
+/// Drop every queued completion for `thread_id` **without** tombstoning it.
+///
+/// The Stop-button counterpart of [`discard_for_thread`]: the user halted the
+/// thread's work, so results that finished but were not yet delivered must not
+/// start a fresh delivery turn behind their back. The thread itself stays
+/// alive, so sub-agents spawned by later turns on it deliver normally. Returns
+/// the number of queued completions removed.
+pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
+    let mut state = queue()
+        .lock()
+        .expect("background_completions queue poisoned");
+    let removed = remove_pending_for_thread(&mut state, thread_id);
+    log::debug!(
+        "[background_completions] discard_pending_for_thread thread_id={} removed={} sessions_left={}",
+        thread_id,
+        removed,
+        state.pending.len()
+    );
+    removed
+}
+
+fn remove_pending_for_thread(state: &mut QueueState, thread_id: &str) -> usize {
     let mut removed = 0;
     for pending in state.pending.values_mut() {
         let before = pending.len();
@@ -307,13 +339,6 @@ pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
     }
     // Drop now-empty session buckets so the map doesn't accumulate keys.
     state.pending.retain(|_, v| !v.is_empty());
-    let sessions_left = state.pending.len();
-    log::debug!(
-        "[background_completions] discard_for_thread thread_id={} removed={} sessions_left={}",
-        thread_id,
-        removed,
-        sessions_left
-    );
     removed
 }
 
