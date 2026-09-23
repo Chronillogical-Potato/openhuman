@@ -496,11 +496,21 @@ impl TurnStateStore {
 
 #[cfg(windows)]
 fn persist_temp_file(tmp: NamedTempFile, path: &Path) -> Result<(), String> {
-    let (_file, temp_path) = tmp
+    let (file, temp_path) = tmp
         .keep()
         .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
-    fs::rename(&temp_path, path)
-        .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))
+    // `keep` transfers ownership to us, so close the handle before replacing
+    // the destination and explicitly clean it up if the replacement fails.
+    drop(file);
+    fs::rename(&temp_path, path).map_err(|e| {
+        if let Err(cleanup_err) = fs::remove_file(&temp_path) {
+            warn!(
+                "{LOG_PREFIX} failed to remove turn-state tempfile {} after rename failure: {cleanup_err}",
+                temp_path.display()
+            );
+        }
+        format!("persist turn-state file {}: {e}", path.display())
+    })
 }
 
 #[cfg(not(windows))]
