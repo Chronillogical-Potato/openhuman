@@ -160,11 +160,20 @@ suite "openhuman-rpc" llvm_cov_package --no-report --no-fail-fast -p openhuman-r
 suite "openhuman-tinyhumans" llvm_cov_embed --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
 suite "openhuman-tui" llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
 
-while IFS= read -r target; do
-  [ -n "${target}" ] || continue
-  log "running integration target: ${target}"
-  run_integration_target "${target}"
-done < <(integration_test_targets)
+if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
+  # Every integration target in one parallel run, one process per test: the
+  # raw_coverage modules and the JSON-RPC tests are then isolated from each
+  # other without the per-module and serial invocations below. Cargo skips a
+  # target whose required-features are not in the product set.
+  suite "openhuman-cli integration tests (nextest)" llvm_cov nextest --profile ci \
+    --no-report --no-fail-fast -p openhuman-cli --tests
+else
+  while IFS= read -r target; do
+    [ -n "${target}" ] || continue
+    log "running integration target: ${target}"
+    run_integration_target "${target}"
+  done < <(integration_test_targets)
+fi
 
 # Doctests are not collected by cargo-llvm-cov, but they are still part of the
 # complete Rust test suite and must run whenever the Rust-core area changes.
