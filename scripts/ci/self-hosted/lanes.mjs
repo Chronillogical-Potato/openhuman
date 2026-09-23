@@ -143,9 +143,18 @@ export function renderSummary(results) {
         c.reportOnly && c.status === "failure"
           ? "failure (report-only)"
           : c.status;
-      rows.push(`| ${lane.name} | ${c.name} | ${outcome} | ${time} |`);
+      const rss = c.peakRssMiB
+        ? `${(c.peakRssMiB / 1024).toFixed(1)} GiB`
+        : "—";
+      rows.push(`| ${lane.name} | ${c.name} | ${outcome} | ${time} | ${rss} |`);
     }
   }
+  const mem = results.memory;
+  if (mem?.totalMiB)
+    rows.push(
+      "",
+      `VM memory: ${(mem.totalMiB / 1024).toFixed(1)} GiB, lowest available ${mem.minAvailableMiB == null ? "?" : `${(mem.minAvailableMiB / 1024).toFixed(1)} GiB`}; heavy-compile slots: ${results.heavySlots ?? "uncapped"}.`,
+    );
   rows.push(
     "",
     "`skipped` = area untouched; `blocked` = a check it needs did not succeed. Neither is a pass for the check itself.",
@@ -309,7 +318,11 @@ export class Runner {
   /** Sample VM memory and each running check's process-group RSS. */
   sampleMemory() {
     const { available } = memInfoMiB();
-    if (available != null && (this.memory.minAvailableMiB == null || available < this.memory.minAvailableMiB))
+    if (
+      available != null &&
+      (this.memory.minAvailableMiB == null ||
+        available < this.memory.minAvailableMiB)
+    )
       this.memory.minAvailableMiB = available;
     if (this.running.size === 0) return;
     const rss = rssByProcessGroup();
@@ -363,7 +376,9 @@ export class Runner {
     let heavyWaitS = null;
     if (lane.heavy != null && Number.isFinite(this.maxHeavy)) {
       const w0 = Date.now();
-      log(`lane ${lane.name}: waiting for a heavy-compile slot (priority ${lane.heavy})`);
+      log(
+        `lane ${lane.name}: waiting for a heavy-compile slot (priority ${lane.heavy})`,
+      );
       await this.heavy.acquire(lane.heavy);
       heavyWaitS = Math.round((Date.now() - w0) / 1000);
       log(`lane ${lane.name}: got a heavy-compile slot after ${heavyWaitS}s`);
@@ -543,12 +558,16 @@ function printRunnerTail(out) {
 
 /** Per-check table for one lane, as plain step output. */
 export function renderLaneTable(lane) {
-  const wait = lane.heavyWaitS ? ` (waited ${lane.heavyWaitS}s for a heavy-compile slot)` : "";
+  const wait = lane.heavyWaitS
+    ? ` (waited ${lane.heavyWaitS}s for a heavy-compile slot)`
+    : "";
   const rows = [`lane ${lane.name}:${wait}`];
   for (const c of lane.checks) {
     if (c.status === "skipped") continue;
     const time = c.durationS == null ? "" : ` ${c.durationS}s`;
-    const mem = c.peakRssMiB ? ` peak ${(c.peakRssMiB / 1024).toFixed(1)} GiB` : "";
+    const mem = c.peakRssMiB
+      ? ` peak ${(c.peakRssMiB / 1024).toFixed(1)} GiB`
+      : "";
     const note = c.reportOnly && c.status === "failure" ? " (report-only)" : "";
     rows.push(`  ${c.status.padEnd(9)} ${c.name}${time}${mem}${note}`);
   }

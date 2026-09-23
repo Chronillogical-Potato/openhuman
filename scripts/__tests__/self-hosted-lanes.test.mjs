@@ -17,7 +17,9 @@ import {
   validatePlan,
 } from "../ci/self-hosted/lanes-plan.mjs";
 import {
+  PrioritySemaphore,
   Runner,
+  defaultHeavySlots,
   foldLine,
   gatingFailures,
   renderLaneTable,
@@ -277,7 +279,10 @@ test("runner: a failure never stops later checks, blocks its dependants, and gat
   assert.deepEqual(gatingFailures({ lanes }), ["a:fails", "a:needs-failed"]);
   assert.match(fs.readFileSync(path.join(out, "logs", "a.log"), "utf8"), /ran/);
   const summary = renderSummary({ lanes });
-  assert.match(summary, /\| a \| report-only \| failure \(report-only\) \|/);
+  assert.match(
+    summary,
+    /\| a \| report-only \| failure \(report-only\) \| \S+ \|/,
+  );
   assert.match(summary, /\| a \| needs-failed \| blocked \|/);
   fs.rmSync(out, { recursive: true, force: true });
 });
@@ -359,4 +364,57 @@ test("step-per-lane mode: args, folded check groups and the lane table", () => {
   assert.match(table, /failure\s+clippy 3s/);
   assert.doesNotMatch(table, /off/);
   assert.match(table, /bench 9s \(report-only\)/);
+});
+
+test("heavy-compile slots: priority order, FIFO within a priority, sized from RAM", async () => {
+  const sem = new PrioritySemaphore(1);
+  const order = [];
+  await sem.acquire(5); // holder
+  const waits = [
+    sem.acquire(9).then(() => order.push("bench")),
+    sem.acquire(1).then(() => order.push("lint")),
+    sem.acquire(0).then(() => order.push("cov")),
+    sem.acquire(1).then(() => order.push("gatesoff")),
+  ];
+  for (let i = 0; i < 4; i++) {
+    sem.release();
+    await new Promise((r) => setImmediate(r));
+  }
+  sem.release();
+  await Promise.all(waits);
+  assert.deepEqual(order, ["cov", "lint", "gatesoff", "bench"]);
+
+  assert.equal(defaultHeavySlots(24 * 1024), 2);
+  assert.equal(defaultHeavySlots(28 * 1024), 3);
+  assert.equal(defaultHeavySlots(48 * 1024), 5);
+  assert.equal(defaultHeavySlots(4 * 1024), 1);
+});
+
+test("runner: heavy lanes wait for a slot, light lanes never do", async () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-heavy-"));
+  fs.mkdirSync(path.join(out, "logs"));
+  const check = (name) => ({ name, run: "sleep 0.2", when: true, needs: [] });
+  const plan = {
+    profile: "ex63",
+    lanes: [
+      { name: "h1", heavy: 0, active: true, checks: [check("x")] },
+      { name: "h2", heavy: 1, active: true, checks: [check("x")] },
+      { name: "light", active: true, checks: [check("x")] },
+    ],
+  };
+  const lanes = await new Runner(plan, {
+    out,
+    maxParallel: 0,
+    maxHeavy: 1,
+  }).run();
+  const by = Object.fromEntries(lanes.map((l) => [l.name, l]));
+  assert.equal(by.h1.heavyWaitS, 0);
+  assert.ok(
+    Date.parse(by.h2.checks[0].start) >= Date.parse(by.h1.checks[0].end),
+  );
+  assert.equal(by.light.heavyWaitS, null);
+  assert.ok(
+    Date.parse(by.light.checks[0].start) < Date.parse(by.h1.checks[0].end),
+  );
+  fs.rmSync(out, { recursive: true, force: true });
 });
