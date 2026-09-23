@@ -152,7 +152,7 @@ fn sink_with(entries: &[(&str, &str)]) -> crate::agent::tinyagents::ToolOutcomeS
 /// A run with calls left is untouched: no instruction, and the tool belt intact.
 #[tokio::test]
 async fn wrap_up_leaves_a_call_with_budget_remaining_alone() {
-    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[]), 0);
+    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&[]), 0);
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(5),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
@@ -178,7 +178,7 @@ async fn wrap_up_leaves_a_call_with_budget_remaining_alone() {
 /// asking — and the wrap-up instruction is appended as the final turn.
 #[tokio::test]
 async fn wrap_up_withdraws_tools_and_appends_the_instruction_on_the_last_call() {
-    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[]), 0);
+    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&[]), 0);
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(2),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
@@ -262,7 +262,7 @@ async fn wrap_up_restores_tool_results_microcompact_cleared() {
 #[tokio::test]
 async fn wrap_up_does_not_rewrite_a_result_that_was_never_cleared() {
     let mw =
-        FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&[("call-1", "FROM SINK")]), 0);
+        FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&[("call-1", "FROM SINK")]), 0);
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(2),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),

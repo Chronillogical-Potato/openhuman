@@ -282,7 +282,7 @@ async fn wrap_up_restoration_stays_bounded_when_no_window_is_advertised() {
         .map(|(a, b)| (a.as_str(), b.as_str()))
         .collect();
     let (_toc, restore) = split_input_allowance(0);
-    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&borrowed), restore);
+    let mw = FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&borrowed), restore);
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(2),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
@@ -362,7 +362,7 @@ async fn both_middlewares_together_stay_inside_the_no_window_allowance() {
     };
 
     // Registration order at the install site: wrap-up first, contents list after.
-    FinalCallWrapUpMiddleware::new("CONCLUDE NOW", sink_with(&borrowed), restore_allowance)
+    FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&borrowed), restore_allowance)
         .before_model(&mut ctx, &(), &mut request)
         .await
         .unwrap();
