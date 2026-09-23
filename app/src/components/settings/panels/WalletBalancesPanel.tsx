@@ -27,11 +27,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SettingsEmptyState } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import SettingsPanel from '../layout/SettingsPanel';
+import { ChainIcon, NETWORK_MODAL_ICONS, TOKEN_ICONS } from './wallet/chainIcons';
 import ManageTokensModal from './wallet/ManageTokensModal';
 import ReceiveModal from './wallet/ReceiveModal';
 import SelectNetworkModal from './wallet/SelectNetworkModal';
 import SendCryptoModal from './wallet/SendCryptoModal';
-import { ChainIcon, NETWORK_MODAL_ICONS, TOKEN_ICONS } from './wallet/chainIcons';
 
 // Chain badge colours
 const PLACEHOLDER_ROWS: Array<{
