@@ -77,16 +77,14 @@ function ReasoningRoot({
     : (userOpen ?? (streaming || initialOpenRef.current));
   const isPreview = streaming === true && isOpen;
 
-  const prevStreamingRef = useRef(streaming);
-  useLayoutEffect(() => {
-    if (prevStreamingRef.current === streaming) return;
-    prevStreamingRef.current = streaming;
-    // A streaming transition only animates the panel when the resting state
-    // is collapsed; with `defaultOpen` the disclosure stays open across it.
-    if (!isControlled && userOpen === null && !initialOpenRef.current) {
-      lockScroll();
-    }
-  }, [streaming, isControlled, userOpen, lockScroll]);
+  // No scroll lock when streaming ends and the panel auto-collapses. The lock
+  // pins `scrollTop` for the animation's length by writing it back on every
+  // scroll event — which, while the thread is following a live reply to the
+  // bottom, fights that follower: it scrolls down, the lock drags it back up,
+  // and the follower reads the drop as the reader scrolling away and stops
+  // following for the rest of the turn. The lock is for a panel the reader
+  // toggles (below); an automatic collapse happens while the thread is pinned
+  // to the bottom, where the follower already keeps the reply in view.
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
