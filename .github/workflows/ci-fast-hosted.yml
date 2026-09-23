@@ -55,17 +55,19 @@ jobs:
               run_id="$(gh api "repos/${REPO}/actions/workflows/ci-fast.yml/runs?head_sha=${HEAD_SHA}&per_page=5" \
                 --jq '[.workflow_runs[] | select(.event == "pull_request_target")] | sort_by(.created_at) | last | .id // empty' 2>/dev/null || true)"
               if [ -n "${run_id}" ]; then
-                # The EX63 lanes job gets a conclusion (skipped) or starts only
-                # after the route job has decided.
+                # A member run materialises "Lanes / CI Fast (EX63)"; an
+                # outsider run leaves the skipped call job "Lanes" alone.
                 lanes="$(gh api "repos/${REPO}/actions/runs/${run_id}/jobs?per_page=50" \
-                  --jq '[.jobs[] | select(.name | test("CI Fast \\(EX63\\)"))][0] | "\(.status)/\(.conclusion)"' 2>/dev/null || true)"
+                  --jq 'if any(.jobs[]; .name == "Lanes / CI Fast (EX63)") then "member"
+                        elif any(.jobs[]; .name == "Lanes" and .conclusion == "skipped") then "outsider"
+                        else "" end' 2>/dev/null || true)"
                 route="$(gh api "repos/${REPO}/actions/runs/${run_id}/jobs?per_page=50" \
                   --jq '[.jobs[] | select(.name | startswith("Route"))][0].conclusion // empty' 2>/dev/null || true)"
                 if [ "${route}" = "success" ]; then
                   case "${lanes}" in
-                    completed/skipped) echo "true ci-fast run ${run_id}: EX63 lanes skipped"; return 0 ;;
-                    ""|null/null) ;;  # not materialised yet
-                    *) echo "false ci-fast run ${run_id}: EX63 lanes ${lanes}"; return 0 ;;
+                    outsider) echo "true ci-fast run ${run_id}: EX63 lanes skipped"; return 0 ;;
+                    member) echo "false ci-fast run ${run_id}: EX63 lanes running"; return 0 ;;
+                    *) ;;  # jobs not materialised yet
                   esac
                 fi
               fi
