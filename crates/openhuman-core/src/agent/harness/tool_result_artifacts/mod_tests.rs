@@ -73,7 +73,10 @@ async fn truncation_trailer_does_not_instruct_a_retry() {
     let (out, outcome) =
         apply_per_result_persistence(raw, None, None, "GITHUB_LIST_PULL_REQUESTS", None, 512).await;
 
-    assert!(!outcome.persisted, "fixture must truncate inline, not persist");
+    assert!(
+        !outcome.persisted,
+        "fixture must truncate inline, not persist"
+    );
     assert!(
         !out.contains("re-run"),
         "trailer must not instruct a re-run; got: {out}"

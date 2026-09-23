@@ -295,11 +295,15 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .map(|e| e.file_name().to_string_lossy().into_owned())
                 .collect();
             assert!(
-                transcripts.iter().any(|f| f.ends_with("_alpha.jsonl")),
+                transcripts
+                    .iter()
+                    .any(|f| f.contains(".alpha-") && f.ends_with(".jsonl")),
                 "alpha's transcript carries its id: {transcripts:?}"
             );
             assert!(
-                transcripts.iter().any(|f| f.ends_with("_beta.jsonl")),
+                transcripts
+                    .iter()
+                    .any(|f| f.contains(".beta-") && f.ends_with(".jsonl")),
                 "beta's transcript carries its id: {transcripts:?}"
             );
             let a2 = alpha

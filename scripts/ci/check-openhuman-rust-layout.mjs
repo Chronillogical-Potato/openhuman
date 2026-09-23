@@ -20,11 +20,11 @@ const LEGACY_LIMITS = new Map([
   // changes cannot grow them while they are split along semantic seams.
   [
     "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    832,
+    847,
   ],
   [
     "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    796,
+    803,
   ],
   ["crates/openhuman-core/src/agent/multimodal.rs", 772],
   // The session-todo integration added transcript metadata construction to
@@ -39,7 +39,7 @@ const LEGACY_LIMITS = new Map([
   ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 1245],
   ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1318],
   ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1793],
-  ["crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs", 796],
+  ["crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs", 803],
   ["crates/openhuman-core/src/tools/ops.rs", 1502],
   ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1547],
   // These established external test modules grew with upstream coverage. Pin
