@@ -265,26 +265,54 @@ function memInfoMiB() {
   }
 }
 
-/** Resident MiB per process group, from /proc (Linux only; {} elsewhere). */
-function rssByProcessGroup() {
-  const out = new Map();
+/**
+ * The process table from /proc (Linux only; empty elsewhere): each pid's
+ * parent and resident MiB.
+ */
+export function processTable(procDir = "/proc") {
+  const table = new Map();
   let pids;
   try {
-    pids = readdirSync("/proc").filter((d) => /^\d+$/.test(d));
+    pids = readdirSync(procDir).filter((d) => /^\d+$/.test(d));
   } catch {
-    return out;
+    return table;
   }
   for (const pid of pids) {
     try {
-      const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+      const stat = readFileSync(`${procDir}/${pid}/stat`, "utf8");
       const f = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
-      // After the comm field: [0]=state [2]=pgrp ... [21]=rss (pages)
-      const pgrp = Number(f[2]);
-      const rssMiB = (Number(f[21]) * 4096) / 1048576;
-      out.set(pgrp, (out.get(pgrp) ?? 0) + rssMiB);
+      // After the comm field: [0]=state [1]=ppid ... [21]=rss (pages)
+      table.set(Number(pid), {
+        ppid: Number(f[1]),
+        rssMiB: (Number(f[21]) * 4096) / 1048576,
+      });
     } catch {}
   }
-  return out;
+  return table;
+}
+
+/**
+ * Resident MiB of `root` and all its descendants. Follows parent links, not
+ * process groups: scripts/ci-cancel-aware.sh starts cargo under `setsid`, so a
+ * check's compilers and test binaries leave the group the runner spawned.
+ */
+export function treeRssMiB(table, root) {
+  const children = new Map();
+  for (const [pid, { ppid }] of table) {
+    if (!children.has(ppid)) children.set(ppid, []);
+    children.get(ppid).push(pid);
+  }
+  let total = 0;
+  const stack = [root];
+  const seen = new Set();
+  while (stack.length) {
+    const pid = stack.pop();
+    if (seen.has(pid)) continue;
+    seen.add(pid);
+    total += table.get(pid)?.rssMiB ?? 0;
+    for (const c of children.get(pid) ?? []) stack.push(c);
+  }
+  return total;
 }
 
 export class Runner {
@@ -341,9 +369,9 @@ export class Runner {
     )
       this.memory.minAvailableMiB = available;
     if (this.running.size === 0) return;
-    const rss = rssByProcessGroup();
+    const table = processTable();
     for (const entry of this.running.values()) {
-      const now = Math.round(rss.get(entry.pgid) ?? 0);
+      const now = Math.round(treeRssMiB(table, entry.pgid));
       if (now > entry.record.peakRssMiB) entry.record.peakRssMiB = now;
     }
   }
