@@ -69,6 +69,51 @@ trip-itinerary hit the suite's own 900s turn timeout.
 
 Note the cache column against finding 8 below — the 0% collapses are gone.
 
+### After finding 1b was fixed, and a note on reading these tables
+
+Two full runs, same model, back to back (`2026-09-23T15-49-06-514Z` and
+`2026-09-23T16-15-03-159Z`):
+
+| scenario           | run A           | run B           | baseline above |
+| ------------------ | --------------- | --------------- | -------------- |
+| calendar-buffer    | 0/1             | **8/8**         | **8/8**        |
+| subscription-scan  | **11/11**       | **11/11**       | **11/11**      |
+| baggage-policy     | 0/1             | **8/9**         | 0/1            |
+| meal-plan          | **10/10**       | 0/2             | **10/10**      |
+| trip-itinerary     | **10/11**       | 0/1             | 0/1            |
+| fact-check-publish | 0/3             | **12/12**       | 0/3            |
+| **total**          | **31/37 (84%)** | **39/43 (91%)** | 29/34 (85%)    |
+
+**Read the totals with care. The denominators are not comparable** — the grader
+stops at `output_exists`, so a scenario that writes nothing contributes `0/1`
+while the same scenario passing contributes `0/12`. A run can score a higher
+percentage by failing earlier.
+
+**And every scenario but `subscription-scan` flipped between A and B.** That is
+this model, not this change: `deepseek-v4.1-flash` intermittently ends a turn
+without emitting a tool call (calendar-buffer in run A stopped at 10 of 15
+calls, mid-sentence, having just said "let me verify the gap math before writing
+the output") or emits a malformed one (baggage-policy in run A: `validation
+error: tool web_fetch arguments.url is required`, repeated identically until the
+turn was stopped). Single-run comparisons on this model are not evidence of
+much, in either direction.
+
+What **is** evidence is the behaviour of the turns that actually reached the
+cap, which is the only thing finding 1b touches:
+
+| run      | turns hitting `max_model_calls=15` | artifact written |
+| -------- | ---------------------------------- | ---------------- |
+| baseline | 2 (baggage, fact-check)            | **0 of 2**       |
+| isolated | 1 (baggage)                        | **1 of 1** — 9/9 |
+| run A    | 1 (trip-itinerary)                 | **1 of 1**       |
+| run B    | 2 (baggage, fact-check)            | **2 of 2**       |
+
+Four capped turns since the fix, four artifacts. Before it, none. The three
+scenarios that had never once produced a file — baggage-policy,
+trip-itinerary, fact-check-publish — have each now done so, and
+fact-check-publish went straight from 0/3 to **12/12** (all three of its
+outputs) on the run where it hit the cap.
+
 Ordered by severity.
 
 ---
