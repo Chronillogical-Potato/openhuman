@@ -299,47 +299,84 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
         context_token,
         scope,
     };
-    let response: types::CompactResponse = match proxy.call(methods::COMPACT_WITH, (request,)).await
-    {
-        Ok(response) => response,
-        // A module released before contract 1.1 has no `CompactWith`. Fall
-        // back to the positional member it does have, without the focus or a
-        // summary. Any other failure, a timeout above all, is not retried: the
-        // module already had its chance, and a second call could double the
-        // wait on a turn that is already stalled.
-        Err(error) if error.wire_name() == tinybus::Error::UNKNOWN_METHOD => {
-            log::debug!(
-                "[tokenjuice] CompactWith unknown to the loaded module, retrying as Compact tool={tool_name}"
-            );
-            match proxy
+    let compact_with_result = proxy.call(methods::COMPACT_WITH, (request,)).await;
+    let response = match classify_compact_with_reply(compact_with_result, tool_name) {
+        CompactWithOutcome::Response(response) => response,
+        CompactWithOutcome::RetryAsCompact => {
+            let legacy_result = proxy
                 .call::<types::CompactResponse>(
                     methods::COMPACT,
                     (content.clone(), tool_name.to_string(), enabled, profile),
                 )
-                .await
-            {
-                Ok(mut response) => {
-                    if wants_summary && response.notice.is_none() {
-                        response.notice = Some(summary_failed_notice());
-                    }
-                    response
-                }
-                Err(error) => {
-                    log::debug!("[tokenjuice] module compaction failed, passing through: {error}");
-                    return CompactedToolOutput::passthrough(content, wants_summary);
-                }
+                .await;
+            match finish_legacy_compact_reply(legacy_result, wants_summary) {
+                Some(response) => response,
+                None => return CompactedToolOutput::passthrough(content, wants_summary),
             }
+        }
+        CompactWithOutcome::GiveUp => {
+            return CompactedToolOutput::passthrough(content, wants_summary);
+        }
+    };
+    record_savings(&response);
+    compacted_from(response)
+}
+
+/// What the module said about a `CompactWith` call, decided without touching
+/// the network again — kept separate from `compact_tool_output` so the retry
+/// decision is testable against synthetic wire errors.
+enum CompactWithOutcome {
+    /// Use this response as the final result.
+    Response(types::CompactResponse),
+    /// A module released before contract 1.1 has no `CompactWith`. Retry over
+    /// the pre-1.1 `Compact` member.
+    RetryAsCompact,
+    /// Any other failure, a timeout above all, is not retried: the module
+    /// already had its chance, and a second call could double the wait on a
+    /// turn that is already stalled.
+    GiveUp,
+}
+
+fn classify_compact_with_reply(
+    result: Result<types::CompactResponse, tinybus::Error>,
+    tool_name: &str,
+) -> CompactWithOutcome {
+    match result {
+        Ok(response) => CompactWithOutcome::Response(response),
+        Err(error) if error.wire_name() == tinybus::Error::UNKNOWN_METHOD => {
+            log::debug!(
+                "[tokenjuice] CompactWith unknown to the loaded module, retrying as Compact tool={tool_name}"
+            );
+            CompactWithOutcome::RetryAsCompact
         }
         Err(error) => {
             log::debug!(
                 "[tokenjuice] CompactWith failed, passing through tool={tool_name} wire_error={}: {error}",
                 error.wire_name()
             );
-            return CompactedToolOutput::passthrough(content, wants_summary);
+            CompactWithOutcome::GiveUp
         }
-    };
-    record_savings(&response);
-    compacted_from(response)
+    }
+}
+
+/// The fallback `Compact` reply, without the focus or a summary. `None` means
+/// the caller should pass the original content through unchanged.
+fn finish_legacy_compact_reply(
+    result: Result<types::CompactResponse, tinybus::Error>,
+    wants_summary: bool,
+) -> Option<types::CompactResponse> {
+    match result {
+        Ok(mut response) => {
+            if wants_summary && response.notice.is_none() {
+                response.notice = Some(summary_failed_notice());
+            }
+            Some(response)
+        }
+        Err(error) => {
+            log::debug!("[tokenjuice] module compaction failed, passing through: {error}");
+            None
+        }
+    }
 }
 
 fn compacted_from(response: types::CompactResponse) -> CompactedToolOutput {
