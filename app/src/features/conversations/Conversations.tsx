@@ -908,8 +908,25 @@ const Conversations = ({
     // A local send already armed one. Never replace it: re-arming here would
     // hand the turn a fresh 120s every time this effect re-ran.
     if (sendingTimeoutsRef.current.has(selectedThreadId)) return;
-    if (!inferenceStatusByThread[selectedThreadId]) return;
-    if (inferenceTurnLifecycleByThread[selectedThreadId] === 'interrupted') return;
+    const lifecycle = inferenceTurnLifecycleByThread[selectedThreadId];
+    if (lifecycle === 'interrupted') return;
+    // `inferenceStatusByThread` alone is not a complete in-flight test. The
+    // hydration reducer only writes it when `iteration > 0 && maxIterations > 0`
+    // and deletes it otherwise, so a snapshot that is genuinely running but has
+    // not reported its first iteration yet — initial prefill — hydrates with no
+    // status entry at all. Keying solely on it would leave exactly that turn
+    // without a watchdog, which is the case this effect exists to cover.
+    //
+    // The lifecycle is written for every non-`completed` snapshot regardless of
+    // iteration, so it still identifies a prefill turn. `completed` is not a
+    // member of `InferenceTurnLifecycle` (the reducer deletes the key rather
+    // than storing a terminal value), so a settled turn leaves both undefined
+    // and is correctly skipped.
+    const inFlight =
+      Boolean(inferenceStatusByThread[selectedThreadId]) ||
+      lifecycle === 'started' ||
+      lifecycle === 'streaming';
+    if (!inFlight) return;
     debug(`inherited in-flight turn on ${selectedThreadId} — arming silence timer`);
     armSilenceTimer(selectedThreadId);
     // `armSilenceTimer` reads only refs and `dispatch`, so it is stable enough

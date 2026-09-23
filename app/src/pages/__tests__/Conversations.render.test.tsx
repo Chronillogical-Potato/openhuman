@@ -1551,6 +1551,44 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     }
   });
 
+  it('arms the silence timer for a prefill turn that has no iteration yet', async () => {
+    // The hydration reducer writes `inferenceStatusByThread` only when
+    // `iteration > 0 && maxIterations > 0` and deletes it otherwise, so a turn
+    // that is genuinely running but has not reported its first iteration —
+    // initial prefill — hydrates with no status entry. Keying the arming
+    // decision on that entry alone left exactly this turn unwatched. The
+    // lifecycle is written regardless of iteration, so it still identifies it.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue({
+      ...inFlightSnapshot('started'),
+      iteration: 0,
+      maxIterations: 0,
+    });
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Precondition that makes this test meaningful: hydration produced a live
+      // lifecycle but NO status entry. If this ever flips, the test is no
+      // longer covering the prefill gap it was written for.
+      await waitFor(() => {
+        expect(
+          store?.getState().chatRuntime.inferenceTurnLifecycleByThread['send-thread']
+        ).toBe('started');
+      });
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeUndefined();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
   it('does not fire an armed silence timer after the page unmounts', async () => {
     // The timer's callback outlives this component: it dispatches
     // `clearRuntimeForThread` / `clearThreadInferenceActive` into the shared
