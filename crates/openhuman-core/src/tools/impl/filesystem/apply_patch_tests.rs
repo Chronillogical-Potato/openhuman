@@ -126,3 +126,121 @@ async fn apply_patch_rejects_traversal() {
     assert!(result.is_error);
     assert!(result.output().contains("not allowed"));
 }
+
+// -- create mode --------------------------------------------------------------
+//
+// Empty `old_string` + a path that does not exist = create. Before this the
+// tool could only edit, so an agent asked to produce a document had no route:
+// the life-scenario `meal-plan` run left two 1-byte files containing `x`,
+// placeholders it made with `shell` purely so `apply_patch` had something to
+// patch.
+
+#[tokio::test]
+async fn apply_patch_creates_a_new_file_from_an_empty_old_string() {
+    let dir = std::env::temp_dir().join("openhuman_test_patch_create");
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+
+    let tool = ApplyPatchTool::new(test_security(dir.clone()));
+    let result = tool
+        .execute(json!({
+            "edits": [
+                { "path": "out/plan.md", "old_string": "", "new_string": "# Plan\nday one\n" }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let written = tokio::fs::read_to_string(dir.join("out/plan.md"))
+        .await
+        .expect("the file (and its parent) must have been created");
+    assert_eq!(written, "# Plan\nday one\n");
+    assert!(result.output().contains("created"), "{}", result.output());
+}
+
+#[tokio::test]
+async fn apply_patch_refuses_an_empty_old_string_on_an_existing_file() {
+    let dir = std::env::temp_dir().join("openhuman_test_patch_create_existing");
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    tokio::fs::write(dir.join("a.txt"), "alpha").await.unwrap();
+
+    let tool = ApplyPatchTool::new(test_security(dir.clone()));
+    let result = tool
+        .execute(json!({
+            "edits": [{ "path": "a.txt", "old_string": "", "new_string": "overwritten" }]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    // Unchanged — "replace nothing" must never become "replace everything".
+    let a = tokio::fs::read_to_string(dir.join("a.txt")).await.unwrap();
+    assert_eq!(a, "alpha");
+}
+
+#[tokio::test]
+async fn apply_patch_mixes_a_create_and_an_edit_in_one_batch() {
+    let dir = std::env::temp_dir().join("openhuman_test_patch_create_mixed");
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+    tokio::fs::write(dir.join("a.txt"), "alpha").await.unwrap();
+
+    let tool = ApplyPatchTool::new(test_security(dir.clone()));
+    let result = tool
+        .execute(json!({
+            "edits": [
+                { "path": "a.txt", "old_string": "alpha", "new_string": "ALPHA" },
+                { "path": "b.txt", "old_string": "", "new_string": "bravo" }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    assert_eq!(
+        tokio::fs::read_to_string(dir.join("a.txt")).await.unwrap(),
+        "ALPHA"
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(dir.join("b.txt")).await.unwrap(),
+        "bravo"
+    );
+}
+
+#[tokio::test]
+async fn apply_patch_refuses_two_creates_for_the_same_path() {
+    let dir = std::env::temp_dir().join("openhuman_test_patch_create_dup");
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+
+    let tool = ApplyPatchTool::new(test_security(dir.clone()));
+    let result = tool
+        .execute(json!({
+            "edits": [
+                { "path": "c.txt", "old_string": "", "new_string": "first" },
+                { "path": "c.txt", "old_string": "", "new_string": "second" }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    assert!(
+        !dir.join("c.txt").exists(),
+        "a rejected batch must write nothing"
+    );
+}
+
+#[tokio::test]
+async fn apply_patch_create_still_obeys_the_path_policy() {
+    let dir = std::env::temp_dir().join("openhuman_test_patch_create_escape");
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+    tokio::fs::create_dir_all(&dir).await.unwrap();
+
+    let tool = ApplyPatchTool::new(test_security(dir.clone()));
+    let result = tool
+        .execute(json!({
+            "edits": [{ "path": "../escaped.md", "old_string": "", "new_string": "nope" }]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+}
