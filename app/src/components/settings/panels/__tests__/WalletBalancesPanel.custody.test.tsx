@@ -211,7 +211,7 @@ describe('WalletBalancesPanel — address truncation boundary', () => {
 
   it('still truncates an address longer than the boundary', async () => {
     renderWithProviders(<WalletBalancesPanel />);
-    expect(await screen.findByText(/^0x9858…da94$/)).toBeInTheDocument();
+    expect(await screen.findByText(/^0x9858Ef…EcaEda94$/)).toBeInTheDocument();
     expect(screen.queryByText(LONG_ADDRESS)).not.toBeInTheDocument();
   });
 });
