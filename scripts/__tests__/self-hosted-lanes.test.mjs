@@ -79,6 +79,24 @@ test("commands are static: no suite is ever narrowed to the diff", () => {
   }
 });
 
+test("the doctests run exactly once per profile", () => {
+  for (const plan of plans()) {
+    const cov = plan.lanes
+      .find((l) => l.name === "rust-cov")
+      .checks.find((c) => c.name === "rust-core-coverage");
+    const separate = allRuns(plan).filter((r) =>
+      /cargo test -p openhuman --doc --features/.test(r),
+    );
+    if (plan.profile === "ex63") {
+      assert.equal(cov.env.OH_COV_DOCTESTS, "0");
+      assert.equal(separate.length, 1);
+    } else {
+      assert.equal(cov.env.OH_COV_DOCTESTS, undefined);
+      assert.equal(separate.length, 0);
+    }
+  }
+});
+
 test("the complete suites run, not subsets", () => {
   const runs = allRuns(plans()[0]).join("\n");
   assert.match(runs, /pnpm --filter openhuman-app test:coverage(?! \S*\.test)/);
