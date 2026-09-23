@@ -130,6 +130,20 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "conversation.agent_sources",
+        name: "Agent Sources",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "List the web pages an answer was built from, derived from the agent's own \
+            fetch/browse calls rather than claimed by the model. Only http(s) addresses are \
+            linked.",
+        how_to: "Chat > Sources, under a settled answer (collapsed; click to expand). The same \
+            list, plus per-step detail and the whole run, is in Chat > the turn's process \
+            footer > Sources.",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
         id: "conversation.plan_review",
         name: "Plan Review",
         domain: "conversation",
