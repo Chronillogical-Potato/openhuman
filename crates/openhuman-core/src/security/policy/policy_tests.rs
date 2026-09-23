@@ -81,8 +81,6 @@ mod injection_tests;
 mod paths_and_risk_tests;
 #[path = "policy_action_dir_tests.rs"]
 mod action_dir_tests;
-
-#[cfg(test)]
 #[path = "policy_trusted_roots_tests.rs"]
 mod trusted_roots_tests;
 #[path = "policy_workspace_internal_tests.rs"]
