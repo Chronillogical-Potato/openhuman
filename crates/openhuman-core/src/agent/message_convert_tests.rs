@@ -371,9 +371,7 @@ fn reasoning_from_content_keeps_every_thinking_block_in_order() {
             text: "first span".into(),
             signature: None,
         },
-        ContentBlock::Text {
-            text: "visible".into(),
-        },
+        ContentBlock::Text("visible".into()),
         ContentBlock::Thinking {
             text: "second span".into(),
             signature: None,
