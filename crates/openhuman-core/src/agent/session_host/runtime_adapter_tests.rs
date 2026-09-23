@@ -467,7 +467,9 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     // suffix) belongs to tinyagents and is pinned by its own tests. What
     // OpenHuman owns, and what this asserts, is that a root chat session is
     // addressed by its conversation at all.
-    let root_session = root.session_id().expect("a root chat session has an identity");
+    let root_session = root
+        .session_id()
+        .expect("a root chat session has an identity");
     assert!(
         root_session.starts_with("thread-1"),
         "a root chat session is addressed by its conversation, got {root_session}"
