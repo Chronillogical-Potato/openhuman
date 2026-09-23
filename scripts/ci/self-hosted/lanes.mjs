@@ -172,8 +172,11 @@ export function gatingFailures(results) {
 
 function du(path) {
   if (!path || !existsSync(path)) return null;
+  // `du` exits 1 when a subdirectory is unreadable (the cache disk's
+  // root-owned lost+found) but still prints the total of what it could read.
   const r = spawnSync("du", ["-sb", path], { encoding: "utf8" });
-  return r.status === 0 ? Number.parseInt(r.stdout.split(/\s+/)[0], 10) : null;
+  const bytes = Number.parseInt((r.stdout ?? "").split(/\s+/)[0], 10);
+  return Number.isFinite(bytes) ? bytes : null;
 }
 
 function sccacheStats() {
