@@ -1339,10 +1339,29 @@ const chatRuntimeSlice = createSlice({
       // fallback disagreed.
       const toolCallId = action.payload.toolCallId || undefined;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
-      const existingIdx = toolCallId ? entries.findIndex(e => e.id === toolCallId) : -1;
+      const list = (state.processingByThread[threadId] ??= []);
+      let existingIdx = toolCallId ? entries.findIndex(e => e.id === toolCallId) : -1;
+      // A `tool_args_delta` can land before its `tool_call` and mint the row
+      // under a fallback id. Adopt that row rather than pushing a second one
+      // for the same call: the duplicate rendered as two cards live (one stuck
+      // running) and as one on reload.
+      if (existingIdx < 0) {
+        existingIdx = entries.findIndex(
+          e =>
+            e.id.startsWith(`${threadId}:${round}:`) &&
+            e.round === round &&
+            e.status === 'running' &&
+            (e.name === toolName || e.name === '') &&
+            !list.some(item => item.kind === 'toolCall' && item.callId === e.id)
+        );
+        if (existingIdx >= 0 && toolCallId) entries[existingIdx].id = toolCallId;
+      }
       // Stable row id, shared with the processing-transcript tool pointer so the
       // panel can resolve the row by `callId`.
-      const rowId = toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`;
+      const rowId =
+        existingIdx >= 0
+          ? entries[existingIdx].id
+          : (toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`);
       if (existingIdx >= 0) {
         const prev = entries[existingIdx];
         entries[existingIdx] = decorateEntry({
