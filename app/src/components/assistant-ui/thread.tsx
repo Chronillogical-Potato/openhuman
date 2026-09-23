@@ -86,6 +86,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -1203,12 +1204,7 @@ const MessageError: FC = () => {
 /** A url `source` part, the only kind this app emits. */
 export type SourceUrlPart = { id: string; url: string; title?: string };
 
-const selectSourceParts = (state: AssistantState): readonly SourceUrlPart[] =>
-  state.message.parts.flatMap(part =>
-    part.type === 'source' && part.sourceType === 'url'
-      ? [{ id: part.id, url: part.url, ...(part.title ? { title: part.title } : {}) }]
-      : []
-  );
+const selectMessageParts = (state: AssistantState) => state.message.parts;
 
 /**
  * Hands the host the message's source parts in one list. The group node only
@@ -1219,7 +1215,16 @@ const selectSourceParts = (state: AssistantState): readonly SourceUrlPart[] =>
 const SourceGroupSlot: FC<{
   Component: ComponentType<{ sources: readonly SourceUrlPart[] }>;
 }> = ({ Component }) => {
-  const sources = useAuiState(selectSourceParts, shallowArrayEqual);
+  const parts = useAuiState(selectMessageParts);
+  const sources = useMemo(
+    () =>
+      parts.flatMap(part =>
+        part.type === 'source' && part.sourceType === 'url'
+          ? [{ id: part.id, url: part.url, ...(part.title ? { title: part.title } : {}) }]
+          : []
+      ),
+    [parts]
+  );
   return sources.length > 0 ? <Component sources={sources} /> : null;
 };
 
