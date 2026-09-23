@@ -724,3 +724,50 @@ describe('narration merged into the final answer', () => {
     expect(texts).toEqual([finalText]);
   });
 });
+
+describe('feedback round-trip (Defect A)', () => {
+  // These assert `metadata.submittedFeedback`, which is what the runtime's
+  // pressed state reads (`s.message.metadata.submittedFeedback?.type`, see
+  // `ActionBarFeedbackPositive.js`). Asserting the persisted `extraMetadata`
+  // instead would be vacuous: that value already survives without this fix, and
+  // the bug is precisely that it never reaches the runtime.
+  it('re-emits a persisted rating as submittedFeedback so a pressed thumb survives a rebuild', () => {
+    const converted = toThreadMessageLike(
+      msg({ id: 'a1', sender: 'agent', extraMetadata: { feedback: 'positive' } })
+    );
+    expect(converted.metadata?.submittedFeedback).toEqual({ type: 'positive' });
+  });
+
+  it('re-emits a negative rating', () => {
+    const converted = toThreadMessageLike(
+      msg({ id: 'a1', sender: 'agent', extraMetadata: { feedback: 'negative' } })
+    );
+    expect(converted.metadata?.submittedFeedback).toEqual({ type: 'negative' });
+  });
+
+  it('leaves an unrated message with no submittedFeedback at all', () => {
+    // Absent, not `{ type: undefined }` — the runtime reads
+    // `submittedFeedback?.type`, so an empty object would still be falsy, but
+    // emitting one would mean every message claims a rating field it lacks.
+    const converted = toThreadMessageLike(msg({ id: 'a1', sender: 'agent' }));
+    expect(converted.metadata?.submittedFeedback).toBeUndefined();
+  });
+
+  it('ignores a rating value the runtime cannot accept', () => {
+    // `extraMetadata` is untyped JSON from disk. A stale or hand-edited value
+    // must read as unrated rather than reach the runtime as a bad type.
+    for (const bad of ['up', '', 'POSITIVE', 1, true, null, {}]) {
+      const converted = toThreadMessageLike(
+        msg({ id: 'a1', sender: 'agent', extraMetadata: { feedback: bad } })
+      );
+      expect(converted.metadata?.submittedFeedback).toBeUndefined();
+    }
+  });
+
+  it('does not rate a user message even if its metadata carries one', () => {
+    const converted = toThreadMessageLike(
+      msg({ id: 'u1', sender: 'user', extraMetadata: { feedback: 'positive' } })
+    );
+    expect(converted.metadata?.submittedFeedback).toBeUndefined();
+  });
+});

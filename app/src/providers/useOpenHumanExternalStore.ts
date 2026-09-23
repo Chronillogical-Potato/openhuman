@@ -1,5 +1,6 @@
 import type {
   AppendMessage,
+  ThreadMessage as AuiThreadMessage,
   RespondToToolApprovalOptions,
   ThreadSuggestion,
 } from '@assistant-ui/react';
@@ -16,9 +17,10 @@ import {
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { FEEDBACK_ROW_IDS_METADATA_KEY, persistMessageFeedback } from '../store/threadSlice';
 import type { DerivedDisplayItem } from '../types/derivedTranscript';
 import type { ThreadMessage } from '../types/thread';
-import { buildRuntimeMessages } from './assistantUiMessages';
+import { buildRuntimeMessages, STREAMING_TAIL_ID } from './assistantUiMessages';
 import { getChatSurface } from './chatSurfaceHandlers';
 
 const EMPTY_MESSAGES: ThreadMessage[] = [];
@@ -362,6 +364,45 @@ export function useOpenHumanExternalStore(threadId: string | null) {
     [threadId]
   );
 
+  /**
+   * Thumbs on a settled assistant reply.
+   *
+   * Supplying this key is what turns the capability on at all — the runtime
+   * computes `capabilities.feedback` as `!!adapters?.feedback` and renders
+   * nothing without it.
+   *
+   * `submit` returns `void` by contract: there is no promise for the runtime to
+   * await and no error channel back to it. A failed persist therefore cannot
+   * surface through the adapter, so the thunk owns the failure, and the
+   * optimistic value is only committed by its `fulfilled` reducer — a rejected
+   * write leaves the thumb unpressed rather than showing a rating that was never
+   * stored.
+   */
+  const feedbackAdapter = useMemo(
+    () => ({
+      submit: ({ message, type }: { message: AuiThreadMessage; type: 'positive' | 'negative' }) => {
+        // The live tail is not a persisted row; there is nothing to attach a
+        // rating to until the turn settles.
+        if (!threadId || message.id === STREAMING_TAIL_ID) return;
+        const custom = message.metadata?.custom as
+          | { extraMetadata?: Record<string, unknown> }
+          | undefined;
+        const rowIds = custom?.extraMetadata?.[FEEDBACK_ROW_IDS_METADATA_KEY];
+        void dispatch(
+          persistMessageFeedback({
+            threadId,
+            // `toThreadMessageLike` carries our own row id through unchanged, and
+            // for a merged run that is the LAST row's (see `mergeAssistantRun`).
+            messageId: message.id,
+            feedback: type,
+            rowIds: Array.isArray(rowIds) ? (rowIds as string[]) : undefined,
+          })
+        );
+      },
+    }),
+    [dispatch, threadId]
+  );
+
   const onCancel = useCallback(async () => {
     await getChatSurface(threadId)?.cancel?.();
   }, [threadId]);
@@ -438,6 +479,7 @@ export function useOpenHumanExternalStore(threadId: string | null) {
       suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
+      adapters: { feedback: feedbackAdapter },
       onNew,
       onCancel,
       onRespondToToolApproval,
@@ -448,6 +490,7 @@ export function useOpenHumanExternalStore(threadId: string | null) {
       isLoading,
       extras,
       suggestions,
+      feedbackAdapter,
       onNew,
       onCancel,
       onRespondToToolApproval,
