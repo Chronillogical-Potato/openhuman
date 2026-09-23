@@ -122,6 +122,112 @@ impl FinalCallWrapUpMiddleware {
     pub(crate) fn fired(&self) -> Arc<std::sync::atomic::AtomicBool> {
         self.fired.clone()
     }
+
+    /// Give a concluding-or-persisting call back the tool results microcompact
+    /// blanked, newest-first and only while the request still fits.
+    ///
+    /// Shared by both of this middleware's calls, because both need the same
+    /// thing for the same reason: the content the turn gathered. The final call
+    /// needs it to *report* findings, and the penultimate one needs it to
+    /// *write them into a file* — and a turn asked to produce an artifact from
+    /// nineteen rounds of "[Old tool result content cleared]" produces the same
+    /// empty-handed result from either direction.
+    ///
+    /// `instruction` is the text the caller will append afterwards; it is
+    /// seeded into the token accounting here rather than counted later, because
+    /// restoration fills the budget to its boundary and an unaccounted fixed
+    /// addition after it is exactly the overshoot the budget exists to prevent
+    /// (CodeRabbit on #6068).
+    fn restore_cleared_outcomes(&self, request: &mut ModelRequest, instruction: &str) -> usize {
+        let budget = self.input_budget;
+        // Seeded with the instruction this middleware appends unconditionally
+        // below, not just with what the request already holds (CodeRabbit on
+        // #6068). Restoration fills the budget to its boundary, so an
+        // unaccounted fixed addition after it is exactly the overshoot the
+        // budget exists to prevent.
+        let mut used: u64 = request
+            .messages
+            .iter()
+            .map(estimate_message_tokens)
+            .sum::<u64>()
+            .saturating_add(estimate_text_tokens(instruction));
+        let restored = match self.outcomes.lock() {
+            Ok(outcomes) => {
+                let mut restored = 0usize;
+                let mut skipped = 0usize;
+                for message in request.messages.iter_mut().rev() {
+                    let TaMessage::Tool(tool) = message else {
+                        continue;
+                    };
+                    if tool
+                        .content
+                        .iter()
+                        .any(|block| !matches!(block, ContentBlock::Text(_)))
+                    {
+                        continue;
+                    }
+                    let body: String = tool
+                        .content
+                        .iter()
+                        .filter_map(|block| match block {
+                            ContentBlock::Text(text) => Some(text.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    if body.trim() != CLEARED_PLACEHOLDER {
+                        continue;
+                    }
+                    let Some(outcome) = captured_outcome_for(&outcomes, &tool.tool_call_id) else {
+                        continue;
+                    };
+                    if outcome.trim().is_empty() {
+                        continue;
+                    }
+                    // What restoring this body would add, against what the
+                    // placeholder already costs.
+                    let added = estimate_text_tokens(&outcome)
+                        .saturating_sub(estimate_text_tokens(CLEARED_PLACEHOLDER));
+                    if budget > 0 && used.saturating_add(added) > budget {
+                        // Everything older is at least as likely to overflow, but
+                        // keep counting so the log reports the true shortfall
+                        // rather than stopping at the first one that did not fit.
+                        skipped += 1;
+                        continue;
+                    }
+                    used = used.saturating_add(added);
+                    tool.content = vec![ContentBlock::Text(outcome)];
+                    restored += 1;
+                }
+                if skipped > 0 {
+                    tracing::info!(
+                        skipped,
+                        restored,
+                        budget,
+                        used,
+                        "[tinyagents::mw] left some cleared tool results cleared: restoring them \
+                         would have pushed the concluding call past its input budget, and an \
+                         eviction there costs whole messages rather than one body"
+                    );
+                }
+                restored
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "[tinyagents::mw] tool-outcome sink poisoned; concluding without restoring \
+                     cleared tool results"
+                );
+                0
+            }
+        };
+        if restored > 0 {
+            tracing::info!(
+                restored,
+                "[tinyagents::mw] restored cleared tool results for the concluding call"
+            );
+        }
+        restored
+    }
+
 }
 
 #[async_trait]
@@ -206,92 +312,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // results are the ones the model has not seen (the cap is checked
         // before the request is built), and the earliest ones are most likely
         // already reflected in the compression summary above.
-        let budget = self.input_budget;
-        // Seeded with the instruction this middleware appends unconditionally
-        // below, not just with what the request already holds (CodeRabbit on
-        // #6068). Restoration fills the budget to its boundary, so an
-        // unaccounted fixed addition after it is exactly the overshoot the
-        // budget exists to prevent.
-        let mut used: u64 = request
-            .messages
-            .iter()
-            .map(estimate_message_tokens)
-            .sum::<u64>()
-            .saturating_add(estimate_text_tokens(self.instruction));
-        let restored = match self.outcomes.lock() {
-            Ok(outcomes) => {
-                let mut restored = 0usize;
-                let mut skipped = 0usize;
-                for message in request.messages.iter_mut().rev() {
-                    let TaMessage::Tool(tool) = message else {
-                        continue;
-                    };
-                    if tool
-                        .content
-                        .iter()
-                        .any(|block| !matches!(block, ContentBlock::Text(_)))
-                    {
-                        continue;
-                    }
-                    let body: String = tool
-                        .content
-                        .iter()
-                        .filter_map(|block| match block {
-                            ContentBlock::Text(text) => Some(text.as_str()),
-                            _ => None,
-                        })
-                        .collect();
-                    if body.trim() != CLEARED_PLACEHOLDER {
-                        continue;
-                    }
-                    let Some(outcome) = captured_outcome_for(&outcomes, &tool.tool_call_id) else {
-                        continue;
-                    };
-                    if outcome.trim().is_empty() {
-                        continue;
-                    }
-                    // What restoring this body would add, against what the
-                    // placeholder already costs.
-                    let added = estimate_text_tokens(&outcome)
-                        .saturating_sub(estimate_text_tokens(CLEARED_PLACEHOLDER));
-                    if budget > 0 && used.saturating_add(added) > budget {
-                        // Everything older is at least as likely to overflow, but
-                        // keep counting so the log reports the true shortfall
-                        // rather than stopping at the first one that did not fit.
-                        skipped += 1;
-                        continue;
-                    }
-                    used = used.saturating_add(added);
-                    tool.content = vec![ContentBlock::Text(outcome)];
-                    restored += 1;
-                }
-                if skipped > 0 {
-                    tracing::info!(
-                        skipped,
-                        restored,
-                        budget,
-                        used,
-                        "[tinyagents::mw] left some cleared tool results cleared: restoring them \
-                         would have pushed the concluding call past its input budget, and an \
-                         eviction there costs whole messages rather than one body"
-                    );
-                }
-                restored
-            }
-            Err(_) => {
-                tracing::warn!(
-                    "[tinyagents::mw] tool-outcome sink poisoned; concluding without restoring \
-                     cleared tool results"
-                );
-                0
-            }
-        };
-        if restored > 0 {
-            tracing::info!(
-                restored,
-                "[tinyagents::mw] restored cleared tool results for the concluding call"
-            );
-        }
+        self.restore_cleared_outcomes(request, self.instruction);
         request
             .messages
             .push(TaMessage::user(self.instruction.to_string()));
