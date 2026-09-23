@@ -375,6 +375,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         elapsed_ms: 0,
                         iteration: scope.iteration,
                         failure,
+                        display_label: Some(label.clone()),
+                        display_detail: detail.clone(),
+                        structured: None,
                     },
                 ],
                 None => vec![
@@ -383,8 +386,8 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         tool_name: requested_name.clone(),
                         arguments: arguments.clone(),
                         iteration: state.iteration,
-                        display_label: Some(label),
-                        display_detail: detail,
+                        display_label: Some(label.clone()),
+                        display_detail: detail.clone(),
                     },
                     AgentProgress::ToolCallCompleted {
                         call_id: call_id.as_str().to_string(),
@@ -396,6 +399,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         elapsed_ms: 0,
                         iteration: state.iteration,
                         failure,
+                        display_label: Some(label),
+                        display_detail: detail,
+                        structured: None,
                     },
                 ],
             }
