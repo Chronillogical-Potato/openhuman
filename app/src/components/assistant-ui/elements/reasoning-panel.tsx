@@ -27,7 +27,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
 import { ChevronDownIcon } from 'lucide-react';
-import { memo, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -309,6 +309,3 @@ export function ReasoningPanel({
     </Collapsible>
   );
 }
-
-/** Children-slot variant used by the thread for arbitrary content under the header. */
-export type ReasoningPanelChildren = { children?: ReactNode };
