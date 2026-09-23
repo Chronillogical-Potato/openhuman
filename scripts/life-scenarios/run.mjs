@@ -1115,6 +1115,10 @@ async function main() {
       );
       await composio.close();
     }
+    // `close` flushes the search log itself, so the record survives a run that
+    // failed partway: it is the only evidence of what discovery actually
+    // returned, and a post-mortem needs it most on the runs that went wrong.
+    if (search) await search.close();
   }
 
   printReport(results);
