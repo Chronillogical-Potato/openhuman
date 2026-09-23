@@ -121,6 +121,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   // against the downloaded module). CI Lite runs all three on every push to
   // `main` that touches the Rust core (rust-coverage.sh and its
   // rust-core-coverage job).
+  //
+  // Also left to those pushes, as duplicates of what runs here:
+  //  - `cargo test -p openhuman-embed` / `-p openhuman-tinyhumans` (default
+  //    features): rust-core-coverage already runs both crates' tests, with the
+  //    product features;
+  //  - `cargo check -p openhuman --no-default-features`: embed-check-no-default
+  //    builds the core with exactly that feature set (none) as its dependency.
 
   /** @type {Lane[]} */
   const lanes = [
