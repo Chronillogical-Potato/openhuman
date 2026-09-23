@@ -1,8 +1,8 @@
 use super::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
 use crate::config::HttpRequestConfig;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 // Only used by the `web3`-gated x402 402-retry path below.
 #[cfg(feature = "web3")]
 use base64::engine::Engine as _;

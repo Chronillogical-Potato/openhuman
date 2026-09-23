@@ -2,7 +2,7 @@
 //!
 //! Consumers (e.g. the web channel provider) create an
 //! `mpsc::Sender<AgentProgress>` and attach it to the [`Agent`] via
-//! [`Agent::set_on_progress`] before calling [`Agent::run_single`].
+//! [`OpenHumanSessionHost::set_on_progress`] before calling [`OpenHumanSessionHost::run_single`].
 //! The agent's turn loop sends events through this channel as it
 //! progresses — tool calls starting/completing, iteration boundaries,
 //! sub-agent lifecycle, etc.
@@ -39,7 +39,7 @@ pub enum AgentProgress {
         iteration: u32,
         /// Server-computed human label for the chat processing timeline
         /// (e.g. "Reading messages"), or `None` to defer to the client
-        /// formatter. Set from [`crate::tools::traits::Tool::display_label`].
+        /// formatter. Set from [`tinytools::Tool::display_label`].
         display_label: Option<String>,
         /// Server-computed contextual detail shown after the label
         /// (e.g. "steven@gmail.com"), from `Tool::display_detail`.
@@ -120,6 +120,26 @@ pub enum AgentProgress {
         iterations: u32,
         /// Character length of the sub-agent's final assistant text.
         output_chars: usize,
+        /// This child's own token + cost totals, **and only when they did not
+        /// already reach the parent turn's ledger**.
+        ///
+        /// ## Populate this ONLY when the spend is not already counted
+        ///
+        /// A blocking spawn records into `parent_subagent_usage`, and
+        /// `holistic_last_turn_usage` then folds those child tokens AND
+        /// `charged_amount_usd` into the figures `chat_done` carries. A
+        /// detached spawn does not: `detached_child()` sets
+        /// `parent_subagent_usage` to `None` and swaps in a fresh ledger, so
+        /// the entry lands somewhere the parent never reads.
+        ///
+        /// The consumer adds whatever arrives here, unconditionally. That is
+        /// what makes the omission safe — a site that does not populate this
+        /// contributes nothing, which is the status quo — and it is also why
+        /// populating it for a child that DID reach the parent ledger silently
+        /// doubles the user's reported spend, money included, with no test
+        /// failing. **Check the ledger, not the spawn mode**: spawn mode is a
+        /// proxy and proxies drift.
+        usage: Option<crate::agent::subagent_host::SubagentUsage>,
         /// The sub-agent's full final assistant text. Trace exporters record
         /// this (truncated + content-gated) as the subagent span's output.
         output: String,
@@ -164,7 +184,7 @@ pub enum AgentProgress {
     },
 
     /// A sub-agent's inner LLM iteration is starting. Emitted **only
-    /// from inside [`crate::agent::harness::subagent_runner`]**
+    /// from inside [`crate::agent::subagent_host`]**
     /// when the parent context carries an `on_progress` sink — the
     /// outer parent loop uses [`Self::IterationStarted`] for its own
     /// rounds. Carries the child's `task_id` so the UI can attribute
@@ -237,7 +257,7 @@ pub enum AgentProgress {
     /// streamed token to a specific live subagent row (via `task_id`)
     /// and render it inside that row's transcript instead of merging it
     /// into the parent's own streaming buffer. Emitted **only from
-    /// inside [`crate::agent::harness::subagent_runner`]** when
+    /// inside [`crate::agent::subagent_host`]** when
     /// the parent context carries an `on_progress` sink.
     SubagentTextDelta {
         agent_id: String,
@@ -257,12 +277,6 @@ pub enum AgentProgress {
         delta: String,
         /// 1-based child iteration index.
         iteration: u32,
-    },
-
-    /// The agent rewrote the per-thread task board. Emitted by the
-    /// `todo` tool (or `openhuman.todos_*` RPC) after the board has been persisted.
-    TaskBoardUpdated {
-        board: crate::agent::task_board::TaskBoard,
     },
 
     /// A chunk of visible assistant text arrived from the provider
@@ -334,7 +348,7 @@ pub enum AgentProgress {
         model: String,
         /// Provider that served this call (`"managed"`, `"openai"`,
         /// `"ollama"`, …). Trace exporters render the Langfuse model as
-        /// `{provider_id}.{model}` (e.g. `managed.chat-v1`).
+        /// `{provider_id}.{model}` (e.g. `managed.hint:chat`).
         provider_id: String,
         /// Owning subagent task id when this call ran inside a child run
         /// (`spawn_subagent` / Context Scout). `None` for parent-scope calls.

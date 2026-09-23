@@ -55,7 +55,7 @@ pub fn discovery_home_dir() -> Option<PathBuf> {
 ///
 /// Delegates to [`discover_workflows`] with the current user's home directory
 /// so user-scope skills (`~/.openhuman/skills/`, `~/.agents/skills/`) are
-/// surfaced for existing production callers (`agent::harness::session::builder`,
+/// surfaced for existing production callers (`agent::session_host::builder`,
 /// `channels::runtime::startup`). Previously this shim passed `None` for the
 /// home directory, which silently dropped user-installed skills from the
 /// main runtime path.
@@ -65,30 +65,7 @@ pub fn discovery_home_dir() -> Option<PathBuf> {
 pub fn load_workflow_metadata(workspace_dir: &Path) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
     let home = discovery_home_dir();
-    discover_workflows_inner(home.as_deref(), Some(workspace_dir), None, trusted)
-}
-
-/// Like [`load_workflow_metadata`], but additionally scans a profile-local
-/// skills root (`<workspace>/personalities/<id>/skills/`) when one is supplied.
-///
-/// Callers pass the active profile's root (resolved via
-/// `profiles::profile_skills_root`) so the returned catalog carries that
-/// profile's private skills. `None` reproduces [`load_workflow_metadata`]
-/// byte-for-byte, so the profile-less session and every other profile are
-/// unaffected. Profile-local skills win same-name collisions against global
-/// scopes (see [`crate::skills::ops_types::WorkflowScope::Profile`]).
-pub fn load_workflow_metadata_for_profile(
-    workspace_dir: &Path,
-    profile_skills_root: Option<&Path>,
-) -> Vec<Workflow> {
-    let trusted = is_workspace_trusted(workspace_dir);
-    let home = discovery_home_dir();
-    discover_workflows_inner(
-        home.as_deref(),
-        Some(workspace_dir),
-        profile_skills_root,
-        trusted,
-    )
+    discover_workflows_inner(home.as_deref(), Some(workspace_dir), trusted)
 }
 
 /// Discover skills from every supported location.
@@ -106,28 +83,9 @@ pub fn discover_workflows(
     workspace_dir: Option<&Path>,
     trusted: bool,
 ) -> Vec<Workflow> {
-    discover_workflows_inner(home_dir, workspace_dir, None, trusted)
-}
-
-/// Discover skills including a profile-local root, for a turn running under a
-/// specific agent profile.
-///
-/// `profile_skills_root` is `<workspace>/personalities/<id>/skills/` (resolved
-/// via `profiles::profile_skills_root`, which validates the id). It is scanned
-/// unconditionally — no trust marker is required, since the directory is
-/// core-managed under `workspace_dir` — and its bundles win same-name collisions
-/// against every global scope for this profile. `None` is identical to
-/// [`discover_workflows`], so other profiles and the default session never see
-/// these skills.
-pub fn discover_workflows_with_profile(
-    home_dir: Option<&Path>,
-    workspace_dir: Option<&Path>,
-    profile_skills_root: Option<&Path>,
-    trusted: bool,
-) -> Vec<Workflow> {
     #[cfg(test)]
     DISCOVERY_CALLS.with(|c| c.set(c.get() + 1));
-    discover_workflows_inner(home_dir, workspace_dir, profile_skills_root, trusted)
+    discover_workflows_inner(home_dir, workspace_dir, trusted)
 }
 
 #[cfg(test)]
@@ -150,16 +108,9 @@ pub fn is_workspace_trusted(workspace_dir: &Path) -> bool {
 pub(crate) fn discover_workflows_inner(
     home_dir: Option<&Path>,
     workspace_dir: Option<&Path>,
-    profile_skills_root: Option<&Path>,
     trusted: bool,
 ) -> Vec<Workflow> {
-    discover_filtered(
-        home_dir,
-        workspace_dir,
-        profile_skills_root,
-        trusted,
-        ALL_ROOT_KINDS,
-    )
+    discover_filtered(home_dir, workspace_dir, trusted, ALL_ROOT_KINDS)
 }
 
 /// Discover only automation bundles under the `workflows/` roots.
@@ -180,5 +131,5 @@ pub fn discover_automations(
         has_workspace = workspace_dir.is_some(),
         "[workflows] discover:automations:enter"
     );
-    discover_filtered(home_dir, workspace_dir, None, trusted, WORKFLOW_ROOT_KINDS)
+    discover_filtered(home_dir, workspace_dir, trusted, WORKFLOW_ROOT_KINDS)
 }

@@ -10,7 +10,7 @@
 //! # Why the params are a struct rather than `json!`
 //!
 //! The controller behind this method deserializes
-//! [`AgentChatParams`](openhuman_core::inference::local::schemas) — which
+//! [`AgentChatParams`](openhuman_core::inference::host_runtime::schemas) — which
 //! carries no `#[serde(rename_all)]`, so its wire names are the Rust field names
 //! exactly as spelled. Every embedder that hand-writes that JSON is therefore
 //! depending on an unmarked, unversioned naming coincidence: rename a field
@@ -429,7 +429,9 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
             let turn: std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<String, CoreError>> + Send>,
             > = Box::pin(async move {
-                use openhuman_core::inference::local::ops::{agent_chat_for, AgentChatTarget};
+                use openhuman_core::inference::host_runtime::ops::{
+                    agent_chat_for, AgentChatTarget,
+                };
                 let mut config = inner.config.clone();
                 let route = openhuman_core::config::schema::EphemeralRoute::from_params(
                     request.inference_url,
@@ -437,8 +439,6 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
                 );
                 let target = AgentChatTarget::Definition {
                     definition: &inner.definition,
-                    profile: Some(&inner.profile),
-                    profile_prompt_suffix: inner.profile.system_prompt_suffix.as_deref(),
                 };
                 agent_chat_for(
                     &mut config,

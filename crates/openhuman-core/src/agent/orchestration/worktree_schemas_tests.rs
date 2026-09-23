@@ -1,5 +1,6 @@
 use super::*;
 use std::process::Command;
+use tinyagents_harness::workspace::{create_git_worktree, GitWorktreeBaseRef, GitWorktreeStatus};
 
 /// `true` when `git` is invokable on this host. Tests that need real
 /// `git worktree` plumbing skip (pass trivially) when it's absent, so a
@@ -59,7 +60,7 @@ fn list_view_surfaces_managed_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = worktree::create(&root, "run-1", worktree::BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-1", GitWorktreeBaseRef::Head).expect("create");
     assert!(
         is_managed_worktree(&st.path),
         "created under .claude/worktrees"
@@ -113,7 +114,7 @@ fn status_and_diff_views_round_trip_a_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = worktree::create(&root, "run-2", worktree::BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-2", GitWorktreeBaseRef::Head).expect("create");
 
     // `WorktreeStatus` serializes `rename_all = "camelCase"` → `isDirty`.
     let status = status_view(&root, &st.path, "cid").expect("status ok");
@@ -130,7 +131,7 @@ fn remove_view_clears_a_clean_worktree() {
         return;
     }
     let (_tmp, root) = init_repo();
-    let st = worktree::create(&root, "run-3", worktree::BaseRef::Head).expect("create");
+    let st = create_git_worktree(&root, "run-3", GitWorktreeBaseRef::Head).expect("create");
     assert!(st.path.exists());
 
     let removed = remove_view(&root, &st.path, false, "cid").expect("remove ok");
@@ -209,13 +210,13 @@ fn require_managed_worktree_path_enforces_absolute_and_managed() {
 #[test]
 fn overlaps_detected_across_branches() {
     let worktrees = vec![
-        WorktreeStatus {
+        GitWorktreeStatus {
             path: PathBuf::from("/r/.claude/worktrees/a"),
             branch: Some("worker/a".into()),
             is_dirty: true,
             changed_files: vec![PathBuf::from("src/lib.rs"), PathBuf::from("a.rs")],
         },
-        WorktreeStatus {
+        GitWorktreeStatus {
             path: PathBuf::from("/r/.claude/worktrees/b"),
             branch: Some("worker/b".into()),
             is_dirty: true,

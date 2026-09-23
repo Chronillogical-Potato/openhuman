@@ -1,6 +1,6 @@
 use super::*;
 use crate::inference::provider::ProviderRuntimeOptions;
-use tinyinference::message::Message;
+use tinyinference_llm::message::Message;
 
 fn backend() -> OpenHumanBackendModel {
     OpenHumanBackendModel::new(
@@ -10,25 +10,27 @@ fn backend() -> OpenHumanBackendModel {
     )
 }
 
-#[tokio::test]
-async fn with_thread_id_injects_when_ambient_thread_present() {
-    thread_context::with_thread_id("thread-42", async {
-        let request = ModelRequest::new(vec![Message::user("hi")]);
-        let updated = with_thread_id(request);
-        assert_eq!(
-            updated.provider_options["thread_id"],
-            serde_json::json!("thread-42")
-        );
-    })
-    .await;
+#[test]
+fn with_thread_id_injects_explicit_thread() {
+    let request = ModelRequest::new(vec![Message::user("hi")]);
+    let updated = with_thread_id(request, Some("thread-42"));
+    assert_eq!(
+        updated.provider_options["thread_id"],
+        serde_json::json!("thread-42")
+    );
 }
 
 #[test]
-fn with_thread_id_is_noop_without_ambient_thread() {
-    // No thread scope active → provider_options stays whatever it was (null).
+fn with_thread_id_is_noop_without_explicit_thread() {
     let request = ModelRequest::new(vec![Message::user("hi")]);
-    let updated = with_thread_id(request);
+    let updated = with_thread_id(request, None);
     assert!(updated.provider_options.get("thread_id").is_none());
+}
+
+#[test]
+fn managed_model_keeps_its_explicit_thread_without_an_ambient_scope() {
+    let model = backend().with_thread_id(Some("  delegate-thread  "));
+    assert_eq!(model.thread_id.as_deref(), Some("delegate-thread"));
 }
 
 #[test]
@@ -41,8 +43,8 @@ fn managed_model_advertises_tool_and_vision_capabilities() {
 
 #[test]
 fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
-    assert_eq!(resolve_model(""), crate::config::MODEL_REASONING_V1);
-    assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_REASONING_V1);
+    assert_eq!(resolve_model(""), crate::config::MODEL_MANAGED_DEFAULT);
+    assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_MANAGED_DEFAULT);
     assert_eq!(resolve_model("  reasoning-v1  "), "reasoning-v1");
     assert_eq!(resolve_model("hint:reasoning"), "hint:reasoning");
 }
@@ -53,8 +55,8 @@ fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
 #[test]
 fn project_managed_usage_recovers_charged_and_cached() {
     use crate::agent::tinyagents::model::usage_info_from_response;
-    use tinyinference::message::AssistantMessage;
-    use tinyinference::usage::Usage;
+    use tinyinference_llm::message::AssistantMessage;
+    use tinyinference_llm::usage::Usage;
 
     let raw = serde_json::json!({
         "openhuman": {
@@ -68,6 +70,7 @@ fn project_managed_usage_recovers_charged_and_cached() {
             content: vec![],
             tool_calls: vec![],
             usage: None,
+            origin: None,
         },
         usage: Some(Usage {
             input_tokens: 1000,
@@ -79,6 +82,8 @@ fn project_managed_usage_recovers_charged_and_cached() {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     };
 
     let projected = project_managed_usage(response);
@@ -99,8 +104,8 @@ fn project_managed_usage_recovers_charged_and_cached() {
 #[test]
 fn project_managed_usage_is_noop_without_envelope() {
     use crate::agent::tinyagents::model::usage_info_from_response;
-    use tinyinference::message::AssistantMessage;
-    use tinyinference::usage::Usage;
+    use tinyinference_llm::message::AssistantMessage;
+    use tinyinference_llm::usage::Usage;
 
     let response = ModelResponse {
         message: AssistantMessage {
@@ -108,6 +113,7 @@ fn project_managed_usage_is_noop_without_envelope() {
             content: vec![],
             tool_calls: vec![],
             usage: None,
+            origin: None,
         },
         usage: Some(Usage {
             input_tokens: 10,
@@ -120,6 +126,8 @@ fn project_managed_usage_is_noop_without_envelope() {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     };
 
     let projected = project_managed_usage(response);
@@ -148,6 +156,7 @@ fn is_provider_not_configured_error_matches_exact_backend_shape() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
+        ..ProviderError::default()
     };
     assert!(is_provider_not_configured_error(&err));
 }
@@ -166,6 +175,7 @@ fn is_provider_not_configured_error_rejects_other_400s() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }
@@ -185,6 +195,7 @@ fn is_provider_not_configured_error_tolerates_not_configured_for_provider_wordin
         retryable: false,
         retry_after_ms: None,
         raw: None,
+        ..ProviderError::default()
     };
     assert!(is_provider_not_configured_error(&err));
 }
@@ -207,6 +218,7 @@ fn is_provider_not_configured_error_rejects_generic_not_configured_400() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }
@@ -222,6 +234,7 @@ fn is_provider_not_configured_error_rejects_non_400_status() {
         retryable: false,
         retry_after_ms: None,
         raw: None,
+        ..ProviderError::default()
     };
     assert!(!is_provider_not_configured_error(&err));
 }

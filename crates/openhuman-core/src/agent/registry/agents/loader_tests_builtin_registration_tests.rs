@@ -92,7 +92,7 @@ fn trigger_reactor_has_agentic_hint_and_narrow_tools() {
 
 #[test]
 fn orchestrator_can_resume_paused_subagents_via_continue_subagent() {
-    // #4291: when a delegated sub-agent (e.g. mcp_setup) pauses on
+    // #4291: when a delegated sub-agent (e.g. crypto_agent) pauses on
     // ask_user_clarification, the orchestrator gets a
     // [SUBAGENT_AWAITING_USER] envelope and must resume that exact
     // checkpoint with `continue_subagent`. Without the tool in scope the
@@ -176,7 +176,7 @@ fn coding_agent_prompts_reference_action_sandbox_not_stale_workspace() {
 
 #[test]
 fn every_builtin_has_a_prompt_body() {
-    use crate::agent::context::prompt::{
+    use crate::agent::prompts::{
         ConnectedIntegration, LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
     };
     let empty_tools: Vec<PromptTool<'_>> = Vec::new();
@@ -201,8 +201,6 @@ fn every_builtin_has_a_prompt_body() {
                     include_memory_md: false,
                     curated_snapshot: None,
                     user_identity: None,
-                    personality_soul_md: None,
-                    personality_memory_md: None,
                     personality_roster: vec![],
                     agents_md_global: None,
                     agents_md_local: None,

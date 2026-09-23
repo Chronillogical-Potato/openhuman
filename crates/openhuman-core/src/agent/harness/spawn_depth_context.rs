@@ -12,7 +12,7 @@
 //! (`tinyagents::mod::run_policy_for`) and `RunConfig::with_max_depth`, and the
 //! crate rejects an over-deep sub-agent invocation with
 //! `TinyAgentsError::SubAgentDepth`, which is mapped back onto the *same*
-//! [`super::subagent_runner::SubagentRunError::SpawnDepthExceeded`] surface as the
+//! [`crate::agent::subagent_host::SubagentRunError::SpawnDepthExceeded`] surface as the
 //! pre-dispatch check (`tinyagents::mod::tinyagents_depth_error`). So there is one
 //! error shape and one cap constant.
 //!
@@ -24,7 +24,7 @@
 //!    re-enter the core over the loopback MCP HTTP hop; the crate's per-run-tree
 //!    recursion stack does not cross that boundary. `current_spawn_depth` feeds
 //!    `mcp::server::subagent_depth` which stamps/reads the depth on that hop.
-//! 2. **Synchronous pre-dispatch surface.** `subagent_runner` rejects an over-deep
+//! 2. **Synchronous pre-dispatch surface.** `subagent_host` rejects an over-deep
 //!    spawn *before* building the TinyAgents run (so the caller gets the depth
 //!    error without a provider round-trip); tests assert this surface directly.
 //!

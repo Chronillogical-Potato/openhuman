@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::inference::tokenjuice::types::{RangeUnit, RetrieveRange};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct TokenjuiceRetrieveTool;
 
@@ -35,12 +35,9 @@ impl Tool for TokenjuiceRetrieveTool {
     }
 
     fn description(&self) -> &str {
-        "Retrieve the full, original text of a tool result that was compacted to save \
-         context. When output shows a marker like `⟦tj:a1b2c3d4⟧` (or a legacy \
-         `retrieve_tool_output(\"…\")` footer), call this with that token to get the \
-         complete original back. Optionally pass a `range` to fetch just a byte or line \
-         slice. Use it only when you actually need the dropped detail — the compacted \
-         view is usually enough."
+        "Retrieve the full text of a tool result that was compacted to save context. \
+         Pass the token from its `⟦tj:a1b2c3d4⟧` marker; optionally a `range` for a \
+         byte or line slice. Only when you need the dropped detail."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -49,7 +46,7 @@ impl Tool for TokenjuiceRetrieveTool {
             "properties": {
                 "token": {
                     "type": "string",
-                    "description": "The hash from a ⟦tj:…⟧ marker (or legacy retrieve footer)."
+                    "description": "The hash from a ⟦tj:…⟧ marker."
                 },
                 "range": {
                     "type": "object",

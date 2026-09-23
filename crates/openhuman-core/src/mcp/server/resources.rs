@@ -188,12 +188,6 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         content: include_str!("../../agent/registry/agents/presentation_agent/prompt.md"),
     },
     PromptResource {
-        uri: "openhuman://prompts/agents/mcp_setup",
-        name: "mcp_setup",
-        description: "Worker that guides the user through MCP client configuration.",
-        content: include_str!("../../agent/registry/agents/mcp_setup/prompt.md"),
-    },
-    PromptResource {
         uri: "openhuman://prompts/agents/mcp_agent",
         name: "mcp_agent",
         description: "Worker that discovers and calls tools on already-connected MCP servers.",
@@ -202,7 +196,7 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
     PromptResource {
         uri: "openhuman://prompts/agents/task_manager_agent",
         name: "task_manager_agent",
-        description: "Specialist worker for task planning, status, and task-board changes.",
+        description: "Specialist worker for task-source feeds, workflow bundles, and artifacts.",
         content: include_str!("../../agent/registry/agents/task_manager_agent/prompt.md"),
     },
     PromptResource {

@@ -28,7 +28,6 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 // Type-only: erased at runtime, so it does not defeat `vi.hoisted`.
 import type { FlowApprovalRequest } from '../../hooks/useFlowApprovalRequests';
 import { chatSend } from '../../services/chatService';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
   type ArtifactSnapshot,
   setToolTimelineForThread,
@@ -96,15 +95,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: ThreadMessage) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -115,29 +105,6 @@ vi.mock('../../services/api/threadApi', () => ({
     persistReaction: vi.fn().mockResolvedValue({}),
   },
 }));
-
-vi.mock('../../services/api/agentProfilesApi', () => {
-  const profiles = {
-    activeProfileId: 'default',
-    profiles: [
-      {
-        id: 'default',
-        name: 'Default',
-        description: 'Default',
-        agentId: 'orchestrator',
-        builtIn: true,
-      },
-    ],
-  };
-  return {
-    agentProfilesApi: {
-      list: vi.fn().mockResolvedValue(profiles),
-      select: vi.fn().mockResolvedValue(profiles),
-      upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-      delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    },
-  };
-});
 
 vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeModels: vi.fn() }));
 
@@ -203,7 +170,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,

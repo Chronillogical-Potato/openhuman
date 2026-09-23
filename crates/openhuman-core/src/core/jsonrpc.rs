@@ -180,8 +180,7 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                 // query params, or pasted-through provider error text that
                 // includes tokens. `sanitize_api_error` runs the same scrub
                 // used in the SessionExpired publish path below.
-                let redacted =
-                    crate::inference::provider::ops::sanitize_api_error(&display_message);
+                let redacted = tinyinference_core::sanitize::sanitize_api_error(&display_message);
                 tracing::warn!(
                     method = %method,
                     elapsed_ms = ms as u64,
@@ -278,7 +277,7 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
     // the UI. Generic downstream/provider 401s must stay recoverable errors;
     // otherwise a scoped integration failure can log the user out.
     if let Err(ref msg) = result {
-        let sanitized_reason = crate::inference::provider::ops::sanitize_api_error(msg);
+        let sanitized_reason = tinyinference_core::sanitize::sanitize_api_error(msg);
         if is_session_expired_error(msg) {
             log::warn!(
                 "[jsonrpc] confirmed session expiry for method='{}' — publishing SessionExpired: {}",
@@ -504,24 +503,6 @@ pub fn default_state() -> AppState {
 
 // --- HTTP server (Axum) ----------------------------------------------------
 
-/// Query parameters for the Telegram authentication callback.
-#[cfg(feature = "http-server")]
-#[derive(Debug, serde::Deserialize)]
-struct TelegramAuthQuery {
-    /// The one-time login token received from the Telegram bot.
-    token: Option<String>,
-}
-
-/// Query parameters for the generic desktop auth callback.
-#[cfg(feature = "http-server")]
-#[derive(Debug, serde::Deserialize)]
-struct DesktopAuthQuery {
-    /// One-time login token consumed through the backend.
-    token: Option<String>,
-    /// Deprecated backend marker for direct session JWT callbacks.
-    key: Option<String>,
-}
-
 /// Returns the HTML for a successful connection page.
 #[cfg(feature = "http-server")]
 fn success_html(message: &str) -> String {
@@ -681,373 +662,6 @@ async fn oauth_mcp_callback_handler(
     }
 }
 
-/// Require desktop `/auth` callbacks to be top-level document navigations when
-/// browser fetch-metadata headers are present.
-///
-/// The preferred Tauri loopback listener has a per-login state nonce. This
-/// legacy core fallback cannot rely on that state, so it must reject embedded
-/// resource loads (`<img>`, iframe, fetch, script) before token exchange.
-#[cfg(feature = "http-server")]
-fn desktop_callback_navigation_ok(headers: &axum::http::HeaderMap) -> Result<(), &'static str> {
-    let get_str = |name: &str| -> Option<&str> {
-        headers
-            .get(name)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-    };
-
-    if let Some(mode) = get_str("sec-fetch-mode") {
-        if mode != "navigate" {
-            return Err("Sec-Fetch-Mode must be 'navigate'");
-        }
-    }
-
-    if let Some(dest) = get_str("sec-fetch-dest") {
-        if dest != "document" {
-            return Err("Sec-Fetch-Dest must be 'document'");
-        }
-    }
-
-    Ok(())
-}
-
-/// Inspect the browser fetch-metadata + Referer/Origin headers and decide
-/// whether the inbound `/auth/telegram` request looks like a legitimate
-/// top-level redirect from Telegram, or a cross-site CSRF attempt.
-///
-/// The endpoint cannot require a bearer token (the redirect happens in a
-/// fresh browser tab; `EventSource`-style header injection is not an
-/// option), and there is no in-process state issued by an authenticated
-/// FE flow today (`/start register` is initiated in Telegram, not in the
-/// local app). So this fetch-metadata gate is the layer that distinguishes
-/// "user clicked the link the bot sent them" from "malicious page
-/// navigates the user's loopback core via `window.location`/`<img>`".
-///
-/// Accepted shapes:
-/// - All `Sec-Fetch-*` headers absent (older browsers, CLI clients).
-/// - `Sec-Fetch-Mode: navigate` AND `Sec-Fetch-Dest: document`.
-/// - `Sec-Fetch-Site` is `same-origin` / `none`, OR `cross-site` with a
-///   `Referer` that starts with `https://t.me/` (the legit bot redirect).
-///
-/// Rejected shapes:
-/// - `Sec-Fetch-Mode` is `no-cors` / `cors` / `same-origin` (only
-///   `navigate` makes sense for a top-level page load).
-/// - `Sec-Fetch-Dest` is anything other than `document` (image/script/
-///   iframe embeds from malicious pages).
-/// - `Sec-Fetch-Site: cross-site` with a `Referer`/`Origin` that is not
-///   `https://t.me/...` (CSRF redirect from a third-party site).
-#[cfg(feature = "http-server")]
-fn telegram_callback_origin_ok(headers: &axum::http::HeaderMap) -> Result<(), &'static str> {
-    let get_str = |name: &str| -> Option<&str> {
-        headers
-            .get(name)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-    };
-
-    let mode = get_str("sec-fetch-mode");
-    let dest = get_str("sec-fetch-dest");
-    let site = get_str("sec-fetch-site");
-    let referer = get_str("referer");
-    let origin = get_str("origin");
-
-    if let Some(mode) = mode {
-        if mode != "navigate" {
-            return Err("Sec-Fetch-Mode must be 'navigate'");
-        }
-    }
-    if let Some(dest) = dest {
-        if dest != "document" {
-            return Err("Sec-Fetch-Dest must be 'document'");
-        }
-    }
-
-    let referer_is_telegram = referer
-        .map(|r| r.starts_with("https://t.me/") || r.starts_with("https://web.telegram.org/"))
-        .unwrap_or(false);
-    let origin_is_telegram = origin
-        .map(|o| o == "https://t.me" || o == "https://web.telegram.org")
-        .unwrap_or(false);
-
-    if let Some(site) = site {
-        if site == "cross-site" && !(referer_is_telegram || origin_is_telegram) {
-            return Err("cross-site redirect must originate from telegram");
-        }
-    } else if let Some(referer) = referer {
-        // No Sec-Fetch-Site: fall back to Referer host check. Accept
-        // loopback referer (direct nav inside the local app) — parsed
-        // exactly so `http://localhost.attacker.example/...` does not
-        // satisfy the gate — and accept telegram referer (legit bot
-        // redirect); reject everything else.
-        let local = url::Url::parse(referer)
-            .ok()
-            .and_then(|u| u.host_str().map(str::to_string))
-            .map(|h| matches!(h.as_str(), "localhost" | "127.0.0.1" | "::1"))
-            .unwrap_or(false);
-        if !(local || referer_is_telegram) {
-            return Err("Referer must be telegram or local");
-        }
-    }
-
-    Ok(())
-}
-
-/// Handles the Telegram authentication callback.
-///
-/// It consumes a one-time token, exchanges it for a JWT from the backend,
-/// and stores the session locally.
-#[cfg(feature = "http-server")]
-async fn telegram_auth_handler(
-    headers: axum::http::HeaderMap,
-    Query(query): Query<TelegramAuthQuery>,
-) -> impl IntoResponse {
-    let html_response = |status: StatusCode, body: String| -> Response {
-        (
-            status,
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            body,
-        )
-            .into_response()
-    };
-
-    if let Err(reason) = telegram_callback_origin_ok(&headers) {
-        log::warn!("[auth:telegram] rejecting callback: {reason}");
-        return html_response(
-            StatusCode::FORBIDDEN,
-            error_html(
-                "This login callback did not come from the Telegram bot. \
-                 Open the link the bot sent you directly, do not let \
-                 another page redirect you here.",
-            ),
-        );
-    }
-
-    let token = match query
-        .token
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        Some(t) => t.to_string(),
-        None => {
-            return html_response(
-                StatusCode::BAD_REQUEST,
-                error_html("Missing token parameter. Send /start register to the bot again."),
-            )
-        }
-    };
-
-    log::info!("[auth:telegram] Received registration callback with token");
-
-    let config = match crate::config::Config::load_or_init().await {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("[auth:telegram] Failed to load config: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html("Internal error. Please try again."),
-            );
-        }
-    };
-
-    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-
-    let client = match crate::api::rest::BackendOAuthClient::new(&api_url) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("[auth:telegram] Failed to create API client: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html("Internal error. Please try again."),
-            );
-        }
-    };
-
-    // Exchange the login token for a session JWT.
-    let jwt_token = match client.consume_login_token(&token).await {
-        Ok(jwt) => jwt,
-        Err(e) => {
-            let error_str = e.to_string();
-            // Check if this is a client-side error (token validation) or server-side error
-            let is_client_error = error_str.contains("expired")
-                || error_str.contains("invalid")
-                || error_str.contains("not found")
-                || error_str.contains("already used")
-                || error_str.contains("401")
-                || error_str.contains("400")
-                || error_str.contains("404");
-
-            if is_client_error {
-                log::warn!("[auth:telegram] Token consumption failed (client error): {e}");
-                return html_response(
-                    StatusCode::BAD_REQUEST,
-                    error_html(
-                        "This link has expired or was already used. Send /start register to the bot again.",
-                    ),
-                );
-            } else {
-                log::error!("[auth:telegram] Token consumption failed (server error): {e}");
-                return html_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    error_html("Internal server error, please try again later."),
-                );
-            }
-        }
-    };
-
-    // Store the resulting session token in the local configuration.
-    match crate::security::credentials::ops::store_session_with_deferred_validation(
-        &config, &jwt_token, None, None,
-    )
-    .await
-    {
-        Ok(outcome) => {
-            for msg in &outcome.logs {
-                log::info!("[auth:telegram] {msg}");
-            }
-            log::info!("[auth:telegram] Session stored successfully");
-        }
-        Err(e) => {
-            log::error!("[auth:telegram] Failed to store session: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html("Connected to Telegram but failed to save session. Please try again."),
-            );
-        }
-    }
-
-    html_response(
-        StatusCode::OK,
-        success_html(
-            "Your Telegram account has been connected to OpenHuman. You can close this tab.",
-        ),
-    )
-}
-
-/// Handles the generic desktop login callback fallback.
-///
-/// The preferred path is the `openhuman://auth?...` deep link handled in the
-/// renderer. On hosts where URL-scheme registration is broken, some login
-/// flows can fall back to the local core callback (`/auth`). This route is
-/// public because the callback carries its own one-time login token; raw
-/// session JWT callbacks are intentionally rejected on this public surface.
-#[cfg(feature = "http-server")]
-async fn desktop_auth_handler(
-    headers: axum::http::HeaderMap,
-    Query(query): Query<DesktopAuthQuery>,
-) -> impl IntoResponse {
-    let html_response = |status: StatusCode, body: String| -> Response {
-        (
-            status,
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            body,
-        )
-            .into_response()
-    };
-
-    if let Err(reason) = desktop_callback_navigation_ok(&headers) {
-        log::warn!("[auth:desktop] Rejected non-navigation callback: {reason}");
-        return html_response(
-            StatusCode::BAD_REQUEST,
-            error_html("Sign-in callback must be opened as a browser page. Please try again."),
-        );
-    }
-
-    let token = match query
-        .token
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        Some(t) => t.to_string(),
-        None => {
-            return html_response(
-                StatusCode::BAD_REQUEST,
-                error_html("Sign-in callback was missing a token. Please try again."),
-            )
-        }
-    };
-
-    if query
-        .key
-        .as_deref()
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .is_some()
-    {
-        log::warn!("[auth:desktop] Rejected deprecated direct session token callback");
-        return html_response(
-            StatusCode::BAD_REQUEST,
-            error_html("This sign-in callback is no longer supported. Please start sign-in again."),
-        );
-    }
-
-    log::info!("[auth:desktop] Received desktop auth callback");
-
-    let config = match crate::config::Config::load_or_init().await {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("[auth:desktop] Failed to load config: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html("Internal error. Please try again."),
-            );
-        }
-    };
-
-    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-    let client = match crate::api::rest::BackendOAuthClient::new(&api_url) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("[auth:desktop] Failed to create API client: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html("Internal error. Please try again."),
-            );
-        }
-    };
-
-    let jwt_token = match client.consume_login_token(&token).await {
-        Ok(jwt) => jwt,
-        Err(e) => {
-            log::warn!("[auth:desktop] Login token consumption failed: {e}");
-            return html_response(
-                StatusCode::BAD_REQUEST,
-                error_html("This sign-in link has expired or was already used. Please try again."),
-            );
-        }
-    };
-
-    match crate::security::credentials::ops::store_session_with_deferred_validation(
-        &config, &jwt_token, None, None,
-    )
-    .await
-    {
-        Ok(outcome) => {
-            for msg in &outcome.logs {
-                log::info!("[auth:desktop] {msg}");
-            }
-            log::info!("[auth:desktop] Session stored successfully");
-        }
-        Err(e) => {
-            log::error!("[auth:desktop] Failed to store session: {e}");
-            return html_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error_html(
-                    "Sign-in succeeded but OpenHuman could not save the session. Please try again.",
-                ),
-            );
-        }
-    }
-
-    html_response(
-        StatusCode::OK,
-        success_html("Sign-in completed. You can close this tab and return to OpenHuman."),
-    )
-}
-
 /// Query parameters for the dictation WebSocket endpoint.
 ///
 /// Browser `WebSocket` cannot attach an `Authorization` header on upgrade, so
@@ -1182,8 +796,6 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
             post(rpc_handler).route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
         )
         .route("/ws/dictation", get(dictation_ws_handler))
-        .route("/auth", get(desktop_auth_handler))
-        .route("/auth/telegram", get(telegram_auth_handler))
         .route("/oauth/mcp/callback", get(oauth_mcp_callback_handler))
         // OpenAI-compatible inference endpoint (/v1/chat/completions, /v1/models)
         .nest("/v1", crate::inference::http::router())
@@ -2065,6 +1677,19 @@ fn register_domain_subscribers(
         // battery-powered hosts).
         crate::cron::scheduler_gate::init_global(&config);
 
+        // A headless host (Docker / VPS / CI) has no interactive login; it
+        // hands the core a credential through the environment instead. The
+        // API key is a plain profile write, so it lands before the gate is
+        // seeded from the store below; a session token runs the full
+        // `set_credential` path and seeds the gate itself when it finishes.
+        crate::security::credentials::seed_api_key_from_env(&config);
+        if std::env::var_os(crate::security::credentials::BACKEND_SESSION_TOKEN_ENV).is_some() {
+            let config = config.clone();
+            tokio::spawn(async move {
+                crate::security::credentials::seed_session_from_env(&config).await;
+            });
+        }
+
         // Seed the scheduler-gate signed-out override from the on-disk
         // credential — an API key (library runtime) or the app session.
         // Without this, a sidecar that boots with no stored credential would
@@ -2698,7 +2323,7 @@ pub async fn start_core_runtime_services(
     crate::core::runtime::services::start_boot_once_jobs(services, cfg).await;
 
     // Long-lived bootstrap loops selected by ServiceSet. These start only
-    // after the legacy goal/task-board migrations above have completed.
+    // after the boot-once jobs above have completed.
     crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
 
     match crate::platform::socket::global_socket_manager() {

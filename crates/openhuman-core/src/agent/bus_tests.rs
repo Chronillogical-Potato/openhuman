@@ -5,7 +5,7 @@ use tinybus::NativeRegistry;
 /// in these tests, so the provider trait object is never actually
 /// invoked — an empty native scripted model only satisfies the type.
 fn test_request() -> AgentTurnRequest {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     AgentTurnRequest {
         turn_model_source: crate::agent::tinyagents::TurnModelSource::from_model(model),

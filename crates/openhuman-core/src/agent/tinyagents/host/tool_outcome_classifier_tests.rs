@@ -2,13 +2,9 @@ use super::*;
 use crate::security::{POLICY_BLOCKED_MARKER, POLICY_DENIED_MARKER};
 
 fn result(error: Option<&str>, content: &str) -> ToolResult {
-    ToolResult {
-        call_id: "call-1".to_string(),
-        name: "shell".to_string(),
-        content: content.to_string(),
-        raw: None,
-        error: error.map(str::to_string),
-        elapsed_ms: 5,
+    match error {
+        Some(message) => ToolResult::error(if content.is_empty() { message } else { content }),
+        None => ToolResult::success(content),
     }
 }
 
@@ -246,29 +242,29 @@ fn markers_are_honoured_when_they_land_in_content_not_error() {
 }
 
 #[test]
-fn failure_text_borrows_when_one_side_is_empty_or_duplicated() {
+fn failure_text_preserves_single_and_combined_sources() {
     let only_error = result(Some("boom"), "");
-    assert!(matches!(
+    assert_eq!(
         OpenHumanToolOutcomeClassifier::failure_text(&only_error),
-        Cow::Borrowed("boom")
-    ));
+        "boom"
+    );
 
     let duplicated = result(Some("boom"), "boom");
-    assert!(matches!(
+    assert_eq!(
         OpenHumanToolOutcomeClassifier::failure_text(&duplicated),
-        Cow::Borrowed("boom")
-    ));
+        "boom"
+    );
 
     let only_content = result(Some(""), "boom");
-    assert!(matches!(
+    assert_eq!(
         OpenHumanToolOutcomeClassifier::failure_text(&only_content),
-        Cow::Borrowed("boom")
-    ));
+        "boom"
+    );
 
     let both = result(Some("boom"), "context");
     assert_eq!(
         OpenHumanToolOutcomeClassifier::failure_text(&both),
-        "boom\ncontext"
+        "context"
     );
 }
 

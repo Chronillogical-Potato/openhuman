@@ -149,18 +149,13 @@ fn legacy_workflow_dir(
             workspace_dir.join(".openhuman").join("skills"),
             workspace_dir.join(".agents").join("skills"),
         ],
-        // Profile-local skills are placed by hand under
-        // `<workspace>/personalities/<id>/skills/`, never scaffolded through
-        // the create path; treat them like Legacy here (no create target).
         // Builtin bundles come from a `const` table compiled into the
         // binary; a create RPC that could write one would make that table
         // remotely extensible, which is the whole thing it exists to prevent.
         // Flow entries are rows in `flows.db`, not bundle directories — there
         // is no path to resolve. Creating one is `save_workflow`'s job.
-        WorkflowScope::Builtin
-        | WorkflowScope::Legacy
-        | WorkflowScope::Profile
-        | WorkflowScope::Flow => return None,
+        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Flow => return None,
+        _ => return None,
     };
     for root in roots {
         let canonical_root = match std::fs::canonicalize(&root) {
@@ -235,10 +230,15 @@ pub(crate) fn create_workflow_inner(
                     .to_string(),
             );
         }
-        WorkflowScope::Builtin | WorkflowScope::Legacy | WorkflowScope::Profile => {
+        WorkflowScope::Builtin | WorkflowScope::Legacy => {
             return Err(
-                "cannot create skill in legacy or profile scope; choose 'user' or 'project'"
+                "cannot create skill in legacy or builtin scope; choose 'user' or 'project'"
                     .to_string(),
+            );
+        }
+        _ => {
+            return Err(
+                "cannot create skill in this scope; choose 'user' or 'project'".to_string(),
             );
         }
     };
@@ -400,13 +400,13 @@ pub(crate) fn create_workflow_inner(
     );
 
     let trusted = is_workspace_trusted(workspace_dir);
-    let created = discover_workflows_inner(home_dir, Some(workspace_dir), None, trusted)
+    let created = discover_workflows_inner(home_dir, Some(workspace_dir), trusted)
         .into_iter()
         .find(|s| s.name == slug)
         .ok_or_else(|| format!("created skill '{slug}' but failed to re-discover"))?;
 
     // Notify live agent sessions so they pick up the new skill in their
-    // `## Installed Skills` catalogue (see `Agent::refresh_workflows`).
+    // `## Installed Skills` catalogue (see `OpenHumanSessionHost::refresh_workflows`).
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "create".to_string(),
     });

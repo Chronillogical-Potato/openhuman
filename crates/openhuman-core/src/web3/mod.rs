@@ -58,7 +58,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 #[cfg(feature = "web3")]
 use crate::rpc::RpcOutcome;
 #[cfg(feature = "web3")]
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
 
 // ---------------------------------------------------------------------------
 // Disabled facade — compiled only when the `web3` feature is OFF.

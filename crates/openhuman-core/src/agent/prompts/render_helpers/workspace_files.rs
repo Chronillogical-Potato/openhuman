@@ -112,9 +112,8 @@ pub fn inject_workspace_file(prompt: &mut String, workspace_dir: &Path, filename
 /// Inject pre-loaded string content into `prompt` under a `### label` heading,
 /// capped at `max_chars`. Mirrors the format of [`inject_snapshot_content`]
 /// and [`inject_workspace_file_capped`] but takes a `&str` instead of a file
-/// path. Used for personality-specific overrides (`personality_soul_md`,
-/// `personality_memory_md`) on [`PromptContext`] so a swap from the file-based
-/// loader to an inline override is byte-compatible with the workspace-file path.
+/// path. Used for pre-loaded prompt sections that need the same rendering as
+/// workspace-file content.
 ///
 /// Empty/whitespace content is silently skipped.
 pub fn inject_inline_content(prompt: &mut String, label: &str, content: &str, max_chars: usize) {

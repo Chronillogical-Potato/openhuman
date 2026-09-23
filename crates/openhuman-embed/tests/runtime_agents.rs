@@ -205,7 +205,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             );
 
             // Layout: every agent has its own home, transcripts and action dir.
-            assert_eq!(alpha.home_dir(), workspace_dir.join("personalities/alpha"));
+            assert_eq!(alpha.home_dir(), workspace_dir.join("agents/alpha"));
             assert_eq!(alpha.transcripts_dir(), workspace_dir.join("session_raw"));
             assert_eq!(alpha.action_dir(), root_dir.join("agents/alpha/action"));
             assert!(alpha.action_dir().is_dir());
@@ -218,7 +218,7 @@ fn one_runtime_hosts_independently_configured_agents() {
             {
                 assert!(
                     alpha.skills_dir().join("alpha-skill/SKILL.md").is_file(),
-                    "alpha's bundle lands in its profile-local skills root"
+                    "alpha's bundle lands in its agent-local skills root"
                 );
                 assert!(
                     !beta.skills_dir().join("alpha-skill").exists(),

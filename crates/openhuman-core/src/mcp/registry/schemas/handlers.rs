@@ -7,8 +7,7 @@ use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
 
 use super::params::{
-    read_optional, read_optional_json, read_optional_string, read_optional_u32, read_required,
-    to_json,
+    read_optional, read_optional_string, read_optional_u32, read_required, to_json,
 };
 
 // ── Handler implementations ──────────────────────────────────────────────────
@@ -42,24 +41,6 @@ pub(super) fn handle_installed_list(params: Map<String, Value>) -> ControllerFut
         let _ = params;
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(crate::mcp::registry::ops::mcp_clients_installed_list(&config).await?)
-    })
-}
-
-pub(super) fn handle_install(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let qualified_name = read_required::<String>(&params, "qualified_name")?;
-        let env = read_required::<std::collections::HashMap<String, String>>(&params, "env")?;
-        let config_value = read_optional_json(&params, "config")?;
-        to_json(
-            crate::mcp::registry::ops::mcp_clients_install(
-                &config,
-                qualified_name,
-                env,
-                config_value,
-            )
-            .await?,
-        )
     })
 }
 
@@ -131,6 +112,14 @@ pub(super) fn handle_status(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+pub(super) fn handle_list_tools(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let server_id = read_required::<String>(&params, "server_id")?;
+        to_json(crate::mcp::registry::ops::mcp_clients_list_tools(&config, server_id).await?)
+    })
+}
+
 pub(super) fn handle_tool_call(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let server_id = read_required::<String>(&params, "server_id")?;
@@ -149,22 +138,22 @@ pub(super) fn handle_tool_call(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-pub(super) fn handle_config_assist(params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn handle_config_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let _ = params;
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(crate::mcp::registry::config_ops::mcp_clients_config_get(&config).await?)
+    })
+}
+
+pub(super) fn handle_config_set(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let qualified_name = read_required::<String>(&params, "qualified_name")?;
-        let user_message = read_required::<String>(&params, "user_message")?;
-        let history =
-            read_optional::<Vec<crate::mcp::registry::types::ChatTurn>>(&params, "history")?;
-        to_json(
-            crate::mcp::registry::ops::mcp_clients_config_assist(
-                &config,
-                qualified_name,
-                user_message,
-                history,
-            )
-            .await?,
-        )
+        // The whole document is the parameter set: `{ "mcpServers": { … } }`
+        // is what a user pastes, and wrapping it in another key would make the
+        // wire shape differ from the file shape for no reason.
+        let doc = Value::Object(params);
+        to_json(crate::mcp::registry::config_ops::mcp_clients_config_set(&config, doc).await?)
     })
 }
 

@@ -1,10 +1,10 @@
 use super::*;
-use crate::tools::ToolResult;
 use async_trait::async_trait;
 use tinyagents_harness::testkit::ScriptedModel;
-use tinyinference::message::AssistantMessage;
-use tinyinference::model::{ChatModel, ModelProfile, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::message::AssistantMessage;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolResult;
 
 struct PingTool;
 #[async_trait]
@@ -34,6 +34,7 @@ async fn channel_turn_runs_through_the_graph() {
                 content: Vec::new(),
                 tool_calls: vec![ToolCall::new("p", "ping", serde_json::json!({}))],
                 usage: None,
+                origin: None,
             },
             usage: None,
             finish_reason: Some("tool_calls".to_string()),
@@ -41,6 +42,8 @@ async fn channel_turn_runs_through_the_graph() {
             resolved_model: None,
             continue_turn: None,
             served_from_cache: false,
+            correlation: None,
+            resolved_route: None,
         },
         ModelResponse::assistant("channel done"),
     ]));
@@ -62,7 +65,7 @@ async fn channel_turn_runs_through_the_graph() {
     )
     .await
     .expect("channel graph turn runs");
-    assert_eq!(text, "channel done");
+    assert_eq!(text.text, "channel done");
     assert!(history.iter().any(|m| m.content.contains("pong")));
 }
 
@@ -91,6 +94,7 @@ async fn channel_turn_pauses_on_ask_user_clarification() {
                     serde_json::json!({ "question": "Which three sources?" }),
                 )],
                 usage: None,
+                origin: None,
             },
             usage: None,
             finish_reason: Some("tool_calls".to_string()),
@@ -98,6 +102,8 @@ async fn channel_turn_pauses_on_ask_user_clarification() {
             resolved_model: None,
             continue_turn: None,
             served_from_cache: false,
+            correlation: None,
+            resolved_route: None,
         },
         ModelResponse::assistant("built it without asking"),
     ]));
@@ -121,7 +127,7 @@ async fn channel_turn_pauses_on_ask_user_clarification() {
     .expect("channel graph turn runs");
 
     assert_eq!(
-        text, "Which three sources?",
+        text.text, "Which three sources?",
         "the turn must end on the question; got the model's own follow-up, so the pause did not fire"
     );
     let last = history.last().expect("history is not empty");

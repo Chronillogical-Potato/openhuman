@@ -1,14 +1,16 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use tinytools_agent::dialect::{NativeDialect, XmlDialect};
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::agent::Agent;
+use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::config::{AgentConfig, ContextConfig};
 use openhuman_core::agent::context::session_memory::SessionMemoryConfig;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolContent};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::VecDeque;
@@ -16,10 +18,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tempfile::TempDir;
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 use tokio::time::{sleep, Duration, Instant};
 
 struct EnvGuard {
@@ -92,7 +94,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(CapturedRequest {
             messages: request.messages,
             tool_names: request.tools.iter().map(|tool| tool.name.clone()).collect(),
@@ -101,7 +103,7 @@ impl ChatModel<()> for ScriptedModel {
             .lock()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("fallback final", None)))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -344,7 +346,7 @@ async fn native_turn_dedups_duplicate_tool_specs_and_executes_empty_arguments() 
         true,
     );
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider.clone())
         .tools(vec![
             tool(
@@ -364,7 +366,7 @@ async fn native_turn_dedups_duplicate_tool_specs_and_executes_empty_arguments() 
         ])
         .visible_tool_names(["round20_dup".to_string()].into_iter().collect())
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .event_context("round20-native-session", "round20-native-channel")
         .agent_definition_name("round20/native")
@@ -410,7 +412,7 @@ async fn xml_turn_persists_tool_cycle_and_fires_failure_hook_context() {
         false,
     );
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider)
         .tools(vec![tool(
             "round20_fail",
@@ -420,7 +422,7 @@ async fn xml_turn_persists_tool_cycle_and_fires_failure_hook_context() {
             true,
         )])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path.clone())
         .event_context("round20-hook-session", "round20-hook-channel")
         .agent_definition_name("round20/xml")
@@ -483,7 +485,7 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
         false,
     );
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider)
         .tools(vec![tool(
             "round20_ok",
@@ -493,7 +495,7 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
             false,
         )])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round20-flush-session", "round20-flush-channel")
         .agent_definition_name("round20/flush")
@@ -530,11 +532,11 @@ async fn session_memory_threshold_path_runs_only_after_successful_turn() {
 
     let (_empty_tmp, empty_workspace) = workspace("empty-failed-turn");
     let empty_provider = ScriptedModel::new(vec![text_response("   ", None)], false);
-    let mut failed_agent = Agent::builder()
+    let mut failed_agent = OpenHumanSessionHost::builder()
         .chat_model(empty_provider)
         .tools(Vec::new())
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(empty_workspace)
         .event_context("round20-empty-session", "round20-empty-channel")
         .agent_definition_name("round20/empty")

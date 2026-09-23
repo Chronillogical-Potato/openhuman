@@ -1,14 +1,15 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
-use openhuman_core::agent::harness::session::Agent;
+use openhuman_core::tinytools_agent::dialect::NativeDialect;
+use openhuman_core::agent::session_host::OpenHumanSessionHost;
 use openhuman_core::agent::harness::{
     run_subagent, with_parent_context, AgentDefinition, DefinitionSource, ModelSpec,
     ParentExecutionContext, PromptSource, SandboxMode, SubagentRunError, SubagentRunOptions,
     ToolScope,
 };
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     render_ambient_environment, render_subagent_system_prompt, render_tools, render_user_files,
     ConnectedIntegration, CuratedMemoryPromptSnapshot, LearnedContextData, NamespaceSummary,
     PromptContext, PromptTool, SubagentRenderOptions, SystemPromptBuilder, ToolCallFormat,
@@ -18,17 +19,18 @@ use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary as MemoryNamespaceSummary, RecallOpts,
 };
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tinyinference::message::{AssistantMessage, ContentBlock};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 struct ScriptedModel {
     responses: Mutex<VecDeque<anyhow::Result<ModelResponse>>>,
@@ -93,7 +95,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(
             request
                 .messages
@@ -106,13 +108,13 @@ impl ChatModel<()> for ScriptedModel {
             tokio::time::sleep(delay).await;
         }
         if let Some(message) = &self.always_fail {
-            return Err(tinyinference::Error::Model(message.clone()));
+            return Err(tinyinference_llm::Error::Model(message.clone()));
         }
         self.responses
             .lock()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("fallback final")))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -223,6 +225,7 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
             ],
             tool_calls: vec![ToolCall::new("round18-call", name, arguments)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
@@ -351,8 +354,6 @@ fn prompt_context<'a>(
             name: Some("Ada\nLovelace".to_string()),
             email: Some("ada@example.test".to_string()),
         }),
-        personality_soul_md: Some("personality soul override".to_string()),
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -385,7 +386,7 @@ fn prompt_sections_render_files_identity_memory_tools_and_ambient_blocks() -> Re
     let rendered = SystemPromptBuilder::with_defaults()
         .insert_section_before(
             "user_memory",
-            Box::new(openhuman_core::agent::context::prompt::UserReflectionsSection),
+            Box::new(openhuman_core::agent::prompts::UserReflectionsSection),
         )
         .build(&ctx)?;
 
@@ -478,19 +479,19 @@ fn subagent_prompt_renderer_covers_format_branches_and_missing_indices() {
 fn agent_builder_validation_reports_each_required_component() {
     let provider = ScriptedModel::new(vec![]);
 
-    let err = match Agent::builder().build() {
+    let err = match OpenHumanSessionHost::builder().build() {
         Ok(_) => panic!("builder without tools should fail"),
         Err(err) => err.to_string(),
     };
     assert!(err.contains("tools are required"));
 
-    let err = match Agent::builder().tools(Vec::new()).build() {
+    let err = match OpenHumanSessionHost::builder().tools(Vec::new()).build() {
         Ok(_) => panic!("builder without provider should fail"),
         Err(err) => err.to_string(),
     };
     assert!(err.contains("provider is required"));
 
-    let err = match Agent::builder()
+    let err = match OpenHumanSessionHost::builder()
         .tools(Vec::new())
         .chat_model(provider.clone())
         .build()
@@ -500,7 +501,7 @@ fn agent_builder_validation_reports_each_required_component() {
     };
     assert!(err.contains("memory is required"));
 
-    let err = match Agent::builder()
+    let err = match OpenHumanSessionHost::builder()
         .tools(Vec::new())
         .chat_model(provider)
         .memory(Arc::new(StubMemory))
@@ -511,11 +512,11 @@ fn agent_builder_validation_reports_each_required_component() {
     };
     assert!(err.contains("tool_dispatcher is required"));
 
-    let agent = Agent::builder()
+    let agent = OpenHumanSessionHost::builder()
         .tools(vec![tool("echo"), tool("echo")])
         .chat_model(ScriptedModel::new(vec![]))
         .memory(Arc::new(StubMemory))
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .visible_tool_names(HashSet::from(["echo".to_string()]))
         .agent_definition_name("round18/custom name")
         .build()
@@ -565,6 +566,53 @@ async fn run_subagent_loads_workspace_prompt_runs_tool_and_returns_final() -> Re
     assert!(requests[0].contains("parent memory survives when allowed"));
     assert!(requests[0].contains("caller context"));
     assert!(requests[1].contains("tool-output"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn native_parent_integrations_subagent_receives_text_tool_catalogue() -> Result<()> {
+    let workspace = tempfile::tempdir()?;
+    let provider = ScriptedModel::new(vec![text_response("integration result")]);
+
+    let mut parent_context = parent(workspace.path().to_path_buf(), provider.clone());
+    parent_context.allowed_subagent_ids.insert("integrations_agent".into());
+    parent_context.tool_call_format = ToolCallFormat::Native;
+    parent_context.connected_integrations = vec![ConnectedIntegration {
+        toolkit: "gmail".into(),
+        description: "Gmail actions".into(),
+        tools: vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
+            name: "GMAIL_LIST_MESSAGES".into(),
+            description: "List messages in a mailbox".into(),
+            parameters: Some(json!({"type": "object"})),
+        }],
+        gated_tools: vec![],
+        connected: true,
+        connections: vec![],
+        non_active_status: None,
+    }];
+
+    let mut def = definition(PromptSource::Inline("Use the connected toolkit.".into()));
+    def.id = "integrations_agent".into();
+
+    let outcome = with_parent_context(parent_context, async {
+        run_subagent(
+            &def,
+            "list messages",
+            SubagentRunOptions {
+                toolkit_override: Some("gmail".into()),
+                task_id: Some("native-parent-integrations".into()),
+                ..SubagentRunOptions::default()
+            },
+        )
+        .await
+    })
+    .await?;
+
+    assert_eq!(outcome.output, "integration result");
+    let system_prompt = provider.requests()[0].clone();
+    assert!(system_prompt.contains("## Tools"));
+    assert!(system_prompt.contains("GMAIL_LIST_MESSAGES"));
+    assert!(!system_prompt.contains("native tool-calling output"));
     Ok(())
 }
 

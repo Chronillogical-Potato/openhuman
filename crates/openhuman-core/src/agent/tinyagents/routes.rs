@@ -7,34 +7,40 @@ use tinyagents_harness::context::RunContext;
 use tinyagents_harness::events::AgentEvent;
 use tinyagents_harness::middleware::{MiddlewareModelOutcome, ModelHandler, ModelMiddleware};
 use tinyagents_harness::retry::FallbackPolicy;
-use tinyagents_registry::{ModelRouter, WorkloadRoute};
-use tinyinference::model::{CapabilitySet, ModelRequest};
+use tinyagents_registry::{WorkloadRoute, WorkloadRouter};
+use tinyinference_llm::model::{CapabilitySet, ModelRequest};
 
-use crate::config::{
-    MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
-    MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
-};
+/// Role aliases the workload router is keyed by: the `hint:<role>` string a
+/// caller pins (an agent manifest's `hint = "coding"`, a flow node's
+/// `config.model`). The inference provider factory resolves each alias to the
+/// role's configured route — the managed default model, or the BYOK/local
+/// model routed to that workload.
+pub(super) const ROUTE_CHAT: &str = "hint:chat";
+pub(super) const ROUTE_REASONING: &str = "hint:reasoning";
+pub(super) const ROUTE_AGENTIC: &str = "hint:agentic";
+pub(super) const ROUTE_CODING: &str = "hint:coding";
+pub(super) const ROUTE_BURST: &str = "hint:burst";
+pub(super) const ROUTE_SUMMARIZATION: &str = "hint:summarization";
+pub(super) const ROUTE_VISION: &str = "hint:vision";
 
-/// The workload routes projected into the registry, keyed by their OpenHuman
-/// tier alias (the string the wrapped provider resolves at dispatch).
+/// The workload routes projected into the registry, keyed by role alias.
 ///
-/// This is the canonical tier inventory (`reasoning`, `chat`, `agentic`,
-/// `burst`, `coding`, `summarization`, `vision`). The inference provider factory
-/// resolves the selected tier to its configured model. `subconscious`/`memory`
-/// are intentionally absent — they are role aliases that ride the `chat-v1`
-/// model rather than distinct router tiers.
+/// This is the canonical workload inventory (`chat`, `reasoning`, `agentic`,
+/// `coding`, `burst`, `summarization`, `vision`). `subconscious`/`memory` are
+/// intentionally absent — they are role aliases that ride the chat route rather
+/// than distinct router entries.
 pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
-    MODEL_CHAT_V1,
-    MODEL_REASONING_V1,
-    MODEL_AGENTIC_V1,
-    MODEL_CODING_V1,
-    MODEL_BURST_V1,
-    MODEL_SUMMARIZATION_V1,
-    MODEL_VISION_V1,
+    ROUTE_CHAT,
+    ROUTE_REASONING,
+    ROUTE_AGENTIC,
+    ROUTE_CODING,
+    ROUTE_BURST,
+    ROUTE_SUMMARIZATION,
+    ROUTE_VISION,
 ];
 
 /// The OpenHuman workload-tier routing table as a crate
-/// [`ModelRouter`](tinyagents_registry::ModelRouter) — the single declarative
+/// [`WorkloadRouter`](tinyagents_registry::WorkloadRouter) — the single declarative
 /// source for cross-route **fallback chains** and per-tier **required-capability
 /// gates** (issue #4249, Phase 3 routing consolidation).
 ///
@@ -43,55 +49,47 @@ pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
 /// `turn_required_capabilities`: it answers [`route_fallback_policy`] and
 /// [`turn_required_capabilities`] from one declarative table.
 ///
-/// Built once — the tier set + fallback ordering + vision gate are static:
-/// - light/fast conversational siblings `chat-v1 ⇄ burst-v1`;
-/// - heavy reasoning/agentic siblings `reasoning-v1 ⇄ agentic-v1`;
-/// - `coding-v1 → agentic-v1` (coding is tool-heavy, agentic-adjacent);
-/// - `summarization-v1 → chat-v1` (summarization rides a general chat model);
-/// - `vision-v1` is `image_in`-gated and primary-only — a text fallback cannot
-///   satisfy the gate — and its `hint:vision` form carries the same gate.
-static OH_WORKLOAD_ROUTER: LazyLock<ModelRouter> = LazyLock::new(|| {
+/// Built once — the route set + fallback ordering + vision gate are static:
+/// - light/fast conversational siblings `chat ⇄ burst`;
+/// - heavy reasoning/agentic siblings `reasoning ⇄ agentic`;
+/// - `coding → agentic` (coding is tool-heavy, agentic-adjacent);
+/// - `summarization → chat` (summarization rides a general chat model);
+/// - `vision` is `image_in`-gated and primary-only — a text fallback cannot
+///   satisfy the gate.
+///
+/// On the managed backend every role resolves to the same default model, so a
+/// sibling fallback there re-dispatches the same model; the chain earns its
+/// keep when a role is routed to a BYOK/local provider that fails.
+static OH_WORKLOAD_ROUTER: LazyLock<WorkloadRouter> = LazyLock::new(|| {
     let vision_gate = CapabilitySet {
         image_in: true,
         ..CapabilitySet::default()
     };
-    ModelRouter::new()
+    WorkloadRouter::new()
+        .with_route(WorkloadRoute::new(ROUTE_CHAT, ROUTE_CHAT).with_fallbacks([ROUTE_BURST]))
+        .with_route(WorkloadRoute::new(ROUTE_BURST, ROUTE_BURST).with_fallbacks([ROUTE_CHAT]))
         .with_route(
-            WorkloadRoute::new(MODEL_CHAT_V1, MODEL_CHAT_V1).with_fallbacks([MODEL_BURST_V1]),
+            WorkloadRoute::new(ROUTE_REASONING, ROUTE_REASONING).with_fallbacks([ROUTE_AGENTIC]),
         )
         .with_route(
-            WorkloadRoute::new(MODEL_BURST_V1, MODEL_BURST_V1).with_fallbacks([MODEL_CHAT_V1]),
+            WorkloadRoute::new(ROUTE_AGENTIC, ROUTE_AGENTIC).with_fallbacks([ROUTE_REASONING]),
         )
+        .with_route(WorkloadRoute::new(ROUTE_CODING, ROUTE_CODING).with_fallbacks([ROUTE_AGENTIC]))
         .with_route(
-            WorkloadRoute::new(MODEL_REASONING_V1, MODEL_REASONING_V1)
-                .with_fallbacks([MODEL_AGENTIC_V1]),
+            WorkloadRoute::new(ROUTE_SUMMARIZATION, ROUTE_SUMMARIZATION)
+                .with_fallbacks([ROUTE_CHAT]),
         )
-        .with_route(
-            WorkloadRoute::new(MODEL_AGENTIC_V1, MODEL_AGENTIC_V1)
-                .with_fallbacks([MODEL_REASONING_V1]),
-        )
-        .with_route(
-            WorkloadRoute::new(MODEL_CODING_V1, MODEL_CODING_V1).with_fallbacks([MODEL_AGENTIC_V1]),
-        )
-        .with_route(
-            WorkloadRoute::new(MODEL_SUMMARIZATION_V1, MODEL_SUMMARIZATION_V1)
-                .with_fallbacks([MODEL_CHAT_V1]),
-        )
-        .with_route(
-            WorkloadRoute::new(MODEL_VISION_V1, MODEL_VISION_V1).requiring(vision_gate.clone()),
-        )
-        // The hint form resolves to the same vision tier and carries the same gate,
-        // with no fallback (primary-only), matching the legacy static gate.
-        .with_route(WorkloadRoute::new("hint:vision", MODEL_VISION_V1).requiring(vision_gate))
+        // Vision is image_in-gated with no fallback (primary-only).
+        .with_route(WorkloadRoute::new(ROUTE_VISION, ROUTE_VISION).requiring(vision_gate))
 });
 
 /// The capability needs a turn imposes on every model call, derived from what is
 /// cheaply available at harness-assembly time.
 ///
 /// Today the only reliably-derivable, safe-to-require signal is **vision**: when
-/// the turn's effective model is the dedicated `vision-v1` tier the turn was
+/// the turn's effective model is the dedicated `hint:vision` tier the turn was
 /// routed there because it carries image input (this is exactly what the
-/// `model_vision` selection in `subagent_runner/ops/graph.rs` encodes), so we
+/// `model_vision` selection in `subagent_host/ops/graph.rs` encodes), so we
 /// require `image_in` — which keeps the primary vision model selectable while
 /// filtering any non-vision fallback pre-dispatch.
 ///
@@ -122,17 +120,19 @@ impl RequiredCapabilitiesMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for RequiredCapabilitiesMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RequiredCapabilitiesMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.required_capabilities"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         mut request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         if request.required_capabilities.is_none() {
             request = request.with_required_capabilities(self.required.clone());
@@ -193,17 +193,19 @@ impl FallbackObserverMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for FallbackObserverMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for FallbackObserverMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.fallback_observer"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();
@@ -250,17 +252,19 @@ impl UsageCarryMiddleware {
 }
 
 #[async_trait]
-impl ModelMiddleware<()> for UsageCarryMiddleware {
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for UsageCarryMiddleware
+{
     fn name(&self) -> &str {
         "openhuman.usage_carry"
     }
 
     async fn wrap_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: ModelRequest,
-        next: ModelHandler<'_, (), ()>,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
         let outcome = next.run(ctx, state, request).await?;
         let response = outcome.into_response();
@@ -269,6 +273,43 @@ impl ModelMiddleware<()> for UsageCarryMiddleware {
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
                 .push_back(usage);
+        }
+        Ok(MiddlewareModelOutcome::from(response))
+    }
+}
+
+/// Captures the concrete provider/model/host-route selected for a successful
+/// call from TinyInference's canonical response metadata.
+///
+/// `tinyinference_llm::model::RouteRecordingModel` decorates both unary
+/// responses and stream terminal metadata. The harness folds a stream into its
+/// terminal `ModelResponse` before middleware regains control, so this one
+/// typed boundary records primary and fallback routes identically without an
+/// OpenHuman model wrapper or task-local propagation.
+pub(super) struct ResolvedRouteMiddleware;
+
+#[async_trait]
+impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ResolvedRouteMiddleware
+{
+    fn name(&self) -> &str {
+        "openhuman.resolved_route"
+    }
+
+    async fn wrap_model(
+        &self,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        state: &(),
+        request: ModelRequest,
+        next: ModelHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> tinyagents_harness::Result<MiddlewareModelOutcome> {
+        let outcome = next.run(ctx, state, request).await?;
+        let response = outcome.into_response();
+        if let Some(route) = response.resolved_route.clone() {
+            *ctx.data
+                .resolved_route
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(route);
         }
         Ok(MiddlewareModelOutcome::from(response))
     }

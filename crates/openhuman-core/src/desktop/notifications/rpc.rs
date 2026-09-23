@@ -106,7 +106,6 @@ pub async fn handle_ingest(params: Map<String, Value>) -> Result<Value, String> 
                 "raw": req.raw_payload,
             }),
             received_at: ingest_started_at,
-            card_link: None,
         };
 
         match run_triage(&envelope).await {

@@ -15,12 +15,14 @@
 //!
 //! # Two kinds of session
 //!
-//! [`Session::backend`] is a real JWT: it is validated against `GET /auth/me`
-//! before anything is persisted, and a failure means nothing is stored.
-//! [`Session::local`] is the compatibility/offline form — a token ending in
-//! `.local`, carrying its own user payload, which the core recognizes and does
-//! not try to validate. It authorizes nothing at the backend and is not needed
-//! by the default library harness.
+//! [`Session::backend`] is a real JWT. **The core does not validate it**: the
+//! embedder is responsible for having obtained it from the TinyHumans backend
+//! (a login-token exchange, `/auth/me`) and hands it over together with the
+//! user id it belongs to — through [`Session::user`], or implicitly through
+//! the JWT's subject claim. [`Session::local`] is the compatibility/offline
+//! form — a token ending in `.local`, carrying its own user payload, which the
+//! core recognizes and never sends anywhere. It authorizes nothing at the
+//! backend and is not needed by the default library harness.
 
 use std::sync::Arc;
 
@@ -38,7 +40,9 @@ pub struct Session {
 }
 
 impl Session {
-    /// A real backend session JWT, validated against `GET /auth/me` when stored.
+    /// A real backend session JWT the embedder has already obtained. The core
+    /// stores it as-is; supply the user through [`Session::user`] unless the
+    /// JWT carries a subject claim.
     pub fn backend(token: impl Into<String>) -> Self {
         Self {
             token: token.into(),
@@ -70,8 +74,9 @@ impl Session {
 
     /// Attach or override the user payload.
     ///
-    /// Required for a local session (the core refuses one without it) and
-    /// ignored for a backend session, which takes its user from `/auth/me`.
+    /// Required for a local session (the core refuses one without it). For a
+    /// backend session it is the `/auth/me` answer the embedder fetched; its
+    /// `id` names the user when the JWT has no subject claim.
     pub fn user(mut self, user: serde_json::Value) -> Self {
         self.user = Some(user);
         self
@@ -97,8 +102,8 @@ pub struct AuthState {
     #[serde(default, rename = "userId")]
     pub user_id: Option<String>,
     /// Which credential backs `is_authenticated`: `"session"` for an app
-    /// session, `"api-key"` for a TinyHumans API key (no user), absent when
-    /// signed out.
+    /// session, `"api-key"` for a TinyHumans API key (no user), `"local"` for
+    /// an offline session, absent when signed out.
     #[serde(default)]
     pub credential: Option<String>,
 }
@@ -121,14 +126,14 @@ impl Auth<'_> {
     ///
     /// # Errors
     ///
-    /// [`CoreError::Rpc`] when a backend session fails `GET /auth/me` — nothing
-    /// is persisted in that case, deliberately, so a caller cannot end up
-    /// believing it is signed in when it is not.
+    /// [`CoreError::Rpc`] when the core refuses the credential: an already
+    /// expired JWT, a backend session with no resolvable user id, or a local
+    /// session without a user payload. Nothing is persisted in that case.
     pub async fn store(&self, session: Session) -> Result<(), CoreError> {
         log::debug!("[embed][auth] storing session local={}", session.is_local());
         let _: serde_json::Value = call(
             self.0,
-            "openhuman.auth_store_session",
+            "openhuman.auth_set_credential",
             serde_json::json!({
                 "token": session.token,
                 "user": session.user,
@@ -181,8 +186,8 @@ impl Auth<'_> {
         log::debug!("[embed][auth] storing api key blank={}", key.is_blank());
         let _: serde_json::Value = call(
             self.0,
-            "openhuman.auth_store_api_key",
-            serde_json::json!({ "key": key.expose() }),
+            "openhuman.auth_set_credential",
+            serde_json::json!({ "token": key.expose(), "kind": "api-key" }),
         )
         .await?;
         Ok(())
@@ -192,19 +197,19 @@ impl Auth<'_> {
     pub async fn clear_api_key(&self) -> Result<(), CoreError> {
         let _: serde_json::Value = call(
             self.0,
-            "openhuman.auth_clear_api_key",
-            serde_json::json!({}),
+            "openhuman.auth_clear_credential",
+            serde_json::json!({ "kind": "api-key" }),
         )
         .await?;
         Ok(())
     }
 
-    /// Remove the stored session.
+    /// Remove the stored session (backend or local).
     pub async fn clear(&self) -> Result<(), CoreError> {
         let _: serde_json::Value = call(
             self.0,
-            "openhuman.auth_clear_session",
-            serde_json::json!({}),
+            "openhuman.auth_clear_credential",
+            serde_json::json!({ "kind": "session" }),
         )
         .await?;
         Ok(())

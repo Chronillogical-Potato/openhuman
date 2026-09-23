@@ -56,7 +56,16 @@ fn default_config_maps_to_the_crate_defaults() {
     // unconfigured crate config.
     let s = session_config_from(&base());
     assert_eq!(s.turn, TurnConfig::default());
-    assert_eq!(s.tools, ToolConfig::default());
+    // OpenHuman's own default dialect is `python` (the crate's is `Auto`);
+    // everything else about the tool config must still be the crate default.
+    assert_eq!(s.tools.dispatcher, ToolDispatcher::Python);
+    assert_eq!(
+        ToolConfig {
+            dispatcher: ToolDispatcher::Auto,
+            ..s.tools.clone()
+        },
+        ToolConfig::default()
+    );
     assert_eq!(s.memory.max_memory_context_chars, 2000);
 }
 
@@ -67,6 +76,8 @@ fn every_dispatcher_spelling_maps_and_unknown_falls_back_to_auto() {
         ("native", ToolDispatcher::Native),
         ("xml", ToolDispatcher::Xml),
         ("pformat", ToolDispatcher::Pformat),
+        ("python", ToolDispatcher::Python),
+        ("typescript", ToolDispatcher::Typescript),
         // Case and surrounding whitespace are tolerated.
         ("  NATIVE ", ToolDispatcher::Native),
         // A typo must not fail the session.

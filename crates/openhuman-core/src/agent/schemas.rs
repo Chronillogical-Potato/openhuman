@@ -10,7 +10,7 @@ use crate::rpc::RpcOutcome;
 /// Params for `agent.chat` and `agent.chat_simple`.
 ///
 /// A near-copy of the params in
-/// [`crate::inference::local::schemas`], which backs the
+/// [`crate::inference::host_runtime::schemas`], which backs the
 /// `inference.agent_chat*` namespace over the same ops. That surface carries
 /// two fields this one does not — a per-call `inference_url` + `api_key` —
 /// because `agent.chat` describes a turn on the account's own configured
@@ -233,7 +233,7 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let mut config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::inference::local::rpc::agent_chat(
+            crate::inference::host_runtime::rpc::agent_chat(
                 &mut config,
                 &p.message,
                 p.model_override,
@@ -256,7 +256,7 @@ fn handle_chat_simple(params: Map<String, Value>) -> ControllerFuture {
         let p = deserialize_params::<AgentChatParams>(params)?;
         let config = config_rpc::load_config_with_timeout().await?;
         to_json(
-            crate::inference::local::rpc::agent_chat_simple(
+            crate::inference::host_runtime::rpc::agent_chat_simple(
                 &config,
                 &p.message,
                 p.model_override,
@@ -493,8 +493,8 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 /// * **Model** — the static cost catalog projection
 ///   (`cost::catalog::tinyagents_catalog_snapshot`); carries model id, aliases,
 ///   provider/mode tags.
-/// * **Tool** — the baseline tool registry (`tools::default_tools`); names +
-///   descriptions. NOTE: the *full* per-agent tool surface (`tools::all_tools`)
+/// * **Tool** — the baseline tool registry (`tools::ops::default_tools`); names +
+///   descriptions. NOTE: the *full* per-agent tool surface (`tools::ops::all_tools`)
 ///   needs config/memory/audit/action-dir wiring that only exists inside a turn,
 ///   so only the baseline set is projected here. Deferred — see `deferred` in
 ///   the response and the migration follow-up.
@@ -518,7 +518,7 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 fn local_catalog_models_from_config(
     config: &crate::config::Config,
 ) -> Vec<crate::platform::cost::catalog::LocalCatalogModel> {
-    use crate::inference::local::profile::{profile_for_kind, LocalProviderKind, ToolSupport};
+    use tinyinference_local::profile::{profile_for_kind, LocalProviderKind, ToolSupport};
 
     config
         .model_registry
@@ -576,7 +576,7 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
 
         // ── Tools: baseline registry (full per-agent surface deferred) ──────
         let security = std::sync::Arc::new(crate::security::SecurityPolicy::default());
-        let baseline_tools = crate::tools::default_tools(security);
+        let baseline_tools = crate::tools::ops::default_tools(security);
         let tool_count = baseline_tools.len();
         for tool in &baseline_tools {
             components.push(

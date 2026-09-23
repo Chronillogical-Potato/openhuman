@@ -25,6 +25,7 @@ async fn bridge_forwards_tool_and_cost_progress() {
         duration_ms: None,
         output_bytes: None,
         error: None,
+        metadata: None,
     });
     sink.emit(AgentEvent::UsageRecorded {
         usage: Usage::new(100, 40),
@@ -183,6 +184,7 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
         duration_ms: None,
         output_bytes: None,
         error: None,
+        metadata: None,
     });
 
     let mut seen = None;

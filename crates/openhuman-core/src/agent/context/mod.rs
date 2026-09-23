@@ -21,16 +21,10 @@
 
 pub mod channels_prompt;
 pub mod manager;
-pub mod prompt;
 pub mod session_memory;
 pub mod stats;
 
 pub use manager::{ContextManager, ContextStats};
-pub use prompt::{
-    ArchetypePromptSection, DateTimeSection, IdentitySection, LearnedContextData, PromptContext,
-    PromptSection, PromptTool, RuntimeSection, SafetySection, SystemPromptBuilder, ToolsSection,
-    WorkspaceSection,
-};
 pub use session_memory::{
     SessionMemoryConfig, SessionMemoryState, ARCHIVIST_EXTRACTION_PROMPT, DEFAULT_MIN_TOKEN_GROWTH,
     DEFAULT_MIN_TOOL_CALLS, DEFAULT_MIN_TURNS_BETWEEN,

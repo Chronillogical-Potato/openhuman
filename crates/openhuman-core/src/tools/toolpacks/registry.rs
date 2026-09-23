@@ -19,7 +19,7 @@ use super::types::ToolPack;
 pub const PACKS: &[ToolPack] = &[
     ToolPack {
         id: "workflows",
-        summary: "Build, discover, run and inspect saved automation workflows (flows) and their run logs.",
+        summary: "Saved automation workflows: build, discover, run, inspect runs.",
         tools: &[
             "build_workflow",
             "discover_workflows",
@@ -54,14 +54,14 @@ pub const PACKS: &[ToolPack] = &[
             "get_tool_output_sample",
             "list_node_kinds",
             "get_node_kind_contract",
-            "list_agent_profiles",
+            "list_agent_definitions",
             "list_connectable_toolkits",
         ],
         owners: &["workflow_builder", "flow_discovery"],
     },
     ToolPack {
         id: "crypto",
-        summary: "Crypto wallet and market actions: transfer quotes, swaps, bridges, contract calls and x402 paid requests.",
+        summary: "Crypto wallet and market actions: quotes, swaps, bridges, contract calls, x402.",
         // `wallet_balances`, `wallet_network_defaults`, `wallet_supported_assets`,
         // `wallet_encode_erc20_transfer` and `wallet_execute_prepared` are NOT
         // listed: they exist as `wallet.*` RPC methods but have no agent Tool
@@ -88,10 +88,12 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "integrations",
-        summary: "MCP server setup, connection status, and calling tools on a connected MCP server.",
+        // The use hand-off (`use_mcp_server`) is not a member: it is the
+        // orchestrator's direct route into this family. See
+        // `DELIBERATELY_UNPACKED_HANDOFFS`. There is no install tool — servers
+        // are declared by the user in mcp.json.
+        summary: "MCP servers: search the catalog, connect, disconnect, check status, call tools.",
         tools: &[
-            "use_mcp_server",
-            "setup_mcp_server",
             "mcp_registry_status",
             "mcp_registry_search",
             "mcp_registry_get",
@@ -100,19 +102,21 @@ pub const PACKS: &[ToolPack] = &[
             "mcp_registry_connect",
             "mcp_registry_disconnect",
             "mcp_registry_tool_call",
-            "mcp_registry_config_assist",
-            "mcp_registry_install",
             "mcp_registry_uninstall",
         ],
-        owners: &["mcp_agent", "mcp_setup", "planner"],
+        owners: &["mcp_agent", "planner"],
     },
     ToolPack {
         id: "composio",
-        summary: "Connect and use third-party Composio toolkits: list connections and toolkits, raise a connect card, list and execute a toolkit's actions.",
+        summary: "Composio toolkits: list connections and toolkits, list and execute actions.",
+        // `composio_connect` is deliberately not a member: it is the
+        // orchestrator's inline connect card. Packed, it sat in a pack that
+        // `ops::closed_by_direct_handoff` closes to the orchestrator (the
+        // planner, one `plan` hand-off away, owns this pack), so the prompt's
+        // "raise a connect card" route was a tool the model could not reach.
         tools: &[
             "composio",
             "composio_authorize",
-            "composio_connect",
             "composio_execute",
             "composio_list_connections",
             "composio_list_toolkits",
@@ -122,11 +126,13 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "skills",
-        summary: "Search installed skills; install and run more from community \
-                  registries.",
+        // The install and run hand-offs (`setup_skills`, `run_skill`) are not
+        // members: they are the orchestrator's direct route into this family.
+        // See `DELIBERATELY_UNPACKED_HANDOFFS`.
+        summary: "Skills: search installed, browse and install from registries, read resources.",
         tools: &[
-            // In the pack, not outside it. A search tool advertised while every
-            // tool it hands off to (`describe_workflow`, `run_skill`) stays
+            // In the pack, not outside it. A search tool advertised while the
+            // tool it hands off to (`describe_workflow`) stays
             // withheld would cost 748 B on every wildcard agent to produce an id
             // the agent then cannot act on without a `load_skill` anyway. One
             // recovery step for the whole family beats a doorway to a locked
@@ -134,8 +140,6 @@ pub const PACKS: &[ToolPack] = &[
             // already names `describe_workflow` and `skill_registry_browse` —
             // those are packed too.
             "skill_search",
-            "run_skill",
-            "setup_skills",
             "skill_registry_browse",
             "skill_registry_search",
             "skill_registry_install",
@@ -192,7 +196,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "system",
-        summary: "OpenHuman's own health, diagnostics, cost dashboard, service lifecycle, proxy and read-only config.",
+        summary: "OpenHuman health, diagnostics, costs, services, proxy, read-only config.",
         tools: &[
             "config_snapshot",
             "config_get_client_config",
@@ -228,7 +232,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "files",
-        summary: "Direct file and repository access: read, write, search by content, match by glob, list a directory, and read git state.",
+        summary: "Files and repositories: read, write, grep, glob, list, git.",
         // `shell` covers every one of these for an agent that has it, so on a
         // belt that also carries `shell` the family is duplicate surface
         // charged on every turn. It stays one `use_skill` away, and the
@@ -261,7 +265,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "storage",
-        summary: "Workspace file storage: upload a file, download one, list what is stored, and mint a shareable link.",
+        summary: "Workspace file storage: upload, download, list, shareable link.",
         tools: &[
             "storage_upload_file",
             "storage_download_file",
@@ -275,21 +279,13 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "scheduling",
-        summary: "Reminders and scheduled jobs: create, list, update, remove, run and inspect one-shot and recurring jobs.",
-        tools: &[
-            "schedule_task",
-            "cron_add",
-            "cron_list",
-            "cron_remove",
-            "cron_update",
-            "cron_run",
-            "cron_runs",
-        ],
+        summary: "Reminders and scheduled jobs: create, list, update, remove, run, inspect.",
+        tools: &["schedule_task", "cron"],
         owners: &["scheduler_agent"],
     },
     ToolPack {
         id: "profile",
-        summary: "What OpenHuman durably knows about the user: record a preference (tone, defaults, working style), and edit the profile, persona or people-graph behind it.",
+        summary: "The user's profile: record preferences, edit persona and people graph.",
         // The delegate and the two raw tools belong together because they are
         // one question from the model's side — "remember this about the user" —
         // split only by how much editing it needs.
@@ -302,7 +298,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "media",
-        summary: "Anything centred on a picture or a clip: generate one, or read one (describe, OCR, charts, UI elements).",
+        summary: "Images and clips: generate, or read (describe, OCR, charts, UI elements).",
         tools: &[
             "create_image",
             "create_video",
@@ -318,7 +314,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "tasks",
-        summary: "The agent task board: create, edit, approve, clear and summarize agent tasks, task sources and their artifacts.",
+        summary: "Task sources, workflows, artifacts: add, preview, fetch, update, remove.",
         tools: &["manage_tasks"],
         owners: &["task_manager_agent"],
     },
@@ -328,11 +324,10 @@ pub const PACKS: &[ToolPack] = &[
         //
         // Two different surfaces live here, and the pack is the seam that lets
         // the model find either: `goals` is the user's durable long-term
-        // objectives held in memory, `goal_get` / `goal_set` are the
-        // completion contract for one conversation thread. Both are things a
-        // user edits far more often than an agent does, and both stayed
-        // user-reachable — the `memory_goals.*` and `thread_goals.*` RPC the
-        // UI drives is untouched by the withholding.
+        // objectives held in memory, while `goal_get` / `goal_set` are the
+        // agent-owned completion contract for one conversation thread and are
+        // assigned to `goals_agent`. Long-term goals remain user-reachable
+        // through `memory_goals.*`.
         //
         // `goal_complete` is deliberately NOT a member. Closing a goal is the
         // one goal operation an agent reaches for reactively, at the end of
@@ -340,7 +335,7 @@ pub const PACKS: &[ToolPack] = &[
         // moment buys nothing: the alternative to a visible `goal_complete` is
         // an objective that silently stays open and keeps driving autonomous
         // continuation. Same reasoning as `DELIBERATELY_UNPACKED_FLEET_TOOLS`.
-        summary: "Read, add and edit goals: the user's durable long-term objectives, and the objective THIS thread is working toward. Closing one is the separate, always-available `goal_complete`.",
+        summary: "Long-term goals and this thread's objective: read, add, edit.",
         tools: &["goals", "goal_get", "goal_set"],
         owners: &["goals_agent"],
     },
@@ -374,6 +369,28 @@ pub(crate) const DELIBERATELY_UNPACKED_FLEET_TOOLS: &[&str] = &[
     "wait_loop",
     "spawn_parallel_agents",
 ];
+
+/// The MCP and skill hand-offs are deliberately NOT packed either (#6302).
+///
+/// `use_mcp_server`, `setup_skills` and `run_skill` are the orchestrator's
+/// whole route into two families: it uses MCP servers and installs and uses
+/// skills only by handing the task to the specialist that owns that family. Packed, they sat in the same listing as the raw
+/// `mcp_registry_*` / `skill_registry_*` tools, one `use_skill` round trip
+/// away, and a live account showed the cost: across 11 turns the orchestrator
+/// called the raw tools itself, guessed at tool names, and never handed off.
+/// Handing off is the most common thing it does with these families, so the
+/// `collapsed_delegation.rs` argument applies: frequency of use decides, and
+/// delegation should not pay a round trip.
+///
+/// With a hand-off on the belt, `ops::closed_by_direct_handoff` closes the
+/// owning pack's raw tools to the caller, so the hand-off is its only route.
+/// The other packed hand-offs (`do_crypto`, `build_workflow`,
+/// `discover_workflows`, `make_presentation`, ...) stay packed: each is its own
+/// token-cost decision, and the same closing rule takes effect for any of them
+/// as soon as it is unpacked and listed here.
+#[cfg(test)]
+pub(crate) const DELIBERATELY_UNPACKED_HANDOFFS: &[&str] =
+    &["use_mcp_server", "setup_skills", "run_skill"];
 
 pub fn pack(id: &str) -> Option<&'static ToolPack> {
     PACKS.iter().find(|p| p.id == id)

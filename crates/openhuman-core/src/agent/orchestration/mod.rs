@@ -20,6 +20,7 @@ pub(crate) mod background_completions;
 pub(crate) mod background_delivery;
 pub mod command_center;
 pub(crate) mod delegation;
+pub(crate) mod fleet_tools;
 mod ops;
 pub(crate) mod parent_context;
 pub(crate) mod run_ledger_finalize;
@@ -53,7 +54,7 @@ pub use types::{
 pub use workflow_runs::{
     all_workflow_run_controller_schemas, all_workflow_run_registered_controllers,
 };
-pub use worktree::{BaseRef, OpenHumanWorktreeIsolation, WorktreeError, WorktreeStatus};
+pub use worktree::OpenHumanWorktreeIsolation;
 pub use worktree_schemas::{
     all_controller_schemas as all_worktree_controller_schemas,
     all_registered_controllers as all_worktree_registered_controllers,

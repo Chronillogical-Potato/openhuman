@@ -124,7 +124,7 @@ pub async fn list_configured_models_from_config(
     //     request would go out unauthenticated (401).
     //
     // `?catalog=openrouter` is required: without it the backend returns only
-    // the curated tier list (chat-v1, reasoning-v1, ...), which is deliberately
+    // the curated legacy list, which is deliberately
     // byte-identical to the legacy payload. The catalog listing is gated
     // server-side by OPENROUTER_PASSTHROUGH_ENABLED and returns an empty set
     // when the passthrough is off, so this degrades to "no models" rather than
@@ -206,7 +206,10 @@ pub async fn list_configured_models_from_config(
     let mut request = client.get(&models_url);
     if routing.using_oauth {
         request = request
-            .header(reqwest::header::USER_AGENT, openai_codex_user_agent())
+            .header(
+                reqwest::header::USER_AGENT,
+                openai_codex_user_agent("OpenHuman", env!("CARGO_PKG_VERSION")),
+            )
             .header(OPENAI_CODEX_ORIGINATOR_HEADER, OPENAI_CODEX_ORIGINATOR);
     }
 
@@ -365,7 +368,7 @@ pub async fn list_configured_models_from_config(
     // returned for "missing field" vs "field present but wrong type"
     // (TAURI-RUST-4Y). The ChatGPT Codex backend uses a sibling `models`
     // array keyed by `slug`, so that shape is accepted here too.
-    let mut models = parse_models_response(&body)?;
+    let mut models = parse_models_response(&body).map_err(|error| error.to_string())?;
     if routing.using_oauth {
         merge_openai_codex_model_hints(&mut models);
     }

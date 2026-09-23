@@ -9,7 +9,7 @@ use crate::platform::socket::manager::global_socket_manager;
 
 /// Chat thread + client id the voice turn scopes as its approval / routing
 /// surface, mirroring `deliver_voice_result_to_chat`. Setting these around the
-/// turn (via `APPROVAL_CHAT_CONTEXT` + `with_thread_id`) is what makes the voice
+/// turn (via `APPROVAL_CHAT_CONTEXT` plus the explicit agent thread) is what makes the voice
 /// orchestrator behave like the chat path for tools that need a *routable*
 /// approval surface:
 ///
@@ -24,7 +24,7 @@ use crate::platform::socket::manager::global_socket_manager;
 /// - external_effect tool approvals raised on the `ExternalChannel` turn now
 ///   have a thread card to route to (the same `proactive:voice` thread where
 ///   deferred voice answers land) rather than silently TTL-denying.
-/// - `with_thread_id` gives async delegation (`spawn_async_subagent`) the
+/// - The explicit run context gives async delegation (`spawn_async_subagent`) the
 ///   `parent_thread_id` it requires and aligns inference logs / KV-cache with
 ///   the voice thread.
 pub(super) const VOICE_CHAT_THREAD_ID: &str = "proactive:voice";

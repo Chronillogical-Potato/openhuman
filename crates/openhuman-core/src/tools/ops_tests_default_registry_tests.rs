@@ -1,18 +1,16 @@
 use super::*;
-
 #[test]
 fn default_tools_has_three() {
     let security = Arc::new(SecurityPolicy::default());
     let tools = default_tools(security);
     assert_eq!(tools.len(), 3);
 }
-
 #[test]
 fn all_tools_includes_spawn_subagent() {
     // Regression guard: the `spawn_subagent` tool must be present
     // in the default registry so parent agents can delegate to
     // sub-agents at runtime. If this test fails, the dispatch path
-    // in `agent::harness::subagent_runner` becomes unreachable.
+    // in `agent::subagent_host` becomes unreachable.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     // The embedding seam fails loudly when unwired.
@@ -46,7 +44,42 @@ fn all_tools_includes_spawn_subagent() {
         "spawn_subagent must be registered in the default tool list; got: {names:?}"
     );
 }
+#[test]
+fn all_tools_registers_collapsed_memory_and_search_tools() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let cfg = test_config(&tmp);
+    let browser = BrowserConfig::default();
+    let http = crate::config::HttpRequestConfig::default();
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        AuditLogger::disabled(),
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
 
+    let memory = tools
+        .iter()
+        .find(|tool| tool.name() == crate::memory::tools::MEMORY_TOOL_NAME)
+        .expect("collapsed memory tool must be registered");
+    assert_eq!(
+        tool_group(memory.name()),
+        crate::core::all::DomainGroup::Memory
+    );
+    assert_eq!(
+        tool_capability(memory.name()),
+        Some(tinymemory_api::capabilities::Capability::Core)
+    );
+    // The search half of deferral is the harness's intrinsic bridge, never a
+    // registered tool: a host `tool_search` would shadow it.
+    assert!(!tools
+        .iter()
+        .any(|tool| { tool.name() == crate::tools::implementations::meta::TOOL_SEARCH_NAME }));
+}
 /// The three `whatsapp_data_*` agent tools are gone, in every build.
 ///
 /// They queried a shell-side SQLite store whose only writer was the CDP
@@ -88,7 +121,6 @@ fn whatsapp_data_tools_are_gone_in_every_build() {
         );
     }
 }
-
 #[test]
 fn all_tools_includes_spawn_async_subagent() {
     let tmp = TempDir::new().unwrap();
@@ -123,7 +155,6 @@ fn all_tools_includes_spawn_async_subagent() {
         "spawn_async_subagent must be registered for fire-and-forget background orchestration; got: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_includes_spawn_parallel_agents() {
     let tmp = TempDir::new().unwrap();
@@ -158,7 +189,6 @@ fn all_tools_includes_spawn_parallel_agents() {
         "spawn_parallel_agents must be registered for orchestrated fan-out; got: {names:?}"
     );
 }
-
 #[test]
 fn every_packed_tool_name_resolves_to_a_registered_tool() {
     // A pack advertises a menu. `render_pack_filtered` skips a name it cannot
@@ -268,7 +298,6 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
          delegate name); these do not: {missing:?}"
     );
 }
-
 #[test]
 fn all_tools_always_registers_curl() {
     // Regression guard: `curl` is always registered (gated only by
@@ -477,7 +506,7 @@ fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
 /// The disabled direction of the `mcp` gate (#4799): even with MCP servers
 /// declared in config, a build without the `mcp` feature registers NO MCP tool
 /// of any family — neither the static bridge (`mcp_*`), the dynamic registry
-/// (`mcp_registry_*`), nor the setup-agent surface (`mcp_setup_*`).
+/// (`mcp_registry_*`).
 ///
 /// Deliberately asserts by prefix rather than naming the ~19 tools: a new MCP
 /// tool added later must not be able to leak into slim builds just because
@@ -581,7 +610,6 @@ fn all_tools_includes_current_time() {
         "current_time must be registered in the default tool list; got: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_default_registry_contains_expected_baseline_surface() {
     let tmp = TempDir::new().unwrap();
@@ -658,7 +686,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
     }
     assert_contains_all(&names, &expected);
 }
-
 #[test]
 fn all_tools_default_registry_has_no_duplicate_tool_names() {
     let tmp = TempDir::new().unwrap();
@@ -688,7 +715,6 @@ fn all_tools_default_registry_has_no_duplicate_tool_names() {
         "tool registry must not contain duplicate names: {names:?}"
     );
 }
-
 #[test]
 fn all_tools_excludes_browser_when_disabled() {
     let tmp = TempDir::new().unwrap();

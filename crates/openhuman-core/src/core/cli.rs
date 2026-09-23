@@ -384,7 +384,7 @@ fn run_server_command(args: &[String]) -> Result<()> {
     // A single agent turn is a very large async state machine (system prompt +
     // hundreds of tool specs + the nested provider/tool loop), and delegating
     // to a sub-agent runs another full turn one level down. Even with the inner
-    // sub-agent future boxed (`subagent_runner::ops`), that nesting overflows
+    // sub-agent future boxed (`subagent_host::ops`), that nesting overflows
     // tokio's default 2 MiB worker-thread stack and aborts the whole process
     // (SIGABRT: "thread 'tokio-rt-worker' has overflowed its stack"), taking
     // the JSON-RPC server down mid-request. Give workers a roomier stack.
@@ -413,7 +413,8 @@ fn run_server_command(args: &[String]) -> Result<()> {
 /// * `args` - Command-line arguments specifying the method and parameters.
 fn run_call_command(args: &[String]) -> Result<()> {
     let mut method: Option<String> = None;
-    let mut params = "{}".to_string();
+    let mut params = None;
+    let mut params_stdin = false;
 
     let mut i = 0usize;
     while i < args.len() {
@@ -427,14 +428,31 @@ fn run_call_command(args: &[String]) -> Result<()> {
                 i += 2;
             }
             "--params" => {
-                params = args
-                    .get(i + 1)
-                    .ok_or_else(|| anyhow::anyhow!("missing value for --params"))?
-                    .clone();
+                if params_stdin {
+                    return Err(anyhow::anyhow!(
+                        "--params and --params-stdin are mutually exclusive"
+                    ));
+                }
+                params = Some(
+                    args.get(i + 1)
+                        .ok_or_else(|| anyhow::anyhow!("missing value for --params"))?
+                        .clone(),
+                );
                 i += 2;
             }
+            "--params-stdin" => {
+                if params.is_some() {
+                    return Err(anyhow::anyhow!(
+                        "--params and --params-stdin are mutually exclusive"
+                    ));
+                }
+                params_stdin = true;
+                i += 1;
+            }
             "-h" | "--help" => {
-                println!("Usage: openhuman call --method <name> [--params '<json>']");
+                println!(
+                    "Usage: openhuman call --method <name> [--params '<json>' | --params-stdin]"
+                );
                 return Ok(());
             }
             other => return Err(anyhow::anyhow!("unknown call arg: {other}")),
@@ -442,7 +460,14 @@ fn run_call_command(args: &[String]) -> Result<()> {
     }
 
     let method = method.ok_or_else(|| anyhow::anyhow!("--method is required"))?;
-    let params = parse_json_params(&params).map_err(anyhow::Error::msg)?;
+    if params_stdin {
+        let mut stdin_params = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin_params)
+            .map_err(|e| anyhow::anyhow!("failed to read --params-stdin: {e}"))?;
+        params = Some(stdin_params);
+    }
+    let params =
+        parse_json_params(params.as_deref().unwrap_or("{}")).map_err(anyhow::Error::msg)?;
 
     // Raw calls bypass namespace parsing, but not the configured memory-driver
     // binding. Without this gate an absent capability could still reach a
@@ -693,7 +718,7 @@ fn print_general_help(grouped: &BTreeMap<String, Vec<ControllerSchema>>) {
     println!("Usage:");
     println!("  openhuman [OPTIONS]                     (show this help)");
     println!("  openhuman run [--host <addr>] [--port <u16>] [--jsonrpc-only] [--verbose]");
-    println!("  openhuman call --method <name> [--params '<json>']");
+    println!("  openhuman call --method <name> [--params '<json>' | --params-stdin]");
     println!(
         "  openhuman mcp [-v|--verbose]              (stdio MCP server; read-only memory tools)"
     );

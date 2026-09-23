@@ -162,7 +162,7 @@ pub fn detect_boundary(
         (current_segment.embedding.as_deref(), new_turn_embedding)
     {
         if !segment_emb.is_empty() && segment_emb.len() == turn_emb.len() {
-            let similarity = cosine_similarity(segment_emb, turn_emb);
+            let similarity = tinyinference_embeddings::cosine_similarity(segment_emb, turn_emb);
             if similarity < config.min_cosine_similarity {
                 tracing::debug!(
                     "[segments] boundary: embedding drift (sim={similarity:.3} < {})",
@@ -199,21 +199,7 @@ pub struct SegmentBoundaryState {
 /// Returns `new_embedding` unchanged when there is no usable centroid yet or
 /// the dimensions disagree — the same guard as the drift check, for the same
 /// reason.
-#[must_use]
-pub fn incremental_mean_embedding(
-    current_centroid: &[f32],
-    new_embedding: &[f32],
-    count: usize,
-) -> Vec<f32> {
-    if current_centroid.is_empty() || current_centroid.len() != new_embedding.len() {
-        return new_embedding.to_vec();
-    }
-    current_centroid
-        .iter()
-        .zip(new_embedding.iter())
-        .map(|(c, n)| c + (n - c) / (count as f32 + 1.0))
-        .collect()
-}
+pub use tinyinference_embeddings::incremental_mean_embedding;
 
 /// A summary composed from the segment's first and last turns.
 ///
@@ -227,27 +213,6 @@ pub fn fallback_summary(first_content: &str, last_content: &str, turn_count: i32
     format!(
         "Conversation segment ({turn_count} turns). Started with: {first_truncated} | Ended with: {last_truncated}"
     )
-}
-
-/// Cosine similarity, clamped to `[-1, 1]`.
-///
-/// Zero when either vector has no magnitude, which is the honest answer: an
-/// all-zero embedding has no direction to compare.
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let mut dot = 0.0_f32;
-    let mut norm_a = 0.0_f32;
-    let mut norm_b = 0.0_f32;
-    for (x, y) in a.iter().zip(b.iter()) {
-        dot += x * y;
-        norm_a += x * x;
-        norm_b += y * y;
-    }
-    let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom < f32::EPSILON {
-        0.0
-    } else {
-        (dot / denom).clamp(-1.0, 1.0)
-    }
 }
 
 /// Truncate at a char boundary, appending an ellipsis when anything was cut.

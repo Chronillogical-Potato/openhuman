@@ -24,14 +24,32 @@
 //!   counts are exact; treat a projected `gen_ai.usage.cost_usd` as an
 //!   estimate. `AgentEvent::CostRecorded` would close this if the crate ever
 //!   emits it.
-//! - Sub-agent prompt/output content is not on the crate lifecycle events, so
-//!   subagent spans carry lifecycle/timing and child tool/model structure but
-//!   empty delegated prompt/final output until a richer journal event exists.
-//! - `AgentProgress::SubagentAwaitingUser` has no journal source at all (the
-//!   crate emits no matching lifecycle event), so a subagent span parked on a
-//!   user prompt loses that attribute on replay.
+//! - **No sub-agent spans are projected at all** (openhuman#6419). The four
+//!   `AgentEvent::SubAgent*` arms below are dead in production: a survey of 900
+//!   real run journals found **zero** sub-agent events of any kind, and every
+//!   journalled run is its own root (`root_run_id == run_id` in all 588
+//!   `run_started` records sampled, and no `root_run_id` spans more than one
+//!   run file), so a child run is neither recorded in its parent's journal nor
+//!   reachable from it. A replayed delegating turn therefore loses the whole
+//!   sub-agent subtree — the delegate's turn span, its iterations, and its tool
+//!   and model spans — which is the bulk of the span-count divergence the
+//!   `[agent-tracing][journal-shadow]` parity check reports. This is a gap in
+//!   what the crate journals, not in the projection: the arms are kept so the
+//!   projection is correct the moment the events exist.
 //!
-//! Everything else is projected. In particular the match in
+//!   An earlier revision of this list said sub-agent spans "carry
+//!   lifecycle/timing and child tool/model structure but empty delegated
+//!   prompt/final output", i.e. that only their *content* was thin. That was
+//!   wrong in kind and stopped readers looking: there are no such spans to
+//!   carry anything.
+//! - `AgentProgress::SubagentAwaitingUser` has no journal source either (the
+//!   crate emits no matching lifecycle event). Moot while the gap above stands,
+//!   and listed separately because it survives it: even once sub-agent
+//!   lifecycle events are journalled, a span parked on a user prompt would lose
+//!   that attribute on replay.
+//!
+//! Everything else **that the crate journals** is projected. In particular the
+//! match in
 //! [`observation_to_progress`] is **exhaustive over `AgentEvent`** — a crate
 //! that adds a span-bearing event breaks the build here rather than silently
 //! diverging, which is exactly how the missing `UsageRecorded` roll-up went
@@ -149,6 +167,82 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             }
         }
 
+        // The harness answers `tool_search` without running a tool, so the
+        // journal carries no `ToolStarted`/`ToolCompleted` for it. Replay the
+        // same synthetic pair the live bridge emits, so a replayed trace has
+        // the `tool.tool_search` span with the ranking facts.
+        AgentEvent::ToolSearched {
+            call_id,
+            query,
+            matched,
+            ranker,
+            top_confidence,
+            fallback,
+            shadow_matched,
+            latency_ms,
+        } => {
+            let tool_name = tinyagents_harness::tool::discover::TOOL_SEARCH_NAME.to_string();
+            let arguments = serde_json::json!({ "query": query });
+            let output = serde_json::json!({
+                "matched": matched,
+                "ranker": ranker,
+                "top_confidence": top_confidence,
+                "fallback": fallback,
+                "shadow_matched": shadow_matched,
+                "latency_ms": latency_ms,
+            })
+            .to_string();
+            let output_chars = output.chars().count();
+            match state.active_subagent() {
+                Some(scope) => vec![
+                    AgentProgress::SubagentToolCallStarted {
+                        agent_id: scope.agent_id.clone(),
+                        task_id: scope.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: arguments.clone(),
+                        iteration: scope.iteration,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                    },
+                    AgentProgress::SubagentToolCallCompleted {
+                        agent_id: scope.agent_id.clone(),
+                        task_id: scope.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name,
+                        success: true,
+                        output_chars,
+                        output,
+                        arguments: Some(arguments),
+                        elapsed_ms: *latency_ms,
+                        iteration: scope.iteration,
+                        failure: None,
+                    },
+                ],
+                None => vec![
+                    AgentProgress::ToolCallStarted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: arguments.clone(),
+                        iteration: state.iteration,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                    },
+                    AgentProgress::ToolCallCompleted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name,
+                        success: true,
+                        output_chars,
+                        output,
+                        arguments: Some(arguments),
+                        elapsed_ms: *latency_ms,
+                        iteration: state.iteration,
+                        failure: None,
+                    },
+                ],
+            }
+        }
+
         AgentEvent::ToolStarted { call_id, tool_name } => match state.active_subagent() {
             Some(scope) => vec![AgentProgress::SubagentToolCallStarted {
                 agent_id: scope.agent_id.clone(),
@@ -239,7 +333,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             ));
             let label = format!(
                 "{} (unavailable)",
-                crate::tools::traits::humanize_tool_name(requested_name)
+                tinytools::humanize_tool_name(requested_name)
             );
             let detail = Some("tool not available".to_string());
             match state.active_subagent() {
@@ -434,6 +528,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 iterations: scope.iteration,
                 output_chars: 0,
                 output: String::new(),
+                // Projection rebuild, not an originating emit; it has no
+                // outcome to read usage from. See the field's docs.
+                usage: None,
                 worktree_path: None,
                 changed_files: Vec::new(),
                 dirty_status: None,
@@ -485,6 +582,8 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         // what the trace records. The live bridge logs them and emits no
         // `AgentProgress` for any of them either.
         | AgentEvent::ToolsFiltered { .. }
+        | AgentEvent::ToolsAdvertised { .. }
+        | AgentEvent::DeferredToolCall { .. }
         | AgentEvent::WorkspacePrepared { .. }
         | AgentEvent::WorkspaceViolation { .. }
         | AgentEvent::WorkspaceCleanup { .. }
@@ -517,6 +616,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         | AgentEvent::BudgetReconciled { .. }
         | AgentEvent::BudgetExceeded { .. }
         | AgentEvent::LimitReached { .. } => Vec::new(),
+        // `AgentEvent` is `#[non_exhaustive]`: a variant added upstream after
+        // this projection was written carries no span this replay models.
+        _ => Vec::new(),
     }
 }
 

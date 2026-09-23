@@ -5,46 +5,15 @@ use crate::channels::context::{
     clear_sender_history, conversation_history_key, ChannelRouteSelection, ChannelRuntimeContext,
 };
 use crate::channels::traits::ChannelMessage;
-use crate::memory::conversations::{
-    self as conversations, ConversationThread, CreateConversationThread,
+use crate::memory::conversations::{self as conversations, CreateConversationThread};
+pub use tinychannels::providers::telegram::parse_telegram_remote_command;
+pub use tinychannels::providers::telegram::TelegramRemoteCommand;
+use tinychannels::providers::telegram::{
+    build_new_session_response as render_new_session_response, build_remote_help_response,
+    build_status_response as render_status_response, format_session_line, SESSIONS_LIST_LIMIT,
 };
 
 const LOG_PREFIX: &str = "[telegram-remote]";
-
-pub(crate) const TELEGRAM_CMD_STATUS: &str = "/status";
-pub(crate) const TELEGRAM_CMD_SESSIONS: &str = "/sessions";
-pub(crate) const TELEGRAM_CMD_NEW: &str = "/new";
-pub(crate) const TELEGRAM_CMD_HELP: &str = "/help";
-
-const SESSIONS_LIST_LIMIT: usize = 8;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TelegramRemoteCommand {
-    Status,
-    Sessions,
-    New,
-    Help,
-}
-
-pub(crate) fn parse_telegram_remote_command(content: &str) -> Option<TelegramRemoteCommand> {
-    let trimmed = content.trim();
-    if !trimmed.starts_with('/') {
-        return None;
-    }
-    let command_token = trimmed.split_whitespace().next()?;
-    let base = command_token
-        .split('@')
-        .next()
-        .unwrap_or(command_token)
-        .to_ascii_lowercase();
-    match base.as_str() {
-        TELEGRAM_CMD_STATUS => Some(TelegramRemoteCommand::Status),
-        TELEGRAM_CMD_SESSIONS => Some(TelegramRemoteCommand::Sessions),
-        TELEGRAM_CMD_NEW => Some(TelegramRemoteCommand::New),
-        TELEGRAM_CMD_HELP => Some(TelegramRemoteCommand::Help),
-        _ => None,
-    }
-}
 
 pub(crate) async fn build_remote_command_response(
     ctx: &ChannelRuntimeContext,
@@ -60,22 +29,8 @@ pub(crate) async fn build_remote_command_response(
         TelegramRemoteCommand::Status => build_status_response(ctx, msg).await,
         TelegramRemoteCommand::Sessions => build_sessions_response(ctx, msg).await,
         TelegramRemoteCommand::New => build_new_session_response(ctx, msg).await,
-        TelegramRemoteCommand::Help => build_help_response(),
+        TelegramRemoteCommand::Help => build_remote_help_response(),
     }
-}
-
-fn build_help_response() -> String {
-    [
-        "OpenHuman Telegram remote control (phase 1):",
-        "",
-        &format!("• `{TELEGRAM_CMD_STATUS}` — active thread, model, and turn state"),
-        &format!("• `{TELEGRAM_CMD_SESSIONS}` — recent conversation threads"),
-        &format!("• `{TELEGRAM_CMD_NEW}` — start a fresh thread for this chat"),
-        &format!("• `{TELEGRAM_CMD_HELP}` — this message"),
-        "",
-        "Model routing: `/model`, `/models` (same as before).",
-    ]
-    .join("\n")
 }
 
 fn route_for_sender(ctx: &ChannelRuntimeContext, sender_key: &str) -> ChannelRouteSelection {
@@ -139,17 +94,12 @@ async fn build_status_response(ctx: &ChannelRuntimeContext, msg: &ChannelMessage
         None => "Thread: _(none — send `/new` to bind a thread)_".to_string(),
     };
 
-    let turn_state = if busy { "in progress ⏳" } else { "idle" };
-
-    format!(
-        "**Status**\n\
-         {thread_line}\n\
-         Provider: `{provider}`\n\
-         Model: `{model}`\n\
-         In-memory turns: {history_len}\n\
-         Turn: {turn_state}",
-        provider = route.provider,
-        model = route.model,
+    render_status_response(
+        &thread_line,
+        &route.provider,
+        &route.model,
+        history_len,
+        busy,
     )
 }
 
@@ -190,28 +140,15 @@ async fn build_sessions_response(ctx: &ChannelRuntimeContext, msg: &ChannelMessa
     ];
 
     for thread in sorted.into_iter().take(SESSIONS_LIST_LIMIT) {
-        lines.push(format_session_line(&thread, active_thread_id.as_deref()));
+        lines.push(format_session_line(
+            &thread.title,
+            &thread.id,
+            thread.message_count,
+            active_thread_id.as_deref() == Some(thread.id.as_str()),
+        ));
     }
 
     lines.join("\n")
-}
-
-fn format_session_line(thread: &ConversationThread, active_id: Option<&str>) -> String {
-    let marker = if active_id == Some(thread.id.as_str()) {
-        "→ "
-    } else {
-        "  "
-    };
-    let title = if thread.title.trim().is_empty() {
-        thread.id.as_str()
-    } else {
-        thread.title.as_str()
-    };
-    format!(
-        "{marker}`{title}` — {count} msgs (id: `{id}`)",
-        count = thread.message_count,
-        id = thread.id,
-    )
 }
 
 async fn build_new_session_response(ctx: &ChannelRuntimeContext, msg: &ChannelMessage) -> String {
@@ -277,13 +214,5 @@ async fn build_new_session_response(ctx: &ChannelRuntimeContext, msg: &ChannelMe
         msg.reply_target
     );
 
-    format!(
-        "Started new session **{title}**.\n\
-         Thread id: `{thread_id}`\n\
-         In-memory channel history cleared for this chat."
-    )
+    render_new_session_response(&title, &thread_id)
 }
-
-#[cfg(test)]
-#[path = "remote_control_tests.rs"]
-mod tests;

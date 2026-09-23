@@ -1,6 +1,6 @@
 //! System prompt builder for the `profile_memory_agent` built-in agent.
 
-use crate::agent::context::prompt::{
+use crate::agent::prompts::{
     render_safety, render_tools, render_user_files, render_workspace, PromptContext,
 };
 use anyhow::Result;

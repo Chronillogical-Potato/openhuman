@@ -1,9 +1,9 @@
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinytools::ToolRunContext;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 /// Export structured data (JSON array of objects) as a CSV file to the workspace.
 pub struct CsvExportTool {
@@ -120,8 +120,8 @@ impl Tool for CsvExportTool {
         })
     }
 
-    fn permission_level(&self) -> crate::tools::traits::PermissionLevel {
-        crate::tools::traits::PermissionLevel::Write
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::Write
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {

@@ -10,21 +10,21 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
 use tinyagents_harness::no_progress::{
     fingerprint_arguments, SuccessfulRepeat, SuccessfulRepeatTracker,
 };
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::message::{ContentBlock, Message};
-use tinyinference::model::{ModelRequest, ModelResponse};
+use tinyinference_llm::message::{ContentBlock, Message};
+use tinyinference_llm::model::{ModelRequest, ModelResponse};
+use tinytools::ToolResult as TaToolResult;
 
 use super::loop_guards::is_repeat_call_exempt;
 use crate::agent::context::CLEARED_PLACEHOLDER;
 
 /// Extract the assistant's visible text (concatenated [`ContentBlock::Text`]
 /// blocks) from a model response message, for the repeat-output signature.
-fn assistant_visible_text(message: &tinyinference::message::AssistantMessage) -> String {
+fn assistant_visible_text(message: &tinyinference_llm::message::AssistantMessage) -> String {
     let mut out = String::new();
     for block in &message.content {
         if let ContentBlock::Text(t) = block {
@@ -159,14 +159,16 @@ impl RepeatProgressMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatProgressMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatProgressMiddleware
+{
     fn name(&self) -> &str {
         "repeat_progress"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -184,7 +186,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
 
     async fn after_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         response: &mut ModelResponse,
     ) -> TaResult<()> {
@@ -218,8 +220,8 @@ impl Middleware<()> for RepeatProgressMiddleware {
             assistant_visible_text(&response.message).trim(),
             call_sig
         );
-        // Per-call signatures for the recurrence ledger, keyed by `call_id` so
-        // each result can be matched to the arguments that produced it.
+        // Per-call signatures for the recurrence ledger. The invocation
+        // identity joins each post-tool result to the provider call id.
         let call_sigs = tool_calls
             .iter()
             .filter(|call| !is_repeat_call_exempt(&call.name))
@@ -256,10 +258,13 @@ impl Middleware<()> for RepeatProgressMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
         // Fold this result into the pending batch; the call guard only acts once
         // the batch is complete so it sees whole-batch success.
         let (already_halted, recurrence, completed) = {
@@ -271,12 +276,15 @@ impl Middleware<()> for RepeatProgressMiddleware {
             };
             let already_halted = batch.halted;
             let mut recurrence = SuccessfulRepeat::Continue;
-            if result.error.is_some() {
+            if result.is_error {
                 batch.all_ok = false;
-            } else if let Some(sig) = batch.call_sigs.get(&result.call_id) {
-                recurrence = self.state.tracker.record_call_outcome(sig, &result.content);
+            } else if let Some(sig) = batch.call_sigs.get(&call_id) {
+                recurrence = self.state.tracker.record_call_outcome(
+                    sig,
+                    &crate::agent::tinyagents::middleware::tool_result_text(result),
+                );
                 if let Ok(mut recorded) = self.state.recorded.lock() {
-                    recorded.insert(result.call_id.clone());
+                    recorded.insert(call_id);
                 }
             }
             if matches!(recurrence, SuccessfulRepeat::Halt(_)) {
@@ -316,7 +324,7 @@ impl Middleware<()> for RepeatProgressMiddleware {
             _ => return Ok(()),
         };
         tracing::warn!(
-            tool = %result.name,
+            tool = tool_name,
             "[tinyagents::mw] crate successful-repeat tracker halted the run"
         );
         self.halt(summary);
@@ -341,14 +349,16 @@ pub(crate) struct RepeatEvictionObserver {
 }
 
 #[async_trait]
-impl Middleware<()> for RepeatEvictionObserver {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for RepeatEvictionObserver
+{
     fn name(&self) -> &str {
         "repeat_progress_eviction"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

@@ -3,18 +3,22 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use crate::agent::tinyagents::model::{
-    BuiltTurnModels, ProfileOverrideModel, RouteRecordingModel, TierRoutes, TurnChatModel,
+    BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel,
 };
 use crate::agent::tinyagents::routes;
+use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
+use tinyinference_llm::model::{ResolvedModelRoute, RouteRecordingModel};
 
 pub(crate) fn tinyagents_depth_error(
     err: &tinyagents_harness::TinyAgentsError,
-) -> Option<crate::agent::harness::subagent_runner::SubagentRunError> {
+) -> Option<crate::agent::subagent_host::SubagentRunError> {
     match err {
         tinyagents_harness::TinyAgentsError::SubAgentDepth(max_depth)
         | tinyagents_harness::TinyAgentsError::RecursionLimit(max_depth) => Some(
-            crate::agent::harness::subagent_runner::SubagentRunError::SpawnDepthExceeded {
+            crate::agent::subagent_host::SubagentRunError::SpawnDepthExceeded {
                 attempted_depth: max_depth.saturating_add(1),
                 max_depth: *max_depth,
             },
@@ -23,7 +27,7 @@ pub(crate) fn tinyagents_depth_error(
     }
 }
 
-/// The per-turn crate [`ChatModel`](tinyinference::model::ChatModel) set,
+/// The per-turn crate [`ChatModel`](tinyinference_llm::model::ChatModel) set,
 /// built once from an openhuman [`Provider`] by [`build_turn_models`] — the
 /// single place a turn's `native model adapters are constructed (issue #4249, Phase 5).
 ///
@@ -81,6 +85,72 @@ impl TurnModels {
     }
 }
 
+/// Host resolver for one live invocation. It exposes the exact pre-built
+/// primary and fallback route models already selected by OpenHuman, rather
+/// than constructing a fresh config-routed model during hosted preparation.
+///
+/// # Who wins: the turn's selection or the definition's pin
+///
+/// The **primary** is the model OpenHuman already chose for this turn — the
+/// user's per-thread `model_override`, else `config.default_model` — and for
+/// the turn's lead (the depth-0 agent, `is_team_lead`) it always wins. The
+/// harness forwards the definition's `[model] hint`/`model` as `model_pin`
+/// on every resolve; honouring it for the lead let the orchestrator's
+/// `hint = "coding"` silently reroute every chat turn onto `hint:coding`
+/// (DeepSeek V4 Pro) no matter which model the user picked in the UI, since
+/// `hint:coding` is always a registered tier route. A pin is advisory
+/// (`ModelResolveRequest::model_pin` docs) and the lead's selection is the
+/// stronger, more explicit signal.
+///
+/// Sub-agents (depth > 0) keep resolving their pin against the tier routes —
+/// that is how `integrations_agent`'s `hint = "burst"` reaches `hint:burst` —
+/// and fall back to the primary when the pin names no built route.
+pub(crate) struct TurnModelResolver {
+    primary: TurnChatModel,
+    routes: std::collections::HashMap<String, TurnChatModel>,
+}
+
+impl TurnModelResolver {
+    pub(crate) fn from_turn_models(models: &TurnModels) -> Self {
+        Self::new(
+            models.primary.clone(),
+            models.routes.iter().cloned().collect(),
+        )
+    }
+
+    pub(crate) fn new(
+        primary: TurnChatModel,
+        routes: std::collections::HashMap<String, TurnChatModel>,
+    ) -> Self {
+        Self { primary, routes }
+    }
+}
+
+#[async_trait]
+impl ModelResolver<()> for TurnModelResolver {
+    async fn resolve(
+        &self,
+        request: &ModelResolveRequest,
+    ) -> tinyagents_harness::Result<TurnChatModel> {
+        let pin = request.model_pin();
+        if request.is_team_lead {
+            if let Some(pin) = pin.filter(|pin| self.routes.contains_key(*pin)) {
+                tracing::debug!(
+                    target: "tinyagents",
+                    agent_id = %request.agent_id,
+                    pin,
+                    "[models][resolver] lead keeps the turn's selected primary; definition model pin ignored"
+                );
+            }
+            return Ok(self.primary.clone());
+        }
+        Ok(pin
+            .and_then(|name| self.routes.get(name))
+            .cloned()
+            .unwrap_or_else(|| self.primary.clone()))
+    }
+}
+
 /// Build the per-turn [`TurnModels`] **crate-natively** from `(role, config)` —
 /// the Phase 3 P3-B cutover of [`build_turn_models`]: instead of wrapping one host
 /// `Provider` per tier in a [`native model adapter`], each tier is built as a crate-native
@@ -108,12 +178,32 @@ fn build_turn_models_crate(
     native_tools: bool,
     supports_vision: bool,
     force_text_mode: bool,
+    thread_id: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     use crate::inference::provider::factory;
 
     // The primary honours an explicit provider-string override when the producer's
     // effective provider differs from `provider_for_role(role)` (triage #1257).
     let build_primary = |m: &str| -> anyhow::Result<TurnChatModel> {
+        let managed = primary_override
+            .map(|provider| {
+                let provider = provider.trim();
+                provider.is_empty() || provider == "cloud" || provider == "openhuman"
+            })
+            .unwrap_or_else(|| factory::resolves_to_managed_backend(role, config));
+        if managed {
+            let (backend, _) = factory::make_openhuman_backend_model_for_thread(
+                role,
+                config,
+                m,
+                !force_text_mode,
+                thread_id,
+            )?;
+            return Ok(Arc::new(RouteRecordingModel::new(
+                backend,
+                ResolvedModelRoute::new("openhuman", m, m),
+            )));
+        }
         let (model, provider, resolved_model) = match primary_override {
             Some(ps) => factory::create_turn_chat_model_from_string_with_native_tools_and_route(
                 role,
@@ -133,8 +223,7 @@ fn build_turn_models_crate(
         }?;
         Ok(Arc::new(RouteRecordingModel::new(
             model,
-            provider,
-            resolved_model,
+            ResolvedModelRoute::new(provider, resolved_model, m),
         )))
     };
 
@@ -157,19 +246,30 @@ fn build_turn_models_crate(
                     continue;
                 }
                 let tier_role = factory::role_for_model_tier(tier);
-                match factory::create_turn_chat_model_with_native_tools_and_route(
-                    tier_role,
-                    config,
-                    tier,
-                    temperature,
-                    !force_text_mode,
-                ) {
+                let route = if factory::resolves_to_managed_backend(tier_role, config) {
+                    factory::make_openhuman_backend_model_for_thread(
+                        tier_role,
+                        config,
+                        tier,
+                        !force_text_mode,
+                        thread_id,
+                    )
+                    .map(|(backend, _)| (backend, "openhuman".to_string(), tier.to_string()))
+                } else {
+                    factory::create_turn_chat_model_with_native_tools_and_route(
+                        tier_role,
+                        config,
+                        tier,
+                        temperature,
+                        !force_text_mode,
+                    )
+                };
+                match route {
                     Ok((route_model, provider, resolved_model)) => routes.push((
                         tier.to_string(),
                         Arc::new(RouteRecordingModel::new(
                             route_model,
-                            provider,
-                            resolved_model,
+                            ResolvedModelRoute::new(provider, resolved_model, tier),
                         )),
                     )),
                     Err(e) => {
@@ -207,7 +307,7 @@ fn build_turn_models_crate(
 /// agent harness holds instead of a provider-specific client (issue #4249, Phase 3
 /// / Motion A).
 ///
-/// An [`Agent`](crate::agent::Agent) (and each channel/subagent turn
+/// An [`Agent`](crate::agent::OpenHumanSessionHost) (and each channel/subagent turn
 /// request) is model-agnostic: it holds this source and builds a *tiered* crate
 /// [`ChatModel`] set (primary + workload-tier fallback routes + summarizer) per
 /// turn. Production sources retain only crate-native role/config metadata;
@@ -258,7 +358,7 @@ impl TurnModelSource {
     /// does not expose (common for deterministic scripted tests).
     pub(crate) fn from_model_with_profile(
         model: TurnChatModel,
-        profile: tinyinference::model::ModelProfile,
+        profile: tinyinference_llm::model::ModelProfile,
     ) -> Self {
         Self::from_model(Arc::new(ProfileOverrideModel::new(model, profile)))
     }
@@ -331,9 +431,11 @@ impl TurnModelSource {
         });
         let local_kind = provider_string
             .as_deref()
-            .and_then(crate::inference::local::profile::kind_from_provider_string);
-        crate::inference::model_context::context_window_for_model_with_local_fallback(
-            model, local_kind,
+            .and_then(tinyinference_local::profile::kind_from_provider_string);
+        tinyinference_local::profile::context_window_with_local_fallback(
+            model,
+            crate::inference::model_context::context_window_for_model(model),
+            local_kind,
         )
     }
 
@@ -351,7 +453,7 @@ impl TurnModelSource {
             let provider = source.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&source.role, &source.config)
             });
-            crate::inference::local::profile::is_local_provider_string(&provider)
+            tinyinference_local::profile::is_local_provider_string(&provider)
         })
     }
 
@@ -362,6 +464,7 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
         context_window: Option<u64>,
+        thread_id: Option<&str>,
     ) -> anyhow::Result<TurnModels> {
         if let Some(direct) = &self.direct_model {
             let mut profile = direct.profile().cloned().unwrap_or_default();
@@ -399,8 +502,7 @@ impl TurnModelSource {
             let provider_string = cn.primary_override.clone().unwrap_or_else(|| {
                 crate::inference::provider::provider_for_role(&cn.role, &cn.config)
             });
-            let is_local =
-                crate::inference::local::profile::is_local_provider_string(&provider_string);
+            let is_local = tinyinference_local::profile::is_local_provider_string(&provider_string);
             let provider_id = if provider_string == "openhuman"
                 || provider_string.is_empty()
                 || provider_string == "cloud"
@@ -424,12 +526,13 @@ impl TurnModelSource {
                 !is_local,
                 !is_local,
                 cn.force_text_mode,
+                thread_id,
             );
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 
-    /// Build a standalone summarizer [`ChatModel`](tinyinference::model::ChatModel)
+    /// Build a standalone summarizer [`ChatModel`](tinyinference_llm::model::ChatModel)
     /// over this source's provider — a fresh adapter (own error slot) for one-off
     /// summary calls outside the main turn (e.g. the sub-agent cap-hit checkpoint),
     /// so the caller can `invoke` without naming the `Provider` trait. The output
@@ -438,7 +541,8 @@ impl TurnModelSource {
         &self,
         model: &str,
         temperature: f64,
-    ) -> anyhow::Result<Arc<dyn tinyinference::model::ChatModel<()>>> {
+        thread_id: Option<&str>,
+    ) -> anyhow::Result<Arc<dyn tinyinference_llm::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
             let profile = direct.profile().cloned().unwrap_or_default();
             return Ok(Arc::new(
@@ -448,6 +552,28 @@ impl TurnModelSource {
             ));
         }
         if let Some(cn) = &self.crate_native {
+            let managed = cn
+                .primary_override
+                .as_deref()
+                .map(|provider| {
+                    let provider = provider.trim();
+                    provider.is_empty() || provider == "cloud" || provider == "openhuman"
+                })
+                .unwrap_or_else(|| {
+                    crate::inference::provider::factory::resolves_to_managed_backend(
+                        &cn.role, &cn.config,
+                    )
+                });
+            if managed {
+                return crate::inference::provider::factory::make_openhuman_backend_model_for_thread(
+                    &cn.role,
+                    &cn.config,
+                    model,
+                    !cn.force_text_mode,
+                    thread_id,
+                )
+                .map(|(model, _)| model);
+            }
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => {
                     crate::inference::provider::factory::create_turn_chat_model_from_string(
@@ -470,3 +596,7 @@ impl TurnModelSource {
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 }
+
+#[cfg(test)]
+#[path = "turn_models_tests.rs"]
+mod tests;

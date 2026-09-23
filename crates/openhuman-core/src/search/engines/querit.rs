@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::search::registry::SearchToolParams;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 pub(crate) fn build(root_config: &Config, params: SearchToolParams) -> Vec<Box<dyn Tool>> {
     tracing::debug!("[search] active engine = querit (BYO direct API)");

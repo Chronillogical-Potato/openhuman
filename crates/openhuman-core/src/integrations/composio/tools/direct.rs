@@ -27,8 +27,6 @@ pub use types::ComposioTool;
 // reachable unqualified via `use super::*`, mirroring the single-scope shape
 // `include!` gave it before the split into responsibility-based submodules.
 #[cfg(test)]
-use crate::tools::traits::Tool;
-#[cfg(test)]
 use connections::ComposioAuthConfig;
 #[cfg(test)]
 use construction::normalize_entity_id;
@@ -39,5 +37,7 @@ use discovery::{
 };
 #[cfg(test)]
 use http_errors::{extract_api_error_message, extract_redirect_url, sanitize_error_message};
+#[cfg(test)]
+use tinytools::Tool;
 #[cfg(test)]
 use types::{ensure_https, is_loopback_http_url, COMPOSIO_API_BASE_V3};

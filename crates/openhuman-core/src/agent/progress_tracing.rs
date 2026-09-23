@@ -25,7 +25,7 @@
 //!
 //! Spans always carry *metadata* — span names, counts, timings, and
 //! token/cost figures (model labels are `{provider_id}.{model}`, e.g.
-//! `managed.chat-v1`). While `observability.agent_tracing.capture_content` is
+//! `managed.hint:chat`). While `observability.agent_tracing.capture_content` is
 //! on, content is additionally recorded as span `input`/`output` — the turn's
 //! prompt/reply, each generation's **truncated** request messages (system
 //! prompt included) + completion, **truncated** tool arguments/results, and

@@ -263,8 +263,8 @@ impl Runtime {
             .unwrap_or_else(|| Path::new(""))
     }
 
-    /// The runtime-wide workspace: session database, shared memory, and every
-    /// agent's `personalities/<id>/` home and `session_raw-<id>/` transcripts.
+    /// The runtime-wide workspace: session database, shared memory, every
+    /// agent's `agents/<id>/` home, and the canonical `session_raw/` transcripts.
     pub fn workspace_dir(&self) -> &Path {
         &self.base_config.workspace_dir
     }

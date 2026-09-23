@@ -162,8 +162,8 @@ describe('rpcMethods catalog', () => {
       readWithParts('../../../../crates/openhuman-core/src/config/schemas/schema_defs.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/provider/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/inference/schemas.rs'),
-      readWithParts('../../../../crates/openhuman-core/src/inference/local/schemas.rs'),
-      readWithParts('../../../../crates/openhuman-core/src/inference/embeddings/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/host_runtime/schemas.rs'),
+      readWithParts('../../../../crates/openhuman-core/src/inference/embedding_host/schemas.rs'),
       // The MCP registry split its schemas module into a directory. Controller
       // definitions (and therefore the mcp_clients literals this guard owns)
       // live in `registry.rs`; keep this path explicit so another move fails
@@ -172,6 +172,8 @@ describe('rpcMethods catalog', () => {
       readWithParts('../../../../crates/openhuman-core/src/tools/registry/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/platform/health/schemas.rs'),
       readWithParts('../../../../crates/openhuman-core/src/channels/controllers/schemas.rs'),
+      // The credential handoff RPCs (`auth_set_credential` / `auth_clear_credential`).
+      readWithParts('../../../../crates/openhuman-core/src/security/credentials/schemas.rs'),
       // The channels_* namespace/function literals now live in the vendored
       // tinychannels workspace (`ChannelControllerSchema`), not in the thin
       // `crates/openhuman-core/src/channels/controllers/schemas.rs` adapter above, which
@@ -195,21 +197,23 @@ describe('rpcMethods catalog', () => {
       // core.* methods (e.g. core.ping) are special dispatch methods, not in the schema catalog.
       if (!method.startsWith('openhuman.')) continue;
       const methodRoot = method.slice('openhuman.'.length);
-      const namespace = methodRoot.startsWith('inference_')
-        ? 'inference'
-        : methodRoot.startsWith('embeddings_')
-          ? 'embeddings'
-          : methodRoot.startsWith('providers_')
-            ? 'providers'
-            : methodRoot.startsWith('mcp_clients_')
-              ? 'mcp_clients'
-              : methodRoot.startsWith('health_')
-                ? 'health'
-                : methodRoot.startsWith('channels_')
-                  ? 'channels'
-                  : methodRoot.startsWith('tool_registry_')
-                    ? 'tool_registry'
-                    : 'config';
+      const namespace = methodRoot.startsWith('auth_')
+        ? 'auth'
+        : methodRoot.startsWith('inference_')
+          ? 'inference'
+          : methodRoot.startsWith('embeddings_')
+            ? 'embeddings'
+            : methodRoot.startsWith('providers_')
+              ? 'providers'
+              : methodRoot.startsWith('mcp_clients_')
+                ? 'mcp_clients'
+                : methodRoot.startsWith('health_')
+                  ? 'health'
+                  : methodRoot.startsWith('channels_')
+                    ? 'channels'
+                    : methodRoot.startsWith('tool_registry_')
+                      ? 'tool_registry'
+                      : 'config';
       const fnName = methodRoot.slice(`${namespace}_`.length);
       expect(schemaSources).toContain(`namespace: "${namespace}"`);
       expect(schemaSources).toContain(`function: "${fnName}"`);

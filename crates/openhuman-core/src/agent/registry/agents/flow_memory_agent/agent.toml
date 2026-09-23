@@ -35,7 +35,7 @@ omit_memory_md = false
 # shape as `context_scout`. Rides the high-throughput `burst` tier: this is a
 # cheap, latency-tolerant, non-reasoning retrieval pass invoked from inside a
 # flow run, so raw throughput on a fast model beats the pricier
-# agentic/reasoning tiers. Resolves to `burst-v1` on the managed backend.
+# agentic/reasoning tiers. Resolves to `hint:burst` on the managed backend.
 hint = "burst"
 
 [tools]

@@ -98,7 +98,6 @@ impl EventHandler<DomainEvent> for ChannelInboundSubscriber {
             None,
             None,
             None,
-            None,
             crate::web_chat::ChatRequestMetadata {
                 // Tag inbound provider messages so traces classify as
                 // run:channel_inbound instead of interactive chat.

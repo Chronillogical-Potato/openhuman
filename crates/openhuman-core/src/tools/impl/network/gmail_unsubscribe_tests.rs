@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::ToolContent;
+use tinytools::ToolContent;
 
 #[tokio::test]
 async fn test_gmail_unsubscribe_valid() {

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent::harness::subagent_runner::SubagentRunStatus;
 use crate::agent::messages::ChatMessage;
+use crate::agent::subagent_host::SubagentRunStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -24,6 +24,7 @@ impl DurableSubagentStatus {
             // active and can be resumed/reused, so it maps to Idle — not Failed
             // (no hard error) and not AwaitingUser (not paused for input).
             SubagentRunStatus::Incomplete { .. } => Self::Idle,
+            SubagentRunStatus::Cancelled => Self::Failed,
         }
     }
 

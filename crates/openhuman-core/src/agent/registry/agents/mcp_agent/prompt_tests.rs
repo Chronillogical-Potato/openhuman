@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::{LearnedContextData, ToolCallFormat};
+use crate::agent::prompts::{LearnedContextData, ToolCallFormat};
 use std::collections::HashSet;
 
 fn empty_ctx() -> PromptContext<'static> {
@@ -21,8 +21,6 @@ fn empty_ctx() -> PromptContext<'static> {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -32,17 +30,18 @@ fn empty_ctx() -> PromptContext<'static> {
 #[test]
 fn build_returns_nonempty_body() {
     let body = build(&empty_ctx()).unwrap();
-    assert!(!body.is_empty());
     assert!(body.contains("MCP Agent"));
 }
 
 #[test]
 fn archetype_documents_connected_only_invariant() {
     let body = build(&empty_ctx()).unwrap();
-    // Must steer away from install (that's mcp_setup's job) and toward
-    // the discover → list → call flow over already-connected servers.
+    // Must steer away from install (the user declares servers in mcp.json)
+    // and toward the discover → list → call flow over already-connected
+    // servers.
     assert!(body.contains("already connected") || body.contains("already-connected"));
-    assert!(body.contains("setup_mcp_server"));
+    assert!(body.contains("mcp.json"));
+    assert!(!body.contains("setup_mcp_server"));
 }
 
 #[test]

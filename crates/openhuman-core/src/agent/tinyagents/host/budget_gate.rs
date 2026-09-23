@@ -55,36 +55,22 @@
 //! `check_budget` (which honours `cost.enabled`), and the scheduler-gate permit
 //! is held for exactly the lifetime of the crate permit.
 
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use parking_lot::RwLock;
 
-use tinyagents_harness::error::{Result, TinyAgentsError};
+use tinyagents_harness::error::Result;
 use tinyagents_harness::host::budget_gate::{
     BudgetGate, CallEstimate, CompressionHint, ContextState, Permit,
 };
-use tinyinference::usage::Usage;
+use tinyinference_llm::usage::Usage;
 
 use crate::config::{Config, DEFAULT_MODEL};
 use crate::cron::scheduler_gate;
 use crate::inference::provider::types::UsageInfo;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-use crate::platform::cost::{self, BudgetCheck};
-
-/// Cached budget pressure, encoded for [`AtomicU8`].
-///
-/// A plain enum behind a lock would make [`BudgetGate::compression_hint`] —
-/// which the runtime calls between every iteration of a turn — take a lock on
-/// the hot path. An atomic load is what the trait's "read a counter, compare
-/// against a threshold" wording asks for.
-const PRESSURE_NORMAL: u8 = 0;
-/// The warn threshold (`cost.warn_at_percent`) has been crossed.
-const PRESSURE_WARNING: u8 = 1;
-/// A daily or monthly limit has been reached. Set only transiently: an
-/// `Exceeded` check also refuses the call it was made for.
-const PRESSURE_EXCEEDED: u8 = 2;
+use crate::platform::cost;
 
 /// Context utilization at which an *already budget-driven* soft hint is
 /// escalated to hard.
@@ -113,8 +99,6 @@ pub struct OpenHumanBudgetGate {
     /// session config and re-stamped by each [`acquire`](Self::acquire); see
     /// mismatch (1) in the module docs.
     last_model: RwLock<String>,
-    /// Cached budget pressure; one of the `PRESSURE_*` constants.
-    pressure: AtomicU8,
     /// Whether this session's model calls are **background** work that must
     /// queue behind [`scheduler_gate`].
     ///
@@ -149,7 +133,6 @@ impl OpenHumanBudgetGate {
             config,
             compression,
             last_model: RwLock::new(fallback),
-            pressure: AtomicU8::new(PRESSURE_NORMAL),
             background: false,
         }
     }
@@ -170,40 +153,6 @@ impl OpenHumanBudgetGate {
     /// The model id [`record`](Self::record) will attribute usage to.
     fn attributed_model(&self) -> String {
         self.last_model.read().clone()
-    }
-
-    /// Re-reads the budget and caches the resulting pressure.
-    ///
-    /// `pending_usd` is the cost of a call about to be made (`0.0` when
-    /// reconciling after one). Returns the raw [`BudgetCheck`] so
-    /// [`acquire`](Self::acquire) can refuse on `Exceeded`; returns `None` when
-    /// the tracker is uninitialised (before bootstrap, and in unit tests),
-    /// which OpenHuman treats everywhere as "no budget opinion", never as a
-    /// refusal.
-    fn refresh_pressure(&self, pending_usd: f64) -> Option<BudgetCheck> {
-        let tracker = cost::try_global()?;
-        match tracker.check_budget(pending_usd) {
-            Ok(check) => {
-                let pressure = match check {
-                    BudgetCheck::Allowed => PRESSURE_NORMAL,
-                    BudgetCheck::Warning { .. } => PRESSURE_WARNING,
-                    BudgetCheck::Exceeded { .. } => PRESSURE_EXCEEDED,
-                };
-                self.pressure.store(pressure, Ordering::Relaxed);
-                Some(check)
-            }
-            Err(err) => {
-                // A failed budget read is not a refusal: `check_budget` errors
-                // on a malformed estimate or a storage problem, neither of
-                // which is evidence the user is over budget. Refusing here
-                // would turn a bad JSONL file into "no agent may run".
-                log::warn!(
-                    "[tinyagents][budget] check_budget failed; proceeding without \
-                     a budget opinion: {err}"
-                );
-                None
-            }
-        }
     }
 
     /// Lowers a hint to what the agent's TokenJuice profile tolerates.
@@ -260,22 +209,6 @@ impl BudgetGate for OpenHumanBudgetGate {
             0,
         );
 
-        if let Some(BudgetCheck::Exceeded {
-            current_usd,
-            limit_usd,
-            period,
-        }) = self.refresh_pressure(estimated_usd)
-        {
-            log::warn!(
-                "[tinyagents][budget] refusing model call: {period:?} spend ${current_usd:.4} \
-                 of ${limit_usd:.4} limit (model={} est=${estimated_usd:.4})",
-                est.model
-            );
-            return Err(TinyAgentsError::LimitExceeded(format!(
-                "cost budget exceeded: {period:?} spend ${current_usd:.4} of ${limit_usd:.4} limit"
-            )));
-        }
-
         log::debug!(
             "[tinyagents][budget] awaiting capacity model={} agent={:?} in={} out={} tools={} \
              est_usd={estimated_usd:.6}",
@@ -290,7 +223,7 @@ impl BudgetGate for OpenHumanBudgetGate {
         // arm polls until background AI is re-enabled, so a signed-out user on a
         // local/BYOK model — or anyone who simply paused background AI — would
         // watch their chat hang until the turn timeout. The budget checks above
-        // still apply either way; only the concurrency queue is skipped.
+        // only the concurrency queue is skipped.
         if !self.background {
             let grant_id = uuid::Uuid::new_v4().to_string();
             log::trace!(
@@ -381,37 +314,19 @@ impl BudgetGate for OpenHumanBudgetGate {
 
         // Reconcile after the spend: this is the I/O-bearing refresh that
         // `compression_hint` then reads for free.
-        self.refresh_pressure(0.0);
         Ok(())
     }
 
-    /// Advises compression when OpenHuman is under *budget* pressure.
+    /// Always [`CompressionHint::None`]: this gate has no budget opinion.
     ///
-    /// A single relaxed atomic load plus, at most, one float compare — no lock,
-    /// no I/O, safe to call between every iteration of a turn.
-    ///
-    /// Context fullness never originates a hint here. That question is
-    /// `SummarizationPolicy`'s, and duplicating its threshold is how the two
-    /// come to disagree; utilization is used only to escalate a hint the budget
-    /// already justified. Consequently a healthy budget yields
-    /// [`CompressionHint::None`] — this gate declining to *ask*, with the
-    /// crate's own policy still free to compress.
-    fn compression_hint(&self, state: &ContextState) -> CompressionHint {
-        let hint = match self.pressure.load(Ordering::Relaxed) {
-            PRESSURE_WARNING => {
-                let crowded = state
-                    .utilization()
-                    .is_some_and(|used| used >= ESCALATE_AT_UTILIZATION);
-                if crowded {
-                    CompressionHint::Hard
-                } else {
-                    CompressionHint::Soft
-                }
-            }
-            PRESSURE_EXCEEDED => CompressionHint::Hard,
-            _ => CompressionHint::None,
-        };
-        self.cap_hint(hint)
+    /// It used to escalate compression as OpenHuman approached its spend cap.
+    /// With the cap removed there is no budget pressure to read, and context
+    /// fullness was never this gate's question — that belongs to
+    /// `SummarizationPolicy`, which still compresses on its own threshold.
+    /// Duplicating that threshold here is how the two came to disagree, so
+    /// this stays a declined request rather than a second opinion.
+    fn compression_hint(&self, _state: &ContextState) -> CompressionHint {
+        CompressionHint::None
     }
 }
 

@@ -1,6 +1,6 @@
 //! Task-local carrier for the **calling agent's `sandbox_mode`** so tool
 //! implementations can enforce sandbox semantics at execution time without
-//! widening the [`crate::tools::Tool`] trait signature.
+//! widening the [`tinytools::Tool`] trait signature.
 //!
 //! Sibling of the existing [`super::fork_context`] task-local but serves
 //! a different concept: `PARENT_CONTEXT` carries the *parent agent's*
@@ -52,7 +52,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     CURRENT_AGENT_SANDBOX_MODE
         .scope(mode, Box::pin(future))
         .await

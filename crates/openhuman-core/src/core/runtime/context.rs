@@ -94,6 +94,14 @@ pub struct CoreContext {
     /// [`CoreContext::derive_with`] can turn it off so an embedded agent sees
     /// only the skills its host installed for it, never the operator's.
     user_skill_roots: bool,
+    /// The backend transport this context's handlers reach the hosted
+    /// TinyHumans backend through, when the host supplied one via
+    /// [`CoreBuilder::backend_transport`](crate::core::runtime::CoreBuilder::backend_transport).
+    /// `None` means "fall back to the process-global transport" — see
+    /// [`crate::api::transport::resolve_backend_transport`] for the order.
+    /// Inherited unchanged by every context derived through
+    /// [`CoreContext::derive_with`].
+    backend_transport: Option<Arc<dyn crate::api::transport::BackendTransport>>,
 }
 
 /// Per-agent overrides layered onto a booted context by
@@ -210,7 +218,7 @@ impl CoreContext {
         token: &TokenSource,
         domains: crate::core::runtime::DomainSet,
     ) -> anyhow::Result<(Arc<CoreContext>, bool, Option<crate::config::Config>)> {
-        Self::init_with_config(host_kind, token, domains, Default::default(), None).await
+        Self::init_with_config(host_kind, token, domains, Default::default(), None, None).await
     }
 
     /// [`init`](Self::init) with an optional caller-supplied configuration.
@@ -230,10 +238,15 @@ impl CoreContext {
         domains: crate::core::runtime::DomainSet,
         tool_groups: crate::tools::toolpacks::ToolGroups,
         preloaded_config: Option<crate::config::Config>,
+        backend_transport: Option<Arc<dyn crate::api::transport::BackendTransport>>,
     ) -> anyhow::Result<(Arc<CoreContext>, bool, Option<crate::config::Config>)> {
         log::debug!(
             "[core-context] init: host_kind={host_kind:?} domains={domains:?} \
-             tool_groups={tool_groups:?}"
+             tool_groups={tool_groups:?} backend_transport={}",
+            backend_transport
+                .as_ref()
+                .map(|t| t.name())
+                .unwrap_or("<process-global>")
         );
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
@@ -341,6 +354,7 @@ impl CoreContext {
             tool_groups,
             embedder_config,
             user_skill_roots: true,
+            backend_transport,
         });
 
         // Register the process default context (first build wins). Dispatch
@@ -430,7 +444,13 @@ impl CoreContext {
             tool_groups: overlay.tool_groups,
             embedder_config: Some(overlay.config),
             user_skill_roots: overlay.user_skill_roots,
+            backend_transport: self.backend_transport.clone(),
         })
+    }
+
+    /// The backend transport bound to this context, if the host supplied one.
+    pub fn backend_transport(&self) -> Option<Arc<dyn crate::api::transport::BackendTransport>> {
+        self.backend_transport.clone()
     }
 
     /// The resolved per-user workspace directory this context is bound to.
@@ -684,6 +704,7 @@ impl CoreContext {
             tool_groups: Default::default(),
             embedder_config: None,
             user_skill_roots: true,
+            backend_transport: None,
         })
     }
 
@@ -712,6 +733,7 @@ impl CoreContext {
             tool_groups: Default::default(),
             embedder_config: Some(config),
             user_skill_roots: true,
+            backend_transport: None,
         })
     }
 }
@@ -908,6 +930,10 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
             if let Some(uid) = state.user_id.as_deref() {
                 crate::security::credentials::sentry_scope::bind(uid);
             }
+            // The host-supplied user payload survives restarts in the profile
+            // store; seed the identity slot from it so prompt composition sees
+            // the signed-in user before any host RPC runs.
+            crate::security::credentials::identity::set_current_user(state.user);
         }
         Err(e) => {
             log::debug!("[boot] sentry scope user bind skipped — build_session_state failed: {e}")

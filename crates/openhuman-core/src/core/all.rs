@@ -6,7 +6,7 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
 
 use serde_json::{Map, Value};
 
@@ -135,7 +135,9 @@ pub enum DomainGroup {
     /// (`desktop/`).
     Desktop,
     /// Clients of the hosted TinyHumans backend — billing, team, referral, and
-    /// announcements (`hosted/`). A self-hosted build drops these as a unit.
+    /// announcements. Not built into the core: `openhuman-tinyhumans::hosted`
+    /// registers them through [`register_controller_extension`], and this
+    /// group is what the ambient `DomainSet` gates them with.
     Hosted,
     /// Loadable native modules: the module host, its registry, and the `modules`
     /// RPC surface (`modules/`).
@@ -354,6 +356,146 @@ fn internal_registry() -> &'static [GroupedController] {
         .as_slice()
 }
 
+/// Controllers registered by a crate *above* the core at runtime — today the
+/// hosted TinyHumans proxies (`billing`, `team`, `referral`, `announcements`)
+/// from `openhuman-tinyhumans`, which the core cannot name because the core
+/// carries no backend client.
+///
+/// Append-only and chained into every lookup below alongside [`registry`],
+/// so there is no "register before first registry access" ordering rule: a
+/// host may install an extension before or after the core boots, and the
+/// only observable rule is "install before the first dispatch of one of its
+/// methods". [`DomainSet`](crate::core::runtime::DomainSet) gating applies to
+/// extension controllers exactly as to built-in ones through their group.
+static EXTENSIONS: RwLock<Option<Arc<Vec<GroupedController>>>> = RwLock::new(None);
+static EXTENSION_NAMESPACES: RwLock<Vec<(&'static str, &'static str)>> = RwLock::new(Vec::new());
+
+/// A set of controllers a crate above the core contributes to the registry.
+pub struct ControllerExtension {
+    /// The domain family every controller in `controllers` belongs to; the
+    /// ambient [`DomainSet`](crate::core::runtime::DomainSet) gates them
+    /// through it.
+    pub group: DomainGroup,
+    /// The controllers, built exactly as a core domain builds them.
+    pub controllers: Vec<RegisteredController>,
+    /// `(namespace, description)` pairs for [`namespace_description`].
+    pub namespaces: &'static [(&'static str, &'static str)],
+}
+
+/// Register `ext`'s controllers alongside the built-in registry.
+///
+/// Idempotent for an identical re-registration (same `(namespace, function)`
+/// keys already present): returns `Ok(())` and changes nothing, so a host or
+/// test fixture may call it freely. Any *other* collision with the built-in,
+/// internal or previously extended set is an error, checked with the same
+/// [`validate_registry`] drift guard the built-in set passes at boot.
+pub fn register_controller_extension(ext: ControllerExtension) -> Result<(), String> {
+    let mut slot = EXTENSIONS
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let existing: Vec<GroupedController> = slot.as_deref().cloned().unwrap_or_default();
+
+    let incoming_keys: Vec<String> = ext
+        .controllers
+        .iter()
+        .map(|c| format!("{}.{}", c.schema.namespace, c.schema.function))
+        .collect();
+    let already: std::collections::BTreeSet<String> = existing
+        .iter()
+        .map(|g| {
+            format!(
+                "{}.{}",
+                g.controller.schema.namespace, g.controller.schema.function
+            )
+        })
+        .collect();
+    if !incoming_keys.is_empty() && incoming_keys.iter().all(|k| already.contains(k)) {
+        log::debug!(
+            "[registry] extension for group {:?} already registered ({} controllers); no-op",
+            ext.group,
+            incoming_keys.len()
+        );
+        return Ok(());
+    }
+
+    let mut merged = existing;
+    for controller in ext.controllers {
+        merged.push(GroupedController {
+            group: ext.group,
+            capability: None,
+            controller,
+        });
+    }
+    // Validate the union so an extension cannot shadow a built-in or internal
+    // method, and cannot carry an invalid schema the boot guard would reject.
+    let union: Vec<GroupedController> = registry()
+        .iter()
+        .chain(internal_registry().iter())
+        .chain(merged.iter())
+        .cloned()
+        .collect();
+    validate_registry(&union).map_err(|err| format!("invalid controller extension: {err}"))?;
+
+    log::info!(
+        "[registry] registered controller extension group={:?} controllers={} namespaces={:?}",
+        ext.group,
+        incoming_keys.len(),
+        ext.namespaces.iter().map(|(n, _)| *n).collect::<Vec<_>>()
+    );
+    *slot = Some(Arc::new(merged));
+    let mut names = EXTENSION_NAMESPACES
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    for pair in ext.namespaces {
+        if !names.iter().any(|(n, _)| n == &pair.0) {
+            names.push(*pair);
+        }
+    }
+    Ok(())
+}
+
+/// Snapshot of the extension registry: an `Arc` clone per lookup, never a
+/// `Vec` clone.
+fn extension_registry() -> Arc<Vec<GroupedController>> {
+    EXTENSIONS
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+        .unwrap_or_else(|| Arc::new(Vec::new()))
+}
+
+/// The agent-facing registry: built-in controllers followed by every
+/// registered extension. Every public lookup iterates this, so extension
+/// controllers are first-class for schema, dispatch, capability and CLI
+/// routing.
+struct RegistryView {
+    builtin: &'static [GroupedController],
+    extensions: Arc<Vec<GroupedController>>,
+}
+
+impl RegistryView {
+    fn iter(&self) -> impl Iterator<Item = &GroupedController> + '_ {
+        self.builtin.iter().chain(self.extensions.iter())
+    }
+}
+
+fn registry_view() -> RegistryView {
+    RegistryView {
+        builtin: registry(),
+        extensions: extension_registry(),
+    }
+}
+
+/// Description registered by an extension for `namespace`, if any.
+fn extension_namespace_description(namespace: &str) -> Option<&'static str> {
+    EXTENSION_NAMESPACES
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .iter()
+        .find(|(n, _)| *n == namespace)
+        .map(|(_, d)| *d)
+}
+
 /// Returns a reference to the global CLI adapter registry.
 fn cli_adapters() -> &'static [RegisteredCliAdapter] {
     CLI_ADAPTERS.get_or_init(|| {
@@ -455,12 +597,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Agent,
         crate::agent::tinyagents::replay::all_agent_replay_registered_controllers(),
-    );
-    // Persistent agent profiles (flavours): name, soul, memory sources, skills, MCP, connectors.
-    push(
-        &mut controllers,
-        DomainGroup::Agent,
-        crate::agent::profiles::all_profiles_registered_controllers(),
     );
     // User-facing agent registry: defaults, enablement, custom agents, tool policy.
     push(
@@ -630,7 +766,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Inference,
-        crate::inference::embeddings::all_embeddings_registered_controllers(),
+        crate::inference::embedding_host::all_embeddings_registered_controllers(),
     );
     // People resolution and interaction scoring
     push_cap(
@@ -792,12 +928,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Goals),
         crate::memory::goals::all_memory_goals_registered_controllers(),
     );
-    // Thread-level goal (Codex-style per-thread completion contract)
-    push(
-        &mut controllers,
-        DomainGroup::Threads,
-        crate::threads::goals::all_thread_goals_registered_controllers(),
-    );
     // Memory tree ingestion layer (#707 — canonicalised chunks with provenance)
     push_cap(
         &mut controllers,
@@ -843,30 +973,10 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         Some(Capability::Sources),
         crate::memory::sources::all_memory_sources_registered_controllers(),
     );
-    // Referral and growth tracking
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::referral::all_referral_registered_controllers(),
-    );
-    // Billing and subscription management
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::billing::all_billing_registered_controllers(),
-    );
-    // Announcements surfaced on harness init
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::announcements::all_announcements_registered_controllers(),
-    );
-    // Team and role management
-    push(
-        &mut controllers,
-        DomainGroup::Hosted,
-        crate::hosted::team::all_team_registered_controllers(),
-    );
+    // The hosted TinyHumans proxies (`billing`, `team`, `referral`,
+    // `announcements`, `DomainGroup::Hosted`) are NOT built in: they live in
+    // `openhuman-tinyhumans` and arrive through `register_controller_extension`
+    // when a host installs that crate. A core without it has no such RPCs.
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
     // Gated behind the `e2e-test-support` cargo feature so shipped binaries
     // never even register the destructive wipe RPC. Flipped on by the E2E
@@ -942,12 +1052,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Inference,
         crate::inference::tokenjuice::all_tokenjuice_registered_controllers(),
-    );
-    // Per-thread todo list (agent task board CRUD over RPC)
-    push(
-        &mut controllers,
-        DomainGroup::Threads,
-        crate::threads::todos::all_todos_registered_controllers(),
     );
     // Integration notification ingest, triage, and per-provider settings
     push(
@@ -1040,11 +1144,13 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
 /// the complete set (byte-identical to pre-#4796).
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.clone())
-        .collect()
+        .collect();
+    found
 }
 
 /// Returns a vector of all controller schemas, derived from the registered
@@ -1056,11 +1162,13 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 /// automatically under `harness()`.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     let caps = crate::core::runtime::context::CoreContext::current_memory_capabilities();
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .filter(|g| group_allowed(g.group) && capability_allowed_in(caps, g.capability))
         .map(|g| g.controller.schema.clone())
-        .collect()
+        .collect();
+    found
 }
 
 /// Generates a standardized RPC method name from a controller schema.
@@ -1092,10 +1200,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
             "Operator-facing dashboard aggregations: per-model health comparison rows.",
         ),
         "mcp_clients" => Some(
-            "Browse the Smithery.ai MCP registry, install MCP servers locally, manage their stdio connections, and expose their tools to the agent.",
-        ),
-        "mcp_setup" => Some(
-            "MCP setup agent surface: search registries, request secrets out-of-band (opaque refs, no raw values in agent context), test, and install + connect.",
+            "Browse the MCP registries, declare the user's servers in one mcp.json document, manage their connections and credentials, and expose their tools to the agent.",
         ),
         "decrypt" => Some("Decrypt secure values managed by secret storage."),
         "doctor" => Some("Run diagnostics for workspace and runtime health."),
@@ -1121,9 +1226,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "memory_goals" => Some(
             "The agent's long-term goals list for working with the user — editable items plus turn-based enrichment.",
         ),
-        "thread_goals" => Some(
-            "The thread-level goal — a Codex-style per-thread completion contract with lifecycle, token budget, and idle continuation.",
-        ),
         "memory_tree" => Some(
             "Canonical chunk ingestion, provenance capture, and chunk retrieval for source-grounded memory.",
         ),
@@ -1133,7 +1235,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "memory_sources" => Some(
             "User-configured data connectors (Composio, folders, GitHub repos, RSS, web pages) that feed memory.",
         ),
-        "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
         "run_ledger" => Some(
             "Durable agent and workflow run state, child lineage, events, telemetry, and checkpoint references.",
         ),
@@ -1146,11 +1247,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "agent_team" => Some(
             "Durable agent-team coordination: teams, members, dependency-aware task claiming, and teammate messaging.",
         ),
-        "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
-        "announcements" => {
-            Some("Latest active product announcement surfaced on harness init, via the backend.")
-        }
-        "team" => Some("Team member management, invites, and role changes via the backend."),
         "tool_registry" => Some(
             "Read-only discovery for MCP stdio tools and controller-backed tools, including routes, schemas, version, allowed agents, and health.",
         ),
@@ -1190,7 +1286,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "subsystems" => Some(
             "Kernel subsystem slots and their bound drivers: class, health, contract version, and advertised capabilities.",
         ),
-        _ => None,
+        other => extension_namespace_description(other),
     }
 }
 
@@ -1208,12 +1304,14 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
     // and CLI routing, which are harmless for an about-to-be-rejected gated
     // method — the DomainSet gate is enforced at dispatch
     // (`try_invoke_registered_rpc`), not here. See that fn for the rationale.
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
-        .map(|g| g.controller.rpc_method_name())
+        .map(|g| g.controller.rpc_method_name());
+    found
 }
 
 /// The memory-driver capability family a controller's surface requires, looked
@@ -1236,12 +1334,14 @@ pub fn rpc_method_from_parts(namespace: &str, function: &str) -> Option<String> 
 /// CLI-invokable in any configuration, so reporting a capability fact for one
 /// would name a cause that is not the reason the command is unavailable.
 pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Capability>> {
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .find(|g| {
             g.controller.schema.namespace == namespace && g.controller.schema.function == function
         })
-        .map(|g| g.capability)
+        .map(|g| g.capability);
+    found
 }
 
 /// The memory-driver capability family required by an RPC method, looked up in
@@ -1252,10 +1352,12 @@ pub fn capability_for_parts(namespace: &str, function: &str) -> Option<Option<Ca
 /// must still produce the CLI's configuration-fact diagnostic before it
 /// dispatches a capability-gated method.
 pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .find(|g| g.controller.rpc_method_name() == method)
-        .map(|g| g.capability)
+        .map(|g| g.capability);
+    found
 }
 
 /// The capability a whole namespace's surface requires, when every controller
@@ -1275,7 +1377,8 @@ pub fn capability_for_rpc_method(method: &str) -> Option<Option<Capability>> {
 pub fn sole_capability_for_namespace(namespace: &str) -> Option<Capability> {
     let mut found: Option<Capability> = None;
     let mut any = false;
-    for grouped in registry()
+    let view = registry_view();
+    for grouped in view
         .iter()
         .filter(|g| g.controller.schema.namespace == namespace)
     {
@@ -1313,7 +1416,8 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // The memory-capability gate (M5.2) rides here for exactly the same reason:
     // a `memory_tree.*` method hidden because the bound driver never advertised
     // `tree` must not leak back out through a param-validation error.
-    registry()
+    let view = registry_view();
+    let found = view
         .iter()
         .chain(internal_registry().iter())
         .find(|g| {
@@ -1321,7 +1425,8 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
                 && group_allowed(g.group)
                 && capability_allowed(g.capability)
         })
-        .map(|g| g.controller.schema.clone())
+        .map(|g| g.controller.schema.clone());
+    found
 }
 
 /// Validates that the provided parameters match the requirements of the controller schema.
@@ -1518,7 +1623,8 @@ pub async fn try_invoke_registered_rpc(
     method: &str,
     params: Map<String, Value>,
 ) -> Option<Result<Value, String>> {
-    let grouped = registry()
+    let view = registry_view();
+    let grouped = view
         .iter()
         .chain(internal_registry().iter())
         .find(|g| g.controller.rpc_method_name() == method)?;

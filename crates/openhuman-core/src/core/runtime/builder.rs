@@ -472,6 +472,7 @@ pub struct CoreBuilder {
     host: Option<String>,
     port: Option<u16>,
     config: Option<crate::config::Config>,
+    backend_transport: Option<std::sync::Arc<dyn crate::api::transport::BackendTransport>>,
 }
 
 impl CoreBuilder {
@@ -487,7 +488,28 @@ impl CoreBuilder {
             host: None,
             port: None,
             config: None,
+            backend_transport: None,
         }
+    }
+
+    /// Bind the transport this core's handlers reach the hosted TinyHumans
+    /// backend through (see [`crate::api::transport`]).
+    ///
+    /// Optional: without it the core resolves the process-global transport
+    /// installed with
+    /// [`install_backend_transport`](crate::api::transport::install_backend_transport),
+    /// and with neither every backend-touching call degrades to a typed
+    /// "backend unavailable" error while agents, memory, tools and RPC keep
+    /// working. Library hosts that build one runtime per process prefer this
+    /// builder form; the desktop shell and CLI, which boot the core through
+    /// `run_server_embedded_with_ready` / `run_core_from_args`, install the
+    /// global.
+    pub fn backend_transport(
+        mut self,
+        transport: std::sync::Arc<dyn crate::api::transport::BackendTransport>,
+    ) -> Self {
+        self.backend_transport = Some(transport);
+        self
     }
 
     /// Choose which background services / transports [`CoreRuntime::serve`] runs.
@@ -632,8 +654,16 @@ impl CoreBuilder {
             self.domains,
             self.tool_groups.clone(),
             self.config,
+            self.backend_transport,
         )
         .await?;
+
+        // Retired scheduled jobs must be pruned before `build()` exposes
+        // in-process RPC or agent turns. Running this from `serve()` is too
+        // late for embedders that only build and invoke.
+        if let Some(cfg) = config.as_ref() {
+            crate::core::runtime::services::run_legacy_migrations(cfg).await;
+        }
 
         // Reap agent runs orphaned by a previous process (crash / restart /
         // deploy). Here, and not with the other boot-once jobs, because those
@@ -949,12 +979,13 @@ impl CoreRuntime {
         // `ollama serve` openhuman itself spawned (no-op when externally
         // managed) so the next launch doesn't try to reclaim a dead daemon.
         // Bounded so a wedged Ollama can't hold up app shutdown.
-        if let Some(svc) = crate::inference::local::try_global() {
+        if let Some(svc) = crate::inference::host_runtime::try_global() {
             let cfg = crate::config::Config::load_or_init()
                 .await
                 .unwrap_or_default();
+            let runtime = crate::inference::local_runtime_config(&cfg);
             log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
-            let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
+            let shutdown_fut = svc.shutdown_owned_ollama(&runtime);
             if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
                 .await
                 .is_err()

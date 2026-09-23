@@ -1,0 +1,25 @@
+# Shared tinyanalyzer configuration for scripts/dep-audit/run.sh.
+#
+# It is passed with `--config` to every target so the sweep behaves the same in
+# the root workspace and in each vendored submodule regardless of whether that
+# repository ships its own tinyanalyzer.toml. Only dependency-related settings
+# matter here; file/complexity findings are ignored by the report.
+
+[scan]
+# Submodule checkouts inside a target are separate targets of their own.
+exclude = ["vendor/**", "worktrees/**", "target/**", "node_modules/**"]
+
+[dependencies]
+# Also charge test/benchmark-only dependencies so the heavy-dependency table
+# reflects what CI actually compiles.
+include_dev = true
+
+# `ignore_unused` would hide a crate from tinyanalyzer's own unused check in
+# every target, globally — including a target where the crate genuinely is
+# unused. `report.mjs`'s `textualUse` re-check already covers the one false
+# positive this list used to carry (`thiserror` reached only through
+# `#[derive(thiserror::Error)]`, never a `use`): it greps for `#[thiserror\b`
+# and reports "keep (attribute/macro path)" instead of "remove", so no global
+# suppression is needed here. Prefer that per-finding re-check over adding
+# entries below.
+ignore_unused = []

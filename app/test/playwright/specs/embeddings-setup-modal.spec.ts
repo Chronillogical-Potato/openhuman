@@ -4,7 +4,7 @@ import {
   bootRuntimeReadyGuestPage,
   callCoreRpc,
   dismissWalkthroughIfPresent,
-  signInViaCallbackToken,
+  signInViaBypassUser,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
@@ -27,7 +27,7 @@ import {
  * assertion that matches the fix's own reasoning.
  *
  * `custom` is a real catalog provider
- * (`crates/openhuman-core/src/inference/embeddings/catalog.rs` — `PROVIDER_CUSTOM`, label
+ * (`crates/openhuman-core/src/embeddings/catalog.rs` — `PROVIDER_CUSTOM`, label
  * "Custom (OpenAI-compatible)"), so it is served by the real core this lane
  * runs against and needs no fixture.
  */
@@ -37,7 +37,7 @@ const TEST_CONNECTION = /Test connection/i;
 
 async function openEmbeddingsTab(page: import('@playwright/test').Page, userId: string) {
   await bootRuntimeReadyGuestPage(page);
-  await signInViaCallbackToken(page, userId);
+  await signInViaBypassUser(page, userId);
   await page.evaluate(() => {
     try {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');

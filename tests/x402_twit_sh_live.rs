@@ -3,9 +3,9 @@
 //! Run manually (requires a funded wallet):
 //!   GGML_NATIVE=OFF cargo test --test x402_twit_sh_live -- --ignored --nocapture
 
-use openhuman_core::tools::traits::Tool;
 use openhuman_core::web3::x402;
 use serde_json::json;
+use tinytools::Tool;
 
 #[tokio::test]
 #[ignore] // requires funded wallet + network access

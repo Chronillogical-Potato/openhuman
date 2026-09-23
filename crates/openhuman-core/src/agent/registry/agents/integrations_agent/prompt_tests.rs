@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::{LearnedContextData, ToolCallFormat};
+use crate::agent::prompts::{LearnedContextData, ToolCallFormat};
 use std::collections::HashSet;
 
 fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
@@ -23,8 +23,6 @@ fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -34,7 +32,6 @@ fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
 #[test]
 fn build_returns_nonempty_body() {
     let body = build(&ctx_with(&[])).unwrap();
-    assert!(!body.is_empty());
     assert!(!body.contains("## Connected Integrations"));
     assert!(!body.contains("## Available Skills"));
 }

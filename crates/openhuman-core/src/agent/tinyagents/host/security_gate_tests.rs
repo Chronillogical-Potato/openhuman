@@ -1,7 +1,7 @@
 use super::*;
 use crate::security::policy::AutonomyLevel;
-use crate::tools::ToolResult;
 use serde_json::json;
+use tinytools::ToolResult;
 
 /// Minimal registered tool. `execute` is unreachable: this adapter answers
 /// questions about tools, it never runs them.

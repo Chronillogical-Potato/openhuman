@@ -59,9 +59,7 @@ impl Config {
 
         set_runtime_proxy_config(self.proxy.clone());
 
-        crate::inference::embeddings::rate_limit::set_embedding_rate_limit(
-            self.memory.embedding_rate_limit_per_min,
-        );
+        tinyinference_embeddings::set_rate_limit(self.memory.embedding_rate_limit_per_min);
 
         // Launch flags are process-local and intentionally win over both the
         // persisted file and ordinary environment overlays. They are applied
@@ -89,6 +87,21 @@ impl Config {
             let trimmed = model.trim();
             if !trimmed.is_empty() {
                 self.default_model = Some(trimmed.to_string());
+            }
+        }
+
+        // One-launch override for the tool-call dialect experiment
+        // (`agent.tool_dispatcher`): `auto | native | xml | pformat | python |
+        // typescript`. Validation stays with the dispatcher mapping, which
+        // falls back to `auto` with a warning on an unknown spelling.
+        if let Some(raw) = env.get("OPENHUMAN_TOOL_DISPATCHER") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                tracing::debug!(
+                    dispatcher = trimmed,
+                    "OPENHUMAN_TOOL_DISPATCHER overrides agent.tool_dispatcher"
+                );
+                self.agent.tool_dispatcher = trimmed.to_string();
             }
         }
 

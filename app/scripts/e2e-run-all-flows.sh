@@ -364,6 +364,7 @@ if should_run_suite "connectors"; then
   # Table-driven contract spec covering the 11 formerly byte-identical
   # Composio connector flows (airtable/asana/clickup/confluence/gcal/gdrive/
   # gsheets/notion/slack/todoist/youtube) — see connector-contract.ts.
+  run "test/e2e/specs/composio-cancel-pending.spec.ts"        "composio-cancel-pending"   "connectors"
   run "test/e2e/specs/connector-composio-contract.spec.ts"   "connector-composio-contract" "connectors"
   run "test/e2e/specs/connector-discord-composio.spec.ts"    "connector-discord"         "connectors"
   run "test/e2e/specs/connector-github.spec.ts"              "connector-github"          "connectors"
@@ -381,8 +382,6 @@ if should_run_suite "payments"; then
   echo "## Running suite: payments"
   run "test/e2e/specs/card-payment-flow.spec.ts"              "card-payment"              "payments"
   run "test/e2e/specs/crypto-payment-flow.spec.ts"            "crypto-payment"            "payments"
-  run "test/e2e/specs/rewards-unlock-flow.spec.ts"            "rewards-unlock"            "payments"
-  run "test/e2e/specs/rewards-progression-persistence.spec.ts" "rewards-progression"      "payments"
   _mini_summary "payments"
 fi
 

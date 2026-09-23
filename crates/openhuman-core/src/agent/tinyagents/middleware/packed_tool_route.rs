@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 use crate::tools::agent_policy::ToolPolicySession;
 use crate::tools::toolpacks::{self, GroupMode, USE_SKILL};
@@ -113,14 +113,16 @@ impl PackedToolRouteMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for PackedToolRouteMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for PackedToolRouteMiddleware
+{
     fn name(&self) -> &str {
         "packed_tool_route"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {

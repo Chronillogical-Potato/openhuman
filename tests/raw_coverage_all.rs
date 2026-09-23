@@ -33,4 +33,11 @@ use std::sync::{Mutex, OnceLock};
 /// panicking test cannot wedge the whole suite.
 pub static SHARED_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+/// The TinyHumans backend transport for every aggregated suite that boots the
+/// core in-process and reaches the mock backend: call
+/// `crate::tinyhumans_boot::boot()` from the suite's fixture (or each test).
+/// The core carries no backend client of its own.
+#[path = "support/tinyhumans_boot.rs"]
+pub mod tinyhumans_boot;
+
 include!(concat!(env!("OUT_DIR"), "/raw_coverage_mods.rs"));

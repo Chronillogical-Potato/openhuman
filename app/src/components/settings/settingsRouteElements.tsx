@@ -25,8 +25,6 @@ import NotificationsPanel from './panels/NotificationsPanel';
 import PermissionsPanel from './panels/PermissionsPanel';
 import PersonalityPanel from './panels/PersonalityPanel';
 import PrivacyPanel from './panels/PrivacyPanel';
-import ProfileEditorPage from './panels/ProfileEditorPage';
-import ProfilesPanel from './panels/ProfilesPanel';
 import RecoveryPhrasePanel from './panels/RecoveryPhrasePanel';
 import SandboxSettingsPanel from './panels/SandboxSettingsPanel';
 import SecurityPanel from './panels/SecurityPanel';
@@ -108,10 +106,6 @@ export function settingsRouteElements(): ReactNode {
       <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
       <Route path="agents/new" element={wrapSettingsPage(<AgentEditorPage />)} />
       <Route path="agents/edit/:id" element={wrapSettingsPage(<AgentEditorPage />)} />
-      {/* Top-level agent profiles (soul, memory, skills, MCP, connectors). */}
-      <Route path="profiles" element={wrapSettingsPage(<ProfilesPanel />)} />
-      <Route path="profiles/new" element={wrapSettingsPage(<ProfileEditorPage />)} />
-      <Route path="profiles/edit/:id" element={wrapSettingsPage(<ProfileEditorPage />)} />
       <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
       <Route path="activity-level" element={wrapSettingsPage(<AgentActivityPanel />)} />
       <Route path="sandbox-settings" element={wrapSettingsPage(<SandboxSettingsPanel />)} />

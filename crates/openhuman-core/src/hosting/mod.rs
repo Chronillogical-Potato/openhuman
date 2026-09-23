@@ -150,7 +150,7 @@ impl Account {
     }
 
     /// The agent tools this account exposes.
-    pub fn tools(&self) -> Vec<Box<dyn crate::tools::Tool>> {
+    pub fn tools(&self) -> Vec<Box<dyn tinytools::Tool>> {
         tools::hosting_tools(self)
     }
 }

@@ -103,7 +103,7 @@ So the agent gets the cheap compacted view by default, and can transparently "zo
 
 ## Savings tracking
 
-Every compression is metered by an OpenHuman savings callback (`crates/openhuman-core/src/inference/tokenjuice/savings.rs`). TokenJuice reports events and token deltas; OpenHuman applies per-model input pricing, aggregates `total`, `by_model`, and `by_compressor`, and persists stats to `<workspace>/state/tokenjuice_savings.json`.
+Every compression is metered by an OpenHuman savings callback (`crates/openhuman-core/src/inference/tokenjuice/savings.rs`). TokenJuice reports events and token deltas; OpenHuman applies the configured default model's input pricing, aggregates `total`, `by_model`, and `by_compressor`, and persists stats to `<workspace>/state/tokenjuice_savings.json`.
 
 Read them over RPC with `openhuman.tokenjuice_savings_stats`; clear them with `openhuman.tokenjuice_savings_reset`.
 

@@ -95,7 +95,7 @@ named = [
     "search_tool_catalog",
     "get_tool_contract",
     "get_tool_output_sample",
-    "list_agent_profiles",
+    "list_agent_definitions",
     "list_connectable_toolkits",
     "list_node_kinds",
     "get_node_kind_contract",

@@ -1,14 +1,15 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::NativeToolDispatcher;
-use openhuman_core::agent::Agent;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use openhuman_core::agent::OpenHumanSessionHost;
+use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools_agent::dialect::NativeDialect;
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
-use tinyinference::message::{AssistantMessage, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::message::{AssistantMessage, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
 
 struct MockCalendarModel {
     captured_messages: Arc<Mutex<Vec<Message>>>,
@@ -26,7 +27,7 @@ impl ChatModel<()> for MockCalendarModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let mut count = self.iter_count.lock();
         *count += 1;
 
@@ -50,6 +51,7 @@ impl ChatModel<()> for MockCalendarModel {
                         }),
                     )],
                     usage: None,
+                    origin: None,
                 },
                 usage: None,
                 finish_reason: Some("tool_calls".into()),
@@ -57,6 +59,8 @@ impl ChatModel<()> for MockCalendarModel {
                 resolved_model: None,
                 continue_turn: None,
                 served_from_cache: false,
+                correlation: None,
+                resolved_route: None,
             })
         } else {
             // End the loop
@@ -106,11 +110,14 @@ impl Tool for MockCalendarTool {
 async fn test_orchestrator_has_current_date_context() -> Result<()> {
     let captured_messages = Arc::new(Mutex::new(Vec::new()));
     let model = calendar_model(captured_messages.clone());
+    let _ =
+        openhuman_core::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(model)
         .tools(vec![Box::new(MockCalendarTool)])
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
+        .agent_definition_name("orchestrator")
         .memory(Arc::new(StubMemory))
         .workspace_dir(std::env::temp_dir())
         .build()?;
@@ -180,7 +187,7 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
         session_id: "test-session".into(),
         channel: "test".into(),
         connected_integrations: vec![],
-        tool_call_format: openhuman_core::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: openhuman_core::agent::prompts::ToolCallFormat::PFormat,
         session_key: "0_test".into(),
         session_parent_prefix: None,
         on_progress: None,
@@ -205,10 +212,10 @@ async fn test_integrations_agent_has_current_date_context() -> Result<()> {
     def.model = openhuman_core::agent::harness::definition::ModelSpec::Inherit;
 
     let _ = openhuman_core::agent::harness::with_parent_context(parent, async {
-        openhuman_core::agent::harness::run_subagent(
+        openhuman_core::agent::subagent_host::run_subagent(
             &def,
             "list my calendar events for today",
-            openhuman_core::agent::harness::SubagentRunOptions::default(),
+            openhuman_core::agent::subagent_host::SubagentRunOptions::default(),
         )
         .await
     })

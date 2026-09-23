@@ -12,6 +12,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     })
 }
 
@@ -41,6 +42,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         tool_groups: Default::default(),
         embedder_config: Some(config),
         user_skill_roots: true,
+        backend_transport: None,
     })
 }
 
@@ -352,6 +354,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes
@@ -402,6 +405,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     });
     let b = Arc::new(CoreContext {
         host_kind: HostKind::Cli,
@@ -413,6 +417,7 @@ fn memory_binding_is_isolated_per_context_workspace() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     });
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -440,6 +445,7 @@ fn rebind_workspace_updates_context_memory_binding() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -468,6 +474,7 @@ fn rebind_workspace_refreshes_memory_subsystem_config() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
 
     let bind_a = ctx.memory_binding().expect("bind workspace A");
@@ -509,6 +516,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
     let b = CoreContext {
         host_kind: HostKind::Cli,
@@ -520,6 +528,7 @@ fn failed_bind_never_returns_previous_workspace_binding() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
 
     let bind_a = a.memory_binding().expect("bind workspace A");
@@ -551,6 +560,7 @@ fn memory_capabilities_defaults_open_without_a_workspace() {
         tool_groups: Default::default(),
         embedder_config: None,
         user_skill_roots: true,
+        backend_transport: None,
     };
     assert!(ctx.memory_binding().is_err(), "no workspace ⇒ no binding");
     assert_eq!(

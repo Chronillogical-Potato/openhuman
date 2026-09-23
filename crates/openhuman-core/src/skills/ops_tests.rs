@@ -15,7 +15,7 @@ fn write(path: &Path, content: &str) {
 /// [`discover_workflows`] explicitly (see `load_skills_surfaces_user_scope`).
 fn load_skills_ws(workspace_dir: &Path) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
-    discover_workflows_inner(None, Some(workspace_dir), None, trusted)
+    discover_workflows_inner(None, Some(workspace_dir), trusted)
 }
 
 // -- read_workflow_resource -------------------------------------------------
@@ -40,5 +40,7 @@ fn make_legacy_skill(ws: &Path, name: &str) -> PathBuf {
 mod create_and_url_tests;
 #[path = "ops_discovery_tests.rs"]
 mod discovery_tests;
+#[path = "ops_install_failure_tests.rs"]
+mod install_failure_tests;
 #[path = "ops_uninstall_tests.rs"]
 mod uninstall_tests;

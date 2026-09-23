@@ -33,8 +33,8 @@ use serde_json::json;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tinyinference::message::Message;
-use tinyinference::model::{ModelRequest, ModelStreamItem};
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ModelRequest, ModelStreamItem};
 use tracing::{debug, warn};
 
 use super::types::{
@@ -130,8 +130,12 @@ async fn chat_completions_handler(
     // check on the outbound body, so this is belt-and-suspenders for logging.
     let temperature = {
         let raw = req.temperature.unwrap_or(config.default_temperature);
-        let suppressed =
-            crate::inference::temperature::temperature_for_model(&model_id, raw, &config);
+        let suppressed = tinyinference_llm::model::effective_temperature(
+            &model_id,
+            Some(raw),
+            None,
+            &config.temperature_unsupported_models,
+        );
         if suppressed.is_none() && req.temperature.is_some() {
             tracing::warn!(
                 model = %model_id,

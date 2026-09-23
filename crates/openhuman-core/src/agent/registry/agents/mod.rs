@@ -28,6 +28,10 @@
 
 mod loader;
 
+#[cfg(test)]
+#[path = "fleet_prompt_tests.rs"]
+mod fleet_prompt_tests;
+
 pub mod archivist;
 pub mod code_executor;
 pub mod context_scout;
@@ -41,7 +45,6 @@ pub mod image_agent;
 pub mod integrations_agent;
 #[cfg(feature = "mcp")]
 pub mod mcp_agent;
-pub mod mcp_setup;
 pub mod morning_briefing;
 pub mod orchestrator;
 pub mod planner;

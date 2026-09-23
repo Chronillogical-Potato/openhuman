@@ -3,16 +3,15 @@
 //! and bootstrapping a thread goal from the scout's proposal.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{current_parent, AgentContextPreparedSource};
-use crate::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunError, SubagentRunOptions, SubagentRunStatus,
-};
+use crate::agent::harness::fork_context::AgentContextPreparedSource;
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::thread_context::current_thread_id;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunError, SubagentRunOptions, SubagentRunStatus,
+};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::tools::traits::ToolResult;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::ToolResult;
+use tinytools::WorkspaceDescriptor;
 
 use super::tool::AgentPrepareContextTool;
 
@@ -99,13 +98,13 @@ pub(super) fn already_prepared_context_bundle(sources: &[AgentContextPreparedSou
 /// and runs the scout against the parent's provider. Outside a turn the
 /// `run_subagent` call surfaces a no-parent error as a [`ToolResult::error`].
 pub async fn run_context_scout(question: &str, focus: Option<&str>) -> anyhow::Result<ToolResult> {
-    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+    let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog(None);
     run_context_scout_with_catalog(question, focus, &tool_catalog).await
 }
 
 /// Same as [`run_context_scout`] but with an **explicitly-supplied** tool
-/// catalogue — for callers *outside* an agent turn that can't auto-derive the
-/// parent's visible tool set from `current_parent()` (e.g. the subconscious
+/// catalogue — for callers *outside* an agent turn that can't receive the
+/// parent's visible tool set explicitly (e.g. the subconscious
 /// engine's structured tick).
 ///
 /// The caller passes the catalogue of tools the eventual decision agent can
@@ -128,7 +127,16 @@ pub async fn run_context_scout_with_catalog(
     focus: Option<&str>,
     tool_catalog: &str,
 ) -> anyhow::Result<ToolResult> {
-    run_context_scout_with_catalog_and_workspace(question, focus, tool_catalog, None).await
+    run_context_scout_with_catalog_and_workspace(
+        question,
+        focus,
+        tool_catalog,
+        None,
+        None,
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        None,
+    )
+    .await
 }
 
 /// The text [`log_scout_failure`] classifies: a failed run flattened into one
@@ -159,14 +167,14 @@ pub(super) fn scout_failure_signal(err: &SubagentRunError) -> String {
 /// Two billing shapes reach here, both **user-state, not defects**:
 /// * the managed OpenHuman backend's budget-exhausted 400
 ///   (`{"error":"Insufficient budget","errorCode":"USER_INSUFFICIENT_CREDITS"}`),
-///   matched by [`crate::inference::provider::is_budget_exhausted_message`];
+///   matched by [`crate::api::classify::is_budget_exhausted_message`];
 /// * a BYO provider's insufficient-credits 402, matched by
 ///   [`crate::core::observability::is_insufficient_credits_message`].
 ///
 /// Both delegate to the crate's single-source classifiers so the phrase sets
 /// can't drift from the cron halt / `before_send` nets that share them.
 pub(super) fn is_expected_billing_failure(message: &str) -> bool {
-    crate::inference::provider::is_budget_exhausted_message(message)
+    crate::api::classify::is_budget_exhausted_message(message)
         || crate::core::observability::is_insufficient_credits_message(message)
 }
 
@@ -209,6 +217,13 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     focus: Option<&str>,
     tool_catalog: &str,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    thread_id: Option<String>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: Option<
+        &tinyagents_harness::context::RunContext<
+            crate::agent::tinyagents::host::OpenHumanRunContext,
+        >,
+    >,
 ) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
@@ -225,6 +240,13 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
             "agent_prepare_context: `question` is required",
         ));
     }
+
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "agent_prepare_context requires a live harness run context.",
+        ));
+    };
+    let parent = run_context.parent.clone();
 
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,
@@ -255,10 +277,11 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     );
 
     let task_id = format!("ctx-{}", uuid::Uuid::new_v4());
-    let parent_session = current_parent()
+    let parent_session = parent
+        .as_ref()
         .map(|p| p.session_id.clone())
         .unwrap_or_else(|| "standalone".into());
-    let progress_sink = current_parent().and_then(|p| p.on_progress.clone());
+    let progress_sink = run_context.progress.clone();
 
     // Surface the scout as a live subagent row in the parent thread. The
     // child's own iterations/tool-calls already stream to this sink from
@@ -300,30 +323,42 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
     }
     let options = SubagentRunOptions {
         task_id: Some(task_id.clone()),
+        thread_id: thread_id.clone(),
+        run_context,
         worktree_action_dir,
         workspace_descriptor: parent_workspace_descriptor,
         ..Default::default()
     };
 
-    match run_subagent(definition, &scout_prompt, options).await {
-        Ok(outcome) => match &outcome.status {
-            SubagentRunStatus::Completed => {
-                // Guard the contract: the scout MUST return exactly one
-                // `[context_bundle] … [/context_bundle]` envelope. We tolerate
-                // surrounding prose by extracting just the envelope (the harness
-                // prepends any non-error result to turn 1 as "Prepared context",
-                // so we still inject only the bracketed envelope, never the
-                // model's free-form text). Genuinely unusable output — absent,
-                // unterminated, or duplicated — is rejected so the caller falls
-                // back to the un-augmented message.
-                let Some(bundle) = extract_context_bundle(&outcome.output) else {
-                    tracing::warn!(
-                        target: "agent_prepare_context",
-                        task_id = %outcome.task_id,
-                        output_chars = outcome.output.chars().count(),
-                        "[agent_prepare_context] scout returned a malformed/absent context_bundle — rejecting"
-                    );
-                    crate::agent::orchestration::subagent_events::publish_subagent_completed(
+    let run = run_subagent_with_parent(
+        live_parent,
+        definition.clone(),
+        scout_prompt.clone(),
+        options,
+    )
+    .await;
+    match run {
+        Ok(outcome) => {
+            let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+            match &outcome.status {
+                SubagentRunStatus::Completed => {
+                    // Guard the contract: the scout MUST return exactly one
+                    // `[context_bundle] … [/context_bundle]` envelope. We tolerate
+                    // surrounding prose by extracting just the envelope (the harness
+                    // prepends any non-error result to turn 1 as "Prepared context",
+                    // so we still inject only the bracketed envelope, never the
+                    // model's free-form text). Genuinely unusable output — absent,
+                    // unterminated, or duplicated — is rejected so the caller falls
+                    // back to the un-augmented message.
+                    let Some(bundle) = extract_context_bundle(&outcome.output) else {
+                        tracing::warn!(
+                            target: "agent_prepare_context",
+                            task_id = %outcome.task_id,
+                            output_chars = outcome.output.chars().count(),
+                            "[agent_prepare_context] scout returned a malformed/absent context_bundle — rejecting"
+                        );
+                        if emit_lifecycle_effects {
+                            crate::agent::orchestration::subagent_events::publish_subagent_completed(
                         parent_session.clone(),
                         outcome.task_id.clone(),
                         outcome.agent_id.clone(),
@@ -331,192 +366,243 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                         0,
                         outcome.iterations,
                     );
-                    if let Some(ref tx) = progress_sink {
-                        let _ = tx
-                            .send(AgentProgress::SubagentCompleted {
-                                agent_id: outcome.agent_id.clone(),
-                                task_id: outcome.task_id.clone(),
-                                elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                iterations: outcome.iterations as u32,
-                                output_chars: 0,
-                                output: String::new(),
-                                worktree_path: None,
-                                changed_files: Vec::new(),
-                                dirty_status: None,
-                            })
-                            .await;
-                    }
-                    return Ok(ToolResult::error(
-                        "agent_prepare_context: context_scout did not return a well-formed \
+                            if let Some(ref tx) = progress_sink {
+                                let _ = tx
+                                    .send(AgentProgress::SubagentCompleted {
+                                        agent_id: outcome.agent_id.clone(),
+                                        task_id: outcome.task_id.clone(),
+                                        elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                        iterations: outcome.iterations as u32,
+                                        output_chars: 0,
+                                        output: String::new(),
+                                        // Not audited for whether this child's spend reached the
+                                        // parent turn's ledger, so it stays silent: omission adds
+                                        // nothing, which is the status quo. See the field's docs.
+                                        usage: None,
+                                        worktree_path: None,
+                                        changed_files: Vec::new(),
+                                        dirty_status: None,
+                                    })
+                                    .await;
+                            }
+                        }
+                        return Ok(ToolResult::error(
+                            "agent_prepare_context: context_scout did not return a well-formed \
                          [context_bundle] envelope",
-                    ));
-                };
-                // From here on use the extracted `bundle`, not the raw
-                // `outcome.output`, so any prose the scout wrapped around the
-                // envelope never reaches the parent's context.
-                tracing::info!(
-                    target: "agent_prepare_context",
-                    task_id = %outcome.task_id,
-                    elapsed_ms = outcome.elapsed.as_millis() as u64,
-                    iterations = outcome.iterations,
-                    output_chars = bundle.chars().count(),
-                    raw_output_chars = outcome.output.chars().count(),
-                    "[agent_prepare_context] context bundle ready"
-                );
-                crate::agent::orchestration::subagent_events::publish_subagent_completed(
-                    parent_session.clone(),
-                    outcome.task_id.clone(),
-                    outcome.agent_id.clone(),
-                    outcome.elapsed.as_millis() as u64,
-                    bundle.chars().count(),
-                    outcome.iterations,
-                );
-                if let Some(ref tx) = progress_sink {
-                    let _ = tx
-                        .send(AgentProgress::SubagentCompleted {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
-                            output_chars: bundle.chars().count(),
-                            output: bundle.clone(),
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
-                }
+                        ));
+                    };
+                    // From here on use the extracted `bundle`, not the raw
+                    // `outcome.output`, so any prose the scout wrapped around the
+                    // envelope never reaches the parent's context.
+                    tracing::info!(
+                        target: "agent_prepare_context",
+                        task_id = %outcome.task_id,
+                        elapsed_ms = outcome.elapsed.as_millis() as u64,
+                        iterations = outcome.iterations,
+                        output_chars = bundle.chars().count(),
+                        raw_output_chars = outcome.output.chars().count(),
+                        "[agent_prepare_context] context bundle ready"
+                    );
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                            parent_session.clone(),
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            bundle.chars().count(),
+                            outcome.iterations,
+                        );
+                        if let Some(ref tx) = progress_sink {
+                            let _ = tx
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: bundle.chars().count(),
+                                    output: bundle.clone(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
 
-                // Bootstrap this thread's goal from the scout's proposal — but
-                // ONLY when the thread has none yet. The orchestrator stays
-                // authoritative (it sets/replaces via `goal_set`); the
-                // context-gathering path just seeds a goal on the first scout of
-                // a fresh chat so the harness has something to steer toward.
-                // Best-effort — never fails the call.
-                if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id()) {
-                    if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
-                        match crate::threads::goals::store::set_if_absent(
-                            &parent.workspace_dir,
-                            &thread_id,
-                            &objective,
-                            None,
-                        )
-                        .await
+                    // Bootstrap this thread's goal from the scout's proposal — but
+                    // ONLY when the thread has none yet. The orchestrator stays
+                    // authoritative (it sets/replaces via `goal_set`); the
+                    // context-gathering path just seeds a goal on the first scout of
+                    // a fresh chat so the harness has something to steer toward.
+                    // Best-effort — never fails the call.
+                    if let (Some(parent), Some(thread_id)) = (parent.as_ref(), thread_id) {
+                        if let Some(objective) =
+                            AgentPrepareContextTool::parse_proposed_goal(&bundle)
                         {
-                            Ok(Some(goal)) => {
-                                tracing::info!(
-                                    target: "agent_prepare_context",
-                                    thread_id = %thread_id,
-                                    goal_id = %goal.goal_id,
-                                    "[agent_prepare_context] bootstrapped thread goal from scout proposal"
-                                );
-                                BUS.publish(DomainEvent::ThreadGoalUpdated {
-                                    thread_id: goal.thread_id.clone(),
-                                    goal_id: goal.goal_id.clone(),
-                                    status: goal.status.as_str().to_string(),
-                                });
-                            }
-                            Ok(None) => {
-                                tracing::debug!(
-                                    target: "agent_prepare_context",
-                                    thread_id = %thread_id,
-                                    "[agent_prepare_context] thread already has a goal — scout proposal not applied"
-                                );
-                            }
-                            Err(e) => {
-                                tracing::debug!(
-                                    target: "agent_prepare_context",
-                                    error = %e,
-                                    "[agent_prepare_context] failed to persist scout-proposed goal"
-                                );
+                            match crate::agent::goals::store::set_if_absent(
+                                &parent.workspace_dir,
+                                &thread_id,
+                                &objective,
+                                None,
+                            )
+                            .await
+                            {
+                                Ok(Some(goal)) => {
+                                    tracing::info!(
+                                        target: "agent_prepare_context",
+                                        thread_id = %thread_id,
+                                        goal_id = %goal.goal_id,
+                                        "[agent_prepare_context] bootstrapped thread goal from scout proposal"
+                                    );
+                                    BUS.publish(DomainEvent::ThreadGoalUpdated {
+                                        thread_id: goal.thread_id.clone(),
+                                        goal_id: goal.goal_id.clone(),
+                                        status: goal.status.as_str().to_string(),
+                                    });
+                                }
+                                Ok(None) => {
+                                    tracing::debug!(
+                                        target: "agent_prepare_context",
+                                        thread_id = %thread_id,
+                                        "[agent_prepare_context] thread already has a goal — scout proposal not applied"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        target: "agent_prepare_context",
+                                        error = %e,
+                                        "[agent_prepare_context] failed to persist scout-proposed goal"
+                                    );
+                                }
                             }
                         }
                     }
-                }
 
-                Ok(ToolResult::success(bundle))
-            }
-            // The scout has no `ask_user_clarification` tool, so this
-            // branch should not fire — handle defensively rather than
-            // leaking a confusing checkpoint envelope to the parent.
-            SubagentRunStatus::AwaitingUser { question, .. } => {
-                tracing::warn!(
-                    target: "agent_prepare_context",
-                    task_id = %outcome.task_id,
-                    "[agent_prepare_context] scout unexpectedly awaited user input"
-                );
-                // Close the domain-event lifecycle too — a SubagentSpawned
-                // was already published, so emit Completed to avoid a
-                // dangling spawned state for event-bus consumers.
-                crate::agent::orchestration::subagent_events::publish_subagent_completed(
-                    parent_session.clone(),
-                    outcome.task_id.clone(),
-                    outcome.agent_id.clone(),
-                    outcome.elapsed.as_millis() as u64,
-                    0,
-                    outcome.iterations,
-                );
-                if let Some(ref tx) = progress_sink {
-                    let _ = tx
-                        .send(AgentProgress::SubagentCompleted {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
-                            output_chars: 0,
-                            output: String::new(),
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
+                    Ok(ToolResult::success(bundle))
                 }
-                Ok(ToolResult::success(format!(
-                    "[context_bundle]\nhas_enough_context: false\n\
-                     summary: The context scout could not complete without clarification: {question}\n\
-                     recommended_tool_calls:\n[/context_bundle]"
-                )))
-            }
-            SubagentRunStatus::Incomplete { reason } => {
-                // The scout stopped short (stuck halt / iteration cap) without a
-                // well-formed bundle. Don't inject partial context — return a
-                // has_enough_context:false bundle and close the lifecycle.
-                tracing::warn!(
-                    target: "agent_prepare_context",
-                    task_id = %outcome.task_id,
-                    reason = %reason,
-                    "[agent_prepare_context] scout stopped incomplete — returning empty bundle"
-                );
-                crate::agent::orchestration::subagent_events::publish_subagent_completed(
-                    parent_session.clone(),
-                    outcome.task_id.clone(),
-                    outcome.agent_id.clone(),
-                    outcome.elapsed.as_millis() as u64,
-                    0,
-                    outcome.iterations,
-                );
-                if let Some(ref tx) = progress_sink {
-                    let _ = tx
-                        .send(AgentProgress::SubagentCompleted {
-                            agent_id: outcome.agent_id.clone(),
-                            task_id: outcome.task_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
-                            output_chars: 0,
-                            output: String::new(),
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
+                // The scout normally has no `ask_user_clarification` tool, but
+                // a dynamically admitted tool must still preserve the durable
+                // pause contract rather than pretending this lifecycle ended.
+                SubagentRunStatus::AwaitingUser {
+                    question,
+                    checkpoint,
+                    ..
+                } => {
+                    tracing::warn!(
+                        target: "agent_prepare_context",
+                        task_id = %outcome.task_id,
+                        "[agent_prepare_context] scout unexpectedly awaited user input"
+                    );
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+                            parent_session.clone(),
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            question.clone(),
+                        );
+                        if let Some(ref tx) = progress_sink {
+                            let _ = tx
+                                .send(AgentProgress::SubagentAwaitingUser {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    question: question.clone(),
+                                    worker_thread_id: None,
+                                    checkpoint_path: checkpoint
+                                        .as_ref()
+                                        .map(|path| path.to_string_lossy().to_string()),
+                                })
+                                .await;
+                        }
+                    }
+                    Ok(ToolResult::success(
+                        crate::agent::orchestration::tools::awaiting_user::awaiting_user_envelope(
+                            &outcome.task_id,
+                            &outcome.agent_id,
+                            None,
+                            question,
+                            checkpoint.is_some(),
+                        ),
+                    ))
                 }
-                Ok(ToolResult::success(format!(
-                    "[context_bundle]\nhas_enough_context: false\n\
+                SubagentRunStatus::Incomplete { reason } => {
+                    // The scout stopped short (stuck halt / iteration cap) without a
+                    // well-formed bundle. Don't inject partial context — return a
+                    // has_enough_context:false bundle and close the lifecycle.
+                    tracing::warn!(
+                        target: "agent_prepare_context",
+                        task_id = %outcome.task_id,
+                        reason = %reason,
+                        "[agent_prepare_context] scout stopped incomplete — returning empty bundle"
+                    );
+                    if emit_lifecycle_effects {
+                        crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                            parent_session.clone(),
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            0,
+                            outcome.iterations,
+                        );
+                        if let Some(ref tx) = progress_sink {
+                            let _ = tx
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: 0,
+                                    output: String::new(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
+                    Ok(ToolResult::success(format!(
+                        "[context_bundle]\nhas_enough_context: false\n\
                      summary: The context scout stopped before finishing ({reason}).\n\
                      recommended_tool_calls:\n[/context_bundle]"
-                )))
+                    )))
+                }
+                SubagentRunStatus::Cancelled => {
+                    tracing::info!(
+                        target: "agent_prepare_context",
+                        task_id = %outcome.task_id,
+                        "[agent_prepare_context] scout cancelled"
+                    );
+                    if emit_lifecycle_effects {
+                        let message = "context scout was cancelled".to_string();
+                        crate::agent::orchestration::subagent_events::publish_subagent_failed(
+                            parent_session.clone(),
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            message.clone(),
+                        );
+                        if let Some(ref tx) = progress_sink {
+                            let _ = tx
+                                .send(AgentProgress::SubagentFailed {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: outcome.task_id.clone(),
+                                    error: message,
+                                })
+                                .await;
+                        }
+                    }
+                    Ok(ToolResult::error(
+                        "agent_prepare_context: context scout was cancelled",
+                    ))
+                }
             }
-        },
+        }
         Err(err) => {
             let message = err.to_string();
             let error_kind = message

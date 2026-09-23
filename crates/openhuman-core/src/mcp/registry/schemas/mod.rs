@@ -11,8 +11,6 @@ mod tests;
 mod handlers;
 mod params;
 mod registry;
-mod setup_handlers;
-mod setup_registry;
 
 pub use registry::{all_controller_schemas, all_registered_controllers, schemas};
 
@@ -21,5 +19,3 @@ pub use registry::{all_controller_schemas, all_registered_controllers, schemas};
 // had when `include!` spliced everything into one file.
 #[cfg(test)]
 use params::{read_optional_u32, read_required, type_name};
-#[cfg(test)]
-pub(crate) use setup_registry::setup_schemas;

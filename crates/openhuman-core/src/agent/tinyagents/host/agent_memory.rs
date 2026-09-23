@@ -356,21 +356,15 @@ impl AgentMemory for OpenHumanAgentMemory {
     async fn recall(&self, req: RecallRequest) -> TaResult<Vec<MemoryItem>> {
         let limit = self.effective_limit(req.limit);
         let session = req.thread_id.as_ref().map(|t| t.as_str());
-        // Bound outside the `RecallOpts` literal: the struct borrows it.
-        let current_thread_id_ref = crate::agent::tinyagents::thread_context::current_thread_id();
 
         let opts = RecallOpts {
             namespace: Some(self.namespace.as_str()),
             category: None,
             session_id: session,
             min_score: Some(self.min_score),
-            // The self-echo exclusion, passed explicitly rather than left to the
-            // engine's `thread_context` task-local. That task-local is only
-            // visible to an in-process engine; once memory is reached through
-            // the loadable module it reads as absent on the far side, and
-            // absent means "exclude nothing" — the agent gets handed back what
-            // it just said. Resolving it here keeps the behaviour identical on
-            // both paths.
+            // The self-echo exclusion is the request's explicit thread hint,
+            // rather than an engine task-local. This adapter can run through a
+            // loadable module, where ambient task-local state is absent.
             //
             // It does not fight `session_id` above. The engine filters only
             // document-kind hits by this field, while `session_id` and
@@ -378,14 +372,7 @@ impl AgentMemory for OpenHumanAgentMemory {
             // to a session and excluding it is not a contradiction, and a
             // thread hint still narrows *to* that session.
             //
-            // Ambient first, the request's thread as fallback — not either
-            // alone. Inside a turn the task-local names the thread whose
-            // trigger was auto-saved, and when both are set they agree. But a
-            // recall reaching this adapter *outside* a turn (an RPC-driven
-            // recall carrying a thread hint) has no ambient value, and its
-            // hint names exactly the thread whose saved trigger would echo
-            // back. Dropping the fallback reintroduces the echo on that path.
-            exclude_session_id: current_thread_id_ref.as_deref().or(session),
+            exclude_session_id: session,
             // Widening past the requested session is a wiring decision, never a
             // runtime hint.
             cross_session: self.cross_session,

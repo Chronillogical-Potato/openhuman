@@ -160,11 +160,11 @@ fn module_config_hands_the_module_the_hosts_cloud_embedding_defaults() {
 
     assert_eq!(
         sent["cloud_embedding_model"],
-        crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_MODEL
+        tinyinference_embeddings::DEFAULT_CLOUD_MODEL
     );
     assert_eq!(
         sent["cloud_embedding_dimensions"],
-        crate::inference::embeddings::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS
+        tinyinference_embeddings::DEFAULT_CLOUD_DIMENSIONS
     );
     let supports = sent["models_supporting_dimensions"]
         .as_array()

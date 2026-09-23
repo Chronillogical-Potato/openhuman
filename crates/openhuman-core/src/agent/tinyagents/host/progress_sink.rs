@@ -30,7 +30,7 @@
 //!
 //! So this sink writes `AgentProgress` into the same
 //! `mpsc::Sender<AgentProgress>` the existing agent turn loop uses
-//! (`Agent::set_on_progress`), and the established bridge does the publishing.
+//! (`OpenHumanSessionHost::set_on_progress`), and the established bridge does the publishing.
 //! `publish_web_channel_event` is still the terminal step — one hop further
 //! down, where it already lives.
 //!
@@ -156,7 +156,7 @@ struct OpenToolCall {
 /// Forwards crate progress into an OpenHuman [`AgentProgress`] channel.
 ///
 /// Construct one per turn with the same sender that would otherwise be handed
-/// to `Agent::set_on_progress`, so the existing
+/// to `OpenHumanSessionHost::set_on_progress`, so the existing
 /// `web_chat::progress_bridge` consumer sees an identical event stream
 /// regardless of which runtime produced it.
 ///
@@ -439,7 +439,7 @@ impl ProgressSink for OpenHumanProgressSink {
                     // registry, which this sink has no handle to; `None` tells
                     // the client to use its own formatter.
                     // TODO(phase4): resolve labels from the tool registry
-                    // (`crate::tools::traits::Tool::display_label`)
+                    // (`tinytools::Tool::display_label`)
                     // once the sink is constructed with a registry handle.
                     display_label: None,
                     display_detail: None,

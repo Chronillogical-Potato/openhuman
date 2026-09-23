@@ -3,9 +3,9 @@ use std::sync::Arc;
 use super::*;
 use crate::config::Config;
 use crate::flows::ops;
-use crate::tools::traits::{PermissionLevel, Tool};
 use serde_json::{json, Value};
 use tempfile::TempDir;
+use tinytools::{PermissionLevel, Tool};
 
 fn test_config(tmp: &TempDir) -> Arc<Config> {
     let config = Config {

@@ -26,9 +26,9 @@
 //! [`ContextManager::should_extract_session_memory`] so `turn.rs` can
 //! gate its existing `spawn_subagent` call.
 
-use super::prompt::{PromptContext, SystemPromptBuilder};
 use super::session_memory::SessionMemoryConfig;
 use super::stats::{ContextStatsState, SessionMemoryHandle};
+use crate::agent::prompts::{PromptContext, SystemPromptBuilder};
 use crate::config::ContextConfig;
 use crate::inference::provider::UsageInfo;
 use anyhow::Result;
@@ -73,7 +73,7 @@ pub struct ContextManager {
     /// context window. See [`ContextConfig::prefer_markdown_tool_output`].
     prefer_markdown_tool_output: bool,
     /// When `true`, native tool-output compaction (Stage 1a) runs in
-    /// `Agent::execute_tool_call` before the byte cap. On by default; the
+    /// `OpenHumanSessionHost::execute_tool_call` before the byte cap. On by default; the
     /// kill-switch lives here so every caller reads one source of truth.
     /// See [`ContextConfig::compaction_enabled`].
     compaction_enabled: bool,

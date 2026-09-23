@@ -7,14 +7,47 @@
 //! redirect or feed data to a running sub-agent
 //! without waiting for it to finish or restarting it. Mirrors Codex `send_input`.
 
-use crate::agent::harness::fork_context::current_parent;
-use crate::agent::harness::run_queue::QueueMode;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::running_subagents::{self, SteerError};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::run_queue::QueueLane;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct SteerSubagentTool;
+
+pub(crate) struct SteerSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl SteerSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SteerSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        _call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
+        SteerSubagentTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl SteerSubagentTool {
     pub fn new() -> Self {
@@ -70,6 +103,17 @@ impl Tool for SteerSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, None).await
+    }
+}
+
+impl SteerSubagentTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        _tool_context: Option<&dyn tinytools::ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let task_id = args
             .get("task_id")
             .and_then(|v| v.as_str())
@@ -88,9 +132,9 @@ impl Tool for SteerSubagentTool {
             .unwrap_or("")
             .trim()
             .to_string();
-        let mode = match args.get("mode").and_then(|v| v.as_str()).unwrap_or("steer") {
-            "collect" => QueueMode::Collect,
-            _ => QueueMode::Steer,
+        let (lane, mode) = match args.get("mode").and_then(|v| v.as_str()).unwrap_or("steer") {
+            "collect" => (QueueLane::Collect, "collect"),
+            _ => (QueueLane::Steer, "steer"),
         };
 
         if task_id.is_empty() && subagent_session_id.is_empty() {
@@ -102,7 +146,7 @@ impl Tool for SteerSubagentTool {
             return Ok(ToolResult::error("steer_subagent: `message` is required"));
         }
 
-        let parent = match current_parent() {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
@@ -146,7 +190,7 @@ impl Tool for SteerSubagentTool {
             message.chars().count()
         );
 
-        match running_subagents::steer(&resolved_task_id, &parent_session, message, mode).await {
+        match running_subagents::steer(&resolved_task_id, &parent_session, message, lane).await {
             Ok(()) => Ok(ToolResult::success(format!(
                 "Steered sub-agent `{resolved_task_id}` ({mode}). It will pick this up at its next step. \
                  Use wait_subagent with its subagent_session_id or task_id to collect its result."
@@ -161,6 +205,9 @@ impl Tool for SteerSubagentTool {
             Err(SteerError::AlreadyDone) => Ok(ToolResult::error(format!(
                 "steer_subagent: sub-agent `{resolved_task_id}` has already finished. Use wait_subagent to collect its result."
             ))),
+            Err(SteerError::UnsupportedLane) => Ok(ToolResult::error(
+                "steer_subagent: only steer and collect messages can be delivered to a running sub-agent",
+            )),
         }
     }
 }

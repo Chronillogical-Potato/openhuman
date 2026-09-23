@@ -26,8 +26,6 @@ vi.mock('../../services/api/threadApi', () => ({
     updateMessage: vi.fn(),
     deleteThread: vi.fn(),
     purge: vi.fn(),
-    getTaskBoard: vi.fn(),
-    putTaskBoard: vi.fn(),
   },
 }));
 

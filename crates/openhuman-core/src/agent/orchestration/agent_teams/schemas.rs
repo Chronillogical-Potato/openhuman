@@ -15,8 +15,8 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
 use tinyagents_session::run_ledger::AgentTeamListRequest;
 
-use super::ops::{self, NewMember};
 use super::runtime;
+use tinyagents_orchestration::teams::{NewMember, SessionTeamLedger, TeamService};
 
 /// Controller schemas exposed by the agent-teams module.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -264,14 +264,14 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
         let summary = opt_str(&params, "summary");
         let members = parse_members(&params)?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] create.parsed lead={lead} members={}", members.len());
-        let view = ops::create_team(
-            &config,
-            &lead,
-            parent_thread_id.as_deref(),
-            summary.as_deref(),
-            &members,
-        )
-        .map_err(|e| log_err(&cid, "create", e))?;
+        let view = team_service(&config)
+            .create_team(
+                &lead,
+                parent_thread_id.as_deref(),
+                summary.as_deref(),
+                &members,
+            )
+            .map_err(|e| log_err(&cid, "create", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] create.success id={}", view.team.id);
         to_json(view)
     })
@@ -295,7 +295,9 @@ fn handle_list(params: Map<String, Value>) -> ControllerFuture {
                 s
             })?
         };
-        let response = ops::list_teams(&config, &request).map_err(|e| log_err(&cid, "list", e))?;
+        let response = team_service(&config)
+            .list_teams(&request)
+            .map_err(|e| log_err(&cid, "list", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] list.success count={}", response.count);
         to_json(response)
     })
@@ -309,7 +311,9 @@ fn handle_get(params: Map<String, Value>) -> ControllerFuture {
             log::warn!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] get.config_failed err={err}");
         })?;
         let team_id = require_str(&params, "teamId")?;
-        let view = ops::get_team(&config, &team_id).map_err(|e| log_err(&cid, "get", e))?;
+        let view = team_service(&config)
+            .get_team(&team_id)
+            .map_err(|e| log_err(&cid, "get", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] get.success id={team_id} found={}", view.is_some());
         to_json(serde_json::json!({ "team": view }))
     })
@@ -328,15 +332,15 @@ fn handle_assign_task(params: Map<String, Value>) -> ControllerFuture {
         let owner = opt_str(&params, "ownerMemberId");
         let depends_on = opt_str_array(&params, "dependsOn");
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] assign_task.parsed team={team_id} deps={}", depends_on.len());
-        let task = ops::assign_task(
-            &config,
-            &team_id,
-            &title,
-            objective.as_deref(),
-            owner.as_deref(),
-            &depends_on,
-        )
-        .map_err(|e| log_err(&cid, "assign_task", e))?;
+        let task = team_service(&config)
+            .assign_task(
+                &team_id,
+                &title,
+                objective.as_deref(),
+                owner.as_deref(),
+                &depends_on,
+            )
+            .map_err(|e| log_err(&cid, "assign_task", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] assign_task.success task={}", task.id);
         to_json(serde_json::json!({ "task": task }))
     })
@@ -353,7 +357,8 @@ fn handle_claim_task(params: Map<String, Value>) -> ControllerFuture {
         let task_id = require_str(&params, "taskId")?;
         let member_id = require_str(&params, "memberId")?;
         let claim_token = require_str(&params, "claimToken")?;
-        let outcome = ops::claim_task(&config, &team_id, &task_id, &member_id, &claim_token)
+        let outcome = team_service(&config)
+            .claim_task(&team_id, &task_id, &member_id, &claim_token)
             .map_err(|e| log_err(&cid, "claim_task", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] claim_task.success team={team_id} task={task_id}");
         to_json(serde_json::json!({ "result": outcome }))
@@ -374,15 +379,15 @@ fn handle_message_member(params: Map<String, Value>) -> ControllerFuture {
         let to = opt_str(&params, "toMemberId");
         let content = require_str(&params, "content")?;
         let visibility = opt_str(&params, "visibility");
-        let event = ops::message_member(
-            &config,
-            &team_id,
-            from.as_deref(),
-            to.as_deref(),
-            &content,
-            visibility.as_deref(),
-        )
-        .map_err(|e| log_err(&cid, "message_member", e))?;
+        let event = team_service(&config)
+            .message_member(
+                &team_id,
+                from.as_deref(),
+                to.as_deref(),
+                &content,
+                visibility.as_deref(),
+            )
+            .map_err(|e| log_err(&cid, "message_member", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] message_member.success team={team_id} sequence={}", event.sequence);
         to_json(serde_json::json!({ "message": event }))
     })
@@ -400,7 +405,8 @@ fn handle_list_messages(params: Map<String, Value>) -> ControllerFuture {
             .get("limit")
             .and_then(Value::as_u64)
             .map(|v| v as u32);
-        let messages = ops::list_messages(&config, &team_id, limit)
+        let messages = team_service(&config)
+            .list_messages(&team_id, limit)
             .map_err(|e| log_err(&cid, "list_messages", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] list_messages.success team={team_id} count={}", messages.len());
         to_json(serde_json::json!({ "messages": messages }))
@@ -423,15 +429,9 @@ fn handle_complete_task(params: Map<String, Value>) -> ControllerFuture {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] complete_task.parsed team={team_id} task={task_id} evidence={} requireEvidence={require_evidence}", evidence.len());
-        let outcome = ops::complete_task(
-            &config,
-            &team_id,
-            &task_id,
-            &member_id,
-            &evidence,
-            require_evidence,
-        )
-        .map_err(|e| log_err(&cid, "complete_task", e))?;
+        let outcome = team_service(&config)
+            .complete_task(&team_id, &task_id, &member_id, &evidence, require_evidence)
+            .map_err(|e| log_err(&cid, "complete_task", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] complete_task.success team={team_id} task={task_id}");
         to_json(serde_json::json!({ "result": outcome }))
     })
@@ -446,7 +446,8 @@ fn handle_shutdown_member(params: Map<String, Value>) -> ControllerFuture {
         })?;
         let team_id = require_str(&params, "teamId")?;
         let member_id = require_str(&params, "memberId")?;
-        let result = ops::shutdown_member(&config, &team_id, &member_id)
+        let result = team_service(&config)
+            .shutdown_member(&team_id, &member_id)
             .map_err(|e| log_err(&cid, "shutdown_member", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] shutdown_member.success team={team_id} member={member_id} released={}", result.released_task_ids.len());
         to_json(serde_json::json!({ "result": result }))
@@ -462,7 +463,8 @@ fn handle_close(params: Map<String, Value>) -> ControllerFuture {
         })?;
         let team_id = require_str(&params, "teamId")?;
         let summary = opt_str(&params, "summary");
-        let team = ops::close_team(&config, &team_id, summary.as_deref())
+        let team = team_service(&config)
+            .close_team(&team_id, summary.as_deref())
             .map_err(|e| log_err(&cid, "close", e))?;
         log::debug!(target: "agent_team_rpc", "[agent_team_rpc][{cid}] close.success team={team_id}");
         to_json(serde_json::json!({ "team": team }))
@@ -518,6 +520,12 @@ fn parse_members(params: &Map<String, Value>) -> Result<Vec<NewMember>, String> 
         });
     }
     Ok(members)
+}
+
+/// OpenHuman chooses the persistence root; the generic service owns only team
+/// coordination over that already-authorized ledger.
+fn team_service(config: &crate::config::Config) -> TeamService<SessionTeamLedger> {
+    TeamService::new(SessionTeamLedger::new(config.workspace_dir.clone()))
 }
 
 fn require_str(params: &Map<String, Value>, key: &str) -> Result<String, String> {

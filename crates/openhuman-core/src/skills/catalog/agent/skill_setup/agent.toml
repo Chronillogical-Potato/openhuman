@@ -1,7 +1,7 @@
 id = "skill_setup"
 display_name = "Skill Setup Agent"
 delegate_name = "setup_skills"
-when_to_use = "Skill discovery and installation specialist — browses community skill registries (OpenHuman, HermesHub, ClawHub), searches for skills by keyword or category, installs skills from remote sources, and manages installed skills. Use when the user wants to find, install, update, or remove agent skills."
+when_to_use = "Find, install, update or remove agent skills from the community registries. Hand it the whole request."
 temperature = 0.3
 max_iterations = 10
 sandbox_mode = "none"

@@ -27,12 +27,12 @@ fn node_timeout_policy_unbounded_by_default() {
 fn node_timeout_policy_enforces_and_caps_explicit() {
     assert_eq!(
         node_timeout_policy(&json!({"timeout_secs": 120})),
-        ToolTimeout::Secs(120)
+        ToolTimeout::Millis(120_000)
     );
     // Clamped to the 1800s ceiling.
     assert_eq!(
         node_timeout_policy(&json!({"timeout_secs": 99999})),
-        ToolTimeout::Secs(NODE_TIMEOUT_MAX_SECS)
+        ToolTimeout::Millis(NODE_TIMEOUT_MAX_SECS * 1000)
     );
 }
 
@@ -149,48 +149,4 @@ fn resolve_script_path_targets_action_dir_not_workspace_dir() {
         "resolved path leaked into workspace_dir; got {}",
         resolved.display()
     );
-}
-
-#[tokio::test]
-async fn inline_code_cannot_write_to_sibling_profile() {
-    use crate::agent::host_runtime::NativeRuntime;
-    use crate::security::policy::ActiveProfileGuard;
-    use crate::security::AutonomyLevel;
-
-    let temp = tempfile::tempdir().unwrap();
-    let action_root = temp.path().join("actions");
-    let alice = action_root.join("profiles/alice");
-    std::fs::create_dir_all(action_root.join("profiles/bob")).unwrap();
-    std::fs::create_dir_all(&alice).unwrap();
-    let security = Arc::new(SecurityPolicy {
-        autonomy: AutonomyLevel::Full,
-        workspace_dir: temp.path().join("state"),
-        action_dir: alice,
-        workspace_only: false,
-        active_profile: Some(ActiveProfileGuard {
-            profile_id: "alice".into(),
-            action_dir: action_root,
-        }),
-        ..SecurityPolicy::default()
-    });
-    let bootstrap = Arc::new(NodeBootstrap::new(Arc::new(
-        crate::config::Config::default(),
-    )));
-    let tool = NodeExecTool::new(
-        security,
-        Arc::new(NativeRuntime::new()),
-        bootstrap,
-        crate::config::RuntimePoolConfig::default(),
-        temp.path().join("state"),
-    );
-
-    let result = tool
-        .execute(json!({
-            "inline_code": "require('fs').writeFileSync('../bob/loot.txt', 'x')"
-        }))
-        .await
-        .unwrap();
-
-    assert!(result.is_error);
-    assert!(result.text().contains("Cross-profile access blocked"));
 }

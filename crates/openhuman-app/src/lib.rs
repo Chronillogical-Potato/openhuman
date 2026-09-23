@@ -97,6 +97,7 @@ mod ptt_hotkeys;
 mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
+mod session;
 mod stderr_panic_hook;
 mod window_state;
 mod workspace_paths;
@@ -2348,6 +2349,15 @@ pub fn run() {
     // stderr is a console or file. See `stderr_panic_hook`.
     stderr_panic_hook::neutralize_broken_parent_stderr();
 
+    // The in-process core reaches the hosted backend only through the
+    // transport `openhuman-tinyhumans` installs. `main.rs` installs it before
+    // dispatching here; this call is idempotent and covers embedders of
+    // `run()` that skip `main.rs`.
+    if let Err(err) = openhuman_tinyhumans::install(openhuman_tinyhumans::InstallOptions::default())
+    {
+        log::error!("[boot] TinyHumans backend transport unavailable: {err}");
+    }
+
     // Must run before any GTK/CEF code that could trigger X calls — otherwise
     // Xlib's default handler calls exit(1) on the first BadWindow and we never
     // reach this line. See helper doc above for the full reasoning.
@@ -2360,8 +2370,9 @@ pub fn run() {
     // `core_process::CoreProcessHandle::ensure_running` via
     // `tokio::spawn(run_server_embedded(..))`) runs *on* that runtime, so
     // every JSON-RPC handler — including the deep tower
-    // `web channel chat → orchestrator turn → delegate_to_integrations_agent
-    // → sub-agent → composio_list_tools → load_config_with_timeout` —
+    // `web channel chat → orchestrator turn → integration action tool
+    // → composio execute → load_config_with_timeout` (and, at the time, the
+    // now-removed integrations sub-agent spawn in between) —
     // burns through the same 2 MB. In `crahs.log` (2026-05-17, build
     // 0.53.49) that tower plus the serde-monomorphised `Config` Visitor
     // frames pushed past the guard page and aborted with
@@ -2574,20 +2585,17 @@ pub fn run() {
             //
             // Issue #3135: the primary source for `event.user` is now the
             // Sentry scope, bound proactively at session boundaries
-            // (credentials::store_session / clear_session) and at server boot
-            // (run_server_inner). The `app_state_snapshot` cache is kept as a
-            // fallback for legacy cache-warming paths, but we only consult it
-            // when the scope hasn't already bound a user — otherwise we'd
-            // silently clobber the scope binding when the cache is empty
-            // (the original userCount=0 root cause).
+            // (credentials::set_credential / clear_credential) and at server
+            // boot (run_server_inner). The shell's session owner mirrors the
+            // signed-in user id for this fallback, consulted only when the
+            // scope hasn't already bound a user — otherwise we'd silently
+            // clobber the scope binding when the slot is empty (the original
+            // userCount=0 root cause).
             if event.user.is_none() {
-                event.user =
-                    openhuman_core::desktop::app_state::peek_cached_current_user_identity()
-                        .and_then(|identity| identity.id)
-                        .map(|id| sentry::User {
-                            id: Some(id),
-                            ..Default::default()
-                        });
+                event.user = session::peek_user_id().map(|id| sentry::User {
+                    id: Some(id),
+                    ..Default::default()
+                });
             }
             Some(event)
         })),
@@ -3196,6 +3204,9 @@ pub fn run() {
             std::env::remove_var("OPENHUMAN_CEF_COOKIES_DB");
 
             app.manage(core_handle.clone());
+            // The desktop session owner (login, /auth/me, current user) talks
+            // to whichever core `active_rpc_endpoint` resolves to.
+            session::install(app.handle(), core_handle.clone());
             // NOTE: the core is NOT auto-spawned here. The BootCheckGate UI
             // calls `start_core_process` (Local mode) after the user picks a
             // mode, which lets the frontend surface startup failures and
@@ -3440,6 +3451,11 @@ pub fn run() {
             app_quit,
             restart_app,
             get_active_user_id,
+            session::commands::auth_login_with_token,
+            session::commands::auth_store_session,
+            session::commands::auth_logout,
+            session::commands::auth_state,
+            session::commands::auth_current_user,
             register_dictation_hotkey,
             unregister_dictation_hotkey,
             register_ptt_hotkey,

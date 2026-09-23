@@ -23,8 +23,6 @@ fn user_memory_section_returns_empty_when_no_summaries() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -60,8 +58,48 @@ fn render_subagent_system_prompt_renders_workspace_tail() {
     // sub-agent renderer — same source const, so it can never drift from
     // `GroundingSection` / the central `build()` append.
     assert!(rendered.contains("## Grounding and tool use"));
-    assert!(rendered.contains("Your tools are exactly the ones listed in this prompt"));
+    assert!(rendered.contains("Your tools are exactly the ones you have been given for this turn"));
     assert!(rendered.contains("Preserve numeric evidence exactly"));
+
+    let _ = std::fs::remove_dir_all(workspace);
+}
+
+#[test]
+fn subagent_prompt_defaults_to_python_and_omits_protocol_without_tools() {
+    let workspace = std::env::temp_dir().join(format!(
+        "openhuman_prompt_default_dialect_{}",
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let default_rendered = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[0],
+        &tools,
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::default(),
+        &[],
+    );
+    assert!(default_rendered.contains("def test_tool() -> str"));
+    assert!(!default_rendered.contains("test_tool[]"));
+
+    let no_tools = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[],
+        &[],
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::Json,
+        &[],
+    );
+    assert!(!no_tools.contains("## Tools"));
+    assert!(!no_tools.contains("## Tool Use Protocol"));
 
     let _ = std::fs::remove_dir_all(workspace);
 }
@@ -122,15 +160,15 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
     assert!(rendered.contains("## Safety"));
     // Json is a prompt-driven format (the model wraps JSON tool
     // calls in `<tool_call>` tags); it does NOT use the provider's
-    // native function-calling channel. So the prose `## Tools`
-    // section MUST still be rendered for Json, with each tool's
-    // parameter schema inline so the model knows what to emit.
+    // native function-calling channel. So the prose tool catalogue
+    // MUST still be rendered for Json, with each tool's compact
+    // argument signature so the model knows what to emit.
     // Only `ToolCallFormat::Native` gets the section omitted (see
     // the `native` branch below and the `!matches!(…, Native)`
     // guard in the renderer).
-    assert!(rendered.contains("## Tools"));
-    assert!(rendered.contains("Parameters:"));
-    assert!(rendered.contains("\"type\""));
+    assert!(rendered.contains("### Available Tools"));
+    assert!(rendered.contains("**test_tool**"));
+    assert!(rendered.contains("Arguments: `object`"));
 
     let native = render_subagent_system_prompt_with_format(
         &workspace,
@@ -145,7 +183,7 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
         None,
         None,
     );
-    assert!(native.contains("native tool-calling output"));
+    assert!(native.contains("through native tool-calling."));
     assert!(!native.contains("## Safety"));
     // Native is the only format where the prose `## Tools` section
     // is intentionally omitted — schemas travel through the
@@ -606,6 +644,58 @@ fn render_subagent_system_prompt_skips_memory_md_when_disabled() {
         !rendered.contains("terse Rust answers"),
         "MEMORY.md body must not leak when include_memory_md=false"
     );
+
+    let _ = std::fs::remove_dir_all(workspace);
+}
+
+#[test]
+fn render_subagent_system_prompt_code_formats_list_signatures_and_protocol() {
+    let workspace =
+        std::env::temp_dir().join(format!("openhuman_prompt_code_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    for (format, signature, example) in [
+        (
+            ToolCallFormat::Python,
+            "def test_tool() -> str  # tool desc",
+            "read_file(path=\"src/main.rs\", limit=20)",
+        ),
+        (
+            ToolCallFormat::TypeScript,
+            "function test_tool(): string;  // tool desc",
+            "read_file({path: \"src/main.rs\", limit: 20})",
+        ),
+    ] {
+        let rendered = render_subagent_system_prompt_with_format(
+            &workspace,
+            "reasoning-v1",
+            &[0],
+            &tools,
+            &[],
+            "You are a specialist.",
+            SubagentRenderOptions::narrow(),
+            format,
+            &[],
+            None,
+            None,
+        );
+        // A prompt-driven format: the child must be told which tools exist,
+        // as signatures, and how to call them.
+        assert!(rendered.contains("## Tools\n"), "{format:?}:\n{rendered}");
+        assert!(rendered.contains(signature), "{format:?}:\n{rendered}");
+        assert!(
+            rendered.contains("## Tool Use Protocol"),
+            "{format:?}:\n{rendered}"
+        );
+        assert!(rendered.contains(example), "{format:?}:\n{rendered}");
+        assert!(!rendered.contains("Parameters:"), "{format:?}:\n{rendered}");
+        assert!(!rendered.contains("Call as:"), "{format:?}:\n{rendered}");
+        assert!(
+            rendered.contains("parent agent will weave it back"),
+            "{format:?}:\n{rendered}"
+        );
+    }
 
     let _ = std::fs::remove_dir_all(workspace);
 }

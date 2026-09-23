@@ -51,3 +51,6 @@
 	path = vendor/tinyconnectors
 	url = https://github.com/tinyhumansai/tinyconnectors
 	branch = main
+[submodule "vendor/tinyskills"]
+	path = vendor/tinyskills
+	url = https://github.com/tinyhumansai/tinyskills

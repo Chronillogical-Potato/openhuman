@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::ToolScope;
+use tinytools::ToolScope;
 
 fn cfg() -> Arc<Config> {
     Arc::new(Config::default())
@@ -33,7 +33,7 @@ fn names_and_levels() {
         PermissionLevel::ReadOnly
     );
     assert_eq!(
-        McpRegistryInstallTool::new(cfg()).permission_level(),
+        McpRegistryUninstallTool::new(cfg()).permission_level(),
         PermissionLevel::Write
     );
     assert_eq!(McpRegistrySearchTool::new(cfg()).scope(), ToolScope::All);

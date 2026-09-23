@@ -3,11 +3,11 @@
 //! same `{chain, hash, evmNetwork?}` input and delegates to the matching
 //! `wallet::*` dispatcher.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use crate::web3::wallet::{self, EvmNetwork, WalletChain};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

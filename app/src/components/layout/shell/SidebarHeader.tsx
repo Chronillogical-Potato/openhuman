@@ -1,10 +1,15 @@
-import { LuKeyboard, LuPanelLeftClose, LuSearch, LuSettings } from 'react-icons/lu';
+import { FaDiscord } from 'react-icons/fa6';
+import { LuPanelLeftClose, LuSearch, LuSettings } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 
 import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { openUrl } from '../../../utils/openUrl';
 import { Button, SidebarHeader as SidebarHeaderShell, Tooltip } from '../../ui';
 import { useRootSidebar } from './RootShellLayout';
+
+/** The community invite the Discord button opens. */
+export const DISCORD_URL = 'https://discord.tinyhumans.ai';
 
 /**
  * Header footprint layered on `<Button variant="tertiary" iconOnly>`: 28px
@@ -78,16 +83,18 @@ export default function SidebarHeader() {
       data-tauri-drag-region="deep"
       className="flex-row items-center justify-end gap-1">
       <div className="flex items-center gap-0.5">
-        {/* Keyboard shortcuts — one-click open of the help directory (also ? / ⌘/). */}
-        <Tooltip label={t('shortcuts.title')}>
+        {/* Community Discord — opens the invite in the system browser. This slot
+            held the keyboard-shortcuts help; that directory is still one
+            keystroke away (? / ⌘/), while the community had no door at all. */}
+        <Tooltip label={t('nav.discord')}>
           <Button
             variant="tertiary"
             iconOnly
-            onClick={() => registry.runAction('meta.keyboard-shortcuts')}
+            onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
             className={ICON_BTN}
-            analyticsId="sidebar-header-shortcuts"
-            aria-label={t('shortcuts.title')}>
-            <LuKeyboard className="h-4 w-4" />
+            analyticsId="sidebar-header-discord"
+            aria-label={t('nav.discord')}>
+            <FaDiscord className="h-4 w-4" />
           </Button>
         </Tooltip>
 

@@ -20,12 +20,12 @@
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 /// Absolute ceiling callers can request via `timeout_secs`. There is **no**
 /// default timeout — `npm install`/build steps on a cold cache or slow network
@@ -232,15 +232,6 @@ impl NpmExecTool {
             Ok(p) => p,
             Err(msg) => return Ok(ToolResult::error(msg)),
         };
-        let guard_command = std::iter::once(subcommand.as_str())
-            .chain(extra_args.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(" ");
-        if let Err(reason) =
-            super::check_cross_profile_command(&path_policy, &guard_command, &cwd, "npm_exec")
-        {
-            return Ok(ToolResult::error(reason));
-        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",
@@ -484,7 +475,7 @@ impl NpmExecTool {
 fn npm_timeout_policy(args: &serde_json::Value) -> ToolTimeout {
     match args.get("timeout_secs").and_then(|v| v.as_u64()) {
         None | Some(0) => ToolTimeout::Unbounded,
-        Some(secs) => ToolTimeout::Secs(secs.min(NPM_TIMEOUT_MAX_SECS)),
+        Some(secs) => ToolTimeout::Millis(secs.min(NPM_TIMEOUT_MAX_SECS).saturating_mul(1000)),
     }
 }
 

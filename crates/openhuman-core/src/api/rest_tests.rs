@@ -1,8 +1,9 @@
 use super::{
     backend_api_body_shape, flatten_authed_error, is_announcements_latest_path,
-    is_unmatched_route_404, key_bytes_from_string, parse_message_path, sanitize_client_version,
-    BackendApiError, BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
+    is_unmatched_route_404, key_bytes_from_string, parse_message_path, BackendApiError,
+    BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
 };
+use crate::api::headers::sanitize_client_version;
 use crate::api::product::{
     product_identity_test_lock, reset_product_identity_for_test, set_product_identity,
     ProductIdentity, DEFAULT_PRODUCT_IDENTITY, PRODUCT_IDENTITY_HEADER,
@@ -168,14 +169,14 @@ impl CapturedHeaders {
 }
 
 async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
-    async fn capture_consume(
+    async fn capture_me(
         State(captured): State<CapturedHeaders>,
         headers: HeaderMap,
     ) -> Json<Value> {
         captured.push(&headers);
         Json(json!({
             "success": true,
-            "data": { "jwt": "mock-jwt-token" }
+            "data": { "_id": "user-123" }
         }))
     }
 
@@ -189,7 +190,7 @@ async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
 
     let captured = CapturedHeaders::default();
     let app = Router::new()
-        .route("/auth/login-token/consume", post(capture_consume))
+        .route("/auth/me", get(capture_me))
         .route("/probe", get(capture_probe))
         .with_state(captured.clone());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -206,8 +207,8 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
 
-    let jwt = client.consume_login_token("test-token").await.unwrap();
-    assert_eq!(jwt, "mock-jwt-token");
+    let profile = client.fetch_profile("test-jwt").await.unwrap();
+    assert_eq!(profile["_id"], "user-123");
 
     let headers = captured.take();
     let request_headers = headers.last().unwrap();
@@ -219,12 +220,9 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
         version,
         sanitize_client_version(env!("CARGO_PKG_VERSION")).unwrap()
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust"),
-        "typed auth requests must be sent by the TinyHumans SDK transport"
+    assert!(
+        request_headers.get(PRODUCT_IDENTITY_HEADER).is_some(),
+        "all backend requests must carry a product identity"
     );
 }
 
@@ -261,12 +259,7 @@ async fn authed_json_sends_an_api_key_as_x_api_key_and_no_bearer() {
         request_headers.get("authorization").is_none(),
         "an API key must not also be sent as a bearer"
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust")
-    );
+    assert!(request_headers.get(PRODUCT_IDENTITY_HEADER).is_some());
 }
 
 #[tokio::test]
@@ -298,7 +291,7 @@ async fn authed_json_sends_a_session_credential_as_a_bearer_only() {
 }
 
 #[tokio::test]
-async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
+async fn authed_json_sends_bearer_and_host_headers() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
 
@@ -316,35 +309,11 @@ async fn authed_json_uses_sdk_transport_with_bearer_and_host_headers() {
             .and_then(|value| value.to_str().ok()),
         Some("Bearer sdk-cutover-token")
     );
-    assert_eq!(
-        request_headers
-            .get("x-sdk-client")
-            .and_then(|value| value.to_str().ok()),
-        Some("tinyhumans-rust")
-    );
     assert!(
         request_headers.get("x-core-version").is_some(),
-        "OpenHuman host metadata must survive the SDK cutover"
+        "OpenHuman host metadata must reach the backend transport"
     );
-}
-
-#[tokio::test]
-async fn authed_json_cannot_bypass_sdk_admin_exclusions() {
-    let client = BackendOAuthClient::new("http://127.0.0.1:9").unwrap();
-
-    for (method, path) in [(Method::POST, "/admin/announcements")] {
-        let err = client
-            .authed_json("token", method, path, None)
-            .await
-            .unwrap_err();
-        assert!(
-            err.chain().any(|source| {
-                let message = source.to_string();
-                message.contains("intentionally not exposed")
-            }),
-            "{path} must be rejected locally by the SDK: {err:#}"
-        );
-    }
+    assert!(request_headers.get(PRODUCT_IDENTITY_HEADER).is_some());
 }
 
 #[tokio::test]
@@ -357,7 +326,7 @@ async fn backend_client_sends_x_tauri_version_when_env_set() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
     std::env::remove_var("OPENHUMAN_TAURI_VERSION");
 
@@ -411,7 +380,7 @@ async fn backend_raw_client_inherits_x_core_version_default_header() {
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
 
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
 
     let headers = captured.take();
@@ -461,7 +430,7 @@ async fn raw_client_sends_the_product_identity_alongside_the_version_headers() {
     let client = BackendOAuthClient::new(&base_url).unwrap();
     let url = client.url_for("/probe").unwrap();
 
-    let response = client.raw_client().get(url).send().await.unwrap();
+    let response = client.raw_client().unwrap().get(url).send().await.unwrap();
     assert!(response.status().is_success());
 
     let headers = captured.take();
@@ -492,7 +461,7 @@ async fn an_embedding_product_can_override_the_product_identity() {
         .await;
 
     let url = client.url_for("/probe").unwrap();
-    let raw_result = client.raw_client().get(url).send().await;
+    let raw_result = client.raw_client().unwrap().get(url).send().await;
 
     reset_product_identity_for_test();
 

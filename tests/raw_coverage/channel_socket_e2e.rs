@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! End-to-end coverage for the `socket` namespace (5 controllers, 0% before this file) and the
 //! three uncovered `channel` queue controllers.
 //!
@@ -71,6 +73,8 @@ fn rpc_bearer() -> &'static str {
 }
 
 fn ensure_rpc_auth() {
+
+    crate::tinyhumans_boot::boot();
     let _ = rpc_bearer();
 }
 

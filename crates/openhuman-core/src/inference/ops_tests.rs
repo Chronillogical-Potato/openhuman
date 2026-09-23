@@ -1,5 +1,5 @@
 use super::*;
-use crate::inference::openai_oauth::{OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY};
+use crate::security::credentials::openai_oauth::{OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY};
 use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
 use axum::{routing::post, Json, Router};
 use chrono::{Duration, Utc};

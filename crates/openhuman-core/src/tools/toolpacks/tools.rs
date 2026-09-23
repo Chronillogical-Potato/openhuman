@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::registry;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolSpec};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolSpec};
 
 pub const USE_SKILL: &str = "use_skill";
 
@@ -215,6 +215,47 @@ pub fn render_pack_filtered(
         return Err(message);
     }
     Ok(out)
+}
+
+/// A `use_skill` call naming a tool its skill does not contain (#6302).
+///
+/// Typed so the gate and its tests read one source: an invented name
+/// (`install_skill` in `skills`) must read as "no such tool" plus what the
+/// session can call instead, never as a permission denial. The not-found
+/// marker makes the failure classify as `NotFound`.
+pub struct NoSuchPackTool<'a> {
+    pub skill: &'a str,
+    pub tool: &'a str,
+    /// Tools in the skill this session can call, in pack order.
+    pub callable: Vec<&'a str>,
+    /// The hand-off sentence to use when `callable` is empty.
+    pub route: String,
+}
+
+impl NoSuchPackTool<'_> {
+    pub fn render(&self) -> String {
+        let mut out = format!(
+            "{} There is no tool `{}` in skill `{}`.",
+            crate::tools::status::NOT_FOUND_MARKER,
+            self.tool,
+            self.skill
+        );
+        if !self.callable.is_empty() {
+            let names = self
+                .callable
+                .iter()
+                .map(|name| format!("`{name}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            out.push_str(&format!(" The tools in it you can call: {names}."));
+        } else if !self.route.is_empty() {
+            out.push(' ');
+            out.push_str(&self.route);
+        } else {
+            out.push_str(" Nothing in it is available in this session.");
+        }
+        out
+    }
 }
 
 /// The "go here instead" sentence shared by the `use_skill` listing and the
@@ -449,13 +490,13 @@ impl Tool for UseSkillTool {
         }
     }
 
-    fn timeout_policy(&self, args: &Value) -> crate::tools::traits::ToolTimeout {
+    fn timeout_policy(&self, args: &Value) -> tinytools::ToolTimeout {
         match self.resolve(args) {
             Some((tools, idx)) => {
                 let inner_args = args.get("args").cloned().unwrap_or_else(|| json!({}));
                 tools[idx].timeout_policy(&inner_args)
             }
-            None => crate::tools::traits::ToolTimeout::Inherit,
+            None => tinytools::ToolTimeout::Inherit,
         }
     }
 

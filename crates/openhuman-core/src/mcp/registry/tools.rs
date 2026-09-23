@@ -2,26 +2,26 @@
 //!
 //! These expose the installed-MCP-servers registry to the agent: search the
 //! catalog, inspect a server, list installed servers and their connection
-//! status, connect/disconnect, call a tool on a connected server, and get
-//! AI config help. Thin shims over [`crate::mcp::registry::ops`].
+//! status, connect/disconnect, and call a tool on a connected server. Thin
+//! shims over [`crate::mcp::registry::ops`].
 //!
 //! Discovery/observe/connect/call tools are default-ON. The persistent
-//! `mcp_registry_install` / `mcp_registry_uninstall` mutators (write installed
-//! state + secrets) ship default-OFF via `tools/user_filter.rs`
-//! (`mcp_manage` toggle).
+//! `mcp_registry_uninstall` mutator ships default-OFF via
+//! `tools/user_filter.rs` (`mcp_manage` toggle). There is no install tool: a
+//! server is declared by the user in `mcp.json`, never by an agent from a
+//! catalog listing.
 //!
-//! NOTE: the `mcp_setup_*` setup-agent tools and the generic `mcp_list_servers`
-//! / `mcp_call_tool` bridge tools already exist elsewhere; these `mcp_registry_*`
-//! tools are the distinct installed-registry surface and do not duplicate them.
+//! NOTE: the generic `mcp_list_servers` / `mcp_call_tool` bridge tools already
+//! exist elsewhere; these `mcp_registry_*` tools are the distinct
+//! installed-registry surface and do not duplicate them.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
 
@@ -351,96 +351,6 @@ impl Tool for McpRegistryToolCallTool {
         emit!(
             ops::mcp_clients_tool_call(&self.config, sid, tool_name, arguments).await,
             "mcp_registry_tool_call"
-        )
-    }
-}
-
-/// AI config assistance for an MCP server.
-pub struct McpRegistryConfigAssistTool {
-    config: Arc<Config>,
-}
-impl McpRegistryConfigAssistTool {
-    pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
-    }
-}
-#[async_trait]
-impl Tool for McpRegistryConfigAssistTool {
-    fn name(&self) -> &str {
-        "mcp_registry_config_assist"
-    }
-    fn description(&self) -> &str {
-        "Get AI guidance for configuring an MCP server (`qualified_name`) given a \
-         `user_message`; returns a reply and suggested env vars."
-    }
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "qualified_name": { "type": "string" },
-                "user_message": { "type": "string" }
-            },
-            "required": ["qualified_name", "user_message"]
-        })
-    }
-    fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::Execute
-    }
-    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let qn = req_str(&args, "qualified_name")?;
-        let msg = req_str(&args, "user_message")?;
-        emit!(
-            ops::mcp_clients_config_assist(&self.config, qn, msg, None).await,
-            "mcp_registry_config_assist"
-        )
-    }
-}
-
-/// Install an MCP server (persists install + env). Default-OFF.
-pub struct McpRegistryInstallTool {
-    config: Arc<Config>,
-}
-impl McpRegistryInstallTool {
-    pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
-    }
-}
-#[async_trait]
-impl Tool for McpRegistryInstallTool {
-    fn name(&self) -> &str {
-        "mcp_registry_install"
-    }
-    fn description(&self) -> &str {
-        "Install an MCP server (`qualified_name`) with an `env` map and optional \
-         `config`. Persists the install + secrets. Default-OFF (opt-in)."
-    }
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "qualified_name": { "type": "string" },
-                "env": { "type": "object", "additionalProperties": { "type": "string" } },
-                "config": { "type": "object" }
-            },
-            "required": ["qualified_name"]
-        })
-    }
-    fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::Write
-    }
-    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let qn = req_str(&args, "qualified_name")?;
-        let env: HashMap<String, String> = args
-            .get("env")
-            .cloned()
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("mcp_registry_install: invalid env: {e}"))?
-            .unwrap_or_default();
-        let config_value = args.get("config").cloned();
-        emit!(
-            ops::mcp_clients_install(&self.config, qn, env, config_value).await,
-            "mcp_registry_install"
         )
     }
 }

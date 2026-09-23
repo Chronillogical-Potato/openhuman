@@ -6,7 +6,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
-import { useRegisterAction } from '../../../lib/commands/useRegisterAction';
 import { useSlashCommands } from '../../../lib/commands/useSlashCommands';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { TurnProcessTrail } from '../../../providers/assistantUiMessages';
@@ -19,13 +18,9 @@ import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { TurnFooter } from './aui/TurnFooter';
 import { TurnFooterHost } from './aui/turnFooterHost';
+import { TurnSources } from './aui/TurnSources';
 import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
-import {
-  type ThreadGoalController,
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-} from './ThreadGoalChip';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
 const selectComposerText = (state: AssistantState) => state.composer.text;
@@ -64,7 +59,6 @@ function ComposerTextBridge({
  * send/cancel path as the legacy composer.
  */
 export function AssistantUiChat({
-  threadGoal,
   model,
   modelContextWindow,
   onModelChange,
@@ -86,7 +80,6 @@ export function AssistantUiChat({
   canOpenSubagent,
   onOpenTurnProcess,
 }: {
-  threadGoal: ThreadGoalController;
   model: string | null;
   modelContextWindow?: number | null;
   onModelChange: (value: string | null, contextWindow?: number | null) => void;
@@ -145,18 +138,6 @@ export function AssistantUiChat({
     () => contextUsageFromTokenUsage(tokenUsage, modelContextWindow),
     [modelContextWindow, tokenUsage]
   );
-  const openThreadGoal = threadGoal.open;
-
-  useRegisterAction({
-    id: 'chat.goal',
-    label: 'Set thread goal',
-    labelKey: 'conversations.composer.command.goal',
-    group: 'Chat',
-    handler: openThreadGoal,
-    enabled: () => selectedThreadId !== null,
-    keywords: ['goal', 'objective', 'thread goal'],
-    slashCommand: { id: 'goal', descriptionKey: 'conversations.composer.command.goal' },
-  });
   const slashCommands = useSlashCommands();
 
   // Every prop the composer slots below read, refreshed on each host render.
@@ -177,7 +158,6 @@ export function AssistantUiChat({
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
-    threadGoal,
   });
   slotPropsRef.current = {
     attachments,
@@ -189,7 +169,6 @@ export function AssistantUiChat({
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
-    threadGoal,
   };
   // Read through a ref for the same reason `ComposerHeader` does below: the
   // slot is rendered by type, so closing over the node would remount the whole
@@ -197,14 +176,10 @@ export function AssistantUiChat({
   const composerFooterExtrasRef = useRef(composerFooterExtras);
   composerFooterExtrasRef.current = composerFooterExtras;
   const ComposerExtras = useCallback(() => {
-    const { contextUsage: usage, threadGoal: goalCtl } = slotPropsRef.current;
+    const { contextUsage: usage } = slotPropsRef.current;
     return (
       <>
         <ContextWindowPill usage={usage} />
-        <div className="absolute right-0 bottom-full left-0 pb-2">
-          <ThreadGoalEditorPanel ctl={goalCtl} />
-        </div>
-        <ThreadGoalFooterTrigger ctl={goalCtl} />
         {composerFooterExtrasRef.current}
       </>
     );
@@ -308,9 +283,14 @@ export function AssistantUiChat({
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
       RunningStatus: AssistantUiInferenceStatus,
-      // One-line process summary under a settled answer, and the only door to
-      // the reasoning / narration / tool detail that no longer renders inline.
+      // One-line process summary under a settled answer, and the door to the
+      // reasoning / narration / tool detail that does not render inline.
       TurnFooter,
+      // The web sources that turn visited, inline under the answer. The rail
+      // still lists them too — it carries the scoped single-step view and the
+      // whole-run view this does not. Reads the turn's own metadata, so no
+      // props and no dependency here.
+      TurnSources,
       onSwitchToMicCloud,
       ...(attachmentsEnabled
         ? {

@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 /// One entry in the indexed skill catalog.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CatalogEntry {
-    /// Unique slug (e.g. "apple-notes", "docker-manager").
+    /// Unique id: the upstream identifier, source-qualified (e.g.
+    /// "clawhub/apple-design", "skills-sh/owner/repo/skill"), or the name for
+    /// bundled Hermes skills (e.g. "apple-notes").
     pub id: String,
     /// Display name.
     pub name: String,
@@ -24,10 +26,10 @@ pub struct CatalogEntry {
     pub tags: Vec<String>,
     /// Compatible platform hints.
     pub platforms: Vec<String>,
-    /// Direct download URL for the SKILL.md file. Empty when the upstream
-    /// source hosts the skill on a non-raw portal (ClawHub / LobeHub /
-    /// skills.sh) with no fetchable `SKILL.md`; install surfaces an actionable
-    /// error pointing at [`source_url`] instead of a misleading 404.
+    /// Download URL for the SKILL.md file. Empty when the source publishes no
+    /// `SKILL.md` (LobeHub agents); install surfaces an actionable error
+    /// pointing at [`source_url`] instead of a misleading 404. For skills.sh
+    /// it is the most common location, resolved at install time.
     pub download_url: String,
     /// Human-facing source page for the skill (GitHub blob/tree, LobeHub,
     /// ClawHub, skills.sh, …). Carried from the catalog's `sourceUrl`; used to

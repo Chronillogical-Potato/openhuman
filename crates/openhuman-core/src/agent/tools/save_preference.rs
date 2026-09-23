@@ -27,9 +27,9 @@ use crate::memory::ops::guard::active_memory_guard;
 use crate::memory::safety;
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use tinymemory_api::provider::MemoryCore as _;
 use tinymemory_api::types::MemoryCategory;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 // Namespace constants live in `memory::preferences` so the write path (here),
 // the system-prompt builder (Lane A), and per-turn recall (Lane B) all share a

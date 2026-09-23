@@ -83,14 +83,6 @@ Sync progress streams as `MemorySyncStageChanged` events (Requested → Fetching
 
 ---
 
-## Source scoping for agent profiles
-
-By default an agent recalls from **every** source. Source scoping lets an agent profile restrict recall to a whitelist of source ids, so a customer-support flavour never surfaces your personal Gmail, and a research flavour stays focused on the repos and feeds that matter. This is a privacy and focus control, not just a relevance tweak.
-
-The mechanism lives in `crates/openhuman-core/src/memory/source_scope.rs`. Threading an allowlist through every memory tool and the deep `select_trees` retrieval layer would touch dozens of call sites. So, mirroring `thread_context`, the channel sets a `tokio::task_local!` around the agent turn and the retrieval layer reads it ambiently, with no explicit plumbing:
-
-- **`None`** (outside any scope, or `with_source_scope(None, …)`) means **unrestricted**. This is the default for cron, sub-agents, the CLI, and any profile that left `memory_sources` unset.
-- **`Some(set)`** restricts recall to source scopes in the set. An **empty** set surfaces nothing (the profile selected no sources).
 
 The gate is **tag-discriminated and fail-open** for everything that is not a memory-source chunk. Every source-ingested chunk carries the `memory_sources` tag; the gate (`chunk_source_allowed`) only touches tagged chunks:
 

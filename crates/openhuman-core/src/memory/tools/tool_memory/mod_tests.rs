@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 #[test]
 fn exports_memory_tool_wrappers_with_stable_names() {

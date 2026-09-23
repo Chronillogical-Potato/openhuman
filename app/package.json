@@ -1,6 +1,6 @@
 {
   "name": "openhuman-app",
-  "version": "0.63.28",
+  "version": "0.63.31",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -66,7 +66,7 @@
     "lint": "eslint . --ext .ts,.tsx --cache",
     "lint:fix": "eslint . --ext .ts,.tsx --fix --cache",
     "lint:commands-tokens": "bash scripts/lint-token-scan.sh lint:commands-tokens -nU \"(bg|text|border|ring|shadow)-(neutral|primary|sage|amber|canvas|stone|slate)\" src/components/commands/",
-    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/rewards/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/components/approvals/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
+    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/components/approvals/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
     "knip": "knip --config knip.json",
     "knip:production": "knip --config knip.json --production"
   },

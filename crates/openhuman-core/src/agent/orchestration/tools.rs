@@ -8,8 +8,7 @@
 //! - **Control**: `steer_subagent`, `continue_subagent`, `close_subagent`,
 //!   `wait_subagent`, `wait` / `wait_loop`, `list_subagents`.
 //! - **Delegation**: `DelegateGraphTool`, `ArchetypeDelegationTool`,
-//!   `SkillDelegationTool`, `CollapsedDelegationTool` (`delegate_to`), and
-//!   `agent_prepare_context`.
+//!   `CollapsedDelegationTool` (`delegate_to`), and `agent_prepare_context`.
 //!
 //! `dispatch.rs`, `awaiting_user.rs`, and `worker_thread.rs` are `pub(crate)`
 //! helpers shared by the tools above (the common spawn path, the awaiting-user
@@ -18,7 +17,7 @@
 //! All tools are re-exported through `crate::tools` (`tools/mod.rs`:
 //! `pub use crate::agent::orchestration::tools::*`), which is how the agent
 //! tool-calling loop discovers them. Execution itself goes through
-//! `agent::harness::run_subagent`; this module only owns the tool-call
+//! `agent::subagent_host::run_subagent`; this module only owns the tool-call
 //! surface (schema, argument parsing, response formatting).
 
 #[path = "tools/agent_prepare_context.rs"]
@@ -26,7 +25,7 @@ mod agent_prepare_context;
 #[path = "tools/archetype_delegation.rs"]
 mod archetype_delegation;
 #[path = "tools/awaiting_user.rs"]
-mod awaiting_user;
+pub(crate) mod awaiting_user;
 #[path = "tools/close_subagent.rs"]
 mod close_subagent;
 #[path = "tools/collapsed_delegation.rs"]
@@ -39,8 +38,6 @@ mod delegate_graph;
 mod dispatch;
 #[path = "tools/list_subagents.rs"]
 mod list_subagents;
-#[path = "tools/skill_delegation.rs"]
-mod skill_delegation;
 #[path = "tools/spawn_async_subagent.rs"]
 mod spawn_async_subagent;
 #[path = "tools/spawn_parallel_agents.rs"]
@@ -61,22 +58,49 @@ mod wait_subagent;
 #[path = "tools/worker_thread.rs"]
 mod worker_thread;
 
-pub(crate) use dispatch::dispatch_subagent;
+pub(crate) use dispatch::DelegationDispatch;
 
+/// Recreate the minimal live TinyAgents carrier for callers that invoke a
+/// concrete tool directly inside `with_parent_context`. Normal agent turns
+/// always arrive through the typed dispatchers with their original carrier;
+/// this compatibility path keeps controller/test callers inside an explicit
+/// parent context from losing their recursive delegation authority.
+pub(crate) fn ambient_parent_run_context(
+    kind: &str,
+) -> Option<
+    tinyagents_harness::context::RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+> {
+    crate::agent::harness::current_parent().map(|parent| {
+        crate::agent::tinyagents::host::OpenHumanRunContext::new()
+            .with_parent(parent)
+            .into_tinyagents(tinyagents_harness::context::RunConfig::new(kind))
+    })
+}
+
+pub(crate) use agent_prepare_context::AgentPrepareContextDispatch;
 pub use agent_prepare_context::{
     run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
 };
 pub use archetype_delegation::{ArchetypeDelegationTool, DelegationTarget};
+pub(crate) use close_subagent::CloseSubagentDispatch;
 pub use close_subagent::CloseSubagentTool;
 pub use collapsed_delegation::{CollapsedDelegationTool, DelegateTarget, DELEGATE_TO_TOOL_NAME};
+pub(crate) use continue_subagent::ContinueSubagentDispatch;
 pub use continue_subagent::ContinueSubagentTool;
+pub(crate) use delegate_graph::DelegateGraphDispatch;
 pub use delegate_graph::DelegateGraphTool;
+pub(crate) use list_subagents::ListSubagentsDispatch;
 pub use list_subagents::ListSubagentsTool;
-pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
-pub use spawn_async_subagent::SpawnAsyncSubagentTool;
+pub(crate) use spawn_async_subagent::SpawnAsyncSubagentDispatch;
+pub use spawn_async_subagent::{scope_spawn_async_subagent_spec, SpawnAsyncSubagentTool};
+pub(crate) use spawn_parallel_agents::SpawnParallelAgentsDispatch;
 pub use spawn_parallel_agents::SpawnParallelAgentsTool;
+pub(crate) use spawn_subagent::SpawnSubagentDispatch;
 pub use spawn_subagent::SpawnSubagentTool;
+pub(crate) use spawn_worker_thread::SpawnWorkerThreadDispatch;
 pub use spawn_worker_thread::SpawnWorkerThreadTool;
+pub(crate) use steer_subagent::SteerSubagentDispatch;
 pub use steer_subagent::SteerSubagentTool;
 pub use wait::{WaitLoopTool, WaitTool};
+pub(crate) use wait_subagent::WaitSubagentDispatch;
 pub use wait_subagent::WaitSubagentTool;

@@ -2,12 +2,17 @@
 //! sinks middleware write into to build it.
 
 use crate::agent::messages::{ChatMessage, ConversationMessage};
+use tinyinference_llm::model::ResolvedModelRoute;
 
 /// The outcome of a turn driven on the `tinyagents` harness.
 #[derive(Debug, Clone)]
 pub(crate) struct TinyagentsTurnOutcome {
     /// Final assistant text.
     pub text: String,
+    /// Concrete provider/model/host route selected for the final successful
+    /// model call. This travels explicitly to channel and bus callers; it is
+    /// never recovered from a task-local after the run.
+    pub resolved_route: Option<ResolvedModelRoute>,
     /// The full transcript, converted back to openhuman messages (flat — tool
     /// calls rendered as text).
     pub history: Vec<ChatMessage>,
@@ -75,8 +80,15 @@ pub(crate) struct TinyagentsTurnOutcome {
 pub(crate) struct ToolCallOutcome {
     pub call_id: String,
     pub name: String,
+    /// The exact structured arguments supplied for this invocation.  They are
+    /// captured at `before_tool`, while the native `ToolCall` is still
+    /// available, so post-commit hooks and transcript usage never have to
+    /// reconstruct arguments from provider prose.
+    pub arguments: serde_json::Value,
     pub success: bool,
     pub content: String,
+    /// Measured wall-clock runtime for this concrete tool invocation.
+    pub duration_ms: u64,
 }
 
 /// Shared sink the [`ToolOutcomeCaptureMiddleware`](super::middleware::ToolOutcomeCaptureMiddleware)

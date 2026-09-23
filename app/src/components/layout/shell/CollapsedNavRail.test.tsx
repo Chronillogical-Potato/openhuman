@@ -1,7 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { registry } from '../../../lib/commands/registry';
 import { renderWithProviders } from '../../../test/test-utils';
 import CollapsedNavRail from './CollapsedNavRail';
 
@@ -16,15 +15,17 @@ vi.mock('./useHomeNav', () => ({ useHomeNav: () => mockHome }));
 // Deterministic labels: render the i18n key so queries don't depend on locale.
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 vi.mock('../../../services/analytics', () => ({ trackEvent: vi.fn() }));
+const openUrl = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../utils/openUrl', () => ({ openUrl: (...args: unknown[]) => openUrl(...args) }));
 
 describe('CollapsedNavRail', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders Home, Keyboard Shortcuts, and every primary nav destination as icon buttons', () => {
+  it('renders Home, Discord, and every primary nav destination as icon buttons', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
     for (const key of [
       'nav.home',
-      'shortcuts.title',
+      'nav.discord',
       'nav.chat',
       'nav.brain',
       'nav.flows',
@@ -36,8 +37,6 @@ describe('CollapsedNavRail', () => {
     expect(screen.queryByRole('button', { name: 'nav.wallet' })).not.toBeInTheDocument();
     // Human is reached from the chat composer's idle button, not a nav row.
     expect(screen.queryByRole('button', { name: 'nav.human' })).not.toBeInTheDocument();
-    // Rewards is cloud-gated; this store has no resolved cloud session.
-    expect(screen.queryByRole('button', { name: 'nav.rewards' })).not.toBeInTheDocument();
   });
 
   it('renders rail icons as sidebar menu primitives', () => {
@@ -49,19 +48,17 @@ describe('CollapsedNavRail', () => {
     expect(screen.getByRole('button', { name: 'nav.chat' }).dataset.active).toBe('false');
   });
 
-  it('shortcuts button opens the keyboard-shortcuts help directory', () => {
-    const runAction = vi.spyOn(registry, 'runAction').mockReturnValue(true);
+  it('Discord button opens the community invite in the browser', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
-    fireEvent.click(screen.getByRole('button', { name: 'shortcuts.title' }));
-    expect(runAction).toHaveBeenCalledWith('meta.keyboard-shortcuts');
-    runAction.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'nav.discord' }));
+    expect(openUrl).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
   });
 
-  it('shortcuts button has correct data-analytics-id', () => {
+  it('Discord button has correct data-analytics-id', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
-    expect(screen.getByRole('button', { name: 'shortcuts.title' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'nav.discord' })).toHaveAttribute(
       'data-analytics-id',
-      'collapsed-rail-shortcuts'
+      'collapsed-rail-discord'
     );
   });
 

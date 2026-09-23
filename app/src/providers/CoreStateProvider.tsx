@@ -27,9 +27,9 @@ import {
   updateCoreLocalState,
 } from '../services/coreStateApi';
 import { daemonHealthService } from '../services/daemonHealthService';
+import { installShellSessionEventBridge } from '../services/session/shellSessionEvents';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
-import { loadAgentProfiles } from '../store/agentProfileSlice';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
@@ -79,7 +79,7 @@ function sanitizeError(error: unknown): { message?: string; code?: string; statu
 /**
  * Positively confirm the on-disk session token is gone before an `auth_expired`
  * signal is allowed to trigger the *destructive* `clearSession` (which calls
- * `auth_clear_session` → removes the auth profile from disk).
+ * `auth_logout` → the session owner removes the credential from the core).
  *
  * Reads the cheap disk-only `auth_get_session_token` RPC — no `auth/me` network
  * call, not subject to `app_state_snapshot`'s 5s/10s timeouts. Right after the
@@ -420,37 +420,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         });
     }
 
-    // Seed the active agent profile at the earliest safe moment, so the window
-    // in which a chat request could carry the stale 'default' id is as short as
-    // the snapshot allows (#5872). It is a narrowing, NOT a guarantee: this
-    // dispatch is deliberately not awaited, so a send issued before it resolves
-    // still reads 'default' from the slice. Closing that window for good means
-    // omitting `profileId` while the slice is still loading — the core keeps
-    // its own authoritative `active_profile_id` and resolves an absent id
-    // against it — which belongs in the send path, not here. Intentionally not
-    // gated on !isFlip: on Tauri a flip triggers restartApp() so the provider
-    // remounts with undefined previousIdentity and profiles load on the boot
-    // poll; on web restartApp() is a no-op and by the next poll
-    // previousIdentity === nextIdentity, making shouldClearScopedCaches false
-    // — so we must dispatch here while it is still true.
-    if (
-      requestId === snapshotRequestIdRef.current &&
-      shouldClearScopedCaches &&
-      nextIdentity &&
-      !isLogout
-    ) {
-      const profileReloadRequestId = requestId;
-      void store
-        .dispatch(loadAgentProfiles())
-        .unwrap()
-        .catch(err => {
-          if (profileReloadRequestId !== snapshotRequestIdRef.current) {
-            return;
-          }
-          log('post-identity agent profiles load failed: %O', sanitizeError(err));
-        });
-    }
-
     if (nextIdentity && isLocalSession && seedUserId !== nextIdentity) {
       setActiveUserId(nextIdentity);
     }
@@ -784,7 +753,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const pendingConfirmedReauthRef = useRef(false);
 
   // Listen for deep-link auth suppression signals so that an in-flight
-  // `auth_store_session` call (OAuth deep link) does not race with the
+  // session-owner store call (OAuth deep link) does not race with the
   // `core-rpc-auth-expired` handler and clear the session mid-delivery.
   // See issue #2377.
   useEffect(() => {
@@ -931,7 +900,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       // An `unconfirmed` reason ("session jwt required" / "no backend session
       // token") means the core has no token *loaded* — which fires transiently
       // right after the identity-flip restart, before the on-disk auth profile
-      // is read. `clearSession()` is destructive (auth_clear_session removes the
+      // is read. `clearSession()` is destructive (the session owner removes the
       // profile from disk), so corroborate first and only sign out if the token
       // is genuinely gone. A hard 401 / explicit expiry (`confirmed`) skips this.
       if (reason === 'unconfirmed') {
@@ -1008,11 +977,22 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
     window.addEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
     window.addEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+    // 3. The Tauri shell's session owner: `auth://expired` re-enters the
+    //    same guarded path as the socket push; `auth://changed` refreshes
+    //    the snapshot right away instead of waiting for the next poll.
+    const disposeShellBridge = installShellSessionEventBridge({
+      onChanged: () => {
+        void refresh().catch(err => {
+          log('refresh failed after shell auth change: %O', sanitizeError(err));
+        });
+      },
+    });
     return () => {
       window.removeEventListener('core-rpc-auth-expired', onRpcExpired as EventListener);
       window.removeEventListener('openhuman:session-expired', onSocketExpired as EventListener);
+      disposeShellBridge();
     };
-  }, [clearSession]);
+  }, [clearSession, refresh]);
 
   const patchSnapshot = useCallback(
     (patch: Partial<CoreAppSnapshot>) => {

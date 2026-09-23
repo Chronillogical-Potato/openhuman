@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::ToolScope;
+use tinytools::ToolScope;
 
 #[test]
 fn names_and_levels() {

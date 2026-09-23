@@ -1,5 +1,5 @@
 //! Shared param-deserialisation and outcome-conversion helpers used by
-//! every `mcp_clients_*` and `mcp_setup_*` handler.
+//! every `mcp_clients_*` handler.
 
 use serde_json::{Map, Value};
 
@@ -30,16 +30,6 @@ pub(super) fn read_optional_u32(
             "invalid '{key}': expected number, got {}",
             type_name(other)
         )),
-    }
-}
-
-pub(super) fn read_optional_json(
-    params: &Map<String, Value>,
-    key: &str,
-) -> Result<Option<Value>, String> {
-    match params.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(v) => Ok(Some(v.clone())),
     }
 }
 

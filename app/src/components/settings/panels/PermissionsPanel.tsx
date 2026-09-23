@@ -54,7 +54,6 @@ const PermissionsPanel = () => {
   // so we don't overwrite them with defaults. Load them but don't expose UI for
   // them (they live in the advanced panel).
   const [workspaceOnly, setWorkspaceOnly] = useState(false);
-  const [requireTaskPlanApproval, setRequireTaskPlanApproval] = useState(true);
   const [trustedRoots, setTrustedRoots] = useState<
     Array<{ path: string; access: 'read' | 'readwrite' }>
   >([]);
@@ -87,7 +86,6 @@ const PermissionsPanel = () => {
         if (cancelled) return;
         setLevel(autonomyResp.result.level);
         setWorkspaceOnly(autonomyResp.result.workspace_only);
-        setRequireTaskPlanApproval(autonomyResp.result.require_task_plan_approval ?? true);
         setTrustedRoots(autonomyResp.result.trusted_roots ?? []);
       } catch (e) {
         if (!cancelled)
@@ -125,7 +123,6 @@ const PermissionsPanel = () => {
         workspace_only: workspaceOnly,
         trusted_roots: trustedRoots,
         allow_tool_install: ALLOW_TOOL_INSTALL,
-        require_task_plan_approval: requireTaskPlanApproval,
       });
       if (persistSeqRef.current === seq) {
         setSavedNote(t('settings.agentAccess.saved'));

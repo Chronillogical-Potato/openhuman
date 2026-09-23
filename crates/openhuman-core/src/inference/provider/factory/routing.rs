@@ -18,10 +18,10 @@ pub(super) fn configured_route_for_role<'a>(role: &str, config: &'a Config) -> O
         "coding" => config.coding_provider.as_deref(),
         // Burst uses the existing Agentic workload route for BYOK/local parity.
         // If unset, it falls through to the managed backend and is pinned to
-        // `burst-v1` by `managed_tier_for_role`.
+        // `hint:burst` by `managed_tier_for_role`.
         "burst" => config.agentic_provider.as_deref(),
         // Tier-specific multimodal model; when unset it falls through to
-        // `primary_cloud` (→ managed `vision-v1`), as every unset route now does.
+        // `primary_cloud` (→ managed `hint:vision`), as every unset route now does.
         "vision" => config.vision_provider.as_deref(),
         // `memory_provider` covers both the memory-tree extract path and
         // the summarizer sub-agent (whose definition declares
@@ -102,7 +102,7 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         // visible in logs and support transcripts before anything goes wrong.
         if fallback_diagnostics::role_falls_back_to_cloud(role) {
             if let Some(chat) = config.chat_provider.as_deref() {
-                if crate::inference::local::profile::is_local_provider_string(chat) {
+                if tinyinference_local::profile::is_local_provider_string(chat) {
                     log::info!(
                         "[providers][local-fallback] role={} {}",
                         role,
@@ -155,8 +155,8 @@ pub(super) fn route_has_usable_credentials(resolved: &str, config: &Config) -> b
     let r = resolved.trim();
     // Local runtimes (ollama/lmstudio/mlx/local-openai) and the local CLI
     // delegates carry their own credentials / run on-device.
-    if crate::inference::local::profile::is_local_provider_string(r)
-        || r.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX)
+    if tinyinference_local::profile::is_local_provider_string(r)
+        || r.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
         || r == CLAUDE_AGENT_SDK_PROVIDER
         || r.starts_with(CLAUDE_AGENT_SDK_PREFIX)
     {

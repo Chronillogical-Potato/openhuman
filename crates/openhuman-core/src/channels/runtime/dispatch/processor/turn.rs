@@ -16,7 +16,6 @@ use crate::channels::traits;
 use crate::channels::{ChannelSendExt, SendMessage};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::inference::provider;
 use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -139,7 +138,7 @@ pub(crate) async fn process_channel_runtime_message(
                         ("provider", route.provider.as_str()),
                     ],
                 );
-                let safe_err = provider::sanitize_api_error(&err.to_string());
+                let safe_err = tinyinference_core::sanitize::sanitize_api_error(&err.to_string());
                 let message = format!(
                 "⚠️ Failed to initialize provider `{}`. Please run `/models` to choose another provider.\nDetails: {safe_err}",
                 route.provider
@@ -588,7 +587,7 @@ pub(crate) async fn process_channel_runtime_message(
             );
             // The typed `AgentError` is flattened to a `String` at the
             // native-bus boundary (`agent::bus` map_err → `e.to_string()`),
-            // so the downcast that works in `Agent::run_single` is not an
+            // so the downcast that works in `OpenHumanSessionHost::run_single` is not an
             // option here — fall back to canonical-phrase substring match.
             // The max-tool-iterations cap is a deterministic agent-state
             // outcome and is already surfaced to the user as the

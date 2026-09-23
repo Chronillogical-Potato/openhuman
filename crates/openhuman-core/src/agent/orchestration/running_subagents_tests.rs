@@ -1,6 +1,5 @@
 use super::*;
-use crate::agent::harness::run_queue::QueueMode;
-use crate::agent::harness::run_queue::RunQueue;
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::orchestration::running_subagents::registry::DETACHED_LEDGER_TIMEOUT_MS;
 use crate::agent::orchestration::running_subagents::resolve::resume_ref_for_task;
 use crate::agent::orchestration::running_subagents::resolve::task_id_for_session;
@@ -9,17 +8,20 @@ use crate::agent::orchestration::running_subagents::steering::steer_directive;
 use crate::agent::orchestration::running_subagents::steering::SteerDirectiveError;
 use crate::agent::orchestration::running_subagents::steering::SteeringDirective;
 use crate::agent::orchestration::running_subagents::wait::wait;
-use crate::agent::tinyagents::orchestration::shared_steering_registry;
-use crate::agent::tinyagents::orchestration::{
-    openhuman_steering_handle, OrchestrationTaskStatus, SteeringHandle, SteeringPolicy,
-    SteeringRunClass,
+use crate::agent::queued_turn::QueuedTurn;
+use crate::agent::tinyagents::host::steering::{
+    openhuman_steering_handle, shared_steering_registry, SteeringRunClass,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::time::Duration;
+use tinyagents_graph::orchestration::OrchestrationTaskStatus;
 use tinyagents_harness::ids::TaskId;
-use tinyagents_harness::steering::{SteeringCommand, SteeringCommandKind};
+use tinyagents_harness::run_queue::{QueueLane, RunQueue};
+use tinyagents_harness::steering::{
+    SteeringCommand, SteeringCommandKind, SteeringHandle, SteeringPolicy,
+};
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
@@ -40,6 +42,10 @@ fn test_guard() -> MutexGuard<'static, ()> {
 
 fn dummy_abort() -> AbortHandle {
     tokio::spawn(async {}).abort_handle()
+}
+
+fn run_queue() -> Arc<RunQueue<QueuedTurn>> {
+    Arc::new(RunQueue::new())
 }
 
 /// Per-process-run unique workspace for the detached task store.
@@ -64,7 +70,7 @@ fn test_workspace() -> PathBuf {
 fn register_test(
     task_id: &str,
     parent_session: &str,
-    rq: Arc<RunQueue>,
+    rq: Arc<RunQueue<QueuedTurn>>,
 ) -> watch::Sender<SubagentStatus> {
     register_test_with_thread(task_id, parent_session, None, rq)
 }
@@ -75,7 +81,7 @@ fn register_test_with_thread(
     task_id: &str,
     parent_session: &str,
     parent_thread_id: Option<&str>,
-    rq: Arc<RunQueue>,
+    rq: Arc<RunQueue<QueuedTurn>>,
 ) -> watch::Sender<SubagentStatus> {
     let (tx, rx) = status_channel();
     register(
@@ -97,7 +103,7 @@ fn register_test_with_thread(
 async fn task_store_records_spawn_complete_and_cancel() {
     let _guard = test_guard();
     // Spawn → the ledger sees a running SubAgent task scoped to the parent.
-    let tx = register_test("task-ledger-1", "ledger-parent", RunQueue::new());
+    let tx = register_test("task-ledger-1", "ledger-parent", run_queue());
     let running = task_records(Some("ledger-parent"));
     assert!(
         running
@@ -134,7 +140,7 @@ async fn task_store_records_spawn_complete_and_cancel() {
     assert_eq!(rec.status, OrchestrationTaskStatus::Completed);
 
     // A second sub-agent that gets cancelled is recorded Cancelled.
-    let _tx2 = register_test("task-ledger-2", "ledger-parent", RunQueue::new());
+    let _tx2 = register_test("task-ledger-2", "ledger-parent", run_queue());
     assert!(cancel_by_task("task-ledger-2").is_some());
     let cancelled = task_records(None)
         .into_iter()
@@ -148,7 +154,7 @@ async fn task_store_records_spawn_complete_and_cancel() {
 #[tokio::test]
 async fn task_id_for_session_enforces_parent_ownership() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let (tx, rx) = status_channel();
     register(
         "task-session".into(),
@@ -190,7 +196,7 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         Some("subsess-a".into()),
         test_workspace(),
         None,
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         rx_a,
     );
@@ -203,7 +209,7 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         Some("subsess-b".into()),
         test_workspace(),
         None,
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         rx_b,
     );
@@ -217,7 +223,7 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         Some("subsess-other".into()),
         test_workspace(),
         None,
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         rx_other,
     );
@@ -237,25 +243,55 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
     assert_eq!(snap[1].status, "running");
 
     let block =
-        active_subagents_context_block("fleet-parent", &test_workspace()).expect("block present");
+        active_subagents_context_block("fleet-parent", &test_workspace(), &FleetToolSet::all())
+            .expect("block present");
     assert!(block.contains("[active_subagents]"));
+    assert!(block.contains("use wait_subagent to collect"));
     assert!(block.contains("You have 2 sub-agent worker(s)"));
     assert!(block.contains("session=subsess-a"));
     assert!(block.contains("session=subsess-b · task=task-fleet-b · status=awaiting_user"));
     assert!(block.ends_with("[/active_subagents]\n\n"));
 
     // A parent with no registered workers gets no block (no perturbation).
-    assert!(active_subagents_context_block("nobody-here", &test_workspace()).is_none());
+    assert!(
+        active_subagents_context_block("nobody-here", &test_workspace(), &FleetToolSet::all())
+            .is_none()
+    );
+
+    // The shipped orchestrator has no wait/steer/close tools (#5701): the
+    // guidance must not name them and must say results arrive on their own.
+    {
+        use crate::agent::harness::definition::AgentDefinitionRegistry;
+        let registry = AgentDefinitionRegistry::builtins_only();
+        let def = registry.get("orchestrator").expect("built-in orchestrator");
+        let fleet = FleetToolSet::from_scope(&def.tools, &def.disallowed_tools);
+        let block = active_subagents_context_block("fleet-parent", &test_workspace(), &fleet)
+            .expect("block present");
+        for name in [
+            "wait_subagent",
+            "steer_subagent",
+            "close_subagent",
+            "wait_loop",
+        ] {
+            assert!(
+                !block.contains(name),
+                "{name} named for a parent without it:\n{block}"
+            );
+        }
+        assert!(block.contains("delivered to you automatically"));
+        assert!(block.contains("continue_subagent"));
+        assert!(block.contains("list_subagents"));
+    }
 
     // Durable-store fallback: a session persisted by an EARLIER turn /
     // process lifetime (empty live registry for this parent) must still
     // surface in the roster, so a cold-booted orchestrator can resume by
     // subagent_session_id instead of re-delegating from scratch.
     {
-        use crate::agent::harness::subagent_runner::SubagentRunStatus;
         use crate::agent::orchestration::subagent_sessions::{
             self, SubagentSessionSelector, SubagentSessionStore, SubagentSessionUpsert,
         };
+        use crate::agent::subagent_host::SubagentRunStatus;
         let durable_ws = tempfile::tempdir().expect("durable roster tempdir");
         let store = SubagentSessionStore {
             workspace_dir: durable_ws.path().to_path_buf(),
@@ -290,13 +326,19 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         )
         .expect("mark idle");
 
-        let block = active_subagents_context_block("cold-parent", durable_ws.path())
-            .expect("durable-only roster present");
+        let block =
+            active_subagents_context_block("cold-parent", durable_ws.path(), &FleetToolSet::all())
+                .expect("durable-only roster present");
         assert!(block.contains(&format!("session={}", session.subagent_session_id)));
         assert!(block.contains("status=idle"));
         assert!(block.contains("about: Daily X trending email workflow"));
         // Other parents' durable sessions must not leak in.
-        assert!(active_subagents_context_block("unrelated-parent", durable_ws.path()).is_none());
+        assert!(active_subagents_context_block(
+            "unrelated-parent",
+            durable_ws.path(),
+            &FleetToolSet::all()
+        )
+        .is_none());
     }
 
     let _ = tx_a.send(SubagentStatus::Completed {
@@ -324,7 +366,7 @@ async fn resume_ref_for_task_includes_resume_fields_and_enforces_ownership() {
         Some("subsess-resume".into()),
         test_workspace(),
         Some("thread-1".into()),
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         rx,
     );
@@ -360,7 +402,7 @@ async fn task_id_for_session_prefers_live_task_over_terminal_task() {
         Some("subsess-live".into()),
         test_workspace(),
         Some("thread-1".into()),
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         old_rx,
     );
@@ -377,7 +419,7 @@ async fn task_id_for_session_prefers_live_task_over_terminal_task() {
         Some("subsess-live".into()),
         test_workspace(),
         Some("thread-1".into()),
-        RunQueue::new(),
+        run_queue(),
         dummy_abort(),
         new_rx,
     );
@@ -393,7 +435,7 @@ async fn task_id_for_session_prefers_live_task_over_terminal_task() {
 #[tokio::test]
 async fn wait_returns_completion_once_published() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let tx = register_test("task-wait", "session-A", rq);
 
     tokio::spawn(async move {
@@ -426,7 +468,7 @@ async fn wait_returns_completion_once_published() {
 #[tokio::test]
 async fn wait_times_out_and_leaves_entry_intact() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let _tx = register_test("task-slow", "session-A", rq);
 
     let outcome = wait("task-slow", "session-A", Duration::from_millis(20))
@@ -442,7 +484,7 @@ async fn wait_times_out_and_leaves_entry_intact() {
         "task-slow",
         "session-A",
         "still here".into(),
-        QueueMode::Steer
+        QueueLane::Steer
     )
     .await
     .is_ok());
@@ -452,7 +494,7 @@ async fn wait_times_out_and_leaves_entry_intact() {
 #[tokio::test]
 async fn cancel_for_thread_aborts_only_matching_entries() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let _a = register_test_with_thread("task-tA-1", "session-A", Some("thread-X"), rq.clone());
     let _b = register_test_with_thread("task-tA-2", "session-A", Some("thread-X"), rq.clone());
     // Different thread — must survive.
@@ -465,20 +507,20 @@ async fn cancel_for_thread_aborts_only_matching_entries() {
 
     // The two cancelled entries are gone (steer can't find them).
     assert_eq!(
-        steer("task-tA-1", "session-A", "x".into(), QueueMode::Steer).await,
+        steer("task-tA-1", "session-A", "x".into(), QueueLane::Steer).await,
         Err(SteerError::Unknown)
     );
     assert_eq!(
-        steer("task-tA-2", "session-A", "x".into(), QueueMode::Steer).await,
+        steer("task-tA-2", "session-A", "x".into(), QueueLane::Steer).await,
         Err(SteerError::Unknown)
     );
 
     // Non-matching entries stay live and steerable.
-    assert!(steer("task-tB", "session-A", "x".into(), QueueMode::Steer)
+    assert!(steer("task-tB", "session-A", "x".into(), QueueLane::Steer)
         .await
         .is_ok());
     assert!(
-        steer("task-headless", "session-A", "x".into(), QueueMode::Steer)
+        steer("task-headless", "session-A", "x".into(), QueueLane::Steer)
             .await
             .is_ok()
     );
@@ -493,7 +535,7 @@ async fn cancel_for_thread_aborts_only_matching_entries() {
 #[tokio::test]
 async fn cancel_by_task_returns_metadata_and_removes_entry() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let _tx = register_test_with_thread("task-cbt", "session-Z", Some("thread-cbt"), rq.clone());
     let task_id = TaskId::new("task-cbt");
     shared_steering_registry().register(task_id.clone(), SteeringHandle::allow_all());
@@ -509,7 +551,7 @@ async fn cancel_by_task_returns_metadata_and_removes_entry() {
 
     // Entry is gone — steer can no longer find it, and a second cancel is a no-op.
     assert_eq!(
-        steer("task-cbt", "session-Z", "x".into(), QueueMode::Steer).await,
+        steer("task-cbt", "session-Z", "x".into(), QueueLane::Steer).await,
         Err(SteerError::Unknown)
     );
     assert!(cancel_by_task("task-cbt").is_none());
@@ -520,7 +562,7 @@ async fn cancel_by_task_returns_metadata_and_removes_entry() {
 #[tokio::test]
 async fn cancel_all_clears_everything() {
     let _guard = test_guard();
-    let rq = RunQueue::new();
+    let rq = run_queue();
     let _a = register_test_with_thread("task-all-1", "session-A", Some("thread-1"), rq.clone());
     // Headless (no parent thread) — aborted, but contributes no thread id.
     let _b = register_test_with_thread("task-all-2", "session-B", None, rq);
@@ -536,11 +578,11 @@ async fn cancel_all_clears_everything() {
     );
 
     assert_eq!(
-        steer("task-all-1", "session-A", "x".into(), QueueMode::Steer).await,
+        steer("task-all-1", "session-A", "x".into(), QueueLane::Steer).await,
         Err(SteerError::Unknown)
     );
     assert_eq!(
-        steer("task-all-2", "session-B", "x".into(), QueueMode::Steer).await,
+        steer("task-all-2", "session-B", "x".into(), QueueLane::Steer).await,
         Err(SteerError::Unknown)
     );
     // Registry is empty now.

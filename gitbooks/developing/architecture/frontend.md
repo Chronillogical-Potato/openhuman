@@ -160,7 +160,6 @@ Authoritative list = the `reducer` map in `store/index.ts`. One-line purposes:
 | Slice                | Purpose                                                                 | Persisted?                                                     |
 | -------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `accounts`           | Connected web-app accounts + rail ordering                              | `accounts`, `order`, `lastActiveAccountId` (not the active id) |
-| `agentProfiles`      | Agent profile data                                                      | no                                                             |
 | `announcement`       | Harness-init announcement banner, seen ids                              | `shownIds`                                                     |
 | `backendMeet`        | Backend-driven Google Meet call state (join/leave, transcript, replies) | no                                                             |
 | `channelConnections` | Messaging channel connections (WhatsApp, Slack, …)                      | connections + migration/default-channel fields                 |
@@ -241,12 +240,12 @@ const result = await apiClient.post<LoginResponse>("/auth/login", {
 \~50 domain-scoped modules, one per feature surface, each wrapping either backend REST endpoints or core RPC methods. Representative examples:
 
 - `authApi` / `userApi` — auth + user profile
-- `threadApi`, `threadGoalApi`, `threadUsageApi` — chat threads
-- `agentProfilesApi`, `agentTeamApi`, `agentWorkApi`, `subagentApi` — agents
-- `skillsApi`, `skillRegistryApi`, `flowsApi`, `workflowRunsApi`, `todosApi` — skills & automation
+- `threadApi`, `threadUsageApi` — chat threads
+- `agentTeamApi`, `agentWorkApi`, `subagentApi` — agents
+- `skillsApi`, `skillRegistryApi`, `flowsApi`, `workflowRunsApi` — skills & automation
 - `channelConnectionsApi`, `mcpClientsApi`, `mcpSetupApi`, `tunnelsApi` — connections
 - `memoryTimelineApi`, `memoryFreshnessApi`, `graphCentralityApi`, `namespaceOverviewApi` — memory/graph
-- `billingApi`, `creditsApi`, `referralApi`, `rewardsApi`, `inviteApi` — commerce
+- `billingApi`, `creditsApi`, `referralApi`, `inviteApi` — commerce
 - `voiceSettingsApi`, `voiceInstallApi`, `aiSettingsApi`, `modelCouncilApi` — AI/voice config
 
 For the full list, `ls app/src/services/api/`. New feature surfaces get their own module here rather than growing `apiClient`.
@@ -412,7 +411,6 @@ Current desktop routes (read `AppRoutes.tsx` for the authoritative table — the
 /invites               → Invites
 /feedback              → Feedback
 /notifications         → Notifications
-/rewards               → Rewards
 /ptt-overlay           → PttOverlayPage (push-to-talk overlay window)
 /dev/agent-insights    → dev-only preview
 *                      → DefaultRedirect
@@ -509,7 +507,7 @@ components/
 ├── BootCheckGate/, daemon/  # Boot + service gates in the provider chain
 ├── commands/                # CommandProvider (command palette)
 ├── Announcement/, upsell/, userErrors/, walkthrough/  # Shell-level overlays
-├── keyring/, mcp-setup/, InitProgressScreen/          # Consent + init overlays
+├── keyring/, InitProgressScreen/                     # Consent + init overlays
 └── intelligence/            # Memory/vault surfaces (ObsidianVaultSection, VaultHealthChecklist, WorkflowsTab, …)
 ```
 

@@ -1,18 +1,5 @@
 use super::*;
 
-#[tokio::test]
-async fn legacy_migrations_run_for_each_workspace() {
-    let tmp = tempfile::tempdir().unwrap();
-    let mut first = Config::default();
-    first.workspace_dir = tmp.path().join("first");
-    let mut second = Config::default();
-    second.workspace_dir = tmp.path().join("second");
-
-    for config in [first, second] {
-        run_legacy_migrations(&config).await;
-    }
-}
-
 /// desktop() must enable every bootstrap job — proves the un-bundling kept
 /// the desktop job set byte-identical.
 #[test]
@@ -24,7 +11,7 @@ fn desktop_plan_enables_every_job() {
             memory_queue: true,
             composio_integration_sync: true,
             workspace_memory_sync: true,
-            proactive_task_pollers: true,
+            task_source_pollers: true,
             module_preload: true,
         }
     );
@@ -37,7 +24,7 @@ fn job_free_presets_enable_nothing() {
         memory_queue: false,
         composio_integration_sync: false,
         workspace_memory_sync: false,
-        proactive_task_pollers: false,
+        task_source_pollers: false,
         module_preload: false,
     };
     assert_eq!(bootstrap_job_plan(&ServiceSet::none()), empty);
@@ -54,7 +41,7 @@ fn each_concern_flag_enables_exactly_its_job() {
     assert!(plan.composio_integration_sync);
     assert!(!plan.workspace_memory_sync);
     assert!(!plan.memory_queue);
-    assert!(!plan.proactive_task_pollers);
+    assert!(!plan.task_source_pollers);
 
     let mut memory_sync = ServiceSet::none();
     memory_sync.memory_sync = true;
@@ -72,7 +59,7 @@ fn each_concern_flag_enables_exactly_its_job() {
     assert!(plan.memory_queue);
     assert!(!plan.workspace_memory_sync);
     assert!(!plan.composio_integration_sync);
-    assert!(!plan.proactive_task_pollers);
+    assert!(!plan.task_source_pollers);
 }
 
 /// From desktop(), disabling exactly one concern flag disables only its job.
@@ -84,7 +71,7 @@ fn disabling_one_concern_disables_only_its_job() {
     assert!(!plan.composio_integration_sync);
     assert!(plan.workspace_memory_sync);
     assert!(plan.memory_queue);
-    assert!(plan.proactive_task_pollers);
+    assert!(plan.task_source_pollers);
 
     let mut services = ServiceSet::desktop();
     services.memory_sync = false;

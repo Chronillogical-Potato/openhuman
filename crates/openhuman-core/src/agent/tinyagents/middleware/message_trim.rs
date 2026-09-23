@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::{ContentBlock, Message as TaMessage};
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
+use tinyinference_llm::model::ModelRequest;
 
 // ── ImageAwareMessageTrimMiddleware ───────────────────────────────────────────
 
@@ -75,6 +75,8 @@ fn count_native_image_blocks(msg: &TaMessage) -> u64 {
         TaMessage::User(m) => &m.content,
         TaMessage::Assistant(m) => &m.content,
         TaMessage::Tool(m) => &m.content,
+        // Out-of-band host record; carries no content blocks.
+        TaMessage::Custom(_) => return 0,
     };
     content
         .iter()
@@ -148,14 +150,16 @@ impl ImageAwareMessageTrimMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ImageAwareMessageTrimMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ImageAwareMessageTrimMiddleware
+{
     fn name(&self) -> &str {
         "image_aware_message_trim"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

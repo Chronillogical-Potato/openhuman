@@ -9,7 +9,7 @@
 //! 2. **Emoji reactions** — decide whether the assistant should react to the
 //!    user's message with an emoji.
 
-use crate::agent::harness::turn_subagent_usage::LastTurnUsage;
+use crate::agent::tinyagents::host::LastTurnUsage;
 use crate::config::rpc as config_rpc;
 use crate::core::socketio::{SubagentUsagePayload, TurnUsagePayload, WebChannelEvent};
 
@@ -181,7 +181,6 @@ pub(crate) async fn deliver_response(
             tool_call_id: None,
             failure: None,
             subagent: None,
-            task_board: None,
             tool_display_label: None,
             tool_display_detail: None,
             citations: if i == 0 && !citations.is_empty() {
@@ -223,7 +222,6 @@ pub(crate) async fn deliver_response(
         tool_call_id: None,
         failure: None,
         subagent: None,
-        task_board: None,
         tool_display_label: None,
         tool_display_detail: None,
         citations: if citations.is_empty() {
@@ -240,10 +238,10 @@ pub(crate) async fn deliver_response(
 
 /// Deliver an agent response as exactly one `chat_done` bubble — no
 /// segmentation, no reaction — for turns the core runs on its own behalf
-/// (autonomous task sessions, background sub-agent result delivery).
+/// (background sub-agent result delivery).
 ///
 /// Those turns persist their closing message themselves, as a single row,
-/// before announcing it (`task_session::append_final`). Splitting the reply
+/// before announcing it (`background_delivery`). Splitting the reply
 /// into `chat_segment` bubbles would have a viewing client persist one row per
 /// segment beside that single row (#5933), so the conversational segmentation
 /// of [`deliver_response`] is deliberately not offered here.
@@ -302,7 +300,6 @@ fn publish_chat_done(
         tool_call_id: None,
         failure: None,
         subagent: None,
-        task_board: None,
         tool_display_label: None,
         tool_display_detail: None,
         citations: if citations.is_empty() {

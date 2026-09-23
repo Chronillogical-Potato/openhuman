@@ -11,7 +11,6 @@ import reducer, {
   clearPendingApprovalForThread,
   clearRuntimeForThread,
   clearStreamingAssistantForThread,
-  clearTaskBoardForThread,
   clearToolTimelineForThread,
   endInferenceTurn,
   hydrateRuntimeFromRunLedger,
@@ -23,7 +22,6 @@ import reducer, {
   setParallelStream,
   setPendingApprovalForThread,
   setStreamingAssistantForThread,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   streamDeltaReceived,
   subagentAwaitingUser,
@@ -141,47 +139,6 @@ describe('chatRuntimeSlice', () => {
     expect(cleared.toolTimelineByThread['thread-1']).toBeUndefined();
   });
 
-  it('stores task boards by thread and hydrates them from snapshots', () => {
-    const taskBoard = {
-      threadId: 'thread-board',
-      updatedAt: '2026-05-04T10:00:05Z',
-      cards: [
-        {
-          id: 'task-1',
-          title: 'Draft plan',
-          status: 'todo' as const,
-          order: 0,
-          updatedAt: '2026-05-04T10:00:05Z',
-        },
-      ],
-    };
-
-    const withBoard = reducer(
-      undefined,
-      setTaskBoardForThread({ threadId: 'thread-board', board: taskBoard })
-    );
-    expect(withBoard.taskBoardByThread['thread-board']).toEqual(taskBoard);
-
-    const afterClear = reducer(withBoard, clearTaskBoardForThread({ threadId: 'thread-board' }));
-    expect(afterClear.taskBoardByThread['thread-board']).toBeUndefined();
-
-    const snapshot: PersistedTurnState = {
-      threadId: 'thread-h',
-      requestId: 'req-h',
-      lifecycle: 'streaming',
-      iteration: 1,
-      maxIterations: 25,
-      streamingText: '',
-      thinking: '',
-      toolTimeline: [],
-      taskBoard,
-      startedAt: '2026-05-04T10:00:00Z',
-      updatedAt: '2026-05-04T10:00:05Z',
-    };
-    const hydrated = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
-    expect(hydrated.taskBoardByThread['thread-h']).toEqual(taskBoard);
-  });
-
   it('tracks per-thread inference turn lifecycle', () => {
     const started = reducer(undefined, beginInferenceTurn({ threadId: 'thread-1' }));
     expect(started.inferenceTurnLifecycleByThread['thread-1']).toBe('started');
@@ -260,6 +217,106 @@ describe('chatRuntimeSlice', () => {
     expect(next.inferenceStatusByThread['thread-i']).toBeUndefined();
     expect(next.streamingAssistantByThread['thread-i']).toBeUndefined();
     expect(next.toolTimelineByThread['thread-i']).toEqual([]);
+  });
+
+  /**
+   * A detached `spawn_async_subagent` child outlives the turn that spawned it.
+   * Settling it on the parent's `completed` snapshot made the Background tasks
+   * panel report "none running" — and the row read "Cancelled" — while the
+   * sub-agent was still making tool calls. Its own `subagent_completed` event
+   * is what settles it.
+   */
+  it('keeps a detached async subagent running when its parent turn completes', () => {
+    const asyncRow = {
+      id: 'subagent:sub-async',
+      name: 'subagent:researcher',
+      round: 1,
+      status: 'running' as const,
+      subagent: {
+        taskId: 'sub-async',
+        agentId: 'researcher',
+        status: 'running' as const,
+        mode: 'async',
+        toolCalls: [],
+      },
+    };
+    const snapshot: PersistedTurnState = {
+      threadId: 'thread-async',
+      requestId: 'req-async',
+      lifecycle: 'completed',
+      iteration: 1,
+      maxIterations: 25,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [asyncRow],
+      startedAt: '2026-09-22T00:00:00Z',
+      updatedAt: '2026-09-22T00:00:09Z',
+    };
+
+    const next = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
+    const row = next.toolTimelineByThread['thread-async'][0];
+
+    expect(row.status).toBe('running');
+    expect(row.subagent?.status).toBe('running');
+  });
+
+  /**
+   * `interrupted` does NOT mean the core is gone. It is also stamped when the
+   * parent's agent loop merely errored with the core still running
+   * (`TurnStateMirror::finish`), and a detached child spawned earlier in that
+   * turn is a separate task that keeps working. So the snapshot must not
+   * settle a detached row on `interrupted` either — the ledger does that after
+   * a real restart. An ordinary (non-detached) row in the same snapshot has no
+   * driver left and must still settle.
+   */
+  it('keeps a detached async subagent running when its parent turn was interrupted', () => {
+    const snapshot: PersistedTurnState = {
+      threadId: 'thread-async-int',
+      requestId: 'req-async-int',
+      lifecycle: 'interrupted',
+      iteration: 1,
+      maxIterations: 25,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [
+        {
+          id: 'subagent:sub-async-int',
+          name: 'subagent:researcher',
+          round: 1,
+          status: 'running' as const,
+          subagent: {
+            taskId: 'sub-async-int',
+            agentId: 'researcher',
+            status: 'running' as const,
+            mode: 'async',
+            toolCalls: [],
+          },
+        },
+        {
+          id: 'subagent:sub-typed-int',
+          name: 'subagent:writer',
+          round: 1,
+          status: 'running' as const,
+          subagent: {
+            taskId: 'sub-typed-int',
+            agentId: 'writer',
+            status: 'running' as const,
+            mode: 'typed',
+            toolCalls: [],
+          },
+        },
+      ],
+      startedAt: '2026-09-22T00:00:00Z',
+      updatedAt: '2026-09-22T00:00:09Z',
+    };
+
+    const next = reducer(undefined, hydrateRuntimeFromSnapshot({ snapshot }));
+    const [detached, typed] = next.toolTimelineByThread['thread-async-int'];
+
+    expect(detached.status).toBe('running');
+    expect(detached.subagent?.status).toBe('running');
+    expect(typed.status).toBe('cancelled');
+    expect(typed.subagent?.status).toBe('cancelled');
   });
 
   it('rehydrates historical subagent rows without live streamed prose', () => {
@@ -372,6 +429,113 @@ describe('chatRuntimeSlice', () => {
       elapsedMs: 1200,
     });
     expect(row.subagent?.transcript).toEqual([]);
+  });
+
+  /**
+   * The detached-row keep-alive above is only truthful while the child lives.
+   * If the core dies after the parent turn completes, the snapshot stays
+   * `completed` and no `subagent_completed` is ever coming, so the row would
+   * read "Running" forever. The run ledger is the independent authority:
+   * startup stamps orphaned runs `interrupted`. A terminal ledger status must
+   * settle a detached row still shown running, and a `running` one must not.
+   */
+  describe('ledger reconciliation of a detached async row kept alive past its parent', () => {
+    const keptAlive = (lifecycle: 'completed' | 'interrupted' = 'completed') =>
+      reducer(
+        undefined,
+        hydrateRuntimeFromSnapshot({
+          snapshot: {
+            threadId: 'thread-detached',
+            requestId: 'req-detached',
+            lifecycle,
+            iteration: 1,
+            maxIterations: 25,
+            streamingText: '',
+            thinking: '',
+            toolTimeline: [
+              {
+                id: 'subagent:sub-detached',
+                name: 'subagent:researcher',
+                round: 1,
+                status: 'running',
+                subagent: {
+                  taskId: 'sub-detached',
+                  agentId: 'researcher',
+                  status: 'running',
+                  mode: 'async',
+                  toolCalls: [],
+                },
+              },
+            ],
+            startedAt: '2026-09-22T00:00:00Z',
+            updatedAt: '2026-09-22T00:00:09Z',
+          },
+        })
+      );
+    const ledgerSays = (status: 'interrupted' | 'running') =>
+      hydrateRuntimeFromRunLedger({
+        threadId: 'thread-detached',
+        runs: [
+          {
+            id: 'sub-detached',
+            kind: 'subagent',
+            parentThreadId: 'thread-detached',
+            agentId: 'researcher',
+            status,
+            metadata: { mode: 'async' },
+            startedAt: '2026-09-22T00:00:00Z',
+            updatedAt: '2026-09-22T00:05:00Z',
+          },
+        ],
+      });
+
+    it('settles the row when the ledger reports the child orphaned by a restart', () => {
+      const before = keptAlive();
+      expect(before.toolTimelineByThread['thread-detached'][0].status).toBe('running');
+
+      const rows = reducer(before, ledgerSays('interrupted')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].status).toBe('cancelled');
+      expect(rows[0].subagent?.status).toBe('interrupted');
+    });
+
+    /**
+     * A crash mid-turn leaves the parent snapshot `interrupted`, and the
+     * snapshot no longer settles detached rows. The ledger must, or a child
+     * that died with the core would read "Running" forever.
+     */
+    it('settles the row after a crash mid-turn, via the ledger', () => {
+      const before = keptAlive('interrupted');
+      expect(before.toolTimelineByThread['thread-detached'][0].status).toBe('running');
+
+      const rows = reducer(before, ledgerSays('interrupted')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows[0].status).toBe('cancelled');
+      expect(rows[0].subagent?.status).toBe('interrupted');
+    });
+
+    /** The reviewer's scenario: the parent errored, the core and child live on. */
+    it('leaves the row running after a parent error while the child lives', () => {
+      const rows = reducer(keptAlive('interrupted'), ledgerSays('running')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows[0].status).toBe('running');
+    });
+
+    it('leaves the row running while the ledger says the child is still alive', () => {
+      const rows = reducer(keptAlive(), ledgerSays('running')).toolTimelineByThread[
+        'thread-detached'
+      ];
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].status).toBe('running');
+    });
   });
 
   it('maps durable run ledger status, kind, and optional metadata into timeline rows', () => {
@@ -496,7 +660,6 @@ describe('chatRuntimeSlice', () => {
     expect(cleared.inferenceStatusByThread['thread-1']).toBeUndefined();
     expect(cleared.streamingAssistantByThread['thread-1']).toBeUndefined();
     expect(cleared.toolTimelineByThread['thread-1']).toBeUndefined();
-    expect(cleared.taskBoardByThread['thread-1']).toBeUndefined();
     expect(cleared.inferenceTurnLifecycleByThread['thread-1']).toBeUndefined();
   });
 

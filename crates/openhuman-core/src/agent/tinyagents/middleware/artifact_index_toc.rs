@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::Message as TaMessage;
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::message::Message as TaMessage;
+use tinyinference_llm::model::ModelRequest;
 
 use super::message_trim::estimate_text_tokens;
 
@@ -117,14 +117,16 @@ impl ArtifactIndexTocMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ArtifactIndexTocMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ArtifactIndexTocMiddleware
+{
     fn name(&self) -> &str {
         "artifact_index_toc"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

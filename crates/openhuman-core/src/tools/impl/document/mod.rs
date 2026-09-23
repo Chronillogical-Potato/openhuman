@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 
 use crate::agent::artifacts::{create_artifact, fail_artifact, finalize_artifact, ArtifactKind};
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 mod engine;
 /// The document wire contract, shared with the `tinydocs` module.

@@ -1,9 +1,9 @@
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::ops::guard::active_memory_guard;
 use crate::memory::tree::retrieval::rpc::SearchEntitiesRequest;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolResult};
 
 pub struct MemoryTreeSearchEntitiesTool;
 

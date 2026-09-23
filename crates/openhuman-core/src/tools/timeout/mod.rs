@@ -161,21 +161,24 @@ const TOOL_TIMEOUT_GRACE_SECS: u64 = 5;
 /// Resolve a tool's [`ToolTimeout`] policy into the `(deadline, timeout_secs)`
 /// pair the agent tool-execution loop enforces:
 /// - `Inherit` → the global config-driven timeout (a finite deadline).
-/// - `Secs(req)` → the clamped request, padded by [`TOOL_TIMEOUT_GRACE_SECS`]
+/// - `Millis(req)` → the clamped request, padded by [`TOOL_TIMEOUT_GRACE_SECS`]
 ///   for the actual deadline while `timeout_secs` reports the un-padded budget.
 /// - `Unbounded` → `(None, 0)`: no deadline; the tool runs to completion.
 ///
 /// Moved out of the retired legacy `engine::tools` module during the tinyagents
 /// migration (issue #4249); it lives here next to the timeout constants it uses.
-pub fn resolve_tool_deadline(policy: crate::tools::traits::ToolTimeout) -> (Option<Duration>, u64) {
-    use crate::tools::traits::ToolTimeout;
+pub fn resolve_tool_deadline(policy: tinytools::ToolTimeout) -> (Option<Duration>, u64) {
+    use tinytools::ToolTimeout;
     match policy {
         ToolTimeout::Inherit => {
             let s = tool_execution_timeout_secs();
             (Some(Duration::from_secs(s)), s)
         }
-        ToolTimeout::Secs(req) => {
-            let s = req.clamp(MIN_TIMEOUT_SECS, MAX_TIMEOUT_SECS);
+        ToolTimeout::Millis(req) => {
+            let s = req
+                .saturating_add(999)
+                .saturating_div(1000)
+                .clamp(MIN_TIMEOUT_SECS, MAX_TIMEOUT_SECS);
             (
                 Some(Duration::from_secs(
                     s.saturating_add(TOOL_TIMEOUT_GRACE_SECS),

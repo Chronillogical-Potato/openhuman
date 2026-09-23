@@ -8,7 +8,6 @@
  */
 import debug from 'debug';
 
-import type { TaskBoard } from '../types/turnState';
 import { callCoreRpc } from './coreRpcClient';
 import { socketService } from './socketService';
 
@@ -91,8 +90,8 @@ export interface ChatDoneEvent {
   request_id?: string;
   /**
    * Socket.IO client that owns the turn. `"system"` marks a turn the core ran
-   * on its own behalf (autonomous task sessions, background sub-agent result
-   * delivery, cron/flow agents); such turns are broadcast to every client.
+   * on its own behalf (background sub-agent result delivery, cron/flow
+   * agents); such turns are broadcast to every client.
    * Always on the wire (`WebChannelEvent.client_id`); declared here for the
    * consumers that key off it.
    */
@@ -175,8 +174,8 @@ export interface ChatErrorEvent {
   request_id?: string;
   /**
    * Socket.IO client that owns the turn. `"system"` marks a turn the core ran
-   * on its own behalf (autonomous task sessions, background sub-agent result
-   * delivery, cron/flow agents); such turns are broadcast to every client.
+   * on its own behalf (background sub-agent result delivery, cron/flow
+   * agents); such turns are broadcast to every client.
    * Always on the wire (`WebChannelEvent.client_id`); declared here for the
    * consumers that key off it.
    */
@@ -413,6 +412,20 @@ export interface SubagentProgressDetail {
   changed_files?: string[];
   /** Whether the worker's worktree had uncommitted changes (on `subagent_completed`). */
   dirty_status?: boolean;
+  /**
+   * This child's own spend (on `subagent_completed`) — present **only when it
+   * is not already inside the parent turn's totals**.
+   *
+   * A blocking spawn records into the parent's ledger and `chat_done` already
+   * carries the child's tokens AND cost; a detached spawn does not, and the
+   * core populates these instead. So the consumer adds whatever arrives
+   * unconditionally: absent means "already counted, or this emit site does not
+   * know", and both resolve to "add nothing".
+   */
+  input_tokens?: number;
+  output_tokens?: number;
+  cached_input_tokens?: number;
+  cost_usd?: number;
 }
 
 /** Extended payload for `subagent_spawned`. */
@@ -572,12 +585,6 @@ export interface ChatToolArgsDeltaEvent {
   delta: string;
 }
 
-export interface ChatTaskBoardUpdatedEvent {
-  thread_id: string;
-  request_id?: string;
-  task_board: TaskBoard;
-}
-
 export interface ChatEventListeners {
   onInferenceStart?: (event: ChatInferenceStartEvent) => void;
   onInferenceHeartbeat?: (event: ChatInferenceHeartbeatEvent) => void;
@@ -597,7 +604,6 @@ export interface ChatEventListeners {
   onTextDelta?: (event: ChatTextDeltaEvent) => void;
   onThinkingDelta?: (event: ChatThinkingDeltaEvent) => void;
   onToolArgsDelta?: (event: ChatToolArgsDeltaEvent) => void;
-  onTaskBoardUpdated?: (event: ChatTaskBoardUpdatedEvent) => void;
   onProactiveMessage?: (event: ProactiveMessageEvent) => void;
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
   onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
@@ -644,7 +650,6 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     textDelta: 'text_delta',
     thinkingDelta: 'thinking_delta',
     toolArgsDelta: 'tool_args_delta',
-    taskBoardUpdated: 'task_board_updated',
     proactiveMessage: 'proactive_message',
     approvalRequest: 'approval_request',
     planReviewRequest: 'plan_review_request',
@@ -1188,22 +1193,6 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     handlers.push([EVENTS.artifactFailed, cb]);
   }
 
-  if (listeners.onTaskBoardUpdated) {
-    const cb = (payload: unknown) => {
-      const e = payload as ChatTaskBoardUpdatedEvent;
-      chatLog(
-        '%s thread_id=%s request_id=%s cards=%d',
-        EVENTS.taskBoardUpdated,
-        e.thread_id,
-        e.request_id,
-        e.task_board?.cards?.length ?? 0
-      );
-      listeners.onTaskBoardUpdated?.(e);
-    };
-    socket.on(EVENTS.taskBoardUpdated, cb);
-    handlers.push([EVENTS.taskBoardUpdated, cb]);
-  }
-
   if (listeners.onDone) {
     const cb = (payload: unknown) => {
       const e = payload as ChatDoneEvent;
@@ -1243,7 +1232,6 @@ interface ChatSendParams {
   threadId: string;
   message: string;
   model?: string;
-  profileId?: string | null;
   /**
    * BCP-47 UI locale (e.g. `'ar'`, `'zh-CN'`) — drives the core's
    * "reply in this language" system-prompt directive. Optional so
@@ -1300,7 +1288,6 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
       thread_id: params.threadId,
       message: params.message,
       model_override: params.model ?? undefined,
-      profile_id: params.profileId ?? undefined,
       locale: params.locale ?? undefined,
       speak_reply: params.speakReply ?? undefined,
       source: params.source ?? undefined,

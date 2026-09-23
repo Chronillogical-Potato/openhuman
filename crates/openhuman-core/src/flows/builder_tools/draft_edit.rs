@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::flows::ops;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Comma list of the valid `op` tag values, for the missing-/unknown-`op`
 /// parse errors surfaced by [`EditWorkflowTool`].

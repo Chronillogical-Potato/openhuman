@@ -2,12 +2,11 @@
 //! system prompt, and the message dispatch loop.
 
 use super::super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
-use super::super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
+use super::super::supervision::spawn_supervised_listener;
 use super::chat_workload::{resolve_chat_workload, ChatWorkloadResolution};
 use super::credentials::{hydrate_channel_credentials, RuntimeProxyClients};
 use super::prompt::format_access_context;
 use super::relay::start_relay_runtime;
-use crate::agent::harness::build_tool_instructions_filtered;
 use crate::agent::host_runtime;
 use crate::channels::context::{
     effective_channel_message_timeout_secs, ChannelRuntimeContext,
@@ -24,6 +23,7 @@ use crate::tools;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinychannels::runtime::compute_max_in_flight_messages;
 use tokio_util::task::AbortOnDropHandle;
 
 /// What the channel-server banner prints on its `🧠 Memory:` line.
@@ -92,9 +92,6 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     // configured external sources onto the agent's todo board.
     crate::integrations::task_sources::bus::register_task_sources_subscriber();
     crate::integrations::task_sources::start_periodic_poll();
-    // Board poller: dispatch the highest-urgency `todo` card on the
-    // task-sources board (catch-all for cards without a proactive trigger).
-    crate::agent::task_dispatcher::start_board_poller();
     // Native request handlers. Re-registering is safe (latest wins) so
     // this is idempotent even if `bootstrap_core_runtime` also runs.
     // Must happen before `run_message_dispatch_loop` begins, because
@@ -199,7 +196,7 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     let temperature = config.default_temperature;
     // Build system prompt from workspace identity files + skills
     let workspace = config.workspace_dir.clone();
-    let tools_registry = Arc::new(tools::all_tools_with_runtime(
+    let tools_registry = Arc::new(tools::ops::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,
@@ -211,10 +208,6 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
         &config.action_dir,
         &config.agents,
         &config,
-        None,
-        None,
-        None,
-        None,
         None,
     ));
 
@@ -287,17 +280,17 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     // Filter out Workflow-category tools (e.g. Composio, Apify) from the
     // main agent prompt — those are only available to the integrations_agent
     // subagent via category_filter = "skill".
-    let non_skill_tools: Vec<&Box<dyn crate::tools::Tool>> = tools_registry
+    let non_skill_tools: Vec<&Box<dyn tinytools::Tool>> = tools_registry
         .iter()
-        .filter(|t| t.category() != crate::tools::traits::ToolCategory::Workflow)
+        .filter(|t| t.category() != tinytools::ToolCategory::Workflow)
         .collect();
-    let non_skill_refs: Vec<&dyn crate::tools::Tool> =
-        non_skill_tools.iter().map(|t| t.as_ref()).collect();
     // Everything after the rendered prompt is fixed for the process: the
     // tool-instruction block, then the model's current filesystem access
     // boundaries so it self-limits (advisory only — the SecurityPolicy
     // enforces these regardless).
-    let mut prompt_suffix = build_tool_instructions_filtered(&non_skill_refs);
+    let non_skill_specs: Vec<tinytools::ToolSpec> =
+        non_skill_tools.iter().map(|tool| tool.spec()).collect();
+    let mut prompt_suffix = tinytools_agent::dialect::XmlDialect::instructions(&non_skill_specs);
     prompt_suffix.push_str(&format_access_context(&security));
     // The prompt itself is rendered here for the current identity and
     // re-rendered whenever the active profile or an identity file changes

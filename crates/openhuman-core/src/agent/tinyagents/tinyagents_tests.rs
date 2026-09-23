@@ -50,7 +50,7 @@ fn crate_native_text_mode_disables_native_tools_on_workload_fallbacks() {
 
     let models = TurnModelSource::new_crate_native("chat", Arc::new(config))
         .with_text_mode()
-        .build("chat-v1", 0.0, Some(32_000))
+        .build("chat-v1", 0.0, Some(32_000), None)
         .expect("text-mode turn models build");
 
     assert!(
@@ -68,7 +68,7 @@ fn crate_native_text_mode_disables_native_tools_on_workload_fallbacks() {
 
 #[test]
 fn direct_model_turn_source_builds_without_provider_adapter() {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "done",
         ]));
@@ -78,7 +78,7 @@ fn direct_model_turn_source_builds_without_provider_adapter() {
     assert!(source.direct_model.is_some());
 
     let models = source
-        .build("mock-model", 0.0, Some(32_000))
+        .build("mock-model", 0.0, Some(32_000), None)
         .expect("direct model source builds");
     assert_eq!(models.provider_id(), "injected");
     assert_eq!(models.context_window(), Some(32_000));
@@ -142,5 +142,77 @@ fn default_per_call_ceiling_sits_under_the_default_turn_ceiling() {
     assert!(
         per_call < turn,
         "per-call ceiling ({per_call} ms) must be under the turn ceiling ({turn} ms)"
+    );
+}
+
+/// #6413: the retry schedule must outlast a throttled upstream.
+///
+/// These pin the two numbers that were wrong — the attempt count and the total
+/// time spent waiting — rather than "it retried", which passed on the old
+/// 2-retry/1.5 s schedule and would pass again if someone shortened it.
+#[test]
+fn run_policy_retry_schedule_outlasts_a_throttled_upstream() {
+    use tinyagents_harness::retry::JITTER_FRACTION;
+
+    let policy = run_policy_for(10, false);
+    let retry = &policy.retry;
+
+    // 4 retries (5 attempts). The issue asks for "at least 3".
+    assert_eq!(retry.max_attempts, 5, "attempts (first try + retries)");
+    assert!(
+        retry.backoff_sleep,
+        "a retry that does not wait is not a backoff"
+    );
+
+    // The harness applies `max_attempts_capped_at(limits.max_retries_per_call)`
+    // at the model call, and `RunLimits` defaults that to 3 — so without this the
+    // policy above is silently clamped to 4 attempts and the change is a no-op.
+    // This is the assertion that catches a "fix" that raised only `max_attempts`.
+    assert!(
+        policy.limits.max_retries_per_call + 1 >= retry.max_attempts,
+        "max_attempts {} is clamped by max_retries_per_call {} — the schedule would \
+         silently lose an attempt",
+        retry.max_attempts,
+        policy.limits.max_retries_per_call,
+    );
+
+    // Total time actually spent waiting, on the WORST jitter draw. `rand01 = 0.0`
+    // is the bottom of the band (`base * (1 - JITTER_FRACTION)`), which is the
+    // figure that has to clear the issue's floor — the nominal schedule clearing
+    // it while the floor does not would be an intermittent failure to retry long
+    // enough, and those are the ones nobody reproduces.
+    let retries = retry.max_attempts - 1;
+    let worst: std::time::Duration = (0..retries)
+        .map(|attempt| retry.backoff_for_attempt_with(attempt, 0.0))
+        .sum();
+    assert!(
+        worst >= std::time::Duration::from_secs(30),
+        "worst-case backoff across {retries} retries is {:?}; #6413 requires >= 30s",
+        worst,
+    );
+
+    // And the nominal (mid-band) schedule, so a future edit that satisfies the
+    // floor by widening jitter rather than lengthening the curve still fails.
+    let nominal: std::time::Duration = (0..retries)
+        .map(|attempt| retry.backoff_for_attempt_with(attempt, 0.5))
+        .sum();
+    assert!(
+        nominal >= std::time::Duration::from_secs(40),
+        "nominal backoff is {nominal:?}; expected >= 40s so the jittered floor has margin",
+    );
+
+    // Jitter on: a throttled fleet must not retry in lockstep on one curve.
+    assert!(
+        retry.jitter,
+        "identical curves keep a saturated upstream saturated"
+    );
+    assert!(JITTER_FRACTION > 0.0, "jitter must actually widen the band");
+
+    // Both ceilings stay bounded — this must not become an unbounded retry
+    // (cf. #6412, the opposite failure in another crate).
+    assert!(retry.max_attempts < 10, "attempts must stay bounded");
+    assert!(
+        retry.max_retry_after_ms > 0 && retry.max_retry_after_ms <= 300_000,
+        "a server Retry-After must be honoured but capped, not obeyed without limit"
     );
 }

@@ -1,6 +1,6 @@
 use super::*;
 
-// #6276: bare calls to withheld packed tools, driven through a whole `Agent::turn`.
+// #6276: bare calls to withheld packed tools, driven through a whole `OpenHumanSessionHost::turn`.
 // Split out of `agent_turn_loop_tests.rs` to keep that file under the layout gate.
 
 /// Stands in for a packed tool and records the arguments it ran with.
@@ -48,7 +48,7 @@ async fn turn_routes_a_bare_packed_tool_call_through_use_skill() {
     let mut tools: Vec<Box<dyn Tool>> = vec![Box::new(RecordingPackedTool(ran.clone()))];
     crate::tools::toolpacks::append_pack_tools(&mut tools);
 
-    let (mut agent, _tmp) = build_agent_with(provider, tools, Box::new(NativeToolDispatcher));
+    let (mut agent, _tmp) = build_agent_with(provider, tools, Box::new(NativeDialect));
     assert!(
         !agent
             .visible_tool_names_for_test()
@@ -73,6 +73,9 @@ async fn turn_routes_a_bare_packed_tool_call_through_use_skill() {
                     .map(|r| r.content.clone())
                     .collect::<Vec<_>>(),
             ),
+            ConversationMessage::Chat(message) if message.role == "tool" => {
+                Some(vec![message.content.clone()])
+            }
             _ => None,
         })
         .flatten()
@@ -106,8 +109,8 @@ impl Tool for WritePackedTool {
         Ok(ToolResult::success("installed"))
     }
 
-    fn permission_level(&self) -> crate::tools::PermissionLevel {
-        crate::tools::PermissionLevel::Write
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::Write
     }
 }
 
@@ -148,6 +151,12 @@ async fn turn_does_not_route_a_bare_call_the_session_would_refuse() {
         ConversationMessage::ToolResults(results) => results
             .iter()
             .any(|r| r.content.contains("unknown tool `skill_registry_install`")),
+        ConversationMessage::Chat(message) => {
+            message.role == "tool"
+                && message
+                    .content
+                    .contains("unknown tool `skill_registry_install`")
+        }
         _ => false,
     });
     assert!(

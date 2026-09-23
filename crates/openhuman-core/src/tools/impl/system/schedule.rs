@@ -1,12 +1,12 @@
 use crate::config::Config;
 use crate::cron::{self, DeliveryConfig, Schedule, SessionTarget};
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Tool that lets the agent manage recurring and one-shot scheduled tasks.
 pub struct ScheduleTool {

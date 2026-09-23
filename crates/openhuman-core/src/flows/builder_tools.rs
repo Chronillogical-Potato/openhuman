@@ -25,7 +25,7 @@
 //! | [`SearchToolCatalogTool`]         | `None`     | read: real Composio tool slugs (live catalog)                     |
 //! | [`GetToolContractTool`]           | `None`     | read: one action's FULL live contract                             |
 //! | [`GetToolOutputSampleTool`]       | `ReadOnly` | ONE bounded real Composio call (Read-scope only, connected toolkit only) |
-//! | [`ListAgentProfilesTool`]         | `None`     | read: selectable agent kinds (`agent_ref`)                        |
+//! | [`ListAgentDefinitionsTool`]      | `None`     | read: selectable agent definitions (`agent_ref`)                  |
 //! | [`ListNodeKindsTool`]             | `None`     | read: the DSL's node kinds                                        |
 //! | [`GetNodeKindContractTool`]       | `None`     | read: one node kind's config/port/example/gotcha contract         |
 //! | [`DryRunWorkflowTool`]            | `None`     | run a *draft* against MOCK capabilities — not tier-gated (F7)     |
@@ -87,7 +87,7 @@ pub use dry_run::DryRunWorkflowTool;
 pub use flow_reads::{
     GetFlowHistoryTool, GetFlowRunTool, GetFlowTool, ListFlowRunsTool, ListFlowsTool,
 };
-pub use kind_reads::{GetNodeKindContractTool, ListAgentProfilesTool, ListNodeKindsTool};
+pub use kind_reads::{GetNodeKindContractTool, ListAgentDefinitionsTool, ListNodeKindsTool};
 pub use persistence::{CreateWorkflowTool, DuplicateFlowTool, SaveWorkflowTool};
 pub use run_control::{CancelFlowRunTool, ResumeFlowRunTool};
 pub use tool_contract::{GetToolContractTool, GetToolOutputSampleTool};

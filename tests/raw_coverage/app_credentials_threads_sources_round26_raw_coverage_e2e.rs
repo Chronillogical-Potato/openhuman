@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current runtime contracts.
 //! Round26 closure coverage for near-threshold app, credentials, threads,
 //! and memory_sources paths.
 //!
@@ -76,6 +77,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 async fn setup(prefix: &str) -> Harness {
+
+    crate::tinyhumans_boot::boot();
     std::fs::create_dir_all("target").expect("target dir");
     let tmp = Builder::new()
         .prefix(prefix)

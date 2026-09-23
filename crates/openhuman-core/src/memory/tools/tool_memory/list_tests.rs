@@ -5,8 +5,8 @@ use tempfile::TempDir;
 
 use crate::config::Config;
 use crate::config::TEST_ENV_LOCK;
-use crate::tools::traits::Tool;
 use serde_json::json;
+use tinytools::Tool;
 
 struct WorkspaceEnvGuard {
     _lock: std::sync::MutexGuard<'static, ()>,

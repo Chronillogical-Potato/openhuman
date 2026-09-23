@@ -6,13 +6,13 @@
 //! same path-sandboxing + rate-limiting as `file_read`.
 
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use regex::Regex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use walkdir::WalkDir;
 
 const DEFAULT_MAX_MATCHES: usize = 200;

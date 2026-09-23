@@ -55,14 +55,22 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("message", "User message."),
                 optional_string("model_override", "Optional model override."),
                 optional_f64("temperature", "Optional temperature override."),
-                optional_string("profile_id", "Optional agent profile id."),
                 optional_string(
                     "locale",
                     "Optional BCP-47 UI locale (e.g. 'ar', 'zh-CN'). Drives the \"reply in this language\" system-prompt directive.",
                 ),
-                optional_bool("speak_reply", "When true, the agent's final reply is spoken via TTS (for PTT and similar background voice flows)."),
-                optional_string("source", "Origin of the message: \"ptt\" | \"dictation\" | \"type\" | other. Used for analytics + downstream metadata."),
-                optional_u64("session_id", "Optional caller-provided correlation id (PTT session id)."),
+                optional_bool(
+                    "speak_reply",
+                    "When true, the agent's final reply is spoken via TTS (for PTT and similar background voice flows).",
+                ),
+                optional_string(
+                    "source",
+                    "Origin of the message: \"ptt\" | \"dictation\" | \"type\" | other. Used for analytics + downstream metadata.",
+                ),
+                optional_u64(
+                    "session_id",
+                    "Optional caller-provided correlation id (PTT session id).",
+                ),
                 optional_string(
                     "queue_mode",
                     "Queue mode: 'interrupt' (default), 'steer', 'followup', 'collect', or 'parallel'.",
@@ -123,7 +131,6 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 &p.message,
                 p.model_override,
                 p.temperature,
-                p.profile_id,
                 p.locale,
                 p.queue_mode,
                 ChatRequestMetadata {

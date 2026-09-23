@@ -18,7 +18,6 @@ import {
   setCloudProviderKey,
   startOpenAiCodexOAuth,
   testProviderModel,
-  upsertModelRegistryVision,
 } from '../../../../services/api/aiSettingsApi';
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { callCoreRpc } from '../../../../services/coreRpcClient';
@@ -154,6 +153,14 @@ const openGlobalModelPicker = async () => {
   const button = label.closest('button');
   expect(button).not.toBeNull();
   fireEvent.click(button!);
+};
+
+/** Open the per-workload custom routing dialog for the row labelled `label`. */
+const openWorkloadDialog = async (label: string) => {
+  const rowEl = (await screen.findByText(label)).closest('[data-slot="workload-row"]');
+  expect(rowEl).not.toBeNull();
+  fireEvent.click(within(rowEl as HTMLElement).getByRole('button'));
+  await screen.findByRole('dialog', { name: /Custom routing/i });
 };
 
 const selectPickerProvider = async (name: RegExp) => {
@@ -323,23 +330,49 @@ describe('AIPanel', () => {
     expect(screen.getByText(/choose a routing mode below/i)).toBeInTheDocument();
   });
 
-  it('renders Managed, Use Your Own Models, and Advanced routing controls', async () => {
+  it('shows the per-workload routing tables directly, with no mode selector', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Managed/i })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
+    expect(screen.queryByRole('radio', { name: /Managed/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Use Your Own Models/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Advanced/i })).toBeNull();
+  });
+
+  it('pins a managed default model from the routing page', async () => {
+    vi.mocked(listProviderModels).mockResolvedValue([
+      { id: 'openrouter/deepseek/deepseek-v4-flash', display_name: 'DeepSeek V4 Flash' },
+      { id: 'openrouter/z/other', display_name: 'Other' },
+    ]);
+    vi.mocked(saveAISettings).mockResolvedValue(undefined);
+    renderWithProviders(<AIPanel />);
+    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
+
+    // Nothing pinned yet: the row says so rather than naming a tier.
+    const row = await screen.findByTestId('default-model-row');
+    expect(row).toHaveTextContent('Not set');
+    fireEvent.click(within(row).getByTestId('default-model-change'));
+
+    // The picker is the managed catalog only, opened on the recommended model.
+    await waitFor(() => expect(listProviderModels).toHaveBeenCalledWith('openhuman'));
+    const recommended = await screen.findByTestId(
+      'model-picker-managed-option-openrouter/deepseek/deepseek-v4-flash'
     );
-    expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument();
+    expect(recommended).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByTestId('model-picker-managed-option-openrouter/z/other'));
+    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
+
+    await waitFor(() => expect(saveAISettings).toHaveBeenCalled());
+    const [, nextSettings] = vi.mocked(saveAISettings).mock.calls.at(-1) ?? [];
+    expect(nextSettings?.defaultModel).toBe('openrouter/z/other');
+    await waitFor(() =>
+      expect(screen.getByTestId('default-model-row')).toHaveTextContent('openrouter/z/other')
+    );
   });
 
   it('renders all visible advanced workload labels', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Advanced/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Advanced/i }));
     await waitFor(() => expect(screen.getByText('Chat')).toBeInTheDocument());
     for (const label of [
       'Chat',
@@ -390,10 +423,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -412,6 +442,10 @@ describe('AIPanel', () => {
       kind: 'cloud',
       providerSlug: 'azure-foundry',
       model: 'gpt-5.6-terra',
+      // The dialog always carries the override slot; `null` means "no override"
+      // and never reaches the wire — `joinModelAndTemp` emits the bare model id
+      // unless a finite temperature is set.
+      temperature: null,
     });
     expect(JSON.stringify(nextSettings)).not.toContain('gpt-5.6-terra-2026-07-09');
   });
@@ -422,10 +456,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -454,10 +485,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/OpenAI/i);
 
@@ -496,10 +524,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
 
     expect(
@@ -521,10 +546,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
 
     expect(await screen.findByText(/This is not the model ID/i)).toBeInTheDocument();
@@ -544,10 +566,7 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
+    await openWorkloadDialog('Chat');
     await openGlobalModelPicker();
     await selectPickerProvider(/Azure Foundry/i);
 
@@ -769,9 +788,7 @@ describe('AIPanel', () => {
     vi.mocked(listProviderModels).mockResolvedValue([{ id: 'gpt-5.6-terra-2026-07-09' }]);
 
     renderWithProviders(<AIPanel />);
-    // Per-workload rows live behind the advanced routing mode.
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
@@ -832,7 +849,6 @@ describe('AIPanel', () => {
 
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const chooseButtons = await screen.findAllByRole('button', { name: /Choose a model/i });
     fireEvent.click(chooseButtons[0]);
 
@@ -855,54 +871,6 @@ describe('AIPanel', () => {
     await waitFor(() =>
       expect(screen.queryByRole('textbox', { name: /^Model$/i })).not.toBeInTheDocument()
     );
-  });
-
-  it('flags a custom BYOK model as vision-capable via the Own-model selector', async () => {
-    vi.mocked(loadAISettings).mockResolvedValue({
-      ...baseSettings,
-      cloudProviders: [
-        ...baseSettings.cloudProviders,
-        {
-          id: 'p_custom_openai',
-          slug: 'openai',
-          label: 'OpenAI',
-          endpoint: 'https://api.openai.com/v1',
-          auth_style: 'bearer' as const,
-          has_api_key: true,
-        },
-      ],
-    });
-    renderWithProviders(<AIPanel />);
-    fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Use Your Own Models/i })).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('radio', { name: /Use Your Own Models/i }));
-
-    // Enter a model id → the per-model "Supports vision" checkbox appears.
-    await openGlobalModelPicker();
-    await selectPickerProvider(/OpenAI/i);
-    const modelInput = await screen.findByPlaceholderText('Enter a model ID');
-    fireEvent.change(modelInput, { target: { value: 'gpt-4o' } });
-    fireEvent.click(screen.getByRole('button', { name: /Use this model/i }));
-
-    const visionCheckbox = await screen.findByRole('checkbox', { name: /Supports vision/i });
-    expect(visionCheckbox).not.toBeChecked();
-    fireEvent.click(visionCheckbox);
-    expect(visionCheckbox).toBeChecked();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-
-    // The vision flag is threaded through to the registry upsert + persisted.
-    await waitFor(() =>
-      expect(vi.mocked(upsertModelRegistryVision)).toHaveBeenCalledWith(
-        expect.anything(),
-        'openai',
-        'gpt-4o',
-        true
-      )
-    );
-    expect(saveAISettings).toHaveBeenCalled();
   });
 
   // ─── auth_style preservation ────────────────────────────────────────────────
@@ -947,7 +915,8 @@ describe('AIPanel', () => {
     await waitFor(() => expect(screen.getAllByText(/Anthropic/i).length).toBeGreaterThan(0));
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(screen.getByRole('radio', { name: /Managed/i }));
+    await openWorkloadDialog('Chat');
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 
     await waitFor(() => expect(vi.mocked(saveAISettings)).toHaveBeenCalled());
 
@@ -2050,7 +2019,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2110,7 +2078,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2159,7 +2126,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();
@@ -2201,7 +2167,6 @@ describe('AIPanel', () => {
     renderWithProviders(<AIPanel />);
 
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
-    fireEvent.click(await screen.findByRole('radio', { name: /Advanced/i }));
     const reasoningRow = await screen.findByText('Reasoning');
     const rowEl = reasoningRow.closest('[data-slot="workload-row"]');
     expect(rowEl).not.toBeNull();

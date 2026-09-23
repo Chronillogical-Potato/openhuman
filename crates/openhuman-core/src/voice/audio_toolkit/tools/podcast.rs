@@ -5,11 +5,11 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::security::{SecurityPolicy, ToolOperation};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use crate::voice::audio_toolkit::{
     email_podcast, generate_and_email_podcast, generate_podcast, AudioGenerateRequest,
     EmailPodcastRequest,
 };
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct AudioGeneratePodcastTool {
     config: Arc<Config>,

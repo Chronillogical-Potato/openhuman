@@ -216,21 +216,7 @@ pub(super) fn finish_flow_run_row(
 /// observer didn't emit an `on_step_finish` for (notably the trigger node),
 /// and as the whole-run source when the observer saw nothing at all.
 fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
-    let Some(nodes) = output.get("nodes").and_then(Value::as_object) else {
-        return Vec::new();
-    };
-    nodes
-        .iter()
-        .map(|(node_id, slot)| FlowRunStep {
-            node_id: node_id.clone(),
-            output: slot.get("items").cloned().unwrap_or(Value::Null),
-            port: slot.get("port").and_then(Value::as_str).map(str::to_string),
-            // Reconstructed post-hoc: no live status/timing (see FlowRunStep).
-            status: None,
-            duration_ms: None,
-            diagnostics: Vec::new(),
-        })
-        .collect()
+    tinyflows_catalog::run_summary::reconstruct_steps(output)
 }
 
 /// Reads back whatever steps the live [`FlowRunObserver`] has already persisted
@@ -255,9 +241,9 @@ pub(super) fn current_persisted_steps(config: &Config, run_id: &str) -> Vec<Flow
 /// (e.g. a run that paused immediately at a gate before any node finished),
 /// falls back wholesale to the reconstruction.
 pub(super) fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec<FlowRunStep> {
-    let reconstructed = reconstruct_steps(output);
     let persisted = current_persisted_steps(config, run_id);
     if persisted.is_empty() {
+        let reconstructed = reconstruct_steps(output);
         tracing::debug!(
             target: "flows",
             run_id,
@@ -266,19 +252,12 @@ pub(super) fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec
         );
         return reconstructed;
     }
-    let mut merged = persisted;
-    let mut filled = 0usize;
-    for step in reconstructed {
-        if !merged.iter().any(|s| s.node_id == step.node_id) {
-            merged.push(step);
-            filled += 1;
-        }
-    }
+    let merged = tinyflows_catalog::run_summary::settle_steps(persisted, output);
     tracing::debug!(
         target: "flows",
         run_id,
         step_count = merged.len(),
-        filled_from_reconstruction = filled,
+        filled_from_reconstruction = merged.len(),
         "[flows] settle_steps: merged live-observed steps with post-hoc reconstruction"
     );
     merged
@@ -336,14 +315,6 @@ pub(super) fn finalize_terminal_status(
     settled: &[FlowRunStep],
     pending_approvals: &[String],
 ) -> (&'static str, Option<String>) {
-    if !pending_approvals.is_empty() {
-        return ("pending_approval", None);
-    }
-    let status = degrade_completed_status(settled);
-    let error = if status == "failed" {
-        failed_step_error_summary(settled)
-    } else {
-        None
-    };
-    (status, error)
+    let summary = tinyflows_catalog::run_summary::terminal_status(settled, pending_approvals);
+    (summary.status, summary.error)
 }

@@ -11,11 +11,11 @@
  *    `openhuman.agent_registry_list` RPC the Settings → Agents panel uses.
  *    `agent_ref` is trusted config (never model output), so this picker is the
  *    only way it's set from the UI.
- *  - `model` — a MANAGED capability tier (`reasoning-v1` ≈ Opus-class,
- *    `chat-v1` ≈ Sonnet-class, `agentic-v1`, `burst-v1`) the workspace resolves
- *    to a concrete model, with a free-form escape hatch for a raw BYOK model id.
- *    Matches the bare tier slugs Phase A's `OpenHumanAgentRunner` resolves and
- *    the Opus+Sonnet demo template (Phase C) hard-codes.
+ *  - `model` — a workload role hint (`hint:reasoning`, `hint:chat`,
+ *    `hint:agentic`, `hint:burst`) the workspace resolves to that role's route
+ *    (the managed default model, or a BYOK/local model routed to the role),
+ *    with a free-form escape hatch for a concrete model id — a managed
+ *    catalog id or a raw BYOK model.
  *
  * Presentational + controlled: every edit calls `onChange` with a shallow-merge
  * config patch, exactly like the other node-config field groups. The agent list
@@ -33,12 +33,12 @@ import { configString, SelectField } from './nodeConfig/nodeConfigFields';
 const log = createDebug('app:flows:canvas:agentInspector');
 
 /**
- * The managed capability tiers offered for an agent node's `model`. Mirrors the
- * Rust `MODEL_*_V1` constants (`crates/openhuman-core/src/config/schema/types.rs`) and the
- * slugs `OpenHumanAgentRunner`/`resolve_model_for_hint` accept as bare tier
- * names — so the value written here runs unchanged in the flow engine.
+ * The workload role hints offered for an agent node's `model`. These are the
+ * `hint:*` aliases `resolve_model_for_hint` routes on
+ * (`crates/openhuman-core/src/inference/provider/factory/tiers.rs`), so the
+ * value written here runs unchanged in the flow engine.
  */
-const AGENT_MANAGED_TIERS = ['reasoning-v1', 'chat-v1', 'agentic-v1', 'burst-v1'] as const;
+const AGENT_MANAGED_TIERS = ['hint:reasoning', 'hint:chat', 'hint:agentic', 'hint:burst'] as const;
 
 /** Sentinel select value for "type a raw model id" — never persisted. */
 const CUSTOM_MODEL = '__custom__';
@@ -102,8 +102,8 @@ function AgentRefField({ config, onChange }: AgentNodeInspectorProps) {
 }
 
 /**
- * The managed-tier `model` picker with a custom escape hatch. Writes a bare tier
- * slug (`reasoning-v1`…), a raw model id, or `''` to inherit onto `config.model`.
+ * The role-hint `model` picker with a custom escape hatch. Writes a role hint
+ * (`hint:reasoning`…), a concrete model id, or `''` to inherit onto `config.model`.
  */
 function ManagedModelField({ config, onChange }: AgentNodeInspectorProps) {
   const { t } = useT();

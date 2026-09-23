@@ -126,7 +126,7 @@ pub const DETERMINISTIC_MESSAGE_ID_PREFIX: &str = "agent:";
 /// The id an autonomous run's closing reply is stored under.
 ///
 /// Two writers legitimately persist that one reply — the core's
-/// `task_session::append_final` and the client that also persists the
+/// background-delivery path and the client that also persists the
 /// `chat_done` the run announces (`ChatRuntimeProvider` mirrors this shape for
 /// `client_id: "system"` turns) — so both must derive the same id and the store
 /// must collapse the second write onto the first (#5933).
