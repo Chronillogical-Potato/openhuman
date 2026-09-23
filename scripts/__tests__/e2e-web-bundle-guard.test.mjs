@@ -45,6 +45,11 @@ function makeTree(script) {
     path.join(repoRoot, "app", "scripts", script),
     path.join(root, "app", "scripts", script),
   );
+  fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
+  fs.copyFileSync(
+    path.join(repoRoot, "scripts", "load-dotenv.sh"),
+    path.join(root, "scripts", "load-dotenv.sh"),
+  );
 
   // Every stub records that it ran, so a test can prove what was reached.
   const record = (name) => `echo "${name} $*" >> "${log}"`;
@@ -166,6 +171,10 @@ test("the session accepts a marked bundle and proceeds past the guard", () => {
 test("e2e-web-build.sh marks the bundle it builds, recording the E2E settings", () => {
   const tree = makeTree("e2e-web-build.sh");
   try {
+    fs.writeFileSync(
+      path.join(tree.root, ".env"),
+      "E2E_MOCK_PORT=28473\nOPENHUMAN_CORE_PORT=27788\n",
+    );
     const res = run(tree, "e2e-web-build.sh");
     assert.equal(res.status, 0, res.output);
 
@@ -175,6 +184,7 @@ test("e2e-web-build.sh marks the bundle it builds, recording the E2E settings", 
     assert.match(recorded, /^VITE_OPENHUMAN_TARGET=web$/m);
     assert.match(recorded, /^VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE=cloud$/m);
     assert.match(recorded, /^VITE_BACKEND_URL=http:\/\/127\.0\.0\.1:18473$/m);
+    assert.match(recorded, /^VITE_OPENHUMAN_CORE_RPC_URL=http:\/\/127\.0\.0\.1:17788\/rpc$/m);
   } finally {
     tree.cleanup();
   }

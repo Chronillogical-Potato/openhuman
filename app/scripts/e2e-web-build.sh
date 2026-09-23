@@ -18,13 +18,16 @@ E2E_WEB_CORE_TARGET_DIR="${E2E_WEB_CORE_TARGET_DIR:-$REPO_ROOT/target/e2e-web-${
 # Preserve explicit harness ports before loading a developer .env. That file
 # may configure normal development, but must not change an E2E bundle's baked
 # endpoint or its E2E-only affordances.
-E2E_MOCK_PORT="${E2E_MOCK_PORT:-18473}"
-OPENHUMAN_CORE_PORT="${OPENHUMAN_CORE_PORT:-17788}"
+SELECTED_E2E_MOCK_PORT="${E2E_MOCK_PORT:-18473}"
+SELECTED_OPENHUMAN_CORE_PORT="${OPENHUMAN_CORE_PORT:-17788}"
 
 if [ -f "$REPO_ROOT/.env" ]; then
   # shellcheck source=/dev/null
   source "$REPO_ROOT/scripts/load-dotenv.sh"
 fi
+
+E2E_MOCK_PORT="$SELECTED_E2E_MOCK_PORT"
+OPENHUMAN_CORE_PORT="$SELECTED_OPENHUMAN_CORE_PORT"
 
 # Apply E2E settings after .env so it cannot produce a non-E2E bundle with a
 # valid marker. Keep this immediately before the build that consumes them.
