@@ -183,9 +183,8 @@ fn build_use_skill_dispatch() -> UseSkillDispatch {
     let durable: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![use_skill_tool, create_image_tool]);
     handle.bind(Arc::downgrade(&durable));
 
-    let adapter =
-        super::tools::CanonicalSharedToolAdapter::for_name(vec![durable], crate::tools::toolpacks::USE_SKILL)
-            .expect("use_skill resolves in the durable registry it was just placed in");
+    let adapter = CanonicalSharedToolAdapter::for_name(vec![durable], crate::tools::toolpacks::USE_SKILL)
+        .expect("use_skill resolves in the durable registry it was just placed in");
     UseSkillDispatch::new(Arc::new(adapter), handle)
 }
 
