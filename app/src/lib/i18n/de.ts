@@ -3293,6 +3293,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian-Subdomain-Label',
   'composio.connect.cancelConnection': 'Verbindung abbrechen',
   'composio.connect.cancelFailed': 'Verbindung konnte nicht abgebrochen werden: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio hat das Entfernen der Verbindung nicht bestätigt. Bitte erneut versuchen.',
   'composio.connect.cancelling': 'Wird abgebrochen…',
   'composio.connect.connect': 'Verbinden',
   'composio.connect.connectedAccounts': 'Verbundene Konten',

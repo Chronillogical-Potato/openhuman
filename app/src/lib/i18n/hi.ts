@@ -3201,6 +3201,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian सबडोमेन लेबल',
   'composio.connect.cancelConnection': 'कनेक्शन रद्द करें',
   'composio.connect.cancelFailed': 'कनेक्शन रद्द नहीं किया जा सका: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio ने कनेक्शन हटाए जाने की पुष्टि नहीं की। फिर से प्रयास करें।',
   'composio.connect.cancelling': 'रद्द किया जा रहा है…',
   'composio.connect.connect': 'कनेक्ट करें',
   'composio.connect.connectedAccounts': 'कनेक्टेड अकाउंट',

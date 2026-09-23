@@ -3166,6 +3166,8 @@ const messages: TranslationMap = {
   'composio.connect.atlassianSubdomainLabel': 'Atlassian 하위 도메인 라벨',
   'composio.connect.cancelConnection': '연결 취소',
   'composio.connect.cancelFailed': '연결을 취소하지 못했습니다: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio가 연결 삭제를 확인하지 않았습니다. 다시 시도하세요.',
   'composio.connect.cancelling': '취소하는 중…',
   'composio.connect.connect': '연결',
   'composio.connect.connectedAccounts': '연결된 계정',
