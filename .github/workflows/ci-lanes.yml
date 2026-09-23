@@ -73,7 +73,12 @@ jobs:
           filters: .github/ci-paths-filter.yml
           base: ${{ inputs.base-ref }}
 
-      - name: Run lanes
+      # One step per lane: `Start lanes` launches every lane in the background
+      # (they still run in parallel); each `Lane:` step streams its own lane's
+      # log live and passes or fails on that lane alone; `Lane summary` waits
+      # for the whole run and carries the overall result. `!cancelled()` keeps
+      # a red lane from hiding the lanes after it.
+      - name: Start lanes
         id: lanes
         env:
           CI_AREA_FRONTEND: ${{ steps.filter.outputs.frontend }}
@@ -85,12 +90,53 @@ jobs:
           CI_AREA_INVENTORY: ${{ steps.filter.outputs.inventory }}
           CI_AREA_TOOLCHAIN_IMAGE: ${{ steps.filter.outputs['toolchain-image'] }}
           CI_AREA_INSTALL_PS1: ${{ steps.filter.outputs.install_ps1 }}
-        run: bash scripts/ci-cancel-aware.sh node scripts/ci/self-hosted/lanes.mjs --profile ex63
+        run: node scripts/ci/self-hosted/lanes.mjs --profile ex63 --detach
+
+      - name: "Lane: static checks"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'static') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait static
+
+      - name: "Lane: frontend checks"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'frontend') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait frontend
+
+      - name: "Lane: frontend tests (vitest + coverage)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'frontend-tests') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait frontend-tests
+
+      - name: "Lane: Rust core coverage"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-cov') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-cov
+
+      - name: "Lane: Rust lint + crate tests"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-lint') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-lint
+
+      - name: "Lane: Rust gates-off smoke"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-gates-off') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-gates-off
+
+      - name: "Lane: Tauri clippy + coverage"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'tauri') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait tauri
+
+      - name: "Lane: install.ps1 (Pester)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'pester') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait pester
+
+      - name: "Lane: RSS bench (report-only)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'bench') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait bench
+
+      - name: Lane summary
+        id: summary
+        if: ${{ !cancelled() && steps.lanes.outcome == 'success' }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait-all
 
       - name: Enforce >= 80% coverage on changed lines
         # Only over complete coverage: a failed lane already fails this job.
         if: >-
-          steps.lanes.outcome == 'success' &&
+          steps.summary.outcome == 'success' &&
           (steps.filter.outputs.frontend == 'true' ||
            steps.filter.outputs['rust-core'] == 'true' ||
            steps.filter.outputs['rust-tauri'] == 'true')
@@ -232,10 +278,57 @@ jobs:
         if: matrix.group == 'rust-cov' || matrix.group == 'tauri'
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Run lanes
+      # One step per lane: `Start lanes` launches every lane in the background
+      # (they still run in parallel); each `Lane:` step streams its own lane's
+      # log live and passes or fails on that lane alone; `Lane summary` waits
+      # for the whole run and carries the overall result. `!cancelled()` keeps
+      # a red lane from hiding the lanes after it.
+      - name: Start lanes
+        id: lanes
         run: >-
-          bash scripts/ci-cancel-aware.sh node scripts/ci/self-hosted/lanes.mjs
-          --profile hosted --lanes '${{ matrix.lanes }}' --max-parallel ${{ matrix['max-parallel'] }}
+          node scripts/ci/self-hosted/lanes.mjs --profile hosted --detach
+          --lanes '${{ matrix.lanes }}' --max-parallel ${{ matrix['max-parallel'] }}
+
+      - name: "Lane: static checks"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'static') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait static
+
+      - name: "Lane: frontend checks"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'frontend') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait frontend
+
+      - name: "Lane: frontend tests (vitest + coverage)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'frontend-tests') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait frontend-tests
+
+      - name: "Lane: Rust core coverage"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-cov') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-cov
+
+      - name: "Lane: Rust lint + crate tests"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-lint') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-lint
+
+      - name: "Lane: Rust gates-off smoke"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'rust-gates-off') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait rust-gates-off
+
+      - name: "Lane: Tauri clippy + coverage"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'tauri') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait tauri
+
+      - name: "Lane: install.ps1 (Pester)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'pester') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait pester
+
+      - name: "Lane: RSS bench (report-only)"
+        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'bench') }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait bench
+
+      - name: Lane summary
+        id: summary
+        if: ${{ !cancelled() && steps.lanes.outcome == 'success' }}
+        run: node scripts/ci/self-hosted/lanes.mjs --wait-all
 
       - name: Prune coverage test executables before cache save
         if: always() && matrix.group == 'rust-cov'

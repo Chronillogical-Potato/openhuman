@@ -38,9 +38,16 @@ How lanes behave:
 - **Selection is by area only.** The changed-area filters in
   `.github/ci-paths-filter.yml`, which CI Lite also uses, decide whether a
   whole suite runs. Nothing narrows a suite to the changed files.
-- **A failed check does not stop the lane.** Every later check still runs,
-  and the lane still fails. A check whose dependency failed reports
-  `blocked`.
+- **Nothing stops early.** A failed check never stops the checks after it
+  in its lane, and never stops other lanes. Inside the coverage check,
+  `scripts/ci/rust-coverage.sh` runs every crate and integration target even
+  after one fails, merges the lcov report from what ran, and then lists every
+  failure. A check whose dependency failed reports `blocked`. Only a
+  cancellation stops a run.
+- **One workflow step per lane.** `Start lanes` launches every lane in the
+  background, so they still run in parallel. Each `Lane: …` step streams its
+  own lane's log live, with one folded group per check, and passes or fails
+  on that lane alone. `Lane summary` carries the overall result.
 - **Changed-line coverage** must be at least 80% through
   `scripts/ci/self-hosted/diff-cover.sh`, the same gate as `PR CI Gate`.
 
