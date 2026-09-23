@@ -96,9 +96,19 @@ export function formatStepCount(count: number, t?: Translate): string {
 export function summarizeToolGroup(entries: ToolTimelineEntry[], t?: Translate): string {
   if (entries.length === 0) return '';
   if (entries.length === 1) return formatTimelineEntry(entries[0], t).title;
+  return summarizeToolCalls(entries.map(presentTimelineEntry), t);
+}
+
+/**
+ * The multi-step summary over already-resolved presentations; shared by the
+ * processing panel and the chat's tool timeline header.
+ */
+export function summarizeToolCalls(presentations: ToolCallPresentation[], t?: Translate): string {
+  if (presentations.length === 0) return '';
+  if (presentations.length === 1) return toolLabel(presentations[0], t);
   const counts = new Map<string, number>();
-  for (const entry of entries) {
-    const label = toolLabel({ ...presentTimelineEntry(entry), tense: 'done' }, t);
+  for (const presentation of presentations) {
+    const label = toolLabel({ ...presentation, tense: 'done' }, t);
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   const parts = [...counts.entries()]
@@ -106,7 +116,7 @@ export function summarizeToolGroup(entries: ToolTimelineEntry[], t?: Translate):
     .slice(0, 3)
     .map(([label, n]) => (n > 1 ? `${label} ×${n}` : label));
   if (counts.size > 3) parts.push('…');
-  return `${formatStepCount(entries.length, t)} · ${parts.join(', ')}`;
+  return `${formatStepCount(presentations.length, t)} · ${parts.join(', ')}`;
 }
 
 /**
