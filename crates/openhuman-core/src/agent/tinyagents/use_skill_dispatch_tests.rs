@@ -15,6 +15,7 @@
 
 use super::*;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
+use crate::agent::tinyagents::tools::CanonicalSharedToolAdapter;
 use crate::agent::harness::ParentExecutionContext;
 use crate::agent::prompts::ToolCallFormat;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
