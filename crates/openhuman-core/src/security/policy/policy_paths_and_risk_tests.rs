@@ -390,7 +390,12 @@ fn write_to_not_yet_existing_path_in_workspace_still_allowed() {
 fn config_default_auto_approve_includes_expanded_tools() {
     // Issue #2486: verify read-only tools are auto-approved by default,
     // and write tools are NOT (Supervised mode must prompt for edits).
-    let cfg = crate::config::AutonomyConfig::default();
+    // Explicitly enabled: the allowlist / risk gate this test is about only
+    // exists when the policy is on, and the shipped config default is off.
+    let cfg = crate::config::AutonomyConfig {
+        enabled: true,
+        ..crate::config::AutonomyConfig::default()
+    };
 
     // Pre-existing auto-approved tools must still be present
     for tool in [

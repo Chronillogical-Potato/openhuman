@@ -92,6 +92,9 @@ async fn blocks_disallowed_shell_command() {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
+    // The allowlist only exists when the policy is on, and the shipped config
+    // default is off (`[autonomy] enabled = false`).
+    config.autonomy.enabled = true;
     config.autonomy.allowed_commands = vec!["echo".into()];
     config.autonomy.level = AutonomyLevel::Supervised;
     tokio::fs::create_dir_all(&config.workspace_dir)

@@ -25,13 +25,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     webkit2gtk-driver \
     && rm -rf /var/lib/apt/lists/*
 
-# Rust 1.96.1 with minimal profile + fmt/clippy
+# Rust 1.96.1 with minimal profile + fmt/clippy + llvm-tools (cargo-llvm-cov)
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH="/usr/local/cargo/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
     -y --default-toolchain 1.96.1 --profile minimal \
-    -c rustfmt -c clippy \
+    -c rustfmt -c clippy -c llvm-tools-preview \
     -t x86_64-unknown-linux-gnu
 
 # Node.js 24.x + pnpm (project's package manager — pinned in package.json)
