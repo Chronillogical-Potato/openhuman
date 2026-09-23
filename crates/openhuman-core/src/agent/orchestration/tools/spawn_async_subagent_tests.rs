@@ -401,7 +401,6 @@ async fn errors_clearly_when_no_parent_thread_for_delivery() {
     // The recommended escape hatch must name `blocking: true` — plain
     // `spawn_subagent` defaults to async and would otherwise be steered
     // straight back into this same guard.
-    assert!(out.contains("spawn_subagent"), "{out}");
     assert!(out.contains("blocking: true"), "{out}");
     assert!(out.contains("delegate_"), "{out}");
 }

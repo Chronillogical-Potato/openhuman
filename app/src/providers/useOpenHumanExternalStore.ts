@@ -1,7 +1,12 @@
-import type { AppendMessage, RespondToToolApprovalOptions } from '@assistant-ui/react';
+import type {
+  AppendMessage,
+  RespondToToolApprovalOptions,
+  ThreadSuggestion,
+} from '@assistant-ui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { mapDisplayItems } from '../features/conversations/derived/mapDisplayItems';
+import { useT } from '../lib/i18n/I18nContext';
 import { type ApprovalDecision, decideApproval } from '../services/api/approvalApi';
 import { threadApi } from '../services/api/threadApi';
 import {
@@ -17,6 +22,7 @@ import { buildRuntimeMessages } from './assistantUiMessages';
 import { getChatSurface } from './chatSurfaceHandlers';
 
 const EMPTY_MESSAGES: ThreadMessage[] = [];
+const EMPTY_SUGGESTIONS: readonly ThreadSuggestion[] = [];
 const EMPTY_TIMELINE: never[] = [];
 const EMPTY_TRANSCRIPT: never[] = [];
 const EMPTY_TURN_MAP = {};
@@ -168,6 +174,61 @@ function appendMessageText(message: AppendMessage): string {
 }
 
 /**
+ * The starter prompts offered on an empty thread, in display order.
+ *
+ * Each key's translation is used as BOTH the chip's text and the message the
+ * chip sends: `ThreadSuggestion.title` falls back to `prompt` upstream
+ * (`@assistant-ui/core`'s suggestions client, `title: s.title ?? s.prompt`), so
+ * one string per suggestion keeps the chip and the sent turn from ever drifting
+ * apart — and keeps this at six translated strings rather than twelve.
+ */
+const WELCOME_SUGGESTION_KEYS = [
+  'chat.welcomeSuggestion.calendarToday',
+  'chat.welcomeSuggestion.unreadEmail',
+  'chat.welcomeSuggestion.draftReply',
+  'chat.welcomeSuggestion.followUps',
+  'chat.welcomeSuggestion.connectIntegration',
+  'chat.welcomeSuggestion.dailySummaryFlow',
+] as const;
+
+/**
+ * Starter chips for an empty thread — and nothing once the thread has content.
+ *
+ * **The emptiness gate is the whole point of this hook, not an optimisation.**
+ * The welcome chips and the follow-up chips read the *same* field
+ * (`s.thread.suggestions`) and their render gates are complementary rather than
+ * overlapping, so between them they partition every state:
+ *
+ * - welcome  — `isNewChatView && composer.isEmpty`  (`thread.tsx`)
+ * - follow-up — `!isEmpty && !isRunning && length > 0` (`follow-up-suggestions.tsx`)
+ *
+ * They therefore never render at the same time, which is exactly what makes an
+ * ungated list dangerous: a constant set shows correctly on the empty thread and
+ * then *reappears as follow-up chips under every settled turn, forever*. Static
+ * starter prompts hanging under turn 30 are worse than no chips at all.
+ *
+ * Gating here — at the only inlet — keeps the follow-up surface empty until a
+ * real per-turn producer exists. There is none today; see openhuman#6465, which
+ * also records this constraint. Do not lift the gate to the renderer: the
+ * renderer cannot distinguish the two surfaces, because they read one field.
+ *
+ * `messageCount` is the *runtime's* message count (settled turns plus any live
+ * tail), which is precisely what `isNewChatView` tests upstream — not the
+ * Redux row count, which excludes the in-flight turn and would leave the chips
+ * up for the first streaming answer.
+ */
+function useWelcomeSuggestions(messageCount: number): readonly ThreadSuggestion[] {
+  const { t } = useT();
+  return useMemo(
+    () =>
+      messageCount === 0
+        ? WELCOME_SUGGESTION_KEYS.map(key => ({ prompt: t(key) }))
+        : EMPTY_SUGGESTIONS,
+    [messageCount, t]
+  );
+}
+
+/**
  * Build the `ExternalStoreAdapter` that backs `useExternalStoreRuntime`.
  *
  * Settled messages and live deltas remain in their existing UI stores, while
@@ -235,6 +296,8 @@ export function useOpenHumanExternalStore(threadId: string | null) {
     [messages, streaming, isRunning, liveTimeline, liveTranscript, pendingApproval, coreTranscript]
   );
 
+  const suggestions = useWelcomeSuggestions(runtimeMessages.length);
+
   // The status line titles its `tool_use` / `subagent` phases from the matching
   // running timeline row (the same rows the surface renders as tool parts), so
   // "Running command: npm test..." reads like the row rather than the raw tool
@@ -300,18 +363,65 @@ export function useOpenHumanExternalStore(threadId: string | null) {
     [dispatch, threadId]
   );
 
+  // DO NOT add `adapters: { dictation: new WebSpeechDictationAdapter() }` here.
+  //
+  // It is exported by `@assistant-ui/react` at our pinned 0.15.16 and looks like
+  // a one-line win: the transcript already renders Dictate / StopDictation
+  // behind `s.thread.capabilities.dictation` (`thread.tsx`), and the runtime
+  // derives that capability from nothing but the key's presence —
+  // `dictation: this._store.adapters?.dictation !== void 0`. Supplying the
+  // adapter would light the button up immediately. It would also trap the user.
+  //
+  // Measured in a WKWebView harness, which is the engine Wry gives us on macOS:
+  //
+  //   no Info.plist            `webkitSpeechRecognition` present, start() →
+  //                            onerror "service-not-allowed"
+  //   + NSMicrophoneUsage…     `webkitSpeechRecognition` present, start() →
+  //     + NSSpeechRecognition…  NO EVENT AT ALL within 6s
+  //
+  // The second row is the dangerous one. A detectable error could be caught and
+  // the capability withdrawn; silence cannot. The composer would enter
+  // `dictation != null`, never leave it, and `StopDictation` would be the only
+  // way out — an affordance that looks like it works, unlike the merely inert
+  // Edit / BranchPicker / Reload controls gated off in #5897 and #6467.
+  //
+  // This is NOT "speech is impossible here". The app already ships working
+  // speech-to-text by a different route: the `mic-cloud` composer captures with
+  // `MediaRecorder` and transcribes through the core's `voice_*` RPC
+  // (`features/human/voice/sttClient.ts`), with `voice` in
+  // `scripts/ci/product-features.txt`. Its entry point is the "Voice mode" mic
+  // button rendered a few pixels from the dictation gate it would duplicate.
+  // The desktop `Info.plist` even describes that path — it declares
+  // `NSMicrophoneUsageDescription` ("voice dictation") and, tellingly, no
+  // `NSSpeechRecognitionUsageDescription`, which only the mobile plist carries.
+  //
+  // Inline dictation into the composer is still worth having; it should reuse
+  // that shipped capture + transcription rather than Web Speech. Tracked
+  // separately — it needs a capture lifecycle, interim results, cancellation
+  // and error surfacing, none of which this key would provide.
   return useMemo(
     () => ({
       messages: runtimeMessages,
       isRunning,
       isLoading,
       extras,
+      // Empty on any thread that has content — see `useWelcomeSuggestions`.
+      suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
       onRespondToToolApproval,
     }),
-    [runtimeMessages, isRunning, isLoading, extras, onNew, onCancel, onRespondToToolApproval]
+    [
+      runtimeMessages,
+      isRunning,
+      isLoading,
+      extras,
+      suggestions,
+      onNew,
+      onCancel,
+      onRespondToToolApproval,
+    ]
   );
 }

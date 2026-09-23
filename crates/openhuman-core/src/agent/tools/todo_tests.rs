@@ -235,6 +235,7 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
         1,
         "a later turn of the same session reads it back"
     );
+    assert_eq!(a_again.thread_id, "sess-a");
     assert!(crate::agent::todos::ops::list(&b)
         .await
         .unwrap()

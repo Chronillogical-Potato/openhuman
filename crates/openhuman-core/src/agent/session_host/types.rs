@@ -57,9 +57,9 @@ pub struct TurnOverrides {
     /// transcript for the agent name -- NOT thread-scoped). A host that has just
     /// re-bound the in-memory history to a different chat sets this so a cleared
     /// history is not silently repopulated from an unrelated thread's transcript
-    /// (opencompany #1725). Thread-correct resume via
-    /// `OpenHumanSessionHost::seed_resume_from_thread_transcript` still works:
-    /// it seeds the runtime directly, rather than retaining a host cache.
+    /// (opencompany #1725). A thread-bound session no longer needs this: it
+    /// resumes by durable session identity (`ResumeMode::Session`), which is an
+    /// exact lookup and can never reach another thread's transcript.
     pub suppress_transcript_autoload: bool,
 }
 
@@ -289,6 +289,16 @@ pub struct OpenHumanSessionHost {
     /// `Some("1713000000_orchestrator/1713000123_planner")` so nested
     /// delegations produce a tree on disk.
     pub(super) session_parent_prefix: Option<String>,
+    /// Durable identity of the conversation this root session serves.
+    ///
+    /// Set by [`set_thread_id`][super::runtime::accessors] once the host knows
+    /// the thread, and `None` for a sub-agent or an unthreaded session. When
+    /// present it, not [`Self::session_key`], addresses the transcript: the
+    /// stem it derives carries no timestamp, so every restart and every
+    /// process resolves the same conversation to the same file. The
+    /// timestamped `session_key` remains correct for sub-agents, where each
+    /// spawn genuinely is a new transcript.
+    pub(super) session: Option<tinyagents_session::transcript::SessionRef>,
     /// Per-session [`ContextManager`] — owns the system-prompt
     /// builder, the layered reduction pipeline (tool-result budget →
     /// microcompact → autocompact signal → session-memory extraction

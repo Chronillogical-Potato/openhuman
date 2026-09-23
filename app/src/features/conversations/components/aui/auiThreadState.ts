@@ -37,6 +37,8 @@ const selectCanEdit = (s: AssistantState) => s.optional.thread?.capabilities.edi
 const selectCanSwitchToBranch = (s: AssistantState) =>
   s.optional.thread?.capabilities.switchToBranch;
 
+const selectCanReload = (s: AssistantState) => s.optional.thread?.capabilities.reload;
+
 /**
  * Whether the runtime believes a turn is in flight.
  *
@@ -77,6 +79,23 @@ export function useAuiEditCapabilities(): { canEdit: boolean; canSwitchToBranch:
     );
   }
   return { canEdit, canSwitchToBranch };
+}
+
+/**
+ * Whether the runtime can re-run an assistant turn.
+ *
+ * Same defect class as Edit and BranchPicker, and it bites harder: assistant-ui
+ * computes the Reload button's disabled state from
+ * `isRunning || isDisabled || role !== 'assistant'` and never consults
+ * `capabilities.reload`, so the button is *enabled* on every settled assistant
+ * message. `useOpenHumanExternalStore` supplies no `onReload`, and the runtime
+ * throws `Runtime does not support reloading messages.` on click.
+ *
+ * Gated rather than deleted, so the affordance appears by itself the day the
+ * adapter grows `onReload`.
+ */
+export function useAuiReloadCapability(): boolean {
+  return useAuiState(selectCanReload) ?? false;
 }
 
 /**

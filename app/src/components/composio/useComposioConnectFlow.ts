@@ -34,6 +34,10 @@ export type ComposioConnectPhase =
   | 'connected'
   | 'expired'
   | 'disconnecting'
+  // Entered from `waiting` when the user gives up on an OAuth handoff that
+  // never came back: the pending Composio connection is deleted so the
+  // toolkit stops reporting `PENDING` forever (#stuck-connecting).
+  | 'cancelling'
   | 'error';
 
 interface UseComposioConnectFlowArgs {
@@ -76,6 +80,13 @@ export function useComposioConnectFlow({
   const pokePollRef = useRef<() => void>(() => {});
   const connectInFlightRef = useRef<boolean>(false);
   const [connectInFlight, setConnectInFlight] = useState(false);
+  // Id of the connection Composio created for the handoff currently in
+  // flight. Needed to cancel it: `authorize` hands it to us up front, and a
+  // resumed/polled pending connection supplies it when the modal reopens on
+  // an already-initiated handoff.
+  const pendingConnectionIdRef = useRef<string | null>(null);
+  const cancelInFlightRef = useRef<boolean>(false);
+  const [cancelInFlight, setCancelInFlight] = useState(false);
 
   const connection = connections?.[0];
   const initialState = deriveComposioState(connection);
@@ -169,10 +180,12 @@ export function useComposioConnectFlow({
           ) ?? allForToolkit[0];
         if (hit) {
           setActiveConnection(hit);
+          if (deriveComposioState(hit) === 'pending') pendingConnectionIdRef.current = hit.id;
           setActiveConnections(allForToolkit.filter(c => deriveComposioState(c) === 'connected'));
           const state = deriveComposioState(hit);
           if (state === 'connected') {
             stopPolling();
+            pendingConnectionIdRef.current = null;
             setPhase('connected');
             setError(null);
             onChanged?.();
@@ -244,6 +257,9 @@ export function useComposioConnectFlow({
   // the user to click Connect again.
   useEffect(() => {
     if (initialState === 'pending') {
+      // Remember which connection the handoff belongs to so "Cancel" can
+      // delete it even though this mount never ran `authorize` itself.
+      if (connection) pendingConnectionIdRef.current = connection.id;
       startPolling();
     }
     // intentionally run once on mount — startPolling has stable deps and
@@ -307,6 +323,7 @@ export function useComposioConnectFlow({
         toolkit.slug,
         resp.connectionId
       );
+      pendingConnectionIdRef.current = resp.connectionId ?? null;
       setConnectUrl(resp.connectUrl);
       setPhase('waiting');
       startPolling();
@@ -437,6 +454,60 @@ export function useComposioConnectFlow({
     [savingScope, scopes, t, toolkit.slug]
   );
 
+  /**
+   * Abandon an OAuth handoff that is still `waiting`.
+   *
+   * Closing the modal was previously the only way out, and it left the
+   * Composio connection sitting in `INITIATED`/`PENDING`: the tile kept
+   * reading "Connecting", reopening the modal resumed the poll, and the only
+   * real escape was waiting out the five-minute poll deadline. Cancelling
+   * deletes the pending connection through the same
+   * `openhuman.composio_delete_connection` RPC that Disconnect uses, so the
+   * toolkit genuinely returns to disconnected on the Composio side rather
+   * than just in local state.
+   *
+   * When the user was adding a second account to an already-connected
+   * toolkit, cancelling drops back to the `connected` view instead of `idle`
+   * — the existing accounts are untouched.
+   */
+  const handleCancelConnect = useCallback(async () => {
+    if (cancelInFlightRef.current) return;
+    cancelInFlightRef.current = true;
+    setCancelInFlight(true);
+    stopPolling();
+    setPhase('cancelling');
+    setError(null);
+
+    const pendingId = pendingConnectionIdRef.current;
+    console.debug(
+      '[composio][cancel] → toolkit=%s connection_id=%s',
+      toolkit.slug,
+      pendingId ?? 'none'
+    );
+    try {
+      if (pendingId) await deleteConnection(pendingId);
+      pendingConnectionIdRef.current = null;
+      setConnectUrl(null);
+      if (activeConnections.length > 0) {
+        setActiveConnection(activeConnections[0]);
+        setPhase('connected');
+      } else {
+        setActiveConnection(undefined);
+        setPhase('idle');
+      }
+      console.debug('[composio][cancel] ← toolkit=%s cancelled', toolkit.slug);
+      onChanged?.();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[composio][cancel] failed toolkit=%s error=%o', toolkit.slug, err);
+      setPhase('error');
+      setError(t('composio.connect.cancelFailed').replace('{msg}', msg));
+    } finally {
+      cancelInFlightRef.current = false;
+      setCancelInFlight(false);
+    }
+  }, [activeConnections, onChanged, stopPolling, t, toolkit.slug]);
+
   const handleDisconnect = useCallback(
     async (targetConnection?: ComposioConnection) => {
       const conn = targetConnection ?? activeConnection;
@@ -487,9 +558,11 @@ export function useComposioConnectFlow({
     scopeError,
     savingScope,
     connectInFlight,
+    cancelInFlight,
     initiallyConnected,
     initiallyExpired,
     handleConnect,
+    handleCancelConnect,
     handleToggleScope,
     handleDisconnect,
   };

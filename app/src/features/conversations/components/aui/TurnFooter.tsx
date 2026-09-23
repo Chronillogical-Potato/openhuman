@@ -1,28 +1,10 @@
 import { type AssistantState, useAuiState } from '@assistant-ui/react';
 
 import { useT } from '../../../../lib/i18n/I18nContext';
-import type { TurnProcessTrail } from '../../../../providers/assistantUiMessages';
 import { useTurnFooterHost } from './turnFooterHost';
+import { readProcessTrail } from './turnProcessTrail';
 
 const selectMessageMetadata = (state: AssistantState) => state.message.metadata;
-
-/**
- * Narrow the runtime's untyped `message.metadata.custom` back to our own shape.
- *
- * `custom` is `unknown` by contract and the footer can be mounted on a message
- * this projection did not build (the kit's own demo runtime, a test harness),
- * so this returns `null` rather than asserting.
- */
-function readProcessTrail(metadata: unknown): TurnProcessTrail | null {
-  if (typeof metadata !== 'object' || metadata === null) return null;
-  const custom = (metadata as { custom?: unknown }).custom;
-  if (typeof custom !== 'object' || custom === null) return null;
-  const trail = (custom as { processTrail?: unknown }).processTrail;
-  if (typeof trail !== 'object' || trail === null) return null;
-  const candidate = trail as Partial<TurnProcessTrail>;
-  if (typeof candidate.steps !== 'number' || typeof candidate.tools !== 'number') return null;
-  return candidate as TurnProcessTrail;
-}
 
 /**
  * The settled turn's one-line process footer — `8 steps · 2 tools` — and the

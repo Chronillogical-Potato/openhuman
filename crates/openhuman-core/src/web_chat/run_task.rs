@@ -114,7 +114,6 @@ pub(crate) async fn run_chat_task(
         } else {
             CheckoutPolicy::Exact
         },
-        message,
     )
     .await?;
 

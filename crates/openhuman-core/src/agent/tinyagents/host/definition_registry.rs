@@ -143,6 +143,24 @@ pub struct OpenHumanDefinitionRegistry {
     /// tool registry. They must augment a named root scope so the hosted loop
     /// authorizes the same hand-off routes it advertises.
     session_delegation_tools: Option<Arc<Vec<String>>>,
+    /// The session's own caller-supplied definition, when it has one.
+    ///
+    /// A library host builds its agent from a definition it owns and passes by
+    /// value (`AgentChatTarget::Definition`), which `from_config_with_definition`
+    /// stamps on the session and inserts into no registry. `AgentSpec::into_core`
+    /// re-stamps the built-in orchestrator under the caller's own id, so ids like
+    /// `harness`, `alpha` and `beta` are names no registry has ever held — the
+    /// hosted lookup below missed every time, the harness raised
+    /// `TinyAgentsError::Validation`, and `hosted_error` sanitized that into
+    /// "hosted agent invocation was rejected by policy" with zero provider calls
+    /// (#6404, #6392, #6393).
+    ///
+    /// Consulted BEFORE the registry, which is the precedence
+    /// `OpenHumanSessionHost::resolved_definition` already documents and
+    /// `resolved_definition_prefers_the_sessions_own_over_a_same_id_registry_entry`
+    /// already pins: a library host may legitimately reuse an id the process
+    /// registry also knows, and its own definition must win.
+    session_definition: Option<Arc<HostAgentDefinition>>,
 }
 
 /// Outcome of resolving a definition's own scope.
@@ -166,6 +184,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             registered_tools: None,
             session_delegation_tools: None,
+            session_definition: None,
         }
     }
 
@@ -181,6 +200,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             registered_tools: None,
             session_delegation_tools: None,
+            session_definition: None,
         })
     }
 
@@ -213,6 +233,15 @@ impl OpenHumanDefinitionRegistry {
         self
     }
 
+    /// Attaches the session's own definition, which outranks the registry.
+    ///
+    /// See [`Self::session_definition`] — without this a caller-supplied
+    /// definition is unresolvable by the id it was stamped with.
+    pub fn with_session_definition(mut self, definition: Arc<HostAgentDefinition>) -> Self {
+        self.session_definition = Some(definition);
+        self
+    }
+
     /// Resolves `id` to a **host** definition: harness registry first, then the
     /// enabled custom-agent config fallback.
     ///
@@ -223,6 +252,13 @@ impl OpenHumanDefinitionRegistry {
     /// deliberately not re-implemented here.
     fn host_definition(&self, id: &str) -> Option<HostAgentDefinition> {
         let id = id.trim();
+        if let Some(def) = self
+            .session_definition
+            .as_deref()
+            .filter(|def| def.id.trim() == id)
+        {
+            return Some(def.clone());
+        }
         if let Some(def) = self.registry.get().get(id) {
             return Some(def.clone());
         }

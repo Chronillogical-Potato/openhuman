@@ -12,6 +12,7 @@ fn hosted_base() -> Arc<crate::agent::tinyagents::host::OpenHumanHostBase> {
         security_policy: Arc::new(crate::security::policy::SecurityPolicy::default()),
         memory: crate::memory::test_support::noop_memory(),
         post_turn_hooks: Vec::new(),
+        session_definition: None,
     })
 }
 

@@ -390,6 +390,8 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
     let dir = TempDir::new().unwrap();
     let now = "2026-07-21T09:00:00Z".to_string();
     let meta = transcript::TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -469,6 +471,8 @@ fn append_transcript_turn_projects_full_display_shape() {
     let dir = TempDir::new().unwrap();
     let now = "2026-07-21T09:00:00Z".to_string();
     let meta = transcript::TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),

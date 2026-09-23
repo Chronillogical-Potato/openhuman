@@ -453,6 +453,12 @@ export function emptySessionTokenUsage(): SessionTokenUsage {
 interface ChatTurnUsagePayload {
   inputTokens: number;
   outputTokens: number;
+  /**
+   * This delta is a detached sub-agent's spend landing on a turn that has
+   * already been counted, not a new turn. Set by the `subagent_completed`
+   * handler; see the `turns` guard in {@link applyTurnUsage}.
+   */
+  subAgentSpendOnly?: boolean;
   cachedTokens?: number;
   costUsd?: number;
   contextWindow?: number;
@@ -477,10 +483,16 @@ function applyTurnUsage(usage: SessionTokenUsage, payload: ChatTurnUsagePayload)
   usage.outputTokens += outTok;
   usage.cachedTokens += nonNeg(payload.cachedTokens);
   usage.costUsd += nonNeg(payload.costUsd);
-  usage.turns += 1;
+  // A detached sub-agent's spend arrives on its own `subagent_completed`, after
+  // the parent turn's `chat_done` has already been counted. It is more spend on
+  // the SAME turn, not another turn, so counting it would inflate the turn
+  // count by one per delegation and skew every per-turn average derived from it.
+  if (!payload.subAgentSpendOnly) usage.turns += 1;
   usage.lastUpdated = Date.now();
-  usage.lastTurnInputTokens = inTok;
-  usage.lastTurnOutputTokens = outTok;
+  if (!payload.subAgentSpendOnly) {
+    usage.lastTurnInputTokens = inTok;
+    usage.lastTurnOutputTokens = outTok;
+  }
   // Only overwrite the known context window when the turn reported a real value
   // (>0); an unknown-window turn leaves the prior value intact.
   const ctxWindow = nonNeg(payload.contextWindow);
@@ -508,7 +520,14 @@ function applyTurnUsage(usage: SessionTokenUsage, payload: ChatTurnUsagePayload)
     existing.runs += 1;
     usage.subAgents[sub.agentId] = existing;
   }
-  usage.lastTurnContextUsed = Math.max(0, inTok + outTok - subTurnTokens);
+  // The context gauge belongs to the turn, and a late sub-agent delta is not
+  // one: recomputing it here would read `0 + 0 - childTokens` and clamp the
+  // gauge to zero, blanking a bar the parent's own turn had just set
+  // correctly. The parent's value already excludes children by design (#4271),
+  // which is exactly what this delta must not disturb.
+  if (!payload.subAgentSpendOnly) {
+    usage.lastTurnContextUsed = Math.max(0, inTok + outTok - subTurnTokens);
+  }
 }
 
 /**
