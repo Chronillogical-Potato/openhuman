@@ -15,6 +15,12 @@ use super::loader::{load_config_with_timeout, snapshot_config_json};
 /// array wholesale.
 #[derive(Debug, Clone, Default)]
 pub struct AutonomySettingsPatch {
+    /// Master switch for the whole autonomy policy. Defaults to `false`
+    /// (`AutonomyConfig::enabled`): with it off, classification, the approval
+    /// gate, the allowlist, the action budget and containment are all inert,
+    /// and every other field in this patch has no effect until it is `true`.
+    /// `is_always_forbidden` applies either way.
+    pub enabled: Option<bool>,
     /// `"readonly" | "supervised" | "full"` (case-insensitive).
     pub level: Option<String>,
     pub workspace_only: Option<bool>,
@@ -84,6 +90,9 @@ pub async fn apply_autonomy_settings(
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     use crate::security::AutonomyLevel;
 
+    if let Some(enabled) = update.enabled {
+        config.autonomy.enabled = enabled;
+    }
     if let Some(level) = update.level {
         config.autonomy.level = match level.trim().to_ascii_lowercase().as_str() {
             "readonly" | "read_only" | "read-only" => AutonomyLevel::ReadOnly,
@@ -340,6 +349,28 @@ pub async fn ensure_agent_dirs(config: &mut Config) {
             "[startup] could not create action sandbox dir"
         );
     }
+    // Creating the action dir is not the same as being allowed to write in it:
+    // `validate_path` only *joins* relative tool paths onto it, and the
+    // permission comes from a trusted root. `SecurityPolicy::from_config` grants
+    // it, and this is the config-side mirror so a persisted config carries the
+    // same grant. Skipped when the action dir sits at or above `workspace_dir`,
+    // where a trusted root would buy a `forbidden_paths` bypass over the whole
+    // workspace.
+    let action_path = action_dir.to_string_lossy().to_string();
+    if !action_path.is_empty()
+        && !config.workspace_dir.starts_with(&action_dir)
+        && !config
+            .autonomy
+            .trusted_roots
+            .iter()
+            .any(|r| r.path == action_path)
+    {
+        config.autonomy.trusted_roots.push(TrustedRoot {
+            path: action_path,
+            access: TrustedAccess::ReadWrite,
+        });
+    }
+
     tracing::info!(
         workspace = %redact_home(&config.workspace_dir),
         action = %redact_home(&action_dir),

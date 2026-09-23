@@ -66,6 +66,8 @@ fn write_policy_logs_and_returns_denial() {
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");
+    // The tier only binds with the policy on; the shipped config default is off.
+    config.autonomy.enabled = true;
     config.autonomy.level = crate::security::AutonomyLevel::ReadOnly;
 
     let err = enforce_write_policy_for_config("memory.store", &config)
