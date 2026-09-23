@@ -1164,6 +1164,11 @@ pub(crate) fn spawn_progress_bridge(
                             // bounded size for the wire (#4007); `output_chars` +
                             // `elapsed_ms` still ride along in `subagent` below.
                             output: Some(cap_wire_output(output)),
+                            args: arguments.filter(|v| !v.is_null()),
+                            elapsed_ms: Some(elapsed_ms),
+                            structured,
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
                             failure: failure_json,
                             subagent: Some(SubagentProgressDetail {
                                 child_iteration: Some(iteration),
