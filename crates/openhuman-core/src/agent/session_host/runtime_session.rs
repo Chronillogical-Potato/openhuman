@@ -617,7 +617,8 @@ impl OpenHumanTurnPrelude {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .recorded_integration_actions
                 .clone();
-            let rebuilt = super::recorded_tools::rehydrate_integration_actions(&recorded, &collected);
+            let rebuilt =
+                super::recorded_tools::rehydrate_integration_actions(&recorded, &collected);
             if !rebuilt.is_empty() {
                 log::info!(
                     "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
