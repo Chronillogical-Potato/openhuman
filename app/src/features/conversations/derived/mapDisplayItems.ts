@@ -411,11 +411,8 @@ function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
   if (failure) entry.failure = failure;
   // Derive the detail from tool name + args (the same registry the live path
   // runs). The title is *not* baked into `displayName`: that field carries
-  // only a server label, and overwriting it both dropped the core's label for
-  // dynamic tools and froze the title's tense. Surfaces resolve the title at
-  // render time.
-  if (item.displayLabel) entry.displayName = item.displayLabel;
-  if (item.displayDetail) entry.detail = item.displayDetail;
+  // only a server label, and a baked title froze its tense at "Reading file"
+  // on a finished row. Surfaces resolve the title at render time.
   const formatted = formatTimelineEntry(entry);
   if (entry.detail === undefined && formatted.detail !== undefined) entry.detail = formatted.detail;
   turn.entries.push(entry);
