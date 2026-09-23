@@ -238,15 +238,6 @@ pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
 pub(super) const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 
 /// Keep a scheduled turn from auto-resuming another session's transcript.
-pub(super) fn start_cron_turn_clean(agent: &mut OpenHumanSessionHost) {
-    tracing::debug!("[cron] suppressing transcript autoload for scheduled turn");
-    agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
-        suppress_transcript_autoload: true,
-        ..Default::default()
-    });
-}
-
-/// Keep a scheduled turn from auto-resuming another session's transcript.
 ///
 /// Mirrors `flows::ops::builder::start_builder_turn_clean`: an unthreaded
 /// session's first turn otherwise resumes the newest transcript on disk for
