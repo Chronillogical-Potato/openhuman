@@ -12,6 +12,12 @@
 export interface ReasoningStep {
   title: string;
   body: string;
+  /**
+   * True when the title was derived from the text (no heading marked it).
+   * A derived title keeps changing while its sentence streams in, so it is
+   * never used as the live trigger label.
+   */
+  derived?: boolean;
 }
 
 /** Per-part timing carried on a reasoning part's `providerMetadata.openhuman`. */
@@ -47,14 +53,14 @@ function deriveStep(paragraph: string): ReasoningStep {
 
   if (plain.length <= DERIVED_TITLE_MAX && firstLine.length === firstSentence.length) {
     const rest = text.slice(firstSentence.length).trim();
-    return { title: plain.replace(/[.:]$/, ''), body: rest };
+    return { title: plain.replace(/[.:]$/, ''), body: rest, derived: true };
   }
   // Too long (or the sentence spans lines): shorten for the title and keep the
   // whole paragraph as the body.
   const cut = plain.slice(0, DERIVED_TITLE_MAX);
   const lastSpace = cut.lastIndexOf(' ');
   const title = `${(lastSpace > 20 ? cut.slice(0, lastSpace) : cut).replace(/[,.;:]$/, '')}…`;
-  return { title, body: text };
+  return { title, body: text, derived: true };
 }
 
 function splitParagraphs(text: string): string[] {
@@ -73,32 +79,46 @@ function splitParagraphs(text: string): string[] {
 export function parseReasoningSteps(text: string): ReasoningStep[] {
   if (!text.trim()) return [];
   const steps: ReasoningStep[] = [];
-  let current: { title: string; lines: string[] } | null = null;
-  let preamble: string[] = [];
+  const state: { current: { title: string; lines: string[] } | null; preamble: string[] } = {
+    current: null,
+    preamble: [],
+  };
 
   const flush = () => {
-    if (current) {
-      steps.push({ title: current.title, body: current.lines.join('\n').trim() });
-      current = null;
-    } else if (preamble.length > 0) {
-      for (const p of splitParagraphs(preamble.join('\n'))) steps.push(deriveStep(p));
+    if (state.current) {
+      steps.push({ title: state.current.title, body: state.current.lines.join('\n').trim() });
+      state.current = null;
+    } else if (state.preamble.length > 0) {
+      for (const p of splitParagraphs(state.preamble.join('\n'))) steps.push(deriveStep(p));
     }
-    preamble = [];
+    state.preamble = [];
   };
 
   for (const line of text.split('\n')) {
     const heading = headingOf(line);
     if (heading) {
       flush();
-      current = { title: heading, lines: [] };
-    } else if (current) {
-      (current as { lines: string[] }).lines.push(line);
+      state.current = { title: heading, lines: [] };
+    } else if (state.current) {
+      state.current.lines.push(line);
     } else {
-      preamble.push(line);
+      state.preamble.push(line);
     }
   }
   flush();
   return steps;
+}
+
+/**
+ * The label to show while the trace streams: the newest heading the model
+ * wrote (Codex style), or `undefined` when it has written none yet.
+ */
+export function latestHeading(steps: readonly ReasoningStep[]): string | undefined {
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    const step = steps[i];
+    if (step && !step.derived) return step.title;
+  }
+  return undefined;
 }
 
 /** Parse several reasoning parts (one per model round) into one step list. */
