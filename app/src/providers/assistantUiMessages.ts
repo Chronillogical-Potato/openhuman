@@ -639,19 +639,19 @@ export function streamingTailMessage(
 ): ThreadMessageLike | null {
   if (!approval && !streaming && timeline.length === 0 && transcript.length === 0) return null;
   const text = streaming?.content ?? '';
-  let parts = assistantParts(text, timeline, transcript);
-  // The live reasoning block. Only when the transcript has not yet recorded a
-  // `thinking` item for this turn — once it has, `assistantParts` above is
-  // already emitting it in its proper place and this would double it.
+  let parts = assistantParts(text, timeline, transcript, 'live');
+  // The live reasoning block, only when the transcript has not recorded a
+  // `thinking` item for this turn (a snapshot-hydrated turn) — once it has,
+  // `assistantParts` emits it in its proper place and this would double it.
   //
-  // It goes FIRST because it is what the agent thought before it answered, and
-  // `Reasoning` renders it expanded while it streams, then collapses it. A turn
-  // that has so far produced only thinking now mints a tail rather than
-  // nothing, which is the point: the block is the in-flight signal, alongside
-  // `RunningStatus`.
+  // Appended, never unshifted: the tail's parts are append-only (see
+  // `assistantParts`), and a part inserted at the front shifts the index —
+  // and so the key — of every part after it, remounting the answer mid-stream.
+  // A turn that has so far produced only thinking still mints a tail, which is
+  // the point: the block is the in-flight signal, alongside `RunningStatus`.
   if (streaming?.thinking.trim()) {
     const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
-    if (!hasTranscriptThinking) parts.unshift({ type: 'reasoning', text: streaming.thinking });
+    if (!hasTranscriptThinking) parts.push({ type: 'reasoning', text: streaming.thinking });
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
