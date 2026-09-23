@@ -367,3 +367,39 @@ fn record_outcome_preserves_the_outcome_through_a_drain() {
     let drained = take_pending(s);
     assert_eq!(drained[0].outcome, BackgroundAgentOutcome::Failed);
 }
+
+#[test]
+fn discard_pending_for_thread_drops_queued_results_but_keeps_the_thread_live() {
+    let _guard = test_guard();
+    record_completion(
+        "sess-stop",
+        "sub-stop-a",
+        "researcher",
+        "finished before Stop",
+        Some("thread-stop-live".into()),
+    );
+    record_completion(
+        "sess-stop",
+        "sub-stop-keep",
+        "researcher",
+        "other thread",
+        Some("thread-stop-other".into()),
+    );
+
+    // Stop drops the undelivered result so it can't start a delivery turn...
+    assert_eq!(discard_pending_for_thread("thread-stop-live"), 1);
+    assert_eq!(pending_count("sess-stop"), 1);
+    assert_eq!(take_pending("sess-stop")[0].task_id, "sub-stop-keep");
+
+    // ...but, unlike thread deletion, does not tombstone the thread: work
+    // started by a later turn on it still delivers.
+    record_completion(
+        "sess-stop",
+        "sub-stop-later",
+        "researcher",
+        "next turn's result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 1);
+    let _ = take_pending("sess-stop");
+}
