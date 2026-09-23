@@ -219,44 +219,60 @@ async fn get_tool_contract_is_compaction_exempt() {
     );
 }
 
-/// #6283: the summarizer used to be called with a hard-coded `None` hint, so
-/// it compressed every payload blind to what the user asked for.
+/// The caller's `summary_focus` is an argument to the summary of the result,
+/// not to the tool: `before_tool` takes it out of the call, and it reaches
+/// TinyJuice with the result together with a summary call bound to the turn.
 #[tokio::test]
-async fn the_turns_task_hint_reaches_the_payload_summarizer() {
-    struct HintRecorder(std::sync::Mutex<Option<Option<String>>>);
-    #[async_trait]
-    impl PayloadSummarizer for HintRecorder {
-        async fn maybe_summarize_in_parent(
-            &self,
-            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-            _tool_name: &str,
-            parent_task_hint: Option<&str>,
-            _raw: &str,
-        ) -> anyhow::Result<SummarizeOutcome> {
-            *self.0.lock().expect("recorder lock") = Some(parent_task_hint.map(str::to_owned));
-            Ok(SummarizeOutcome::NotNeeded)
-        }
-    }
-
-    let recorder = Arc::new(HintRecorder(std::sync::Mutex::new(None)));
-    let mut mw = summarizer_mw(recorder.clone());
-    mw.task_hint = Some("find the release notes for v2".to_string());
-    let mut result = tool_result("use_skill", "RAW-TOOL-OUTPUT");
-
-    mw.after_tool(
-        &mut ctx(),
-        &(),
-        &invocation("use-skill", "use_skill"),
-        &mut result,
-    )
-    .await
-    .expect("after_tool should not fail");
-
-    assert_eq!(
-        recorder.0.lock().expect("recorder lock").clone(),
-        Some(Some("find the release notes for v2".to_string())),
-        "the turn's task hint must be handed to the payload summarizer"
+async fn the_callers_focus_reaches_tinyjuice_and_never_the_tool() {
+    let mw = summarizer_mw(StubSummarizer::replying(Ok("focused note".into())));
+    let mut call = TaToolCall::new(
+        "fetch-1",
+        "web_fetch",
+        json!({"url": "https://example.com/docs", "summary_focus": "the rate limits"}),
     );
+    let mut ctx = ctx();
+    mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
+    assert_eq!(
+        call.arguments,
+        json!({"url": "https://example.com/docs"}),
+        "the tool must never see summary_focus"
+    );
+
+    let mut result = tool_result("web_fetch", &"page text ".repeat(200));
+    let (outcome, requests) = with_module(mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("fetch-1", "web_fetch"),
+        &mut result,
+    ))
+    .await;
+    outcome.unwrap();
+
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].focus.as_deref(), Some("the rate limits"));
+    assert!(
+        requests[0].context_token.is_some(),
+        "a summary call must be registered for the module to call back"
+    );
+    assert!(
+        result_text(&result).ends_with("focused note"),
+        "the summary replaces the payload: {}",
+        result_text(&result)
+    );
+}
+
+/// A focus captured for one call is not handed to another call's result.
+#[tokio::test]
+async fn a_focus_belongs_to_its_own_call() {
+    let mw = summarizer_mw(StubSummarizer::replying(Ok("note".into())));
+    let mut call = TaToolCall::new("a", "web_fetch", json!({"url": "u", "summary_focus": "x"}));
+    let mut ctx = ctx();
+    mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
+
+    let mut result = tool_result("web_fetch", &"page ".repeat(200));
+    let (_, requests) =
+        with_module(mw.after_tool(&mut ctx, &(), &invocation("b", "web_fetch"), &mut result)).await;
+    assert_eq!(requests[0].focus, None);
 }
 
 /// #6283 review: the authoritative size is stated after the output caps, so a
@@ -272,27 +288,23 @@ async fn the_summarized_size_leads_the_content_for_an_uncapped_tool() {
     // interesting case is an uncapped tool whose summary the shared budget
     // then trims.
     let summary = "summary ".repeat(50);
-    let mw = summarizer_mw(StubSummarizer::ok(SummarizeOutcome::Summarized(
-        crate::agent::tinyagents::payload_summarizer::SummarizedPayload {
-            summary_bytes: summary.len(),
-            summary,
-            original_bytes: 119_796,
-        },
-    )));
-    let mut result = tool_result("test_tool", &"payload ".repeat(200));
+    let mw = summarizer_mw(StubSummarizer::replying(Ok(summary)));
+    let raw = "payload ".repeat(200);
+    let mut result = tool_result("test_tool", &raw);
 
-    mw.after_tool(
+    with_module(mw.after_tool(
         &mut ctx(),
         &(),
         &invocation("uncapped-summary", "test_tool"),
         &mut result,
-    )
+    ))
     .await
+    .0
     .unwrap();
 
     assert!(
         result_text(&result)
-            .starts_with("[openhuman: summary of 119796 bytes of tool output, complete]"),
+            .starts_with("[openhuman: summary of 1600 bytes of tool output, complete]"),
         "the real size must lead the content whatever the caps did, got {:?}",
         result_text(&result).chars().take(160).collect::<String>()
     );

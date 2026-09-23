@@ -11,7 +11,6 @@ fn artifact_mw(
     ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: summarizer,
-        task_hint: None,
         artifact_store: Some(
             crate::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
                 action_dir.to_path_buf(),
@@ -19,27 +18,22 @@ fn artifact_mw(
             ),
         ),
         tokenjuice_compaction_enabled: false,
-        tokenjuice_compression: AgentTokenjuiceCompression::Off,
-        runtime_config: None,
+        tokenjuice_compression: AgentTokenjuiceCompression::Full,
+        runtime_config: Some(summarizing_config()),
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 
-fn summarized(summary: &str, original_bytes: usize) -> Arc<dyn PayloadSummarizer> {
-    StubSummarizer::ok(SummarizeOutcome::Summarized(
-        crate::agent::tinyagents::payload_summarizer::SummarizedPayload {
-            summary: summary.to_string(),
-            original_bytes,
-            summary_bytes: summary.len(),
-        },
-    ))
+fn summarized(summary: &str) -> Arc<dyn PayloadSummarizer> {
+    StubSummarizer::replying(Ok(summary.to_string()))
 }
 
 #[tokio::test]
 async fn a_wrapped_read_of_a_persisted_artifact_is_paged_not_resummarized_or_repersisted() {
     let tmp = tempfile::tempdir().unwrap();
-    let mw = artifact_mw(Some(summarized("SUMMARY", 5_000)), tmp.path());
+    let mw = artifact_mw(Some(summarized("SUMMARY")), tmp.path());
     let path = "artifacts/tool-results/session/use_skill/earlier.txt";
     // The read arrives wrapped, reported under the wrapper's name, exactly as
     // `use_skill` delivers `file_read`.
@@ -81,12 +75,13 @@ async fn an_oversized_result_is_stored_as_the_tool_returned_it_not_as_rewritten(
     let tmp = tempfile::tempdir().unwrap();
     // A summary still over the 1,000-byte budget, so the result is persisted
     // after an earlier stage has already rewritten it.
-    let mw = artifact_mw(Some(summarized(&"s".repeat(3_000), 8_000)), tmp.path());
+    let mw = artifact_mw(Some(summarized(&"s".repeat(3_000))), tmp.path());
     let raw = "r".repeat(8_000);
     let mut result = tool_result("echo", &raw);
 
-    mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result)
+    with_module(mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result))
         .await
+        .0
         .unwrap();
 
     assert!(
@@ -115,11 +110,12 @@ async fn a_raw_result_file_read_cannot_open_is_stored_as_the_processed_copy() {
     let tmp = tempfile::tempdir().unwrap();
     let summary = "s".repeat(3_000);
     let raw_len = crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES as usize + 1;
-    let mw = artifact_mw(Some(summarized(&summary, raw_len)), tmp.path());
+    let mw = artifact_mw(Some(summarized(&summary)), tmp.path());
     let mut result = tool_result("echo", &"r".repeat(raw_len));
 
-    mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result)
+    with_module(mw.after_tool(&mut ctx(), &(), &invocation("c1", "echo"), &mut result))
         .await
+        .0
         .unwrap();
 
     let stored = std::fs::read_to_string(

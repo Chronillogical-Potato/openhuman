@@ -388,12 +388,12 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Wire an oversized-tool-result summarizer into the agent. The live
-    /// TinyAgents turn path passes it to `ToolOutputMiddleware`, which calls
-    /// [`crate::agent::tinyagents::payload_summarizer::PayloadSummarizer::maybe_summarize_in_parent`]
-    /// on successful tool output and replaces the raw payload with the
-    /// compressed summary on success. Currently set only for the orchestrator
-    /// session by [`OpenHumanSessionHost::build_session_agent_inner`].
+    /// Wire the model behind TinyJuice's oversized-tool-result summary into the
+    /// agent. `ToolOutputMiddleware` calls
+    /// [`crate::agent::tinyagents::payload_summarizer::PayloadSummarizer::prepare`]
+    /// for a large result and TinyJuice runs the call if it decides to
+    /// summarize. Currently set only for the orchestrator session by
+    /// [`OpenHumanSessionHost::build_session_agent_inner`].
     pub fn payload_summarizer(
         mut self,
         summarizer: Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,

@@ -22,6 +22,15 @@ fn web_fetch_name_and_schema() {
 }
 
 #[test]
+fn web_fetch_opts_into_an_optional_summary_focus() {
+    let tool = WebFetchTool::new(test_security(), vec!["example.com".into()], None, None);
+    let schema = tool.parameters_schema();
+    let key = crate::inference::tokenjuice::focus::SUMMARY_FOCUS_ARG;
+    assert_eq!(schema["properties"][key]["type"], "string");
+    assert!(!schema["required"].as_array().unwrap().contains(&json!(key)));
+}
+
+#[test]
 fn zero_and_none_limits_fall_back_to_defaults() {
     // Callers wire these from `[http_request]`; a stale `Some(0)` is a
     // 0-byte cap (empty bodies) and a 0-second timeout (instant failure).

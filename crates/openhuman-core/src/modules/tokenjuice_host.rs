@@ -24,6 +24,18 @@ impl MlHost {
             .await
             .map_err(method_error)
     }
+
+    /// One tool-less model call for the module's summary stage, run under the
+    /// turn its `context_token` names. `None` declines — the token is unknown
+    /// or already used, and the module falls back to its own compressors.
+    async fn generate(
+        &self,
+        request: crate::inference::tokenjuice::types::GenerateRequest,
+    ) -> tinybus::Result<Option<String>> {
+        crate::inference::tokenjuice::generate::serve(request)
+            .await
+            .map_err(method_error)
+    }
 }
 
 fn method_error(error: impl std::fmt::Display) -> tinybus::Error {

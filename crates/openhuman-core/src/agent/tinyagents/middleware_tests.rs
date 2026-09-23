@@ -22,9 +22,7 @@ use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
-use crate::agent::tinyagents::payload_summarizer::{
-    PayloadSummarizer, SummarizeOutcome, UnavailableReason,
-};
+use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::no_progress::{
@@ -40,60 +38,88 @@ fn ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
     )
 }
 
-// ── payload_summarizer disclosure (#5722) ──────────────────────
+// ── TinyJuice summary disclosure (#5722) ───────────────────────────────
 //
 // The behaviour these pin: when summarization does not happen, the model
 // must be able to see that from the payload. Previously every one of
 // these cases produced byte-identical content to a successful
 // pass-through, so the model could not tell a raw dump from a normal
-// result and re-called the same tool.
+// result and re-called the same tool. The module itself is stood in for by
+// `tokenjuice::module_stub`, which calls back through `MlHost.Generate`
+// the way TinyJuice does.
 
-struct StubSummarizer(std::sync::Mutex<Option<anyhow::Result<SummarizeOutcome>>>);
+/// A summary model that answers every call with one fixed reply.
+struct StubSummarizer {
+    reply: std::sync::Mutex<Option<anyhow::Result<String>>>,
+    prepared: std::sync::atomic::AtomicBool,
+}
 
 impl StubSummarizer {
-    fn ok(outcome: SummarizeOutcome) -> Arc<Self> {
-        Arc::new(Self(std::sync::Mutex::new(Some(Ok(outcome)))))
+    fn replying(reply: anyhow::Result<String>) -> Arc<Self> {
+        Arc::new(Self {
+            reply: std::sync::Mutex::new(Some(reply)),
+            prepared: Default::default(),
+        })
     }
 
-    /// Whether the middleware actually dispatched to the summarizer. The
-    /// outcome is consumed on first call, so an untouched slot means the
-    /// stage was skipped — which is the whole point for a self-bounding tool.
-    fn was_called(&self) -> bool {
-        self.0.lock().expect("stub outcome lock").is_none()
+    /// Whether the middleware bound a summary call for this result at all.
+    fn was_prepared(&self) -> bool {
+        self.prepared.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 
-#[async_trait]
 impl PayloadSummarizer for StubSummarizer {
-    async fn maybe_summarize_in_parent(
+    fn prepare(
         &self,
         _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        _tool_name: &str,
-        _parent_task_hint: Option<&str>,
-        _raw: &str,
-    ) -> anyhow::Result<SummarizeOutcome> {
-        self.0
+    ) -> anyhow::Result<crate::inference::tokenjuice::generate::PreparedGenerate> {
+        self.prepared
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let reply = self
+            .reply
             .lock()
-            .expect("stub outcome lock")
+            .expect("stub reply lock")
             .take()
-            .expect("stub summarizer called more than once")
+            .expect("stub summarizer prepared more than once");
+        Ok(Box::new(move |_request| Box::pin(async move { reply })))
     }
+}
+
+/// A config whose summary threshold every test payload clears.
+fn summarizing_config() -> Arc<crate::config::Config> {
+    let mut config = crate::config::Config::default();
+    config.context.summarizer_payload_threshold_tokens = 1;
+    Arc::new(config)
 }
 
 fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         // Large enough that the byte-budget backstop never fires, so these
-        // tests observe the summarizer stage alone.
+        // tests observe the summary stage alone.
         budget_bytes: 10_000_000,
         payload_summarizer: Some(ps),
-        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
-        tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
-        runtime_config: None,
+        tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Full,
+        runtime_config: Some(summarizing_config()),
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
+}
+
+/// Run `fut` against a stubbed TinyJuice module, returning what it was sent.
+async fn with_module<F: std::future::Future>(
+    fut: F,
+) -> (
+    F::Output,
+    Vec<crate::inference::tokenjuice::types::CompactRequest>,
+) {
+    use crate::inference::tokenjuice::module_stub;
+    let recorded = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let output = module_stub::with_stub(module_stub::summarizing(recorded.clone()), fut).await;
+    let requests = recorded.lock().unwrap().clone();
+    (output, requests)
 }
 
 /// A minimal openhuman [`Tool`] for the tool-set–backed middlewares. Its
@@ -184,13 +210,13 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: 1_000_000,
         payload_summarizer: None,
-        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: true,
         tokenjuice_compression: AgentTokenjuiceCompression::Full,
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 
@@ -233,13 +259,13 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
     ToolOutputMiddleware {
         budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
         payload_summarizer: None,
-        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        focus_by_call: Default::default(),
     }
 }
 
