@@ -219,8 +219,25 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
         context_token,
         scope,
     } = call;
-    if !enabled || profile == AgentTokenjuiceCompression::Off {
+    // Nothing to ask the module for: the router is off and no summary call is
+    // registered, or this agent bypasses TinyJuice entirely.
+    if (!enabled && context_token.is_none()) || profile == AgentTokenjuiceCompression::Off {
         return CompactedToolOutput::unchanged(content);
+    }
+    #[cfg(test)]
+    if let Ok(stub) = module_stub::STUB.try_with(std::sync::Arc::clone) {
+        let response = stub(types::CompactRequest {
+            content,
+            tool_name: tool_name.to_string(),
+            enabled,
+            profile,
+            arguments,
+            focus,
+            context_token,
+            scope,
+        })
+        .await;
+        return compacted_from(response);
     }
     let config = match runtime_config {
         Some(config) => std::sync::Arc::clone(config),
@@ -289,6 +306,10 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
             }
         };
     record_savings(&response);
+    compacted_from(response)
+}
+
+fn compacted_from(response: types::CompactResponse) -> CompactedToolOutput {
     let summarized_from_bytes = (response.compressor == CompressorKind::LlmSummary.as_str())
         .then_some(response.original_bytes);
     CompactedToolOutput {
@@ -381,3 +402,7 @@ pub fn all_tokenjuice_controller_schemas() -> Vec<crate::core::ControllerSchema>
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "module_stub_tests.rs"]
+pub(crate) mod module_stub;
