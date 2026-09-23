@@ -213,7 +213,28 @@ pub fn update_action_dir(new_action_dir: PathBuf) -> Result<u64, String> {
         .map(|g| Arc::clone(&g))
         .map_err(|e| format!("[security:live_policy] policy lock poisoned: {e}"))?;
     let mut rebuilt: SecurityPolicy = (*current_policy).clone();
-    rebuilt.action_dir = new_action_dir;
+    let previous_action_dir = rebuilt.action_dir.clone();
+    rebuilt.action_dir = new_action_dir.clone();
+    // The action dir is a granted read-write root (see
+    // `SecurityPolicy::from_config`), and this path does not go through
+    // `from_config` — so move the grant with the root. Without both halves a
+    // Settings-driven working-folder change either leaves writes refused in the
+    // new folder, or leaves the old folder writable after the user moved off it.
+    let previous_path = previous_action_dir.to_string_lossy().to_string();
+    rebuilt
+        .trusted_roots
+        .retain(|r| r.path != previous_path || previous_action_dir == new_action_dir);
+    let new_path = new_action_dir.to_string_lossy().to_string();
+    let covers_workspace = rebuilt.workspace_dir.starts_with(&new_action_dir);
+    if !new_path.is_empty()
+        && !covers_workspace
+        && !rebuilt.trusted_roots.iter().any(|r| r.path == new_path)
+    {
+        rebuilt.trusted_roots.push(crate::security::TrustedRoot {
+            path: new_path,
+            access: crate::security::TrustedAccess::ReadWrite,
+        });
+    }
     {
         let mut guard = state
             .policy
