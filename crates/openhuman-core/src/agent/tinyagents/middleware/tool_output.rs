@@ -86,6 +86,37 @@ pub(crate) fn is_truncation_exempt(name: &str) -> bool {
     COMPACTION_EXEMPT_TOOLS.contains(&name)
 }
 
+/// Whether this call is a `web_fetch` that asked for the body **as sent**
+/// (`raw: true`), following `use_skill` into the tool it wraps exactly as
+/// [`artifact_read_target`] does.
+///
+/// Such a result is exempt from the payload summarizer (step 2). `web_fetch`
+/// normally returns HTML as Markdown — `tinyjuice::compressors::html::
+/// html_to_markdown`, which drops scripts and styling — and `raw: true` turns
+/// that off, so the payload is unconverted markup. Paying a full-price,
+/// *uncached* model call to have an LLM paraphrase minified JS and CSS is the
+/// worst trade in the ladder: one observed `raw: true` fetch of a 183 KB page
+/// cost 44,561 prompt tokens, over half that turn's entire summarizer budget,
+/// to re-describe a page the same turn had already read as clean Markdown.
+///
+/// It is also the wrong answer to the question asked. A caller who wants the
+/// body as sent wants the bytes, not a summary of them; steps 3–4 still bound
+/// the result and spill the remainder to an artifact the model pages with
+/// `file_read`, which returns the real markup, losslessly and without a model
+/// call.
+fn is_raw_fetch(tool_name: &str, args: &serde_json::Value) -> bool {
+    const FETCH_TOOL: &str = "web_fetch";
+    let (name, args) = if tool_name == "use_skill" {
+        match (args.get("tool").and_then(|t| t.as_str()), args.get("args")) {
+            (Some(inner), Some(inner_args)) => (inner, inner_args),
+            _ => return false,
+        }
+    } else {
+        (tool_name, args)
+    };
+    name == FETCH_TOOL && args.get("raw").and_then(|r| r.as_bool()).unwrap_or(false)
+}
+
 /// `after_tool`: apply the semantic payload summarizer (when configured) and
 /// then the hard per-tool-result byte cap to each tool result's model-facing
 /// content, before it enters the transcript. The graph analogue of the byte cap
@@ -111,6 +142,11 @@ pub(crate) struct ToolOutputMiddleware {
     /// `before_tool`, where the arguments are visible, and consumed in
     /// `after_tool`, where they are not.
     pub(crate) artifact_reads: Mutex<HashMap<String, ArtifactRead>>,
+    /// Calls that asked `web_fetch` for the raw body, keyed by call id. Filled
+    /// in `before_tool`, where the arguments are visible, and consumed in
+    /// `after_tool`, where they are not — the same seam `artifact_reads` uses,
+    /// and for the same reason. See [`is_raw_fetch`].
+    pub(crate) raw_fetches: Mutex<std::collections::HashSet<String>>,
 }
 
 impl ToolOutputMiddleware {
