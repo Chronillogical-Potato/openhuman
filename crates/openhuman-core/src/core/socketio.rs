@@ -323,6 +323,26 @@ pub struct WebChannelEvent {
     /// shown after [`Self::tool_display_label`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_display_detail: Option<String>,
+    /// Milliseconds the tool call took to execute. Present on `tool_result` /
+    /// `subagent_tool_result`, mirroring `AgentProgress::ToolCallCompleted`'s
+    /// `elapsed_ms` / `SubagentToolCallCompleted`'s `elapsed_ms` — carried
+    /// as a plain top-level field (in addition to `subagent.elapsed_ms` for
+    /// the sub-agent case) so a frontend that only reads flat fields still
+    /// gets real timing instead of guessing from wall-clock deltas.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elapsed_ms: Option<u64>,
+    /// Structured, tool-specific result payload copied from
+    /// [`tinytools::ToolResult::metadata`][tinytools_metadata] when it is a
+    /// JSON object carrying a `"kind"` discriminator, e.g.
+    /// `{"kind":"web_search","query":"...","provider":"...","results":[...]}`.
+    /// Present on `tool_result` / `subagent_tool_result` only for tools that
+    /// populate metadata of that shape (currently the web-search tools); the
+    /// model-facing `output` text is unaffected and stays byte-identical to
+    /// what the model itself saw.
+    ///
+    /// [tinytools_metadata]: tinytools::ToolResult
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured: Option<serde_json::Value>,
     /// Holistic token/cost/context usage for a completed turn (parent +
     /// sub-agents), carried on `chat_done`. Lets the UI footer show session
     /// tokens, USD cost, and real context-window utilisation, with a
