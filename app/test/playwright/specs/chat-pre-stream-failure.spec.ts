@@ -140,6 +140,11 @@ test.describe('Chat — a turn that fails before streaming (#5729)', () => {
 
   test.afterEach(async () => {
     await resetMock();
+    // A reset fault exercises the harness retry path. Let its bounded
+    // backoff (200 + 400 + 800ms) finish against the restored mock before the
+    // next browser spec mutates shared mock behaviour; otherwise a retry from
+    // this deliberately failed turn can consume the next spec's script.
+    await new Promise(resolve => setTimeout(resolve, 2_000));
   });
 
   /**
@@ -179,7 +184,10 @@ test.describe('Chat — a turn that fails before streaming (#5729)', () => {
     await openChat(page);
     await setMockBehavior(
       'httpFaultRules',
-      JSON.stringify([{ contains: '/chat/completions', mode: 'reset' }])
+      // A reset is retryable by design. Use a terminal request error here so
+      // the failed first turn cannot wake up later and consume this test's
+      // scripted recovery response.
+      JSON.stringify([{ contains: '/chat/completions', mode: 'status', status: 400 }])
     );
     await sendMessage(page, 'this turn dies before it streams');
 
@@ -251,7 +259,10 @@ test.describe('Chat — a turn that fails before streaming (#5729)', () => {
 
     // Clear the fault and prove the surface recovered rather than latching.
     await setMockBehavior('httpFaultRules', JSON.stringify([]));
-    await setMockBehavior('llmForcedResponses', JSON.stringify([{ content: RECOVERY_CANARY }]));
+    await setMockBehavior(
+      'llmStreamScript',
+      JSON.stringify([{ text: RECOVERY_CANARY }, { finish: 'stop' }])
+    );
 
     // Asserting only "the composer is editable" would be vacuous — it is
     // editable on a healthy run too. The recovery has to be demonstrated by a
