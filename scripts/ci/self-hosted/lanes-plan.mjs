@@ -82,6 +82,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     );
   }
   const rust = areas.rustCore || areas.rustTauri;
+  // ex63: the slot's persistent /cache disk keeps the frontend tools' caches
+  // (tsc build info, eslint and prettier caches) from job to job. All three
+  // key on file content, so a stale entry can only cost a re-check.
+  const nodeCache = ex63 ? "${CI_CACHE_DIR:-/cache}/node-tools" : null;
   const core = areas.rustCore;
 
   // ex63: one throwaway target dir per lane so lanes never queue on cargo's
@@ -206,19 +210,31 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "tsc",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app compile",
+          run: ex63
+            ? `mkdir -p ${nodeCache}/tsc && pnpm --filter openhuman-app compile --tsBuildInfoFile ${nodeCache}/tsc/app.tsbuildinfo`
+            : "pnpm --filter openhuman-app compile",
         },
         {
           name: "prettier",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app format:check",
+          // ex63: ci-lite's `format:check` is prettier plus rust:format:check;
+          // the static lane's rust-fmt already checks the root workspace, so
+          // only the (non-member) Tauri crate's rustfmt check stays here.
+          run: ex63
+            ? `pnpm --filter openhuman-app format:check:prettier --cache --cache-strategy content --cache-location ${nodeCache}/prettier-cache` +
+              " && cargo fmt --manifest-path crates/openhuman-app/Cargo.toml --all --check"
+            : "pnpm --filter openhuman-app format:check",
         },
         {
           name: "eslint",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app lint",
+          // `lint` already passes --cache; these point it at the persistent
+          // disk and key it on content (a fresh checkout resets every mtime).
+          run: ex63
+            ? `mkdir -p ${nodeCache}/eslint && pnpm --filter openhuman-app lint --cache-strategy content --cache-location ${nodeCache}/eslint/`
+            : "pnpm --filter openhuman-app lint",
         },
         {
           name: "i18n",
