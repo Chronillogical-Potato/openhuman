@@ -401,6 +401,11 @@ impl OpenHumanTurnPrelude {
             .clone()
     }
 
+    /// Rebuild every delegation-dependent tool view from the current cached
+    /// integration set. This mirrors the legacy refresh's replace-not-append
+    /// semantics, but keeps the mutable authority in hook state rather than a
+    /// second turn loop. A revoked delegate is removed from the executable
+    /// source, schema, and policy together before this request is prepared.
     fn refresh_delegation_tool_surface(&self) {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::agent_policy::ToolPolicyEngine;

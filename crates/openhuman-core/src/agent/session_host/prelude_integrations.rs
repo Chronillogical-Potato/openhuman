@@ -8,7 +8,6 @@ use tinyagents_runtime::ToolSnapshot;
 use super::OpenHumanTurnPrelude;
 
 impl OpenHumanTurnPrelude {
-
     /// Takes the declarations the tinyagents session restored for this
     /// thread. Called before the boundary refresh so the rebuilt surface can
     /// include them.
@@ -48,7 +47,6 @@ impl OpenHumanTurnPrelude {
         // its schema/policy in the same hook pass before the driver sees it.
         self.refresh_delegation_tool_surface();
     }
-
 
     pub(super) async fn refresh_cold_integrations(&self) {
         let should_fetch = !self
@@ -177,12 +175,6 @@ impl OpenHumanTurnPrelude {
         }
         mutable.workflows = latest;
     }
-
-    /// Rebuild every delegation-dependent tool view from the current cached
-    /// integration set. This mirrors the legacy refresh's replace-not-append
-    /// semantics, but keeps the mutable authority in hook state rather than a
-    /// second turn loop. A revoked delegate is removed from the executable
-    /// source, schema, and policy together before this request is prepared.
 }
 
 /// Live connected integrations, falling back to the last cached snapshot
