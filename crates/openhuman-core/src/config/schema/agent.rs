@@ -583,6 +583,7 @@ impl Default for AgentConfig {
         Self {
             compact_context: false,
             max_tool_iterations: default_agent_max_tool_iterations(),
+            chat_agent_id: None,
             max_history_messages: default_agent_max_history_messages(),
             parallel_tools: false,
             max_parallel_tools: default_max_parallel_tools(),
