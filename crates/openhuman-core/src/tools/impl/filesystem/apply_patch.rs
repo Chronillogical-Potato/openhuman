@@ -5,6 +5,14 @@
 //! every edit is validated up front (path, exact-match, uniqueness)
 //! before any file is written. If any edit fails validation, no files
 //! are touched.
+//!
+//! **Creating a file** is an empty `old_string` against a path that does not
+//! exist yet; `new_string` becomes the whole contents. Before that existed the
+//! tool could only edit, and an agent asked to produce a document had no route
+//! at all: it would create a placeholder with `shell` purely so there was
+//! something to patch (the life-scenario benchmark caught two 1-byte files
+//! containing `x`). An empty `old_string` against a file that *does* exist is
+//! still an error — "replace nothing" is ambiguous, not a create.
 
 use crate::agent::file_state;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
@@ -38,7 +46,9 @@ impl Tool for ApplyPatchTool {
     fn description(&self) -> &str {
         "Apply a batch of exact-string edits across one or more files atomically. \
          All edits are validated before any are written; validation failure rolls \
-         back the whole batch. Each edit is `{path, old_string, new_string, replace_all?}`."
+         back the whole batch. Each edit is `{path, old_string, new_string, replace_all?}`. \
+         To CREATE a new file, pass an empty `old_string` with the full contents \
+         as `new_string`; the path must not already exist."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -52,7 +62,10 @@ impl Tool for ApplyPatchTool {
                         "type": "object",
                         "properties": {
                             "path": { "type": "string" },
-                            "old_string": { "type": "string" },
+                            "old_string": {
+                                "type": "string",
+                                "description": "Exact text to replace. Empty means CREATE: the path must not exist and `new_string` becomes the whole file."
+                            },
                             "new_string": { "type": "string" },
                             "replace_all": { "type": "boolean", "default": false }
                         },
@@ -147,14 +160,23 @@ impl ApplyPatchTool {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
 
-            if old_string.is_empty() {
-                return Ok(ToolResult::error(format!(
-                    "edit[{i}]: `old_string` must not be empty"
-                )));
-            }
             if !path_policy.is_path_string_allowed(path) {
                 return Ok(ToolResult::error(format!(
                     "edit[{i}]: path not allowed: {path}"
+                )));
+            }
+            // An empty `old_string` is a create, and only against a path that
+            // does not exist yet. Resolved the same way every other edit is —
+            // joined onto `action_dir` — so "exists" means the same thing here
+            // as it does in the apply loop below.
+            let exists = path_policy.action_dir.join(path).exists()
+                || (std::path::Path::new(path).is_absolute()
+                    && std::path::Path::new(path).exists());
+            let create = old_string.is_empty();
+            if create && exists {
+                return Ok(ToolResult::error(format!(
+                    "edit[{i}]: `old_string` must not be empty for an existing file ({path}). \
+                     Pass the exact text to replace, or write to a new path to create a file."
                 )));
             }
             parsed.push(ParsedEdit {
@@ -163,6 +185,7 @@ impl ApplyPatchTool {
                 old_string: old_string.to_string(),
                 new_string: new_string.to_string(),
                 replace_all,
+                create,
             });
         }
 
