@@ -434,6 +434,7 @@ impl TurnContextMiddleware {
                 runtime_config: self.runtime_config,
                 tool_policies,
                 artifact_reads: Default::default(),
+                raw_fetches: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the
@@ -475,6 +476,7 @@ impl HandoffMiddleware {
             agent_id: config.agent_id,
             task_id: config.task_id,
             artifact_reads: Default::default(),
+            raw_fetches: Default::default(),
         }
     }
 }

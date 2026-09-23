@@ -24,6 +24,7 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut ctx = context();
 

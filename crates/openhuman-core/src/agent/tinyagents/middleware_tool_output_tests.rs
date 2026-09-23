@@ -461,6 +461,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
     mw.after_tool(
@@ -494,6 +495,7 @@ async fn tool_output_leaves_small_results_untouched() {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
     mw.after_tool(
@@ -534,6 +536,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
         runtime_config: None,
         tool_policies,
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
     assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -583,6 +586,7 @@ async fn a_tool_that_caps_itself_is_never_sent_to_the_summarizer() {
         runtime_config: None,
         tool_policies,
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
 
     let mut result = tool_result("terse", &"payload ".repeat(200));
@@ -633,6 +637,7 @@ async fn tool_output_honors_a_tools_own_cap() {
         runtime_config: None,
         tool_policies,
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
     mw.after_tool(
