@@ -225,7 +225,11 @@ fn complete_byok_route(config: &mut Config, explicit: &ExplicitRolePins) {
     let mut pinned: Vec<&str> = Vec::new();
     for (role, pinned_explicitly, slot) in [
         ("chat", explicit.chat, &mut config.chat_provider),
-        ("reasoning", explicit.reasoning, &mut config.reasoning_provider),
+        (
+            "reasoning",
+            explicit.reasoning,
+            &mut config.reasoning_provider,
+        ),
         ("agentic", explicit.agentic, &mut config.agentic_provider),
         ("coding", explicit.coding, &mut config.coding_provider),
     ] {
