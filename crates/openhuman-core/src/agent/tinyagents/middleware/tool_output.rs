@@ -386,9 +386,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 );
                 summarized_from_bytes = Some(bytes);
             }
-            let notice = compacted.notice.or_else(|| {
-                unprepared.then(crate::inference::tokenjuice::summary_failed_notice)
-            });
+            let notice = compacted
+                .notice
+                .or_else(|| unprepared.then(crate::inference::tokenjuice::summary_failed_notice));
             if let Some(notice) = notice {
                 tracing::warn!(
                     tool = tool_name,
