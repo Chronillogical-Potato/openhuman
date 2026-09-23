@@ -28,7 +28,10 @@ import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
 import ModelQualityPill from '@/components/chat/ModelQualityPill';
-import { useAuiEditCapabilities } from '@/features/conversations/components/aui/auiThreadState';
+import {
+  useAuiEditCapabilities,
+  useAuiReloadCapability,
+} from '@/features/conversations/components/aui/auiThreadState';
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -1050,6 +1053,23 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantActionBar: FC = () => {
+  // assistant-ui's own disabled predicate for Reload is
+  // `isRunning || isDisabled || role !== 'assistant'` — it never consults
+  // `capabilities.reload`, so the button ships enabled on every settled
+  // assistant message while the external-store adapter supplies no `onReload`
+  // and the runtime throws on click.
+  //
+  // Hoisted to a `const` rather than written inline for the same coverage
+  // reason as `editAction` in `UserActionBar`.
+  const canReload = useAuiReloadCapability();
+  const reloadAction = canReload ? (
+    <ActionBarPrimitive.Reload asChild>
+      <TooltipIconButton tooltip="Refresh">
+        <RefreshCwIcon />
+      </TooltipIconButton>
+    </ActionBarPrimitive.Reload>
+  ) : null;
+
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -1065,11 +1085,7 @@ const AssistantActionBar: FC = () => {
           </AuiIf>
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton tooltip="Refresh">
-          <RefreshCwIcon />
-        </TooltipIconButton>
-      </ActionBarPrimitive.Reload>
+      {reloadAction}
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
           <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">
