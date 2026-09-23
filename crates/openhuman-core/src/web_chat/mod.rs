@@ -26,6 +26,7 @@
 //! contract), `types.rs` (shared param/state types).
 
 mod event_bus;
+mod journal_shadow;
 mod ops;
 // Response delivery/segmentation for the web surface (folded in from the former
 // standalone `presentation` provider — it is the web channel's delivery formatter).
