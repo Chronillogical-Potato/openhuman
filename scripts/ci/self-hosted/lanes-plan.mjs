@@ -115,25 +115,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const withModules = (cmd) =>
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
-  // Non-instrumented, but needs the downloaded modules. On ex63 it rides the
-  // lint lane's graph instead of lengthening the coverage critical path; on
-  // hosted it stays in the coverage job beside the modules, as in ci-lite.
-  // The core doctests, as rust-coverage.sh runs them (OH_COV_DOCTESTS).
-  const doctests = {
-    name: "doctests",
-    when: core,
-    run: `bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc --features ${PRODUCT}`,
-  };
-  const juiceRegression = {
-    name: "tinyjuice-host-regression",
-    when: core,
-    needs: [ex63 ? "rust-cov:test-modules" : "test-modules"],
-    run: withModules(
-      "cargo test --lib --features modules" +
-        " openhuman::agent::tinyagents::middleware::tests::tool_output_tabulates_a_large_graph_for_a_non_exempt_tool" +
-        " -- --ignored --exact",
-    ),
-  };
+  // Not run on pull requests: the core doctests (an uninstrumented core build
+  // of their own) and the TinyJuice host-module regression (one test against
+  // the downloaded module). CI Lite runs both on every push to `main` that
+  // touches the Rust core (rust-coverage.sh and its rust-core-coverage job).
 
   /** @type {Lane[]} */
   const lanes = [
@@ -289,15 +274,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "rust-core-coverage",
           when: core,
           needs: ["test-modules"],
-          // ex63: the doctests (an uninstrumented core build of their own)
-          // run in rust-lint instead, off this lane's critical path.
-          env: {
-            OUT: "ci-out/lcov/lcov-core.info",
-            ...(ex63 ? { OH_COV_DOCTESTS: "0" } : {}),
-          },
+          // The doctests run on pushes to main instead (see above).
+          env: { OUT: "ci-out/lcov/lcov-core.info", OH_COV_DOCTESTS: "0" },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
-        ...(ex63 ? [] : [juiceRegression]),
       ],
     },
     {
@@ -314,11 +294,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings`,
         },
-        {
-          name: "clippy-default",
-          when: core,
-          run: "cargo clippy -p openhuman -- -D warnings",
-        },
+        // No separate `cargo clippy -p openhuman` (contributor set): clippy
+        // lints every workspace crate in the graph, and openhuman-embed's
+        // default features are exactly the core's, so embed-clippy already
+        // lints the core's library with them under -D warnings.
         {
           name: "embed-clippy",
           when: core,
@@ -349,7 +328,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           run: "bash scripts/check-prompt-budget.sh --verbose",
         },
-        ...(ex63 ? [juiceRegression, doctests] : []),
       ],
     },
     {
