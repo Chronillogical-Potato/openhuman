@@ -121,6 +121,9 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
         elapsed_ms: 42,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .expect("send progress");
