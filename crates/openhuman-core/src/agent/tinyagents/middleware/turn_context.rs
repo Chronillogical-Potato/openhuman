@@ -476,7 +476,6 @@ impl HandoffMiddleware {
             agent_id: config.agent_id,
             task_id: config.task_id,
             artifact_reads: Default::default(),
-            raw_fetches: Default::default(),
         }
     }
 }
