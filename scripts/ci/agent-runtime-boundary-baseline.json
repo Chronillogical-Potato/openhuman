@@ -464,21 +464,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 240,
+    "line": 239,
     "text": "if self.auto_save && crate::agent::turn_origin::current_is_user_authored() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 932,
+    "line": 931,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 1383,
+    "line": 1382,
     "text": "request_id: crate::agent::turn_origin::current_request_id(),",
     "occurrence": 1
   },
@@ -870,7 +870,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/integrations/task_sources/route.rs",
-    "line": 87,
+    "line": 88,
     "text": "with_origin(origin, apply_decision(run, &envelope))",
     "occurrence": 1
   },
@@ -1017,7 +1017,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/web_chat/ops/system_turn.rs",
-    "line": 88,
+    "line": 87,
     "text": "let result = with_origin(origin, agent.run_single(prompt))",
     "occurrence": 1
   },
