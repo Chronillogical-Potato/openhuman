@@ -66,7 +66,6 @@ async fn spawn_recording_provider() -> (String, Arc<Mutex<Vec<String>>>) {
                     }
                 }
                 let body = String::from_utf8_lossy(&buf[head_end..]).to_string();
-                eprintln!("DBGREQ {} :: {}", String::from_utf8_lossy(&buf[..head_end]).lines().next().unwrap_or(""), &body.chars().take(300).collect::<String>());
                 let streaming = body.contains("\"stream\":true");
                 recorded.lock().unwrap().push(body);
 
