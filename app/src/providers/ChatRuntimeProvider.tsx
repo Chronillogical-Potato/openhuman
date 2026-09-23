@@ -568,6 +568,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const finishChatDoneTurn = async (event: ChatDoneEvent, path: string) => {
+      // One store update: freeze the turn's trail, end the tail, reveal the
+      // persisted reply in the tail's slot. See `turnSettled`.
+      rtLog('turn_settled', { thread: event.thread_id, request: event.request_id, path });
+      dispatch(turnSettled({ threadId: event.thread_id, requestId: event.request_id }));
       rtLog('refresh_usage_counter', {
         thread: event.thread_id,
         request: event.request_id,
@@ -603,6 +607,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // new turn's narration/steps don't append onto the old one.
         dispatch(clearProcessingForThread({ threadId: event.thread_id }));
         dispatch(markInferenceTurnStreaming({ threadId: event.thread_id }));
+        if (event.request_id) {
+          dispatch(liveTurnStarted({ threadId: event.thread_id, requestId: event.request_id }));
+        }
         dispatch(
           setInferenceStatusForThread({
             threadId: event.thread_id,
@@ -1336,18 +1343,14 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
 
         dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
-        dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
-        dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
-        dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
-        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
-
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        if (existing.length > 0) {
-          const entries = existing.map(entry =>
-            entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
-          );
-          dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
-        }
+        // Nothing visible is cleared here. The streaming buffer, the status
+        // line and the running rows used to be torn down first, before the
+        // reply was even persisted, and every one of those was a render: the
+        // answer vanished, then reappeared above its own tools, then the tools
+        // moved back and remounted collapsed. The live tail now stays exactly
+        // as it is until `finishChatDoneTurn` swaps it for the persisted reply
+        // in one `turnSettled` update (the reply row is hidden behind the tail
+        // until then — see `buildRuntimeMessages`).
         if (!event.segment_total) {
           void (async () => {
             try {
