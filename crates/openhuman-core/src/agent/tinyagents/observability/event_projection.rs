@@ -557,7 +557,7 @@ impl EventListener for OpenhumanEventBridge {
                     .unwrap_or(0);
                 let elapsed_ms = outcome
                     .as_ref()
-                    .map(|(_, _, e, _)| *e)
+                    .map(|(_, _, e, ..)| *e)
                     .filter(|e| *e > 0)
                     .unwrap_or(stamped_elapsed);
                 // Tool result text, captured by the harness when
@@ -570,13 +570,33 @@ impl EventListener for OpenhumanEventBridge {
                 };
                 let output_chars = outcome
                     .as_ref()
-                    .map(|(_, _, _, c)| *c)
+                    .map(|(_, _, _, c, _)| *c)
                     .filter(|c| *c > 0)
                     .unwrap_or_else(|| output_text.chars().count());
+                // Structured, tool-specific result payload the middleware
+                // copied from `ToolResult.metadata` (e.g. web search results).
+                let structured = outcome.as_ref().and_then(|(.., s)| s.clone());
                 // Carry the classified failure onto whichever completion event
                 // this projects — main-agent OR sub-agent (#4459). Previously
                 // the sub-agent branch dropped it on the floor.
-                let failure = outcome.and_then(|(_, f, _, _)| f);
+                let failure = outcome.and_then(|(_, f, ..)| f);
+                // Recompute the label/detail with the REAL call arguments
+                // (unlike `ToolCallStarted`, this event's `input` is the
+                // actual arguments the harness captured), so a tool whose
+                // detail depends on its args — a search query, a target
+                // email — surfaces it here even when the started event
+                // couldn't.
+                let args_for_display = input.clone().unwrap_or(serde_json::Value::Null);
+                let (display_label, display_detail) =
+                    self.resolve_display(tool_name, &args_for_display);
+                tracing::debug!(
+                    call_id = call_id.as_str(),
+                    tool_name = tool_name.as_str(),
+                    success,
+                    elapsed_ms,
+                    has_structured = structured.is_some(),
+                    "[tool-presentation] projecting ToolCallCompleted with resolved label/detail"
+                );
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallCompleted {
                         call_id: call_id.as_str().to_string(),
@@ -588,6 +608,9 @@ impl EventListener for OpenhumanEventBridge {
                         elapsed_ms,
                         iteration,
                         failure,
+                        display_label,
+                        display_detail,
+                        structured,
                     }),
                     Some(s) => self.send(AgentProgress::SubagentToolCallCompleted {
                         agent_id: s.agent_id.clone(),
