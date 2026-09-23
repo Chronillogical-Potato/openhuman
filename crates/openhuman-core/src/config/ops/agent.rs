@@ -15,6 +15,12 @@ use super::loader::{load_config_with_timeout, snapshot_config_json};
 /// array wholesale.
 #[derive(Debug, Clone, Default)]
 pub struct AutonomySettingsPatch {
+    /// Master switch for the whole autonomy policy. Defaults to `false`
+    /// (`AutonomyConfig::enabled`): with it off, classification, the approval
+    /// gate, the allowlist, the action budget and containment are all inert,
+    /// and every other field in this patch has no effect until it is `true`.
+    /// `is_always_forbidden` applies either way.
+    pub enabled: Option<bool>,
     /// `"readonly" | "supervised" | "full"` (case-insensitive).
     pub level: Option<String>,
     pub workspace_only: Option<bool>,
@@ -84,6 +90,9 @@ pub async fn apply_autonomy_settings(
 ) -> Result<RpcOutcome<serde_json::Value>, String> {
     use crate::security::AutonomyLevel;
 
+    if let Some(enabled) = update.enabled {
+        config.autonomy.enabled = enabled;
+    }
     if let Some(level) = update.level {
         config.autonomy.level = match level.trim().to_ascii_lowercase().as_str() {
             "readonly" | "read_only" | "read-only" => AutonomyLevel::ReadOnly,
