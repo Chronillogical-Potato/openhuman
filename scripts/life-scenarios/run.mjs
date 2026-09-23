@@ -225,9 +225,16 @@ async function prepareHome(runDir) {
     "chat_onboarding_completed = true",
     "",
     "[autonomy]",
-    // The shipped desktop default. The gate stays installed and an approval
-    // responder answers it, rather than the usual headless shortcut of
-    // turning it off — a disabled gate measures a product nobody runs.
+    // The shipped desktop default is `enabled = false`: the policy is opt-in,
+    // because the product's agents run in containers and jails that already
+    // bound them. Written explicitly rather than left to the default so a
+    // reader of this file can see which product is being measured, and so
+    // flipping it to `true` is a one-line comparison arm.
+    //
+    // With it off, `gate_decision` answers Allow for every class, so nothing
+    // parks and the ApprovalResponder below has little to answer. That is the
+    // measurement, not a shortcut: see README.md.
+    "enabled = false",
     'level = "supervised"',
     "workspace_only = false",
     "",
@@ -291,15 +298,15 @@ class Core {
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
+      // Just this one now. It used to need OPENHUMAN_PROJECTS_DIR beside it:
+      // `action_dir` was only the base that relative tool paths are joined
+      // onto, and the *permission* to write came from a trusted root that
+      // `security/policy/enforcement.rs` granted for `default_projects_dir()`
+      // alone — so setting ACTION_DIR by itself got every file-tool write
+      // refused "Resolved path escapes workspace" (FINDINGS.md #1).
+      // `from_config` now grants the configured action dir itself, which is
+      // what this single variable proves end to end.
       OPENHUMAN_ACTION_DIR: actionDir,
-      // Both, and the second one is not redundant. `action_dir` is only the
-      // base that relative tool paths are joined onto; the *permission* to
-      // write comes from a trusted root, and `security/policy/enforcement.rs`
-      // grants one for `default_projects_dir()` — which reads
-      // OPENHUMAN_PROJECTS_DIR and knows nothing about OPENHUMAN_ACTION_DIR.
-      // Set ACTION_DIR alone and every file-tool write into it is refused with
-      // "Resolved path escapes workspace". See FINDINGS.md #1.
-      OPENHUMAN_PROJECTS_DIR: actionDir,
       RUST_LOG: process.env.RUST_LOG || "info",
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
