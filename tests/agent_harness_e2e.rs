@@ -544,8 +544,14 @@ encrypt = false
 // so a test can wait for `approval_request` and later `chat_done` without
 // reconnect gaps losing events in between.
 
-fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiver<Value> {
+/// Resolves once the core has subscribed this client: `/events` is a plain
+/// broadcast with no replay, so a turn sent before the subscription lands
+/// loses its early frames (a `tool_result` can be gone while `chat_done`, sent
+/// later, still arrives). The handler subscribes before it answers, so the
+/// response headers are the signal.
+async fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiver<Value> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
     tokio::spawn(async move {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(300))
@@ -558,6 +564,7 @@ fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiv
             .await
             .unwrap_or_else(|e| panic!("GET {events_url}: {e}"));
         assert!(resp.status().is_success(), "SSE HTTP {}", resp.status());
+        let _ = ready_tx.send(());
         let mut stream = resp.bytes_stream();
         // Accumulate raw bytes: a multi-byte UTF-8 char may be split across
         // chunk boundaries, so only complete "\n\n"-delimited frames are decoded.
@@ -586,6 +593,9 @@ fn spawn_sse_collector(events_url: String) -> tokio::sync::mpsc::UnboundedReceiv
             }
         }
     });
+    ready_rx
+        .await
+        .expect("SSE collector ended before subscribing");
     rx
 }
 
@@ -756,7 +766,7 @@ async fn scripted_stack_smoke_inner() {
     let stack = boot_stack().await;
 
     let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-smoke", stack.rpc_base));
+        spawn_sse_collector(format!("{}/events?client_id=harness-smoke", stack.rpc_base)).await;
     send_web_chat(
         &stack.rpc_base,
         100,
@@ -833,7 +843,8 @@ async fn multi_turn_state_persistence_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-multiturn",
         stack.rpc_base
-    ));
+    ))
+    .await;
 
     send_web_chat(
         &stack.rpc_base,
@@ -953,7 +964,8 @@ async fn subagent_delegation_happy_path_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-subagent",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         300,
@@ -1089,7 +1101,8 @@ async fn scheduling_clarification_flow_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-clarify",
         stack.rpc_base
-    ));
+    ))
+    .await;
 
     // ── turn 1: clarification question must reach the user ──
     send_web_chat(
@@ -1415,7 +1428,8 @@ async fn approval_gate_approve_flow_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-approve",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         500,
@@ -1525,7 +1539,7 @@ async fn approval_gate_deny_flow_inner() {
     pre_create_for_approval(&home, "denied-canary.txt");
 
     let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-deny", stack.rpc_base));
+        spawn_sse_collector(format!("{}/events?client_id=harness-deny", stack.rpc_base)).await;
     send_web_chat(
         &stack.rpc_base,
         510,
@@ -1650,7 +1664,8 @@ async fn subagent_with_approval_gate_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-subapproval",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         530,
@@ -1778,7 +1793,8 @@ async fn approval_gate_timeout_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-timeout",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         520,
@@ -1896,7 +1912,8 @@ async fn max_iterations_exceeded_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-maxiter",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         600,
@@ -1944,7 +1961,7 @@ async fn empty_provider_response_inner() {
     let stack = boot_stack().await;
 
     let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-empty", stack.rpc_base));
+        spawn_sse_collector(format!("{}/events?client_id=harness-empty", stack.rpc_base)).await;
     send_web_chat(
         &stack.rpc_base,
         610,
@@ -1996,7 +2013,7 @@ async fn provider_error_retry_inner() {
     let stack = boot_stack().await;
 
     let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-retry", stack.rpc_base));
+        spawn_sse_collector(format!("{}/events?client_id=harness-retry", stack.rpc_base)).await;
     send_web_chat(
         &stack.rpc_base,
         700,
@@ -2139,7 +2156,8 @@ async fn parallel_subagent_fanout_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-parallel",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         800,
@@ -2267,7 +2285,8 @@ async fn multi_hop_delegation_chain_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-multihop",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         810,
@@ -3209,7 +3228,8 @@ async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner()
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-call-ceiling",
         stack.rpc_base
-    ));
+    ))
+    .await;
     let started = std::time::Instant::now();
     send_web_chat(
         &stack.rpc_base,
@@ -3448,7 +3468,8 @@ async fn agent_installs_a_registry_skill_then_runs_it_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-skill-registry",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         700,
@@ -3712,7 +3733,8 @@ async fn orchestrator_hands_skill_requests_to_the_skill_specialists_directly_inn
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-skill-handoff",
         stack.rpc_base
-    ));
+    ))
+    .await;
     assert_hand_off_reaches_specialist(
         &stack,
         &mut events,
@@ -3783,7 +3805,8 @@ async fn orchestrator_cannot_install_a_skill_through_the_raw_registry_tool_inner
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-raw-skill-install",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         920,
@@ -3967,7 +3990,8 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-mcp-registry",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         803,
@@ -4095,7 +4119,8 @@ async fn orchestrator_hands_mcp_requests_to_the_mcp_specialists_directly_inner()
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-mcp-handoff",
         stack.rpc_base
-    ));
+    ))
+    .await;
     assert_hand_off_reaches_specialist(
         &stack,
         &mut events,
@@ -4150,7 +4175,8 @@ async fn orchestrator_cannot_call_a_connected_mcp_tool_through_the_raw_registry_
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-raw-mcp-call",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         943,
@@ -4578,7 +4604,8 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-todo-five",
         stack.rpc_base
-    ));
+    ))
+    .await;
 
     // Turn 1: the whole plan lands, first item in progress.
     send_web_chat(
@@ -4737,7 +4764,8 @@ async fn todo_list_rejects_two_items_in_progress_inner() {
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-todo-invariant",
         stack.rpc_base
-    ));
+    ))
+    .await;
     send_web_chat(
         &stack.rpc_base,
         700,
@@ -4821,7 +4849,7 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     let stack = boot_stack().await;
 
     let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-goal", stack.rpc_base));
+        spawn_sse_collector(format!("{}/events?client_id=harness-goal", stack.rpc_base)).await;
 
     // Turn 1: goal_set.
     send_web_chat(
