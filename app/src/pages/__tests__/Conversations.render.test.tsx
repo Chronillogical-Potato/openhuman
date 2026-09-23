@@ -8,7 +8,7 @@
  * previously-blocked lines that are now always rendered.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1545,6 +1545,37 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       });
       const banner = await screen.findByTestId('chat-send-error');
       expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not fire an armed silence timer after the page unmounts', async () => {
+    // The timer's callback outlives this component: it dispatches
+    // `clearRuntimeForThread` / `clearThreadInferenceActive` into the shared
+    // store. Left armed past teardown it would wipe the runtime of a turn that
+    // is still in flight, up to 120s after the user navigated away.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Prove a timer was actually armed, so this cannot pass by unmounting a
+      // page that never had one.
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      await act(async () => {
+        cleanup();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      // Still present: the cleanup cleared the timer, so nothing dispatched.
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
     } finally {
       vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
       vi.useRealTimers();

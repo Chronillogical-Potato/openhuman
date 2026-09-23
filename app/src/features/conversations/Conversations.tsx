@@ -858,6 +858,25 @@ const Conversations = ({
     sendingTimeoutsRef.current.set(threadId, timeout);
   };
 
+  // Drop every silence timer this component owns when it unmounts.
+  //
+  // The timer's callback is not inert after teardown: it dispatches
+  // `clearRuntimeForThread` and `clearThreadInferenceActive`, which mutate
+  // shared store state that outlives this component. Left armed, a timer from
+  // a thread the user has navigated away from can wipe the runtime of a turn
+  // that is still legitimately in flight, up to 120s later.
+  //
+  // Deliberately `[]` — unmount only. Keying this on `selectedThreadId` would
+  // clear the timer every time the user switched threads, which is exactly the
+  // watchdog this PR exists to arm.
+  useEffect(() => {
+    const timers = sendingTimeoutsRef.current;
+    return () => {
+      for (const timeout of timers.values()) clearTimeout(timeout);
+      timers.clear();
+    };
+  }, []);
+
   // A turn this client did not start still needs the 120s watchdog.
   //
   // `armSilenceTimer` is only called on the local send path, so a client that
