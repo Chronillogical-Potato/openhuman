@@ -6,6 +6,7 @@ import {
   UserMessageAttachments,
 } from '@/components/assistant-ui/attachment';
 import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigger-popover';
+import { DirectiveText } from '@/components/assistant-ui/directive-text';
 import { File } from '@/components/assistant-ui/file';
 import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
 import { Image } from '@/components/assistant-ui/image';
@@ -1115,7 +1116,19 @@ const UserMessage: FC = () => {
 
       <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
         <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
-          <MessagePrimitive.Parts components={{ File: UserFilePart, Image: UserImagePart }} />
+          {/* `Text: DirectiveText` because the composer can put directive syntax
+              into a user message without anyone opting in. The `/` popover is
+              built from `unstable_useSlashCommandAdapter`, which returns an
+              `action` behaviour and sets no `removeOnExecute`; the runtime's
+              `triggerSelectionResource` then takes `else insertDirective()`,
+              replacing the typed `/clear` with `formatter.serialize(item)` —
+              `:command[/clear]{name=clear}` — as an audit-trail chip. Without a
+              `Text` component here that renders as raw syntax and is sent to the
+              model verbatim. Assistant text is unaffected: it renders through
+              `MarkdownText` on the part switch below, a different slot. */}
+          <MessagePrimitive.Parts
+            components={{ Text: DirectiveText, File: UserFilePart, Image: UserImagePart }}
+          />
         </div>
         <div className="aui-user-action-bar-wrapper absolute inset-s-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
           <UserActionBar />
