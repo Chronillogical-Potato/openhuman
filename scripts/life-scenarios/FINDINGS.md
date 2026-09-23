@@ -10,31 +10,31 @@ orchestrator agent, approval gate on), BYOK to OpenRouter.
 
 **`deepseek/deepseek-v4.1-flash`** (run `2026-09-22T20-10-53`):
 
-| scenario | done | tools | in | cached | out | cost | latency |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| calendar-buffer | 0/1 | 0 | 5.7k | 94% | 94 | $0.0040 | 14.0s |
-| subscription-scan | 0/1 | 0 | 5.7k | 0% | 69 | $0.0181 | 7.4s |
-| baggage-policy | 0/1 | 0 | 5.6k | 0% | 104 | $0.0185 | 8.4s |
-| meal-plan | 0/2 | 0 | 5.6k | 0% | 78 | $0.0181 | 11.7s |
-| trip-itinerary | 0/1 | 0 | 5.7k | 94% | 136 | $0.0047 | 10.2s |
-| fact-check-publish | 0/3 | 0 | 5.7k | 0% | 111 | $0.0188 | 7.0s |
-| **total** | **0/9 (0%)** | **0** | 34.1k | 31.5% | 592 | **$0.0822** | 58.7s |
+| scenario           | done         | tools | in    | cached | out | cost        | latency |
+| ------------------ | ------------ | ----- | ----- | ------ | --- | ----------- | ------- |
+| calendar-buffer    | 0/1          | 0     | 5.7k  | 94%    | 94  | $0.0040     | 14.0s   |
+| subscription-scan  | 0/1          | 0     | 5.7k  | 0%     | 69  | $0.0181     | 7.4s    |
+| baggage-policy     | 0/1          | 0     | 5.6k  | 0%     | 104 | $0.0185     | 8.4s    |
+| meal-plan          | 0/2          | 0     | 5.6k  | 0%     | 78  | $0.0181     | 11.7s   |
+| trip-itinerary     | 0/1          | 0     | 5.7k  | 94%    | 136 | $0.0047     | 10.2s   |
+| fact-check-publish | 0/3          | 0     | 5.7k  | 0%     | 111 | $0.0188     | 7.0s    |
+| **total**          | **0/9 (0%)** | **0** | 34.1k | 31.5%  | 592 | **$0.0822** | 58.7s   |
 
 **`anthropic/claude-sonnet-5`** (run `2026-09-22T20-12-36`):
 
-| scenario | done | tools | appr | in | cached | out | cost | latency |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| calendar-buffer | 0/1 | 1 | 0 | 26.8k | 57% | 3.7k | $0.0546 | 42.6s |
-| subscription-scan | 9/11 | 4 | 4 | 49.8k | 91% | 1.4k | $0.0483 | 30.4s |
-| baggage-policy | 0/1 | 21 | 0 | 298.4k | 39% | 7.2k | $0.6880 | 147.4s |
-| meal-plan | 3/10 | 11 | 7 | 224.5k | 54% | 33.0k | $0.7971 | 290.5s |
-| trip-itinerary | 0/1 | 14 | 9 | 200.0k | 64% | 35.0k | $0.7825 | 444.1s |
-| fact-check-publish | 0/3 | 14 | 3 | 142.5k | 86% | 2.5k | $0.1341 | 89.6s |
-| **total** | **12/27 (44%)** | **65** | **23** | 941.9k | 58.1% | 82.9k | **$2.5046** | 1044.6s |
+| scenario           | done            | tools  | appr   | in     | cached | out   | cost        | latency |
+| ------------------ | --------------- | ------ | ------ | ------ | ------ | ----- | ----------- | ------- |
+| calendar-buffer    | 0/1             | 1      | 0      | 26.8k  | 57%    | 3.7k  | $0.0546     | 42.6s   |
+| subscription-scan  | 9/11            | 4      | 4      | 49.8k  | 91%    | 1.4k  | $0.0483     | 30.4s   |
+| baggage-policy     | 0/1             | 21     | 0      | 298.4k | 39%    | 7.2k  | $0.6880     | 147.4s  |
+| meal-plan          | 3/10            | 11     | 7      | 224.5k | 54%    | 33.0k | $0.7971     | 290.5s  |
+| trip-itinerary     | 0/1             | 14     | 9      | 200.0k | 64%    | 35.0k | $0.7825     | 444.1s  |
+| fact-check-publish | 0/3             | 14     | 3      | 142.5k | 86%    | 2.5k  | $0.1341     | 89.6s   |
+| **total**          | **12/27 (44%)** | **65** | **23** | 941.9k | 58.1%  | 82.9k | **$2.5046** | 1044.6s |
 
 Read the two tables together. The cheap model never calls a tool at all — it
 narrates and stops, so it is not a measurement of the harness. The strong model
-*works*: 65 tool calls, sixteen minutes, $2.50. And **four of six scenarios
+_works_: 65 tool calls, sixteen minutes, $2.50. And **four of six scenarios
 produced no output file whatsoever**, after spending $0.69, $0.78 and $0.13 on
 three of them. Findings 1 and 1b are why; [`DIAGNOSIS.md`](DIAGNOSIS.md) traces each one to its transcript.
 
@@ -43,17 +43,17 @@ three of them. Findings 1 and 1b are why; [`DIAGNOSIS.md`](DIAGNOSIS.md) traces 
 Same model, same six scenarios, after the fixes below
 (run `2026-09-23T11-25-37-650Z`):
 
-| scenario | done | tools | appr | in | cached | out | cost | latency |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| calendar-buffer | **8/8** | 9 | 0 | 77.0k | 81.1% | 16.0k | $0.3028 | 146.8s |
-| subscription-scan | **11/11** | 6 | 0 | 47.9k | 90.4% | 1.3k | $0.0466 | 14.2s |
-| baggage-policy | 0/1 | 27 | 0 | 491.9k | 71.0% | 15.6k | $0.7671 | 192.3s |
-| meal-plan | **10/10** | 8 | 0 | 63.2k | 89.9% | 12.6k | $0.2254 | 91.7s |
-| trip-itinerary | 0/1 | 22 | 0 | 1,572.0k | 64.4% | 129.9k | $1.9648 | 900.0s |
-| fact-check-publish | 0/3 | 31 | 0 | 220.2k | 80.1% | 12.4k | $0.3709 | 263.1s |
-| **total** | **29/34 (85%)** | **103** | **0** | 2,472.2k | 68.8% | 187.9k | **$3.6776** | 1608.1s |
+| scenario           | done            | tools   | appr  | in       | cached | out    | cost        | latency |
+| ------------------ | --------------- | ------- | ----- | -------- | ------ | ------ | ----------- | ------- |
+| calendar-buffer    | **8/8**         | 9       | 0     | 77.0k    | 81.1%  | 16.0k  | $0.3028     | 146.8s  |
+| subscription-scan  | **11/11**       | 6       | 0     | 47.9k    | 90.4%  | 1.3k   | $0.0466     | 14.2s   |
+| baggage-policy     | 0/1             | 27      | 0     | 491.9k   | 71.0%  | 15.6k  | $0.7671     | 192.3s  |
+| meal-plan          | **10/10**       | 8       | 0     | 63.2k    | 89.9%  | 12.6k  | $0.2254     | 91.7s   |
+| trip-itinerary     | 0/1             | 22      | 0     | 1,572.0k | 64.4%  | 129.9k | $1.9648     | 900.0s  |
+| fact-check-publish | 0/3             | 31      | 0     | 220.2k   | 80.1%  | 12.4k  | $0.3709     | 263.1s  |
+| **total**          | **29/34 (85%)** | **103** | **0** | 2,472.2k | 68.8%  | 187.9k | **$3.6776** | 1608.1s |
 
-**0/9 → 29/34.** The model that made *zero* tool calls in all six scenarios now
+**0/9 → 29/34.** The model that made _zero_ tool calls in all six scenarios now
 makes 103, because there is finally something to call: `policy-blocked` events
 are **0**, `file_write` is on the wire (`visible=17`), and no 1-byte placeholder
 files are left behind.
@@ -111,7 +111,7 @@ writing a new file. Full trace, with the transcript for each step, in
   documents an assistant produces.
 - **`use_skill` cannot reach `file_write`.** Withheld packs are documented as
   reachable through `use_skill`; for the orchestrator the `files` pack is
-  *closed* by `close_handed_off_packs` (#6302), and the call returns
+  _closed_ by `close_handed_off_packs` (#6302), and the call returns
   "Skill `files` has no tools available in this session."
 - **`apply_patch` cannot create a file** — `` `old_string` must not be empty ``,
   and it canonicalizes the target, so the file must already exist.
@@ -122,21 +122,71 @@ would have something to patch.
 
 ---
 
-## 1b. A capped turn withdraws every tool, and looks finished on the wire
+## 1b. A capped turn withdraws every tool — PARTLY FIXED
 
 **Severity: medium.** Three scenarios reached `max_model_calls=15` — and
 reached it partly because of the above.
 
+**Fixed:** the half that silently destroyed the deliverable. The reporting half
+(a capped turn being indistinguishable from a finished one on the wire) is
+still open — see the end of this section.
+
 At the last permitted call, `FinalCallWrapUpMiddleware` clears
 `request.tools` (25 of them), sets `tool_choice = None`, and injects
-`MAX_ITER_CHECKPOINT_INSTRUCTION`: *"You have reached the maximum number of tool
+`MAX_ITER_CHECKPOINT_INSTRUCTION`: _"You have reached the maximum number of tool
 calls allowed for this single turn … report the substance of what this turn
-produced … close with a brief **Still to do** line."* The turn is then
+produced … close with a brief **Still to do** line."_ The turn is then
 structurally unable to write anything, and the model correctly produces a
 status report.
 
-The mechanism is deliberate (#6014) and works as designed. The defect is that
-**the caller cannot tell.** `turn_run_finalize.rs:210` computes `hit_cap` and
+The mechanism is deliberate (#6014) and right for a turn whose product is
+_text_. It is exactly wrong for one whose product is a **file**: the model
+arrives at that call holding the finished content and has, structurally,
+nowhere to put it.
+
+`baggage-policy` is the clean demonstration. 27 tool calls of research, a
+correct summary of Delta's published limits in the reply — and
+`out/delta_baggage_guide.md` never written, so every grader check after
+`output_exists` was unreachable and it scored 0/1. The reply's own closing line
+was _"Still to do: … write `out/delta_baggage_guide.md`"_.
+
+**The fix.** One call earlier the belt is _narrowed_ to the tools that can only
+write (`DELIVERABLE_TOOLS` = `file_write`, `apply_patch`) rather than left
+whole, with its own instruction saying gathering is over and that a file
+marking its own gaps honestly beats no file. `shell` is deliberately excluded:
+it can redirect into a file but can equally run a crawler, so keeping it would
+leave the belt effectively unnarrowed. The same restoration of
+microcompact-cleared results the conclusion gets now runs here too — a call
+asked to write findings down has to be able to read them.
+
+The trade is explicit: **a capped turn spends its second-to-last round
+persisting rather than gathering**, and a turn with nothing to persist loses
+that round. That is the same trade the final call already made, moved one step
+earlier. The alternative — leaving the belt intact and the instruction
+advisory — is what `FinalCallWrapUpMiddleware`'s own doc comment records as
+having already failed.
+
+Guarded to `max_model_calls >= 3` (below that, reserving would leave no round
+in which anything could be gathered to write) and to belts that actually carry
+a writer (telling a read-only agent that "the only tools left are the ones that
+write files" would simply be false).
+
+Measured, on the same scenario and model that produced the 0/1:
+
+```
+model_calls=14 max_model_calls=15 tools_withdrawn=24 tools_kept=2
+   → file_write  out/delta_baggage_guide.md  (4 734 bytes, tool call 31 of 32)
+model_calls=15 max_model_calls=15 tools_withdrawn=26
+   → the conclusion, as before
+```
+
+**9/9, 100%**, 12 delta.com URLs cited. The turn still hit the cap — the
+reservation is precisely what turned it from a zero into a pass. The guide also
+marks the transatlantic Basic Economy fee "NOT STATED" rather than inventing
+it, which is what the prompt asked for and what the old run never got far
+enough to do.
+
+**Still open.** The other half of this finding: **the caller cannot tell.** `turn_run_finalize.rs:210` computes `hit_cap` and
 `flows/ops/builder.rs:336` consumes it, but `grep hit_cap` over `web_chat/`
 finds nothing and `TurnUsagePayload` (`core/socketio.rs:353`) has no cap field.
 On the path the desktop app uses, a truncated turn arrives as an ordinary
@@ -154,13 +204,13 @@ tinyjuice, and tinymcp") moved all three submodules to commits that are **not
 ancestors of their own upstream `main`**, and each is missing a symbol
 OpenHuman references:
 
-| submodule | pinned at | missing | referenced from |
-| --- | --- | --- | --- |
-| `vendor/tinyagents` | `6c3105e6` (side branch) | the whole `tinyagents-runtime` crate | `crates/openhuman-core/Cargo.toml:148` |
-| `vendor/tinyjuice` | `2f02042` (release tag) | `tinyjuice_bus::types::ReadIntent`, `compressors::html::html_to_markdown` | `inference/tokenjuice/schemas.rs:314`, `tools/impl/network/web_fetch.rs:250` |
-| `vendor/tinymcp` | `8b0627d` | `ConnectedServerOverview::instructions` | `agent/registry/agents/orchestrator/prompt.rs:437` |
+| submodule           | pinned at                | missing                                                                   | referenced from                                                              |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `vendor/tinyagents` | `6c3105e6` (side branch) | the whole `tinyagents-runtime` crate                                      | `crates/openhuman-core/Cargo.toml:148`                                       |
+| `vendor/tinyjuice`  | `2f02042` (release tag)  | `tinyjuice_bus::types::ReadIntent`, `compressors::html::html_to_markdown` | `inference/tokenjuice/schemas.rs:314`, `tools/impl/network/web_fetch.rs:250` |
+| `vendor/tinymcp`    | `8b0627d`                | `ConnectedServerOverview::instructions`                                   | `agent/registry/agents/orchestrator/prompt.rs:437`                           |
 
-The `tinyagents` one fails at *manifest resolution*, so it is not a compile
+The `tinyagents` one fails at _manifest resolution_, so it is not a compile
 error you can work around — `cargo check`, `cargo build`, `cargo test` and
 `cargo metadata` all fail before any code is read:
 
@@ -248,9 +298,9 @@ Two independent call sites record the same call:
 - `agent/tinyagents/observability/event_bridge.rs:401`
 - `agent/tinyagents/host/budget_gate.rs:292` (the `BudgetGate::record` impl)
 
-`turn_outcome.rs:110-113` documents the intended invariant — *"The bridge and
+`turn_outcome.rs:110-113` documents the intended invariant — _"The bridge and
 this fallback are mutually exclusive, so spend is recorded exactly once either
-way"* — and the third site (`turn_run_finalize.rs:175`) does honour it. The
+way"_ — and the third site (`turn_run_finalize.rs:175`) does honour it. The
 budget gate is not covered by that reasoning.
 
 `total_cost_usd` survives only by luck: the duplicate happens to price at
@@ -264,9 +314,9 @@ budget gate is not covered by that reasoning.
 
 `cost::catalog::estimate_cost_usd` returned `0.0` for
 `deepseek/deepseek-v4.1-flash` — a current, chargeable OpenRouter model. The
-budget gate's own comment says pricing there is *"deliberately not skipped,
+budget gate's own comment says pricing there is _"deliberately not skipped,
 because a zero-cost ledger would silently disable `check_budget` enforcement
-altogether"* — which is exactly what an unknown model produces.
+altogether"_ — which is exactly what an unknown model produces.
 
 An unknown model should price at a conservative fallback, not zero.
 `FALLBACK_PRICING` already exists in `agent/cost.rs:47-53`; the catalog path
@@ -293,7 +343,7 @@ was found for role 'chat'.
 ```
 
 `provider_for_role` resolves through `cloud_providers`, never through
-`inference_url`. The caller had to *also* hand-build a `cloud_providers` entry
+`inference_url`. The caller had to _also_ hand-build a `cloud_providers` entry
 whose endpoint matched and pin each agent-turn role to `<slug>:<model>` — a
 failure in a different subsystem, one call later, for a write the API accepted,
 and none of it discoverable from the error.
@@ -346,14 +396,14 @@ tools named explicitly, for comparison.
 Six consecutive turns on `deepseek/deepseek-v4.1-flash`, identical ~21 KB
 system prompt, each a fresh thread:
 
-| scenario | input | cached | cost |
-| --- | --- | --- | --- |
-| calendar-buffer | 5.7k | **94%** | $0.0040 |
-| subscription-scan | 5.7k | 0% | $0.0181 |
-| baggage-policy | 5.6k | 0% | $0.0185 |
-| meal-plan | 5.6k | 0% | $0.0181 |
-| trip-itinerary | 5.7k | **94%** | $0.0047 |
-| fact-check-publish | 5.7k | 0% | $0.0188 |
+| scenario           | input | cached  | cost    |
+| ------------------ | ----- | ------- | ------- |
+| calendar-buffer    | 5.7k  | **94%** | $0.0040 |
+| subscription-scan  | 5.7k  | 0%      | $0.0181 |
+| baggage-policy     | 5.6k  | 0%      | $0.0185 |
+| meal-plan          | 5.6k  | 0%      | $0.0181 |
+| trip-itinerary     | 5.7k  | **94%** | $0.0047 |
+| fact-check-publish | 5.7k  | 0%      | $0.0188 |
 
 The uncached turns cost **4.5×** the cached ones for the same prompt. Part of
 this is provider-side routing (OpenRouter can move a request between backends,
@@ -366,21 +416,21 @@ lines are the right next instrument here.
 Same six scenarios after the finding-1 fixes
 (run `2026-09-23T11-25-37-650Z`):
 
-| scenario | input | cached | cost |
-| --- | --- | --- | --- |
-| calendar-buffer | 77.0k | 81.1% | $0.3028 |
-| subscription-scan | 47.9k | **90.4%** | $0.0466 |
-| baggage-policy | 491.9k | 71.0% | $0.7671 |
-| meal-plan | 63.2k | 89.9% | $0.2254 |
-| trip-itinerary | 1,572.0k | **64.4%** | $1.9648 |
-| fact-check-publish | 220.2k | 80.1% | $0.3709 |
-| **total** | 2,472.2k | **68.8%** | **$3.6776** |
+| scenario           | input    | cached    | cost        |
+| ------------------ | -------- | --------- | ----------- |
+| calendar-buffer    | 77.0k    | 81.1%     | $0.3028     |
+| subscription-scan  | 47.9k    | **90.4%** | $0.0466     |
+| baggage-policy     | 491.9k   | 71.0%     | $0.7671     |
+| meal-plan          | 63.2k    | 89.9%     | $0.2254     |
+| trip-itinerary     | 1,572.0k | **64.4%** | $1.9648     |
+| fact-check-publish | 220.2k   | 80.1%     | $0.3709     |
+| **total**          | 2,472.2k | **68.8%** | **$3.6776** |
 
 No 0% rows, and the floor is 64.4% against an overall 31.5% before. **Do not
 read that as the caching bug being fixed** — nothing here touched inference
 routing. The honest reading is that the baseline was measuring something else:
 those turns were one or two model calls long (0 tool calls, ~5.7k input), so a
-single cold call *was* the whole scenario and one `served_by` miss showed up as
+single cold call _was_ the whole scenario and one `served_by` miss showed up as
 0%. These turns are 6–31 tool calls over 48k–1.6M input tokens, so a cold first
 call is amortised across many warm ones and the per-scenario number is dominated
 by the steady state.
@@ -389,14 +439,14 @@ What that does establish is the steady state itself, which the baseline could
 not: the prefix cache **does** hold across the turns of one thread, at 64–90%.
 The open question from this finding is unchanged and still needs the capture
 proxy — whether `cache_key` stays identical and `served_by` stops drifting
-*within* a thread. The first call of each scenario is still cold, and at these
+_within_ a thread. The first call of each scenario is still cold, and at these
 prompt sizes that is now the expensive part.
 
 ---
 
 ## 9. A turn with no hosted session retries a failing backend call ~3× per turn
 
-**Severity: low. Seconds of latency and log noise per turn.**
+**Severity: low in the product. Was severe in this rig — see below.**
 
 With no hosted session, every orchestrator roster build calls
 `GET /agent-integrations/composio/toolkits`, gets 401, and logs it:
@@ -412,6 +462,27 @@ That block repeats three times per turn — the roster is rebuilt once per
 `build`, and nothing negative-caches the 401 for the life of the turn. Measured
 cost: ~3 s of a 5 s pre-inference window.
 
+**The same 401 was not low-severity for `web_search_tool`, and that was the
+rig's fault.** `web_search_tool` posts to `/agent-integrations/parallel/search`
+on the same hosted backend, so it too came back `SESSION_EXPIRED` every time —
+but it was advertised to the model anyway (`tool spec filter: … web_search_tool`
+among 17 visible). So the model spent calls discovering the tool was dead and
+then routed around it by hand: in the 2026-09-23 run `baggage-policy` burned two
+calls on the 401s, improvised a DuckDuckGo HTML scrape, guessed delta.com paths
+and collected four 404s. That is most of how it reached the cap in finding 1b.
+
+Offering a capability the run's own configuration cannot serve is a defect in
+the benchmark, not in the product. `mock-search.mjs` now serves that one route
+locally, **mocking discovery but not retrieval**: it ranks a fixture corpus of
+_real_ URLs which the agent still fetches over the network for itself, so the
+`cites_delta_com` and dimension checks stay honest. See the README for why it
+takes over the whole backend base, and for the two things that were easy to get
+wrong — the per-user config dir race (`api_url` in `config.toml` loses to
+`users/<runtime-id>/config.toml`, so the override rides `BACKEND_URL` instead)
+and the `{ success, data }` envelope `parse_envelope` requires (returning a
+bare payload fails as `missing field 'success'`, which reads to the agent as a
+broken tool rather than an empty result — it gave up after six tries).
+
 ---
 
 ## 10. Smaller things
@@ -420,11 +491,11 @@ cost: ~3 s of a 5 s pre-inference window.
   suggests.** `system_prompt = "..."` fails to parse, because `PromptSource`
   deserializes as an externally-tagged enum and the accepted form is the table
   `[system_prompt] inline = '''...'''`. The validation error you get instead
-  reads *"missing `system_prompt` — custom definitions must set an inline
-  string or a file path"*, which describes the spelling that does not work.
+  reads _"missing `system_prompt` — custom definitions must set an inline
+  string or a file path"_, which describes the spelling that does not work.
 - **`approval.decide` param errors are fully redacted.** Calling it with `id`
   instead of `request_id` logs `param-validation error (message redacted;
-  skip-report)` and nothing else — no field name, no expectation. A headless
+skip-report)` and nothing else — no field name, no expectation. A headless
   caller sees only that approvals silently stop being granted while the turn
   parks.
 - **`direct` Composio needs three things together, two undocumented.**
