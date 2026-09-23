@@ -531,8 +531,33 @@ function useFollowBottom(
     const distanceFromBottom = () =>
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 
+    // Turning following ON needs only proximity to the bottom. Turning it OFF
+    // requires the reader to have moved UP, which is the part that matters:
+    //
+    // a growth-induced `scroll` event carries the reply's NEW `scrollHeight`
+    // against an unmoved `scrollTop`, so a bare proximity test would read "far
+    // from the bottom" and clear the flag for a reader who never moved —
+    // silently ending the follow this hook exists to provide. Requiring a
+    // decrease in `scrollTop` makes that impossible: content growth does not
+    // move it, scroll anchoring only ever moves it DOWN the document (it
+    // preserves the visual position when content is inserted above), and this
+    // hook's own `scrollTo` moves it to the maximum.
+    //
+    // `reasoning.tsx` solves the same problem by additionally requiring
+    // `scrollHeight` to be unchanged. That is right for a small preview box and
+    // wrong here: during a live stream the height changes on almost every
+    // event, so the reader's scroll away would be ignored and they would be
+    // dragged back down — breaking the "never yank a reader who left the
+    // bottom" contract. Keying on `scrollTop` alone holds in both cases.
+    let lastScrollTop = viewport.scrollTop;
+
     const onScroll = () => {
-      followRef.current = distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX;
+      if (distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX) {
+        followRef.current = true;
+      } else if (viewport.scrollTop < lastScrollTop) {
+        followRef.current = false;
+      }
+      lastScrollTop = viewport.scrollTop;
     };
     viewport.addEventListener('scroll', onScroll, { passive: true });
 
@@ -546,9 +571,9 @@ function useFollowBottom(
       // question is "was the reader at the bottom BEFORE this growth", and only
       // a value captured before it can answer that.
       //
-      // The flag is not stale: `scrollIntoView` and `scrollTo` fire `scroll`
-      // events too, so our own scrolls refresh it alongside the reader's. A
-      // height change is the one thing that must not refresh it.
+      // The flag is maintained by `onScroll` above, which only clears it on a
+      // genuine upward move by the reader — see the note there for why a bare
+      // proximity test would clear it on the growth being reacted to.
       if (!followRef.current) return;
       // `instant` overrides the viewport's `scroll-smooth`: a smooth animation
       // per token would lag permanently behind the stream.

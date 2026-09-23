@@ -237,7 +237,11 @@ test.describe('Chat Harness - Scroll Render', () => {
       });
 
       expect(Math.abs(afterScrollUp.scrollTop - targetTop)).toBeLessThan(40);
-      expect(afterScrollUp.scrollTop).toBeLessThan(tags.scrollTop - 20);
+      // Compare against `settled`, not `tags`. `targetTop` is derived from
+      // `settled.scrollTop`, so `tags.scrollTop` — captured before the
+      // transcript finished settling at the bottom — is a different baseline
+      // and would make this assertion measure a distance nobody scrolled.
+      expect(afterScrollUp.scrollTop).toBeLessThan(settled.scrollTop - 20);
       expect(
         afterScrollUp.scrollHeight - (afterScrollUp.scrollTop + afterScrollUp.clientHeight)
       ).toBeGreaterThan(settledRemaining + 10);
