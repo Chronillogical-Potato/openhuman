@@ -406,8 +406,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             let after_bytes = content.len();
             if after_bytes < before_bytes {
                 ctx.emit(AgentEvent::Compressed {
-                    from_tokens: estimate_output_tokens(before_bytes),
-                    to_tokens: estimate_output_tokens(after_bytes),
+                    from_tokens: before_tokens,
+                    to_tokens: estimate_output_tokens(&content),
                 });
             }
         }
