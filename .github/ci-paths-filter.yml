@@ -1,0 +1,177 @@
+---
+# Changed-area filters shared by every PR CI workflow (dorny/paths-filter).
+#
+# Read by ci-lite.yml's `changes` job and by the lane runner behind
+# ci-fast.yml / ci-fast-hosted.yml (ci-lanes.yml). One copy, so the two flows
+# cannot disagree about which areas a PR touches.
+#
+# An area switches a WHOLE suite on or off. Nothing downstream may narrow a
+# suite to the changed files (scripts/__tests__/ci-suite-scope.test.mjs).
+#
+# The self-reference entries arm every area when any CI workflow, this file or
+# the lane runner changes, so CI edits exercise the lanes they touch.
+frontend:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'scripts/ci-cancel-aware.sh'
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'app/package.json'
+  - 'app/index.html'
+  - 'app/public/**'
+  - 'app/src/**'
+  - 'app/scripts/**'
+  - 'app/test/vitest.config.ts'
+  - 'app/tsconfig*.json'
+  - 'app/vite.config.*'
+  - 'app/tailwind.config.*'
+  - 'app/postcss.config.*'
+i18n:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'app/src/**'
+docs:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'app/src/App.tsx'
+  - 'scripts/generate-architecture-docs.mjs'
+  - 'scripts/__tests__/generate-architecture-docs.test.mjs'
+  - 'gitbooks/developing/architecture/frontend.md'
+  - 'package.json'
+rust-core:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'scripts/ci/rust-coverage.sh'
+  # The product feature set decides what the Rust lanes below
+  # actually compile (clippy's `--features`, the test suite's, and
+  # rust-coverage.sh's). Changing it changes the code under
+  # test as surely as editing `Cargo.toml` does, so it has to arm
+  # this lane too — #5619 turned `hosting` on and, without this
+  # entry, resolved to `["rust-tauri"]` alone, skipping every lane
+  # that would have compiled the family it enabled.
+  - 'scripts/ci/product-features.*'
+  # The prompt-budget ratchet runs in rust-quality; editing its
+  # limits or the script must arm the lane that checks them.
+  - 'scripts/prompt-budget.limits'
+  - 'scripts/check-prompt-budget.sh'
+  - 'scripts/prompt-size-measure.sh'
+  # The feature-gate smoke owns the dependency-floor ratchet. Its
+  # limits and measurement logic must arm that lane themselves.
+  - 'scripts/kernel-floor.limits'
+  - 'scripts/check-kernel-floor.sh'
+  - 'scripts/kernel-floor.sh'
+  - 'scripts/dep-sim.py'
+  # The coverage-presence gate and its allowlist decide whether this
+  # lane FAILS, so they arm it for the same reason.
+  - 'scripts/ci/assert-coverage-presence.sh'
+  - 'scripts/ci/coverage-presence-allowlist.txt'
+  - 'scripts/ci/check-openhuman-rust-layout.mjs'
+  - 'scripts/ci/check-agent-runtime-boundary.mjs'
+  - 'scripts/ci/agent-runtime-boundary-baseline.json'
+  # The ignored-test ratchet lives in rust-quality. Its checker and
+  # its baseline must arm that lane themselves, or a PR that raises
+  # the baseline skips the only gate that reads it.
+  - 'scripts/ci/check-ignored-tests.mjs'
+  - 'scripts/ci/ignored-test-baseline.json'
+  - 'scripts/ci/list-feature-gated-rust-tests.mjs'
+  - 'Cargo.toml'
+  - 'crates/openhuman-core/**'
+  - 'crates/openhuman-embed/**'
+  - 'crates/openhuman-tinyhumans/**'
+  - 'crates/openhuman-tui/**'
+  - 'Cargo.lock'
+  - 'build.rs'
+  - '.cargo/config.toml'
+  - 'rust-toolchain.toml'
+  - 'src/**'
+  - 'tests/**'
+  - 'scripts/ci-cancel-aware.sh'
+  - 'scripts/check-linux-tls-dependencies.sh'
+  - 'scripts/test-rust-e2e.sh'
+  - 'scripts/test-rust-with-mock.sh'
+  # Every vendored crate, not an enumeration. `[patch.crates-io]`
+  # force-resolves all ten submodules by path, so ANY pointer bump
+  # changes what this crate compiles against. The previous list
+  # named two of them, so a bump to the other eight ran no openhuman
+  # Rust lane at all while PR CI Gate still reported success.
+  # Enumerating here failed the same way the release Docker
+  # submodule list did three times before #5596 replaced it with
+  # `--init --recursive`. Do not go back to a list.
+  - '.gitmodules'
+  - 'vendor/**'
+rust-tauri:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'Cargo.lock'
+  - '.cargo/config.toml'
+  - 'rust-toolchain.toml'
+  - 'crates/openhuman-app/**'
+  - 'scripts/ci-cancel-aware.sh'
+  # The shell is a second Cargo world with its own duplicate
+  # `[patch.crates-io]` table pointing at the same submodules, so it
+  # is affected by a bump exactly as the core is. It named none.
+  - '.gitmodules'
+  - 'vendor/**'
+# Shared mock backend + script self-tests. The mock backend every
+# E2E suite depends on had zero PR-lane coverage before this (its
+# own socket-auth tests never ran in CI) — arm the scripts
+# self-test job on any mock/script change.
+scripts:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'scripts/mock-api/**'
+  - 'scripts/*.mjs'
+  - 'scripts/__tests__/**'
+  # The inference capture proxy has node --test coverage in
+  # scripts/__tests__/ but lives under scripts/debug/.
+  - 'scripts/debug/*.mjs'
+  # The release-notes generator has node --test coverage in
+  # scripts/__tests__/ but lives one directory down, so the
+  # 'scripts/*.mjs' glob above never armed this lane for it — its
+  # tests could not have caught the v0.63.21 git ENOBUFS regression.
+  - 'scripts/release/*.mjs'
+  # Bash helpers with node --test coverage in scripts/__tests__/.
+  - 'scripts/ci/assert-coverage-presence.sh'
+  - 'scripts/test-rust-e2e.sh'
+  # Shared logic behind the gate CLIs, and the module-pin gate's own
+  # files. Without these a change to the checking logic would skip
+  # the lane that tests it — the gate would stop watching itself.
+  - 'scripts/lib/**'
+  - 'scripts/ci/check-module-pins.mjs'
+  - 'scripts/ci/check-submodule-monotonic.mjs'
+  - 'scripts/ci/module-pin-exemptions.json'
+  # The ignored-test ratchet has node --test coverage in
+  # scripts/__tests__/ — editing the gate must run the tests that
+  # pin its clauses, or the counter's anchoring and its
+  # cfg_attr guard can be loosened with nothing watching.
+  - 'scripts/ci/check-ignored-tests.mjs'
+# Test-wiring surface: a change here can orphan a test or add an
+# untested controller domain → run the inventory guard.
+inventory:
+  - '.github/workflows/**'
+  - 'package.json'
+  - 'crates/openhuman-core/src/core/all.rs'
+  - 'tests/**'
+  - 'scripts/**/*.test.mjs'
+  - 'scripts/tests/**'
+  - 'scripts/generate-test-inventory.mjs'
+# The drift guard scans every workflow plus these two direct
+# inputs, so changes to any of them must run it.
+toolchain-image:
+  - '.github/workflows/**'
+  - '.github/Dockerfile'
+  - 'rust-toolchain.toml'
+  - 'scripts/ci/check-toolchain-image.mjs'
+# Windows installer + its Pester unit test.
+install_ps1:
+  - '.github/workflows/ci-*.yml'
+  - '.github/ci-paths-filter.yml'
+  - 'scripts/ci/self-hosted/**'
+  - 'scripts/install.ps1'
+  - 'scripts/tests/OpenHumanWindowsInstall.Tests.ps1'

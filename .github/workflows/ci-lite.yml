@@ -75,158 +75,8 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v4
         with:
-          filters: |
-            frontend:
-              - '.github/workflows/ci-lite.yml'
-              - 'scripts/ci-cancel-aware.sh'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'app/package.json'
-              - 'app/index.html'
-              - 'app/public/**'
-              - 'app/src/**'
-              - 'app/scripts/**'
-              - 'app/test/vitest.config.ts'
-              - 'app/tsconfig*.json'
-              - 'app/vite.config.*'
-              - 'app/tailwind.config.*'
-              - 'app/postcss.config.*'
-            i18n:
-              - '.github/workflows/ci-lite.yml'
-              - 'app/src/**'
-            docs:
-              - '.github/workflows/ci-lite.yml'
-              - 'app/src/App.tsx'
-              - 'scripts/generate-architecture-docs.mjs'
-              - 'scripts/__tests__/generate-architecture-docs.test.mjs'
-              - 'gitbooks/developing/architecture/frontend.md'
-              - 'package.json'
-            rust-core:
-              - '.github/workflows/ci-lite.yml'
-              - 'scripts/ci/rust-coverage.sh'
-              # The product feature set decides what the Rust lanes below
-              # actually compile (clippy's `--features`, the test suite's, and
-              # rust-coverage.sh's). Changing it changes the code under
-              # test as surely as editing `Cargo.toml` does, so it has to arm
-              # this lane too — #5619 turned `hosting` on and, without this
-              # entry, resolved to `["rust-tauri"]` alone, skipping every lane
-              # that would have compiled the family it enabled.
-              - 'scripts/ci/product-features.*'
-              # The prompt-budget ratchet runs in rust-quality; editing its
-              # limits or the script must arm the lane that checks them.
-              - 'scripts/prompt-budget.limits'
-              - 'scripts/check-prompt-budget.sh'
-              - 'scripts/prompt-size-measure.sh'
-              # The feature-gate smoke owns the dependency-floor ratchet. Its
-              # limits and measurement logic must arm that lane themselves.
-              - 'scripts/kernel-floor.limits'
-              - 'scripts/check-kernel-floor.sh'
-              - 'scripts/kernel-floor.sh'
-              - 'scripts/dep-sim.py'
-              # The coverage-presence gate and its allowlist decide whether this
-              # lane FAILS, so they arm it for the same reason.
-              - 'scripts/ci/assert-coverage-presence.sh'
-              - 'scripts/ci/coverage-presence-allowlist.txt'
-              - 'scripts/ci/check-openhuman-rust-layout.mjs'
-              - 'scripts/ci/check-agent-runtime-boundary.mjs'
-              - 'scripts/ci/agent-runtime-boundary-baseline.json'
-              # The ignored-test ratchet lives in rust-quality. Its checker and
-              # its baseline must arm that lane themselves, or a PR that raises
-              # the baseline skips the only gate that reads it.
-              - 'scripts/ci/check-ignored-tests.mjs'
-              - 'scripts/ci/ignored-test-baseline.json'
-              - 'scripts/ci/list-feature-gated-rust-tests.mjs'
-              - 'Cargo.toml'
-              - 'crates/openhuman-core/**'
-              - 'crates/openhuman-embed/**'
-              - 'crates/openhuman-tinyhumans/**'
-              - 'crates/openhuman-tui/**'
-              - 'Cargo.lock'
-              - 'build.rs'
-              - '.cargo/config.toml'
-              - 'rust-toolchain.toml'
-              - 'src/**'
-              - 'tests/**'
-              - 'scripts/ci-cancel-aware.sh'
-              - 'scripts/check-linux-tls-dependencies.sh'
-              - 'scripts/test-rust-e2e.sh'
-              - 'scripts/test-rust-with-mock.sh'
-              # Every vendored crate, not an enumeration. `[patch.crates-io]`
-              # force-resolves all ten submodules by path, so ANY pointer bump
-              # changes what this crate compiles against. The previous list
-              # named two of them, so a bump to the other eight ran no openhuman
-              # Rust lane at all while PR CI Gate still reported success.
-              # Enumerating here failed the same way the release Docker
-              # submodule list did three times before #5596 replaced it with
-              # `--init --recursive`. Do not go back to a list.
-              - '.gitmodules'
-              - 'vendor/**'
-            rust-tauri:
-              - '.github/workflows/ci-lite.yml'
-              - 'Cargo.lock'
-              - '.cargo/config.toml'
-              - 'rust-toolchain.toml'
-              - 'crates/openhuman-app/**'
-              - 'scripts/ci-cancel-aware.sh'
-              # The shell is a second Cargo world with its own duplicate
-              # `[patch.crates-io]` table pointing at the same submodules, so it
-              # is affected by a bump exactly as the core is. It named none.
-              - '.gitmodules'
-              - 'vendor/**'
-            # Shared mock backend + script self-tests. The mock backend every
-            # E2E suite depends on had zero PR-lane coverage before this (its
-            # own socket-auth tests never ran in CI) — arm the scripts
-            # self-test job on any mock/script change.
-            scripts:
-              - '.github/workflows/ci-lite.yml'
-              - 'scripts/mock-api/**'
-              - 'scripts/*.mjs'
-              - 'scripts/__tests__/**'
-              # The inference capture proxy has node --test coverage in
-              # scripts/__tests__/ but lives under scripts/debug/.
-              - 'scripts/debug/*.mjs'
-              # The release-notes generator has node --test coverage in
-              # scripts/__tests__/ but lives one directory down, so the
-              # 'scripts/*.mjs' glob above never armed this lane for it — its
-              # tests could not have caught the v0.63.21 git ENOBUFS regression.
-              - 'scripts/release/*.mjs'
-              # Bash helpers with node --test coverage in scripts/__tests__/.
-              - 'scripts/ci/assert-coverage-presence.sh'
-              - 'scripts/test-rust-e2e.sh'
-              # Shared logic behind the gate CLIs, and the module-pin gate's own
-              # files. Without these a change to the checking logic would skip
-              # the lane that tests it — the gate would stop watching itself.
-              - 'scripts/lib/**'
-              - 'scripts/ci/check-module-pins.mjs'
-              - 'scripts/ci/check-submodule-monotonic.mjs'
-              - 'scripts/ci/module-pin-exemptions.json'
-              # The ignored-test ratchet has node --test coverage in
-              # scripts/__tests__/ — editing the gate must run the tests that
-              # pin its clauses, or the counter's anchoring and its
-              # cfg_attr guard can be loosened with nothing watching.
-              - 'scripts/ci/check-ignored-tests.mjs'
-            # Test-wiring surface: a change here can orphan a test or add an
-            # untested controller domain → run the inventory guard.
-            inventory:
-              - '.github/workflows/**'
-              - 'package.json'
-              - 'crates/openhuman-core/src/core/all.rs'
-              - 'tests/**'
-              - 'scripts/**/*.test.mjs'
-              - 'scripts/tests/**'
-              - 'scripts/generate-test-inventory.mjs'
-            # The drift guard scans every workflow plus these two direct
-            # inputs, so changes to any of them must run it.
-            toolchain-image:
-              - '.github/workflows/**'
-              - '.github/Dockerfile'
-              - 'rust-toolchain.toml'
-              - 'scripts/ci/check-toolchain-image.mjs'
-            # Windows installer + its Pester unit test.
-            install_ps1:
-              - '.github/workflows/ci-lite.yml'
-              - 'scripts/install.ps1'
-              - 'scripts/tests/OpenHumanWindowsInstall.Tests.ps1'
+          # Shared with ci-lanes.yml; see the header of that file.
+          filters: .github/ci-paths-filter.yml
 
   frontend-checks:
     name: Frontend Checks (quality, i18n, docs, coverage)
@@ -685,61 +535,8 @@ jobs:
         run: bash scripts/check-kernel-floor.sh --verbose
 
       - name: Guard — the removal simulator still agrees with cargo
-        # scripts/dep-sim.py projects the effect of cutting a dependency cohort,
-        # and every gating decision in the kernelization program is sized with
-        # it. It parses `cargo tree` precisely so it cannot drift from cargo's
-        # own feature resolution — an earlier version walked `cargo metadata`'s
-        # resolve graph instead and over-reported by 36 crates, counting
-        # dev-dependencies and unenabled target-specific edges.
-        #
-        # This asserts the calibration still holds. If it fails, every
-        # projection built on the simulator is suspect until it is fixed.
-        #
-        # The number is the Linux name count of the `flows` profile, so it moves
-        # whenever scripts/kernel-floor.limits does and belongs in the same PR.
-        # 264 -> 265 on 2026-08-21: the tinymemory #76/#77 bump adds exactly one
-        # name, `tinymemory-bus`. 265 -> 267 on 2026-08-22: the MCP extraction
-        # adds `tinymcp` and `tinymcp-bus`. 267 -> 268 on 2026-08-22: language
-        # runtimes moved behind the `tinyruntime` TinyBus module, adding
-        # `tinyruntime-bus`. 268 -> 269 on 2026-08-23: the TinyJuice wire
-        # contract moved into `tinyjuice-bus`, which cannot be gated because
-        # `inference::tokenjuice` compiles in every build. 269 -> 270 on
-        # 2026-08-29: `tinytools` becomes the dependency behind the `Tool`
-        # trait/types, which cannot be gated because `tools/` is kernel
-        # surface — zero transitive additions, native build count unchanged
-        # at 2. 270 -> 273 on 2026-08-30: the `tinyflows` crate's catalog/
-        # storage/copilot surface split into three sibling path-crates in the
-        # SAME vendored workspace (`tinyflows-catalog`, `tinyflows-sqlite`,
-        # `tinyflows-copilot`) — one name each, no new external crate, native
-        # build count unchanged at 2. 273 -> 275 on 2026-08-31: the compatible
-        # dependency refresh recorded in `kernel-floor.limits` raised the
-        # resolved Linux name count while keeping the native build count at 2.
-        # 269 -> 270 on 2026-09-13: the core/wrapper split adds the required
-        # `openhuman-rpc` workspace crate; its five dependencies were already
-        # in the profile, so this is one package/name and no native build.
-        # 270 -> 271 on 2026-09-18: `tinytools-agent` becomes the shared
-        # provider-neutral tool-call protocol crate; it adds one Rust crate
-        # and no native build dependency.
-        # See the kernel-floor history for why
-        # these raises are temporary/justified. macOS resolves one higher per
-        # the host skew recorded in the limits history — this expects the CI
-        # host.
-        #
-        # This number MUST move in lockstep with scripts/kernel-floor.limits —
-        # it is a second source of truth for the same Linux name count and is
-        # not derived from that file. Bump both in the same PR that raises
-        # (or lowers) the floor.
-        # 271 -> 275 on 2026-09-18: the inference migration replaces the
-        # monolithic `tinyinference` package with four additional resolved
-        # packages in the flows profile; native build count remains 2.
-        # 275 -> 279 on 2026-09-20: the required TinyAgents runtime/session/
-        # graph split adds four unique crate names without native dependencies.
-        # 279 -> 277 on 2026-09-20: the merged fresh-turn and cost-routing
-        # dependency refresh sheds two of those resolved names again.
-        # 277 -> 280 on 2026-09-22: TinyAgents 2.1.2 moves its required
-        # runtime/session/graph split into the harness path; it adds three
-        # crate names and no native build dependency.
-        run: python3 scripts/dep-sim.py --cut-nothing --expect-names 280
+        # History and lockstep rule: see scripts/ci/check-dep-sim-calibration.sh.
+        run: bash scripts/ci/check-dep-sim-calibration.sh
 
       - name: Guard — new feature-gated test modules must be acknowledged
         # Self-maintaining coverage: the set of source files that #[cfg]-gate a test on
@@ -748,58 +545,7 @@ jobs:
         # author then adds it here AND, if it can hold an ungated-assert regression of
         # the #5022 class, extends the gate-contract `cargo test` filters above. Prevents the
         # smoke lane from silently under-covering as the gate surface grows.
-        run: |
-          set -euo pipefail
-          EXPECTED=$(cat <<'EOF'
-          agent/harness/builtin_definitions_tests.rs
-          agent/harness/definition_tests.rs
-          agent/session_host/builder/factory.rs
-          agent/session_host/turn/tools.rs
-          agent/subagent_host/tool_prep_tests.rs
-          agent/registry/agents/loader.rs
-          agent/registry/agents/loader_tests_builtin_registration_tests.rs
-          agent/registry/agents/loader_tests_orchestrator_tier_tests.rs
-          agent/registry/agents/loader_tests_specialist_agents_tests.rs
-          agent/registry/agents/mod.rs
-          agent/tinyagents/mod.rs
-          config/migrations/retire_local_whisper_stt_tests.rs
-          core/all.rs
-          core/all_tests.rs
-          core/cli_tests.rs
-          core/dispatch_tests.rs
-          core/jsonrpc.rs
-          core/jsonrpc_tests.rs
-          core/legacy_aliases_tests.rs
-          core/runtime/services.rs
-          flows/mod.rs
-          mcp/server/resources.rs
-          mcp/server/tools/mod.rs
-          platform/socket/event_handlers.rs
-          platform/socket/ops.rs
-          skills/bundled/mod.rs
-          skills/mod.rs
-          skills/search.rs
-          tools/impl/network/http_request.rs
-          tools/ops.rs
-          tools/ops_tests.rs
-          tools/ops_tests_capability_gating_tests.rs
-          tools/ops_tests_default_registry_tests.rs
-          tools/ops_tests_domain_family_tests.rs
-          tools/registry/ops_tests.rs
-          tools/registry/schemas_tests.rs
-          voice/compile_status_tests.rs
-          web3/mod.rs
-          web3/stub.rs
-          web3/wallet/stub.rs
-          web3/x402/stub.rs
-          EOF
-          )
-          ACTUAL=$(node scripts/ci/list-feature-gated-rust-tests.mjs | sort -u)
-          if ! diff <(echo "$EXPECTED" | sed 's/^ *//' | sort -u) <(echo "$ACTUAL"); then
-            echo "::error::Gated-test file set changed. Update the EXPECTED allowlist in the rust-feature-gate-smoke lane, and extend the gate-contract 'cargo test' filters if the new module can carry an ungated-assert regression (see #5022)."
-            exit 1
-          fi
-          echo "gate-contract test coverage allowlist is current"
+        run: bash scripts/ci/check-gated-test-allowlist.sh
 
   # Report-only (#5046). Measures steady-state RSS of an embedded openhuman_core
   # agent roster and uploads the raw samples + a human summary. Deliberately NOT
@@ -1244,17 +990,7 @@ jobs:
       # each source contract to its registry artifact version, so make that
       # metadata available explicitly without widening the main checkout.
       - name: Fetch submodule tags for module pin verification
-        run: |
-          for module in \
-            vendor/tinydocs vendor/tinywallet vendor/tinymemory vendor/tinyjuice \
-            vendor/tinyvoice vendor/tinyruntime vendor/tinymcp vendor/tinyconnectors
-          do
-            if [ "$(git -C "$module" rev-parse --is-shallow-repository)" = true ]; then
-              git -C "$module" fetch --unshallow --tags origin
-            else
-              git -C "$module" fetch --tags origin
-            fi
-          done
+        run: bash scripts/ci/fetch-submodule-tags.sh
 
       # Nine subsystems load as downloaded cdylib modules and each is pinned
       # twice: once as a submodule (the contract compiled here) and once as a

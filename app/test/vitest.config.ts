@@ -6,6 +6,13 @@ import { fileURLToPath } from "url";
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(configDir, "..");
 
+// One worker by default. CI lanes on bigger machines opt in to more with
+// VITEST_MAX_WORKERS (scripts/ci/self-hosted/lanes-plan.mjs); anything that is
+// not a positive integer keeps the default.
+const requestedWorkers = Number.parseInt(process.env.VITEST_MAX_WORKERS ?? "", 10);
+const maxWorkers =
+  Number.isInteger(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 1;
+
 export default defineConfig({
   root: projectRoot,
   plugins: [
@@ -35,7 +42,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    maxWorkers: 1,
+    maxWorkers,
     minWorkers: 1,
     // Clear call history between tests but keep mock implementations from setup.ts
     // (mockReset/restoreMocks wipe vi.fn implementations and break shared mocks like getBackendUrl).
