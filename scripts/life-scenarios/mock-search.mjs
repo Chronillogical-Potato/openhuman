@@ -211,6 +211,18 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
     res.end(payload);
   };
 
+  /**
+   * The envelope every backend response is unwrapped from —
+   * `integrations/client/errors.rs::parse_envelope` deserializes
+   * `{ success, data, error }` and hands back `data`.
+   *
+   * Returning the bare payload instead fails as `missing field 'success'`, and
+   * fails *late*: the tool reports a malformed-response error rather than an
+   * empty result, so the agent concludes search is broken and abandons the
+   * task. That is exactly what the first run of this mock did, six times over.
+   */
+  const ok = (res, data) => json(res, 200, { success: true, data });
+
   const search = (body) => {
     // The core sends Parallel's shape: an `objective` plus `searchQueries`,
     // with the result count under `excerpts.maxResults`.
@@ -284,9 +296,13 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
         req.method === "POST"
       ) {
         try {
-          return json(res, 200, search(body));
+          return ok(res, search(body));
         } catch (e) {
-          return json(res, 500, { error: `mock search failed: ${e.message}` });
+          return json(res, 500, {
+            success: false,
+            data: null,
+            error: `mock search failed: ${e.message}`,
+          });
         }
       }
 
@@ -294,20 +310,18 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
       // for. Answering them keeps a fixed auth failure out of the log so what
       // remains is the run's own behaviour.
       if (p === "/teams/me/usage" && req.method === "GET") {
-        return json(res, 200, {
-          usage: {},
-          limits: {},
-          plan: "life-scenarios-mock",
-        });
+        return ok(res, { usage: {}, limits: {}, plan: "life-scenarios-mock" });
       }
       if (p === "/agent-integrations/composio/toolkits") {
         // Empty on purpose: Composio is served by `mock-composio.mjs` over the
         // direct base, so this list must not compete with it.
-        return json(res, 200, { items: [], total_items: 0 });
+        return ok(res, { items: [], total_items: 0 });
       }
 
       ctx.flush();
       return json(res, 404, {
+        success: false,
+        data: null,
         error: `mock search backend: unhandled ${req.method} ${p}`,
       });
     });
