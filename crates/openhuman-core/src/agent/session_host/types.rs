@@ -519,6 +519,25 @@ pub struct SessionHostBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
+    /// The session's own definition, when the caller has one rather than a
+    /// registry id to name.
+    ///
+    /// A hosted root invocation resolves its agent id against the host
+    /// catalogue before it composes a message, and refuses the turn when the
+    /// id is not there. `from_config_with_definition` stamps a caller's
+    /// definition on the session for exactly that reason; a direct builder
+    /// caller had no equivalent, so its only catalogue was the process-wide
+    /// [`AgentDefinitionRegistry`] — read once from `<workspace>/agents/*.toml`
+    /// at startup, with no refresh.
+    ///
+    /// Set here it becomes
+    /// [`OpenHumanHostBase::session_definition`](crate::agent::tinyagents::host::OpenHumanHostBase::session_definition),
+    /// which outranks the registry for this session's own id.
+    ///
+    /// `None` (the default) leaves every existing caller as it was.
+    ///
+    /// [`AgentDefinitionRegistry`]: crate::agent::harness::definition::AgentDefinitionRegistry
+    pub(super) session_definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated
