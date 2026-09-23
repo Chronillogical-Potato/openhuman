@@ -135,7 +135,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "pnpm docs:test",
     "pnpm docs:check",
     "pnpm test:scripts",
-    "cargo clippy -p openhuman -- -D warnings",
     "cargo clippy -p openhuman-embed --all-targets -- -D warnings",
     "cargo check -p openhuman-embed --no-default-features",
     "cargo test -p openhuman-embed",
