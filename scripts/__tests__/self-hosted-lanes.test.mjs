@@ -91,11 +91,14 @@ test("doctests and the TinyJuice regression are left to pushes to main", () => {
   }
   // ...where CI Lite still runs them.
   const lite = fs.readFileSync(
-    path.join(REPO_ROOT, ".github/workflows/ci-lite.yml"),
+    path.join(repoRoot, ".github/workflows/ci-lite.yml"),
     "utf8",
   );
   assert.match(lite, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/);
-  assert.match(lite, /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/);
+  assert.match(
+    lite,
+    /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/,
+  );
   assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
 });
 
