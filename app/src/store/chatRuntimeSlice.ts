@@ -2109,8 +2109,68 @@ const chatRuntimeSlice = createSlice({
         state.inferenceTurnLifecycleByThread[action.payload.threadId] = 'streaming';
       }
     },
+    /** Record the primary turn now live on a thread; see {@link ChatRuntimeState.liveRequestIdByThread}. */
+    liveTurnStarted: (state, action: PayloadAction<{ threadId: string; requestId: string }>) => {
+      const { threadId, requestId } = action.payload;
+      if (!requestId || state.parallelRequestThreads[requestId] !== undefined) return;
+      state.liveRequestIdByThread[threadId] = requestId;
+    },
+    /**
+     * Settle the live turn in ONE store transition.
+     *
+     * Before this existed `chat_done` settled a turn in four separate steps
+     * (clear the streaming buffer, settle the rows, append the reply after an
+     * RPC, then end the lifecycle after another), and each step was a render
+     * of an intermediate state nobody designed: the answer vanished, then
+     * appeared ABOVE its own tools while the tail was pushed one slot down and
+     * remounted, then the tools moved back and remounted again collapsed.
+     *
+     * Here the reply is already in the thread cache (appended while the tail
+     * still stood in for it — `buildRuntimeMessages` hides the live turn's own
+     * rows while its tail is minted), so ending the tail and revealing the row
+     * happen in the same render, at the same index, with the same parts:
+     *
+     * - the live rows and transcript are frozen under the turn's request id
+     *   (running rows settled to `success`: `chat_done` means the turn
+     *   finished), which is what the settled message renders from;
+     * - the streaming buffer, status line, parked gates and live-turn id are
+     *   cleared;
+     * - the lifecycle ends, so the tail is no longer minted.
+     *
+     * Queued follow-ups are deliberately left alone: they are flushed after the
+     * reply and dropped by {@link endInferenceTurn}, as before.
+     */
+    turnSettled: (state, action: PayloadAction<{ threadId: string; requestId?: string }>) => {
+      const { threadId } = action.payload;
+      const requestId = action.payload.requestId ?? state.liveRequestIdByThread[threadId];
+      if (requestId) {
+        const timeline = (state.toolTimelineByThread[threadId] ?? []).map(entry =>
+          entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
+        );
+        const transcript = state.processingByThread[threadId] ?? [];
+        if (timeline.length > 0 || transcript.length > 0) {
+          const turns = (state.settledTurnsByThread[threadId] ??= {});
+          turns[requestId] = { timeline, transcript: [...transcript] };
+          // Bounded: only turns settled while this view was open need a frozen
+          // copy; older ones render from the core projection like any reload.
+          const keys = Object.keys(turns);
+          for (const stale of keys.slice(0, Math.max(0, keys.length - SETTLED_TURNS_KEPT))) {
+            delete turns[stale];
+          }
+        }
+        state.toolTimelineByThread[threadId] = timeline;
+      }
+      turnStateLog('turn settled thread=%s request=%s', threadId, requestId ?? 'none');
+      delete state.streamingAssistantByThread[threadId];
+      delete state.inferenceStatusByThread[threadId];
+      delete state.pendingApprovalByThread[threadId];
+      delete state.pendingPlanReviewByThread[threadId];
+      delete state.liveRequestIdByThread[threadId];
+      delete state.inferenceTurnLifecycleByThread[threadId];
+    },
     endInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
+      delete state.liveRequestIdByThread[action.payload.threadId];
       // The turn finished, so any follow-ups queued behind it are now being
       // dispatched by the backend — drop the optimistic pills; the queued
       // texts reappear as real messages on their dispatched turns.
