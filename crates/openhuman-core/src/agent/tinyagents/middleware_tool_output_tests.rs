@@ -463,6 +463,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
+        summary_focus_tools: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
     mw.after_tool(
@@ -496,6 +497,7 @@ async fn tool_output_leaves_small_results_untouched() {
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
+        summary_focus_tools: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
     mw.after_tool(
@@ -536,6 +538,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
         tool_policies,
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
+        summary_focus_tools: Default::default(),
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
     assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -666,6 +669,7 @@ async fn tool_output_honors_a_tools_own_cap() {
         tool_policies,
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
+        summary_focus_tools: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
     mw.after_tool(
