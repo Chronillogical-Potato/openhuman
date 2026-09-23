@@ -1,6 +1,5 @@
-import { useAppDispatch } from '../../../store/hooks';
-
 import { useT } from '../../../lib/i18n/I18nContext';
+import { useAppDispatch } from '../../../store/hooks';
 import { loadThreadMessages, setSelectedThread } from '../../../store/threadSlice';
 import type { WorkerThreadRef } from '../utils/workerThreadRef';
 

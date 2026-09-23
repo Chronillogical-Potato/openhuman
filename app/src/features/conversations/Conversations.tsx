@@ -1479,7 +1479,10 @@ const Conversations = ({
           debug('[chat] stop generation: nothing in flight but send pending thread=%s', threadId);
           return;
         }
-        debug('[chat] stop generation: nothing in flight — settling local state thread=%s', threadId);
+        debug(
+          '[chat] stop generation: nothing in flight — settling local state thread=%s',
+          threadId
+        );
         clearSilenceTimer(threadId);
         turnSignatureByThreadRef.current.delete(threadId);
         dispatch(clearRuntimeForThread({ threadId }));

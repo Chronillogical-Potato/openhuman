@@ -476,7 +476,11 @@ describe('chatService.chatCancel', () => {
   });
 
   it('reports no turn when the core had nothing in flight', async () => {
-    mockCallCoreRpc.mockResolvedValue({ cancelled: true, request_id: null, subagents_cancelled: 2 });
+    mockCallCoreRpc.mockResolvedValue({
+      cancelled: true,
+      request_id: null,
+      subagents_cancelled: 2,
+    });
     expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: false });
   });
 
