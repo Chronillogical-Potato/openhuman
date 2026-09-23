@@ -26,7 +26,7 @@
 //! as raw stdout so existing callers that parse a command's output (e.g. `pwd`)
 //! keep working unchanged.
 
-use crate::tools::traits::ToolResult;
+use tinytools::ToolResult;
 
 /// Hint appended after the exit code for the exit statuses that almost always
 /// mean "this exact command cannot succeed on retry here". Empty for every other

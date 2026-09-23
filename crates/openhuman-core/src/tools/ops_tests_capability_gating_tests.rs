@@ -42,7 +42,7 @@ fn tool_group_classifies_gate_and_harness_families() {
         "search_tool_catalog",
         "get_tool_contract",
         "get_tool_output_sample",
-        "list_agent_profiles",
+        "list_agent_definitions",
         "list_connectable_toolkits",
         "list_node_kinds",
         "get_node_kind_contract",
@@ -69,7 +69,6 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("memory_store"), DomainGroup::Memory);
     assert_eq!(tool_group("goals"), DomainGroup::Memory);
     assert_eq!(tool_group("update_memory_md"), DomainGroup::Memory);
-    assert_eq!(tool_group("todo_add"), DomainGroup::Threads);
     assert_eq!(tool_group("goal_get"), DomainGroup::Threads);
     assert_eq!(tool_group("artifact_list"), DomainGroup::Agent);
     assert_eq!(tool_group("learning_list_facets"), DomainGroup::Agent);
@@ -80,7 +79,6 @@ fn tool_group_classifies_gate_and_harness_families() {
         "wait_loop",
         "delegate",
         "todo",
-        "update_task",
         "spawn_parallel_agents",
     ] {
         assert_eq!(tool_group(name), DomainGroup::Agent);
@@ -121,7 +119,6 @@ fn tool_group_gate_families_dropped_under_harness_not_full() {
     }
     // Harness keeps memory/threads, drops gate families AND platform.
     assert!(harness.allows(tool_group("memory_store")));
-    assert!(harness.allows(tool_group("todo_add")));
     assert!(harness.allows(tool_group("artifact_list")));
     assert!(harness.allows(tool_group("config_snapshot")));
     assert!(harness.allows(tool_group("security_policy_info")));
@@ -187,7 +184,7 @@ fn default_tools_omits_flows_tools_when_feature_off() {
         "search_tool_catalog",
         "get_tool_contract",
         "get_tool_output_sample",
-        "list_agent_profiles",
+        "list_agent_definitions",
         "list_connectable_toolkits",
         "list_node_kinds",
         "get_node_kind_contract",
@@ -435,7 +432,7 @@ async fn narrow_capabilities_do_not_narrow_the_domain_axis() {
         Some(null_driver_memory_cfg()),
     );
     let names = CoreContext::scope(ctx, async { tool_names(&expansion_tools_for(&tmp)) }).await;
-    for name in ["shell", "file_read", "file_write", "todo_add"] {
+    for name in ["shell", "file_read", "file_write", "todo"] {
         assert!(
             names.iter().any(|n| n == name),
             "a narrowed memory capability set must not remove `{name}`"

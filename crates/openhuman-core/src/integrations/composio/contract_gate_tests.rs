@@ -340,3 +340,125 @@ async fn fresh_gates_eventually_auto_proceed() {
         "gate 4 must auto-proceed after 3+ fresh instances surfaced the same slug"
     );
 }
+
+// ── #6407: the safety net must not latch on ─────────────────────────────────
+
+/// Args that DO satisfy [`full_contract`], so the gate executes without ever
+/// surfacing — the ordinary healthy call.
+fn conforming_args() -> serde_json::Value {
+    serde_json::json!({ "query": "subject:\"quarterly report\"" })
+}
+
+#[tokio::test]
+async fn healthy_calls_never_push_a_slug_past_the_threshold() {
+    // Regression for #6407. The counter used to be bumped on every *first
+    // consult* by a fresh gate and never reset, so calls that executed
+    // perfectly — never surfacing anything — still walked the slug toward the
+    // threshold. Each sub-agent spawn builds a fresh gate, so after four
+    // ordinary turns the slug was permanently past it and the #4853 surfacing
+    // was dead for the rest of the process: a model that genuinely needed the
+    // schema was auto-proceeded instead of being given it.
+    let toolkit = "healthykit";
+    let slug = "HEALTHYKIT_FETCH_EMAILS";
+    seed_live_catalog_cache(toolkit, vec![full_contract(slug, toolkit)]);
+    let config = Config::default();
+
+    // Well past AUTO_PROCEED_THRESHOLD: every call is a fresh gate whose args
+    // already conform, so nothing is ever surfaced.
+    for i in 1..=6 {
+        let gate = ContractGate::new();
+        assert!(
+            matches!(
+                consult(&gate, &config, slug, &conforming_args()).await,
+                GateDecision::Proceed
+            ),
+            "conforming call {i} should execute without surfacing"
+        );
+    }
+
+    // The gate must still do its job for a model that actually guessed.
+    let guesser = ContractGate::new();
+    assert!(
+        matches!(
+            consult(&guesser, &config, slug, &guessing_args()).await,
+            GateDecision::Surface(_)
+        ),
+        "after healthy calls that never surfaced anything, a guessing call must \
+         still get the contract — the safety net must not have been armed by \
+         executions (#6407)"
+    );
+}
+
+#[tokio::test]
+async fn an_execution_clears_the_surface_streak() {
+    // The net counts *consecutive* surfaces without an execution. An execution
+    // proves the surface-but-never-execute loop is not happening, so the streak
+    // must start over rather than accumulate across unrelated turns.
+    let toolkit = "streakkit";
+    let slug = "STREAKKIT_FETCH_EMAILS";
+    seed_live_catalog_cache(toolkit, vec![full_contract(slug, toolkit)]);
+    let config = Config::default();
+
+    // Two fresh gates surface (streak 1, 2) — one short of the threshold.
+    for i in 1..=2 {
+        let gate = ContractGate::new();
+        assert!(
+            matches!(
+                consult(&gate, &config, slug, &guessing_args()).await,
+                GateDecision::Surface(_)
+            ),
+            "gate {i} should surface"
+        );
+    }
+
+    // A conforming call executes, which clears the streak.
+    let executor = ContractGate::new();
+    assert!(matches!(
+        consult(&executor, &config, slug, &conforming_args()).await,
+        GateDecision::Proceed
+    ));
+
+    // Two more surfaces are therefore 1 and 2 again, not 3 and 4: neither may
+    // trip the net. Without the reset the second of these would auto-proceed.
+    for i in 1..=2 {
+        let gate = ContractGate::new();
+        assert!(
+            matches!(
+                consult(&gate, &config, slug, &guessing_args()).await,
+                GateDecision::Surface(_)
+            ),
+            "post-execution surface {i} must still surface: the streak restarted \
+             when the action executed (#6407)"
+        );
+    }
+}
+
+#[tokio::test]
+async fn the_net_still_fires_on_a_genuine_surface_loop() {
+    // The #5119 protection must survive the #6407 fix: consecutive surfaces
+    // with no execution between them still reach the threshold.
+    let toolkit = "loopkit";
+    let slug = "LOOPKIT_FETCH_EMAILS";
+    seed_live_catalog_cache(toolkit, vec![full_contract(slug, toolkit)]);
+    let config = Config::default();
+
+    for i in 1..=3 {
+        let gate = ContractGate::new();
+        assert!(
+            matches!(
+                consult(&gate, &config, slug, &guessing_args()).await,
+                GateDecision::Surface(_)
+            ),
+            "gate {i} in the loop should surface"
+        );
+    }
+
+    let gate4 = ContractGate::new();
+    assert!(
+        matches!(
+            consult(&gate4, &config, slug, &guessing_args()).await,
+            GateDecision::Proceed
+        ),
+        "three consecutive surfaces with no execution must still arm the net"
+    );
+}

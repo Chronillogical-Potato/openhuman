@@ -1074,16 +1074,6 @@ pub enum DomainEvent {
         success: bool,
         elapsed_ms: u64,
     },
-    /// The MCP setup agent asked the user for a secret value. The UI
-    /// subscribes to this and renders a native prompt; on submit it calls
-    /// `openhuman.mcp_setup_submit_secret`. `ref_id` is the opaque handle
-    /// returned to the agent; the raw secret value never traverses this
-    /// event.
-    McpSetupSecretRequested {
-        ref_id: String,
-        key_name: String,
-        prompt: String,
-    },
     /// A remote MCP server returned a tool whose `description` or
     /// `title` failed the input-validation scan and was dropped from
     /// the registry before reaching the agent LLM context. Surfaced for
@@ -1358,27 +1348,6 @@ pub enum DomainEvent {
         provider: String,
         error: String,
     },
-    /// A task-board card needs human plan approval before the dispatcher will
-    /// execute it (emitted when `autonomy.require_task_plan_approval` is on and
-    /// the dispatcher parks a `todo` card at `awaiting_approval`).
-    ///
-    /// Surfacing: the parked card is persisted with status `awaiting_approval`,
-    /// so the kanban board renders it with inline Approve/Reject on the next
-    /// board fetch/refresh — that is the current (poll-based) surface and the
-    /// reason this telemetry event has no dedicated subscriber yet. A realtime
-    /// socket bridge (à la `ApprovalRequested` → `approval_request`) is a
-    /// deliberate follow-up; emitting the event now lets that bridge attach
-    /// without a schema change.
-    TaskPlanAwaitingApproval { card_id: String, thread_id: String },
-    /// A stale or wedged task run was reclaimed — the card moved back to
-    /// `todo` (re-dispatchable) or `blocked` (max reclaim count exceeded).
-    TaskRunReclaimed {
-        run_id: String,
-        card_id: String,
-        thread_id: String,
-        reason: String,
-    },
-
     // ── Thread goals ──────────────────────────────────────────────────
     /// A thread's goal was created, replaced, or transitioned state
     /// (active/paused/budget_limited/complete). Drives the desktop goal chip.
@@ -1526,8 +1495,6 @@ impl DomainEvent {
             | Self::TaskSourceTaskIngested { .. }
             | Self::TaskSourceFetchFailed { .. } => "task_sources",
 
-            Self::TaskPlanAwaitingApproval { .. } | Self::TaskRunReclaimed { .. } => "agent",
-
             Self::ThreadGoalUpdated { .. } | Self::ThreadGoalCleared { .. } => "agent",
 
             Self::SubconsciousTriggerProcessed { .. } => "subconscious",
@@ -1552,7 +1519,6 @@ impl DomainEvent {
             | Self::McpServerConnected { .. }
             | Self::McpServerDisconnected { .. }
             | Self::McpClientToolExecuted { .. }
-            | Self::McpSetupSecretRequested { .. }
             | Self::McpToolRejected { .. }
             | Self::McpServerProbeTimedOut { .. }
             | Self::McpServerTransportDropped { .. }
@@ -1677,7 +1643,6 @@ impl DomainEvent {
             Self::McpServerConnected { .. } => "McpServerConnected",
             Self::McpServerDisconnected { .. } => "McpServerDisconnected",
             Self::McpClientToolExecuted { .. } => "McpClientToolExecuted",
-            Self::McpSetupSecretRequested { .. } => "McpSetupSecretRequested",
             Self::McpToolRejected { .. } => "McpToolRejected",
             Self::McpServerProbeTimedOut { .. } => "McpServerProbeTimedOut",
             Self::McpServerTransportDropped { .. } => "McpServerTransportDropped",
@@ -1689,8 +1654,6 @@ impl DomainEvent {
             Self::TaskSourceFetched { .. } => "TaskSourceFetched",
             Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
-            Self::TaskPlanAwaitingApproval { .. } => "TaskPlanAwaitingApproval",
-            Self::TaskRunReclaimed { .. } => "TaskRunReclaimed",
             Self::ThreadGoalUpdated { .. } => "ThreadGoalUpdated",
             Self::ThreadGoalCleared { .. } => "ThreadGoalCleared",
             Self::Voice(_) => "Voice",

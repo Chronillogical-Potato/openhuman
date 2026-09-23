@@ -6,11 +6,13 @@ import {
   UserMessageAttachments,
 } from '@/components/assistant-ui/attachment';
 import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigger-popover';
+import { DirectiveText } from '@/components/assistant-ui/directive-text';
 import { File } from '@/components/assistant-ui/file';
 import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
 import { Image } from '@/components/assistant-ui/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
+import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
 import {
   Reasoning,
   ReasoningContent,
@@ -28,7 +30,11 @@ import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
 import ModelQualityPill from '@/components/chat/ModelQualityPill';
-import { useAuiEditCapabilities } from '@/features/conversations/components/aui/auiThreadState';
+import {
+  useAuiEditCapabilities,
+  useAuiReloadCapability,
+} from '@/features/conversations/components/aui/auiThreadState';
+import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -50,6 +56,7 @@ import {
   useAuiState,
 } from '@assistant-ui/react';
 import { LexicalComposerInput } from '@assistant-ui/react-lexical';
+import debugFactory from 'debug';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -64,15 +71,20 @@ import {
   RefreshCwIcon,
   SlashIcon,
   SquareIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
 } from 'lucide-react';
 import {
   type ComponentType,
   createContext,
   type FC,
   type PropsWithChildren,
+  type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -121,6 +133,20 @@ export type ThreadComponents = {
    * process behind it, so a plain answer gets no footer.
    */
   TurnFooter?: ComponentType | undefined;
+  /**
+   * Host-owned list of the web sources this turn visited, rendered at the end
+   * of the message *content* rather than in the footer row.
+   *
+   * Deliberately not part of the footer: that row is a single-line
+   * `flex items-center` whose height is reserved by `ACTION_BAR_HEIGHT` and
+   * asserted in `thread.actionBarSpacing.test.tsx`, so a block that can grow
+   * to several lines does not belong in it. Placed inside the content div it
+   * inherits the `[&>*+*]:mt-3` rhythm the other blocks use.
+   *
+   * Like `TurnFooter`, the component reads the message's own metadata and
+   * returns `null` when the turn visited none, so a plain answer gets nothing.
+   */
+  TurnSources?: ComponentType | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -140,6 +166,23 @@ export type ThreadComponents = {
   ComposerIdleAction?: ComponentType | undefined;
   /** Switches the host chat surface into its microphone-first composer. */
   onSwitchToMicCloud?: (() => void) | undefined;
+  /**
+   * Host sink for files dropped on the composer or pasted into it.
+   *
+   * Supplying it also replaces `ComposerPrimitive.AttachmentDropzone` with the
+   * equivalent host-driven handlers, because that primitive routes files to the
+   * runtime's attachment adapter and refuses the drag outright
+   * (`dataTransfer.dropEffect = 'none'`) when the runtime declares no
+   * attachment capability — which is every runtime that keeps attachments on
+   * the host side, as this app does.
+   */
+  onComposerFiles?: ((files: FileList | File[] | null) => void) | undefined;
+  /**
+   * Whether the host can take files right now (feature enabled, composer
+   * unlocked, budget left). Drives the drag affordance only; the host still
+   * validates whatever arrives.
+   */
+  canAcceptComposerFiles?: boolean | undefined;
 };
 
 export type ThreadProps = {
@@ -184,6 +227,28 @@ export type ThreadProps = {
  */
 const lexicalDrivesTheStore = (): boolean =>
   typeof InputEvent !== 'undefined' && 'getTargetRanges' in InputEvent.prototype;
+
+// Counts only — never a filename, a MIME type or clipboard content.
+const debug = debugFactory('openhuman:assistant-composer');
+
+/**
+ * The files a drop is actually carrying.
+ *
+ * `dataTransfer.files` is the obvious source and is empty more often than it
+ * looks: several macOS drag sources — the floating screenshot thumbnail among
+ * them — hand the webview promise-backed items instead, leaving `files` at
+ * length 0 while `items` holds the same content. Reading `files` alone made
+ * those drops do nothing at all, with no error, because there was nothing to
+ * reject.
+ */
+function filesFromDrop(dataTransfer: DataTransfer | null): File[] {
+  const direct = Array.from(dataTransfer?.files ?? []);
+  if (direct.length > 0) return direct;
+  return Array.from(dataTransfer?.items ?? [])
+    .filter(item => item.kind === 'file')
+    .map(item => item.getAsFile())
+    .filter((file): file is File => file !== null);
+}
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
 
@@ -257,6 +322,10 @@ const ThreadRoot: FC<{
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const messageGroupRef = useRef<HTMLDivElement>(null);
+
+  useOpenThreadAtBottom(viewportRef);
 
   return (
     <ThreadPrimitive.Root
@@ -268,7 +337,12 @@ const ThreadRoot: FC<{
         ['--composer-padding' as string]: '8px',
       }}>
       <ThreadPrimitive.Viewport
-        turnAnchor="top"
+        ref={viewportRef}
+        // The host follower below checks the reader's live distance from the
+        // bottom. Disable assistant-ui's unconditional run-start jump so it
+        // cannot override a reader who intentionally scrolled into history.
+        autoScroll={false}
+        scrollToBottomOnRunStart={false}
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth">
         <div
@@ -292,10 +366,14 @@ const ThreadRoot: FC<{
             </>
           )}
 
-          <div data-slot="aui_message-group" className="mb-14 flex flex-col gap-y-6 empty:hidden">
+          <div
+            ref={messageGroupRef}
+            data-slot="aui_message-group"
+            className="mb-14 flex flex-col gap-y-6 empty:hidden">
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
           </div>
+          <ThreadBottomFollower viewportRef={viewportRef} contentRef={messageGroupRef} />
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
@@ -311,8 +389,112 @@ const ThreadRoot: FC<{
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
+
+      {/*
+       * Select text in any message and a floating "Quote" button appears over
+       * the selection; clicking it drops the excerpt into the composer.
+       *
+       * It lives OUTSIDE the viewport on purpose: it portals itself to the
+       * selection's screen position, so nesting it inside the scroller would
+       * only give it a clipped, scrolling ancestor for no benefit. It finds the
+       * message by the `data-message-id` that `MessagePrimitive.Root` already
+       * emits, so neither message component needed changing.
+       */}
+      <SelectionToolbar />
     </ThreadPrimitive.Root>
   );
+};
+
+/**
+ * Opening a thread lands on its newest message.
+ *
+ * assistant-ui has two stock knobs for this and BOTH are inert here:
+ *
+ * - `scrollToBottomOnThreadSwitch` listens for `threads.selectionChanged`,
+ *   which fires only when its `mainThreadId` changes. That id is
+ *   `adapter.threadId ?? DEFAULT_THREAD_ID`, and `useOpenHumanExternalStore`
+ *   returns no `threadId` — the real thread travels out-of-band through
+ *   `AuiThreadIdContext` — so `mainThreadId` never leaves the default and the
+ *   event never fires.
+ * - `scrollToBottomOnInitialize` latches on the first non-empty render and
+ *   re-arms only while the thread has zero messages. `<AssistantUiChat>` is
+ *   mounted without a `key`, so this viewport survives thread switches with
+ *   that latch still set.
+ *
+ * The second one is why the defect is intermittent rather than total, and it
+ * is the case to keep in mind. `useOpenHumanExternalStore` reads
+ * `state.thread.messagesByThreadId[threadId]`, a cache cleared only on delete
+ * or sign-out, so a thread visited earlier this session hands its messages
+ * over on the very render the id changes: it never passes through the empty
+ * state that re-arms the latch, and the viewport keeps the PREVIOUS thread's
+ * `scrollTop`. A thread not yet cached does briefly read empty and therefore
+ * scrolls correctly even unfixed — so a fix checked only against a fresh
+ * thread looks right and fixes nothing.
+ *
+ * Hence: latch on the thread id rather than on emptiness. Nothing here is
+ * conditional on the reader's scroll position, unlike `ThreadBottomFollower`
+ * below — "don't yank the reader who scrolled up" is about a new turn arriving
+ * in the thread being read, and a scroll offset left over from a different
+ * thread is not a reading position worth restoring.
+ *
+ * This lives in `ThreadRoot`, which owns `viewportRef`, rather than in
+ * `ThreadBottomFollower`, which is handed it: a descendant's layout effect
+ * runs before its ancestor's ref is attached, so the follower sees
+ * `viewportRef.current === null` on the mount that matters and would burn the
+ * latch without scrolling.
+ */
+function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
+  const hasMessages = useAuiState(s => s.thread.messages.length > 0);
+  const threadId = useAuiThreadId();
+  // Which thread this viewport has already been dropped to the bottom for.
+  // `undefined` (nothing opened yet) is deliberately distinct from the
+  // `string | null` a thread id can be, so the initial value cannot collide
+  // with a genuine "no thread selected".
+  const openedThreadRef = useRef<string | null | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    // Wait for the transcript: on the uncached path the messages arrive a tick
+    // after the id changes, and a scroll issued against an empty viewport goes
+    // nowhere. Leaving the latch alone here is what lets that second pass run.
+    if (!hasMessages) return;
+    if (openedThreadRef.current === threadId) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    openedThreadRef.current = threadId;
+    // `behavior: 'instant'` overrides the viewport's `scroll-smooth` class:
+    // opening a thread should start at the bottom, not animate down through the
+    // entire history to get there.
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+  }, [hasMessages, threadId, viewportRef]);
+}
+
+const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
+
+/**
+ * Align a new turn only for a reader who remains near the bottom. assistant-ui's
+ * run-start scroll is unconditional, which would pull a reader from older
+ * messages into every new turn.
+ */
+const ThreadBottomFollower: FC<{
+  viewportRef: RefObject<HTMLDivElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
+}> = ({ viewportRef, contentRef }) => {
+  const latestMessage = useAuiState(s => s.thread.messages.at(-1));
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const distanceFromBottom = viewport
+      ? viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+      : Infinity;
+    if (latestMessage?.role !== 'user' || distanceFromBottom > FOLLOW_BOTTOM_THRESHOLD_PX) {
+      return;
+    }
+    const userMessages = contentRef.current?.querySelectorAll<HTMLElement>('[data-role="user"]');
+    userMessages?.item(userMessages.length - 1)?.scrollIntoView({ block: 'start' });
+  }, [contentRef, latestMessage?.id, latestMessage?.role, viewportRef]);
+
+  return null;
 };
 
 /**
@@ -397,8 +579,13 @@ const Composer: FC<{
   const commands = useContext(SlashCommandsContext);
   const slash = unstable_useSlashCommandAdapter({ commands, fallbackIcon: SlashIcon });
   const inputWrapperRef = useRef<HTMLDivElement>(null);
-  const { ComposerHeader, ComposerAttachments: HostComposerAttachments } =
-    useContext(ThreadComponentsContext);
+  const {
+    ComposerHeader,
+    ComposerAttachments: HostComposerAttachments,
+    onComposerFiles,
+    canAcceptComposerFiles,
+  } = useContext(ThreadComponentsContext);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
     const textbox = inputWrapperRef.current?.querySelector<HTMLElement>('[contenteditable="true"]');
     textbox?.setAttribute('aria-label', 'Message input');
@@ -431,6 +618,67 @@ const Composer: FC<{
   // composition that started in between makes this write stale, and dropping it
   // loses nothing, because the DOM is the source of truth and that
   // composition's own commit reads the whole of it.
+  // Host-driven file ingest. Mirrors the legacy composer's handlers
+  // (`ChatComposer.tsx`) so both surfaces accept a drop and a pasted
+  // screenshot through the same host path.
+  //
+  // `preventDefault` on a *file* drag happens whether or not ingest is allowed:
+  // without it the webview navigates away to the dropped file and the whole
+  // chat is gone.
+  const isFileDrag = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    if (!canAcceptComposerFiles) {
+      event.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingFiles(true);
+  };
+  const handleDragLeave = (event: React.DragEvent) => {
+    // Ignore leave events that bubble while the cursor is still over a child.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  };
+  const handleDrop = (event: React.DragEvent) => {
+    if (!onComposerFiles || !isFileDrag(event)) return;
+    event.preventDefault();
+    setIsDraggingFiles(false);
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] drop: refused, ingest not accepting');
+      return;
+    }
+    const files = filesFromDrop(event.dataTransfer);
+    if (files.length === 0) {
+      debug('[assistant-composer] drop: file drag carried no readable files');
+      return;
+    }
+    debug('[assistant-composer] drop: ingesting %d file(s)', files.length);
+    onComposerFiles(files);
+  };
+  // Capture phase, so the media is pulled out and the default cancelled before
+  // Lexical's own paste handling turns it into editor content.
+  const handlePasteCapture = (event: React.ClipboardEvent) => {
+    if (!onComposerFiles) return;
+    if (!canAcceptComposerFiles) {
+      debug('[assistant-composer] paste: refused, ingest not accepting');
+      return;
+    }
+    const files = Array.from(event.clipboardData?.items ?? [])
+      .filter(item => item.kind === 'file' && /^(image|video)\//.test(item.type))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length === 0) {
+      // The overwhelmingly common case: an ordinary text paste. Left for Lexical.
+      return;
+    }
+    event.preventDefault();
+    debug('[assistant-composer] paste: ingesting %d media file(s)', files.length);
+    onComposerFiles(files);
+  };
+
   const syncComposerFromDom = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
     const text = target.textContent ?? '';
@@ -446,9 +694,20 @@ const Composer: FC<{
         className="aui-composer-root relative flex w-full flex-col"
         data-walkthrough="chat-agent-panel">
         {ComposerHeader ? <ComposerHeader /> : null}
-        <ComposerPrimitive.AttachmentDropzone asChild>
+        {/*
+         * Neutered whenever the host owns file ingest: every handler in the
+         * primitive short-circuits on `disabled`, so the drag handlers below
+         * are the only ones left and the `data-dragging` styling runs off this
+         * component's own state. Left enabled otherwise, so a host that does
+         * use a runtime attachment adapter keeps the primitive's behaviour.
+         */}
+        <ComposerPrimitive.AttachmentDropzone asChild disabled={!!onComposerFiles}>
           <div
             data-slot="aui_composer-shell"
+            data-dragging={onComposerFiles && isDraggingFiles ? 'true' : undefined}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             // Keyed to `content-faint` rather than `line`/`line-strong`, which
             // sat too close to the composer's own surface to read as an edge at
             // all; `content-faint` is a real step along the grey ramp in both
@@ -478,8 +737,13 @@ const Composer: FC<{
             // bottom edge and is pulled in at the top — the asymmetry is what
             // says "lit from above".
             //
-            //   0 8px  12px -4px  / 0.34  — contact: tight, near the edge
-            //   0 30px 44px -16px / 0.48  — cast: far, wide, and the stronger
+            //   0 8px  12px -4px  / 0.18  — contact: tight, near the edge
+            //   0 30px 44px -16px / 0.24  — cast: far, wide, and the stronger
+            //
+            // Both halved from 0.34 / 0.48: at those strengths the composer
+            // read as hovering well above the page, and the cast crowded the
+            // last message. Half keeps the lit-from-above asymmetry while the
+            // surface sits closer to the transcript.
             //
             // The far layer carrying more alpha than the near one is
             // deliberate and is what gives depth; the usual instinct is the
@@ -506,7 +770,9 @@ const Composer: FC<{
             //
             // `border-ring` on drag is untouched — that state is meant to break
             // the pattern.
-            className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.34),0_30px_44px_-16px_rgb(0_0_0/0.48)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.09),0_30px_44px_-16px_rgb(0_0_0/0.12)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            {/* Renders only while a quote is set; dismissing it clears the quote. */}
+            <ComposerQuotePreview />
             {HostComposerAttachments ? <HostComposerAttachments /> : <ComposerAttachments />}
             {/*
              * Lexical rather than the plain `ComposerPrimitive.Input` textarea,
@@ -519,6 +785,7 @@ const Composer: FC<{
             <LexicalComposerInput
               ref={inputWrapperRef}
               placeholder="Send a message..."
+              onPasteCapture={handlePasteCapture}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
               }}
@@ -631,6 +898,16 @@ const ComposerAction: FC<{
             <MicIcon className="size-4" />
           </TooltipIconButton>
         )}
+        {/*
+          Permanently false, deliberately: `useOpenHumanExternalStore` supplies
+          no `adapters.dictation`, and the reasoning for keeping it that way
+          lives there. Short version — Web Speech's constructor exists in our
+          WKWebView but `start()` never succeeds, and with the speech usage
+          strings present it hangs silently rather than erroring, which would
+          strand the composer in `dictation != null`. Working dictation already
+          ships as the `mic-cloud` composer, whose "Voice mode" button is the
+          one directly above this block.
+        */}
         <AuiIf condition={s => s.thread.capabilities.dictation}>
           <AuiIf condition={s => s.composer.dictation == null}>
             <ComposerPrimitive.Dictate asChild>
@@ -744,6 +1021,7 @@ const AssistantMessage: FC = () => {
     ToolGroup,
     ReasoningGroup,
     TurnFooter,
+    TurnSources,
   } = useContext(ThreadComponentsContext);
 
   const ACTION_BAR_PT = 'pt-1.5';
@@ -862,6 +1140,7 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
+        {TurnSources ? <TurnSources /> : null}
         <MessageError />
       </div>
 
@@ -885,6 +1164,23 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantActionBar: FC = () => {
+  // assistant-ui's own disabled predicate for Reload is
+  // `isRunning || isDisabled || role !== 'assistant'` — it never consults
+  // `capabilities.reload`, so the button ships enabled on every settled
+  // assistant message while the external-store adapter supplies no `onReload`
+  // and the runtime throws on click.
+  //
+  // Hoisted to a `const` rather than written inline for the same coverage
+  // reason as `editAction` in `UserActionBar`.
+  const canReload = useAuiReloadCapability();
+  const reloadAction = canReload ? (
+    <ActionBarPrimitive.Reload asChild>
+      <TooltipIconButton tooltip="Refresh">
+        <RefreshCwIcon />
+      </TooltipIconButton>
+    </ActionBarPrimitive.Reload>
+  ) : null;
+
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -900,11 +1196,37 @@ const AssistantActionBar: FC = () => {
           </AuiIf>
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton tooltip="Refresh">
-          <RefreshCwIcon />
+      {reloadAction}
+      {/* Thumbs render only because the external store now supplies
+          `adapters.feedback`; the runtime gates them on that key alone. The
+          pressed state comes from `message.submittedFeedback`, which our message
+          converter re-emits from the persisted rating — see the Defect A note
+          there, without which a pressed thumb silently un-presses on the next
+          store update.
+
+          Deliberately NOT gated the way `reloadAction` above is. That gate
+          exists because assistant-ui's Reload ignores `capabilities.reload` and
+          the runtime *throws* on click when the adapter supplies no `onReload`.
+          These primitives instead compute `disabled = disabled || !callback`
+          from the adapter's own hook, so with no adapter they render disabled
+          rather than throwing — and we supply `adapters.feedback`
+          unconditionally, so they are always live here. */}
+      <ActionBarPrimitive.FeedbackPositive asChild>
+        <TooltipIconButton
+          tooltip="Good response"
+          data-testid="assistant-feedback-positive"
+          className="data-[submitted=true]:text-primary-600 dark:data-[submitted=true]:text-primary-400">
+          <ThumbsUpIcon />
         </TooltipIconButton>
-      </ActionBarPrimitive.Reload>
+      </ActionBarPrimitive.FeedbackPositive>
+      <ActionBarPrimitive.FeedbackNegative asChild>
+        <TooltipIconButton
+          tooltip="Bad response"
+          data-testid="assistant-feedback-negative"
+          className="data-[submitted=true]:text-coral-600 dark:data-[submitted=true]:text-coral-400">
+          <ThumbsDownIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.FeedbackNegative>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
           <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">
@@ -950,7 +1272,19 @@ const UserMessage: FC = () => {
 
       <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
         <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
-          <MessagePrimitive.Parts components={{ File: UserFilePart, Image: UserImagePart }} />
+          {/* `Text: DirectiveText` because the composer can put directive syntax
+              into a user message without anyone opting in. The `/` popover is
+              built from `unstable_useSlashCommandAdapter`, which returns an
+              `action` behaviour and sets no `removeOnExecute`; the runtime's
+              `triggerSelectionResource` then takes `else insertDirective()`,
+              replacing the typed `/clear` with `formatter.serialize(item)` —
+              `:command[/clear]{name=clear}` — as an audit-trail chip. Without a
+              `Text` component here that renders as raw syntax and is sent to the
+              model verbatim. Assistant text is unaffected: it renders through
+              `MarkdownText` on the part switch below, a different slot. */}
+          <MessagePrimitive.Parts
+            components={{ Text: DirectiveText, File: UserFilePart, Image: UserImagePart }}
+          />
         </div>
         <div className="aui-user-action-bar-wrapper absolute inset-s-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
           <UserActionBar />

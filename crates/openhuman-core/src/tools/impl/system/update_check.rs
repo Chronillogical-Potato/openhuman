@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::platform::update;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct UpdateCheckTool;
 

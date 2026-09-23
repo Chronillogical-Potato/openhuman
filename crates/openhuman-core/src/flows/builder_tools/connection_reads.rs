@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::flows::ops;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// `list_connectable_toolkits`: read-only list of the Composio toolkits the
 /// builder can wire, each tagged connected/unconnected — so the agent can steer

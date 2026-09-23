@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::memory::api::chunks::SourceKind;
 use crate::memory::api::provider::{ChunkQuery, MemoryProvider};
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 pub struct MemoryStoreRawChunksTool;
 

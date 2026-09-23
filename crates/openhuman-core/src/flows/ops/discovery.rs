@@ -40,7 +40,7 @@ pub async fn flows_discover(
     stream: Option<FlowStreamTarget>,
 ) -> Result<RpcOutcome<Vec<FlowSuggestion>>, String> {
     use crate::agent::turn_origin::{with_origin, AgentTurnOrigin};
-    use crate::agent::Agent;
+    use crate::agent::OpenHumanSessionHost;
 
     tracing::info!(
         target: "flows",
@@ -54,7 +54,7 @@ pub async fn flows_discover(
     crate::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .map_err(|e| format!("failed to initialise agent registry: {e}"))?;
 
-    let mut agent = Agent::from_config_for_agent(config, "flow_discovery")
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, "flow_discovery")
         .map_err(|e| format!("failed to build flow_discovery agent: {e:#}"))?;
     agent.set_agent_definition_name("flow_discovery".to_string());
 
@@ -63,6 +63,7 @@ pub async fn flows_discover(
     // the run stays headless, exactly as before.
     if let Some(target) = &stream {
         attach_flow_progress_bridge(&mut agent, target, "flows_discover", config);
+        agent.set_thread_id(Some(target.thread_id.as_str()));
     }
 
     // Run to completion under a CLI origin (an internal, user-initiated action —
@@ -75,13 +76,7 @@ pub async fn flows_discover(
         std::time::Duration::from_secs(FLOW_DISCOVER_TIMEOUT_SECS),
         run,
     );
-    let timed = match &stream {
-        Some(target) => {
-            crate::agent::tinyagents::thread_context::with_thread_id(target.thread_id.clone(), run)
-                .await
-        }
-        None => run.await,
-    };
+    let timed = run.await;
     // Reduce the (timeout, run) result to a single `Result<summary, error>` so
     // the terminal chat event can be emitted uniformly for the streamed case.
     let outcome: Result<String, String> = match timed {

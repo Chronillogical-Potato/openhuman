@@ -40,8 +40,6 @@ vi.mock('../../services/api/threadApi', () => ({
     updateMessage: vi.fn(),
     deleteThread: vi.fn(),
     purge: vi.fn(),
-    getTaskBoard: vi.fn(),
-    putTaskBoard: vi.fn(),
     getTurnState: vi.fn(),
     listRuns: vi.fn(),
   },
@@ -135,27 +133,6 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           1
         )
       ).toMatchObject({ sourceToolName: 'spawn_subagent', spawnEntryId: 'sync' });
-    });
-
-    it('stores task board updates from socket events', () => {
-      const listeners = renderProvider();
-      const board = {
-        threadId: 'thread-board',
-        updatedAt: '2026-05-04T10:00:05Z',
-        cards: [
-          { id: 'task-1', title: 'Plan', status: 'todo' as const, order: 0, updatedAt: 'now' },
-        ],
-      };
-
-      act(() => {
-        listeners.onTaskBoardUpdated?.({
-          thread_id: 'thread-board',
-          request_id: 'req-board',
-          task_board: board,
-        });
-      });
-
-      expect(store.getState().chatRuntime.taskBoardByThread['thread-board']).toEqual(board);
     });
 
     it('drops duplicate tool_call events with the same thread/request/round/tool', () => {
@@ -509,8 +486,8 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         });
       });
 
-      // The same `agent:<run_id>` id `task_session::append_final` used, so the
-      // core's idempotent store collapses this append onto its own row instead
+      // The same `agent:<run_id>` id the core persisted, so the idempotent
+      // store collapses this append onto its own row instead
       // of keeping a second copy of the reply.
       await waitFor(() =>
         expect(threadApi.appendMessage).toHaveBeenCalledWith(

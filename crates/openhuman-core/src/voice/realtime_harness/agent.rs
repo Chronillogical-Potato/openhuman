@@ -1,5 +1,5 @@
 //! Building and running the per-turn voice orchestrator: a fresh, isolated
-//! `Agent` pinned to a fast non-thinking model, seeded from the relayed
+//! `OpenHumanSessionHost` pinned to a fast non-thinking model, seeded from the relayed
 //! history, run under the hard per-turn ceiling with the same chat-scoped
 //! approval surface web chat installs.
 
@@ -8,8 +8,8 @@ use std::time::Duration;
 use log::{info, warn};
 use serde_json::Value;
 
-use crate::agent::harness::session::Agent;
 use crate::agent::progress::AgentProgress;
+use crate::agent::session_host::OpenHumanSessionHost;
 use crate::agent::turn_origin::{with_origin, AgentTurnOrigin};
 
 use super::chat_delivery::{VOICE_CHAT_CLIENT_ID, VOICE_CHAT_THREAD_ID};
@@ -41,13 +41,13 @@ const VOICE_AGENT_NAME: &str = "voice";
 /// Model pinned for realtime voice turns. The cloud voice session cancels a turn
 /// that has produced no spoken token in ~11-12s ("Generating the LLM response
 /// took too long"), and the orchestrator's default reasoning model spends that
-/// whole budget *thinking* before its first word. `chat-v1` (DeepSeek-V4-Flash,
+/// whole budget *thinking* before its first word. The chat route (DeepSeek-V4-Flash,
 /// thinking off) is a short-turn, tool-capable SKU: the master still routes
 /// delegation through the prompt (per-turn classification is disabled — see the
-/// model pin in `agent/harness/session/turn/core.rs`), so tool turns keep working
+/// model pin in `agent/session_host/turn/core.rs`), so tool turns keep working
 /// while spoken replies start in ~1s instead of ~6s. Reasoning models are the
 /// wrong tool for a latency-capped realtime channel.
-const VOICE_MODEL: &str = "chat-v1";
+const VOICE_MODEL: &str = "hint:chat";
 
 /// Spoken-output directive appended to the orchestrator profile so replies read
 /// naturally through TTS instead of as markdown.
@@ -65,15 +65,6 @@ const VOICE_MODEL: &str = "chat-v1";
 /// `voiceAgent.ts`, spoken ~700ms in) precisely because it does not depend on the
 /// model choosing to speak first. So the directive tells the model the opposite:
 /// call the tool and answer from the result.
-pub(super) const VOICE_DIRECTIVE: &str = "You are speaking aloud in a live voice conversation. \
-Reply in natural, concise spoken sentences. Do not use markdown, code blocks, \
-bullet lists, headings, or emoji. When answering needs a tool or a delegate (email, \
-calendar, files, the web), call it straight away and answer from what it returns. \
-Do NOT announce what you are about to do: a reply that only says what you are \
-going to do ends your turn, so the caller is left with a promise and never gets \
-the answer. The caller already hears a short acknowledgement while you work, so \
-say nothing until you have something to tell them.";
-
 /// Build the fresh voice orchestrator, attach the streaming sink, run one turn
 /// under the hard per-turn ceiling, then detach the sink so the forwarder's
 /// channel closes. Runs entirely on the background task, so the ack deadline in
@@ -105,15 +96,10 @@ async fn build_voice_agent(
     correlation_id: &str,
     messages: &[Value],
     prompt: &str,
-) -> Result<Agent, String> {
+) -> Result<OpenHumanSessionHost, String> {
     let config = crate::config::ops::load_config_with_timeout().await?;
-    let mut agent = Agent::from_config_for_agent_with_profile(
-        &config,
-        "orchestrator",
-        Some(VOICE_DIRECTIVE.to_string()),
-        None,
-    )
-    .map_err(|e| format!("orchestrator build failed: {e}"))?;
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+        .map_err(|e| format!("orchestrator build failed: {e}"))?;
     agent.set_event_context(format!("voice_{correlation_id}"), "voice_agent");
     // Isolate the voice transcript namespace from the chat orchestrator so a
     // fresh-per-turn agent can't resume an unrelated conversation by name.
@@ -141,12 +127,12 @@ async fn build_voice_agent(
 /// Run the orchestrator turn under the hard per-turn ceiling. The streaming sink
 /// must already be attached; deltas flow out while this runs.
 async fn run_single_with_timeout(
-    agent: &mut Agent,
+    agent: &mut OpenHumanSessionHost,
     correlation_id: &str,
     prompt: &str,
 ) -> Result<String, String> {
     // Scope the turn with the SAME chat context the web-chat path installs
-    // (`APPROVAL_CHAT_CONTEXT` + `with_thread_id`), so approval-surfaced tools
+    // (`APPROVAL_CHAT_CONTEXT` plus an explicit agent thread), so approval-surfaced tools
     // behave identically on voice. Without it `composio_connect` fails closed
     // for lack of a routable surface, which the model paraphrases to the user as
     // a confabulated "reconnect your Gmail" mid email-summary (#5399). See
@@ -156,10 +142,8 @@ async fn run_single_with_timeout(
         thread_id: VOICE_CHAT_THREAD_ID.to_string(),
         client_id: VOICE_CHAT_CLIENT_ID.to_string(),
     };
-    let scoped_run = crate::agent::tinyagents::thread_context::with_thread_id(
-        VOICE_CHAT_THREAD_ID,
-        agent.run_single(prompt),
-    );
+    agent.set_thread_id(Some(VOICE_CHAT_THREAD_ID));
+    let scoped_run = agent.run_single(prompt);
     let fut = with_origin(
         AgentTurnOrigin::ExternalChannel {
             channel: "voice".to_string(),

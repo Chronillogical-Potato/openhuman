@@ -1,17 +1,17 @@
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::agent::prompts::ToolCallFormat;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::Tool;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinytools::Tool;
 use tokio::time::Duration;
 
 #[derive(Default)]
@@ -135,7 +135,7 @@ impl ChatModel<()> for CodingQuestionModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let flattened = request
             .messages
             .iter()
@@ -225,7 +225,7 @@ impl ChatModel<()> for ParallelCodingModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.state.calls.fetch_add(1, Ordering::SeqCst);
         let current = self.state.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.record_peak(current);
@@ -439,7 +439,7 @@ impl ChatModel<()> for BlockingModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         tokio::time::sleep(Duration::from_secs(60)).await;
         Ok(text_response("NEVER_REACHED"))
     }

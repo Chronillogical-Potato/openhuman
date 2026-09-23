@@ -12,6 +12,7 @@ use super::workspace_files::{
 };
 use std::fmt::Write;
 use std::path::Path;
+use tinytools_agent::dialect::{CodeDialect, NativeDialect, PFormatDialect, ToolDialect};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-agent prompt renderer
@@ -57,8 +58,8 @@ pub fn render_subagent_system_prompt(
     workspace_dir: &Path,
     model_name: &str,
     allowed_indices: &[usize],
-    parent_tools: &[Box<dyn crate::tools::Tool>],
-    extra_tools: &[Box<dyn crate::tools::Tool>],
+    parent_tools: &[Box<dyn tinytools::Tool>],
+    extra_tools: &[Box<dyn tinytools::Tool>],
     archetype_body: &str,
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
@@ -81,8 +82,8 @@ pub fn render_subagent_system_prompt(
 
 /// Inner renderer that accepts an explicit [`ToolCallFormat`] so callers
 /// that know the active dispatcher format can thread it through. The
-/// public [`render_subagent_system_prompt`] defaults to PFormat for
-/// backwards compatibility.
+/// public [`render_subagent_system_prompt`] uses the preferred Python dialect
+/// by default.
 ///
 /// `agents_md_global` / `agents_md_local` are the pre-loaded AGENTS.md layers
 /// (see [`crate::agent::prompts::agents_md::load_agents_md_layers`]); `None`/`None` (the value
@@ -95,8 +96,8 @@ pub fn render_subagent_system_prompt_with_format(
     workspace_dir: &Path,
     model_name: &str,
     allowed_indices: &[usize],
-    parent_tools: &[Box<dyn crate::tools::Tool>],
-    extra_tools: &[Box<dyn crate::tools::Tool>],
+    parent_tools: &[Box<dyn tinytools::Tool>],
+    extra_tools: &[Box<dyn tinytools::Tool>],
     archetype_body: &str,
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
@@ -167,115 +168,34 @@ pub fn render_subagent_system_prompt_with_format(
     //     section order. Skipped entirely when both layers are `None`.
     write_agents_md_blocks(&mut out, agents_md_global, agents_md_local);
 
-    // 2. Filtered tool catalogue. Indices are taken in ascending order
-    //    from `allowed_indices`, which itself preserves `parent_tools`
-    //    order, so the rendering is deterministic. We use `.get(i)`
-    //    defensively even though the current caller (subagent_runner)
-    //    only produces in-range indices — a future caller that derives
-    //    indices from a different source must not be able to panic this
-    //    renderer with a stale index.
-    //
-    //    Rendering uses the caller-specified `tool_call_format` so
-    //    sub-agents and the main dispatcher stay in lockstep.
-    // Tool catalogue rendering is dispatcher-format-aware:
-    //
-    // - **Native**: The provider receives full tool schemas through
-    //   the request body's `tools` field (via `filtered_specs` in the
-    //   sub-agent runner) and emits structured `tool_calls`. Listing
-    //   the same tools again as prose in the system prompt is pure
-    //   duplication — for a integrations_agent spawn with 62 dynamic gmail
-    //   tools, that duplication added ~54k tokens and blew past the
-    //   model's context window. We skip the prose `## Tools` section
-    //   entirely in this mode.
-    //
-    // - **PFormat / Json**: Both are prompt-driven formats — the
-    //   model discovers tools by reading the prose `## Tools` section
-    //   and emits text-wrapped tool calls (`<tool_call>name[a|b]</tool_call>`
-    //   for PFormat, `<tool_call>{"name":...}</tool_call>` for Json).
-    //   Neither uses the native `tools` request field, so we MUST
-    //   list each tool in prose — including dynamically-registered
-    //   `extra_tools` — or the model has no way to know they exist.
-    if !matches!(tool_call_format, ToolCallFormat::Native) {
-        out.push_str("## Tools\n\n");
-        let render_one = |out: &mut String, tool: &dyn crate::tools::Tool| match tool_call_format {
-            ToolCallFormat::PFormat => {
-                let sig = render_pformat_signature_for_box_tool(tool);
-                let _ = writeln!(
-                    out,
-                    "- **{}**: {}\n  Call as: `{}`",
-                    tool.name(),
-                    tool.description(),
-                    sig
-                );
-            }
-            ToolCallFormat::Json => {
-                let _ = writeln!(
-                    out,
-                    "- **{}**: {}\n  Parameters: `{}`",
-                    tool.name(),
-                    tool.description(),
-                    tool.parameters_schema()
-                );
-            }
-            ToolCallFormat::Native => {
-                // Unreachable — outer guard skips Native entirely.
-            }
+    // 2. TinyTools owns both the catalogue and calling protocol.  Collect the
+    // filtered surface in deterministic order, then delegate its rendering to
+    // the same dialect that parses the model response.
+    let mut tool_specs = Vec::new();
+    for &i in allowed_indices {
+        let Some(tool) = parent_tools.get(i) else {
+            tracing::warn!(
+                index = i,
+                tool_count = parent_tools.len(),
+                "[context::prompt] dropping out-of-range tool index in subagent render"
+            );
+            continue;
         };
-        for &i in allowed_indices {
-            let Some(tool) = parent_tools.get(i) else {
-                tracing::warn!(
-                    index = i,
-                    tool_count = parent_tools.len(),
-                    "[context::prompt] dropping out-of-range tool index in subagent render"
-                );
-                continue;
-            };
-            render_one(&mut out, tool.as_ref());
-        }
-        for tool in extra_tools {
-            render_one(&mut out, tool.as_ref());
-        }
+        tool_specs.push(tinytools::ToolSpec {
+            name: tool.name().to_string(),
+            description: tool.description().to_string(),
+            parameters: tool.parameters_schema(),
+        });
     }
-
-    // 3. Sub-agent calling-convention preamble — format-aware.
-    //    Sub-agents need the same call format the main dispatcher expects
-    //    so their output parses correctly.
-    out.push('\n');
-    match tool_call_format {
-        ToolCallFormat::PFormat => {
-            out.push_str(
-                "## Tool Use Protocol\n\n\
-                 Tool calls use **P-Format**: compact, positional, pipe-delimited syntax \
-                 wrapped in `<tool_call>` tags.\n\n\
-                 ```\n<tool_call>\ntool_name[arg1|arg2]\n</tool_call>\n```\n\n\
-                 Arguments are positional — match the order shown in each tool's `Call as:` \
-                 signature above (alphabetical by parameter name). \
-                 Escape `|` as `\\|`, `]` as `\\]` inside values. \
-                 You may emit multiple `<tool_call>` blocks per response.\n\n\
-                 Use the provided tools to accomplish the task. Reply with a concise, dense \
-                 final answer when you have one — the parent agent will weave it back into the \
-                 user-visible response.\n\n",
-            );
-        }
-        ToolCallFormat::Json => {
-            out.push_str(
-                "## Tool Use Protocol\n\n\
-                 To use a tool, wrap a JSON object in `<tool_call></tool_call>` tags:\n\n\
-                 ```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n\n\
-                 You may emit multiple `<tool_call>` blocks in a single response.\n\n\
-                 Use the provided tools to accomplish the task. Reply with a concise, dense \
-                 final answer when you have one — the parent agent will weave it back into the \
-                 user-visible response.\n\n",
-            );
-        }
-        ToolCallFormat::Native => {
-            out.push_str(
-                "Use the provided tools via the model's native tool-calling output. \
-                 Reply with a concise, dense final answer when you have one — the parent \
-                 agent will weave it back into the user-visible response.\n\n",
-            );
-        }
+    tool_specs.extend(extra_tools.iter().map(|tool| tinytools::ToolSpec {
+        name: tool.name().to_string(),
+        description: tool.description().to_string(),
+        parameters: tool.parameters_schema(),
+    }));
+    if !tool_specs.is_empty() {
+        out.push_str(&render_tool_dialect_prompt(tool_call_format, &tool_specs));
     }
+    out.push_str("\nUse the provided tools to accomplish the task. Reply with a concise, dense final answer when you have one — the parent agent will weave it back into the user-visible response.\n\n");
 
     // 3b. Optional safety preamble. Definitions that do work with real
     //     side-effects (code_executor, tool_maker, integrations_agent) set
@@ -321,20 +241,50 @@ pub fn render_subagent_system_prompt_with_format(
     out
 }
 
-/// Build a P-Format signature line (`name[a|b|c]`) from a `&dyn Tool`.
-/// Used by `render_subagent_system_prompt` which operates on `Box<dyn Tool>`
-/// directly (no intermediate `PromptTool`). Mirrors the `PromptTool` variant
-/// below — both BTreeMap-iterate the schema's `properties` in the same order.
-fn render_pformat_signature_for_box_tool(tool: &dyn crate::tools::Tool) -> String {
-    let schema = tool.parameters_schema();
-    let names: Vec<String> = schema
-        .get("properties")
-        .and_then(|p| p.as_object())
-        .map(|m| m.keys().cloned().collect())
-        .unwrap_or_default();
-    if names.is_empty() {
-        format!("{}[]", tool.name())
-    } else {
-        format!("{}[{}]", tool.name(), names.join("|"))
+/// Ask TinyTools to produce the exact catalogue and protocol that its
+/// corresponding dialect accepts. OpenHuman deliberately owns no syntax here.
+fn render_tool_dialect_prompt(format: ToolCallFormat, tools: &[tinytools::ToolSpec]) -> String {
+    match format {
+        // Native providers receive the catalogue in the request's structured
+        // `tools` field. Rendering it in the system prompt duplicates large
+        // integration toolkits and can exhaust the context window.
+        ToolCallFormat::Native => NativeDialect.prompt_instructions(&[]),
+        ToolCallFormat::Json => harness_json_tool_prompt(tools),
+        ToolCallFormat::PFormat => {
+            let registry = tinytools_agent::build_registry(
+                tools
+                    .iter()
+                    .map(|tool| (tool.name.as_str(), &tool.parameters)),
+            );
+            format!(
+                "{}\n{}",
+                tinytools_agent::dialect::render_pformat_catalogue(tools),
+                PFormatDialect::new(registry).prompt_instructions(tools)
+            )
+        }
+        ToolCallFormat::Python | ToolCallFormat::TypeScript => {
+            let style = format.code_style().expect("code format has a code style");
+            format!(
+                "{}\n{}",
+                tinytools_agent::render::render_code_catalogue(tools, style),
+                CodeDialect::instructions(style)
+            )
+        }
     }
+}
+
+/// Use TinyAgents' complete text-mode prompt contract rather than teaching a
+/// local JSON convention that could drift from transcript replay and parsing.
+pub(crate) fn harness_json_tool_prompt(tools: &[tinytools::ToolSpec]) -> String {
+    let schemas: Vec<tinyinference_llm::tool::ToolSchema> = tools
+        .iter()
+        .map(|tool| {
+            tinyinference_llm::tool::ToolSchema::new(
+                tool.name.clone(),
+                tool.description.clone(),
+                tool.parameters.clone(),
+            )
+        })
+        .collect();
+    tinyagents_harness::tool::prompt_tool_instructions(&schemas)
 }

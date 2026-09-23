@@ -1,11 +1,11 @@
 //! Chat: `ParallelChatTool` and its response types.
 
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolResult};
 
 // ── ParallelChatTool ────────────────────────────────────────────────
 

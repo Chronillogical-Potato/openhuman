@@ -1,5 +1,7 @@
 pub mod agent_policy;
+mod capability;
 pub mod generated;
+pub mod host_extensions;
 pub mod ops;
 pub mod orchestrator_tools;
 pub mod policy;
@@ -9,7 +11,6 @@ mod schemas;
 pub mod status;
 pub mod timeout;
 pub mod toolpacks;
-pub mod traits;
 pub(crate) mod user_filter;
 
 #[path = "impl/mod.rs"]
@@ -29,7 +30,6 @@ pub use crate::flows::builder_tools::*;
 pub use crate::flows::discovery_tools::*;
 #[cfg(feature = "flows")]
 pub use crate::flows::memory_tools::*;
-#[cfg(feature = "flows")]
 #[cfg(feature = "flows")]
 pub use crate::flows::tools::*;
 pub use crate::integrations::composio::tools::*;
@@ -52,14 +52,14 @@ pub use crate::skills::catalog::tools::*;
 #[cfg(feature = "skills")]
 pub use crate::skills::runtime::tools::*;
 #[cfg(feature = "skills")]
+pub use crate::skills::search::SkillSearchTool;
+#[cfg(feature = "skills")]
 pub use crate::skills::tools::*;
-pub use crate::threads::todos::tools::*;
 #[cfg(feature = "voice")]
 pub use crate::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::web3::wallet::tools::*;
 pub use implementations::*;
-pub use ops::*;
 pub use policy::{DefaultToolPolicy, PolicyDecision, ToolPolicy};
 #[allow(unused_imports)]
 pub use schema::{CleaningStrategy, SchemaCleanr};
@@ -67,8 +67,5 @@ pub use schemas::{
     all_controller_schemas as all_tools_controller_schemas,
     all_registered_controllers as all_tools_registered_controllers,
 };
-pub use traits::{
-    PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolContent, ToolExposure, ToolResult,
-    ToolScope, ToolSpec,
-};
+pub use tinytools::{PermissionLevel, ToolCategory, ToolResult, ToolScope, ToolSpec};
 pub(crate) use user_filter::filter_tools_by_user_preference;

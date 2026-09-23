@@ -132,7 +132,82 @@ fn session_user_value(
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
 }
 
+/// The kinds of backend credential the core can hold. The `as_str` values are
+/// the `auth.set_credential` / `auth.clear_credential` / `auth.get_state` wire
+/// vocabulary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CredentialKind {
+    /// A TinyHumans session JWT.
+    Session,
+    /// A TinyHumans API key.
+    ApiKey,
+    /// The offline local session (`is_local_session_token`).
+    Local,
+}
+
+impl CredentialKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Session => super::responses::CREDENTIAL_SESSION,
+            Self::ApiKey => super::responses::CREDENTIAL_API_KEY,
+            Self::Local => super::responses::CREDENTIAL_LOCAL,
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim() {
+            super::responses::CREDENTIAL_SESSION => Some(Self::Session),
+            super::responses::CREDENTIAL_API_KEY => Some(Self::ApiKey),
+            super::responses::CREDENTIAL_LOCAL => Some(Self::Local),
+            _ => None,
+        }
+    }
+
+    /// Classify a bare token the way the core always has: the local-session
+    /// shape is `Local`, anything else is a session JWT. An API key is never
+    /// inferred from shape — callers that hold one say so.
+    pub fn classify(token: &str) -> Self {
+        if is_local_session_token(token) {
+            Self::Local
+        } else {
+            Self::Session
+        }
+    }
+}
+
+/// The subject of a JWT, read from its payload claims without verification.
+/// Checked in order: `sub`, `userId`, `user_id`, `_id`, `id`.
+pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
+    let claims = crate::api::jwt::decode_jwt_payload(token)?;
+    let obj = claims.as_object()?;
+    ["sub", "userId", "user_id", "_id", "id"]
+        .iter()
+        .find_map(|key| obj.get(*key).and_then(serde_json::Value::as_str))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 pub fn build_session_state(config: &Config) -> Result<AuthStateResponse, String> {
+    // The API key wins whenever both are present — same precedence as
+    // `resolve_backend_credential`, which every backend request actually
+    // authenticates with. Checked before the session profile loads: a host
+    // that holds both (a runtime built with `.session(...)` and
+    // `.api_key(...)`, or an inherited workspace carrying a prior session)
+    // must see `credential: "api-key"`, not "session", or `auth.get_state`
+    // would misidentify what's actually authenticating its requests. An API
+    // key carries no user identity, so `user_id`/`user` stay `None` rather
+    // than leaking the session's.
+    if super::api_key::has_api_key(config) {
+        return Ok(AuthStateResponse {
+            is_authenticated: true,
+            user_id: None,
+            user: None,
+            profile_id: None,
+            credential: Some(super::responses::CREDENTIAL_API_KEY.to_string()),
+            expires_at: None,
+        });
+    }
     let profile = load_app_session_profile(config)?;
     Ok(session_state_from_profile(profile.as_ref()))
 }
@@ -204,9 +279,80 @@ pub(crate) fn classify_session_token(
 ///   presence-only check; the `flatten_authed_error` 401 net still covers a
 ///   server-side revocation that precedes the recorded `exp`.
 pub fn require_live_session_token(config: &Config) -> Result<String, String> {
+    resolve_backend_credential(config).map(BackendCredential::into_secret)
+}
+
+/// The credential a backend request authenticates with.
+///
+/// Two shapes because the wire differs: a session JWT rides
+/// `Authorization: Bearer` everywhere, while an API key rides
+/// `Authorization: Bearer` on managed inference but `x-api-key` on the SDK
+/// REST routes. Callers that build SDK requests match on this; callers that
+/// only need "the secret string" use [`into_secret`](Self::into_secret).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BackendCredential {
+    /// The app-session JWT stored by `auth_set_credential {kind: "session"}`.
+    Session(String),
+    /// The TinyHumans API key stored by `auth_set_credential {kind: "api-key"}`
+    /// (see [`super::api_key`]).
+    ApiKey(String),
+}
+
+impl From<&str> for BackendCredential {
+    /// A bare token string is a session JWT — the historical `authed_json`
+    /// contract. API keys only ever arrive typed, from
+    /// [`resolve_backend_credential`].
+    fn from(token: &str) -> Self {
+        Self::Session(token.to_string())
+    }
+}
+
+impl From<&String> for BackendCredential {
+    fn from(token: &String) -> Self {
+        Self::Session(token.clone())
+    }
+}
+
+impl From<&BackendCredential> for BackendCredential {
+    fn from(credential: &BackendCredential) -> Self {
+        credential.clone()
+    }
+}
+
+impl BackendCredential {
+    /// The raw secret, whichever kind it is.
+    pub fn into_secret(self) -> String {
+        match self {
+            Self::Session(s) | Self::ApiKey(s) => s,
+        }
+    }
+
+    /// The raw secret, borrowed.
+    pub fn secret(&self) -> &str {
+        match self {
+            Self::Session(s) | Self::ApiKey(s) => s,
+        }
+    }
+
+    pub fn is_api_key(&self) -> bool {
+        matches!(self, Self::ApiKey(_))
+    }
+}
+
+/// Resolve the backend credential for `config`: the API key when one is
+/// stored, else the live app-session token with exactly the classification
+/// [`require_live_session_token`] has always applied.
+///
+/// The API key is checked **first**, and a stored key short-circuits every
+/// session check: a library runtime never stores a session, and a desktop that
+/// somehow has both has been told explicitly to use the key.
+pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, String> {
+    if let Some(key) = super::api_key::get_api_key(config).map_err(|e| e.to_string())? {
+        return Ok(BackendCredential::ApiKey(key));
+    }
     let profile = load_app_session_profile(config)?;
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
-        SessionTokenCheck::Live(token) => Ok(token),
+        SessionTokenCheck::Live(token) => Ok(BackendCredential::Session(token)),
         SessionTokenCheck::Absent => {
             Err("no backend session token; run auth_store_session first".to_string())
         }
@@ -218,6 +364,18 @@ pub fn require_live_session_token(config: &Config) -> Result<String, String> {
             )
         }
     }
+}
+
+/// Whether *some* backend credential is present — an API key or a non-empty
+/// app-session token — without classifying expiry. This is the boot-time
+/// "signed in?" question the scheduler gate asks: an expired session still
+/// counts as signed in here because the gate's job is to notice the later
+/// `SessionExpired`, not to pre-empt it.
+pub fn has_backend_credential(config: &Config) -> bool {
+    if super::api_key::has_api_key(config) {
+        return true;
+    }
+    matches!(get_session_token(config), Ok(Some(_)))
 }
 
 /// Announce a locally-detected session expiry on the bus so
@@ -235,6 +393,18 @@ pub fn publish_local_session_expiry(operation: &'static str) {
     // Dedupe the publish via the scheduler gate so N parallel authed
     // callers in one tick don't emit N SessionExpired events.
     if crate::cron::scheduler_gate::is_signed_out() {
+        return;
+    }
+    // An API-key runtime has no session to expire. Its backend calls never
+    // reach here through `resolve_backend_credential` (the key short-circuits),
+    // but a stale direct caller must not sign the whole process out over a
+    // credential the runtime does not use.
+    if ambient_config_has_api_key() {
+        tracing::debug!(
+            domain = "credentials",
+            operation = operation,
+            "[credentials] session expiry ignored — runtime authenticates with an API key"
+        );
         return;
     }
     tracing::info!(
@@ -269,20 +439,24 @@ pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateRes
             user_id: None,
             user: None,
             profile_id: None,
+            credential: None,
+            expires_at: None,
         };
     };
 
-    let is_authenticated = profile
-        .token
-        .as_ref()
-        .map(|token| !token.trim().is_empty())
-        .unwrap_or(false);
+    let token = session_token_from_profile(Some(profile));
+    let is_authenticated = token.is_some();
+    let credential = token
+        .as_deref()
+        .map(|token| CredentialKind::classify(token).as_str().to_string());
 
     AuthStateResponse {
         is_authenticated,
         user_id: profile.metadata.get("user_id").cloned(),
         user: session_user_value(profile),
         profile_id: Some(profile.id.clone()),
+        credential,
+        expires_at: session_expires_at_from_profile(Some(profile)).map(|dt| dt.to_rfc3339()),
     }
 }
 
@@ -296,6 +470,15 @@ pub fn session_token_from_profile(profile: Option<&AuthProfile>) -> Option<Strin
         .map(str::trim)
         .filter(|token| !token.is_empty())
         .map(str::to_string)
+}
+
+/// Whether the ambient runtime config carries an API key. Reads the
+/// embedder-supplied config off the [`CoreContext`](crate::core::runtime::CoreContext)
+/// when there is one; a host that discovers its config from disk has no API
+/// key by construction (it is only ever installed by a library runtime).
+pub fn ambient_config_has_api_key() -> bool {
+    crate::core::runtime::CoreContext::current_embedder_config()
+        .is_some_and(|config| super::api_key::has_api_key(&config))
 }
 
 #[cfg(test)]

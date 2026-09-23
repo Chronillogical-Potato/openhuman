@@ -168,18 +168,24 @@ jobs:
           # owned directory outside the runner-owned checkout is required.
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
+          juice_dir="$module_root/tinyjuice"
           connectors_dir="$module_root/tinyconnectors"
           rm -rf "$module_root"
-          mkdir -p "$memory_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
           bash scripts/ci-cancel-aware.sh cargo build --release \
             --manifest-path vendor/tinymemory/crates/tinymemory-module/Cargo.toml
           cp vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.so \
             "$memory_dir/libtinymemory_module.so"
           bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinyjuice/crates/tinyjuice-module/Cargo.toml
+          cp vendor/tinyjuice/target/release/libtinyjuice_module.so \
+            "$juice_dir/libtinyjuice_module.so"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
             --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
           cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
             "$connectors_dir/libtinyconnectors.so"
           echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" >> "$GITHUB_ENV"
+          echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" >> "$GITHUB_ENV"
           echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" >> "$GITHUB_ENV"
       - name: Test core crate (openhuman)
         # This script uses Bash-only process substitution below. Reusable
@@ -212,15 +218,22 @@ jobs:
           # raw_coverage_all — see Cargo.toml). Without these features
           # `cargo test --test json_rpc_e2e` matches NOTHING and exits 0, and
           # json_rpc_e2e alone is >12k lines of RPC contract coverage.
-          FEATURES="$(bash scripts/ci/product-features.sh),bin-tools"
-          echo "[test-reusable] feature set: ${FEATURES}"
+          # `bin-tools` is a gate of the CLI crate (not the core library), so
+          # it is added only on the `openhuman-cli` invocations below. Bare
+          # `--features` names resolve against the package a command selects;
+          # naming a gate the package lacks is a hard error.
+          FEATURES="$(bash scripts/ci/product-features.sh)"
+          CLI_FEATURES="${FEATURES},bin-tools"
+          echo "[test-reusable] feature set: ${FEATURES} (cli: ${CLI_FEATURES})"
 
           # `--features bin-tools` is load-bearing, not cosmetic: the ops binaries
-          # under crates/openhuman-core/src/bin/ declare `required-features = ["bin-tools"]`, so without
+          # under crates/openhuman-cli/src/bin/ declare `required-features = ["bin-tools"]`, so without
           # it `--bins` silently skips them and this lane goes green having
           # compiled none of them. fleet.rs carries a `#[cfg(test)] mod`, so those
           # tests would vanish too, with no error.
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --bins --features "${FEATURES}"
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --features "${FEATURES}"
+          # The core binary and developer bins live in the CLI crate.
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --bins --features "${CLI_FEATURES}"
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc --features "${FEATURES}"
 
           while IFS= read -r target; do
@@ -229,7 +242,7 @@ jobs:
               while IFS= read -r module; do
                 [ -n "${module}" ] || continue
                 echo "[test-reusable] raw coverage module: ${module}"
-                bash scripts/ci-cancel-aware.sh cargo test -p openhuman --features "${FEATURES}" --test "${target}" -- "${module}::" --test-threads=1
+                bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --features "${CLI_FEATURES}" --test "${target}" -- "${module}::" --test-threads=1
               done < <(raw_coverage_modules)
             elif [ "${target}" = "json_rpc_e2e" ]; then
               # JSON-RPC E2E cases change process-global provider routes and
@@ -239,13 +252,13 @@ jobs:
               while IFS= read -r test_name; do
                 [ -n "${test_name}" ] || continue
                 echo "[test-reusable] JSON-RPC E2E test: ${test_name}"
-                bash scripts/ci-cancel-aware.sh cargo test -p openhuman --test "${target}" "${test_name}" -- --exact --test-threads=1
+                bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --test "${target}" "${test_name}" -- --exact --test-threads=1
               done < <(
-                cargo test -p openhuman --test "${target}" -- --list \
+                cargo test -p openhuman-cli --test "${target}" -- --list \
                   | sed -n 's/: test$//p'
               )
             else
-              bash scripts/ci-cancel-aware.sh cargo test -p openhuman --features "${FEATURES}" --test "${target}"
+              bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --features "${CLI_FEATURES}" --test "${target}"
             fi
           done < <(integration_test_targets)
 

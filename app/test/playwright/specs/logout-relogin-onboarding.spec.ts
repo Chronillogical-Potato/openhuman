@@ -63,7 +63,22 @@ async function completeCloudOnboarding(page: Page): Promise<void> {
 async function logoutViaSettings(page: Page): Promise<void> {
   await callCoreRpc('openhuman.auth_clear_session', {});
   await page.goto('/#/');
-  await expect(page.getByText('Welcome to OpenHuman')).toBeVisible();
+  // A core RPC response only confirms that persistence was updated. Wait for
+  // the browser's CoreStateProvider to observe that signed-out snapshot before
+  // asserting the public route, otherwise a preceding authenticated snapshot
+  // can win the reload race in a busy serial CI lane.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (
+          window as typeof window & {
+            __OPENHUMAN_CORE_STATE__?: () => { snapshot?: { sessionToken?: string | null } };
+          }
+        ).__OPENHUMAN_CORE_STATE__?.();
+        return Boolean(state?.snapshot?.sessionToken);
+      })
+    )
+    .toBe(false);
 }
 
 test.describe('Logout -> re-login onboarding overlay', () => {
@@ -80,8 +95,6 @@ test.describe('Logout -> re-login onboarding overlay', () => {
     await logoutViaSettings(page);
 
     await callCoreRpc('openhuman.config_set_onboarding_completed', { value: false });
-    await page.goto('/#/');
-    await expect(page.getByText('Welcome to OpenHuman')).toBeVisible();
 
     await signInToOnboarding(page, 'pw-logout-relogin-user');
 

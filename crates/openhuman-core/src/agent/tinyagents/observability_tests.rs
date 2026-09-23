@@ -25,6 +25,7 @@ async fn bridge_forwards_tool_and_cost_progress() {
         duration_ms: None,
         output_bytes: None,
         error: None,
+        metadata: None,
     });
     sink.emit(AgentEvent::UsageRecorded {
         usage: Usage::new(100, 40),
@@ -183,6 +184,7 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
         duration_ms: None,
         output_bytes: None,
         error: None,
+        metadata: None,
     });
 
     let mut seen = None;
@@ -223,15 +225,34 @@ async fn unknown_tool_call_projects_attempted_name_as_failed_timeline_row() {
 
     let mut started_name = None;
     let mut completed: Option<(String, bool)> = None;
+    let mut failure = None;
     while let Ok(p) = rx.try_recv() {
         match p {
             AgentProgress::ToolCallStarted { tool_name, .. } => started_name = Some(tool_name),
             AgentProgress::ToolCallCompleted {
-                tool_name, success, ..
-            } => completed = Some((tool_name, success)),
+                tool_name,
+                success,
+                failure: f,
+                ..
+            } => {
+                completed = Some((tool_name, success));
+                failure = f;
+            }
             _ => {}
         }
     }
+    // #6277: a tool the agent does not have fails identically on every retry,
+    // so the timeline must not tell the user to "try again / run diagnostics".
+    let failure = failure.expect("the failed row carries a classified failure");
+    assert_eq!(
+        failure.class,
+        crate::tools::status::ToolFailureClass::NotFound,
+        "an unavailable tool must be classified NotFound, not Unknown"
+    );
+    assert!(
+        !failure.recoverable,
+        "an unavailable tool is not recoverable by retrying"
+    );
     assert_eq!(
         started_name.as_deref(),
         Some("search_files"),

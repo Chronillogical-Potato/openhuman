@@ -7,10 +7,11 @@
 //! `tests/harness_embed.rs`, which owns its process.
 //!
 //! The tests that *do* call `build()` are the ones that fail before it — and
-//! they serialize on [`GUARD`], because `HARNESS_LIVE` is process-wide and
+//! they serialize on [`GUARD`], because the runtime slot is process-wide and
 //! `cargo test` runs threads in parallel.
 
 use super::*;
+use crate::runtime::builder::apply_provider;
 use openhuman_core::config::Config;
 
 /// Serializes the tests that claim the process-wide harness slot.
@@ -18,43 +19,12 @@ use openhuman_core::config::Config;
 /// An async mutex, not a `std` one: these tests hold it across `build().await`,
 /// and a blocking guard held over an await point can deadlock a single-threaded
 /// runtime.
+#[cfg(feature = "skills")]
 static GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[test]
 fn a_harness_identifies_as_a_library_host_by_default() {
     assert_eq!(HarnessBuilder::new().host_kind, HostKind::Library);
-}
-
-#[test]
-fn inherited_workspace_and_provider_keep_installed_session_policy() {
-    assert_eq!(
-        effective_host_kind(HostKind::Library, true, false),
-        HostKind::Cli
-    );
-    assert_eq!(
-        effective_host_kind(HostKind::Library, true, true),
-        HostKind::Library
-    );
-    assert_eq!(
-        effective_host_kind(HostKind::Library, false, false),
-        HostKind::Library
-    );
-}
-
-#[test]
-fn default_services_start_no_background_writers() {
-    // cron, heartbeat and the memory queue each write to the workspace on their
-    // own schedule. A library call that started them would become a background
-    // process the caller never asked for.
-    let services = default_services();
-    assert!(services.harness_init, "the agent harness must be prepared");
-    assert!(!services.cron);
-    assert!(!services.heartbeat);
-    assert!(!services.memory_queue);
-    assert!(!services.rpc_http, "a library call binds no port");
-    assert!(!services.socketio);
-    assert!(!services.channels);
-    assert!(!services.update_scheduler);
 }
 
 #[test]
@@ -87,8 +57,10 @@ fn a_provider_route_is_never_written_to_config() {
 
 #[test]
 fn inheriting_a_provider_leaves_the_configured_model_alone() {
-    let mut config = Config::default();
-    config.default_model = Some("operators-choice".into());
+    let mut config = Config {
+        default_model: Some("operators-choice".into()),
+        ..Default::default()
+    };
     apply_provider(&mut config, &Provider::inherit());
     assert_eq!(config.default_model.as_deref(), Some("operators-choice"));
 }
@@ -124,7 +96,7 @@ async fn a_failed_build_releases_the_process_slot() {
             "the slot leaked from the previous failed build"
         );
     }
-    assert!(!HARNESS_LIVE.load(std::sync::atomic::Ordering::Acquire));
+    assert!(!crate::runtime::RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
 }
 
 #[cfg(feature = "mcp")]
@@ -154,11 +126,13 @@ async fn an_inherited_workspace_still_applies_the_builder_knobs() {
     //
     // Asserted on the assembly, not through a real build — booting a core is
     // process-global and cannot be undone between tests.
-    let mut config = Config::default();
-    config.api_url = Some("https://operator.example".into());
-    config.default_model = Some("operators-choice".into());
+    let mut config = Config {
+        api_url: Some("https://operator.example".into()),
+        default_model: Some("operators-choice".into()),
+        ..Default::default()
+    };
 
-    // What `build_inner` does to a config once it has one, in order.
+    // What `RuntimeBuilder::build` does to a config once it has one, in order.
     let backend_url = Some("https://harness.example".to_string());
     if let Some(url) = backend_url {
         config.api_url = Some(url);
@@ -179,9 +153,14 @@ async fn an_inherited_workspace_still_applies_the_builder_knobs() {
 fn backend_url_overrides_a_supplied_configs_api_url() {
     // Order matters: the explicit builder call is more specific than whatever
     // the starting config carried, so it must be applied after it.
-    let mut config = Config::default();
-    config.api_url = Some("https://from-config.example".into());
-    config.api_url = Some("https://from-builder.example".to_string());
+    let supplied = Config {
+        api_url: Some("https://from-config.example".into()),
+        ..Default::default()
+    };
+    let config = Config {
+        api_url: Some("https://from-builder.example".to_string()),
+        ..supplied
+    };
     assert_eq!(
         config.api_url.as_deref(),
         Some("https://from-builder.example")

@@ -17,9 +17,10 @@ Architecture: [overview](gitbooks/developing/architecture.md),
 | `crates/openhuman-core/` | Package `openhuman`: business domains under `src/<domain>/`, transport/dispatch/auth under `src/core/` |
 | `crates/openhuman-core/src/<domain>/` | Flat business-domain modules (agent, memory, tools, security, channels, ...) |
 | `crates/openhuman-core/src/core/` | CLI, JSON-RPC and HTTP dispatch, controller registry, event bus, runtime composition; no business logic |
-| `crates/openhuman-core/src/main.rs` | `openhuman-core` CLI |
+| `crates/openhuman-cli/` | The `openhuman-core` binary (`src/main.rs`), the developer/benchmark bins (`src/bin/`), and every root `tests/*.rs` / `examples/*.rs` target; depends on `openhuman-tinyhumans` for the backend transport the core does not carry |
 | `crates/openhuman-embed/` | Typed library facade for embedding the core in another product |
 | `crates/openhuman-rpc/` | Shared RPC contracts, response decoding, and HTTP client used by app and TUI |
+| `crates/openhuman-tinyhumans/` | The TinyHumans layer above embed: SDK-backed backend transport, a `RuntimeBuilder` that boots connected, and the host-side login/session owner (login-token exchange, `/auth/me`, current-user cache, credential handoff) used by app and TUI |
 | `crates/openhuman-tui/` | Standalone terminal frontend |
 | `tests/` | Rust integration and JSON-RPC tests |
 | `gitbooks/` | Public product and contributor documentation |
@@ -60,7 +61,7 @@ pnpm test:coverage
 pnpm test:rust
 
 cargo check --manifest-path Cargo.toml
-cargo build --manifest-path Cargo.toml --bin openhuman-core
+cargo build --manifest-path Cargo.toml -p openhuman-cli --bin openhuman-core
 cargo check --manifest-path crates/openhuman-app/Cargo.toml
 
 # Standard root-crate validation
@@ -106,15 +107,22 @@ coverage must be at least 80 percent.
   element types.
 - Tests must not call real backend or third-party services.
 - Avoid time-based flakes and real network access in unit tests.
-- Root `tests/*.rs` and `examples/*.rs` are NOT auto-discovered (`autotests =
-  false`, `autoexamples = false` in `crates/openhuman-core/Cargo.toml`). Every
-  new file needs an explicit `[[test]]` / `[[example]]` entry with `path =
-  "../../tests/<name>.rs"`; `pnpm rust:layout`
-  (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on missing or stale
-  entries, on inline `#[cfg(test)] mod` blocks, and on files named
-  `tests.rs`/`test.rs`. Files under `tests/raw_coverage/` are aggregated by
-  the root `build.rs` (`build = "../../build.rs"`) into the single
-  `raw_coverage_all` target and need no entry.
+- Root `tests/*.rs` and `examples/*.rs` are targets of **`crates/openhuman-cli`**
+  (the core is a library and declares no bin/test/example targets). They are
+  NOT auto-discovered (`autotests = false`, `autoexamples = false`); every new
+  file needs an explicit `[[test]]` / `[[example]]` entry in
+  `crates/openhuman-cli/Cargo.toml` with `path = "../../tests/<name>.rs"`;
+  `pnpm rust:layout` (`scripts/ci/check-openhuman-rust-layout.mjs`) fails on
+  missing or stale entries, on any target table in the core manifest, on
+  inline `#[cfg(test)] mod` blocks, and on files named `tests.rs`/`test.rs`.
+  Files under `tests/raw_coverage/` are aggregated by the root `build.rs`
+  (`build = "../../build.rs"`) into the single `raw_coverage_all` target and
+  need no entry. Run them as `cargo test -p openhuman-cli --test <name>`.
+- A suite that boots the core **in-process** and reaches the backend (mock)
+  must call `tinyhumans_boot::boot()` from `tests/support/tinyhumans_boot.rs`
+  first; the core has no backend transport of its own, and without it every
+  backend call answers `BACKEND_UNAVAILABLE:`. Suites that spawn the
+  `openhuman-core` binary get it from `main.rs`.
 
 Shared mock backend:
 
@@ -122,6 +130,30 @@ Shared mock backend:
 - Server: `scripts/mock-api-server.mjs`
 - E2E adapter: `app/test/e2e/mock-server.ts`
 - Manual start: `pnpm mock:api`
+
+Debugging what the core actually sends to inference (prompt size, tool
+schemas, cache keys, which endpoint answered, time to first byte, cached
+tokens): put the capture proxy between the core and its backend instead of
+guessing from logs.
+
+- `CAPTURE_ALL=1 pnpm debug capture` (`scripts/debug/capture-first-inference.mjs`)
+  listens on `127.0.0.1:18765`, forwards everything to `CAPTURE_UPSTREAM`
+  (default `https://api.tinyhumans.ai`; `https://openrouter.ai` for a direct
+  BYOK route), dumps every inference request body under
+  `target/debug-logs/inference-sequence/`, and prints one line per response:
+  `served_by`, `ttfb`, `prompt`, `cached`, `cache_key`, status, error.
+- Point a core at it with `api_url = "http://127.0.0.1:18765"` in the user
+  `config.toml` or `BACKEND_URL=http://127.0.0.1:18765` on a headless
+  `openhuman-core run`; drive turns over JSON-RPC (`channel_web_chat`).
+- Read the lines as claims to check: `cache_key` must be identical across the
+  turns of one thread, `served_by` should not change mid-thread, and `cached`
+  should approach `prompt` from the second call on. Any of those drifting is
+  the finding.
+- Self-test: `scripts/__tests__/capture-first-inference.test.mjs` (runs in the
+  CI scripts lane). The static prompt on its own comes from
+  `openhuman-core agent dump-prompt --agent <id> --json --with-tools`
+  (`scripts/debug-agent-prompts.sh`); the proxy shows the request the harness
+  assembles from it per turn.
 
 ## Configuration and security
 
@@ -238,19 +270,77 @@ Additional rules:
 ## Tool, harness, and runtime boundaries
 
 `tinyagents` owns tool-call dialects, parsing, catalog rendering, transcript
-replay, and the agent loop. `tinytools` owns the shared `Tool` trait and tool
-types. OpenHuman owns execution policy, approvals, sandboxing, timeouts, and
-progress events.
+replay, session identity, and the agent loop. `tinytools` owns the shared
+`Tool` trait and tool types. OpenHuman owns execution policy, approvals,
+sandboxing, timeouts, and progress events.
 
 - Use the `tinytools` copy vendored through `vendor/tinyagents/`; a second path
   creates incompatible Rust types.
 - Keep conversions mechanical. Policy decisions belong in OpenHuman.
-- `openhuman_embed::Harness` is the public prompt-to-reply API. Calls go through
-  `CoreRuntime::invoke`, not directly to domain operations.
+- **Put a change in the repo that owns it, not where it is easiest to land.**
+  Tool-call parsing, grammars, the `Tool` trait and generic tool types go to
+  `vendor/tinyagents/vendor/tinytools`; the agent loop, dialects, prompt
+  cache layout, run policy, progress events and generic harness tools (the
+  session todo list, goals, delegation graph) go to `vendor/tinyagents`
+  (`tinyagents-harness` / `tinyagents-graph`); OpenHuman keeps only the host
+  adapters (scope, dispatch, approvals, progress projection). Open the
+  upstream PR in that repo first, then move the gitlink here. A host-side
+  workaround for a harness or parser bug is a stopgap, not a fix: file or
+  fix it upstream in the same PR.
+- `openhuman_embed::Runtime` → `Agent` is the public library API: one runtime
+  per process (features, services, backend URL, TinyHumans API key), then any
+  number of independently configured agents on it (`AgentSpec`: provider,
+  access, `action_dir`, MCP servers, skills, prompt, tool scope, sandbox).
+  `Harness` is the one-agent shorthand over the same two types. Agent turns
+  dispatch natively (`inference::local::ops::agent_chat_for`) under the
+  agent's own `CoreContext` (`CoreContext::derive_with`); other facade calls
+  go through `CoreRuntime::invoke`.
 - Set `config_path` with `workspace_dir`, and set a turn origin with its access
-  tier. `Access::full()` configures both access fields.
-- Use one `Harness` per process. Copy skills into its workspace because skill
-  discovery rejects symlinked bundles.
+  tier. `Access::full()` configures both access fields. Every agent on a
+  runtime shares its `config_path` (credentials, keyring, API key).
+- Copy skills into an agent's `personalities/<id>/skills/` (what
+  `AgentSpec::skills_dir` does) because skill discovery rejects symlinked
+  bundles. Library agents hide the operator's `~/.openhuman/skills` unless
+  `include_user_skills(true)`.
+- Library mode has no user login: the runtime's API key rides managed
+  inference as `Authorization: Bearer` and backend REST as `x-api-key`
+  (`security::credentials::api_key`, `session_support::BackendCredential`).
+- The core never obtains, validates, exchanges or refreshes a credential.
+  It takes one — a session JWT, an API key, or the offline local token —
+  through `auth.set_credential` (`security::credentials::ops::credential`)
+  and does only what it owns with it: user-dir activation, gated services,
+  the scheduler gate, Sentry and prompt identity. Login-token exchange,
+  `GET /auth/me` and the current-user cache belong to the host's session
+  owner: `openhuman_tinyhumans::session` behind the Tauri shell's `auth_*`
+  commands and the TUI, `openhuman_embed::Auth` for embedders, the CLI or
+  `OPENHUMAN_BACKEND_API_KEY` / `OPENHUMAN_BACKEND_SESSION_TOKEN` for
+  headless hosts. Do not add backend auth endpoints back to the core.
+
+### Sessions
+
+A conversation's durable identity is `tinyagents_session::transcript::SessionRef`,
+derived from the thread id and the agent id. It maps to a transcript stem
+deterministically and **without a timestamp**, so one conversation resolves to
+one file in every process and on every launch. OpenHuman binds it in
+`set_thread_id` and resumes with `ResumeMode::Session`; it does not mint stems,
+seed history by hand, or pick a transcript by recency.
+
+- **The transcript is what the model sees.** Trimming it is legitimate.
+- **A compaction never erases.** It seals the current generation and opens the
+  next (`begin_generation`), which records the sealed one as its parent. The
+  sealed file stays on disk byte-for-byte, so the whole conversation is
+  recoverable by walking `session_chain` even though the model reads only the
+  head.
+- **A resumed session's prompt is frozen.** It reuses its persisted system
+  messages verbatim, which is what keeps the provider's prefix cache warm
+  across a restart. The accepted consequence is that prompt edits, new skills
+  and newly connected integrations do not reach an existing thread.
+- **Pre-identity conversations are adopted once**, on first resume, from the
+  timestamped stems they were written to (`adopt_legacy_session_transcripts`).
+  No legacy file is modified.
+- OpenHuman's session host keeps only the product surface over this: start a
+  session, read it back, list its generations
+  (`agent/session_host/session_api.rs`).
 
 `CoreBuilder` controls background services with `ServiceSet`, runtime domains
 with `DomainSet`, and tool visibility with `ToolGroups`. These controls only
@@ -312,25 +402,49 @@ module release before migrating a host call to it.
 
 ## Backend API
 
-Backend calls use the vendored `tinyhumans-sdk`. Add missing backend routes to
-that SDK rather than recreating them in `crates/openhuman-core/src/api/`.
+The core does not depend on `tinyhumans-sdk`. It reaches the hosted backend
+only through the port `crates/openhuman-core/src/api/transport/`
+(`BackendTransport`, `BackendRequest`, `BackendTransportError`); the SDK-backed
+implementation is `crates/openhuman-tinyhumans` (`SdkBackendTransport`), which
+sits above `openhuman-embed` and is installed once per process
+(`openhuman_tinyhumans::install`, or `RuntimeBuilder` for library hosts, or
+`CoreBuilder::backend_transport`). A core with no transport installed runs
+agents, memory, tools and RPC without any TinyHumans connection and answers
+backend-touching calls with `BackendApiError::BackendUnavailable` /
+`BACKEND_UNAVAILABLE:`. Never add `tinyhumans-sdk` back to the core; the only
+crate allowed to depend on it is `openhuman-tinyhumans` (`cargo tree -p
+openhuman -i tinyhumans-sdk` must stay empty). Every host that boots a core
+(`crates/openhuman-app/src/main.rs` and `lib.rs::run`,
+`crates/openhuman-tui/src/runner.rs`, `crates/openhuman-cli/src/main.rs`)
+calls `openhuman_tinyhumans::install` first; it also registers the hosted RPC
+proxies (`billing`, `team`, `referral`, `announcements` —
+`crates/openhuman-tinyhumans/src/hosted/`) into the core's controller
+registry through `core::all::register_controller_extension`
+(`DomainGroup::Hosted`). New backend-only proxy domains belong there, not in
+the core.
+
+Add missing backend routes to the vendored SDK (its unexposed-route registry
+is the route policy the transport enforces) and name them from the core;
+do not recreate route implementations in `crates/openhuman-core/src/api/`.
 
 `crates/openhuman-core/src/api/` owns OpenHuman session-token lookup, base URL
-selection, transport configuration, and error classification. Authenticated
-`BackendOAuthClient` requests go through `authed_json`, whose private
-`finish_authed_json` (`crates/openhuman-core/src/api/rest.rs`) classifies
-transient transport failures and maps 401/404 responses to typed
-`BackendApiError` variants; `IntegrationClient::map_sdk_error`
+selection, attribution headers and client profiles (`headers.rs`), and error
+classification. Authenticated `BackendOAuthClient` requests go through
+`authed_json`, whose private `finish_authed_json`
+(`crates/openhuman-core/src/api/rest.rs`) classifies transient transport
+failures and maps 401/404 responses to typed `BackendApiError` variants;
+`IntegrationClient::map_transport_error`
 (`crates/openhuman-core/src/integrations/client/errors.rs`) plays the same
-role for integrations. Route new SDK calls through those helpers instead of
-matching `tinyhumans_sdk::Error` by hand.
+role for integrations. Route new backend calls through those helpers instead
+of matching `BackendTransportError` by hand.
 
 Every TinyHumans backend request must carry a sanitized `x-sdk-name`:
 
 - `BackendOAuthClient`
 - `IntegrationClient`, except redirected file downloads
 - `MedullaClient`, including its separate SSE handshake
-- desktop `GET /auth/me`
+- the host session owner's `POST /auth/login-token/consume` and
+  `GET /auth/me` (`openhuman_tinyhumans::session`, through `ClientHeaders`)
 - the agent Langfuse ingestion request
 
 Set `ProductIdentity` once during startup before building clients. Do not add

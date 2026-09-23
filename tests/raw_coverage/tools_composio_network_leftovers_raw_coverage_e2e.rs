@@ -20,10 +20,10 @@ use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::security::SecurityPolicy;
+use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
     ComposioAuthorizeTool, ComposioListConnectionsTool, ComposioListToolkitsTool,
-    ComposioListToolsTool, ComposioTool, SpawnSubagentTool, Tool, ToolCallOptions,
-};
+    ComposioListToolsTool, ComposioTool, SpawnSubagentTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -92,6 +92,8 @@ fn tempdir() -> TempDir {
 }
 
 async fn setup_config() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let root = tmp.path().join("openhuman");
     let workspace = root.join("workspace");

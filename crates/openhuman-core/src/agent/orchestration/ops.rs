@@ -29,19 +29,21 @@ use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry
 use crate::agent::harness::fork_context::{
     current_parent, with_parent_context, ParentExecutionContext,
 };
-use crate::agent::harness::subagent_runner::{
-    run_subagent, SubagentRunOptions, SubagentRunOutcome,
-};
 use crate::agent::progress::AgentProgress;
-use crate::agent::tinyagents::orchestration::{
-    shared_steering_registry, DetachedTaskRegistry, DetachedTaskRegistryError,
-    DetachedTaskWaitOutcome, OrchestrationTaskStatus, TaskId,
+use crate::agent::subagent_host::{
+    run_subagent, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
 };
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use tinyagents_graph::orchestration::{
+    DetachedTaskRegistry, DetachedTaskRegistryError, DetachedTaskWaitOutcome,
+    OrchestrationTaskStatus,
+};
+use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::CancellationToken;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{Duration, Instant};
@@ -357,6 +359,19 @@ impl AgentOrchestrationSession {
         let parent_worktree_action_dir = parent_workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
+        // This control-plane API crosses a `tokio::spawn` boundary, so retain
+        // the live parent carrier before that boundary. The detached child must
+        // share cancellation, origin, dispatch and progress with its caller;
+        // only its route/usage observations are isolated by `child()` in the
+        // subagent runner.
+        let cancellation = CancellationToken::new();
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.parent = Some(parent.clone());
+        run_context.progress = parent.on_progress.clone().or(run_context.progress);
+        run_context.workspace = parent_workspace_descriptor
+            .clone()
+            .or(run_context.workspace);
+        run_context.cancellation = cancellation.clone();
         if let Some(descriptor) = parent_workspace_descriptor.as_ref() {
             tracing::debug!(
                 orchestration_id = %orchestration_id,
@@ -373,6 +388,8 @@ impl AgentOrchestrationSession {
             context: request.context,
             model_override: request.model,
             task_id: Some(orchestration_id.clone()),
+            thread_id: None,
+            run_context,
             worker_thread_id: None,
             initial_history: None,
             checkpoint_dir: None,
@@ -421,7 +438,7 @@ impl AgentOrchestrationSession {
                 self.session_id.clone(),
                 metadata,
                 status_rx,
-                CancellationToken::new(),
+                cancellation,
                 handle.abort_handle(),
             )
             .map_err(|err| {
@@ -455,7 +472,7 @@ impl AgentOrchestrationSession {
         agent_id: &str,
         status_tx: &watch::Sender<ChildState>,
         progress_sink: Option<mpsc::Sender<AgentProgress>>,
-        result: Result<SubagentRunOutcome, crate::agent::harness::SubagentRunError>,
+        result: Result<SubagentRunOutcome, SubagentRunError>,
     ) {
         // A cancelled child has already reached a terminal status via
         // `abort_all`; do not overwrite it with a late completion.
@@ -465,41 +482,120 @@ impl AgentOrchestrationSession {
 
         match result {
             Ok(outcome) => {
-                let _ = status_tx.send(ChildState {
-                    status: OrchestrationTaskStatus::Completed,
-                    result_summary: Some(outcome.output.clone()),
-                    error: None,
-                    updated_at: now(),
-                });
-                BUS.publish(DomainEvent::AgentOrchestrationCompleted {
-                    session_id: self.session_id.clone(),
-                    orchestration_id: orchestration_id.to_string(),
-                    agent_id: outcome.agent_id.clone(),
-                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: outcome.output.chars().count(),
-                    iterations: outcome.iterations,
-                });
-                if let Some(progress) = progress_sink {
-                    let _ = progress
-                        .send(AgentProgress::SubagentCompleted {
+                let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+                match outcome.status {
+                    SubagentRunStatus::Completed => {
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Completed,
+                            result_summary: Some(outcome.output.clone()),
+                            error: None,
+                            updated_at: now(),
+                        });
+                        if !emit_lifecycle_effects {
+                            return;
+                        }
+                        BUS.publish(DomainEvent::AgentOrchestrationCompleted {
+                            session_id: self.session_id.clone(),
+                            orchestration_id: orchestration_id.to_string(),
                             agent_id: outcome.agent_id.clone(),
-                            task_id: orchestration_id.to_string(),
                             elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            iterations: outcome.iterations as u32,
                             output_chars: outcome.output.chars().count(),
-                            output: outcome.output.clone(),
-                            // Not a dropped value: these three describe a
-                            // worker's *own* isolated checkout, and this path
-                            // never creates one — it only inherits the parent's
-                            // descriptor (above). `spawn_parallel_agents`
-                            // populates them from the descriptor it freshly
-                            // created per worker, and reports `None` for an
-                            // inherited one for the same reason.
-                            worktree_path: None,
-                            changed_files: Vec::new(),
-                            dirty_status: None,
-                        })
-                        .await;
+                            iterations: outcome.iterations,
+                        });
+                        if let Some(progress) = progress_sink {
+                            let _ = progress
+                                .send(AgentProgress::SubagentCompleted {
+                                    agent_id: outcome.agent_id.clone(),
+                                    task_id: orchestration_id.to_string(),
+                                    elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                    iterations: outcome.iterations as u32,
+                                    output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
+                                    // Detached by construction: this spawn path
+                                    // builds a fresh `OpenHumanRunContext::new()`
+                                    // (see `spawn_agent`) and never sets
+                                    // `parent_subagent_usage`, so the child's
+                                    // spend is not in the parent turn's totals.
+                                    usage: Some(outcome.usage),
+                                    worktree_path: None,
+                                    changed_files: Vec::new(),
+                                    dirty_status: None,
+                                })
+                                .await;
+                        }
+                    }
+                    SubagentRunStatus::AwaitingUser { question, .. } => {
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Awaiting,
+                            result_summary: Some(question.clone()),
+                            error: None,
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentAwaitingUser {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        question,
+                                        worker_thread_id: None,
+                                        checkpoint_path: None,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
+                    SubagentRunStatus::Incomplete { reason } => {
+                        let message = format!("sub-agent stopped incomplete: {reason}");
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Failed,
+                            result_summary: Some(outcome.output),
+                            error: Some(message.clone()),
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            BUS.publish(DomainEvent::AgentOrchestrationFailed {
+                                session_id: self.session_id.clone(),
+                                orchestration_id: orchestration_id.to_string(),
+                                agent_id: outcome.agent_id.clone(),
+                                error: message.clone(),
+                            });
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentFailed {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        error: message,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
+                    SubagentRunStatus::Cancelled => {
+                        let message = "sub-agent was cancelled".to_string();
+                        let _ = status_tx.send(ChildState {
+                            status: OrchestrationTaskStatus::Cancelled,
+                            result_summary: None,
+                            error: Some(message.clone()),
+                            updated_at: now(),
+                        });
+                        if emit_lifecycle_effects {
+                            BUS.publish(DomainEvent::AgentOrchestrationClosed {
+                                session_id: self.session_id.clone(),
+                                orchestration_id: orchestration_id.to_string(),
+                                reason: Some(message.clone()),
+                            });
+                            if let Some(progress) = progress_sink {
+                                let _ = progress
+                                    .send(AgentProgress::SubagentFailed {
+                                        agent_id: outcome.agent_id,
+                                        task_id: orchestration_id.to_string(),
+                                        error: message,
+                                    })
+                                    .await;
+                            }
+                        }
+                    }
                 }
             }
             Err(error) => {

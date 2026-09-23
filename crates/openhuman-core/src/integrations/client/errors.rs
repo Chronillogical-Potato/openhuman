@@ -1,9 +1,10 @@
 //! Backend error classification for [`IntegrationClient`]: extracting a
-//! readable detail from an error body, mapping SDK errors to `anyhow`, and
+//! readable detail from an error body, mapping transport errors to `anyhow`, and
 //! handling the session-JWT 401 → session-expiry recovery path.
 
 use std::error::Error as _;
-use tinyhumans_sdk::Error as SdkError;
+
+use crate::api::transport::BackendTransportError;
 
 use crate::integrations::types::BackendResponse;
 
@@ -137,7 +138,7 @@ fn handle_session_jwt_unauthorized(method: &str, path: &str, url: &str, detail: 
     // subscriber's logs.
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
         source: format!("integrations.{method}:{path}"),
-        reason: crate::inference::provider::ops::sanitize_api_error(&message),
+        reason: tinyinference_core::sanitize::sanitize_api_error(&message),
     });
 
     message
@@ -201,16 +202,35 @@ impl IntegrationClient {
         anyhow::anyhow!("{} {} failed: {}", method.to_uppercase(), url, chain)
     }
 
-    pub(super) fn map_sdk_error(
-        error: SdkError,
+    pub(super) fn map_transport_error(
+        error: BackendTransportError,
         method: &str,
         path: &str,
         url: &str,
     ) -> anyhow::Error {
         let method_upper = method.to_uppercase();
         match error {
-            SdkError::Http(error) => Self::report_transport_error(error, method, path, url),
-            SdkError::Status { status, body } => {
+            // A core with no backend transport installed (built without
+            // `openhuman-tinyhumans`): expected build state, not a defect.
+            // `report_error_or_expected` keys off the `BACKEND_UNAVAILABLE:`
+            // prefix to keep it out of Sentry.
+            BackendTransportError::Unavailable => {
+                let msg = format!(
+                    "{}{method_upper} {url}: managed backend is not available in this build",
+                    crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
+                );
+                crate::core::observability::report_error_or_expected(
+                    msg.as_str(),
+                    "integrations",
+                    method,
+                    &[("path", path), ("failure", "backend_unavailable")],
+                );
+                anyhow::anyhow!(msg)
+            }
+            BackendTransportError::Http(error) => {
+                Self::report_transport_error(error, method, path, url)
+            }
+            BackendTransportError::Status { status, body } => {
                 let body_text = match body {
                     serde_json::Value::String(text) => text,
                     value => value.to_string(),

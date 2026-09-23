@@ -40,6 +40,8 @@ fn dispatcher_from(raw: &str) -> ToolDispatcher {
         "native" => ToolDispatcher::Native,
         "xml" => ToolDispatcher::Xml,
         "pformat" => ToolDispatcher::Pformat,
+        "python" => ToolDispatcher::Python,
+        "typescript" => ToolDispatcher::Typescript,
         other => {
             tracing::warn!(
                 target: "tinyagents",

@@ -41,12 +41,10 @@ impl TurnStateMirror {
             return;
         }
         let workspace_dir = self.store.workspace_dir();
-        let Some(path) =
-            crate::agent::harness::session::transcript::find_root_transcript_for_thread(
-                workspace_dir,
-                thread_id,
-            )
-        else {
+        let Some(path) = tinyagents_session::transcript::find_root_transcript_for_thread(
+            workspace_dir,
+            thread_id,
+        ) else {
             log::debug!(
                 "{MIRROR_LOG_PREFIX} no root transcript for thread={thread_id} yet — leaving interrupted partial ({} chars) in turn_state snapshot only",
                 partial.len()
@@ -64,7 +62,7 @@ impl TurnStateMirror {
         } else {
             Some(thinking)
         };
-        match crate::agent::harness::session::transcript::append_interrupted_partial(
+        match tinyagents_session::transcript::append_interrupted_partial(
             &path,
             partial,
             request_id,

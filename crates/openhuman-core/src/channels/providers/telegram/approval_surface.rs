@@ -44,11 +44,8 @@ use std::sync::{Arc, Mutex};
 use tinybus::EventHandler;
 
 const LOG_PREFIX: &str = "[telegram-approval]";
-
-/// Identifier the dispatch loop sets as `ApprovalChatContext.client_id`
-/// for Telegram-originated turns. Used by this subscriber to filter
-/// `ApprovalRequested` events down to the ones it should surface.
-pub const TELEGRAM_APPROVAL_CLIENT_ID: &str = "telegram";
+use tinychannels::providers::telegram::format_approval_prompt;
+pub use tinychannels::providers::telegram::TELEGRAM_APPROVAL_CLIENT_ID;
 
 /// Reply context captured from a Telegram inbound message so a later
 /// `ApprovalRequested` event can be sent back to the right Telegram chat
@@ -173,15 +170,6 @@ impl TelegramApprovalSurfaceSubscriber {
             );
         }
     }
-}
-
-/// Render an approval request as a Telegram message body. Kept as a
-/// free function so tests can pin the exact wording without going
-/// through a real channel.
-pub(crate) fn format_approval_prompt(tool_name: &str, action_summary: &str) -> String {
-    format!(
-        "🔐 Approval needed\nTool: `{tool_name}`\nAction: {action_summary}\n\nReply `yes` to approve or `no` to deny."
-    )
 }
 
 #[async_trait]

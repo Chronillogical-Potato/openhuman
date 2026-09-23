@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use crate::web3::store::execute_quote;
 use crate::web3::types::{DappCallParams, ExecuteQuoteParams};
 use crate::web3::{execute_tool_schema, ops, to_tool_result};
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 pub struct Web3DappCallTool;
 pub struct Web3DappExecuteTool;

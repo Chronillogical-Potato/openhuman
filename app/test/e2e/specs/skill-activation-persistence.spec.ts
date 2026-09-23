@@ -12,8 +12,8 @@
  *   1. Seed an ACTIVE Composio connection and load the Skills page once so the
  *      durable cache is populated.
  *   2. Inject a Composio backend fault so any *fresh* fetch would fail.
- *   3. Re-mount the page (navigate away + back — the restart-equivalent the
- *      rewards-persistence spec also uses, since tauri-driver has no cheap real
+ *      3. Re-mount the page (navigate away + back — the restart-equivalent this
+ *         suite uses throughout, since tauri-driver has no cheap real
  *      restart) and assert the activated skill still renders, served from the
  *      cache rather than a successful new fetch.
  *
@@ -55,9 +55,8 @@ const AUTH_TOKEN = 'e2e-skill-activation-persistence-token';
 
 /**
  * Restart-equivalent: navigate away so the Skills page unmounts, then back so
- * it re-mounts and re-runs its on-mount fetch — the same approach
- * `rewards-progression-persistence.spec.ts` uses in lieu of a real process
- * restart (which tauri-driver does not support cheaply).
+ * it re-mounts and re-runs its on-mount fetch — stood in for a real process
+ * restart, which tauri-driver does not support cheaply.
  */
 async function simulateRestart(): Promise<void> {
   await navigateViaHash('/home');

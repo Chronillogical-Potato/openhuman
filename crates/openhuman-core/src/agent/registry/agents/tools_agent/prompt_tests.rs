@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::{LearnedContextData, ToolCallFormat};
+use crate::agent::prompts::{LearnedContextData, ToolCallFormat};
 use std::collections::HashSet;
 
 #[test]
@@ -21,13 +21,10 @@ fn build_returns_nonempty_body() {
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
     };
     let body = build(&ctx).unwrap();
-    assert!(!body.is_empty());
     assert!(body.contains("Tools Agent"));
 }

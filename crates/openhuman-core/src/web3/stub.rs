@@ -13,7 +13,7 @@
 
 use crate::core::all::RegisteredController;
 use crate::core::ControllerSchema;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 /// No web3 controller schemas when the domain is compiled out.
 pub fn all_web3_controller_schemas() -> Vec<ControllerSchema> {

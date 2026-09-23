@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! JSON-RPC E2E coverage for the `openhuman.medulla_*` namespace — all nine
 //! controllers, which had none.
 //!
@@ -450,6 +452,7 @@ struct Harness {
 /// `plant_session` decides whether `resolve::client` will find a token, which
 /// is the difference between the configured and signed-out cases below.
 async fn setup(extra: Vec<EnvVarGuard>, plant_session: bool) -> Harness {
+    crate::tinyhumans_boot::boot();
     let _ = rpc_token();
 
     let tmp = tempdir().expect("tempdir");

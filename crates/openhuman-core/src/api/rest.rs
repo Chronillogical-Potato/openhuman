@@ -2,12 +2,16 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::time::Duration;
-use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
+use std::sync::Arc;
+
+use crate::api::transport::{
+    resolve_backend_transport, BackendRequest, BackendTransport, BackendTransportError,
+    TransportProfile,
+};
+use crate::security::credentials::session_support::BackendCredential;
 
 /// Typed errors surfaced by `authed_json` for expected backend states that
 /// callers should recover from in-flow rather than funnel into Sentry.
@@ -34,6 +38,22 @@ pub enum BackendApiError {
     /// shape fires on every authed endpoint once the session lapses).
     #[error("backend rejected session token on {method} {path}")]
     Unauthorized {
+        /// HTTP method as a static string (`"GET"`, `"POST"`, …).
+        method: String,
+        /// Request path the 401 came back from (no query string).
+        path: String,
+    },
+    /// Backend rejected a TinyHumans API key (`x-api-key`) with
+    /// `401 Unauthorized` — a library-mode runtime's credential, not a user
+    /// session. Must stay distinct from [`Self::Unauthorized`]:
+    /// `flatten_authed_error` maps that variant onto the `SESSION_EXPIRED`
+    /// sentinel, which `core/jsonrpc.rs` treats as "clear the app session and
+    /// sign out". A rejected API key on a runtime that never had a session
+    /// would otherwise trigger that same session-expiry recovery, clearing an
+    /// app session that was never the problem and leaving the rejected key
+    /// installed. Callers should surface this as a credential error instead.
+    #[error("backend rejected api key on {method} {path}")]
+    ApiKeyRejected {
         /// HTTP method as a static string (`"GET"`, `"POST"`, …).
         method: String,
         /// Request path the 401 came back from (no query string).
@@ -79,6 +99,19 @@ pub enum BackendApiError {
     /// re-wrap) — one failure reported at two layers, ~452 events / 19 users.
     #[error("no announcement available (404 on /announcements/latest)")]
     AnnouncementNotFound,
+    /// No [`BackendTransport`] is installed in this process, so the request
+    /// could not be sent at all. This is the steady state of a core built
+    /// and run without `openhuman-tinyhumans` — an expected build condition,
+    /// never a bug. `flatten_authed_error` maps it onto the
+    /// `BACKEND_UNAVAILABLE:` sentinel that
+    /// `core::observability` demotes.
+    #[error("backend transport not available for {method} {path}")]
+    BackendUnavailable {
+        /// HTTP method as a static string (`"GET"`, `"POST"`, …).
+        method: String,
+        /// Request path that could not be sent (no query string).
+        path: String,
+    },
 }
 
 /// Flatten an `authed_json` error onto the JSON-RPC `String` channel.
@@ -105,6 +138,20 @@ pub fn flatten_authed_error(err: anyhow::Error) -> String {
     match err.downcast_ref::<BackendApiError>() {
         Some(BackendApiError::Unauthorized { method, path }) => {
             format!("SESSION_EXPIRED: backend rejected session token on {method} {path}")
+        }
+        // Deliberately NOT the `SESSION_EXPIRED` sentinel: this runtime
+        // authenticates with an API key, not a session, so there is no
+        // session to expire and `core/jsonrpc.rs`'s `SessionExpired` publish
+        // (clear the session, prompt re-sign-in) would be the wrong
+        // recovery. See `BackendApiError::ApiKeyRejected`.
+        Some(BackendApiError::ApiKeyRejected { method, path }) => {
+            format!("API_KEY_REJECTED: backend rejected api key on {method} {path}")
+        }
+        Some(BackendApiError::BackendUnavailable { method, path }) => {
+            format!(
+                "{}backend transport not available for {method} {path}",
+                crate::core::observability::BACKEND_UNAVAILABLE_PREFIX
+            )
         }
         _ => format!("{err:#}"),
     }
@@ -170,8 +217,6 @@ fn is_announcements_latest_path(path: &str) -> bool {
     matches!(segments.as_slice(), [.., "announcements", "latest"])
 }
 
-const CLIENT_VERSION_HEADER_MAX_LEN: usize = 64;
-
 /// Max bytes of the `body_shape` key-name list echoed into the `authed_json`
 /// report. Bounded so a body with pathologically many keys can't bloat the
 /// event; truncation is UTF-8-safe.
@@ -233,59 +278,6 @@ fn is_schema_like_key(key: &str) -> bool {
         && key
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
-}
-
-fn sanitize_client_version(raw: &str) -> Option<String> {
-    let sanitized: String = raw
-        .trim()
-        .chars()
-        .filter(|c| matches!(c, '0'..='9' | 'A'..='Z' | 'a'..='z' | '.' | '_' | '+' | '-'))
-        .take(CLIENT_VERSION_HEADER_MAX_LEN)
-        .collect();
-
-    if sanitized.is_empty() {
-        None
-    } else {
-        Some(sanitized)
-    }
-}
-
-fn build_backend_reqwest_client() -> Result<Client> {
-    let mut default_headers = HeaderMap::new();
-    if let Some(version) = sanitize_client_version(env!("CARGO_PKG_VERSION")) {
-        default_headers.insert(
-            HeaderName::from_static("x-core-version"),
-            HeaderValue::from_str(&version).context("invalid x-core-version header value")?,
-        );
-    }
-    // The Tauri shell sets `OPENHUMAN_TAURI_VERSION` to its own package version
-    // before spawning the in-process core, so backend analytics can attribute
-    // core-originated requests to the desktop shell build that hosts them.
-    if let Ok(raw) = std::env::var("OPENHUMAN_TAURI_VERSION") {
-        if let Some(version) = sanitize_client_version(&raw) {
-            default_headers.insert(
-                HeaderName::from_static("x-tauri-version"),
-                HeaderValue::from_str(&version).context("invalid x-tauri-version header value")?,
-            );
-        }
-    }
-    // Which product this core is embedded in. Set at the transport level rather
-    // than only on the SDK because `raw_client()` hands this same client to
-    // callers that bypass the SDK entirely (multipart STT upload), and that
-    // traffic needs attributing too.
-    let (name, value) = crate::api::product::product_identity_header();
-    default_headers.insert(name, value);
-
-    // Platform-appropriate TLS backend: Windows → schannel (honors the OS
-    // cert store, required for corporate TLS-inspection proxies); macOS /
-    // Linux → rustls. See [`crate::util::tls::tls_client_builder`].
-    crate::util::tls::tls_client_builder()
-        .default_headers(default_headers)
-        .http1_only()
-        .timeout(Duration::from_secs(120))
-        .connect_timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))
 }
 
 /// Normalize the backend envelope while preserving OpenHuman's historical
@@ -354,11 +346,6 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-/// Alias for [`user_id_from_profile_payload`] for semantic clarity in auth flows.
-pub fn user_id_from_auth_me_payload(payload: &Value) -> Option<String> {
-    user_id_from_profile_payload(payload)
-}
-
 /// JSON body returned by the backend when an OAuth connection process is initiated.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectResponse {
@@ -394,11 +381,15 @@ pub struct IntegrationTokensHandoff {
 }
 
 /// A client for interacting with the TinyHumans / AlphaHuman backend API.
+///
+/// Owns the *routes* and the error classification; the HTTP round-trip itself
+/// rides the process [`BackendTransport`] (see [`crate::api::transport`]),
+/// which is what carries TLS, timeouts, attribution headers and the
+/// credential header shape. A core with no transport installed answers every
+/// call with [`BackendApiError::BackendUnavailable`].
 #[derive(Clone)]
 pub struct BackendOAuthClient {
-    client: Client,
     base: Url,
-    sdk: TinyHumansClient,
 }
 
 impl BackendOAuthClient {
@@ -419,22 +410,50 @@ impl BackendOAuthClient {
         base.set_path("");
         base.set_query(None);
         base.set_fragment(None);
-        let client = build_backend_reqwest_client()?;
-        // The product identity also rides on the SDK's own default headers, not
-        // just the transport's, so it survives if the SDK is ever given a
-        // client this crate did not build. The SDK applies its own headers
-        // after these, so it cannot be clobbered by `x-sdk-client`.
-        let sdk = TinyHumansClient::new(base.as_str())
-            .with_http_client(client.clone())
-            .with_default_headers(crate::api::product::product_identity_headers());
-        Ok(Self { client, base, sdk })
+        Ok(Self { base })
     }
 
-    /// Borrow the underlying `reqwest::Client` for callers that need to
-    /// drive a non-JSON request shape (e.g. `multipart/form-data` uploads
-    /// for cloud STT) without re-implementing TLS/proxy plumbing.
-    pub fn raw_client(&self) -> &Client {
-        &self.client
+    /// The backend origin this client resolves routes against.
+    pub fn base_url(&self) -> &str {
+        self.base.as_str()
+    }
+
+    /// The process backend transport, or [`BackendApiError::BackendUnavailable`]
+    /// for `method path` when none is installed.
+    fn transport(&self, method: &Method, path: &str) -> Result<Arc<dyn BackendTransport>> {
+        resolve_backend_transport().map_err(|error| match error {
+            BackendTransportError::Unavailable => {
+                let route = self.url_for(path).map(|u| u.path().to_string());
+                log::debug!(
+                    "[backend-api] no backend transport installed; {} {} unavailable",
+                    method.as_str(),
+                    route.as_deref().unwrap_or(path)
+                );
+                anyhow::Error::new(BackendApiError::BackendUnavailable {
+                    method: method.as_str().to_string(),
+                    path: route.unwrap_or_else(|_| path.to_string()),
+                })
+            }
+            other => anyhow::Error::new(other),
+        })
+    }
+
+    /// The transport's `reqwest::Client` for callers that need to drive a
+    /// non-JSON request shape (e.g. `multipart/form-data` uploads for cloud
+    /// STT) without re-implementing TLS/proxy plumbing. Carries the
+    /// attribution headers; the caller adds the credential.
+    pub fn raw_client(&self) -> Result<Client> {
+        Ok(resolve_backend_transport()
+            .map_err(|error| match error {
+                BackendTransportError::Unavailable => {
+                    anyhow::Error::new(BackendApiError::BackendUnavailable {
+                        method: "RAW".to_string(),
+                        path: String::new(),
+                    })
+                }
+                other => anyhow::Error::new(other),
+            })?
+            .http_client(TransportProfile::Api))
     }
 
     /// Resolve a backend-relative path against the configured base URL.
@@ -444,15 +463,6 @@ impl BackendOAuthClient {
         self.base
             .join(path.trim_start_matches('/'))
             .with_context(|| format!("build URL for {path}"))
-    }
-
-    /// Returns the URL for initiating a login flow for a specific provider.
-    pub fn login_url(&self, provider: &str) -> Result<Url> {
-        let p = provider.trim().trim_matches('/');
-        anyhow::ensure!(!p.is_empty(), "provider is required");
-        self.base
-            .join(&format!("auth/{p}/login"))
-            .context("build login URL")
     }
 
     /// Initiates an OAuth connection flow for the current user and a specific provider.
@@ -504,45 +514,13 @@ impl BackendOAuthClient {
         Ok(ConnectResponse { oauth_url, state })
     }
 
-    /// Fetches the current authenticated user profile using the provided JWT.
-    pub async fn fetch_current_user(&self, bearer_jwt: &str) -> Result<Value> {
+    /// `GET /auth/me` with the stored session JWT — the backend user profile,
+    /// bearer-only. Used by channel link checks to see whether a channel id has
+    /// been attached to the account; it does not establish or validate a
+    /// session (the host that owns the session does that).
+    pub async fn fetch_profile(&self, bearer_jwt: &str) -> Result<Value> {
         self.authed_json(bearer_jwt, Method::GET, "auth/me", None)
             .await
-    }
-
-    /// Exchanges a one-time login token (e.g. from Telegram) for a long-lived JWT.
-    pub async fn consume_login_token(&self, login_token: &str) -> Result<String> {
-        let token = login_token.trim();
-        anyhow::ensure!(!token.is_empty(), "login token is required");
-
-        // Backend serves `POST /auth/login-token/consume` with the token in a JSON
-        // body `{ token, audience? }` and returns `{ success, data: { jwt } }`
-        // (see backend `routes/auth.ts`). The legacy
-        // `telegram/login-tokens/{token}/consume` path-param route was removed, so
-        // the old call 404'd and Telegram/OAuth-token login could never complete
-        // (WIRING_GAPS_AUDIT C1/C2).
-        let response = self
-            .sdk
-            .auth()
-            .consume_login_token(&tinyhumans_sdk::api::types::LoginTokenRequest {
-                token: token.to_string(),
-            })
-            .await
-            .context("consume login token through TinyHumans SDK")?;
-        let jwt = response
-            .get("jwt")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        anyhow::ensure!(!jwt.is_empty(), "consume login token response missing jwt");
-        Ok(jwt)
-    }
-
-    /// Validates that the provided session token is still active and accepted.
-    pub async fn validate_session_token(&self, bearer_jwt: &str) -> Result<()> {
-        let _ = self.fetch_current_user(bearer_jwt).await?;
-        Ok(())
     }
 
     /// Creates a short-lived link token for connecting a specific communication channel.
@@ -565,45 +543,64 @@ impl BackendOAuthClient {
     }
 
     /// Generic authenticated JSON request helper for backend API routes.
+    ///
+    /// `credential` accepts a [`BackendCredential`] (from
+    /// `session_support::resolve_backend_credential`) or, for the many callers
+    /// that still hold a bare session token string, a `&str` / `&String`,
+    /// which is treated as a session JWT. The transport puts it on the wire
+    /// the backend expects for its kind: a session JWT as `Authorization:
+    /// Bearer`, an API key as `x-api-key` (see `security::credentials::api_key`).
     pub async fn authed_json(
         &self,
-        bearer_jwt: &str,
+        credential: impl Into<BackendCredential>,
         method: Method,
         path: &str,
         body: Option<Value>,
     ) -> Result<Value> {
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
-        let response = sdk
-            .raw()
-            .send(method.clone(), path, &[], body.as_ref(), true)
+        let credential = credential.into();
+        let is_api_key = credential.is_api_key();
+        let transport = self.transport(&method, path)?;
+        let response = transport
+            .send_json(BackendRequest {
+                profile: TransportProfile::Api,
+                base_url: self.base.as_str(),
+                method: method.clone(),
+                path,
+                query: &[],
+                body: body.as_ref(),
+                credential: Some(&credential),
+                unwrap_envelope: true,
+            })
             .await;
-        self.finish_authed_json(method, path, response)
+        self.finish_authed_json(method, path, response, is_api_key)
     }
 
-    /// Fetch the deployed billing summary through the SDK's typed payments API.
-    pub async fn fetch_billing_summary(&self, bearer_jwt: &str) -> Result<Value> {
-        const PATH: &str = "/payments/summary";
-        let sdk = self
-            .sdk
-            .clone()
-            .with_token(Some(bearer_jwt.trim().to_string()));
-        let response = sdk.payments().get_summary().await.map(|value| value.0);
-        self.finish_authed_json(Method::GET, PATH, response)
+    /// Fetch the deployed billing summary (`GET /payments/summary`).
+    pub async fn fetch_billing_summary(
+        &self,
+        credential: impl Into<BackendCredential>,
+    ) -> Result<Value> {
+        self.authed_json(credential, Method::GET, "/payments/summary", None)
+            .await
     }
 
     fn finish_authed_json(
         &self,
         method: Method,
         path: &str,
-        response: Result<Value, SdkError>,
+        response: Result<Value, BackendTransportError>,
+        is_api_key: bool,
     ) -> Result<Value> {
         let url = self.url_for(path)?;
         let value = match response {
             Ok(value) => return parse_api_response_value(value),
-            Err(SdkError::Http(e)) => {
+            Err(BackendTransportError::Unavailable) => {
+                return Err(anyhow::Error::new(BackendApiError::BackendUnavailable {
+                    method: method.as_str().to_string(),
+                    path: url.path().to_string(),
+                }));
+            }
+            Err(BackendTransportError::Http(e)) => {
                 // Walk the error source chain so transient markers hidden in nested
                 // causes (reqwest -> hyper -> rustls TLS EOF, etc.) still classify
                 // correctly. The top-level `e.to_string()` often only carries the
@@ -647,7 +644,7 @@ impl BackendOAuthClient {
                     url.path()
                 )));
             }
-            Err(SdkError::Status { status, body }) => (status, body),
+            Err(BackendTransportError::Status { status, body }) => (status, body),
             Err(error) => {
                 return Err(anyhow::Error::new(error).context(format!(
                     "backend request {} {}",
@@ -659,7 +656,7 @@ impl BackendOAuthClient {
         {
             let (status_code, response_body) = value;
             let status = reqwest::StatusCode::from_u16(status_code)
-                .context("SDK returned an invalid HTTP status")?;
+                .context("backend transport returned an invalid HTTP status")?;
             let text = match response_body {
                 Value::String(text) => text,
                 other => serde_json::to_string(&other).unwrap_or_default(),
@@ -686,9 +683,22 @@ impl BackendOAuthClient {
                     method.as_str(),
                     url.path(),
                 );
-                return Err(anyhow::Error::new(BackendApiError::Unauthorized {
-                    method: method.as_str().to_string(),
-                    path: url.path().to_string(),
+                // The credential kind decides the *recovery*, not just the
+                // wording: `flatten_authed_error` maps `Unauthorized` onto
+                // the `SESSION_EXPIRED` sentinel that triggers session
+                // sign-out, which is the wrong recovery for a rejected API
+                // key (there is no session to expire) — see
+                // `BackendApiError::ApiKeyRejected`.
+                return Err(anyhow::Error::new(if is_api_key {
+                    BackendApiError::ApiKeyRejected {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
+                } else {
+                    BackendApiError::Unauthorized {
+                        method: method.as_str().to_string(),
+                        path: url.path().to_string(),
+                    }
                 }));
             }
 
@@ -806,8 +816,8 @@ impl BackendOAuthClient {
             // implement retry/disable logic, so skip Sentry to avoid noise.
             let is_transient_infra =
                 crate::core::observability::is_transient_http_status_code(status_code);
-            let is_budget_exhausted = status_code == 400
-                && crate::inference::provider::is_budget_exhausted_message(&text);
+            let is_budget_exhausted =
+                status_code == 400 && crate::api::classify::is_budget_exhausted_message(&text);
             if is_budget_exhausted {
                 tracing::info!(
                     method = method.as_str(),

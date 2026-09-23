@@ -355,11 +355,6 @@ impl TurnStateMirror {
                 self.push_subagent_prose(task_id, *iteration, delta, true);
                 false
             }
-            AgentProgress::TaskBoardUpdated { board } => {
-                self.state.task_board = Some(board.clone());
-                self.flush();
-                true
-            }
             AgentProgress::TextDelta { delta, iteration } => {
                 self.state.streaming_text.push_str(delta);
                 self.push_transcript_narration(*iteration, delta);

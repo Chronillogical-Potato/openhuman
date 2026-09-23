@@ -70,6 +70,8 @@ static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 static MEMORY_SEAMS_INIT: OnceLock<()> = OnceLock::new();
 
 fn ensure_memory_seams() {
+
+    crate::tinyhumans_boot::boot();
     MEMORY_SEAMS_INIT.get_or_init(|| {
         std::thread::Builder::new()
             .name("memory-sync-round23-raw-coverage-seams".to_string())

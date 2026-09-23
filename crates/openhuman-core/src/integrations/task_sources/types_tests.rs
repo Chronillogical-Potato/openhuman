@@ -87,7 +87,6 @@ fn task_source_serializes_camel_case() {
         interval_secs: 1800,
         target: SourceTarget::TodoOnly,
         max_tasks_per_fetch: 25,
-        assigned_executor: None,
         created_at: DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc),

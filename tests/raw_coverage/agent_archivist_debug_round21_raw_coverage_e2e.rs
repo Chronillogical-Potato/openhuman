@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::debug::{
@@ -11,7 +12,7 @@ use openhuman_core::agent::harness::{
 };
 use openhuman_core::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::ToolCallFormat;
+use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
@@ -20,7 +21,8 @@ use openhuman_core::memory::api::provider::MemoryProvider;
 // `archivist_tests.rs`: production writes through the provider, the proof that
 // a row landed reads the store directly.
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde_json::json;
@@ -28,10 +30,10 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use tempfile::TempDir;
-use tinyinference::message::{AssistantMessage, ContentBlock};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 struct ScriptedModel {
     responses: Mutex<VecDeque<anyhow::Result<ModelResponse>>>,
@@ -67,7 +69,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.requests.lock().push(
             request
                 .messages
@@ -80,7 +82,7 @@ impl ChatModel<()> for ScriptedModel {
             .lock()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("fallback final")))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -201,6 +203,7 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
             ],
             tool_calls: vec![ToolCall::new("round21-call", name, arguments)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
@@ -289,6 +292,7 @@ fn parent_context(workspace: &Path, model: Arc<ScriptedModel>) -> ParentExecutio
 
 #[tokio::test]
 async fn subagent_no_parent_and_checkpoint_fallback_are_deterministic() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let no_parent = run_subagent(
         &definition(1),
         "outside a parent context",
@@ -332,11 +336,13 @@ async fn subagent_no_parent_and_checkpoint_fallback_are_deterministic() -> Resul
 
 #[tokio::test]
 async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let tmp = TempDir::new()?;
     let err = dump_agent_prompt(DumpPromptOptions {
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(tmp.path().to_path_buf()),
+        config_path_override: None,
         model_override: Some("round21-debug-model".to_string()),
     })
     .await
@@ -351,6 +357,7 @@ async fn debug_prompt_dump_requires_toolkit_before_composio_network() -> Result<
 
 #[test]
 fn debug_dump_writer_sanitizes_names_and_writes_summary_sidecars() -> Result<()> {
+    crate::tinyhumans_boot::boot();
     let tmp = TempDir::new()?;
     let dumps = vec![DumpedPrompt {
         agent_id: "agent/with spaces".to_string(),

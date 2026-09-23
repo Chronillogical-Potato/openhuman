@@ -2,7 +2,7 @@
 //!
 //! When a delegated sub-agent calls `ask_user_clarification`, the runner
 //! checkpoints its conversation and returns
-//! [`SubagentRunStatus::AwaitingUser`](crate::agent::harness::subagent_runner::SubagentRunStatus).
+//! [`SubagentRunStatus::AwaitingUser`](crate::agent::subagent_host::SubagentRunStatus).
 //! Both the asynchronous [`spawn_subagent`](super::spawn_subagent) path and
 //! the synchronous delegate
 //! [`dispatch_subagent`](super::dispatch::dispatch_subagent) path must surface

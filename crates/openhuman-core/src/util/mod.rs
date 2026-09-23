@@ -8,21 +8,17 @@
 //! - [`retry`]    — retry-with-backoff + transient-filesystem-error classification
 //! - [`sanitize`] — LLM-facing text sanitization (control-char stripping,
 //!   instruction-fence removal, UTF-8-safe byte caps)
-//! - [`bm25`]     — BM25 ranking over short documents (tool + skill search)
 //! - [`tls`]      — platform-conditional `reqwest::ClientBuilder` factory
 //! - [`types`]    — shared utility types
 //!
 //! `retry`, `text`, and `types` items are re-exported at the module root, so
 //! `crate::util::<fn>` (and `openhuman_core::util::<fn>` from outside, the
 //! path the `truncate_with_ellipsis` doctest uses) resolves without naming the
-//! submodule. `bm25`, `redact`, `sanitize`, and `tls` are reached through
+//! submodule. `redact`, `sanitize`, and `tls` are reached through
 //! their submodule path.
 //!
 //! See [`README.md`](README.md) for a per-file breakdown.
 
-/// BM25 ranking over short documents, shared by `tool_search` and
-/// `skill_search`. Deliberately names nothing from `crate::` — see its docs.
-pub mod bm25;
 /// Generic JSON-RPC param deserialisation (`read_required`/`read_optional`),
 /// shared across domain `schemas.rs` files.
 pub mod params;

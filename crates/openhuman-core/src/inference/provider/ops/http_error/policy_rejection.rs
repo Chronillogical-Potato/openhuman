@@ -210,14 +210,14 @@ pub fn is_provider_config_rejection_http(
     if !matches!(status.as_u16(), 400 | 403 | 404 | 422) {
         return false;
     }
-    if !crate::inference::provider::is_provider_config_rejection_message(body) {
+    if !tinyinference_providers::is_provider_config_rejection_message(body) {
         return false;
     }
     // OpenAI-compatible "unknown model" body is user-state regardless of
     // provider — both third-party `custom_openai` upstreams and our own
     // OpenHuman backend now emit it for user-configured model ids that
     // aren't in the registry (TAURI-RUST-2Z1).
-    if crate::inference::provider::is_openai_compatible_unknown_model_message(body) {
+    if tinyinference_providers::is_openai_compatible_unknown_model_message(body) {
         return true;
     }
     // Remaining config-rejection phrases (DeepSeek `supported api model

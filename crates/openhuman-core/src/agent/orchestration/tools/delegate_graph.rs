@@ -11,13 +11,15 @@
 //! loop; use `spawn_subagent` for a single focused hand-off.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::orchestration::delegation::run_subagent_delegation;
+use crate::agent::orchestration::delegation::run_subagent_delegation_with_parent_context;
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Default reviewer-requested revision budget when the caller omits it.
 const DEFAULT_MAX_REVISIONS: usize = 2;
@@ -26,6 +28,56 @@ const MAX_MAX_REVISIONS: usize = 5;
 
 /// Runs the durable multi-stage delegation graph for a chosen sub-agent.
 pub struct DelegateGraphTool;
+
+/// Typed harness dispatch for the durable graph delegation tool. This must be
+/// registered before the synthesized `delegate_*` family: `delegate_graph`
+/// has its own plan→execute→review semantics and is not an archetype target.
+pub(crate) struct DelegateGraphDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl DelegateGraphDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for DelegateGraphDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        _call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
+        let graph_parent = parent
+            .child(
+                tinyagents_harness::context::RunConfig::new(format!(
+                    "delegation-graph-{}",
+                    uuid::Uuid::new_v4()
+                )),
+                parent.data.child(),
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        DelegateGraphTool::new()
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                Some(Arc::new(graph_parent)),
+            )
+            .await
+    }
+}
 
 impl Default for DelegateGraphTool {
     fn default() -> Self {
@@ -110,6 +162,42 @@ impl Tool for DelegateGraphTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        run_context.thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .map(ToOwned::to_owned);
+        self.execute_with_parent_context(args, tool_context, run_context)
+            .await
+    }
+}
+
+impl DelegateGraphTool {
+    /// Execute the concrete durable graph with an explicit child carrier.
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, run_context, None)
+            .await
+    }
+
+    /// The typed harness creates an owned graph child before invoking this
+    /// path. The graph's static stage callback then derives direct children
+    /// from it without dropping lineage.
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        live_parent: Option<Arc<RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>>,
+    ) -> anyhow::Result<ToolResult> {
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "delegate_graph requires a live harness run context.",
+            ));
+        };
         let agent_id = match args.get("agent_id").and_then(|v| v.as_str()) {
             Some(s) if !s.trim().is_empty() => s.trim().to_string(),
             _ => return Ok(ToolResult::error("delegate: `agent_id` is required.")),
@@ -129,7 +217,7 @@ impl Tool for DelegateGraphTool {
             None => {
                 return Ok(ToolResult::error(
                     "delegate: agent definition registry not initialized.",
-                ))
+                ));
             }
         };
         let definition = match registry.get(&agent_id) {
@@ -137,7 +225,7 @@ impl Tool for DelegateGraphTool {
             None => {
                 return Ok(ToolResult::error(format!(
                     "delegate: agent definition '{agent_id}' not found in registry."
-                )))
+                )));
             }
         };
 
@@ -146,26 +234,32 @@ impl Tool for DelegateGraphTool {
             Err(e) => {
                 return Ok(ToolResult::error(format!(
                     "delegate: failed to load config: {e}"
-                )))
+                )));
             }
         };
 
-        match run_subagent_delegation(
+        match run_subagent_delegation_with_parent_context(
             config,
             definition,
             task,
             max_revisions,
-            tool_context.and_then(|ctx| ctx.workspace().cloned()),
+            tool_context
+                .and_then(|ctx| ctx.workspace().cloned())
+                .or_else(|| run_context.workspace.clone()),
+            live_parent,
         )
         .await
         {
             Ok(state) => {
+                if state.cancelled {
+                    return Ok(ToolResult::error(format!(
+                        "delegate cancelled for '{agent_id}'."
+                    )));
+                }
                 let final_output = state
                     .final_output
                     .unwrap_or_else(|| "(delegation produced no final output)".to_string());
-                let note = if state.cancelled {
-                    " (cancelled)"
-                } else if state.revisions > 0 {
+                let note = if state.revisions > 0 {
                     " (after revision)"
                 } else {
                     ""

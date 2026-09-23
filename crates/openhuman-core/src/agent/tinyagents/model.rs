@@ -3,12 +3,12 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinyinference::message::{AssistantMessage, ContentBlock, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::{ToolCall as TaToolCall, ToolDelta};
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::agent::messages::ChatMessage;
@@ -24,11 +24,11 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
     request
         .messages
         .iter()
-        .map(crate::agent::message_convert::message_to_native_chat_message)
+        .filter_map(crate::agent::message_convert::message_to_native_chat_message)
         .collect()
 }
 
-/// Build a [`PFormatRegistry`](crate::agent::pformat::PFormatRegistry)
+/// Build a [`PFormatRegistry`](tinytools_agent::PFormatRegistry)
 /// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
 ///
 /// The text-mode fallback parse needs each tool's positional parameter layout
@@ -38,14 +38,14 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
 /// otherwise), so the registry is available in both modes. Tool-less requests
 /// skip fallback parsing entirely; this empty registry is therefore consulted
 /// only alongside a non-empty advertised tool list.
-fn pformat_registry_from_request(request: &ModelRequest) -> crate::agent::pformat::PFormatRegistry {
+fn pformat_registry_from_request(request: &ModelRequest) -> tinytools_agent::PFormatRegistry {
     request
         .tools
         .iter()
         .map(|t| {
             (
                 t.name.clone(),
-                crate::agent::pformat::PFormatToolParams::from_schema(&t.parameters),
+                tinytools_agent::PFormatToolParams::from_schema(&t.parameters),
             )
         })
         .collect()
@@ -71,7 +71,7 @@ fn pformat_registry_from_request(request: &ModelRequest) -> crate::agent::pforma
 /// adapter preserves the provider-requested tool name.
 fn response_to_model_response(
     response: &ChatResponse,
-    pformat_registry: &crate::agent::pformat::PFormatRegistry,
+    pformat_registry: &tinytools_agent::PFormatRegistry,
     parse_text_tool_calls: bool,
 ) -> ModelResponse {
     let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
@@ -89,7 +89,7 @@ fn response_to_model_response(
     } else if parse_text_tool_calls {
         let text = response.text.as_deref().unwrap_or_default();
         let (prose, parsed) =
-            crate::agent::harness::parse_tool_calls_with_pformat(text, pformat_registry);
+            tinytools_agent::parse_tool_calls_with_pformat(text, pformat_registry);
         if parsed.is_empty() {
             (text.to_string(), Vec::new())
         } else {
@@ -146,6 +146,7 @@ fn response_to_model_response(
             content,
             tool_calls,
             usage,
+            origin: None,
         },
         usage,
         finish_reason: Some(finish_reason.to_string()),
@@ -160,6 +161,8 @@ fn response_to_model_response(
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 
@@ -167,7 +170,7 @@ fn response_to_model_response(
 pub(crate) fn native_model_response(response: &ChatResponse) -> ModelResponse {
     response_to_model_response(
         response,
-        &crate::agent::pformat::PFormatRegistry::default(),
+        &tinytools_agent::PFormatRegistry::default(),
         false,
     )
 }
@@ -197,8 +200,10 @@ pub(crate) fn prompt_guided_text_response(text: String, request: &ModelRequest) 
         return ModelResponse::assistant(text);
     }
 
-    let response =
-        tinyagents_harness::tool::apply_prompt_tool_calls(ModelResponse::assistant(text.clone()));
+    let response = tinyinference_llm::prompt_tools::recover_tool_calls(
+        ModelResponse::assistant(text.clone()),
+        &request.tools,
+    );
     if !response.message.tool_calls.is_empty() {
         return response;
     }
@@ -297,12 +302,20 @@ pub(crate) fn merge_openhuman_usage_meta(
 /// counts *and* backend-charged USD — survives the crossing.
 pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<UsageInfo> {
     let usage = response.usage.as_ref()?;
-    let meta = response
+    let mut meta = response
         .raw
         .as_ref()
         .and_then(|v| v.get(OPENHUMAN_USAGE_META_KEY))
         .and_then(|v| serde_json::from_value::<OpenhumanUsageMeta>(v.clone()).ok())
         .unwrap_or_default();
+    if meta.charged_amount_usd <= 0.0 {
+        meta.charged_amount_usd = response
+            .raw
+            .as_ref()
+            .and_then(|value| value.get("total_cost_usd"))
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or_default();
+    }
     Some(UsageInfo {
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
@@ -356,6 +369,7 @@ pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delt
                 call_id,
                 content: String::new(),
                 tool_name: Some(tool_name),
+                content_index: None,
             }));
         }
         ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
@@ -369,6 +383,7 @@ pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delt
                     call_id,
                     content: delta,
                     tool_name: None,
+                    content_index: None,
                 }));
             }
         }
@@ -398,67 +413,6 @@ pub(super) struct ProfileOverrideModel {
     profile: ModelProfile,
     request_model: Option<String>,
     request_temperature: Option<f64>,
-}
-
-/// Records the concrete provider/model selected by a crate-native turn model.
-///
-/// TinyAgents' registry records the selected registry key (for example
-/// `chat-v1`) on `ModelResponse`, but channel audit events also need the
-/// provider and concrete wire model. Each registered route is wrapped with
-/// this metadata at construction time. Recording immediately before dispatch
-/// means retries are harmless and a successful fallback leaves the last
-/// attempted (therefore handling) route in the ambient turn slot.
-pub(super) struct RouteRecordingModel {
-    inner: Arc<dyn ChatModel<()>>,
-    provider: String,
-    model: String,
-}
-
-impl RouteRecordingModel {
-    pub(super) fn new(
-        inner: Arc<dyn ChatModel<()>>,
-        provider: impl Into<String>,
-        model: impl Into<String>,
-    ) -> Self {
-        Self {
-            inner,
-            provider: provider.into(),
-            model: model.into(),
-        }
-    }
-
-    fn record_route(&self) {
-        super::record_resolved_provider_route(&self.provider, &self.model);
-    }
-}
-
-#[async_trait]
-impl ChatModel<()> for RouteRecordingModel {
-    fn profile(&self) -> Option<&ModelProfile> {
-        self.inner.profile()
-    }
-
-    fn cache_identity(&self) -> Option<String> {
-        self.inner.cache_identity()
-    }
-
-    async fn invoke(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
-        self.record_route();
-        self.inner.invoke(state, request).await
-    }
-
-    async fn stream(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
-        self.record_route();
-        self.inner.stream(state, request).await
-    }
 }
 
 impl ProfileOverrideModel {
@@ -511,7 +465,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner
             .invoke(state, self.pin_request_options(request))
             .await
@@ -521,7 +475,7 @@ impl ChatModel<()> for ProfileOverrideModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner
             .stream(state, self.pin_request_options(request))
             .await
@@ -561,7 +515,7 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner.invoke(state, self.cap(request)).await
     }
 
@@ -569,14 +523,10 @@ impl ChatModel<()> for MaxTokensModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner.stream(state, self.cap(request)).await
     }
 }
-
-#[cfg(test)]
-#[path = "model_route_recording_tests_tests.rs"]
-mod route_recording_tests;
 
 #[cfg(test)]
 #[path = "model_g1_usage_tests_tests.rs"]

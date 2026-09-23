@@ -277,7 +277,7 @@ pub async fn with_inherited_origin<F: std::future::Future>(
 /// refused — even though the parent turn that delegated the work was properly
 /// labelled. That is the same failure mode
 /// [`fork_context::with_parent_context`](crate::agent::harness::fork_context)
-/// and [`thread_context::with_thread_id`](crate::agent::tinyagents::thread_context)
+/// and an explicit [`OpenHumanRunContext`](crate::agent::tinyagents::host::OpenHumanRunContext)
 /// already re-install explicitly at those spawn sites; the origin is the third
 /// thing that has to travel with them.
 ///

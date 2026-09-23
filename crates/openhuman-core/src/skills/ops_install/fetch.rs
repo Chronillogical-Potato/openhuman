@@ -33,6 +33,11 @@ fn redact_url(raw: &str) -> String {
 
 /// Default wall-clock budget for the SKILL.md fetch.
 pub const DEFAULT_INSTALL_TIMEOUT_SECS: u64 = 60;
+/// Prefix on the error a throttled host produces, so callers can tell
+/// "come back shortly" apart from "this host is unreachable" without parsing
+/// a status code back out of prose. A `Retry-After` delay is appended when the
+/// host sent a parseable one.
+pub const RATE_LIMITED_ERROR_PREFIX: &str = "rate limited";
 /// Hard ceiling callers can request via `timeout_secs`.
 pub const MAX_INSTALL_TIMEOUT_SECS: u64 = 600;
 /// Upper bound on the fetched SKILL.md body. Single-file skills rarely exceed
@@ -125,6 +130,22 @@ pub async fn install_workflow_from_url(
         .await
 }
 
+/// Seconds from a `Retry-After` header, when it is the delta-seconds form.
+///
+/// RFC 9110 also permits an HTTP-date. We deliberately do not parse that: it
+/// would pull in a date parser to serve a form GitHub's raw CDN does not send,
+/// and the caller degrades correctly without it — the error still says the host
+/// is throttling, just without a specific delay.
+pub(crate) fn retry_after_secs(headers: &reqwest::header::HeaderMap) -> Option<u64> {
+    headers
+        .get(reqwest::header::RETRY_AFTER)?
+        .to_str()
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()
+}
+
 pub(crate) fn should_report_install_fetch_status(status: reqwest::StatusCode) -> bool {
     !status.is_success() && !status.is_client_error()
 }
@@ -169,7 +190,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
 
     let trusted_before = is_workspace_trusted(workspace_dir);
     let before: std::collections::HashSet<String> =
-        discover_workflows_inner(home, Some(workspace_dir), None, trusted_before)
+        discover_workflows_inner(home, Some(workspace_dir), trusted_before)
             .into_iter()
             .map(|s| s.name)
             .collect();
@@ -212,10 +233,30 @@ pub(crate) async fn install_workflow_from_url_with_home(
         // The `Err(msg)` return is unchanged in both cases so the UI always
         // surfaces the failure.
         let status_str = status.as_u16().to_string();
-        let msg = format!(
-            "fetch failed: {fetch_url} returned status {}",
-            status.as_u16()
-        );
+        // Read `Retry-After` off the response BEFORE anything consumes the
+        // body: `response.bytes()` below takes `response` by value, and a
+        // header read afterwards is not available at all. (The same ordering
+        // trap silently drops the header on the model-call path — see #6413.)
+        let retry_after = retry_after_secs(response.headers());
+        // A throttled host is a different user action from an unreachable one:
+        // "try again shortly" versus "this host is not answering". Both were
+        // previously the same opaque `returned status N` string, so the UI
+        // could not tell the user which had happened (#6409).
+        let msg = if status == reqwest::StatusCode::TOO_MANY_REQUESTS
+            || (status.is_server_error() && retry_after.is_some())
+        {
+            match retry_after {
+                Some(secs) => {
+                    format!("{RATE_LIMITED_ERROR_PREFIX} by {fetch_url}: retry after {secs}s")
+                }
+                None => format!("{RATE_LIMITED_ERROR_PREFIX} by {fetch_url}: retry shortly"),
+            }
+        } else {
+            format!(
+                "fetch failed: {fetch_url} returned status {}",
+                status.as_u16()
+            )
+        };
         let report_msg = format!(
             "fetch failed: {redacted_fetch_url} returned status {}",
             status.as_u16()
@@ -372,7 +413,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
     }
 
     let trusted_after = is_workspace_trusted(workspace_dir);
-    let after = discover_workflows_inner(home, Some(workspace_dir), None, trusted_after);
+    let after = discover_workflows_inner(home, Some(workspace_dir), trusted_after);
     let new_skills: Vec<String> = after
         .into_iter()
         .map(|s| s.name)
@@ -396,7 +437,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
     let stderr = parse_warnings.join("\n");
 
     // Notify live agent sessions so they refresh their `## Installed Skills`
-    // catalogue mid-conversation (see `Agent::refresh_workflows`).
+    // catalogue mid-conversation (see `OpenHumanSessionHost::refresh_workflows`).
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "install".to_string(),
     });

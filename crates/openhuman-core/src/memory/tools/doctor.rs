@@ -14,10 +14,10 @@
 
 use crate::config::Config;
 use crate::memory::tree::health::report::run_doctor;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 /// Let the agent run the one-shot memory-pipeline diagnostic.
 pub struct MemoryDoctorTool {
@@ -41,6 +41,10 @@ impl Tool for MemoryDoctorTool {
          (embeddings config, scheduler gate, job queue, extraction/recall degradation, \
          summary-tree precondition), the single first blocking cause with a fix, and current \
          counters. Read-only — takes no arguments."
+    }
+
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

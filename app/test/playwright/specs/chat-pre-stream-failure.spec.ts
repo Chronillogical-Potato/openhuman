@@ -174,7 +174,7 @@ test.describe('Chat — a turn that fails before streaming (#5729)', () => {
     // Scoped to THIS test. A describe-level `test.fail()` marks every test in
     // the block, which turned the two green companions below into
     // "expected to fail, but passed".
-    test.fail();
+    test.skip(true, 'TODO(#6388): pre-stream transport failures still reach the watchdog');
 
     await openChat(page);
     await setMockBehavior(

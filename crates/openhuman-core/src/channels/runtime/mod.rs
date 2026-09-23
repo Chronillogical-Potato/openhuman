@@ -1,10 +1,12 @@
 //! Channel runtime entry points.
 
 mod dispatch;
+pub(crate) mod session;
 mod startup;
 mod supervision;
 
 pub use startup::start_channels;
+pub(crate) use startup::start_channels_with_session;
 
 #[cfg(any(test, debug_assertions))]
 pub mod test_support;

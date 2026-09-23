@@ -11,7 +11,7 @@ Beyond doing the work, the agent has tools for _organising_ the work - planning 
 
 | Tool                                              | What it does                                                                                                    |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `todo_write`                                      | Maintain a structured TODO list across a long task. Marked done as work progresses.                             |
+| `todo`                                            | Rewrite the session todo list across a long task; the chat shows it as a checklist that ticks off as work progresses. |
 | `spawn_subagent`                                  | Delegate to a reusable async specialist by default; creates a fresh worker only when incompatible or requested. |
 | `spawn_async_subagent`                            | Lower-level reusable async delegation surface with the same durable session identity.                           |
 | `steer_subagent` / `wait_subagent`                | Message or collect a running worker by durable `subagent_session_id` or transient `task_id`.                    |
@@ -41,4 +41,4 @@ Asking for clarification is a tool too, on purpose: it makes "I should ask the u
 ## See also
 
 - [Coder](coder.md) - what a coder-archetype subagent typically uses.
-- [Subconscious Loop](../subconscious.md) - the always-on background agent thread.
+- [Cron & Scheduling](cron.md) - how background agent runs get scheduled.

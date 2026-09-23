@@ -19,11 +19,14 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
 
-use crate::agent::orchestration::worktree::{self, WorktreeError, WorktreeStatus};
 use crate::config::rpc as config_rpc;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
+use tinyagents_harness::workspace::{
+    detect_worktree_overlaps, git_worktree_diff_summary, git_worktree_status, list_git_worktrees,
+    remove_git_worktree, GitWorktreeError, GitWorktreeStatus, GIT_WORKTREE_SUBDIR,
+};
 
 /// Controller schemas exposed by the worktree manager.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -190,9 +193,9 @@ fn handle_remove(params: Map<String, Value>) -> ControllerFuture {
 fn list_view(root: &Path, cid: &str) -> Result<Value, String> {
     // A non-git action_dir is normal (the user may not have opened a repo).
     // Degrade to an empty list rather than surfacing an error to the panel.
-    let all = match worktree::list(root) {
+    let all = match list_git_worktrees(root) {
         Ok(list) => list,
-        Err(WorktreeError::NotAGitRepo(p)) => {
+        Err(GitWorktreeError::NotAGitRepo(p)) => {
             log::debug!(target: "worktree_rpc", "[worktree_rpc][{cid}] list.not_a_git_repo path={}", p.display());
             return to_json(json!({ "worktrees": [], "overlaps": [] }));
         }
@@ -205,7 +208,7 @@ fn list_view(root: &Path, cid: &str) -> Result<Value, String> {
 
     // Only the isolated worker worktrees are management targets — never the
     // main checkout. Filter to those nested under `.claude/worktrees`.
-    let worktrees: Vec<WorktreeStatus> = all
+    let worktrees: Vec<GitWorktreeStatus> = all
         .into_iter()
         .filter(|w| is_managed_worktree(&w.path))
         .collect();
@@ -223,7 +226,7 @@ fn list_view(root: &Path, cid: &str) -> Result<Value, String> {
 /// Pure status logic anchored on a resolved `repo_root` — see [`list_view`].
 fn status_view(root: &Path, path: &Path, cid: &str) -> Result<Value, String> {
     log::debug!(target: "worktree_rpc", "[worktree_rpc][{cid}] status.path={}", path.display());
-    let status = worktree::status(root, path).map_err(|e| {
+    let status = git_worktree_status(root, path).map_err(|e| {
         let s = e.to_string();
         log::warn!(target: "worktree_rpc", "[worktree_rpc][{cid}] status.error err={s}");
         s
@@ -234,7 +237,7 @@ fn status_view(root: &Path, path: &Path, cid: &str) -> Result<Value, String> {
 /// Pure diff logic anchored on a resolved `repo_root` — see [`list_view`].
 fn diff_view(root: &Path, path: &Path, cid: &str) -> Result<Value, String> {
     log::debug!(target: "worktree_rpc", "[worktree_rpc][{cid}] diff.path={}", path.display());
-    let summary = worktree::diff_summary(root, path).map_err(|e| {
+    let summary = git_worktree_diff_summary(root, path).map_err(|e| {
         let s = e.to_string();
         log::warn!(target: "worktree_rpc", "[worktree_rpc][{cid}] diff.error err={s}");
         s
@@ -245,7 +248,7 @@ fn diff_view(root: &Path, path: &Path, cid: &str) -> Result<Value, String> {
 /// Pure remove logic anchored on a resolved `repo_root` — see [`list_view`].
 fn remove_view(root: &Path, path: &Path, force: bool, cid: &str) -> Result<Value, String> {
     log::debug!(target: "worktree_rpc", "[worktree_rpc][{cid}] remove.path={} force={force}", path.display());
-    worktree::remove(root, path, force).map_err(|e| {
+    remove_git_worktree(root, path, force).map_err(|e| {
         let s = e.to_string();
         log::warn!(target: "worktree_rpc", "[worktree_rpc][{cid}] remove.error err={s}");
         s
@@ -257,7 +260,7 @@ fn remove_view(root: &Path, path: &Path, force: bool, cid: &str) -> Result<Value
 /// `true` when `path` is an isolated worker worktree (nested under the
 /// `.claude/worktrees` convention dir), i.e. a manageable cleanup target.
 fn is_managed_worktree(path: &Path) -> bool {
-    let needle = std::path::Path::new(worktree::WORKTREE_SUBDIR);
+    let needle = std::path::Path::new(GIT_WORKTREE_SUBDIR);
     let mut comps = needle.components();
     let (Some(a), Some(b)) = (comps.next(), comps.next()) else {
         return false;
@@ -269,7 +272,7 @@ fn is_managed_worktree(path: &Path) -> bool {
 
 /// Compute cross-worktree file overlaps (a changed file touched by more than
 /// one worktree), keyed for display by each worktree's branch (path fallback).
-fn overlaps_json(worktrees: &[WorktreeStatus]) -> Vec<Value> {
+fn overlaps_json(worktrees: &[GitWorktreeStatus]) -> Vec<Value> {
     let per_worker: Vec<(String, Vec<PathBuf>)> = worktrees
         .iter()
         .filter(|w| !w.changed_files.is_empty())
@@ -281,7 +284,7 @@ fn overlaps_json(worktrees: &[WorktreeStatus]) -> Vec<Value> {
             (label, w.changed_files.clone())
         })
         .collect();
-    worktree::detect_overlaps(&per_worker)
+    detect_worktree_overlaps(&per_worker)
         .into_iter()
         .map(|(file, branches)| json!({ "file": file.to_string_lossy(), "branches": branches }))
         .collect()

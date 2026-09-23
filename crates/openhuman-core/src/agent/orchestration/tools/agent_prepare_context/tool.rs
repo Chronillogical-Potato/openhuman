@@ -3,12 +3,15 @@
 //! the scout engine (see [`super::scout_run`]) is built from.
 
 use std::fmt::Write as _;
+use std::sync::Arc;
 
-use crate::agent::harness::fork_context::{current_agent_context_prepared_sources, current_parent};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use async_trait::async_trait;
 use serde_json::json;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 use super::scout_run::{
     already_prepared_context_bundle, run_context_scout_with_catalog_and_workspace,
@@ -16,6 +19,41 @@ use super::scout_run::{
 
 /// Spawns the `context_scout` sub-agent to collect context and propose a plan.
 pub struct AgentPrepareContextTool;
+
+pub(crate) struct AgentPrepareContextDispatch {
+    tool: Arc<dyn Tool>,
+}
+impl AgentPrepareContextDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for AgentPrepareContextDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+    async fn execute(
+        &self,
+        _state: &(),
+        _call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
+        AgentPrepareContextTool::new()
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                Some(parent),
+            )
+            .await
+    }
+}
 
 impl Default for AgentPrepareContextTool {
     fn default() -> Self {
@@ -46,17 +84,17 @@ impl AgentPrepareContextTool {
     /// Falls back to that registry, name-filtered, when a context does not
     /// carry the visible list, to preserve behaviour for builders that don't
     /// populate it.
-    pub(super) fn render_parent_tool_catalog() -> String {
-        let Some(parent) = current_parent() else {
+    pub(super) fn render_parent_tool_catalog(parent: Option<&ParentExecutionContext>) -> String {
+        let Some(parent) = parent else {
             return String::new();
         };
         let visible = &parent.visible_tool_names;
-        let specs: &[std::sync::Arc<crate::tools::ToolSpec>] =
-            if parent.visible_tool_specs.is_empty() {
-                &parent.all_tool_specs
-            } else {
-                &parent.visible_tool_specs
-            };
+        let specs: &[std::sync::Arc<tinytools::ToolSpec>] = if parent.visible_tool_specs.is_empty()
+        {
+            &parent.all_tool_specs
+        } else {
+            &parent.visible_tool_specs
+        };
         let mut out = String::with_capacity(2048);
         for spec in specs.iter() {
             if spec.name == "agent_prepare_context" {
@@ -194,7 +232,54 @@ impl Tool for AgentPrepareContextTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let prepared_sources = current_agent_context_prepared_sources();
+        if let Some(live_parent) = super::super::ambient_parent_run_context("direct-context-scout")
+        {
+            let run_context = live_parent.data.child();
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    run_context,
+                    Some(&live_parent),
+                )
+                .await;
+        }
+        self.execute_with_parent_context(
+            args,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+        )
+        .await
+    }
+}
+
+impl AgentPrepareContextTool {
+    pub(crate) async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_live_parent_context(args, tool_context, run_context, None)
+            .await
+    }
+
+    /// Typed-harness entrypoint that retains the actual parent run for the
+    /// blocking scout child.
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+    ) -> anyhow::Result<ToolResult> {
+        let ambient_prepared_sources =
+            crate::agent::harness::current_agent_context_prepared_sources();
+        let prepared_sources = if run_context.prepared_context_sources.is_empty() {
+            ambient_prepared_sources.as_slice()
+        } else {
+            run_context.prepared_context_sources.as_ref()
+        };
         if !prepared_sources.is_empty() {
             tracing::info!(
                 target: "agent_prepare_context",
@@ -202,18 +287,24 @@ impl Tool for AgentPrepareContextTool {
                 "[agent_prepare_context] skipped because agent context is already prepared for this turn"
             );
             return Ok(ToolResult::success(already_prepared_context_bundle(
-                &prepared_sources,
+                prepared_sources,
             )));
         }
 
         let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
         let focus = args.get("focus").and_then(|v| v.as_str());
-        let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+        let tool_catalog =
+            AgentPrepareContextTool::render_parent_tool_catalog(run_context.parent.as_ref());
         run_context_scout_with_catalog_and_workspace(
             question,
             focus,
             &tool_catalog,
             tool_context.and_then(|ctx| ctx.workspace().cloned()),
+            tool_context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_owned),
+            run_context,
+            live_parent,
         )
         .await
     }

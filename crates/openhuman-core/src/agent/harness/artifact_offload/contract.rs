@@ -13,7 +13,7 @@ use tinyagents_harness::artifacts::{OUTPUTS_DIR, SCRATCH_DIR};
 const CONTRACT_THRESHOLD_TOKENS: usize = 2_000;
 
 /// Heading the contract is rendered under. Used by the idempotence check in
-/// `subagent_runner::ops::prompt` so a re-rendered prompt never stacks two
+/// `subagent_host::ops::prompt` so a re-rendered prompt never stacks two
 /// copies.
 pub const ARTIFACT_OFFLOAD_HEADING: &str = "## Long-horizon Artifact Offload";
 
@@ -24,7 +24,7 @@ pub const ARTIFACT_OFFLOAD_HEADING: &str = "## Long-horizon Artifact Offload";
 /// only) and every skill-filtered specialist have no filesystem tools, and
 /// dedicated guards assert their prompts never mention one — see
 /// `agent_registry::agents::researcher::prompt::tests::build_returns_nonempty_body`
-/// and `subagent_runner::ops_tests::typed_mode_filters_tools_by_skill_filter`.
+/// and `subagent_host::ops_tests::typed_mode_filters_tools_by_skill_filter`.
 pub const OFFLOAD_WRITE_TOOL: &str = "file_write";
 
 /// Whether the offload contract should be rendered for an agent whose visible

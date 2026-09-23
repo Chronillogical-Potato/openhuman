@@ -163,13 +163,7 @@ fn remove_deletes_and_cascades_ingested() {
         25,
     )
     .unwrap();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "A", "2025-01-01"),
-        "task-abc",
-    )
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01")).unwrap();
 
     remove_source(&config, &src.id).unwrap();
     assert!(get_source(&config, &src.id).is_err());
@@ -200,7 +194,7 @@ fn dedup_detects_seen_and_edited_tasks() {
     // Not ingested yet.
     assert!(!is_ingested(&config, &src.id, "42", &hash).unwrap());
 
-    mark_ingested(&config, &src.id, &task, "task-v1").unwrap();
+    mark_ingested(&config, &src.id, &task).unwrap();
     // Same content hash → already ingested.
     assert!(is_ingested(&config, &src.id, "42", &hash).unwrap());
 
@@ -211,63 +205,15 @@ fn dedup_detects_seen_and_edited_tasks() {
     assert!(!is_ingested(&config, &src.id, "42", &edited_hash).unwrap());
 
     // Re-ingesting the edit upserts (still one row).
-    mark_ingested(&config, &src.id, &edited, "task-v2").unwrap();
+    mark_ingested(&config, &src.id, &edited).unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].external_id, "42");
 }
 
 #[tokio::test]
-async fn add_with_assigned_executor_persists_and_filters_blank() {
+async fn ops_remove_prunes_the_ledger_for_source() {
     use crate::integrations::task_sources::ops;
-
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp);
-
-    // Some(non-empty) → persisted via the follow-up update_source patch
-    // (exercises both ops::add's assigned-executor branch and store's
-    // update_source patch arm). The store layer preserves the value verbatim;
-    // route::add_card is what trims it when stamping a card's assigned_agent.
-    let out = ops::add(
-        &config,
-        ProviderSlug::Github,
-        None,
-        None,
-        github_filter(),
-        Some(1800),
-        Some(SourceTarget::TodoOnly),
-        Some(25),
-        Some("my-skill".into()),
-    )
-    .await
-    .expect("add with executor");
-    assert_eq!(out.value.assigned_executor.as_deref(), Some("my-skill"));
-
-    // Re-read from disk to confirm persistence (not just the returned value).
-    let fetched = get_source(&config, &out.value.id).unwrap();
-    assert_eq!(fetched.assigned_executor.as_deref(), Some("my-skill"));
-
-    // Whitespace-only executor is filtered to None before the patch runs.
-    let blank = ops::add(
-        &config,
-        ProviderSlug::Github,
-        None,
-        None,
-        github_filter(),
-        Some(1800),
-        Some(SourceTarget::TodoOnly),
-        Some(25),
-        Some("   ".into()),
-    )
-    .await
-    .expect("add with blank executor");
-    assert_eq!(blank.value.assigned_executor, None);
-}
-
-#[tokio::test]
-async fn ops_remove_prunes_routed_cards_for_source() {
-    use crate::integrations::task_sources::{ops, route};
-    use crate::threads::todos::ops::{add as todo_add, BoardLocation, CardPatch};
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -282,26 +228,11 @@ async fn ops_remove_prunes_routed_cards_for_source() {
         25,
     )
     .unwrap();
-    let location = BoardLocation::Thread {
-        workspace_dir: config.workspace_dir.clone(),
-        thread_id: route::TASK_SOURCES_THREAD_ID.to_string(),
-    };
-    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default())
-        .await
-        .unwrap();
-    let card_id = snapshot.cards.last().unwrap().id.clone();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "A", "2025-01-01"),
-        &card_id,
-    )
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "A", "2025-01-01")).unwrap();
 
     let out = ops::remove(&config, &src.id).await.expect("remove source");
     assert_eq!(out.value["removed"], true);
     assert_eq!(out.value["pruned"], 1);
-    assert!(route::board_cards(&config).await.unwrap().is_empty());
     assert!(list_ingested(&config, &src.id, 10).unwrap().is_empty());
 }
 
@@ -336,20 +267,8 @@ fn list_ingested_orders_newest_first() {
     )
     .unwrap();
 
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("1", "first", "2025-01-01"),
-        "task-1",
-    )
-    .unwrap();
-    mark_ingested(
-        &config,
-        &src.id,
-        &sample_task("2", "second", "2025-01-02"),
-        "task-2",
-    )
-    .unwrap();
+    mark_ingested(&config, &src.id, &sample_task("1", "first", "2025-01-01")).unwrap();
+    mark_ingested(&config, &src.id, &sample_task("2", "second", "2025-01-02")).unwrap();
     let listed = list_ingested(&config, &src.id, 10).unwrap();
     assert_eq!(listed.len(), 2);
     // Newest ingested_at first; "2" was inserted last.
@@ -473,36 +392,30 @@ fn older_on_disk_schema_under_a_cached_path_is_remigrated() {
     .unwrap();
 
     // Simulate a workspace restore of an OLDER database swapped in under the
-    // same (already-cached) path: drop a migrated column and clear the version
+    // same (already-cached) path: drop the migrated card-id column and clear the version
     // stamp, exactly as a pre-migration database would look on disk.
     let db_path = config.workspace_dir.join("task_sources").join("sources.db");
     {
         let raw = rusqlite::Connection::open(&db_path).unwrap();
         raw.execute_batch(
-            "ALTER TABLE task_sources DROP COLUMN assigned_executor;
+            "ALTER TABLE ingested_tasks DROP COLUMN card_id;
              PRAGMA user_version = 0;",
         )
         .unwrap();
     }
 
     // The path is still cached. With a single-table `sqlite_master` probe this
-    // would be trusted and `list_sources` (which selects `assigned_executor`)
-    // would fail with `no such column`. The version check detects the drift and
+    // would be trusted and the next ingested-task write would fail with `no
+    // such column`. The version check detects the drift and
     // re-migrates instead.
     let listed = list_sources(&config)
         .expect("an older on-disk schema under a cached path must be re-migrated, not trusted");
     assert_eq!(
         listed.len(),
         1,
-        "the pre-existing row survives DROP COLUMN and the schema is repaired"
+        "the pre-existing row survives the schema repair"
     );
     assert_eq!(listed[0].id, original.id);
-    // The migrated column is back (reads as None for the pre-existing row).
-    assert_eq!(
-        get_source(&config, &original.id).unwrap().assigned_executor,
-        None
-    );
-
     // And the store is fully usable again.
     let src = add_source(
         &config,

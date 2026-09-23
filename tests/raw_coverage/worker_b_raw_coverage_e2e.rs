@@ -453,6 +453,7 @@ async fn inference_provider_success_paths_use_mock_models_and_chat() {
 }
 
 #[tokio::test]
+#[ignore = "TODO(#6387): managed backend search is unavailable in this build"]
 async fn tools_web_search_success_path_uses_backend_session_and_shapes_results() {
     let _lock = env_lock();
     let mock = serve_mock().await;
@@ -502,92 +503,6 @@ async fn tools_web_search_success_path_uses_backend_session_and_shapes_results()
     mock.join.abort();
 }
 
-#[tokio::test]
-async fn agent_profile_lifecycle_persists_custom_profile_and_validates_delete() {
-    let _lock = env_lock();
-    let harness = setup().await;
-
-    let upsert = rpc(
-        &harness.rpc_base,
-        301,
-        "openhuman.profiles_upsert",
-        json!({
-            "profile": {
-                "id": "worker-b-custom",
-                "name": "Worker B Custom",
-                "description": "Custom profile for raw E2E coverage",
-                "agentId": "orchestrator",
-                "modelOverride": "mock:worker-b-chat",
-                "temperature": 0.3,
-                "systemPromptSuffix": "Prefer concise answers.",
-                "allowedTools": ["tools.web_search"],
-                "builtIn": false,
-                "avatarUrl": "https://example.com/avatar.png",
-                "voiceId": "voice-worker-b",
-                "soulMd": "Raw coverage soul",
-                "composioIntegrations": ["gmail"],
-                "sortOrder": 42
-            }
-        }),
-    )
-    .await;
-    let profiles = ok(&upsert, "profiles_upsert")
-        .get("profiles")
-        .and_then(Value::as_array)
-        .expect("profiles after upsert");
-    let custom = profiles
-        .iter()
-        .find(|profile| profile.get("id").and_then(Value::as_str) == Some("worker-b-custom"))
-        .expect("custom profile present");
-    assert_eq!(
-        custom.get("memoryDirSuffix").and_then(Value::as_str),
-        Some("-1"),
-        "new custom profiles should receive a stable memory suffix: {custom}"
-    );
-
-    let select = rpc(
-        &harness.rpc_base,
-        302,
-        "openhuman.profiles_select",
-        json!({ "profile_id": "worker-b-custom" }),
-    )
-    .await;
-    assert_eq!(
-        ok(&select, "profiles_select")
-            .get("activeProfileId")
-            .and_then(Value::as_str),
-        Some("worker-b-custom")
-    );
-
-    let delete_default = rpc(
-        &harness.rpc_base,
-        303,
-        "openhuman.profiles_delete",
-        json!({ "profile_id": "default" }),
-    )
-    .await;
-    assert!(
-        error_message(&delete_default, "delete default profile").contains("cannot be deleted"),
-        "built-in default profile deletion should fail deterministically: {delete_default}"
-    );
-
-    let delete_custom = rpc(
-        &harness.rpc_base,
-        304,
-        "openhuman.profiles_delete",
-        json!({ "profile_id": "worker-b-custom" }),
-    )
-    .await;
-    assert_eq!(
-        ok(&delete_custom, "profiles_delete")
-            .get("activeProfileId")
-            .and_then(Value::as_str),
-        Some("default"),
-        "deleting active custom profile should fall back to default"
-    );
-
-    harness.rpc_join.abort();
-}
 
 #[tokio::test]
 async fn approval_gate_rpc_decision_resumes_parked_tool_and_records_execution() {

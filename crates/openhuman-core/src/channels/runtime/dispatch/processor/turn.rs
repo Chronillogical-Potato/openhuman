@@ -16,13 +16,13 @@ use crate::channels::traits;
 use crate::channels::{ChannelSendExt, SendMessage};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::inference::provider;
 use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tinybus::NativeRequestError;
 use tinymemory_api::provider::MemoryCore as _;
 use tokio_util::sync::CancellationToken;
+use tokio_util::task::AbortOnDropHandle;
 
 use super::super::helpers::{
     build_channel_context_block, log_worker_join_result, select_acknowledgment_reaction,
@@ -98,6 +98,8 @@ pub(crate) async fn process_channel_runtime_message(
     // Send a smart acknowledgment reaction immediately so the user knows the message
     // was received and understood. The LLM may override this later by including its
     // own [REACTION:...] marker, which Telegram replaces atomically.
+    // Keep the reaction owned by this worker so logout also aborts a pending send.
+    let mut _acknowledgment_task = None;
     if let Some(channel) = target_channel.as_ref() {
         if channel.supports_reactions() && msg.thread_ts.is_some() {
             let ack_emoji = select_acknowledgment_reaction(&msg.content);
@@ -110,14 +112,14 @@ pub(crate) async fn process_channel_runtime_message(
             let channel_for_react = Arc::clone(channel);
             let react_msg =
                 SendMessage::new(react_content, &msg.reply_target).in_thread(msg.thread_ts.clone());
-            tokio::spawn(async move {
+            _acknowledgment_task = Some(AbortOnDropHandle::new(tokio::spawn(async move {
                 if let Err(e) = channel_for_react
                     .send_with_outbound_intent(&react_msg)
                     .await
                 {
                     tracing::debug!("[dispatch] Acknowledgment reaction failed: {e}");
                 }
-            });
+            })));
         }
     }
 
@@ -136,7 +138,7 @@ pub(crate) async fn process_channel_runtime_message(
                         ("provider", route.provider.as_str()),
                     ],
                 );
-                let safe_err = provider::sanitize_api_error(&err.to_string());
+                let safe_err = tinyinference_core::sanitize::sanitize_api_error(&err.to_string());
                 let message = format!(
                 "⚠️ Failed to initialize provider `{}`. Please run `/models` to choose another provider.\nDetails: {safe_err}",
                 route.provider
@@ -246,7 +248,7 @@ pub(crate) async fn process_channel_runtime_message(
         let channel = Arc::clone(channel_ref);
         let reply_target = msg.reply_target.clone();
         let draft_id = draft_id_ref.to_string();
-        Some(tokio::spawn(async move {
+        Some(AbortOnDropHandle::new(tokio::spawn(async move {
             let mut accumulated = String::new();
             let mut last_thinking_update = None;
             const THINKING_UPDATE_INTERVAL_MS: u128 = 2000;
@@ -298,7 +300,7 @@ pub(crate) async fn process_channel_runtime_message(
                     _ => {}
                 }
             }
-        }))
+        })))
     } else {
         None
     };
@@ -307,11 +309,11 @@ pub(crate) async fn process_channel_runtime_message(
     // Typing was already started early (before memory/provider setup). Here we only
     // spawn the background refresh task that keeps the indicator alive during long turns.
     let typing_task = match (target_channel.as_ref(), typing_cancellation.as_ref()) {
-        (Some(channel), Some(token)) => Some(spawn_scoped_typing_task(
+        (Some(channel), Some(token)) => Some(AbortOnDropHandle::new(spawn_scoped_typing_task(
             Arc::clone(channel),
             msg.reply_target.clone(),
             token.clone(),
-        )),
+        ))),
         _ => None,
     };
 
@@ -585,7 +587,7 @@ pub(crate) async fn process_channel_runtime_message(
             );
             // The typed `AgentError` is flattened to a `String` at the
             // native-bus boundary (`agent::bus` map_err → `e.to_string()`),
-            // so the downcast that works in `Agent::run_single` is not an
+            // so the downcast that works in `OpenHumanSessionHost::run_single` is not an
             // option here — fall back to canonical-phrase substring match.
             // The max-tool-iterations cap is a deterministic agent-state
             // outcome and is already surfaced to the user as the

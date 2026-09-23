@@ -12,11 +12,11 @@
 //! to `api.exa.ai` -- the OpenHuman managed backend is never involved. The
 //! managed (`engine = "managed"`) path is untouched by this module.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 const DEFAULT_API_URL: &str = "https://api.exa.ai";
 

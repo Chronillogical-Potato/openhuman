@@ -228,7 +228,7 @@ pub(super) fn create_chat_model_from_string_with_model_id_inner(
             return result;
         }
         if let Some(result) =
-            try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+            try_create_local_runtime_chat_model_from_string(role, &resolved, config)
         {
             return result;
         }
@@ -247,7 +247,7 @@ pub(super) struct DefaultTemperatureChatModel {
 
 #[async_trait::async_trait]
 impl ChatModel<()> for DefaultTemperatureChatModel {
-    fn profile(&self) -> Option<&tinyinference::model::ModelProfile> {
+    fn profile(&self) -> Option<&tinyinference_llm::model::ModelProfile> {
         self.inner.profile()
     }
 
@@ -259,7 +259,7 @@ impl ChatModel<()> for DefaultTemperatureChatModel {
         &self,
         state: &(),
         mut request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         if request.temperature.is_none() {
             request.temperature = Some(self.temperature);
         }
@@ -270,7 +270,7 @@ impl ChatModel<()> for DefaultTemperatureChatModel {
         &self,
         state: &(),
         mut request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         if request.temperature.is_none() {
             request.temperature = Some(self.temperature);
         }

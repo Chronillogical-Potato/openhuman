@@ -15,7 +15,7 @@ use tinyflows::error::{EngineError, Result};
 use super::*;
 use crate::config::Config;
 use crate::inference::provider::{create_chat_model_with_model_id, role_for_model_tier};
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::model::ModelRequest;
 
 /// [`LlmProvider`] adapter over OpenHuman's inference stack
 /// (`crates/openhuman-core/src/inference/provider/`).
@@ -54,7 +54,7 @@ impl LlmProvider for OpenHumanLlm {
             .unwrap_or("summarization");
 
         // Per-node model selection: an `agent` node may pin a **managed tier**
-        // (`config.model = "reasoning-v1"` / `"chat-v1"`, or a `hint:*` alias).
+        // (`config.model = "hint:reasoning"` / `"hint:chat"`, or a `hint:*` alias).
         // Map that tier back to the workload role whose provider serves it so
         // the completion routes to that tier on the managed backend (or the
         // role's BYOK model) instead of the node's default `role`. Unknown /

@@ -13,7 +13,7 @@ use serde_json::json;
 
 use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::security::approval::APPROVAL_CHAT_CONTEXT;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 use super::gate;
 use super::types::PlanReviewResolution;

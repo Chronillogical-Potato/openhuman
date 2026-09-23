@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::{PermissionLevel, ToolScope};
+use tinytools::{PermissionLevel, ToolScope};
 
 #[test]
 fn read_metadata() {

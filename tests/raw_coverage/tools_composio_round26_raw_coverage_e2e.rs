@@ -14,7 +14,8 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 
 use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
-use openhuman_core::tools::{ComposioTool, PermissionLevel, Tool};
+use tinytools::{PermissionLevel, Tool};
+use openhuman_core::tools::{ComposioTool};
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {
@@ -31,6 +32,7 @@ struct MockState {
 
 #[tokio::test]
 async fn round26_composio_direct_tool_covers_connect_execute_and_error_fallbacks() {
+    crate::tinyhumans_boot::boot();
     let state = MockState::default();
     let base = start_loopback(
         Router::new()

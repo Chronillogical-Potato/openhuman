@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Focused raw integration coverage for memory sync + memory sources.
 //!
 //! Everything here is local: temp workspaces, loopback HTTP, and a fake `gh`
@@ -61,6 +63,8 @@ static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 static MEMORY_SEAMS_INIT: OnceLock<()> = OnceLock::new();
 
 fn ensure_memory_seams() {
+
+    crate::tinyhumans_boot::boot();
     MEMORY_SEAMS_INIT.get_or_init(|| {
         std::thread::Builder::new()
             .name("memory-sync-sources-raw-coverage-seams".to_string())

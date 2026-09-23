@@ -8,13 +8,13 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: refuse a tool whose scope is
-/// [`ToolScope::CliRpcOnly`](crate::tools::ToolScope) inside the
+/// [`ToolScope::CliRpcOnly`](tinytools::ToolScope) inside the
 /// autonomous agent loop (issue #4249). The in-house engine ran this gate in
 /// `engine::tools`; the tinyagents path dropped it, so a CLI/RPC-only tool
 /// (e.g. phone calls) would execute from the model loop. Applies on every path
@@ -34,23 +34,25 @@ impl CliRpcOnlyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .map(|t| t.scope() == crate::tools::ToolScope::CliRpcOnly)
+            .map(|t| t.scope() == tinytools::ToolScope::CliRpcOnly)
             .unwrap_or(false)
     }
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CliRpcOnlyMiddleware
+{
     fn name(&self) -> &str {
         "cli_rpc_only"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         if self.is_cli_rpc_only(&call.name) {
             tracing::warn!(
@@ -61,14 +63,7 @@ impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
                 "Tool '{}' is only available via explicit CLI/RPC invocation, not in the autonomous agent loop.",
                 call.name
             );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: content.clone(),
-                raw: None,
-                error: Some(content),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(content)));
         }
         next.run(ctx, state, call).await
     }

@@ -296,8 +296,8 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
 
     // ---- Phase A: nothing routed. Every hint resolves to its managed tier. --
 
-    // A managed tier with no BYOK route resolves to the tier name itself —
-    // the managed backend is what expands it.
+    // With no BYOK route, managed hints resolve through the current managed
+    // default model rather than to a retired tier alias.
     let reasoning = harness
         .rpc(
             71_001,
@@ -308,21 +308,17 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
     let reasoning = payload(&reasoning, "resolve_model hint:reasoning");
     assert_eq!(
         reasoning.get("model"),
-        Some(&json!("reasoning-v1")),
-        "an unrouted reasoning hint resolves to the managed tier: {reasoning}"
+        Some(&json!("e2e-model")),
+        "an unrouted reasoning hint resolves to the managed default: {reasoning}"
     );
     assert_eq!(
         reasoning.get("vision"),
-        Some(&json!(true)),
-        "the reasoning tier is one of the two vision-capable managed tiers \
-         (`oh_tier_supports_vision`); the RPC schema comment claiming the \
-         per-tier map is `currently all false` is stale — see \
-         ~/tinyhuman/bugs/e2e-wave-inference-stale-vision-and-workspace-docs.md: \
-         {reasoning}"
+        Some(&json!(false)),
+        "the managed default does not advertise vision support: {reasoning}"
     );
 
-    // The bare tier name is accepted alongside the `hint:` alias and must
-    // resolve identically.
+    // The retired tier spelling is accepted alongside the `hint:` alias and
+    // resolves through the same managed default.
     let bare_tier = harness
         .rpc(
             71_002,
@@ -332,11 +328,10 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
         .await;
     assert_eq!(
         payload(&bare_tier, "resolve_model reasoning-v1").get("model"),
-        Some(&json!("reasoning-v1"))
+        Some(&json!("e2e-model"))
     );
 
-    // A tier that is genuinely text-only answers `vision: false`, so the flag
-    // carries real information rather than being pinned one way.
+    // Managed workload aliases all resolve through the configured default.
     let chat = harness
         .rpc(
             71_003,
@@ -345,17 +340,17 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
         )
         .await;
     let chat = payload(&chat, "resolve_model hint:chat");
-    assert_eq!(chat.get("model"), Some(&json!("chat-v1")));
+    assert_eq!(chat.get("model"), Some(&json!("e2e-model")));
     assert_eq!(
         chat.get("vision"),
         Some(&json!(false)),
-        "the chat tier is text-only: {chat}"
+        "the managed default does not advertise vision support: {chat}"
     );
 
-    for (id, hint, tier) in [
-        (71_004, "hint:coding", "coding-v1"),
-        (71_005, "hint:agentic", "agentic-v1"),
-        (71_006, "hint:burst", "burst-v1"),
+    for (id, hint) in [
+        (71_004, "hint:coding"),
+        (71_005, "hint:agentic"),
+        (71_006, "hint:burst"),
     ] {
         let resolved = harness
             .rpc(
@@ -366,8 +361,8 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
             .await;
         assert_eq!(
             payload(&resolved, hint).get("model"),
-            Some(&json!(tier)),
-            "{hint} must resolve to {tier} while nothing is routed"
+            Some(&json!("e2e-model")),
+            "{hint} must resolve to the configured managed default while nothing is routed"
         );
     }
 
@@ -429,10 +424,7 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
     // now stands alone. The assertion is inverted rather than deleted, because
     // "setting one route does not move the others" is precisely the property
     // that needs a guard.
-    for (id, hint, tier) in [
-        (71_013, "hint:reasoning", "reasoning-v1"),
-        (71_014, "hint:chat", "chat-v1"),
-    ] {
+    for (id, hint) in [(71_013, "hint:reasoning"), (71_014, "hint:chat")] {
         let sibling = harness
             .rpc(
                 id,
@@ -442,20 +434,19 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
             .await;
         assert_eq!(
             payload(&sibling, hint).get("model"),
-            Some(&json!(tier)),
+            Some(&json!("e2e-model")),
             "{hint} was never configured, so it must stay on the managed backend \
              rather than inherit the BYOK route pinned for `coding` (#6109)"
         );
     }
 
-    // Agentic, burst, vision and the background workloads stay on the managed
-    // backend for the same reason, and always did — they run tier-specific
-    // models a BYOK provider does not serve.
-    for (id, hint, tier) in [
-        (71_015, "hint:agentic", "agentic-v1"),
-        (71_016, "hint:burst", "burst-v1"),
-        (71_017, "hint:vision", "vision-v1"),
-        (71_018, "hint:summarization", "summarization-v1"),
+    // Agentic, burst, vision and background workloads likewise stay on the
+    // managed backend rather than inherit a BYOK route.
+    for (id, hint) in [
+        (71_015, "hint:agentic"),
+        (71_016, "hint:burst"),
+        (71_017, "hint:vision"),
+        (71_018, "hint:summarization"),
     ] {
         let managed = harness
             .rpc(
@@ -466,7 +457,7 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
             .await;
         assert_eq!(
             payload(&managed, hint).get("model"),
-            Some(&json!(tier)),
+            Some(&json!("e2e-model")),
             "{hint} must NOT inherit a chat-tier BYOK route — it stays managed"
         );
     }

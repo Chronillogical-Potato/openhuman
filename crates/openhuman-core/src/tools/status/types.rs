@@ -64,9 +64,27 @@ pub enum ToolFailureClass {
     /// nobody approved, so it must not read as an execution timeout that
     /// auto-retries (#4459).
     ApprovalExpired,
+    /// What the call named does not exist or is not available to this agent: a
+    /// tool it does not have, a catalog entry that is not there. The identical
+    /// call fails the same way every time (#6277).
+    NotFound,
+    /// The operation is not supported for this target, permanently: e.g. a
+    /// catalog skill with no direct download cannot be installed automatically
+    /// (#6277).
+    Unsupported,
     /// Could not be classified into any of the above.
     Unknown,
 }
+
+/// Marker prefixing a failure whose target does not exist or is not available
+/// ([`ToolFailureClass::NotFound`]). Emitted by the producer that *knows* the
+/// lookup failed, so the classifier never has to guess from prose. Bracketed
+/// like the policy markers so it survives the `Error executing …` wrapping.
+pub const NOT_FOUND_MARKER: &str = "[not-found]";
+
+/// Marker prefixing a failure the target can never support
+/// ([`ToolFailureClass::Unsupported`]). Same contract as [`NOT_FOUND_MARKER`].
+pub const UNSUPPORTED_MARKER: &str = "[unsupported]";
 
 /// The three top-level states the UI separates, per the #4254 acceptance
 /// criterion "clear separation between recoverable failure, blocked-by-policy,
@@ -86,6 +104,10 @@ pub enum FailureCategory {
     /// refused external effect is exactly the bug this category prevents
     /// (#4459).
     UserDeclined,
+    /// The identical call cannot succeed: what it named does not exist, or the
+    /// operation is not supported. Never retried automatically, and there is
+    /// nothing for the user to approve, grant or sign in to (#6277).
+    Permanent,
 }
 
 /// A tool failure rendered for a non-technical user: what class it is, which
@@ -132,6 +154,9 @@ impl ToolFailureClass {
             ToolFailureClass::MissingPermission
             | ToolFailureClass::MissingApp
             | ToolFailureClass::BadCredentials => FailureCategory::NeedsUserConfirmation,
+            ToolFailureClass::NotFound | ToolFailureClass::Unsupported => {
+                FailureCategory::Permanent
+            }
         }
     }
 }

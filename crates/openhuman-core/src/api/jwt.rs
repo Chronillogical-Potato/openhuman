@@ -1,16 +1,57 @@
 //! Session JWT load and `Authorization` helpers for the TinyHumans API.
 //!
-//! Parsing and header formatting live in the vendored SDK
-//! (`tinyhumans_sdk::jwt`) — they are properties of the backend's token, not of
-//! this client, and every host needs them. Re-exported here so existing call
-//! sites keep one import path.
+//! The backend issues a bare JWT as the session token. These helpers *read*
+//! it — they never verify it. The backend stays the authority on validity: a
+//! token revoked before its `exp` still returns 401, and callers must handle
+//! that. Reading `exp` locally is only an optimisation that avoids sending a
+//! request with a token already known to be dead.
+//!
+//! Parsing is pure and has no backend dependency, which is why it lives in the
+//! core rather than behind the backend transport: `security::credentials`
+//! needs it on a core that has no TinyHumans connection at all.
 //!
 //! What stays OpenHuman-specific is *where the token lives*: the credentials
 //! store, keyring, and auth-profile names below.
 
+use base64::Engine;
 use chrono::{DateTime, Utc};
+use serde_json::Value;
 
-pub use tinyhumans_sdk::jwt::{bearer_authorization_value, decode_jwt_payload};
+/// Format a token as an `Authorization: Bearer …` header value.
+///
+/// Surrounding whitespace is trimmed — tokens pasted by hand or read from a
+/// file routinely carry a trailing newline, and the backend rejects the header
+/// if it survives. Interior whitespace is left alone: it cannot appear in a
+/// well-formed JWT, so trimming it would mask a malformed token rather than
+/// fix one.
+pub fn bearer_authorization_value(token: &str) -> String {
+    format!("Bearer {}", token.trim())
+}
+
+/// Decode a JWT's payload without verifying the signature.
+///
+/// Returns `None` for anything that is not a JWT with a base64url payload
+/// holding JSON — including the non-JWT sentinels hosts store for offline or
+/// local sessions, which must not panic here.
+pub fn decode_jwt_payload(token: &str) -> Option<Value> {
+    // JWT = header.payload.signature (base64url, no padding). Only the payload
+    // segment is needed. Padded input is accepted as a fallback because not
+    // every issuer omits padding.
+    let payload_b64 = token.trim().split('.').nth(1)?;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload_b64)
+        .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(payload_b64))
+        .ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// Read a JWT's `exp` claim as a Unix timestamp in seconds. `exp` is a
+/// NumericDate, so both integer and float encodings are accepted.
+pub fn decode_jwt_exp_unix(token: &str) -> Option<i64> {
+    decode_jwt_payload(token)?
+        .get("exp")
+        .and_then(|value| value.as_i64().or_else(|| value.as_f64().map(|f| f as i64)))
+}
 
 pub use crate::security::credentials::session_support::get_session_token;
 pub use crate::security::credentials::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
@@ -30,10 +71,10 @@ pub use crate::security::credentials::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFIL
 /// non-JWT / malformed / `exp`-less token, in which case expiry tracking
 /// degrades to the previous behaviour (no local precheck).
 ///
-/// The SDK returns Unix seconds so it needs no datetime dependency; this wraps
-/// that in the `chrono` type the credentials store already uses.
+/// [`decode_jwt_exp_unix`] wrapped in the `chrono` type the credentials store
+/// already uses.
 pub fn decode_jwt_exp(token: &str) -> Option<DateTime<Utc>> {
-    DateTime::<Utc>::from_timestamp(tinyhumans_sdk::jwt::decode_jwt_exp_unix(token)?, 0)
+    DateTime::<Utc>::from_timestamp(decode_jwt_exp_unix(token)?, 0)
 }
 
 #[cfg(test)]

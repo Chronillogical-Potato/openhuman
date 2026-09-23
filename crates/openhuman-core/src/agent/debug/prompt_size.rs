@@ -15,7 +15,7 @@
 //! # What is measured
 //!
 //! Everything comes from [`super::dump_agent_prompt`], which builds a real
-//! agent through `Agent::from_config_for_agent` and renders the turn-1 prompt.
+//! agent through `OpenHumanSessionHost::from_config_for_agent` and renders the turn-1 prompt.
 //! No numbers are re-derived from a second code path, so the report cannot
 //! drift from the dump.
 //!
@@ -78,9 +78,10 @@ pub struct PromptSizeReport {
     pub tool_bytes: usize,
     /// `prompt_bytes + tool_bytes` — the fixed cost of every turn.
     pub fixed_prefix_bytes: usize,
-    /// Number of tools whose schemas reach the provider. This is the
-    /// *advertised* set, already narrowed by the agent's `ToolScope` belt and
-    /// by toolpack withholding.
+    /// Number of entries in [`DumpedPrompt::tool_specs`]. For a session agent
+    /// that is the provider-facing visible set (belt, policy and toolpack
+    /// withholding applied); for an `integrations_agent` toolkit dump it is
+    /// that toolkit's rendered tools.
     pub tool_count: usize,
     pub sections: Vec<SectionSize>,
     pub tools: Vec<ToolSize>,

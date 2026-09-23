@@ -2,6 +2,11 @@ use super::*;
 use crate::agent::harness::definition::{
     AgentDefinition, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
+use async_trait::async_trait;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
 
 fn dummy_definition() -> AgentDefinition {
     AgentDefinition {
@@ -43,8 +48,75 @@ fn dummy_definition() -> AgentDefinition {
 const TEST_THRESHOLD_TOKENS: usize = 500_000;
 const TEST_MAX_TOKENS: usize = 2_000_000;
 
-fn dummy_parent_ctx() -> RunContext<()> {
-    RunContext::new(tinyagents_harness::context::RunConfig::new("test"), ())
+fn dummy_parent_ctx() -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+    RunContext::new(
+        tinyagents_harness::context::RunConfig::new("test"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    )
+}
+
+#[test]
+fn unary_summarizer_child_inherits_cancellation_workspace_and_lineage() {
+    let cancellation = tinyagents_harness::cancel::CancellationToken::new();
+    let workspace = tinytools::WorkspaceDescriptor::new("/work/action");
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .with_cancellation(cancellation.clone())
+        .with_workspace(workspace.clone())
+        .into_tinyagents(
+            tinyagents_harness::context::RunConfig::new("parent").with_thread("thread-a"),
+        );
+
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+
+    assert_eq!(child.workspace, Some(workspace));
+    assert_eq!(child.thread_id().map(|id| id.as_str()), Some("thread-a"));
+    assert_eq!(child.depth(), 1);
+    assert_eq!(child.data.spawn_depth, 1);
+    cancellation.cancel();
+    assert!(child.cancellation.is_cancelled());
+}
+
+struct UnaryOnlyModel(AtomicBool);
+
+#[async_trait]
+impl ChatModel<()> for UnaryOnlyModel {
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
+        self.0.store(true, Ordering::SeqCst);
+        Ok(ModelResponse::assistant("condensed summary"))
+    }
+
+    async fn stream(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelStream> {
+        panic!("a payload summary must not stream into the user-visible parent turn")
+    }
+}
+
+#[tokio::test]
+async fn unary_summarizer_child_keeps_summary_output_off_the_streaming_path() {
+    let parent = crate::agent::tinyagents::host::OpenHumanRunContext::new()
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
+    let child = unary_child_context(&parent, "summarizer", 1, 128).expect("child context");
+    let model = Arc::new(UnaryOnlyModel(AtomicBool::new(false)));
+    let mut harness: AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext> =
+        AgentHarness::new();
+    harness
+        .register_model("summary", model.clone())
+        .set_default_model("summary");
+
+    let run = harness
+        .invoke_in_context(&(), child, vec![Message::user("summarize this")])
+        .await
+        .expect("unary summary run");
+
+    assert!(model.0.load(Ordering::SeqCst));
+    assert_eq!(run.text().as_deref(), Some("condensed summary"));
 }
 
 #[tokio::test]
@@ -208,4 +280,120 @@ fn record_success_resets_breaker() {
     // Even one more failure now should not trip — counter was reset.
     summarizer.record_failure();
     assert!(!summarizer.breaker_tripped());
+}
+
+// ── summary reuse and the real payload size (#6283) ─────────────────────
+
+fn low_threshold_summarizer() -> SubagentPayloadSummarizer {
+    SubagentPayloadSummarizer::new(dummy_definition(), 1, TEST_MAX_TOKENS)
+}
+
+#[tokio::test]
+async fn an_identical_payload_reuses_the_earlier_summary_instead_of_dispatching() {
+    let raw = "identical payload for the reuse test ".repeat(64);
+    let hint = Some("reuse-test goal");
+    remember_summary(
+        summary_cache_key(None, "reuse_tool", hint, &raw),
+        "CACHED SUMMARY".to_string(),
+    );
+
+    // No parent execution context is installed, so a real dispatch fails and
+    // reports `Unavailable`; only reuse can produce a summary here.
+    let outcome = low_threshold_summarizer()
+        .maybe_summarize_in_parent(&dummy_parent_ctx(), "reuse_tool", hint, &raw)
+        .await
+        .expect("summarization never errors here");
+
+    match outcome {
+        SummarizeOutcome::Summarized(payload) => {
+            assert_eq!(payload.summary, "CACHED SUMMARY");
+            assert_eq!(payload.original_bytes, raw.len());
+        }
+        other => panic!(
+            "an identical payload must reuse the stored summary instead of dispatching \
+             the summarizer again; got {other:?}"
+        ),
+    }
+}
+
+#[tokio::test]
+async fn a_summary_written_for_another_goal_is_not_reused() {
+    let raw = "payload shared across two goals ".repeat(64);
+    remember_summary(
+        summary_cache_key(None, "goal_tool", Some("goal A"), &raw),
+        "SUMMARY FOR GOAL A".to_string(),
+    );
+
+    let outcome = low_threshold_summarizer()
+        .maybe_summarize_in_parent(&dummy_parent_ctx(), "goal_tool", Some("goal B"), &raw)
+        .await
+        .expect("summarization never errors here");
+
+    assert!(
+        !matches!(outcome, SummarizeOutcome::Summarized(_)),
+        "a summary shaped for one goal must not be served for another; got {outcome:?}"
+    );
+}
+
+#[test]
+fn a_successful_summary_is_remembered_for_reuse() {
+    let summarizer = low_threshold_summarizer();
+    let raw = "x".repeat(50_000);
+    let key = summary_cache_key(None, "size_tool", Some("size goal"), &raw);
+
+    let outcome = summarizer
+        .handle_summarizer_result(
+            "size_tool",
+            &raw,
+            std::time::Instant::now(),
+            Ok("model note about the payload".to_string()),
+            key,
+        )
+        .expect("a usable summary is not an error");
+
+    let SummarizeOutcome::Summarized(payload) = outcome else {
+        panic!("a non-empty, smaller summary must be accepted");
+    };
+    assert_eq!(
+        payload.original_bytes,
+        raw.len(),
+        "the summarized size handed to the middleware must be the real byte count"
+    );
+    assert_eq!(
+        cached_summary(&key).as_deref(),
+        Some(payload.summary.as_str()),
+        "a successful summary must be stored for reuse"
+    );
+}
+
+#[test]
+fn build_summarizer_prompt_states_the_real_byte_count() {
+    let raw = "abc".repeat(1_000);
+    let prompt = build_summarizer_prompt("size_tool", None, &raw);
+    assert!(
+        prompt.contains("Raw tool output: 3000 bytes, complete"),
+        "the summarizer must be told the payload's exact size, got: {prompt}"
+    );
+}
+
+#[test]
+fn a_long_task_hint_keeps_its_trailing_request() {
+    let hint = format!(
+        "{}\nfind the authentication failure",
+        "log line ".repeat(1_000)
+    );
+    let prompt = build_summarizer_prompt("hint_tool", Some(&hint), "payload");
+    assert!(
+        prompt.contains("find the authentication failure"),
+        "the request at the end of a long message must survive clipping"
+    );
+    assert!(
+        prompt.contains("log line"),
+        "the start of the message is kept too"
+    );
+    assert!(
+        prompt.len() < hint.len(),
+        "the hint must still be bounded, got a {}-byte prompt",
+        prompt.len()
+    );
 }

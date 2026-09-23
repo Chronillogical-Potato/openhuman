@@ -18,7 +18,7 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::integrations::task_sources::{FilterSpec, ProviderSlug, TaskSourcePatch};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 use super::ops;
 
@@ -350,8 +350,7 @@ impl Tool for TaskSourceAddTool {
         "Create a persistent external task source that will be polled on an \
          interval. Requires `provider` and a provider-tagged `filter`; \
          optional `name`, `connection_id`, `interval_secs`, `target` \
-         (agent_todo_proactive|todo_only), `max_tasks_per_fetch`, and \
-         `assigned_executor`. Validate the filter with \
+         (agent_todo_proactive|todo_only), and `max_tasks_per_fetch`. Validate the filter with \
          `task_source_preview_filter` first."
     }
 
@@ -365,8 +364,7 @@ impl Tool for TaskSourceAddTool {
                 "connection_id": { "type": "string" },
                 "interval_secs": { "type": "integer", "minimum": 1 },
                 "target": { "type": "string", "enum": ["agent_todo_proactive", "todo_only"] },
-                "max_tasks_per_fetch": { "type": "integer", "minimum": 1 },
-                "assigned_executor": { "type": "string" }
+                "max_tasks_per_fetch": { "type": "integer", "minimum": 1 }
             },
             "required": ["provider", "filter"]
         })
@@ -398,7 +396,6 @@ impl Tool for TaskSourceAddTool {
                 opt_u64(&args, "interval_secs"),
                 target,
                 max_tasks,
-                opt_str(&args, "assigned_executor"),
             )
             .await,
             "task_source_add"
@@ -426,7 +423,7 @@ impl Tool for TaskSourceUpdateTool {
     fn description(&self) -> &str {
         "Patch an existing task source by `id`. Supply a `patch` object with \
          only the fields to change (name, enabled, filter, intervalSecs, \
-         target, maxTasksPerFetch, connectionId, assignedExecutor). Omitted \
+         target, maxTasksPerFetch, connectionId). Omitted \
          fields are left untouched."
     }
 

@@ -44,8 +44,8 @@ describe('AgentNodeInspector', () => {
     const model = screen.getByTestId('node-config-agent-model');
     // inherit + 4 managed tiers + custom sentinel = 6 options.
     expect(within(model).getAllByRole('option')).toHaveLength(6);
-    fireEvent.change(model, { target: { value: 'chat-v1' } });
-    expect(onChange).toHaveBeenLastCalledWith({ model: 'chat-v1' });
+    fireEvent.change(model, { target: { value: 'hint:chat' } });
+    expect(onChange).toHaveBeenLastCalledWith({ model: 'hint:chat' });
   });
 
   it('reveals a raw model input under Custom and patches the typed id', () => {

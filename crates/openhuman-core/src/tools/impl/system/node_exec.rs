@@ -24,12 +24,12 @@
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 /// Absolute ceiling a caller may request via `timeout_secs`. There is **no**
 /// default timeout — `node_exec` runs scripts that legitimately take minutes
@@ -211,20 +211,6 @@ impl NodeExecTool {
             ));
         }
         let path_policy = super::security_for_tool_context(&self.security, context, "node_exec");
-        let guard_command = inline_code.clone().unwrap_or_else(|| {
-            std::iter::once(script_path.as_deref().unwrap_or_default())
-                .chain(extra_args.iter().map(String::as_str))
-                .collect::<Vec<_>>()
-                .join(" ")
-        });
-        if let Err(reason) = super::check_cross_profile_command(
-            &path_policy,
-            &guard_command,
-            &path_policy.action_dir,
-            "node_exec",
-        ) {
-            return Ok(ToolResult::error(reason));
-        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",
@@ -612,7 +598,7 @@ fn pool_outcome_to_result(
 fn node_timeout_policy(args: &serde_json::Value) -> ToolTimeout {
     match args.get("timeout_secs").and_then(|v| v.as_u64()) {
         None | Some(0) => ToolTimeout::Unbounded,
-        Some(secs) => ToolTimeout::Secs(secs.min(NODE_TIMEOUT_MAX_SECS)),
+        Some(secs) => ToolTimeout::Millis(secs.min(NODE_TIMEOUT_MAX_SECS).saturating_mul(1000)),
     }
 }
 

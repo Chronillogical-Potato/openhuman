@@ -18,7 +18,7 @@
 //! NOTE on scope: the autonomous run `run_workflow` spawns builds its model
 //! from config, so
 //! these tests deliberately do not drive an inner run to DONE via a mock LLM —
-//! that generic autonomous-run path is covered by the subagent_runner suite.
+//! that generic autonomous-run path is covered by the subagent-host suite.
 //! Here we confirm everything up to and around that boundary.
 
 use std::sync::Arc;
@@ -38,18 +38,18 @@ use crate::skills::ops_types::WorkflowScope;
 use crate::skills::registry::get_workflow;
 use crate::skills::run_log;
 use crate::skills::runtime::await_run_outcome;
-use crate::tools::traits::Tool;
-use tinyinference::message::AssistantMessage;
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyinference_llm::message::AssistantMessage;
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinytools::Tool;
 
 // ── Mock LLM ─────────────────────────────────────────────────────────────
 // Minimal scripted model: pops queued ModelResponses in order. Mirrors the
 // scripted models in other harness test files (e.g.
-// `agent/harness/subagent_runner/ops_tests.rs`; kept local so this file is
+// `agent/subagent_host/ops_tests.rs`; kept local so this file is
 // self-contained).
 struct ScriptedModel {
-    responses: Mutex<Vec<tinyinference::Result<ModelResponse>>>,
+    responses: Mutex<Vec<tinyinference_llm::Result<ModelResponse>>>,
 }
 
 #[async_trait]
@@ -58,7 +58,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         _request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.responses.lock().remove(0)
     }
 }
@@ -70,6 +70,7 @@ fn tool_call(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(id, name, args)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
@@ -77,6 +78,8 @@ fn tool_call(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 
@@ -209,7 +212,7 @@ async fn mock_llm_orchestrator_lists_and_runs_workflows_through_the_loop() {
     .await
     .expect("tool loop should run to completion");
 
-    assert_eq!(result, "done");
+    assert_eq!(result.text, "done");
 
     let tool_msgs: String = history
         .iter()

@@ -1,10 +1,10 @@
 use crate::agent::file_state;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 const MAX_CONTENT_BYTES: usize = 5 * 1024 * 1024;
 

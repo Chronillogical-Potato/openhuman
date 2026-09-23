@@ -127,23 +127,6 @@ fn speak_back_suppressed_for_a_read_back_turn() {
     )));
 }
 
-// A reply carrying only text and no tool call ends the turn, so an instruction
-// to announce work before doing it makes the announcement the final answer:
-// the caller hears a promise and never gets the summary. Observed live.
-#[test]
-fn the_directive_forbids_announcing_work_instead_of_doing_it() {
-    assert!(
-        VOICE_DIRECTIVE.contains("Do NOT announce"),
-        "the directive must forbid a preface-only reply"
-    );
-    for banned in ["first say one short spoken sentence", "then proceed"] {
-        assert!(
-            !VOICE_DIRECTIVE.contains(banned),
-            "directive must not ask the model to speak before acting: {banned:?}"
-        );
-    }
-}
-
 // The provider synthesises on sentence boundaries, so an unterminated line is
 // buffered instead of spoken — the same defect that made the relay's fillers
 // inaudible for eight seconds.

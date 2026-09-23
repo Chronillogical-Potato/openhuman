@@ -3,18 +3,25 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
+use std::sync::Arc;
+use tinyagents_orchestration::workflow::{
+    reset_running_phases, SessionWorkflowStore, WorkflowEngine,
+};
 
 use crate::agent::orchestration::parent_context::with_root_parent;
 use crate::config::Config;
 use tinyagents_session::run_ledger::{
-    get_workflow_run, upsert_workflow_run, WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert,
+    compare_and_swap_workflow_run_lifecycle, get_workflow_run, WorkflowRun, WorkflowRunStatus,
+    WorkflowRunUpsert,
 };
 
 use super::super::ops::definition_by_id;
-use super::super::types::WorkflowDefinition;
-use super::cancel::{clear_cancel_flag, lookup_cancel_flag, register_cancel_flag};
-use super::state::{init_phase_states, persist};
+use super::cancel::{
+    cancel_signal_if_current, clear_cancel_signal, is_current_cancel_signal, lookup_cancel_signal,
+    register_cancel_signal, replace_cancel_signal, WorkflowCancelSignal,
+};
 use super::LOG_TARGET;
+use tinyagents_orchestration::workflow::WorkflowDefinition;
 
 /// Start a new workflow run and return immediately.
 ///
@@ -35,28 +42,22 @@ pub async fn start_workflow_run(
     );
     let definition = definition_by_id(definition_id)
         .ok_or_else(|| anyhow!("unknown workflow definition: {definition_id}"))?;
+    let safety_tier = super::super::host::admit_workflow(&definition)?;
 
     let run_id = format!("wfrun-{}", uuid::Uuid::new_v4());
-    let phase_states = init_phase_states(&definition);
+    let initial_engine = WorkflowEngine::new(
+        Arc::new(SessionWorkflowStore::new(config.workspace_dir.clone())),
+        Arc::new(super::super::host::OpenHumanWorkflowExecutor::new(
+            &run_id,
+            None,
+            safety_tier,
+        )),
+    );
+    let run = initial_engine
+        .initialise(run_id.clone(), &definition, input.clone(), parent_thread_id)
+        .context("persist initial workflow run")?;
 
-    let run = upsert_workflow_run(
-        &config.workspace_dir,
-        WorkflowRunUpsert {
-            id: run_id.clone(),
-            definition_id: definition.id.clone(),
-            parent_thread_id,
-            input: input.clone(),
-            phase_states,
-            child_run_ids: Vec::new(),
-            status: WorkflowRunStatus::Running,
-            summary: None,
-            started_at: None,
-            completed_at: None,
-        },
-    )
-    .context("persist initial workflow run")?;
-
-    register_cancel_flag(&run_id);
+    let cancel = register_cancel_signal(&run_id);
 
     // Spawn the engine loop. Clone what the task needs (the engine reloads
     // config inside the task so it can build a real Agent without holding a
@@ -72,7 +73,7 @@ pub async fn start_workflow_run(
             Ok(task_config) => {
                 crate::agent::turn_origin::with_inherited_origin(
                     inherited_origin,
-                    run_engine_loop(&task_config, &task_run_id, definition),
+                    run_engine_loop(&task_config, &task_run_id, definition, cancel),
                 )
                 .await;
             }
@@ -81,6 +82,7 @@ pub async fn start_workflow_run(
                     target: LOG_TARGET,
                     "[workflow_run_engine] start.config_load_failed run={task_run_id} err={err}"
                 );
+                clear_cancel_signal(&task_run_id, &cancel);
             }
         }
     });
@@ -118,33 +120,39 @@ pub async fn stop_workflow_run(config: &Config, id: &str) -> Result<Option<Workf
         return Ok(Some(run));
     }
 
-    if let Some(signal) = super::cancel::lookup_cancel_signal(id) {
-        signal.flag.store(true, std::sync::atomic::Ordering::SeqCst);
-        signal.token.cancel();
-    } else {
-        // No live loop (e.g. process restart) — register a flag anyway so a
-        // future resume observes the stop intent.
-        let signal = super::cancel::register_cancel_signal(id);
-        signal.flag.store(true, std::sync::atomic::Ordering::SeqCst);
-        signal.token.cancel();
-    }
+    // Capture the exact live generation before fencing its durable row. If a
+    // concurrent resume wins instead, this stop's CAS fails and it must not
+    // cancel that successor's fresh token.
+    let cancel = lookup_cancel_signal(id);
 
-    let updated = upsert_workflow_run(
+    let mut phase_states = run.phase_states.clone();
+    reset_running_phases(
+        &mut phase_states,
+        "workflow interrupted by host; phase will retry on resume",
+    );
+    let updated = compare_and_swap_workflow_run_lifecycle(
         &config.workspace_dir,
         WorkflowRunUpsert {
             id: run.id.clone(),
             definition_id: run.definition_id.clone(),
             parent_thread_id: run.parent_thread_id.clone(),
             input: run.input.clone(),
-            phase_states: run.phase_states.clone(),
+            phase_states,
             child_run_ids: run.child_run_ids.clone(),
             status: WorkflowRunStatus::Interrupted,
             summary: run.summary.clone(),
             started_at: Some(run.started_at),
             completed_at: None,
         },
+        run.revision,
     )
     .context("persist workflow run interrupt")?;
+    let updated = updated.ok_or_else(|| {
+        anyhow!("workflow run {id} changed while stop was being applied; reload and retry")
+    })?;
+    if let Some(cancel) = cancel.as_ref() {
+        let _ = cancel_signal_if_current(id, cancel);
+    }
 
     log::debug!(target: LOG_TARGET, "[workflow_run_engine] stop.marked_interrupted run={id}");
     Ok(Some(updated))
@@ -169,12 +177,9 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
 
     let definition = definition_by_id(&run.definition_id)
         .ok_or_else(|| anyhow!("definition {} no longer exists", run.definition_id))?;
+    let _safety_tier = super::super::host::admit_workflow(&definition)?;
 
-    // Clear any prior cancellation intent and re-register a fresh flag.
-    clear_cancel_flag(id);
-    register_cancel_flag(id);
-
-    let resumed = upsert_workflow_run(
+    let resumed = compare_and_swap_workflow_run_lifecycle(
         &config.workspace_dir,
         WorkflowRunUpsert {
             id: run.id.clone(),
@@ -188,8 +193,16 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
             started_at: Some(run.started_at),
             completed_at: None,
         },
+        run.revision,
     )
     .context("persist workflow run resume")?;
+    let resumed = resumed.ok_or_else(|| {
+        anyhow!("workflow run {id} changed while resume was being applied; reload and retry")
+    })?;
+
+    // Only replace the process-local signal after the durable hand-off won.
+    // Otherwise a losing resumer could erase the live driver's stop request.
+    let cancel = replace_cancel_signal(id);
 
     let task_run_id = id.to_string();
     // Same inherit-only origin propagation as `start_workflow_run`: the resumed
@@ -200,7 +213,7 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
             Ok(task_config) => {
                 crate::agent::turn_origin::with_inherited_origin(
                     inherited_origin,
-                    run_engine_loop(&task_config, &task_run_id, definition),
+                    run_engine_loop(&task_config, &task_run_id, definition, cancel),
                 )
                 .await;
             }
@@ -209,6 +222,7 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
                     target: LOG_TARGET,
                     "[workflow_run_engine] resume.config_load_failed run={task_run_id} err={err}"
                 );
+                clear_cancel_signal(&task_run_id, &cancel);
             }
         }
     });
@@ -222,17 +236,80 @@ pub async fn resume_workflow_run(config: &Config, id: &str) -> Result<WorkflowRu
 /// Separated from [`start_workflow_run`] so it can run on the spawned task with
 /// an owned [`Config`]. Errors are recorded on the run row (status `Failed`)
 /// rather than propagated — there is no caller to receive them.
-pub(crate) async fn run_engine_loop(config: &Config, run_id: &str, definition: WorkflowDefinition) {
-    let cancel = lookup_cancel_flag(run_id).unwrap_or_else(|| register_cancel_flag(run_id));
+pub(crate) async fn run_engine_loop(
+    config: &Config,
+    run_id: &str,
+    definition: WorkflowDefinition,
+    cancel: WorkflowCancelSignal,
+) {
+    let model_override = get_workflow_run(&config.workspace_dir, run_id)
+        .ok()
+        .flatten()
+        .and_then(|run| {
+            run.input
+                .get("modelOverride")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .filter(|model| !model.trim().is_empty());
+    let safety_tier = match super::super::host::admit_workflow(&definition) {
+        Ok(tier) => tier,
+        Err(error) => {
+            log::error!(target: LOG_TARGET, "[workflow_run_engine] loop.safety_admission_failed run={run_id} err={error}");
+            if let Ok(Some(run)) = get_workflow_run(&config.workspace_dir, run_id) {
+                let _ = compare_and_swap_workflow_run_lifecycle(
+                    &config.workspace_dir,
+                    WorkflowRunUpsert {
+                        id: run.id.clone(),
+                        definition_id: run.definition_id.clone(),
+                        parent_thread_id: run.parent_thread_id.clone(),
+                        input: run.input.clone(),
+                        phase_states: run.phase_states.clone(),
+                        child_run_ids: run.child_run_ids.clone(),
+                        status: WorkflowRunStatus::Failed,
+                        summary: Some(format!("workflow safety admission failed: {error}")),
+                        started_at: Some(run.started_at),
+                        completed_at: Some(chrono::Utc::now()),
+                    },
+                    run.revision,
+                );
+            }
+            clear_cancel_signal(run_id, &cancel);
+            return;
+        }
+    };
+    let engine = WorkflowEngine::new(
+        Arc::new(SessionWorkflowStore::new(config.workspace_dir.clone())),
+        Arc::new(super::super::host::OpenHumanWorkflowExecutor::new(
+            run_id,
+            model_override,
+            safety_tier,
+        )),
+    )
+    .with_event_sink(Arc::new(
+        crate::agent::tinyagents::observability::GraphTracingSink::new(format!(
+            "workflow:{run_id}"
+        )),
+    ));
 
     let outcome = with_root_parent(config, "workflow_engine", "workflow", "workflow", async {
-        super::super::graph::drive_phases(config, run_id, &definition, &cancel).await
+        engine
+            .drive(run_id, &definition, cancel.token.clone())
+            .await
+            .map_err(anyhow::Error::msg)
     })
     .await
     // Flatten: outer Err = root-parent build failure, inner = drive_phases result.
     .unwrap_or_else(Err);
 
     if let Err(err) = outcome {
+        if !is_current_cancel_signal(run_id, &cancel) {
+            log::debug!(
+                target: LOG_TARGET,
+                "[workflow_run_engine] loop.owner_lost run={run_id}; suppressing stale failure"
+            );
+            return;
+        }
         log::error!(
             target: LOG_TARGET,
             "[workflow_run_engine] loop.failed run={run_id} err={err}"
@@ -246,18 +323,29 @@ pub(crate) async fn run_engine_loop(config: &Config, run_id: &str, definition: W
                     | WorkflowRunStatus::Cancelled
                     | WorkflowRunStatus::Interrupted
             ) {
-                let _ = persist(
-                    config,
-                    &run,
-                    run.phase_states.clone(),
-                    run.child_run_ids.clone(),
-                    WorkflowRunStatus::Failed,
-                    Some(format!("engine error: {err}")),
-                    true,
+                let _ = compare_and_swap_workflow_run_lifecycle(
+                    &config.workspace_dir,
+                    WorkflowRunUpsert {
+                        id: run.id.clone(),
+                        definition_id: run.definition_id.clone(),
+                        parent_thread_id: run.parent_thread_id.clone(),
+                        input: run.input.clone(),
+                        phase_states: run.phase_states.clone(),
+                        child_run_ids: run.child_run_ids.clone(),
+                        status: WorkflowRunStatus::Failed,
+                        summary: Some(format!("engine error: {err}")),
+                        started_at: Some(run.started_at),
+                        completed_at: Some(chrono::Utc::now()),
+                    },
+                    run.revision,
                 );
             }
         }
     }
 
-    clear_cancel_flag(run_id);
+    clear_cancel_signal(run_id, &cancel);
 }
+
+#[cfg(test)]
+#[path = "lifecycle_tests.rs"]
+mod tests;

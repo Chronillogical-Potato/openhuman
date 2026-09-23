@@ -13,19 +13,19 @@
 //! `react`/`escalate` build a full [`Agent`] from config so they have
 //! a real provider, tool registry, and memory backing — the same
 //! construction path `agent_chat` uses. A [`ParentExecutionContext`] is
-//! installed on the task-local so [`run_subagent`] can inherit the
-//! provider and tools.
+//! carried explicitly into [`run_subagent`] so it can inherit the provider
+//! and tools.
 
 use anyhow::{anyhow, Context};
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
-use crate::agent::harness::subagent_runner::{self, SubagentRunOptions};
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::parent_context::build_root_parent;
+use crate::agent::subagent_host::{self, SubagentRunOptions};
 use crate::config::Config;
 
 use super::decision::TriageAction;
-use super::envelope::{TaskCardLink, TriggerEnvelope, TriggerSource};
+use super::envelope::{TriggerEnvelope, TriggerSource};
 use super::evaluator::TriageRun;
 use super::events;
 
@@ -53,17 +53,9 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
                 source = %envelope.source.slug(),
                 label = %envelope.display_label,
                 external_id = %envelope.external_id,
-                card_linked = envelope.card_link.is_some(),
                 reason = %run.decision.reason,
                 "[triage::escalation] DROP — no downstream work"
             );
-            // A dropped trigger that carries a board card (proactive
-            // task-source ingest) must be terminally gated, or the board
-            // poller — which dispatches any `Todo`/`Ready` card regardless of
-            // the triage verdict — would re-run it on the next tick, silently
-            // breaking the noise-gating contract documented on
-            // `SourceTarget::AgentTodoProactive`.
-            gate_linked_card_terminal(envelope, "drop").await;
         }
         TriageAction::Acknowledge => {
             // Acknowledge is a classification, not a write. What the trigger
@@ -86,15 +78,11 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
                 source = %envelope.source.slug(),
                 label = %envelope.display_label,
                 external_id = %envelope.external_id,
-                card_linked = envelope.card_link.is_some(),
                 retained = %retained_input_note(&envelope.source),
                 reason = %run.decision.reason,
                 "[triage::escalation] ACKNOWLEDGE — no autonomous action; \
                  recorded as TriggerEvaluated"
             );
-            // Acknowledge means "seen, no autonomous action needed" — same as
-            // drop, the linked card must not be picked up by the board poller.
-            gate_linked_card_terminal(envelope, "acknowledge").await;
         }
         TriageAction::React | TriageAction::Escalate => {
             let target = run
@@ -114,44 +102,6 @@ pub async fn apply_decision(run: TriageRun, envelope: &TriggerEnvelope) -> anyho
                 reason = %run.decision.reason,
                 "[triage::escalation] dispatching sub-agent"
             );
-
-            // ── Unified task-board path ───────────────────────
-            // A trigger linked to a board card is handed to the deterministic
-            // dispatcher (claim → autonomous run → write-back). The claim
-            // (todo→in_progress) deduplicates against the board poller, so
-            // firing both is safe. Non-card triggers (composio/webhook/cron)
-            // fall through to the one-shot triage sub-agent below.
-            if let Some(link) = &envelope.card_link {
-                use crate::agent::task_dispatcher::DispatchOutcome;
-                match dispatch_linked_card(link).await {
-                    Ok(DispatchOutcome::Running { run_id }) => {
-                        tracing::info!(
-                            card_id = %link.card_id,
-                            run_id = %run_id,
-                            "[triage::escalation] task-card dispatched to deterministic runner"
-                        );
-                        events::publish_escalated(envelope, "task_dispatcher");
-                    }
-                    Ok(DispatchOutcome::AwaitingApproval) => {
-                        // Parked for plan approval (autonomy gate). Not an
-                        // escalation yet — the approval flow resumes it.
-                        tracing::info!(
-                            card_id = %link.card_id,
-                            "[triage::escalation] task-card parked awaiting plan approval"
-                        );
-                    }
-                    Err(reason) => {
-                        // A failed claim (another card already in progress, or
-                        // the card vanished) is benign — the poller retries.
-                        tracing::info!(
-                            card_id = %link.card_id,
-                            reason = %reason,
-                            "[triage::escalation] task-card dispatch skipped (claim failed?)"
-                        );
-                    }
-                }
-                return Ok(());
-            }
 
             // ── External-effect approval gate (#1339) ─────────
             // React / Escalate fire a sub-agent that may call
@@ -311,9 +261,15 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
         "[triage::escalation] dispatching run_subagent with parent context"
     );
 
-    let outcome = with_parent_context(parent_ctx, async {
-        subagent_runner::run_subagent(definition, prompt, SubagentRunOptions::default()).await
-    })
+    let outcome = subagent_host::run_subagent(
+        definition,
+        prompt,
+        SubagentRunOptions {
+            run_context: crate::agent::tinyagents::host::OpenHumanRunContext::new()
+                .with_parent(parent_ctx),
+            ..Default::default()
+        },
+    )
     .await
     .map_err(|e| anyhow!("run_subagent(`{agent_id}`) failed: {e}"))?;
 
@@ -328,22 +284,6 @@ async fn dispatch_target_agent(agent_id: &str, prompt: &str) -> anyhow::Result<S
     Ok(outcome.output)
 }
 
-/// Load the linked card from its board and hand it to the deterministic task
-/// dispatcher (claim → autonomous run → write-back). Errors (card not found,
-/// or claim rejected because another card is already in progress) propagate to
-/// the caller, which treats them as benign skips.
-async fn dispatch_linked_card(
-    link: &TaskCardLink,
-) -> Result<crate::agent::task_dispatcher::DispatchOutcome, String> {
-    let snapshot = crate::threads::todos::ops::list(&link.location).await?;
-    let card = snapshot
-        .cards
-        .into_iter()
-        .find(|c| c.id == link.card_id)
-        .ok_or_else(|| format!("card `{}` not found on board", link.card_id))?;
-    crate::agent::task_dispatcher::dispatch_card(link.location.clone(), card).await
-}
-
 /// What survives an acknowledged trigger, for the source it actually came from.
 ///
 /// The composio webhook path archives every event to a daily JSONL before the
@@ -356,62 +296,6 @@ fn retained_input_note(source: &TriggerSource) -> &'static str {
     match source {
         TriggerSource::Composio { .. } => "trigger-history archive",
         _ => "none — verdict only",
-    }
-}
-
-/// Terminally gate a card-linked trigger that triage decided to `drop` /
-/// `acknowledge`, so the board poller (which dispatches any pending
-/// `Todo`/`Ready` card) won't re-run it. Only a still-pending card is gated;
-/// if it already advanced (the poller claimed it, or it's already terminal)
-/// it is left untouched. Best-effort: a missing card or write failure is
-/// logged, never propagated — the trigger was already evaluated.
-async fn gate_linked_card_terminal(envelope: &TriggerEnvelope, decision: &str) {
-    use crate::agent::task_board::TaskCardStatus;
-    use crate::threads::todos::ops;
-
-    let Some(link) = &envelope.card_link else {
-        return;
-    };
-
-    let current = match ops::list(&link.location).await {
-        Ok(snapshot) => snapshot
-            .cards
-            .into_iter()
-            .find(|c| c.id == link.card_id)
-            .map(|c| c.status),
-        Err(e) => {
-            tracing::warn!(
-                card_id = %link.card_id,
-                error = %e,
-                "[triage::escalation] reload before gating linked card failed"
-            );
-            return;
-        }
-    };
-
-    match current {
-        Some(TaskCardStatus::Todo | TaskCardStatus::Ready | TaskCardStatus::AwaitingApproval) => {
-            match ops::update_status(&link.location, &link.card_id, TaskCardStatus::Rejected).await
-            {
-                Ok(_) => tracing::info!(
-                    card_id = %link.card_id,
-                    decision = %decision,
-                    "[triage::escalation] gated task-card → rejected (poller will skip)"
-                ),
-                Err(e) => tracing::warn!(
-                    card_id = %link.card_id,
-                    decision = %decision,
-                    error = %e,
-                    "[triage::escalation] failed to gate task-card (poller may re-dispatch)"
-                ),
-            }
-        }
-        other => tracing::debug!(
-            card_id = %link.card_id,
-            decision = %decision,
-            status = ?other,
-            "[triage::escalation] linked task-card not pending; no gating needed"
-        ),
     }
 }
 

@@ -12,8 +12,8 @@
 //! [`super::factory::provider_for_role`] deliberately routes the background
 //! roles (`vision`, `embeddings`, `memory`, `heartbeat`, `learning`,
 //! `subconscious`, `agentic`, `burst`) to the primary cloud provider when their
-//! own route is unset: they run tier-specific models (`vision-v1`,
-//! `summarization-v1`, …) that local runtimes and BYOK slugs do not serve. A
+//! own route is unset: they run tier-specific models (`hint:vision`,
+//! `hint:summarization`, …) that local runtimes and BYOK slugs do not serve. A
 //! user on a local chat model with a managed subscription genuinely wants those
 //! workloads on the cloud, so the fallback must stay.
 //!

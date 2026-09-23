@@ -371,4 +371,4 @@ attribution + cap before real 1000-agent runs), and p95 latency at N=500 on
 
 - The original profiling session write-up (deep attribution, cold-path CPU, library-design implications, recommended optimization order) was removed from the tree; see git history at `0017c58d86~1`.
 - [`scripts/profile/README.md`](../scripts/profile/README.md) — script quick reference.
-- `crates/openhuman-core/src/bin/library_profile/main.rs` — the scenario implementations.
+- `crates/openhuman-cli/src/bin/library_profile/main.rs` — the scenario implementations.

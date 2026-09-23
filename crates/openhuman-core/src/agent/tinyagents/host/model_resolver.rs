@@ -19,8 +19,8 @@
 //!
 //! 1. **`State` erasure.** The trait is generic over the harness state
 //!    (`ModelResolver<State>` must return `Arc<dyn ChatModel<State>>`), but
-//!    every model OpenHuman builds is a `ChatModel<()>` — the core's harness
-//!    carries its per-turn context in task-locals and `RunContext`, not in a
+//!    every model OpenHuman builds is a `ChatModel<()>` — the core carries
+//!    per-turn values explicitly in `OpenHumanRunContext` and `RunContext`, not in a
 //!    typed state value. [`StatelessModel`] bridges the two: it implements
 //!    `ChatModel<State>` for *any* `State` by discarding the state reference and
 //!    invoking the inner model with `&()`. That is lossless today precisely
@@ -70,7 +70,7 @@ use async_trait::async_trait;
 use tinyagents_harness::error::TinyAgentsError;
 use tinyagents_harness::host::{ModelResolveRequest, ModelResolver};
 use tinyagents_harness::Result as TaResult;
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
 
 use crate::config::Config;
 use crate::inference::provider::{create_chat_model_with_model_id, role_for_model_tier};
@@ -113,23 +113,17 @@ const LEAD_DEFAULT_ROLE: &str = "chat";
 
 /// The role a non-lead agent takes when the caller supplied none.
 ///
-/// `chat` is the core's own default workload (`DEFAULT_MODEL` is `chat-v1`), so
+/// `chat` is the core's own default workload, so
 /// an unannotated delegate lands exactly where an unconfigured OpenHuman turn
 /// already lands.
 const SUBAGENT_DEFAULT_ROLE: &str = "chat";
 
-/// Whether `lowered` is a model-tier spelling `role_for_model_tier` recognises,
-/// rather than merely something that ends in `-v1`.
-///
-/// Checks the stem against [`CHAT_WORKLOAD_ROLES`] instead of restating the
-/// factory's tier table, so the two cannot drift. `reasoning-quick-v1` is the
-/// one tier whose stem is not itself a workload role (it rides the chat model),
-/// so it is named explicitly.
+/// Whether `lowered` is a retired tier slug (`hint:reasoning`, …) that
+/// `role_for_model_tier` still recognises as its role, rather than merely
+/// something that ends in `-v1`. Delegates to the config's own legacy table so
+/// this adapter never restates it.
 fn is_known_model_tier(lowered: &str) -> bool {
-    let Some(stem) = lowered.strip_suffix("-v1") else {
-        return false;
-    };
-    stem == "reasoning-quick" || CHAT_WORKLOAD_ROLES.contains(&stem)
+    crate::config::is_legacy_tier_model(lowered)
 }
 
 /// Maps one [`ModelResolveRequest`] onto an OpenHuman workload role.
@@ -137,7 +131,7 @@ fn is_known_model_tier(lowered: &str) -> bool {
 /// This function *is* the product policy the seam exists to hold:
 ///
 /// * an explicit role wins, after normalisation — a caller may spell it as a
-///   plain workload role (`"reasoning"`), as a model tier (`"reasoning-v1"`), or
+///   plain workload role (`"reasoning"`), as a model tier (`"hint:reasoning"`), or
 ///   as an agent-definition hint (`"hint:agentic"`), and all three are in live
 ///   use across `agent.toml` files and the channel routes;
 /// * otherwise the structural lead/subagent split decides, which is the one
@@ -205,7 +199,7 @@ fn workload_role_for(req: &ModelResolveRequest) -> &'static str {
 ///
 /// Not a general-purpose adapter: it is sound only because OpenHuman's models
 /// genuinely ignore the harness state (they carry per-turn context in
-/// task-locals and `RunContext`). Both `invoke` and `stream` are forwarded so a
+/// `OpenHumanRunContext` and `RunContext`). Both `invoke` and `stream` are forwarded so a
 /// streaming provider keeps streaming — falling through to the trait's default
 /// `stream` would silently downgrade every resolved model to replayed unary.
 struct StatelessModel {
@@ -229,7 +223,7 @@ impl<State: Send + Sync> ChatModel<State> for StatelessModel {
         &self,
         _state: &State,
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.inner.invoke(&(), request).await
     }
 
@@ -237,7 +231,7 @@ impl<State: Send + Sync> ChatModel<State> for StatelessModel {
         &self,
         _state: &State,
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         self.inner.stream(&(), request).await
     }
 }

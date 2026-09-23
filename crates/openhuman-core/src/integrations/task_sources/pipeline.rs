@@ -162,20 +162,18 @@ async fn run_inner(
             continue;
         }
 
-        // Look up the stale card id (if any) before enrichment so we can
-        // remove the old board card when re-routing an edited upstream task.
-        let stale_card_id = store::get_card_id(config, &source.id, &task.external_id)
-            .map_err(|e| format!("get_card_id failed: {e}"))?;
+        let edited = store::was_ingested(config, &source.id, &task.external_id)
+            .map_err(|e| format!("was_ingested failed: {e}"))?;
 
         tracing::debug!(
             source_id = %source.id,
             provider = %source.provider.as_str(),
             external_id = %task.external_id,
             content_hash = %hash,
-            edited = stale_card_id.is_some(),
+            edited,
             "[task_sources:dedup] route — not a dupe for this source ({})",
-            if stale_card_id.is_some() {
-                "content changed since last ingest → re-route, replace stale card"
+            if edited {
+                "content changed since last ingest → re-route"
             } else {
                 "new external_id for this source"
             }
@@ -186,27 +184,17 @@ async fn run_inner(
         // Route first; only mark ingested on success so a routing
         // failure retries on the next pass instead of being silently
         // dropped.
-        let new_card_id = match route::route_enriched(
-            config,
-            source,
-            &enriched,
-            stale_card_id.as_deref(),
-        )
-        .await
-        {
-            Ok(id) => id,
-            Err(e) => {
-                tracing::warn!(
-                    source_id = %source.id,
-                    external_id = %enriched.task.external_id,
-                    error = %e,
-                    "[task_sources:pipeline] routing failed (will retry next pass)"
-                );
-                continue;
-            }
-        };
+        if let Err(e) = route::route_enriched(config, source, &enriched).await {
+            tracing::warn!(
+                source_id = %source.id,
+                external_id = %enriched.task.external_id,
+                error = %e,
+                "[task_sources:pipeline] routing failed (will retry next pass)"
+            );
+            continue;
+        }
 
-        store::mark_ingested(config, &source.id, &enriched.task, &new_card_id)
+        store::mark_ingested(config, &source.id, &enriched.task)
             .map_err(|e| format!("mark_ingested failed: {e}"))?;
         BUS.publish(DomainEvent::TaskSourceTaskIngested {
             source_id: source.id.clone(),
@@ -271,15 +259,6 @@ async fn reconcile_missing_tasks(
     for item in ingested {
         if current_external_ids.contains(&item.external_id) {
             continue;
-        }
-
-        if let Some(card_id) = item.card_id.as_deref().filter(|id| !id.trim().is_empty()) {
-            route::remove_card(config, card_id).await.map_err(|e| {
-                format!(
-                    "remove stale card '{}' for source '{}' external task '{}': {e}",
-                    card_id, source.id, item.external_id
-                )
-            })?;
         }
 
         if store::remove_ingested(config, &source.id, &item.external_id)

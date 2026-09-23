@@ -1,6 +1,6 @@
 use super::*;
-use crate::tools::ToolResult;
 use async_trait::async_trait;
+use tinytools::ToolResult;
 
 struct Stub {
     name: &'static str,

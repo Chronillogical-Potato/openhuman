@@ -345,13 +345,13 @@ async fn embed_takes_its_four_arguments_in_the_order_the_module_sends_them() {
 struct StubModel;
 
 #[async_trait::async_trait]
-impl tinyinference::model::ChatModel<()> for StubModel {
+impl tinyinference_llm::model::ChatModel<()> for StubModel {
     async fn invoke(
         &self,
         _state: &(),
-        _request: tinyinference::model::ModelRequest,
-    ) -> tinyinference::Result<tinyinference::model::ModelResponse> {
-        Ok(tinyinference::model::ModelResponse::assistant("stub"))
+        _request: tinyinference_llm::model::ModelRequest,
+    ) -> tinyinference_llm::Result<tinyinference_llm::model::ModelResponse> {
+        Ok(tinyinference_llm::model::ModelResponse::assistant("stub"))
     }
 }
 
@@ -363,6 +363,9 @@ impl tinyinference::model::ChatModel<()> for StubModel {
 /// `memory_tree.cloud_summarization_opt_in`.
 #[test]
 fn summarization_role_is_refused_without_local_ai_or_cloud_opt_in() {
+    // The override is process-global: serialise against every other test that
+    // installs one or needs none installed.
+    let _serial = crate::inference::inference_test_guard();
     let _guard = crate::inference::provider::factory::test_provider_override::install_model(
         std::sync::Arc::new(StubModel),
     );
@@ -384,6 +387,9 @@ fn summarization_role_is_refused_without_local_ai_or_cloud_opt_in() {
 /// the summarization role, not to the seam.
 #[test]
 fn non_summarization_roles_keep_the_role_factory() {
+    // The override is process-global: serialise against every other test that
+    // installs one or needs none installed.
+    let _serial = crate::inference::inference_test_guard();
     let _guard = crate::inference::provider::factory::test_provider_override::install_model(
         std::sync::Arc::new(StubModel),
     );

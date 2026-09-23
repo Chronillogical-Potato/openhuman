@@ -7,6 +7,11 @@ use crate::runtime::python::PythonBootstrap;
 use crate::security::{AuditLogger, SecurityPolicy};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tinytools::Tool;
+#[cfg(test)]
+use tinytools::{ToolResult, ToolSpec};
+
+pub(crate) use super::capability::tool_capability;
 
 /// Derive the browser tool's host allowlist from the unified web-access list
 /// (`http_request.allowed_domains`).
@@ -74,18 +79,11 @@ pub fn all_tools(
         agents,
         root_config,
         None,
-        None,
-        None,
-        None,
-        None,
     )
 }
 
 /// Create full tool registry including memory tools.
 ///
-/// `skill_allowlist` / `mcp_allowlist` scope the skill (workflow) and MCP-server
-/// surfaces to an active agent profile's selection. `None` for either means
-/// "all" (the default for every non-profile caller).
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
 pub fn all_tools_with_runtime(
     config: Arc<Config>,
@@ -97,18 +95,8 @@ pub fn all_tools_with_runtime(
     action_dir: &std::path::Path,
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::config::Config,
-    active_profile: Option<&crate::agent::profiles::AgentProfile>,
-    skill_allowlist: Option<&std::collections::HashSet<String>>,
-    mcp_allowlist: Option<&[String]>,
-    profile_skills_root: Option<&std::path::Path>,
     approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
-    // tool registrations below, so they are genuinely unread when that feature
-    // is compiled out.
-    #[cfg(not(feature = "skills"))]
-    let _ = (active_profile, skill_allowlist, profile_skills_root);
-
     // One shared snapshot of this session's configuration for both language
     // clients. They each hand it to the `tinyruntime` module on every call —
     // the module holds no configuration of its own — so the two must not be
@@ -188,14 +176,14 @@ pub fn all_tools_with_runtime(
         // calling `spawn_subagent { agent_id, prompt, … }`. The runner
         // builds a narrow Agent from an `AgentDefinition` lookup and
         // returns a single text result. See
-        // `agent::harness::subagent_runner` for the dispatch path.
+        // `agent::subagent_host` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
         // Interactive clarification early-exit. Sub-agents pause on this tool
-        // (checkpoint → `AwaitingUser`, see `subagent_runner::ops::graph`) and
+        // (checkpoint → `AwaitingUser`, see `subagent_host`) and
         // the orchestrator resumes them via `continue_subagent` (#4291).
         // Several agent scopes (orchestrator, crypto, markets, scheduler,
-        // mcp_setup, desktop control) name it, so it must exist in the base
+        // desktop control) name it, so it must exist in the base
         // registry or none of them can actually ask the user anything.
         Box::new(AskClarificationTool::new()),
         // Read-only project overview (git status, recent commits, top-level
@@ -217,26 +205,18 @@ pub fn all_tools_with_runtime(
         Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
         Box::new(SpawnParallelAgentsTool::new()),
-        Box::new(DelegateToPersonalityTool::new()),
         // Multi-stage durable delegation (issue #4249, Phase 3): runs the chosen
         // sub-agent through the tinyagents plan→execute→review→finalize graph,
         // checkpointed to the session DB. Heavier than spawn_subagent; for
         // sub-tasks that benefit from a self-review/revision loop.
         Box::new(DelegateGraphTool::new()),
-        // Coding-harness control flow (issue #1205): a process-global
-        // todo registry the agent can rewrite end-to-end, plus the
-        // `plan_exit` marker that hands a plan-mode pass off to a
-        // build-mode pass. The plan→build mode switch itself is a
-        // follow-up; the tool emits a stable marker today.
+        // The session todo list (Claude/Codex style): one whole-list write per
+        // call, scoped to the conversation thread. `plan_exit` is the marker
+        // that hands a plan-mode pass off to a build-mode pass.
         Box::new(TodoTool::new()),
         // Interactive plan-review gate: parks the live turn on a thread-scoped
         // plan the user must approve before execution (Codex/Claude plan mode).
         Box::new(crate::agent::plan_review::RequestPlanReviewTool::new()),
-        // Move/update a specific task card by id on a target board (defaults to
-        // the proactive `task-sources` board) — lets the agent advance the task
-        // it's working (in_progress / done+evidence / blocked+reason) from any
-        // thread, complementing `todo` which only touches the current thread.
-        Box::new(UpdateTaskTool::new()),
         Box::new(PlanExitTool::new()),
         // Workflow composition: `run_workflow` runs another workflow as a
         // subagent and (by default) waits on its result like a function call;
@@ -245,19 +225,9 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(
-            RunWorkflowTool::new()
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(RunWorkflowTool::new()),
         #[cfg(feature = "skills")]
-        Box::new(
-            AwaitWorkflowTool::new()
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
         // Reversibility for native tool-output compaction (Stage 1a): when a
         // large result is compacted with a `retrieve_tool_output("<hash>")`
@@ -276,6 +246,10 @@ pub fn all_tools_with_runtime(
         Box::new(ResolveTimeTool::new()),
         Box::new(DetectToolsTool::new()),
         Box::new(InstallToolTool::new(security.clone())),
+        // The compact, advertised scheduler surface. Keep the six legacy
+        // tools registered below as hidden aliases so saved transcripts and
+        // skills remain replayable.
+        Box::new(CronTool::new(config.clone(), security.clone())),
         Box::new(CronAddTool::new(config.clone(), security.clone())),
         Box::new(CronListTool::new(config.clone())),
         Box::new(CronRemoveTool::new(config.clone())),
@@ -357,7 +331,7 @@ pub fn all_tools_with_runtime(
         // (researcher / code_executor / …) — the agent analogue of
         // search_tool_catalog. Read-only.
         #[cfg(feature = "flows")]
-        Box::new(ListAgentProfilesTool::new()),
+        Box::new(ListAgentDefinitionsTool::new()),
         // Steer toolkit choice toward what's already connected + surface which
         // toolkits a flow still needs (Phase 5, item 19). Read-only.
         #[cfg(feature = "flows")]
@@ -422,6 +396,14 @@ pub fn all_tools_with_runtime(
         Box::new(WalletTxReceiptTool::new()),
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new()),
+        // The memory surface the model sees. The eleven per-operation tools it
+        // dispatches to stay registered as `ToolExposure::Hidden` so a
+        // replayed transcript or a saved skill naming `memory_*` still works —
+        // see `memory::tools::collapsed`.
+        Box::new(crate::memory::tools::MemoryTool::new(
+            config.clone(),
+            security.clone(),
+        )),
         Box::new(MemoryStoreTool::new(security.clone())),
         Box::new(MemoryRecallTool::new()),
         Box::new(MemoryForgetTool::new(security.clone())),
@@ -498,17 +480,11 @@ pub fn all_tools_with_runtime(
         // create/install/uninstall mutators ship default-OFF via
         // `tools::user_filter` (install also fetches remote content).
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowListTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowListTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowDescribeTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowDescribeTool::new(config.clone())),
+        #[cfg(feature = "skills")]
+        Box::new(SkillSearchTool::new(config.clone())),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
         // operation (fetches remote content and writes to disk).
@@ -527,25 +503,11 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(SkillRuntimeResolveRuntimesTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowReadResourceTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowReadResourceTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowRecentRunsTool::new(config.clone())
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowRecentRunsTool::new(config.clone())),
         #[cfg(feature = "skills")]
-        Box::new(
-            WorkflowReadRunLogTool::new(config.clone())
-                .with_active_profile(active_profile.cloned())
-                .with_skill_allowlist(skill_allowlist.cloned())
-                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
-        ),
+        Box::new(WorkflowReadRunLogTool::new(config.clone())),
         #[cfg(feature = "skills")]
         Box::new(WorkflowCreateTool::new(config.clone())),
         #[cfg(feature = "skills")]
@@ -569,22 +531,13 @@ pub fn all_tools_with_runtime(
         Box::new(LearningEnrichProfileTool),
         // Task & productivity tools (issue: agent-tool expansion).
         // Read/observe + bounded-write tools are registered here; the
-        // destructive/overextending siblings (artifact_delete, todo_remove/
-        // replace/clear, task_source_add/update/remove) are registered too
-        // but ship default-OFF via `tools::user_filter` (their toggle IDs
-        // default off in onboarding). The per-call permission ladder still
-        // gates them.
+        // destructive/overextending siblings (artifact_delete,
+        // task_source_add/update/remove) are registered too but ship
+        // default-OFF via `tools::user_filter` (their toggle IDs default off
+        // in onboarding). The per-call permission ladder still gates them.
         Box::new(ArtifactListTool::new(config.clone())),
         Box::new(ArtifactGetTool::new(config.clone())),
         Box::new(ArtifactDeleteTool::new(config.clone())),
-        Box::new(TodoListTool::new(config.clone())),
-        Box::new(TodoAddTool::new(config.clone())),
-        Box::new(TodoEditTool::new(config.clone())),
-        Box::new(TodoUpdateStatusTool::new(config.clone())),
-        Box::new(TodoDecidePlanTool::new(config.clone())),
-        Box::new(TodoRemoveTool::new(config.clone())),
-        Box::new(TodoReplaceTool::new(config.clone())),
-        Box::new(TodoClearTool::new(config.clone())),
         Box::new(TaskSourceListTool::new(config.clone())),
         Box::new(TaskSourceGetTool::new(config.clone())),
         Box::new(TaskSourceFetchTool::new(config.clone())),
@@ -633,12 +586,12 @@ pub fn all_tools_with_runtime(
         // non-secret reads.
         Box::new(CredentialListTool::new(config.clone())),
         Box::new(SessionStateTool::new(config.clone())),
-        Box::new(SessionGetUserTool::new(config.clone())),
         Box::new(OAuthConnectUrlTool::new(config.clone())),
         Box::new(OAuthListTool::new(config.clone())),
         // MCP registry and workspace persona. Observe/connect/call tools
-        // default-ON; MCP install/uninstall (mcp_manage), and persona/workspace writers
-        // (workspace_manage) ship default-OFF via `tools::user_filter`.
+        // default-ON; MCP uninstall (mcp_manage), and persona/workspace writers
+        // (workspace_manage) ship default-OFF via `tools::user_filter`. There
+        // is no install tool: servers are declared by the user in mcp.json.
         //
         // MCP registry (dynamic, user-installed servers) — compiled out with
         // the `mcp` feature. Per-element attrs inside the `vec![]` mirror the
@@ -659,10 +612,6 @@ pub fn all_tools_with_runtime(
         Box::new(McpRegistryDisconnectTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryToolCallTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryConfigAssistTool::new(config.clone())),
-        #[cfg(feature = "mcp")]
-        Box::new(McpRegistryInstallTool::new(config.clone())),
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryUninstallTool::new(config.clone())),
         Box::new(WorkspaceReadPersonaTool::new(config.clone())),
@@ -711,13 +660,13 @@ pub fn all_tools_with_runtime(
     // system-driven and have no model tool.
     {
         let goal_dir = root_config.workspace_dir.clone();
-        tools.push(Box::new(crate::threads::goals::GoalGetTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalGetTool::new(
             goal_dir.clone(),
         )));
-        tools.push(Box::new(crate::threads::goals::GoalSetTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalSetTool::new(
             goal_dir.clone(),
         )));
-        tools.push(Box::new(crate::threads::goals::GoalCompleteTool::new(
+        tools.push(Box::new(crate::agent::goals::GoalCompleteTool::new(
             goal_dir,
         )));
     }
@@ -797,15 +746,7 @@ pub fn all_tools_with_runtime(
 
     // gitbooks — answers questions about OpenHuman by calling the
     // GitBook MCP server. Two tools mirroring the upstream MCP tools.
-    // Gitbooks is modelled as a legacy MCP server (`McpServerRegistry`), so it
-    // honours the same per-profile `mcp_allowlist`: a profile that scopes its
-    // MCP servers and omits "gitbooks" must not see this surface either.
-    let gitbooks_allowed = mcp_allowlist.is_none_or(|allowed| {
-        allowed
-            .iter()
-            .any(|name| name.eq_ignore_ascii_case("gitbooks"))
-    });
-    if root_config.gitbooks.enabled && gitbooks_allowed {
+    if root_config.gitbooks.enabled {
         // Building the client can fail on a malformed proxy or an unusable TLS
         // setting. Both are logged and the tools are simply not registered:
         // taking the whole surface down over a documentation server would cost
@@ -829,24 +770,6 @@ pub fn all_tools_with_runtime(
                 tracing::warn!("[gitbooks] tools not registered: {error}");
             }
         }
-    } else if root_config.gitbooks.enabled {
-        tracing::debug!("[profiles] gitbooks tools suppressed by profile mcp allowlist");
-    }
-
-    // MCP setup-agent tool surface (search/get/request_secret/test/install).
-    // Registered unconditionally — the `mcp_setup` sub-agent filters to just
-    // these via its `[tools] named = [...]` allowlist, and the host agent's
-    // own tool list is wide enough that the extra five entries are negligible.
-    // Compiled out entirely with the `mcp` feature.
-    #[cfg(feature = "mcp")]
-    {
-        let cfg = Arc::new(root_config.clone());
-        tools.push(Box::new(McpSetupSearchTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupGetTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupRequestSecretTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupTestConnectionTool::new(Arc::clone(&cfg))));
-        tools.push(Box::new(McpSetupInstallAndConnectTool::new(cfg)));
-        tracing::debug!("[mcp_setup] registered 5 setup-agent tools");
     }
 
     // Generic remote MCP bridge tools. These let the agent enumerate
@@ -865,13 +788,12 @@ pub fn all_tools_with_runtime(
             // logged and treated as empty: a malformed proxy or TLS setting
             // must not take the whole tool surface down with it.
             let base = crate::mcp::host::static_registry(root_config);
-            // Scope the MCP surface to the active profile's allowlist. `None` keeps
-            // every configured server; `Some(&[])` yields an empty registry.
-            match mcp_allowlist {
-                Some(allowed) => Arc::new(base.retaining_servers(allowed)),
-                None => Arc::new(base),
-            }
+            Arc::new(base)
         };
+        log::debug!(
+            "[tools::ops][mcp_client] static servers={}",
+            mcp_registry.list().len()
+        );
         if !mcp_registry.is_empty() {
             tools.push(Box::new(McpListServersTool::new(Arc::clone(&mcp_registry))));
             tools.push(Box::new(McpListToolsTool::new(Arc::clone(&mcp_registry))));
@@ -1147,6 +1069,11 @@ pub fn all_tools_with_runtime(
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
     crate::tools::toolpacks::append_pack_tools(&mut tools);
+    // The lookup half of `ToolExposure::Deferred` is not registered here: the
+    // tinyagents harness advertises its intrinsic `tool_search` / `tool_call`
+    // bridge whenever a run has a deferred tool (`tool::discover`), ranked by
+    // whatever `agent::tinyagents::discovery` installed. A host-registered
+    // `tool_search` would shadow that bridge.
     tools
 }
 
@@ -1215,7 +1142,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "search_tool_catalog",
         "get_tool_contract",
         "get_tool_output_sample",
-        "list_agent_profiles",
+        "list_agent_definitions",
         "list_connectable_toolkits",
         "list_node_kinds",
         "get_node_kind_contract",
@@ -1255,7 +1182,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "goals",
     ];
 
-    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*, mcp_setup_*,
+    // MCP: every MCP tool name is `mcp_` prefixed (mcp_registry_*,
     // mcp_call_tool, mcp_list_servers, mcp_list_tools).
     if name.starts_with("mcp_") {
         return DomainGroup::Mcp;
@@ -1284,15 +1211,24 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         return DomainGroup::Voice;
     }
     // Memory family (harness-kept): memory_* store/search/etc + goals_* + extras.
-    if name.starts_with("memory_") || name.starts_with("goals_") || MEMORY_EXTRA.contains(&name) {
+    //
+    // The bare `memory` name is matched explicitly: the collapsed tool drops
+    // the `memory_` prefix its members carry, so prefix matching alone would
+    // land it in `Platform` and leave the whole memory surface callable under
+    // a `DomainSet { platform: true, memory: false }`.
+    if name == crate::memory::tools::MEMORY_TOOL_NAME
+        || name.starts_with("memory_")
+        || name.starts_with("goals_")
+        || MEMORY_EXTRA.contains(&name)
+    {
         return DomainGroup::Memory;
     }
-    // Threads family (harness-kept): thread_* + todo_* + per-thread goal + search.
+    // Threads family (harness-kept): thread_* + per-thread goal + search.
     // `thread_` is kept as a prefix even though the `thread_*` agent-tool
-    // family was removed: `todo_`, `goal_*` and the THREADS_EXTRA entries still
+    // family was removed: `goal_*` and the THREADS_EXTRA entries still
     // classify here, and a future threads tool should land in Threads rather
     // than falling through to Platform.
-    if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
+    if name.starts_with("thread_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
     // Harness families realigned out of Platform.
@@ -1307,7 +1243,6 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
                 | "delegate_graph"
                 | "delegate_to_personality"
                 | "todo"
-                | "update_task"
                 | "wait"
                 | "wait_loop"
                 | "request_plan_review"
@@ -1386,105 +1321,6 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // Everything else — shell/file and other kernel utilities — is Platform:
     // present under full(), absent under harness()/none().
     DomainGroup::Platform
-}
-
-/// Classify an agent tool into the memory capability family its surface
-/// requires, so [`all_tools_with_runtime`] can drop tools the bound memory
-/// driver does not advertise (`docs/specs/kernel.md` §3.3).
-///
-/// `None` means "not backed by the memory driver" — a workspace file
-/// (`update_memory_md`), the per-workspace people SQLite store, pure
-/// introspection (`memory_store_kinds`), or a flow-sandboxed namespace
-/// (`flow_memory_*`, already `DomainGroup::Flows`). Such a tool is never
-/// filtered on the capability axis. `None` here is a *decision*, not a default:
-/// `every_memory_tool_has_an_explicit_capability_or_is_core` forces every
-/// memory-family tool through this function so a new one cannot land in the
-/// always-present bucket by accident.
-///
-/// The mandatory families ([`Capability::Core`], [`Capability::Recall`]) are
-/// returned explicitly rather than folded into `None`. Against a *driver's*
-/// advertised set the filter is a no-op for them by construction (a bindable
-/// driver always advertises `Capability::MANDATORY`) — but it is load-bearing
-/// for one host decision below the driver: `CoreContext::memory_capabilities`
-/// answers with the empty set for a deliberate `[subsystems.memory] driver =
-/// "null"`, and that is what drops `memory_store` / `memory_forget` / the
-/// recall tools when an operator turns memory off. Folding them into `None`
-/// would leave an agent able to persist, expose or delete memory through the
-/// session builder's own `Arc<dyn Memory>` in exactly that configuration.
-///
-/// **The `memory_` prefix is deliberately NOT a catch-all here.** [`tool_group`]
-/// can prefix-match because every `memory_*` tool is one family on the
-/// *DomainSet* axis; on the capability axis the family differs per tool, and a
-/// wrong default is worse than no rule. Hence enumeration plus two narrow
-/// prefix rules, backed by the drift guard.
-///
-/// ## Honesty clause — two assignments still run ahead of the plumbing:
-/// `tool_stats` reads the legacy `Arc<dyn Memory>` + `tool_tracker`, not
-/// `MemoryToolMemory`; `memory_diff` reads `memory::diff::ops`, not
-/// `MemoryDiff`. Filtering both on the driver's advertised set is still the
-/// correct M5 behaviour: §3.3 contracts what the *model is told exists*, so
-/// the later re-point onto `MemoryGuard` must not change the advertised
-/// surface, and `None` to dodge the mismatch would bake the wrong contract in.
-/// `goals_*` was the third until #5560 routed it onto the guarded
-/// `MemoryGoals` family — the advertised capability did not change when
-/// the plumbing caught up: the exact property this clause protects.
-pub(crate) fn tool_capability(name: &str) -> Option<tinymemory_api::capabilities::Capability> {
-    use tinymemory_api::capabilities::Capability;
-
-    // Not driver-backed. Each entry is an argued exception, not a fallthrough.
-    if name == "update_memory_md"          // writes the workspace `MEMORY.md` file directly
-        || name == "memory_store_kinds"    // enumerates `MemoryKind` constants; no store access
-        || name.starts_with("flow_memory_")
-    // flow-sandboxed; DomainGroup::Flows
-    {
-        return None;
-    }
-
-    let capability = match name {
-        // ── Mandatory families: always advertised, listed for the record ──
-        "memory_store" | "memory_forget" | "remember_preference" | "save_preference" => {
-            Capability::Core
-        }
-        // Chunk/recall retrieval surface. NOT `Tree` — these read chunk
-        // embeddings and chunk rows, never the summary tree.
-        "memory_recall"
-        | "memory_vector_search"
-        | "memory_chunk_context"
-        | "memory_hybrid_search"
-        | "memory_store_raw_chunks" => Capability::Recall,
-
-        // ── Optional families: absence means the tool disappears ──
-        // The one registered tree tool (`MemoryQueryTool` is an alias of
-        // `MemoryTreeTool`, `memory/query/mod.rs`) plus the compiled persona
-        // flavour reader, which reads a flavoured summary-tree root.
-        "memory_tree" | "memory_flavour" => Capability::Tree,
-        // Free-text search over the canonical *entity* index
-        // (`memory::tree::retrieval::search::search_entities`).
-        "memory_store_raw_search" => Capability::Entities,
-        "memory_diff" => Capability::Diff,
-        "memory_doctor" => Capability::Maintenance,
-        "tool_stats" => Capability::ToolMemory,
-
-        // The long-term goals tool. It was four `goals_*` tools and is now one
-        // `op`-dispatched `goals`; the exact arm is what the prefix rule below
-        // no longer covers. The per-thread `goal_get`/`goal_set`/
-        // `goal_complete` tools are `DomainGroup::Threads` and a different
-        // concept, and neither `goals` nor `goals_` catches them.
-        "goals" => Capability::Goals,
-
-        // Prefix rules, so a NEW tool in one of these families auto-gates
-        // instead of silently landing in the un-filtered bucket — the same
-        // reasoning as `tool_group`'s prefix families (#4808 review). Ordered
-        // after the exact arms so `memory_tree` is not swallowed by
-        // `memory_tree_`. The underscore in `goals_` is load-bearing: the
-        // per-thread `goal_get`/`goal_set`/`goal_complete` tools are
-        // `DomainGroup::Threads` and must not be caught.
-        n if n.starts_with("goals_") => Capability::Goals,
-        n if n.starts_with("memory_tree_") => Capability::Tree,
-
-        _ => return None,
-    };
-    Some(capability)
 }
 
 #[cfg(test)]

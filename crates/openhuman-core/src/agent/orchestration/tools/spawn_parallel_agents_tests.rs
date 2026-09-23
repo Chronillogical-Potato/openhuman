@@ -1,6 +1,4 @@
 use super::*;
-use crate::agent::context::prompt::ToolCallFormat;
-use crate::agent::dispatcher::NativeToolDispatcher;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::definition::{
     AgentDefinition, AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
@@ -11,11 +9,11 @@ use crate::agent::orchestration::spawn_parallel_graph::{
     prepare_spawn_parallel_tasks_from_defs, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
     WorkerDispatchMode,
 };
-use crate::agent::Agent;
+use crate::agent::prompts::ToolCallFormat;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
+use crate::agent::OpenHumanSessionHost;
 use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
-use crate::tools::traits::ToolTimeout;
-use crate::tools::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
@@ -24,9 +22,13 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use tinyinference::message::{AssistantMessage, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
+use tinyagents_harness::tool::ToolDispatch;
+use tinyinference_llm::message::{AssistantMessage, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinytools::ToolTimeout;
+use tinytools::{PermissionLevel, Tool, ToolResult};
+use tinytools_agent::dialect::NativeDialect;
 use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
@@ -107,7 +109,7 @@ fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
         max_parallel_tools,
         ..Default::default()
     };
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "ok",
         ]));
@@ -152,6 +154,52 @@ fn parent_context_with_tools(
     let mut parent = parent_context(max_parallel_tools);
     parent.all_tools = Arc::new(tools);
     parent
+}
+
+/// The live harness does not recover ambient cancellation. Its typed
+/// dispatch receives the parent `RunContext`, so an already-cancelled parent
+/// token rejects the fan-out before worker dispatch with the same workspace
+/// grant.
+#[tokio::test]
+async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
+    let _ = AgentDefinitionRegistry::init_global_builtins();
+    let cancellation = tinyagents_harness::CancellationToken::new();
+    let workspace = tinytools::WorkspaceDescriptor::new("/work/parent-action");
+    let dispatch = SpawnParallelAgentsDispatch::new(Arc::new(SpawnParallelAgentsTool::new()));
+    let parent = parent_context(4);
+    let parent_run = OpenHumanRunContext::new()
+        .with_parent(parent.clone())
+        .with_cancellation(cancellation.clone())
+        .with_workspace(workspace.clone())
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
+
+    cancellation.cancel();
+    let result = with_parent_context(parent, async {
+        dispatch
+            .execute(
+                &(),
+                tinyagents_harness::CallId::new("test-call"),
+                json!({
+                    "tasks": [
+                        { "agent_id": "researcher", "prompt": "one" },
+                        { "agent_id": "critic", "prompt": "two" }
+                    ]
+                }),
+                tinytools::ToolCallOptions::default(),
+                &parent_run,
+            )
+            .await
+    })
+    .await
+    .expect("typed dispatch result");
+
+    assert_eq!(parent_run.workspace, Some(workspace));
+    assert!(result.is_error, "{}", result.output());
+    assert!(
+        result.output().contains("cancelled at validate"),
+        "typed dispatch must pass the parent token into fan-out: {}",
+        result.output()
+    );
 }
 
 fn definition_with_tool_scope(
@@ -322,7 +370,10 @@ impl ParallelHarnessProvider {
         }
     }
 
-    async fn respond_for_subagent(&self, flattened: &str) -> tinyinference::Result<ModelResponse> {
+    async fn respond_for_subagent(
+        &self,
+        flattened: &str,
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let current = self
             .state
             .active_subagent_calls
@@ -345,7 +396,7 @@ impl ParallelHarnessProvider {
             sleep(Duration::from_millis(5)).await;
         }
 
-        let response = (|| -> tinyinference::Result<ModelResponse> {
+        let response = (|| -> tinyinference_llm::Result<ModelResponse> {
             if flattened.contains(RESEARCH_PROMPT_CANARY) {
                 if flattened.contains("research-step-3-ok") {
                     Ok(text_response(RESEARCH_DONE_CANARY))
@@ -385,7 +436,7 @@ impl ParallelHarnessProvider {
                     ))
                 }
             } else {
-                Err(tinyinference::Error::Model(format!(
+                Err(tinyinference_llm::Error::Model(format!(
                     "unexpected subagent payload: {flattened}"
                 )))
             }
@@ -415,7 +466,7 @@ impl ChatModel<()> for ParallelHarnessProvider {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.state.total_calls.fetch_add(1, Ordering::SeqCst);
         let flattened = request
             .messages
@@ -426,6 +477,7 @@ impl ChatModel<()> for ParallelHarnessProvider {
                     Message::User(_) => "user",
                     Message::Assistant(_) => "assistant",
                     Message::Tool(_) => "tool",
+                    Message::Custom(_) => "custom",
                 };
                 format!("{role}:{}", message.text())
             })
@@ -474,6 +526,7 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
             content: Vec::new(),
             tool_calls: vec![ToolCall::new(format!("call-{name}"), name, arguments)],
             usage: None,
+            origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),
@@ -481,6 +534,8 @@ fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     }
 }
 
@@ -510,11 +565,11 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
         }),
     ];
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(Arc::new(provider.clone()))
         .tools(tools)
         .memory(mem)
-        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
         .unwrap();
@@ -591,6 +646,43 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
                                 .expect("parallel result iterations"),
                         );
                     }
+                }
+            }
+            ConversationMessage::Chat(message) if message.role == "assistant" => {
+                if message.content.contains("spawn_parallel_agents") {
+                    saw_parallel_call = true;
+                }
+            }
+            ConversationMessage::Chat(message) if message.role == "tool" => {
+                let content = serde_json::from_str::<serde_json::Value>(&message.content)
+                    .ok()
+                    .and_then(|envelope| {
+                        envelope
+                            .get("content")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_else(|| message.content.clone());
+                if !content.contains("\"parallel_agents\"") {
+                    continue;
+                }
+                saw_parallel_result = true;
+                let payload: serde_json::Value =
+                    serde_json::from_str(&content).expect("parallel tool result json");
+                assert_eq!(payload["parallel_agents"]["succeeded"], 2);
+                assert_eq!(payload["parallel_agents"]["failed"], 0);
+
+                let results = payload["parallel_agents"]["results"]
+                    .as_array()
+                    .expect("parallel results array");
+                assert_eq!(results.len(), 2);
+                for item in results {
+                    assert_eq!(item["success"], true);
+                    iterations.push(
+                        item["iterations"]
+                            .as_u64()
+                            .expect("parallel result iterations"),
+                    );
                 }
             }
             _ => {}

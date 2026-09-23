@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct TokenjuiceConfig {
     /// Master switch for the content router. When `false`, tool output passes
-    /// through uncompacted.
-    #[serde(default = "default_true")]
+    /// through uncompacted. Off by default: see `ContextConfig::compaction_enabled`.
+    #[serde(default)]
     pub router_enabled: bool,
     /// Whether lossy compressions offload the original to the CCR store and emit
     /// a `⟦tj:<hash>⟧` retrieval footer. Disabling makes compaction one-way.
@@ -107,7 +107,7 @@ fn default_ml_device() -> String {
 impl Default for TokenjuiceConfig {
     fn default() -> Self {
         Self {
-            router_enabled: true,
+            router_enabled: false,
             ccr_enabled: true,
             ccr_disk_enabled: false,
             max_cache_entries: default_max_cache_entries(),

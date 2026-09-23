@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use super::helpers::FILES_PATH;
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{Tool, ToolCategory, ToolResult};
+use tinytools::{Tool, ToolCategory, ToolResult};
 
 use crate::integrations::file_storage::types::{FileMeta, ListFilesResponse};
 

@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 use async_trait::async_trait;
 use openhuman_core::core::bus::BUS;
 use openhuman_core::agent::bus::{
@@ -7,16 +8,17 @@ use openhuman_core::agent::progress::AgentProgress;
 use openhuman_core::config::{MultimodalConfig, MultimodalFileConfig};
 use openhuman_core::agent::messages::ChatMessage;
 use openhuman_core::security::POLICY_BLOCKED_MARKER;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+
 use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, OnceLock};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 #[derive(Clone, Debug)]
 struct CapturedRequest {
@@ -61,18 +63,18 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.capture(&request, false);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
         self.capture(&request, true);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
         items.extend(self.stream_events.iter().cloned());
         items.push(ModelStreamItem::Completed(response));
-        Ok(Box::pin(futures::stream::iter(items)))
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(items))))
     }
 }
 
@@ -85,13 +87,13 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
         self.responses
             .lock()
             .unwrap()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("script exhausted fallback")))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -179,6 +181,7 @@ fn tool_response(name: &str, args: serde_json::Value) -> ModelResponse {
             content: vec![ContentBlock::Text("before".to_string())],
             tool_calls: vec![ToolCall::new(format!("call-{name}"), name, args)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

@@ -11,8 +11,8 @@ use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{
     ContextualToolSelectionMiddleware, Middleware, ToolAllowlistMiddleware,
 };
-use tinyinference::model::ModelRequest;
-use tinyinference::tool::ToolSchema;
+use tinyinference_llm::model::ModelRequest;
+use tinyinference_llm::tool::ToolSchema;
 
 /// SHADOW tool-exposure middleware (issue #4249, 01.3 — dynamic exposure).
 ///
@@ -41,8 +41,8 @@ use tinyinference::tool::ToolSchema;
 /// is only logged/emitted — not enforced — this slice.
 ///
 /// Ownership flip (making this crate selection the sole authority + deleting
-/// `agent/harness/tool_filter.rs` and `subagent_runner/tool_prep.rs`) is the
-/// GATED follow-up, once the `[tool-exposure]` divergence logs show parity.
+/// `subagent_host/tool_prep.rs`) is the GATED follow-up, once the
+/// `[tool-exposure]` divergence logs show parity.
 pub(crate) struct OpenHumanToolExposureShadowMiddleware {
     /// Static allow guard (crate). Held for the fail-closed parity cross-check;
     /// NOT installed as a live `before_tool` execution guard this slice —
@@ -127,14 +127,16 @@ impl OpenHumanToolExposureShadowMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for OpenHumanToolExposureShadowMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for OpenHumanToolExposureShadowMiddleware
+{
     fn name(&self) -> &str {
         "openhuman_tool_exposure_shadow"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {

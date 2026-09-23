@@ -23,16 +23,27 @@ fn schemas_registry_get_requires_qualified_name() {
 }
 
 #[test]
-fn schemas_install_requires_qualified_name_and_env() {
-    let s = schemas("install");
-    let names: Vec<_> = s
-        .inputs
-        .iter()
-        .filter(|f| f.required)
-        .map(|f| f.name)
-        .collect();
-    assert!(names.contains(&"qualified_name"));
-    assert!(names.contains(&"env"));
+fn schemas_config_set_takes_the_document_root() {
+    let s = schemas("config_set");
+    assert_eq!(s.inputs.len(), 1);
+    assert_eq!(s.inputs[0].name, "mcpServers");
+    assert!(s.inputs[0].required);
+    let outputs: Vec<_> = s.outputs.iter().map(|f| f.name).collect();
+    assert_eq!(outputs, ["mcpServers", "added", "updated", "removed"]);
+}
+
+#[test]
+fn schemas_config_get_has_no_inputs() {
+    let s = schemas("config_get");
+    assert!(s.inputs.is_empty());
+    assert_eq!(s.outputs[0].name, "mcpServers");
+}
+
+#[test]
+fn there_is_no_install_from_the_catalog_any_more() {
+    // Installing is declaring a server in mcp.json; the catalog is browse-only.
+    assert_eq!(schemas("install").function, "unknown");
+    assert_eq!(schemas("config_assist").function, "unknown");
 }
 
 #[test]
@@ -50,13 +61,6 @@ fn schemas_tool_call_requires_three_fields() {
 }
 
 #[test]
-fn schemas_config_assist_history_is_optional() {
-    let s = schemas("config_assist");
-    let history = s.inputs.iter().find(|f| f.name == "history").unwrap();
-    assert!(!history.required);
-}
-
-#[test]
 fn schemas_unknown_function_returns_placeholder() {
     let s = schemas("not-a-real-function");
     assert_eq!(s.function, "unknown");
@@ -68,22 +72,18 @@ fn schemas_unknown_function_returns_placeholder() {
 #[test]
 fn all_controller_schemas_covers_expected_methods() {
     let schemas = all_controller_schemas();
-    // 16 mcp_clients (incl. update_env + registry_settings_get/set from #3039,
-    // set_enabled from #3196, and detect_auth + oauth_begin from #3495) +
-    // 6 mcp_setup.
-    assert_eq!(schemas.len(), 22);
-    let mcp_clients_count = schemas
-        .iter()
-        .filter(|s| s.namespace == "mcp_clients")
-        .count();
-    let mcp_setup_count = schemas
-        .iter()
-        .filter(|s| s.namespace == "mcp_setup")
-        .count();
-    assert_eq!(mcp_clients_count, 16);
-    assert_eq!(mcp_setup_count, 6);
-    // The #3039 + #3196 additions are present.
+    // 17 mcp_clients: the catalog install and the configuration assistant went
+    // with the setup agent; config_get / config_set (mcp.json) and list_tools
+    // took their place.
+    assert_eq!(schemas.len(), 17);
+    assert!(schemas.iter().all(|s| s.namespace == "mcp_clients"));
     let functions: Vec<_> = schemas.iter().map(|s| s.function).collect();
+    assert!(functions.contains(&"config_get"));
+    assert!(functions.contains(&"config_set"));
+    assert!(functions.contains(&"list_tools"));
+    assert!(!functions.contains(&"install"));
+    assert!(!functions.contains(&"config_assist"));
+    // The #3039 + #3196 additions are present.
     assert!(functions.contains(&"update_env"));
     assert!(functions.contains(&"registry_settings_get"));
     assert!(functions.contains(&"registry_settings_set"));
@@ -96,14 +96,14 @@ fn all_controller_schemas_covers_expected_methods() {
 #[test]
 fn all_registered_controllers_has_handler_per_schema() {
     let controllers = all_registered_controllers();
-    assert_eq!(controllers.len(), 22);
+    assert_eq!(controllers.len(), 17);
 }
 
 #[test]
 fn all_registered_controllers_use_expected_namespaces() {
     for c in all_registered_controllers() {
-        assert!(
-            matches!(c.schema.namespace, "mcp_clients" | "mcp_setup"),
+        assert_eq!(
+            c.schema.namespace, "mcp_clients",
             "unexpected namespace {}",
             c.schema.namespace
         );

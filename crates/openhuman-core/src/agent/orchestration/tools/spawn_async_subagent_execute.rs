@@ -4,6 +4,12 @@ impl SpawnAsyncSubagentTool {
         args: serde_json::Value,
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        detached_parent: Option<
+            tinyagents_harness::context::RunContext<
+                crate::agent::tinyagents::host::OpenHumanRunContext,
+            >,
+        >,
     ) -> anyhow::Result<ToolResult> {
         let agent_id = args
             .get("agent_id")
@@ -52,8 +58,13 @@ impl SpawnAsyncSubagentTool {
                 "spawn_async_subagent: `prompt` is required",
             ));
         }
+        let Some(detached_parent) = detached_parent else {
+            return Ok(ToolResult::error(
+                "spawn_async_subagent requires a live harness run context.",
+            ));
+        };
 
-        let parent = match current_parent() {
+        let parent = match run_context.parent.clone() {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
@@ -81,6 +92,18 @@ impl SpawnAsyncSubagentTool {
             }
         };
 
+        // The follow-up vocabulary offered back to the parent is limited to
+        // the fleet tools visible on *this turn* (see `fleet_tools`), not
+        // just the parent definition's static scope: a hide or named
+        // restriction can narrow the turn's real tool surface below what the
+        // definition alone would suggest, and offering a control the parent
+        // cannot currently call invites a denied tool call.
+        let fleet = if parent.visible_tool_names.is_empty() {
+            FleetToolSet::for_parent(&parent.agent_definition_id)
+        } else {
+            FleetToolSet::from_visible_tool_names(&parent.visible_tool_names)
+        };
+
         if !parent.allowed_subagent_ids.contains(&definition.id) {
             log::warn!(
                 "[spawn_async_subagent] blocked subagent outside allowlist parent={} requested={} allowed={:?}",
@@ -102,13 +125,15 @@ impl SpawnAsyncSubagentTool {
 
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
-        let parent_thread_id =
-            crate::agent::tinyagents::thread_context::current_thread_id();
+        let parent_thread_id = tool_context
+            .and_then(ToolRunContext::thread_id)
+            .or(run_context.thread_id.as_deref())
+            .map(str::to_owned);
 
         // Async delivery is thread-addressed: the finished result is inserted
         // back into the parent chat thread as a follow-up turn
         // (`background_delivery`). Outside a chat turn (flow `agent` nodes,
-        // CLI, cron) there is no `current_thread_id()` to deliver into, so
+        // CLI and cron runs intentionally have no parent thread to deliver into, so
         // `background_delivery::deliver_batch` logs "dropping headless batch"
         // and the (possibly real, completed) work is silently discarded — the
         // caller sees "Accepted" and never learns the result never arrived.
@@ -131,14 +156,15 @@ impl SpawnAsyncSubagentTool {
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
                  chat turn). Fire-and-forget delegation has nowhere to land its result here and \
                  the sub-agent's work would be silently discarded. Use synchronous delegation \
-                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
-                 tool — both run the sub-agent inline and hand you its output in this turn. \
-                 For parallel work, model it as parallel flow nodes rather than background \
-                 sub-agents.",
+                 instead: a `delegate_*` tool with `blocking: true` runs the sub-agent inline \
+                 and hands you its output in this turn. For parallel work, model it as \
+                 parallel flow nodes rather than background sub-agents.",
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
+        let workspace_descriptor = tool_context
+            .and_then(|ctx| ctx.workspace().cloned())
+            .or_else(|| run_context.workspace.clone());
         let effective_action_root = workspace_descriptor
             .as_ref()
             .map(|workspace| {
@@ -150,8 +176,7 @@ impl SpawnAsyncSubagentTool {
                 workspace.root.clone()
             })
             .or_else(|| {
-                crate::security::live_policy::current()
-                    .map(|policy| policy.action_dir.clone())
+                crate::security::live_policy::current().map(|policy| policy.action_dir.clone())
             });
         let selector = SubagentSessionSelector {
             parent_session: parent_session.clone(),
@@ -221,7 +246,7 @@ impl SpawnAsyncSubagentTool {
                         running_task_id,
                         &parent_session,
                         follow_up_prompt.clone(),
-                        crate::agent::harness::run_queue::QueueMode::Steer,
+                        tinyagents_harness::run_queue::QueueLane::Steer,
                     )
                     .await
                     {
@@ -242,12 +267,20 @@ impl SpawnAsyncSubagentTool {
                                 true,
                                 reuse_decision.as_str(),
                                 "running",
+                                &fleet,
                             );
+                            let follow_up = if fleet.can_wait() {
+                                "Use the structured reference below to send more input, wait, or perform a short timeout tick."
+                            } else {
+                                "Its result is delivered to you automatically on a later turn; do not wait or poll for it."
+                            };
                             return Ok(ToolResult::success(format!(
                                 "Continued reusable async sub-agent `{}`. It is already running and will pick up the new instruction at its next step. \
-                                 Use the structured reference below to send more input, wait, or perform a short timeout tick.\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
+                                 {}\n\n[async_subagent_ref]\n{}\n[/async_subagent_ref]",
                                 payload["agent_id"].as_str().unwrap_or("subagent"),
-                                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string())
+                                follow_up,
+                                serde_json::to_string(&payload)
+                                    .unwrap_or_else(|_| "{}".to_string())
                             )));
                         }
                         Err(err) => {
@@ -374,11 +407,10 @@ impl SpawnAsyncSubagentTool {
         // this run mid-flight and `wait_subagent` for its result. The engine
         // drains `steer_queue` at iteration boundaries; `status_tx` publishes
         // the terminal state to any waiter.
-        let steer_queue = RunQueue::new();
+        let steer_queue = Arc::new(RunQueue::new());
         let task_queue = steer_queue.clone();
         let (status_tx, status_rx) = running_subagents::status_channel();
 
-        let background_parent = parent.clone();
         let background_workspace_dir = parent.workspace_dir.clone();
         let background_definition = definition.clone();
         let background_agent_id = definition.id.clone();
@@ -392,7 +424,7 @@ impl SpawnAsyncSubagentTool {
         let background_worktree_action_dir = background_workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
-        let background_thread_affinity_id = background_worker_thread_id
+        let background_thread_id = background_worker_thread_id
             .clone()
             .unwrap_or_else(|| background_subagent_session_id.clone());
         let background_initial_history = initial_history;
@@ -412,16 +444,13 @@ impl SpawnAsyncSubagentTool {
             register_parent_thread_id.as_deref().unwrap_or("none")
         );
         let background_prompt = add_background_contract(&prompt);
-        // The detached child starts on a fresh task, and a `tokio::task_local`
-        // does not cross `tokio::spawn`. The parent's execution context and
-        // chat thread are already re-installed inside the task for exactly that
-        // reason; the turn's origin label and its workspace root are the other
-        // two that have to travel, and they are captured **here**, on the
-        // spawning task, rather than inside the closure where they would
-        // already be gone. Without the origin every external-effect tool the
-        // child calls reaches the approval gate unlabelled and is refused,
-        // which is the whole of why a delegated coding task could not run a
-        // shell.
+        // The detached child starts on a fresh task. Its explicit carrier keeps
+        // authority, origin, thread, and workspace while deliberately dropping
+        // the originating turn's accounting, dispatch refusal, and cancellation.
+        // Approval/origin and workspace policy remain task-local until B2h
+        // moves the security boundary onto this carrier, so propagation below
+        // is a staging bridge for those two scopes only.
+        let detached_run_context = detached_parent.data.child();
         let join = tokio::spawn(crate::agent::turn_origin::propagate(
             crate::agent::turn_workspace::propagate(async move {
                 let options = SubagentRunOptions {
@@ -430,6 +459,8 @@ impl SpawnAsyncSubagentTool {
                     context,
                     model_override,
                     task_id: Some(background_task_id.clone()),
+                    thread_id: Some(background_thread_id),
+                    run_context: detached_run_context,
                     worker_thread_id: background_worker_thread_id.clone(),
                     initial_history: background_initial_history,
                     checkpoint_dir: None,
@@ -438,64 +469,64 @@ impl SpawnAsyncSubagentTool {
                     run_queue: Some(task_queue),
                 };
 
-                let result = with_parent_context(background_parent, async move {
-                    crate::agent::tinyagents::thread_context::with_thread_id(
-                        background_thread_affinity_id,
-                        async move {
-                            run_subagent(&background_definition, &background_prompt, options).await
-                        },
-                    )
-                    .await
-                })
+                let result = run_subagent_with_parent(
+                    &detached_parent,
+                    background_definition,
+                    background_prompt,
+                    options,
+                )
                 .await;
 
                 match result {
-                    Ok(outcome) => match outcome.status {
-                        SubagentRunStatus::Completed => {
-                            if let Err(err) = subagent_sessions::mark_finished(
-                                &background_store,
-                                &background_subagent_session_id,
-                                &outcome.task_id,
-                                &outcome.status,
-                                outcome.final_history.clone(),
-                            ) {
-                                log::warn!(
-                                "[subagent_reuse] mark_completed failed subagent_session_id={} task_id={} agent_id={} error={}",
-                                background_subagent_session_id,
-                                outcome.task_id,
-                                outcome.agent_id,
-                                err
-                            );
-                            }
-                            let _ = status_tx.send(SubagentStatus::Completed {
-                                output: outcome.output.clone(),
-                                iterations: outcome.iterations,
-                            });
-                            // A workflow proposal produced inside the child's tool
-                            // history is durable state, not prose: persist it into
-                            // the parent chat thread (survives reload / reconnect —
-                            // the old socket-only delivery could silently drop it)
-                            // and carry the full payload in the delivery notice so
-                            // the follow-up turn can present it faithfully.
-                            let delivery_summary = attach_workflow_proposal(
-                                &background_workspace_dir,
-                                background_parent_thread_id.as_deref(),
-                                &outcome.task_id,
-                                &outcome.agent_id,
-                                &outcome.final_history,
-                                outcome.output.clone(),
-                            );
-                            // Queue the finished result for idle-gated, batched
-                            // delivery back into the parent chat (the session
-                            // runtime drains this when the session is next idle).
-                            crate::agent::orchestration::background_completions::record_completion(
+                    Ok(outcome) => {
+                        let emit_lifecycle_effects = outcome.should_emit_lifecycle_effects();
+                        match outcome.status {
+                            SubagentRunStatus::Completed => {
+                                if let Err(err) = subagent_sessions::mark_finished(
+                                    &background_store,
+                                    &background_subagent_session_id,
+                                    &outcome.task_id,
+                                    &outcome.status,
+                                    outcome.final_history.clone(),
+                                ) {
+                                    log::warn!(
+                                        "[subagent_reuse] mark_completed failed subagent_session_id={} task_id={} agent_id={} error={}",
+                                        background_subagent_session_id,
+                                        outcome.task_id,
+                                        outcome.agent_id,
+                                        err
+                                    );
+                                }
+                                let _ = status_tx.send(SubagentStatus::Completed {
+                                    output: outcome.output.clone(),
+                                    iterations: outcome.iterations,
+                                });
+                                // A workflow proposal produced inside the child's tool
+                                // history is durable state, not prose: persist it into
+                                // the parent chat thread (survives reload / reconnect —
+                                // the old socket-only delivery could silently drop it)
+                                // and carry the full payload in the delivery notice so
+                                // the follow-up turn can present it faithfully.
+                                let delivery_summary = attach_workflow_proposal(
+                                    &background_workspace_dir,
+                                    background_parent_thread_id.as_deref(),
+                                    &outcome.task_id,
+                                    &outcome.agent_id,
+                                    &outcome.final_history,
+                                    outcome.output.clone(),
+                                );
+                                // Queue the finished result for idle-gated, batched
+                                // delivery back into the parent chat (the session
+                                // runtime drains this when the session is next idle).
+                                crate::agent::orchestration::background_completions::record_completion(
                             background_parent_session.clone(),
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
                             delivery_summary,
                             background_parent_thread_id.clone(),
                         );
-                            crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                                if emit_lifecycle_effects {
+                                    crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
@@ -503,69 +534,79 @@ impl SpawnAsyncSubagentTool {
                             outcome.output.chars().count(),
                             outcome.iterations,
                         );
-                            if let Some(ref tx) = background_progress {
-                                let _ = tx
-                                    .send(AgentProgress::SubagentCompleted {
-                                        agent_id: outcome.agent_id,
-                                        task_id: outcome.task_id,
-                                        elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                        iterations: outcome.iterations as u32,
-                                        output_chars: outcome.output.chars().count(),
-                                        output: outcome.output.clone(),
-                                        worktree_path: None,
-                                        changed_files: Vec::new(),
-                                        dirty_status: None,
-                                    })
-                                    .await;
+                                    if let Some(ref tx) = background_progress {
+                                        let _ = tx
+                                            .send(AgentProgress::SubagentCompleted {
+                                                agent_id: outcome.agent_id,
+                                                task_id: outcome.task_id,
+                                                elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                                iterations: outcome.iterations as u32,
+                                                output_chars: outcome.output.chars().count(),
+                                                output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
+                                                worktree_path: None,
+                                                changed_files: Vec::new(),
+                                                dirty_status: None,
+                                            })
+                                            .await;
+                                    }
+                                }
                             }
-                        }
-                        SubagentRunStatus::Incomplete { ref reason } => {
-                            // Async sub-agent stopped short (stuck halt / iteration
-                            // cap). Mark the session finished and deliver the PARTIAL
-                            // progress back to the parent, framed so it is not
-                            // mistaken for a completed result (#4096).
-                            if let Err(err) = subagent_sessions::mark_finished(
-                                &background_store,
-                                &background_subagent_session_id,
-                                &outcome.task_id,
-                                &outcome.status,
-                                outcome.final_history.clone(),
-                            ) {
-                                log::warn!(
-                                "[subagent_reuse] mark_incomplete failed subagent_session_id={} task_id={} agent_id={} error={}",
-                                background_subagent_session_id,
-                                outcome.task_id,
-                                outcome.agent_id,
-                                err
-                            );
-                            }
-                            let framed = format!(
-                                "[SUBAGENT_INCOMPLETE] the sub-agent {reason} and did not finish. \
+                            SubagentRunStatus::Incomplete { ref reason } => {
+                                // Async sub-agent stopped short (stuck halt / iteration
+                                // cap). Mark the session finished and deliver the PARTIAL
+                                // progress back to the parent, framed so it is not
+                                // mistaken for a completed result (#4096).
+                                if let Err(err) = subagent_sessions::mark_finished(
+                                    &background_store,
+                                    &background_subagent_session_id,
+                                    &outcome.task_id,
+                                    &outcome.status,
+                                    outcome.final_history.clone(),
+                                ) {
+                                    log::warn!(
+                                        "[subagent_reuse] mark_incomplete failed subagent_session_id={} task_id={} agent_id={} error={}",
+                                        background_subagent_session_id,
+                                        outcome.task_id,
+                                        outcome.agent_id,
+                                        err
+                                    );
+                                }
+                                let framed = format!(
+                                    "[SUBAGENT_INCOMPLETE] the sub-agent {reason} and did not finish. \
                              Partial progress:\n{}",
-                                outcome.output
-                            );
-                            let _ = status_tx.send(SubagentStatus::Completed {
-                                output: framed.clone(),
-                                iterations: outcome.iterations,
-                            });
-                            // An incomplete run may still have produced a full
-                            // proposal before stalling — preserve it durably too.
-                            let framed = attach_workflow_proposal(
-                                &background_workspace_dir,
-                                background_parent_thread_id.as_deref(),
-                                &outcome.task_id,
-                                &outcome.agent_id,
-                                &outcome.final_history,
-                                framed,
-                            );
-                            crate::agent::orchestration::background_completions::record_completion(
+                                    outcome.output
+                                );
+                                let _ = status_tx.send(SubagentStatus::Completed {
+                                    output: framed.clone(),
+                                    iterations: outcome.iterations,
+                                });
+                                // An incomplete run may still have produced a full
+                                // proposal before stalling — preserve it durably too.
+                                let framed = attach_workflow_proposal(
+                                    &background_workspace_dir,
+                                    background_parent_thread_id.as_deref(),
+                                    &outcome.task_id,
+                                    &outcome.agent_id,
+                                    &outcome.final_history,
+                                    framed,
+                                );
+                                crate::agent::orchestration::background_completions::record_completion(
                             background_parent_session.clone(),
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
                             framed,
                             background_parent_thread_id.clone(),
                         );
-                            crate::agent::orchestration::subagent_events::publish_subagent_completed(
+                                if emit_lifecycle_effects {
+                                    crate::agent::orchestration::subagent_events::publish_subagent_completed(
                             background_parent_session,
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
@@ -573,73 +614,137 @@ impl SpawnAsyncSubagentTool {
                             outcome.output.chars().count(),
                             outcome.iterations,
                         );
-                            if let Some(ref tx) = background_progress {
-                                let _ = tx
-                                    .send(AgentProgress::SubagentCompleted {
-                                        agent_id: outcome.agent_id,
-                                        task_id: outcome.task_id,
-                                        elapsed_ms: outcome.elapsed.as_millis() as u64,
-                                        iterations: outcome.iterations as u32,
-                                        output_chars: outcome.output.chars().count(),
-                                        output: outcome.output.clone(),
-                                        worktree_path: None,
-                                        changed_files: Vec::new(),
-                                        dirty_status: None,
-                                    })
-                                    .await;
+                                    if let Some(ref tx) = background_progress {
+                                        let _ = tx
+                                            .send(AgentProgress::SubagentCompleted {
+                                                agent_id: outcome.agent_id,
+                                                task_id: outcome.task_id,
+                                                elapsed_ms: outcome.elapsed.as_millis() as u64,
+                                                iterations: outcome.iterations as u32,
+                                                output_chars: outcome.output.chars().count(),
+                                                output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
+                                                worktree_path: None,
+                                                changed_files: Vec::new(),
+                                                dirty_status: None,
+                                            })
+                                            .await;
+                                    }
+                                }
                             }
-                        }
-                        SubagentRunStatus::AwaitingUser { ref question, .. } => {
-                            if let Err(err) = subagent_sessions::mark_finished(
-                                &background_store,
-                                &background_subagent_session_id,
-                                &outcome.task_id,
-                                &outcome.status,
-                                outcome.final_history.clone(),
-                            ) {
-                                log::warn!(
-                                "[subagent_reuse] mark_awaiting_user failed subagent_session_id={} task_id={} agent_id={} error={}",
-                                background_subagent_session_id,
-                                outcome.task_id,
-                                outcome.agent_id,
-                                err
-                            );
+                            SubagentRunStatus::Cancelled => {
+                                let error = "async sub-agent was cancelled".to_string();
+                                if let Err(err) = subagent_sessions::mark_finished(
+                                    &background_store,
+                                    &background_subagent_session_id,
+                                    &outcome.task_id,
+                                    &outcome.status,
+                                    outcome.final_history.clone(),
+                                ) {
+                                    log::warn!(
+                                        "[subagent_reuse] mark_cancelled failed subagent_session_id={} task_id={} agent_id={} error={}",
+                                        background_subagent_session_id,
+                                        outcome.task_id,
+                                        outcome.agent_id,
+                                        err
+                                    );
+                                }
+                                let _ = status_tx.send(SubagentStatus::Failed {
+                                    error: error.clone(),
+                                });
+                                crate::agent::orchestration::background_completions::record_failure(
+                                    background_parent_session.clone(),
+                                    outcome.task_id.clone(),
+                                    outcome.agent_id.clone(),
+                                    &error,
+                                    background_parent_thread_id.clone(),
+                                );
+                                if emit_lifecycle_effects {
+                                    crate::agent::orchestration::subagent_events::publish_subagent_failed(
+                                        background_parent_session,
+                                        outcome.task_id.clone(),
+                                        outcome.agent_id.clone(),
+                                        error.clone(),
+                                    );
+                                    if let Some(ref tx) = background_progress {
+                                        let _ = tx
+                                            .send(AgentProgress::SubagentFailed {
+                                                agent_id: outcome.agent_id,
+                                                task_id: outcome.task_id,
+                                                error,
+                                            })
+                                            .await;
+                                    }
+                                }
                             }
-                            let _ = status_tx.send(SubagentStatus::AwaitingUser {
-                                question: question.clone(),
-                            });
-                            let error = format!(
-                            "async sub-agent requested user clarification and was not continued: {question}"
-                        );
-                            // #4896: a detached child that pauses for input won't
-                            // continue on its own — queue a framed notice so the
-                            // parent chat learns the delegated task needs input,
-                            // instead of finalizing silently on "Accepted". Rides the
-                            // same idle-gated background_delivery path as a success.
-                            crate::agent::orchestration::background_completions::record_awaiting_input(
+                            SubagentRunStatus::AwaitingUser {
+                                ref question,
+                                ref checkpoint,
+                                ..
+                            } => {
+                                if let Err(err) = subagent_sessions::mark_finished(
+                                    &background_store,
+                                    &background_subagent_session_id,
+                                    &outcome.task_id,
+                                    &outcome.status,
+                                    outcome.final_history.clone(),
+                                ) {
+                                    log::warn!(
+                                        "[subagent_reuse] mark_awaiting_user failed subagent_session_id={} task_id={} agent_id={} error={}",
+                                        background_subagent_session_id,
+                                        outcome.task_id,
+                                        outcome.agent_id,
+                                        err
+                                    );
+                                }
+                                let _ = status_tx.send(SubagentStatus::AwaitingUser {
+                                    question: question.clone(),
+                                });
+                                // #4896: a detached child that pauses for input won't
+                                // continue on its own — queue a framed notice so the
+                                // parent chat learns the delegated task needs input,
+                                // instead of finalizing silently on "Accepted". Rides the
+                                // same idle-gated background_delivery path as a success.
+                                crate::agent::orchestration::background_completions::record_awaiting_input(
                             background_parent_session.clone(),
                             outcome.task_id.clone(),
-                            outcome.agent_id.clone(),
-                            question,
-                            background_parent_thread_id.clone(),
-                        );
-                            crate::agent::orchestration::subagent_events::publish_subagent_failed(
-                            background_parent_session,
-                            outcome.task_id.clone(),
-                            outcome.agent_id.clone(),
-                            error.clone(),
-                        );
-                            if let Some(ref tx) = background_progress {
-                                let _ = tx
-                                    .send(AgentProgress::SubagentFailed {
-                                        agent_id: outcome.agent_id,
-                                        task_id: outcome.task_id,
-                                        error,
-                                    })
-                                    .await;
+                                    outcome.agent_id.clone(),
+                                    question,
+                                    checkpoint.is_some(),
+                                    background_parent_thread_id.clone(),
+                                );
+                                if emit_lifecycle_effects {
+                                    crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
+                                        background_parent_session,
+                                        outcome.task_id.clone(),
+                                        outcome.agent_id.clone(),
+                                        question.clone(),
+                                    );
+                                    if let Some(ref tx) = background_progress {
+                                        let _ = tx
+                                            .send(AgentProgress::SubagentAwaitingUser {
+                                                agent_id: outcome.agent_id,
+                                                task_id: outcome.task_id,
+                                                question: question.clone(),
+                                                worker_thread_id: background_worker_thread_id
+                                                    .clone(),
+                                                checkpoint_path: checkpoint
+                                                    .as_ref()
+                                                    .map(|path| path.to_string_lossy().to_string()),
+                                            })
+                                            .await;
+                                    }
+                                }
                             }
                         }
-                    },
+                    }
                     Err(err) => {
                         let error = err.to_string();
                         if let Err(store_err) = subagent_sessions::mark_failed(
@@ -649,12 +754,12 @@ impl SpawnAsyncSubagentTool {
                             error.clone(),
                         ) {
                             log::warn!(
-                            "[subagent_reuse] mark_failed failed subagent_session_id={} task_id={} agent_id={} error={}",
-                            background_subagent_session_id,
-                            background_task_id,
-                            background_agent_id,
-                            store_err
-                        );
+                                "[subagent_reuse] mark_failed failed subagent_session_id={} task_id={} agent_id={} error={}",
+                                background_subagent_session_id,
+                                background_task_id,
+                                background_agent_id,
+                                store_err
+                            );
                         }
                         let _ = status_tx.send(SubagentStatus::Failed {
                             error: error.clone(),
@@ -665,18 +770,18 @@ impl SpawnAsyncSubagentTool {
                         // Queue a framed failure notice so background_delivery
                         // surfaces it as a follow-up chat turn.
                         crate::agent::orchestration::background_completions::record_failure(
-                        background_parent_session.clone(),
-                        background_task_id.clone(),
-                        background_agent_id.clone(),
-                        &error,
-                        background_parent_thread_id.clone(),
-                    );
+                            background_parent_session.clone(),
+                            background_task_id.clone(),
+                            background_agent_id.clone(),
+                            &error,
+                            background_parent_thread_id.clone(),
+                        );
                         crate::agent::orchestration::subagent_events::publish_subagent_failed(
-                        background_parent_session,
-                        background_task_id.clone(),
-                        background_agent_id.clone(),
-                        error.clone(),
-                    );
+                            background_parent_session,
+                            background_task_id.clone(),
+                            background_agent_id.clone(),
+                            error.clone(),
+                        );
                         if let Some(ref tx) = background_progress {
                             let _ = tx
                                 .send(AgentProgress::SubagentFailed {
@@ -714,6 +819,7 @@ impl SpawnAsyncSubagentTool {
             reusable.is_some(),
             reuse_decision.as_str(),
             "running",
+            &fleet,
         );
         let payload_json = match serde_json::to_string(&payload) {
             Ok(serialized) => {
@@ -735,6 +841,7 @@ impl SpawnAsyncSubagentTool {
         Ok(ToolResult::success(format_async_subagent_accepted(
             payload["agent_id"].as_str().unwrap_or("subagent"),
             &payload_json,
+            &fleet,
         )))
     }
 }

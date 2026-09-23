@@ -93,7 +93,7 @@ fn sanitize_git_allows_safe() {
 #[test]
 fn git_resolves_cwd_from_workspace_descriptor() {
     use tinyagents_harness::context::{RunConfig, RunContext};
-    use tinyagents_harness::workspace::WorkspaceDescriptor;
+    use tinytools::WorkspaceDescriptor;
 
     let action_tmp = TempDir::new().unwrap();
     let worktree_tmp = TempDir::new().unwrap();
@@ -103,7 +103,10 @@ fn git_resolves_cwd_from_workspace_descriptor() {
     let ws =
         WorkspaceDescriptor::new(worktree_tmp.path().to_path_buf()).with_policy_id("test-worktree");
     let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
-    let tool_ctx = ToolExecutionContext::from_run_context(&ctx);
+    let tool_ctx = ToolExecutionContext::from_run_context(
+        &ctx,
+        tinyagents_harness::ids::CallId::new("test-call"),
+    );
     assert_eq!(
         tool.effective_action_dir_for_context(Some(&tool_ctx)),
         worktree_tmp.path().to_path_buf(),
@@ -159,12 +162,7 @@ fn is_read_only_detection() {
 #[tokio::test]
 async fn blocks_readonly_mode_for_write_ops() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let security = Arc::new(SecurityPolicy {
         autonomy: AutonomyLevel::ReadOnly,
@@ -184,12 +182,7 @@ async fn blocks_readonly_mode_for_write_ops() {
 #[tokio::test]
 async fn allows_branch_listing_in_readonly_mode() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository so the command can succeed
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let security = Arc::new(SecurityPolicy {
         autonomy: AutonomyLevel::ReadOnly,
@@ -243,12 +236,7 @@ async fn rejects_missing_operation() {
 #[tokio::test]
 async fn rejects_unknown_operation() {
     let tmp = TempDir::new().unwrap();
-    // Initialize a git repository
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(tmp.path())
-        .output()
-        .unwrap();
+    init_git_repo(tmp.path());
 
     let tool = test_tool(tmp.path());
 
@@ -379,6 +367,8 @@ async fn not_in_git_repo_returns_error() {
 pub(super) fn hermetic(cmd: &mut std::process::Command) -> &mut std::process::Command {
     cmd.env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", NULL_CONFIG_PATH)
+        .env_remove("GIT_CONFIG_PARAMETERS")
+        .env_remove("GIT_CONFIG_COUNT")
 }
 
 /// Initialise a git repo at `path` and fail the test if `git init`

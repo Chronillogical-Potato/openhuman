@@ -789,42 +789,6 @@ async fn threads_remaining_controller_paths_round_trip() {
             .and_then(Value::as_bool),
         Some(false)
     );
-
-    let board_put = rpc(
-        &harness.rpc_base,
-        87,
-        "openhuman.threads_task_board_put",
-        json!({
-            "thread_id": created_thread_id,
-            "cards": [{
-                "id": "card-1",
-                "title": "Verify remaining controller paths",
-                "status": "todo",
-                "order": 1
-            }]
-        }),
-    )
-    .await;
-    assert_eq!(
-        payload(&board_put, "threads_task_board_put")
-            .pointer("/taskBoard/cards/0/id")
-            .and_then(Value::as_str),
-        Some("card-1")
-    );
-
-    let board_get = rpc(
-        &harness.rpc_base,
-        88,
-        "openhuman.threads_task_board_get",
-        json!({ "thread_id": created_thread_id }),
-    )
-    .await;
-    assert_eq!(
-        payload(&board_get, "threads_task_board_get")
-            .pointer("/taskBoard/cards/0/title")
-            .and_then(Value::as_str),
-        Some("Verify remaining controller paths")
-    );
 }
 
 #[tokio::test]

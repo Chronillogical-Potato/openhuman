@@ -1,13 +1,13 @@
 ---
 description: >-
   Optional, opt-in local AI via Ollama or LM Studio. Powers memory embeddings, summary-tree
-  building, background loops, and explicitly routed chat/reasoning workloads on-device.
+  building, learning passes, and explicitly routed chat/reasoning workloads on-device.
 icon: microchip
 ---
 
 # Local AI (optional)
 
-OpenHuman can run a local model on your machine for workloads where keeping data on-device matters: **memory embeddings, summary-tree building, background reasoning loops, and explicitly routed chat or reasoning workloads**. It is **opt-in** and ships **off** by default.
+OpenHuman can run a local model on your machine for workloads where keeping data on-device matters: **memory embeddings, summary-tree building, learning and reflection passes, and explicitly routed chat or reasoning workloads**. It is **opt-in** and ships **off** by default.
 
 This is deliberate scoping. The previous design tried to put every modality on-device by default, and the result was a heavy, hardware-sensitive footprint. Today, local AI stays explicit: recurring privacy-sensitive work can run locally, and chat/reasoning can also run locally when you route those workloads to a local provider.
 
@@ -15,12 +15,10 @@ This is deliberate scoping. The previous design tried to put every modality on-d
 
 | Workload                  | Default model                     | Implementation                                                                                                                 |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Memory embeddings**     | `bge-m3`                          | `crates/openhuman-core/src/inference/embeddings/ollama.rs` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
-| **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `crates/openhuman-core/src/tree_summarizer/ops.rs` - source / topic / global summary builders for the Memory Tree.                         |
-| **Heartbeat loop**        | small chat model                  | `crates/openhuman-core/src/subconscious/heartbeat/` - periodic background reflection.                                                      |
+| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built by `crates/tinyinference-embeddings/src/factory.rs` in `vendor/tinyagents/vendor/tinyinference` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
+| **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `crates/tinymemory-core/src/tree/summarise.rs` in `vendor/tinymemory` - source / topic / global summary builders for the Memory Tree.      |
 | **Learning / reflection** | small chat model                  | `crates/openhuman-core/src/agent/learning/reflection.rs` - passes that consolidate what was learned.                                       |
-| **Subconscious**          | small chat model                  | `crates/openhuman-core/src/subconscious/executor.rs` - background evaluation loop.                                                         |
-| **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `crates/openhuman-core/src/routing/provider.rs` handles hint routing.        |
+| **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `crates/openhuman-core/src/inference/provider/factory/routing.rs` handles hint routing.        |
 | **Reasoning**             | configured local chat model       | `Config::workload_local_model("reasoning")` reads `reasoning_provider`; see [Opting in](#opting-in).                           |
 
 Each of these is an explicit opt-in. Turning on local AI does not silently route everything through it, you choose the workloads.
@@ -32,7 +30,7 @@ Each of these is an explicit opt-in. Turning on local AI does not silently route
 | **Chat**       | Frontier reasoning quality unless `chat_provider` is explicitly set to a local provider.       |
 | **Reasoning**  | Stronger multi-step quality unless `reasoning_provider` is explicitly set to a local provider. |
 | **Vision**     | Same, unless `vision_provider` points at a local vision-capable model. See below.              |
-| **STT**        | Backend-proxied transcription (`crates/openhuman-core/src/voice/cloud_transcribe.rs`).                     |
+| **STT**        | Backend-proxied transcription through `tinyinference-voice`, with authentication bound in `crates/openhuman-core/src/voice/cloud_transcribe.rs`. There is no local STT engine. |
 | **TTS**        | Hosted [text-to-speech](../native-tools/voice.md) under the hood (`reply_speech.rs`).          |
 | **Web search** | Backend proxy (no API key on your machine).                                                    |
 
@@ -49,7 +47,7 @@ Under the hood, OpenHuman supports two local provider paths:
 
 For Ollama, OpenHuman talks to its OpenAI-compatible `/v1` endpoint where possible. That means:
 
-- The `OpenAiCompatibleProvider` (`crates/openhuman-core/src/providers/compatible.rs`) wraps Ollama exactly the way it wraps a remote OpenAI-style provider. No special-case code path.
+- The OpenAI-compatible provider (`crates/openhuman-core/src/inference/provider/crate_openai.rs`) wraps Ollama exactly the way it wraps a remote OpenAI-style provider. No special-case code path.
 - The provider router creates a _health-gated_ local provider on startup. If Ollama is not reachable, requests transparently fall back to the remote provider, no broken state.
 - Models are pulled on demand by Ollama and cached in its own store. OpenHuman doesn't ship the weights itself.
 
@@ -66,9 +64,9 @@ Local runtime startup is gated in the core config (`crates/openhuman-core/src/co
 | `local_ai.provider`                  | `ollama` | Local provider: `ollama` or `lm_studio`.                                 |
 | `local_ai.base_url`                  | unset    | Optional provider URL. LM Studio defaults to `http://localhost:1234/v1`. |
 | `local_ai.usage.embeddings`          | `false`  | Legacy preset/migration flag for memory embeddings.                      |
-| `local_ai.usage.heartbeat`           | `false`  | Legacy preset/migration flag for the heartbeat loop.                     |
+| `local_ai.usage.heartbeat`           | `false`  | Legacy preset/migration flag; the heartbeat loop is not in this build.   |
 | `local_ai.usage.learning_reflection` | `false`  | Legacy preset/migration flag for learning passes.                        |
-| `local_ai.usage.subconscious`        | `false`  | Legacy preset/migration flag for the subconscious loop.                  |
+| `local_ai.usage.subconscious`        | `false`  | Legacy preset/migration flag; the subconscious loop is not in this build. |
 
 Unified workload provider fields control chat/reasoning routing. Set them to an Ollama provider string when you want those paths on-device:
 
@@ -98,7 +96,7 @@ Local AI is worth turning on if any of these are true:
 
 - Keep embeddings local when ingesting large volumes of email / chat.
 - Enable **summary-tree building** to work offline.
-- Keep background reflection ("subconscious") loops on-device for privacy-sensitive work.
+- Keep learning and reflection passes on-device for privacy-sensitive work.
 
 It is **not** worth turning on if you only have a few sources connected, the cloud path is faster and the privacy benefit is small. There is also a hardware cost: Ollama and a small Gemma model want a few GB of RAM and pull a few GB of weights.
 

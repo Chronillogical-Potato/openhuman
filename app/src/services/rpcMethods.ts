@@ -1,4 +1,8 @@
 export const CORE_RPC_METHODS = {
+  authClearCredential: 'openhuman.auth_clear_credential',
+  authGetSessionToken: 'openhuman.auth_get_session_token',
+  authGetState: 'openhuman.auth_get_state',
+  authSetCredential: 'openhuman.auth_set_credential',
   configGet: 'openhuman.config_get',
   configGetAgentPaths: 'openhuman.config_get_agent_paths',
   configGetAgentSettings: 'openhuman.config_get_agent_settings',
@@ -66,6 +70,11 @@ export const CORE_RPC_METHODS = {
 type CoreRpcMethod = (typeof CORE_RPC_METHODS)[keyof typeof CORE_RPC_METHODS];
 
 export const LEGACY_METHOD_ALIASES: Record<string, CoreRpcMethod> = {
+  // The session RPCs became the kind-agnostic credential pair once the core
+  // stopped validating sessions itself. Mirrored in
+  // crates/openhuman-core/src/core/legacy_aliases.rs.
+  'openhuman.auth_clear_session': CORE_RPC_METHODS.authClearCredential,
+  'openhuman.auth_store_session': CORE_RPC_METHODS.authSetCredential,
   // #3565: old desktop clients used dotted namespace/function channel calls.
   'channels.list': CORE_RPC_METHODS.channelsList,
   // MCP clients — old method names that appeared in Sentry (CORE-RUST-DR/DS/DT/DV/DW).

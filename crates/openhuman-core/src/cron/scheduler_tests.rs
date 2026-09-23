@@ -41,7 +41,6 @@ fn test_job(command: &str) -> CronJob {
         session_target: SessionTarget::Isolated,
         model: None,
         agent_id: None,
-        profile_id: None,
         enabled: true,
         delivery: DeliveryConfig::default(),
         delete_after_run: false,
@@ -107,5 +106,3 @@ mod classifier_and_delivery_tests;
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
-#[path = "scheduler_profile_and_shell_tests.rs"]
-mod profile_and_shell_tests;

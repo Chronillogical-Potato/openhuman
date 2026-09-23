@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  bootRuntimeReadyGuestPage,
+  bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
-  signInViaCallbackToken,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
@@ -30,20 +29,39 @@ import {
 const SEARCH = 'skill-search-input';
 
 async function openSkillsTab(page: import('@playwright/test').Page, userId: string) {
-  await bootRuntimeReadyGuestPage(page);
-  await signInViaCallbackToken(page, userId);
-  await page.evaluate(() => {
+  // The Skills surface asks for Composio's curated-toolkit labels while it
+  // mounts. That native connector bootstrap is unrelated to local catalog
+  // search/install behavior and can fault the standalone test core, obscuring
+  // this spec's actual browser contract.
+  await page.route('**/rpc', async (route, request) => {
     try {
-      localStorage.setItem('openhuman:walkthrough_completed', 'true');
-      localStorage.removeItem('openhuman:walkthrough_pending');
-    } catch {}
-    window.location.hash = '/connections?tab=skills';
+      const body = JSON.parse(request.postData() || '{}');
+      if (body.method === 'openhuman.composio_list_agent_ready_toolkits') {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: { result: { toolkits: [] }, logs: [] },
+          }),
+        });
+        return;
+      }
+    } catch {
+      // Let malformed or unrelated RPCs reach the real core.
+    }
+    await route.continue();
   });
+  // `signInViaBypassUser` intentionally settles on the chat landing route.
+  // Use the authenticated-route helper so its post-auth shell restoration
+  // cannot overwrite this spec's Connections deep link.
+  await bootAuthenticatedPage(page, userId, '/connections?tab=skills');
   await expect
     .poll(() => page.evaluate(() => window.location.hash), { timeout: 15_000 })
     .toContain('tab=skills');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
+  await page.getByTestId('skill-explorer-tab-registry').click();
   await expect(page.getByTestId(SEARCH)).toBeVisible({ timeout: 20_000 });
 }
 
@@ -103,13 +121,42 @@ test.describe('Skills explorer — the search box debounces', () => {
 
 test.describe('Skills explorer — typing narrows what is on screen', () => {
   test('a query with no matches leaves no catalog rows', async ({ page }) => {
+    const entry = {
+      id: 'fixture-skill',
+      name: 'Fixture skill',
+      description: 'A deterministic catalog fixture.',
+      source: 'fixture',
+      category: 'testing',
+      author: null,
+      version: null,
+      tags: [],
+      platforms: [],
+      download_url: 'https://example.invalid/fixture',
+      docs_path: null,
+      commands: [],
+      env_vars: [],
+      license: null,
+    };
+    await page.route('**/rpc', async (route, request) => {
+      const body = JSON.parse(request.postData() || '{}');
+      if (
+        !['openhuman.skill_registry_browse', 'openhuman.skill_registry_search'].includes(
+          body.method
+        )
+      ) {
+        await route.continue();
+        return;
+      }
+      const entries = body.params?.query ? [] : [entry];
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { entries } }),
+      });
+    });
     await openSkillsTab(page, 'pw-skills-nomatch');
 
-    // Baseline: the catalog has something in it.
-    await expect(page.getByRole('row').first()).toBeVisible({ timeout: 20_000 });
-
     const rows = page.locator('[data-testid^="registry-install-"]');
-    await expect(rows.first()).toBeVisible({ timeout: 20_000 });
+    await expect(rows.first()).toBeVisible();
 
     await searchBox(page).fill('zzzz-no-such-skill-zzzz');
     // Any install button is a catalog row; none should survive this query.

@@ -46,9 +46,9 @@ Options:
 
 Examples:
   node scripts/debug/harness-subagent-rpc-audit.mjs
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model agentic-v1
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model agentic-v1
-  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model agentic-v1
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --model hint:agentic
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario parallel-research-code --model hint:agentic
+  node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --scenario reuse-parent-comm --model hint:agentic
   node scripts/debug/harness-subagent-rpc-audit.mjs --spawn-core --isolated-workspace --provider-mode direct-openai --scenario reuse-parent-comm --model gpt-4.1-mini
 `;
 }
@@ -644,7 +644,7 @@ function backendApiUrl() {
 }
 
 async function writeIsolatedOpenHumanBackendConfig(workspace, model) {
-  const providerModel = model?.trim() || "agentic-v1";
+  const providerModel = model?.trim() || "hint:agentic";
   await writeFile(
     path.join(workspace, "config.toml"),
     `api_url = ${JSON.stringify(backendApiUrl())}
@@ -1001,7 +1001,7 @@ async function main() {
     if (!opts.model) {
       opts.model =
         opts.providerMode === "openhuman-backend"
-          ? "agentic-v1"
+          ? "hint:agentic"
           : "gpt-4.1-mini";
     }
   }

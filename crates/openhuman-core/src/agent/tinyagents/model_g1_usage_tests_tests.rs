@@ -4,8 +4,8 @@
 //! reconstruct exactly via [`usage_info_from_response`].
 use super::*;
 
-fn empty_registry() -> crate::agent::pformat::PFormatRegistry {
-    crate::agent::pformat::PFormatRegistry::default()
+fn empty_registry() -> tinytools_agent::PFormatRegistry {
+    tinytools_agent::PFormatRegistry::default()
 }
 
 #[test]
@@ -69,6 +69,18 @@ fn no_billing_metadata_leaves_raw_clean() {
 }
 
 #[test]
+fn provider_neutral_total_cost_metadata_is_recovered() {
+    let model_response = ModelResponse {
+        usage: Some(Usage::new(8, 3)),
+        raw: Some(serde_json::json!({"total_cost_usd": 0.0042})),
+        ..ModelResponse::assistant("done")
+    };
+
+    let recovered = usage_info_from_response(&model_response).expect("usage info");
+    assert!((recovered.charged_amount_usd - 0.0042).abs() < 1e-9);
+}
+
+#[test]
 fn no_usage_reconstructs_to_none() {
     let chat = ChatResponse {
         text: Some("hi".to_string()),
@@ -110,7 +122,7 @@ fn tool_enabled_response_still_extracts_tool_call_markup() {
 
 fn tool_request() -> ModelRequest {
     ModelRequest {
-        tools: vec![tinyinference::tool::ToolSchema::new(
+        tools: vec![tinyinference_llm::tool::ToolSchema::new(
             "lookup",
             "looks up a record",
             serde_json::json!({

@@ -2,16 +2,17 @@
 //! invalid-token retry decision, and the emit-queue drain used on shutdown.
 
 use crate::platform::socket::medulla::workflows;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
 use tokio::sync::{mpsc, watch};
-use tokio::time::Duration;
+use tokio::time::{Duration, Instant};
 
 use crate::api::models::socket::ConnectionStatus;
 
-use super::connect::run_connection;
+use super::connect::{run_connection, ReconnectContext};
 use crate::platform::socket::manager::{emit_state_change, SharedState};
 use crate::platform::socket::token_provider::{is_invalid_token_error, TokenProvider};
 use crate::platform::socket::types::ConnectionOutcome;
@@ -34,6 +35,17 @@ use crate::platform::socket::types::ConnectionOutcome;
 /// Sentry events because every retry was logged at `error`.
 pub(super) const FAIL_ESCALATE_THRESHOLD: u32 = 5;
 
+/// Clears `SharedState::loop_active` when the loop task ends, whatever the
+/// exit path — a `return`, a `break`, or an abort from `terminate_loop`
+/// (dropping the future drops this guard too).
+struct LoopActiveGuard<'a>(&'a SharedState);
+
+impl Drop for LoopActiveGuard<'_> {
+    fn drop(&mut self) {
+        self.0.loop_active.store(false, Ordering::Release);
+    }
+}
+
 /// Background loop that manages the WebSocket connection and reconnection.
 ///
 /// `token_provider` is called before **each** connection attempt, so a
@@ -55,6 +67,14 @@ pub(crate) async fn ws_loop(
     internal_tx: mpsc::UnboundedSender<String>,
     emit_ready: Arc<Mutex<bool>>,
 ) {
+    // `spawn_loop` raises the flag before the task starts; a direct caller
+    // (tests) gets the same contract from here. The guard lowers it on exit.
+    shared.loop_active.store(true, Ordering::Release);
+    shared
+        .loop_stopped_on_failure
+        .store(false, Ordering::Release);
+    let _loop_active = LoopActiveGuard(&shared);
+
     let mut backoff = Duration::from_millis(1000);
     let max_backoff = Duration::from_secs(30);
     let mut consecutive_failures: u32 = 0;
@@ -83,6 +103,9 @@ pub(crate) async fn ws_loop(
     // follow the Location header and pin the resolved URL here so subsequent
     // reconnects skip the redirect round-trip entirely.
     let mut ws_url = crate::api::socket::websocket_url(&url);
+    // What the next attempt is recovering from, so the handshake can log how
+    // long the socket was down and how many attempts it took (#6256).
+    let mut reconnect = ReconnectContext::default();
 
     loop {
         if *shutdown_rx.borrow() {
@@ -105,6 +128,9 @@ pub(crate) async fn ws_loop(
                 Ok(t) if !t.trim().is_empty() => t,
                 Ok(_) => {
                     log::warn!("[socket] ws_loop: token provider returned empty token — stopping");
+                    shared
+                        .loop_stopped_on_failure
+                        .store(true, Ordering::Release);
                     *shared.error.write() =
                         Some("session expired — please sign in again".to_string());
                     *shared.status.write() = ConnectionStatus::Disconnected;
@@ -114,6 +140,9 @@ pub(crate) async fn ws_loop(
                 }
                 Err(e) => {
                     log::warn!("[socket] ws_loop: token provider failed — stopping: {e}");
+                    shared
+                        .loop_stopped_on_failure
+                        .store(true, Ordering::Release);
                     *shared.error.write() =
                         Some("session expired — please sign in again".to_string());
                     *shared.status.write() = ConnectionStatus::Disconnected;
@@ -137,6 +166,11 @@ pub(crate) async fn ws_loop(
         *shared.status.write() = ConnectionStatus::Connecting;
         emit_state_change(&shared);
 
+        // Taken before the attempt so a stalled first dial counts toward the
+        // outage it starts: `Failed` lands only after the connect deadline has
+        // run out, and dating the outage from then would hide that whole wait
+        // from the `Connected after …` line (Codex review on #6270).
+        let attempt_started = Instant::now();
         let outcome = run_connection(
             &mut ws_url,
             &token,
@@ -145,6 +179,7 @@ pub(crate) async fn ws_loop(
             &mut shutdown_rx,
             &internal_tx,
             &emit_ready,
+            reconnect,
         )
         .await;
 
@@ -179,6 +214,24 @@ pub(crate) async fn ws_loop(
         // `SocketManager::disconnect()` (CodeRabbit #4355).
         shared.ack_registry.cancel_all();
         workflows::end_connection_generation();
+
+        match &outcome {
+            ConnectionOutcome::Lost(_) => {
+                reconnect = ReconnectContext {
+                    outage_started: Some(Instant::now()),
+                    lost_previous: true,
+                    failed_attempts: 0,
+                    escalated: false,
+                };
+            }
+            ConnectionOutcome::Failed(_) => {
+                if reconnect.outage_started.is_none() {
+                    reconnect.outage_started = Some(attempt_started);
+                }
+                reconnect.failed_attempts = reconnect.failed_attempts.saturating_add(1);
+            }
+            ConnectionOutcome::Shutdown => {}
+        }
 
         match outcome {
             ConnectionOutcome::Shutdown => {
@@ -235,7 +288,11 @@ pub(crate) async fn ws_loop(
                                  retried once this cycle — escalating to normal backoff path"
                             );
                             consecutive_failures = consecutive_failures.saturating_add(1);
-                            log_connection_failure(consecutive_failures, &reason);
+                            reconnect.escalated |= log_connection_failure(
+                                consecutive_failures,
+                                reconnect.outage_started.map(|t| t.elapsed()),
+                                &reason,
+                            );
                             // Fall through to the backoff sleep below.
                             // Intentionally drop `fresh` here: the bounded
                             // path now demands a backoff sleep, after which
@@ -272,6 +329,9 @@ pub(crate) async fn ws_loop(
                         // on what is provably a dead token. This is the core fix
                         // for TAURI-RUST-9C (#2892).
                         log::warn!("[socket] Session expired ({reason}) — stopping reconnect loop");
+                        shared
+                            .loop_stopped_on_failure
+                            .store(true, Ordering::Release);
                         *shared.error.write() =
                             Some("session expired — please sign in again".to_string());
                         *shared.status.write() = ConnectionStatus::Disconnected;
@@ -283,12 +343,22 @@ pub(crate) async fn ws_loop(
             }
             ConnectionOutcome::Failed(reason) => {
                 consecutive_failures = consecutive_failures.saturating_add(1);
-                log_connection_failure(consecutive_failures, &reason);
+                reconnect.escalated |= log_connection_failure(
+                    consecutive_failures,
+                    reconnect.outage_started.map(|t| t.elapsed()),
+                    &reason,
+                );
                 // keep growing backoff
             }
         }
 
-        *shared.status.write() = ConnectionStatus::Disconnected;
+        // Between attempts the loop is alive and will retry, so report
+        // `Reconnecting` rather than `Disconnected`: `Disconnected` is what a
+        // stopped loop reports (signed out, session expired, shutdown), and
+        // the frontend's connectivity chip has to tell the two apart — a link
+        // that is down but being retried is an outage worth showing, a loop
+        // that was never started is not (#6256).
+        *shared.status.write() = ConnectionStatus::Reconnecting;
         *shared.socket_id.write() = None;
         emit_state_change(&shared);
 
@@ -331,9 +401,16 @@ pub(crate) async fn ws_loop(
 /// - Above the threshold: `warn` — already paged once; avoid unbounded events
 ///   during a long outage.
 ///
+/// Returns whether this call fired the one-shot escalation, so the caller can
+/// remember that the outage paged and report its duration on recovery (#6417).
+///
 /// Extracted as a pure function so it can be unit-tested without running an
 /// async event loop or touching the WS stack.
-pub(super) fn log_connection_failure(consecutive: u32, reason: &str) {
+pub(super) fn log_connection_failure(
+    consecutive: u32,
+    outage: Option<Duration>,
+    reason: &str,
+) -> bool {
     if consecutive == FAIL_ESCALATE_THRESHOLD {
         // Route the one-shot sustained-outage escalation through the
         // observability classifier so an offline user (no wifi / airplane mode
@@ -353,16 +430,57 @@ pub(super) fn log_connection_failure(consecutive: u32, reason: &str) {
             "ws_connect",
             &[("attempts", attempts.as_str())],
         );
+        // Report the outage as "paged" only if the classifier actually let the
+        // event through. An offline user (`Network is unreachable`, airplane
+        // mode — OPENHUMAN-TAURI-BH) is demoted to a warn breadcrumb here, and
+        // claiming otherwise would make the recovery report in
+        // `run_connection` fire a Sentry event on the way back up — the same
+        // noise, moved one step later. Pairing on the *reported* escalation
+        // keeps it at exactly two events for a genuine outage and zero for a
+        // user who simply closed their laptop lid.
+        crate::core::observability::expected_error_kind(&detailed).is_none()
     } else {
         // Below threshold (transient blips) or above threshold (already fired
         // the one-shot error): stay at `warn` so subsequent retries don't pile
         // up additional Sentry events.
-        log::warn!(
-            "[socket] Connection failed (attempt {}/{}): {}",
-            consecutive,
-            FAIL_ESCALATE_THRESHOLD,
-            reason
-        );
+        log::warn!("{}", render_attempt_line(consecutive, outage, reason));
+        false
+    }
+}
+
+/// Render the `warn`-level line for a failed attempt.
+///
+/// `FAIL_ESCALATE_THRESHOLD` is the point at which the loop *pages*, not a cap
+/// on retries — the loop retries forever by design. Printing it as the
+/// denominator of every attempt is what produced `attempt 32/5` in #6417: a
+/// counter apparently past its own maximum, which reads as a bug in the loop
+/// rather than the intended behaviour.
+///
+/// So the denominator is only shown while it is still true. Past the threshold
+/// the line drops it and reports what actually matters during a long outage —
+/// how long the socket has been down — which is also what the reporter asked
+/// for. Duration is in seconds to match the `Connected after …` line that
+/// closes the outage out in `run_connection`.
+///
+/// A pure `String` so the wording is directly assertable without a tracing
+/// capture layer.
+pub(super) fn render_attempt_line(
+    consecutive: u32,
+    outage: Option<Duration>,
+    reason: &str,
+) -> String {
+    if consecutive <= FAIL_ESCALATE_THRESHOLD {
+        format!("[socket] Connection failed (attempt {consecutive}/{FAIL_ESCALATE_THRESHOLD}): {reason}")
+    } else {
+        match outage {
+            Some(down) => format!(
+                "[socket] Connection failed (attempt {consecutive}, still retrying after {:.0}s down): {reason}",
+                down.as_secs_f64()
+            ),
+            None => format!(
+                "[socket] Connection failed (attempt {consecutive}, still retrying): {reason}"
+            ),
+        }
     }
 }
 

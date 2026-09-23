@@ -283,6 +283,7 @@ fn journal_observation_content_follows_capture_gate() {
                 duration_ms: Some(20),
                 output_bytes: Some(13),
                 error: None,
+                metadata: None,
             },
         ),
     ];

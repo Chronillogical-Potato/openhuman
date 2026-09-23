@@ -94,8 +94,10 @@ pub(super) fn check_embedding_model_health(config: &Config, items: &mut Vec<Diag
 
     // Resolve the effective (intended, non-probed) embedding settings.
     let local_embedding_model = config.workload_local_model("embeddings");
-    let (provider, model, _dims) = crate::inference::embeddings::effective_embedding_settings(
-        &config.memory,
+    let (provider, model, _dims) = tinyinference_embeddings::catalog::effective_embedding_settings(
+        &config.memory.embedding_provider,
+        &config.memory.embedding_model,
+        config.memory.embedding_dimensions,
         local_embedding_model.as_deref(),
     );
 
@@ -111,7 +113,7 @@ pub(super) fn check_embedding_model_health(config: &Config, items: &mut Vec<Diag
     }
 
     // Ollama path: probe reachability then model availability.
-    let base_url = crate::inference::local::ollama_base_url();
+    let base_url = tinyinference_local::ollama::ollama_base_url();
     let tags_url = format!("{}/api/tags", base_url.trim_end_matches('/'));
 
     log::debug!("[doctor] probing ollama at {tags_url} for embedding model {model}");

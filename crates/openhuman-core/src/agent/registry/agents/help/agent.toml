@@ -1,7 +1,7 @@
 id = "help"
 display_name = "Help"
 delegate_name = "ask_docs"
-when_to_use = "Product help: how OpenHuman works, what a feature does, how to configure it, where a guide lives. Reads the OpenHuman GitBook docs. Use it for any question about OpenHuman itself rather than guessing."
+when_to_use = "Questions about OpenHuman itself (features, configuration, guides), answered from the product docs instead of guessing."
 temperature = 0.3
 max_iterations = 6
 sandbox_mode = "read_only"

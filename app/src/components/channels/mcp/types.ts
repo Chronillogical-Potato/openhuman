@@ -52,6 +52,9 @@ export type SmitheryServerDetail = SmitheryServer & {
 
 export type CommandKind = 'node' | 'python' | 'binary';
 
+/** How an installed server is dialled: a local subprocess or a hosted endpoint. */
+export type InstalledTransport = { kind: 'stdio' } | { kind: 'http_remote'; url: string };
+
 export type InstalledServer = {
   server_id: string;
   qualified_name: string;
@@ -65,7 +68,40 @@ export type InstalledServer = {
   config?: unknown;
   installed_at: number;
   last_connected_at?: number;
+  /** Absent on rows persisted before the field existed; those are stdio. */
+  transport?: InstalledTransport;
   enabled: boolean;
+};
+
+/**
+ * One server as `mcp.json` declares it. Exactly one of `url` (hosted) or
+ * `command` (run locally) is set. `env` (local) / `headers` (hosted) are
+ * write-only credentials: accepted on save, never present on a read. A read
+ * carries `envKeys` (the stored names) and `authConfigured` instead; both are
+ * ignored on save.
+ */
+export type McpConfigEntry = {
+  url?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  headers?: Record<string, string>;
+  description?: string;
+  enabled?: boolean;
+  envKeys?: string[];
+  authConfigured?: boolean;
+  /** Tolerated for documents copied from other clients; ignored. */
+  type?: string;
+};
+
+/** The document: `{ "mcpServers": { … } }`. */
+export type McpConfigDoc = { mcpServers: Record<string, McpConfigEntry> };
+
+/** What a save answers: the re-rendered document plus what changed. */
+export type McpConfigWriteResult = McpConfigDoc & {
+  added: string[];
+  updated: string[];
+  removed: string[];
 };
 
 export type McpTool = { name: string; description?: string; input_schema: unknown };

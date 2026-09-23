@@ -23,7 +23,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import socketReducer from '../../store/socketSlice';
@@ -71,8 +70,6 @@ vi.mock('../../services/api/threadApi', () => ({
     getThreads: mockGetThreads,
     getThreadMessages: mockGetThreadMessages,
     getTurnState: vi.fn().mockResolvedValue(null),
-    getTaskBoard: vi.fn().mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '' }),
-    putTaskBoard: vi.fn().mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '' }),
     appendMessage: vi.fn().mockResolvedValue({}),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -84,34 +81,10 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
-vi.mock('../../services/api/agentProfilesApi', () => ({
-  agentProfilesApi: {
-    list: vi
-      .fn()
-      .mockResolvedValue({
-        activeProfileId: 'default',
-        profiles: [
-          {
-            id: 'default',
-            name: 'Default',
-            description: 'Default',
-            agentId: 'orchestrator',
-            builtIn: true,
-          },
-        ],
-      }),
-    select: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-  },
-}));
-
 vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeModels: vi.fn() }));
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-// The new-window hero pulls useUser/useCoreState; stub it so the page renders
-// without a CoreStateProvider.
 vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 
 vi.mock('../../store/socketSelectors', () => ({
@@ -119,7 +92,6 @@ vi.mock('../../store/socketSelectors', () => ({
     state.socket?.byUser?.__pending__?.status ?? 'disconnected',
 }));
 
-// useStickToBottom returns refs; mock it so layout-effects don't fire in jsdom.
 vi.mock('../../hooks/useStickToBottom', () => ({
   useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
 }));
@@ -145,9 +117,6 @@ vi.mock('../../lib/coreState/store', () => ({
   setCoreStateSnapshot: vi.fn(),
 }));
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-/** Build a minimal Redux store with the slices Conversations reads, optionally preloaded. */
 function buildStore(preload: Record<string, unknown> = {}) {
   return configureStore({
     reducer: combineReducers({
@@ -155,14 +124,12 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,
   });
 }
 
-/** Construct a `Thread` fixture with sensible defaults, overridable per field. */
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: 't-1',
@@ -189,7 +156,6 @@ const emptyThreadState = {
   messagesError: null,
 };
 
-/** Thread-slice preload with `thread` present, selected, and holding an empty message list. */
 function selectedThreadState(thread: Thread) {
   return {
     ...emptyThreadState,
@@ -200,14 +166,12 @@ function selectedThreadState(thread: Thread) {
   };
 }
 
-/** Socket-slice preload that pins the pending-user connection to the given status. */
 function socketState(status: 'connected' | 'disconnected') {
   return {
     byUser: { __pending__: { status, socketId: status === 'connected' ? 'socket-1' : null } },
   };
 }
 
-/** Render the Human-page chat embed: sidebar variant with the mic-cloud composer. */
 async function renderSidebar(preload: Record<string, unknown> = {}) {
   const store = buildStore(preload);
   const { default: Conversations } = await import('../../features/conversations/Conversations');
@@ -217,8 +181,6 @@ async function renderSidebar(preload: Record<string, unknown> = {}) {
     ({ container } = render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/human']}>
-          {/* The thread sidebar is projected into the root sidebar slot, so the
-              embed needs a provider + outlet for that portal to mount. */}
           <SidebarSlotProvider>
             <SidebarSlotOutlet />
             <Conversations variant="sidebar" composer="mic-cloud" projectThreadList />
@@ -228,10 +190,8 @@ async function renderSidebar(preload: Record<string, unknown> = {}) {
     ));
   });
 
-  return { store, container };
+  return { container };
 }
-
-// ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('Conversations — sidebar composer footer overflow (#3785)', () => {
   beforeEach(() => {
@@ -252,14 +212,8 @@ describe('Conversations — sidebar composer footer overflow (#3785)', () => {
 
     const footer = container.querySelector('[data-walkthrough="home-cta"]');
     expect(footer).not.toBeNull();
-    // Shrinkable + internally scrollable: on a short window the flex algorithm
-    // caps the footer to the available height and it scrolls, instead of being
-    // silently clipped by the overflow-hidden mainPanel. (Uses flex shrink, not
-    // a percentage max-height — the latter doesn't reliably resolve inside a
-    // stretched flex item in Chromium.)
     expect(footer).toHaveClass('overflow-y-auto');
     expect(footer).toHaveClass('min-h-0');
-    // It must be allowed to shrink (no flex-shrink-0) so it can give way + scroll.
     expect(footer).not.toHaveClass('shrink-0');
   });
 
@@ -283,8 +237,6 @@ describe('Conversations — sidebar composer footer overflow (#3785)', () => {
 
     const composer = container.querySelector('[data-slot="aui_composer-shell"]');
     expect(composer).not.toBeNull();
-    // The assistant-ui thread owns an in-flow composer. The old absolute
-    // home-cta footer must not reappear and cover the message viewport.
     expect(composer?.closest('.aui-composer-root')).not.toHaveClass('absolute');
     expect(container.querySelector('[data-walkthrough="home-cta"]')).toBeNull();
   });

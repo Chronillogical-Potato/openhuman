@@ -31,7 +31,7 @@ use anyhow::{Context, Result};
 use crate::agent::harness::fork_context::{
     current_parent, with_parent_context, ParentExecutionContext,
 };
-use crate::agent::Agent;
+use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 
 const LOG_TARGET: &str = "agent_orchestration::parent_context";
@@ -83,7 +83,7 @@ pub(crate) async fn build_root_parent(
         }
     }
 
-    let mut agent = Agent::from_config(config)
+    let mut agent = OpenHumanSessionHost::from_config(config)
         .context("build Agent from config for orchestration root parent")?;
 
     let integrations = crate::integrations::composio::fetch_connected_integrations(config).await;
@@ -113,7 +113,7 @@ pub(crate) async fn build_root_parent(
         session_id: format!("{session_prefix}-{}", uuid::Uuid::new_v4()),
         channel: channel.to_string(),
         connected_integrations: agent.connected_integrations().to_vec(),
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::PFormat,
         session_key: agent.session_key().to_string(),
         session_parent_prefix: agent.session_parent_prefix().map(str::to_string),
         on_progress: None,
@@ -130,7 +130,7 @@ pub(crate) async fn build_root_parent(
 /// surface cannot install a hand-rolled parent, and — the TAURI-RUST-HMW
 /// failure mode — cannot *forget* to install one at all and have every nested
 /// `spawn_subagent` die at runtime with
-/// [`SubagentRunError::NoParentContext`](crate::agent::harness::subagent_runner::SubagentRunError::NoParentContext).
+/// [`SubagentRunError::NoParentContext`](crate::agent::subagent_host::SubagentRunError::NoParentContext).
 /// Running a background surface and establishing its root context become the
 /// same act.
 ///

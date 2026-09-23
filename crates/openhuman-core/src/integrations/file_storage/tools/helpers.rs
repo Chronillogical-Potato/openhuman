@@ -6,7 +6,7 @@ use serde_json::Value;
 use tinytools::ToolRunContext;
 
 use crate::security::SecurityPolicy;
-use crate::tools::traits::ToolResult;
+use tinytools::ToolResult;
 
 pub(super) const FILES_PATH: &str = "/agent-integrations/file-storage/files";
 

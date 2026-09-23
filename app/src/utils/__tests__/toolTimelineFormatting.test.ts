@@ -68,43 +68,23 @@ describe('formatTimelineEntry', () => {
     });
   });
 
-  it('formats delegate_to_integrations_agent with a known toolkit arg', () => {
+  it('labels a direct connected-service action by its provider', () => {
     expect(
       formatTimelineEntry(
-        entry({
-          name: 'delegate_to_integrations_agent',
-          argsBuffer: JSON.stringify({
-            toolkit: 'gmail',
-            prompt: 'Find the latest invoice from Stripe.',
-          }),
-        })
+        entry({ name: 'GMAIL_SEND_EMAIL', argsBuffer: JSON.stringify({ to: 'alex@example.com' }) })
       )
-    ).toEqual({
-      title: 'Making requests to your Gmail account',
-      detail: 'Find the latest invoice from Stripe.',
+    ).toEqual({ title: 'Making requests to your Gmail account', detail: 'Send email' });
+    expect(formatTimelineEntry(entry({ name: 'GOOGLE_CALENDAR_CREATE_EVENT' }))).toEqual({
+      title: 'Updating your Google Calendar',
+      detail: 'Create event',
     });
   });
 
-  it('formats delegate_to_integrations_agent with an unknown toolkit arg', () => {
-    expect(
-      formatTimelineEntry(
-        entry({
-          name: 'delegate_to_integrations_agent',
-          argsBuffer: JSON.stringify({ toolkit: 'slack_bot', prompt: 'post update' }),
-        })
-      )
-    ).toEqual({ title: 'Checking your Slack Bot', detail: 'post update' });
-  });
-
-  it('formats delegate_to_integrations_agent without a toolkit arg as a generic connected-app label', () => {
-    expect(
-      formatTimelineEntry(
-        entry({
-          name: 'delegate_to_integrations_agent',
-          argsBuffer: JSON.stringify({ prompt: 'do something useful' }),
-        })
-      )
-    ).toEqual({ title: 'Checking your connected app', detail: 'do something useful' });
+  it('keeps the generic label for upper-case names on unknown toolkits', () => {
+    expect(formatTimelineEntry(entry({ name: 'STRIPE_LIST_CHARGES' }))).toEqual({
+      title: 'STRIPE LIST CHARGES',
+      detail: undefined,
+    });
   });
 
   it('formats delegate_tools_agent with toolkit context from args', () => {
@@ -303,7 +283,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }),
         })
       )
-    ).toEqual({ title: 'Listing directory', detail: 'crates/openhuman-core/src/tools' });
+    ).toEqual({ title: 'Listing directory', detail: '…/src/tools' });
   });
 
   it('formats browser_open with hostname', () => {
@@ -402,7 +382,6 @@ describe('isKnownClientTool', () => {
     expect(isKnownClientTool('file_read')).toBe(true);
     expect(isKnownClientTool('shell')).toBe(true);
     expect(isKnownClientTool('subagent:researcher')).toBe(true);
-    expect(isKnownClientTool('delegate_to_integrations_agent')).toBe(true);
     // The streamed search-slot name, so the client label wins over the
     // server's humanized "Web Search Tool".
     expect(isKnownClientTool('web_search_tool')).toBe(true);

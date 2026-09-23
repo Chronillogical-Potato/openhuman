@@ -79,7 +79,7 @@ OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہ
 
 - **[میموری ٹری](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: آپ کا ڈیٹا اسکور شدہ Markdown درختوں میں کمپریس ہو کر آپ کی مشین پر SQLite میں محفوظ ہوتا ہے، اور ایک [Obsidian والٹ](https://x.com/karpathy/status/2039805659525644595) کے طور پر عکس بند ہوتا ہے جسے آپ کھول اور ایڈٹ کر سکتے ہیں۔ کوئی ویکٹر سوپ بلیک باکس نہیں۔
 - **[100+ OAuth انضمام، 5,000+ MCP سرورز، 90,000+ سکلز](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: ایک کلک سے Gmail، Notion، GitHub، Slack اور اپنے باقی اسٹیک میں پلگ ان کریں۔ [خودکار لانا](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) ہر 20 منٹ میں دماغ کو خوراک دیتا ہے۔ اس کے پاس آج صبح ہی کل کا سیاق و سباق ہوتا ہے۔
-- **[اہداف اور ٹوڈوز](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: طویل مدتی اہداف، فی تھریڈ پائیدار اہداف، اور ہر گفتگو کے لیے ایک مشترکہ کنبان بورڈ۔
+- **[اہداف اور ٹوڈوز](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: طویل مدتی اہداف، فی تھریڈ پائیدار اہداف، اور چیٹ میں دکھائی جانے والی ایجنٹ کی ٹوڈو فہرست۔
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ٹول آؤٹ پٹ ماڈل تک پہنچنے سے پہلے کمپریس ہوتا ہے: وہی معلومات، 80% تک کم ٹوکنز۔ اتنا بڑا دماغ اس کے بغیر ناقابلِ برداشت مہنگا ہوتا۔
 
 ### 🕸️ آرکسٹریٹر
@@ -90,9 +90,9 @@ OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہ
 
 ### 🔬 گہرا محقق اور کام کرنے والا
 
-- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، ان پروسیس Whisper کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md)، اور ساتھ [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
+- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، بیک اینڈ کے ذریعے تقریر سے متن اور ہوسٹ شدہ یا مقامی Piper کے ذریعے متن سے تقریر کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md)، اور ساتھ [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
 - **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit تصاویر اور Seedance/Veo ویڈیو، براہ راست آپ کے ورک اسپیس میں، اسی سبسکرپشن پر۔
-- **[17 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
+- **[15 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
 
 ### 🧍 انسانی، نجی، آپ کا اپنا
 
@@ -185,7 +185,7 @@ n8n اور Zapier سے گہرے متاثر، [ورک فلوز](https://tinyhuman
 | **آرکسٹریشن**      | ⚠️ ذیلی ٹاسکس            | ⚠️ ایک لوپ          | ⚠️ ایک لوپ          | 🚀 ایجنٹ گرافس + چیک پوائنٹس + E2E-انکرپٹڈ A2A                                                         |
 | **ورک فلوز**       | 🚫 کوئی نہیں             | ⚠️ اسکرپٹس          | ⚠️ اسکرپٹس          | 🚀 بصری، پائیدار، ایجنٹ کی تجویز کردہ، منظوری سے محفوظ                                                 |
 | **میٹنگز**         | 🚫 کوئی نہیں             | 🚫 کوئی نہیں        | 🚫 کوئی نہیں        | 🚀 Meet/Zoom/Teams/Webex میں شامل، بولتا ہے، لائیو ٹرانسکرپٹ                                           |
-| **میسجنگ چینلز**   | 🚫 کوئی نہیں             | ⚠️ چند ایک          | ⚠️ چند ایک          | ✅ 17 بشمول مقامی ای میل (IMAP/SMTP)                                                                   |
+| **میسجنگ چینلز**   | 🚫 کوئی نہیں             | ⚠️ چند ایک          | ⚠️ چند ایک          | ✅ 15 بشمول مقامی ای میل (IMAP/SMTP)                                                                   |
 | **صرف مقامی موڈ**  | 🚫 صرف کلاؤڈ             | ⚠️ اپنا مقامی لائیں | ⚠️ اپنا مقامی لائیں | ✅ ایک سوئچ سے نافذ پرائیویسی موڈ                                                                      |
 | **مشاہدہ پذیری**   | 🚫 غیر شفاف              | ⚠️ لاگز             | ⚠️ لاگز             | ✅ قابلِ اعادہ رن جرنلز + فی کال لاگت کا حساب                                                          |
 | **API پھیلاؤ**     | 🚫 اضافی چابیاں          | 🚫 اپنی چابیاں      | 🚫 کئی وینڈر        | ✅ ایک اکاؤنٹ                                                                                          |

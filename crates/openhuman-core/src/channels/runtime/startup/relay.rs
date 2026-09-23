@@ -41,6 +41,13 @@ pub(super) struct RelayRuntimeHandle {
     pub(super) _reconnect: tinychannels::relay::RelayReconnectHandle,
 }
 
+impl Drop for RelayRuntimeHandle {
+    fn drop(&mut self) {
+        crate::channels::relay_runtime::unregister_relay_transport(&self._transport);
+        self._reconnect.abort();
+    }
+}
+
 pub(super) async fn start_relay_runtime(
     relay: &tinychannels::config::RelayRuntimeConfig,
     tx: mpsc::Sender<RuntimeChannelMessage>,

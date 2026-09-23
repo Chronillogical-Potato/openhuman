@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::{PermissionLevel, ToolScope};
+use tinytools::{PermissionLevel, ToolScope};
 
 #[tokio::test]
 async fn metadata_and_execute() {

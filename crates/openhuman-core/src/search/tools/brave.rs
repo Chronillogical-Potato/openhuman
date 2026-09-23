@@ -16,11 +16,11 @@
 //! key is wired up so the agent surfaces the misconfiguration instead
 //! of silently routing elsewhere.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::time::Duration;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 const DEFAULT_API_BASE: &str = "https://api.search.brave.com/res/v1";
 

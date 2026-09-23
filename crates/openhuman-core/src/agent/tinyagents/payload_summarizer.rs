@@ -46,7 +46,7 @@
 //! ## Scope
 //!
 //! Only the orchestrator session gets a `PayloadSummarizer` wired in
-//! ([`crate::agent::harness::session::builder::AgentBuilder`]
+//! ([`crate::agent::session_host::builder::AgentBuilder`]
 //! checks `agent_id == "orchestrator"`). Welcome, integrations_agent,
 //! researcher, planner, archivist, and every other typed sub-agent get
 //! `None` and their tool results are untouched. The summarizer itself
@@ -54,16 +54,18 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
-use tinyagents_harness::context::RunContext;
+use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, LazyLock, Mutex};
+use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
-use tinyagents_harness::subagent::SubAgent;
+use tinyinference_llm::message::Message;
 use tracing::{debug, info, warn};
 
 use crate::agent::harness::definition::{AgentDefinition, PromptSource};
-use crate::agent::harness::fork_context::{current_parent, ParentExecutionContext};
-use crate::agent::harness::subagent_runner;
+use crate::agent::harness::fork_context::ParentExecutionContext;
+use crate::agent::subagent_host;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 
 /// A successful compression, carried by [`SummarizeOutcome::Summarized`].
 ///
@@ -187,7 +189,7 @@ pub trait PayloadSummarizer: Send + Sync {
     /// pattern-matching it away.
     async fn maybe_summarize_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
@@ -286,7 +288,7 @@ impl SubagentPayloadSummarizer {
 impl PayloadSummarizer for SubagentPayloadSummarizer {
     async fn maybe_summarize_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
@@ -318,6 +320,27 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 UnavailableReason::PayloadTooLarge,
             ));
         }
+        // Checked before the breaker: a summary we already have costs nothing,
+        // so a broken summarizer is no reason to withhold it.
+        let cache_key = summary_cache_key(
+            parent_ctx.thread_id().map(|thread| thread.as_str()),
+            tool_name,
+            parent_task_hint,
+            raw,
+        );
+        if let Some(summary) = cached_summary(&cache_key) {
+            info!(
+                tool = tool_name,
+                bytes = raw.len(),
+                summary_bytes = summary.len(),
+                "[payload_summarizer] reusing the summary of an identical payload"
+            );
+            return Ok(SummarizeOutcome::Summarized(SummarizedPayload {
+                summary_bytes: summary.len(),
+                summary,
+                original_bytes: raw.len(),
+            }));
+        }
         if self.breaker_tripped() {
             warn!(
                 tool = tool_name,
@@ -341,21 +364,38 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         let outcome = self
             .invoke_tinyagents_summarizer_in_parent(parent_ctx, prompt)
             .await;
-        self.handle_summarizer_result(tool_name, raw, started, outcome)
+        self.handle_summarizer_result(tool_name, raw, started, outcome, cache_key)
     }
+}
+
+/// Create the internal summarizer's child context without rebuilding any of
+/// the parent's live capabilities. This deliberately pairs TinyAgents'
+/// canonical `RunContext::child` with OpenHuman's host-state `child` rule.
+fn unary_child_context(
+    parent_ctx: &RunContext<OpenHumanRunContext>,
+    agent_id: &str,
+    max_iterations: usize,
+    max_output_tokens: u32,
+) -> tinyagents_harness::Result<RunContext<OpenHumanRunContext>> {
+    let child_config = RunConfig::new(format!("{agent_id}-summary"))
+        .with_max_model_calls(max_iterations)
+        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
+        .with_max_depth(parent_ctx.config.max_depth())
+        .with_max_turn_output_tokens(max_output_tokens);
+    parent_ctx.child(child_config, parent_ctx.data.child())
 }
 
 impl SubagentPayloadSummarizer {
     async fn invoke_tinyagents_summarizer_in_parent(
         &self,
-        parent_ctx: &RunContext<()>,
+        parent_ctx: &RunContext<OpenHumanRunContext>,
         prompt: String,
     ) -> Result<String> {
-        let parent = current_parent().ok_or_else(|| {
+        let parent = parent_ctx.data.parent.clone().ok_or_else(|| {
             anyhow!("payload summarizer cannot use invoke_in_parent without ParentExecutionContext")
         })?;
         let config_loaded = crate::config::Config::load_or_init().await;
-        let (source, model) = subagent_runner::resolve_subagent_source(
+        let (source, model) = subagent_host::resolve_subagent_source(
             &self.definition.model,
             &self.definition.id,
             config_loaded.as_ref().ok(),
@@ -378,23 +418,21 @@ impl SubagentPayloadSummarizer {
         policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
         policy.invalid_args = InvalidArgsPolicy::ReturnToolError;
 
-        let mut harness: AgentHarness<()> = AgentHarness::new();
+        let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
         harness.with_policy(policy);
         let provider_model = super::model::MaxTokensModel::new(
-            source.build_summarizer(&model, self.definition.temperature)?,
+            source.build_summarizer(
+                &model,
+                self.definition.temperature,
+                parent_ctx.data.thread_id.as_deref(),
+            )?,
             max_output_tokens,
         );
         harness
             .register_model(&model, Arc::new(provider_model))
             .set_default_model(&model);
 
-        let child = SubAgent::new(
-            self.definition.id.clone(),
-            self.definition.when_to_use.clone(),
-            Arc::new(harness),
-        )
-        .with_system_prompt(system_prompt);
-        // Run the summarizer UNARY (non-streaming), not via `invoke_in_parent`.
+        // Run the summarizer UNARY (non-streaming), not via `SubAgent::invoke_in_parent`.
         //
         // `invoke_in_parent` inherits `parent.streaming`, which is `true` for a
         // chat turn, so the child runs the streaming loop and its per-token
@@ -407,20 +445,24 @@ impl SubagentPayloadSummarizer {
         // summarizer: it exists to compress a payload for the ORCHESTRATOR'S
         // CONTEXT, and its only consumer here is `run.text()` below.
         //
-        // `invoke_with_events` runs the child through the unary path
-        // (`run_child(.., streaming = false)`), which per its own contract
-        // "leav[es] the parent's event stream unchanged", while still sharing
-        // the sink so the sub-agent lifecycle events (started/completed) keep
-        // reaching observers. Mirrors `reprompt_for_required_block`, which is
-        // likewise deliberately silent about an internal repair call.
-        //
-        // Two bits of config that `invoke_in_parent` threaded are dropped by
-        // this entry point and neither matters here: the child `thread_id` (only
-        // used to attribute events we no longer stream) and the inherited
-        // `max_turn_output_tokens` (already enforced independently by the
-        // `MaxTokensModel` wrapper above).
-        let run = child
-            .invoke_with_events(&(), (), parent_ctx.depth(), prompt, &parent_ctx.events)
+        // `RunContext::child` is the canonical inheritance operation: it keeps
+        // the parent cancellation, workspace, stores, events, steering, thread,
+        // and run lineage, while `OpenHumanRunContext::child` isolates the host
+        // route and usage observations. Calling `invoke_in_context` then pins
+        // this internal turn to TinyAgents' unary path, so summary text cannot
+        // become a user-visible streaming delta.
+        let child_context = unary_child_context(
+            parent_ctx,
+            &self.definition.id,
+            self.definition.max_iterations,
+            max_output_tokens,
+        )?;
+        let run = harness
+            .invoke_in_context(
+                &(),
+                child_context,
+                vec![Message::system(system_prompt), Message::user(prompt)],
+            )
             .await?;
         Ok(run.text().unwrap_or_default())
     }
@@ -433,14 +475,14 @@ impl SubagentPayloadSummarizer {
         let prompt_tools = Vec::new();
         let visible_tool_names = HashSet::new();
         let connected_identities_md = crate::agent::prompts::render_connected_identities();
-        let prompt_ctx = crate::agent::context::prompt::PromptContext {
+        let prompt_ctx = crate::agent::prompts::PromptContext {
             workspace_dir: &parent.workspace_dir,
             model_name: model,
             agent_id: &self.definition.id,
             tools: &prompt_tools,
             workflows: parent.workflows.as_slice(),
             dispatcher_instructions: "",
-            learned: crate::agent::context::prompt::LearnedContextData::default(),
+            learned: crate::agent::prompts::LearnedContextData::default(),
             visible_tool_names: &visible_tool_names,
             tool_call_format: parent.tool_call_format,
             connected_integrations: &parent.connected_integrations,
@@ -448,9 +490,7 @@ impl SubagentPayloadSummarizer {
             include_profile: !self.definition.omit_profile,
             include_memory_md: !self.definition.omit_memory_md,
             curated_snapshot: None,
-            user_identity: crate::desktop::app_state::peek_cached_current_user_identity(),
-            personality_soul_md: None,
-            personality_memory_md: None,
+            user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
             personality_roster: vec![],
             // AGENTS.md layers are intentionally excluded from the payload
             // summarizer. This is a narrow internal utility that condenses an
@@ -475,7 +515,7 @@ impl SubagentPayloadSummarizer {
                 ));
             }
         };
-        Ok(subagent_runner::append_subagent_role_contract(
+        Ok(subagent_host::append_subagent_role_contract(
             system_prompt,
             &self.definition.id,
         ))
@@ -487,10 +527,11 @@ impl SubagentPayloadSummarizer {
         raw: &str,
         started: std::time::Instant,
         outcome: Result<String>,
+        cache_key: SummaryCacheKey,
     ) -> Result<SummarizeOutcome> {
         match outcome {
             Ok(output) => {
-                let summary = output.trim().to_string();
+                let summary = output.trim();
                 if summary.is_empty() {
                     warn!(
                         tool = tool_name,
@@ -499,6 +540,10 @@ impl SubagentPayloadSummarizer {
                     self.record_failure();
                     return Ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
                 }
+                // No size is written into the summary. The size is the runtime's
+                // to state, and `ToolOutputMiddleware` states it after the output
+                // caps, so a cap that cuts the summary cannot cut the size too.
+                let summary = summary.to_string();
                 if summary.len() >= raw.len() {
                     warn!(
                         tool = tool_name,
@@ -525,6 +570,7 @@ impl SubagentPayloadSummarizer {
                     elapsed_ms = started.elapsed().as_millis() as u64,
                     "[payload_summarizer] compressed successfully"
                 );
+                remember_summary(cache_key, summary.clone());
                 Ok(SummarizeOutcome::Summarized(SummarizedPayload {
                     summary,
                     original_bytes,
@@ -552,20 +598,106 @@ fn estimate_tokens(text: &str) -> usize {
     text.len().div_ceil(4)
 }
 
+/// Identity of one summarization: thread, tool, task hint and payload bytes.
+type SummaryCacheKey = [u8; 32];
+
+/// How many summaries the process keeps. Oldest out first.
+// ponytail: FIFO eviction, move to LRU if hit rates on long threads show it matters.
+const SUMMARY_CACHE_ENTRIES: usize = 64;
+
+/// Summaries already produced, reused when the same tool returns the same
+/// payload for the same task in the same thread.
+///
+/// Process-wide rather than a field: a `SubagentPayloadSummarizer` is built per
+/// turn (`AgentBuilder`), so a per-instance cache would die before the repeat
+/// it exists for — in a live session one 119,796-byte payload was summarized
+/// five times across four turns at ~40-60 s each.
+static SUMMARY_CACHE: LazyLock<Mutex<SummaryCache>> = LazyLock::new(Default::default);
+
+#[derive(Default)]
+struct SummaryCache {
+    entries: HashMap<SummaryCacheKey, String>,
+    order: VecDeque<SummaryCacheKey>,
+}
+
+/// Key a summary by everything that shapes it. The thread scopes reuse to a
+/// conversation; the hint is included because a summary written for one goal
+/// can drop exactly the facts another goal needs. Fields are length-prefixed
+/// so no two different tuples hash the same byte stream.
+fn summary_cache_key(
+    thread_id: Option<&str>,
+    tool_name: &str,
+    parent_task_hint: Option<&str>,
+    raw: &str,
+) -> SummaryCacheKey {
+    let thread = thread_id.unwrap_or_default();
+    let mut hasher = Sha256::new();
+    for part in [thread, tool_name, parent_task_hint.unwrap_or(""), raw] {
+        hasher.update((part.len() as u64).to_le_bytes());
+        hasher.update(part.as_bytes());
+    }
+    hasher.finalize().into()
+}
+
+fn cached_summary(key: &SummaryCacheKey) -> Option<String> {
+    SUMMARY_CACHE.lock().ok()?.entries.get(key).cloned()
+}
+
+fn remember_summary(key: SummaryCacheKey, summary: String) {
+    let Ok(mut cache) = SUMMARY_CACHE.lock() else {
+        return;
+    };
+    if cache.entries.insert(key, summary).is_none() {
+        cache.order.push_back(key);
+    }
+    while cache.order.len() > SUMMARY_CACHE_ENTRIES {
+        if let Some(oldest) = cache.order.pop_front() {
+            cache.entries.remove(&oldest);
+        }
+    }
+}
+
+/// Upper bound on the task hint carried into the prompt. It is the user's
+/// message for the turn, which can be a pasted document; the summarizer needs
+/// the intent, not the whole thing.
+const TASK_HINT_MAX_CHARS: usize = 2_000;
+
+/// Bound a task hint to [`TASK_HINT_MAX_CHARS`], keeping both ends. A pasted
+/// log or document usually carries the actual request at the end ("…find the
+/// authentication failure"), so a prefix-only cut drops the one part the
+/// summarizer needs.
+fn clip_task_hint(hint: &str) -> String {
+    let chars: Vec<char> = hint.chars().collect();
+    if chars.len() <= TASK_HINT_MAX_CHARS {
+        return hint.to_string();
+    }
+    let half = TASK_HINT_MAX_CHARS / 2;
+    let head: String = chars[..half].iter().collect();
+    let tail: String = chars[chars.len() - half..].iter().collect();
+    format!(
+        "{head}\n[... {} characters omitted ...]\n{tail}",
+        chars.len() - 2 * half
+    )
+}
+
 /// Build the user-message prompt fed into the summarizer sub-agent.
 ///
 /// Wraps the raw payload in `--- BEGIN ---` / `--- END ---` markers so
 /// the sub-agent can unambiguously distinguish the payload boundary
 /// from other prompt scaffolding. The tool name and optional parent
 /// task hint are surfaced before the payload so the summarizer can
-/// prioritize facts relevant to the parent's intent.
+/// prioritize facts relevant to the parent's intent, and the exact byte
+/// count is stated so the model never has to guess the payload's size or
+/// whether it was cut.
 fn build_summarizer_prompt(tool_name: &str, parent_task_hint: Option<&str>, raw: &str) -> String {
     let hint_line = parent_task_hint
-        .map(|h| format!("Parent task hint: {}\n\n", h))
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+        .map(|h| format!("Parent task hint: {}\n\n", clip_task_hint(h)))
         .unwrap_or_default();
     format!(
-        "Tool name: {}\n\n{}Raw tool output (summarize per the extraction contract in your system prompt):\n\n--- BEGIN ---\n{}\n--- END ---",
-        tool_name, hint_line, raw
+        "Tool name: {tool_name}\n\n{hint_line}Raw tool output: {} bytes, complete, all of it between the markers below (summarize per the extraction contract in your system prompt):\n\n--- BEGIN ---\n{raw}\n--- END ---",
+        raw.len()
     )
 }
 

@@ -7,13 +7,16 @@
 
 use std::time::Duration;
 
-use crate::agent::harness::fork_context::current_parent;
+use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::orchestration::running_subagents::{
     self, SubagentStatus, WaitError, WaitOutcome,
 };
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
 /// Ceiling on a single wait. Matches Codex's `wait_agent` maximum of one hour:
@@ -40,6 +43,39 @@ fn requested_timeout_secs(args: &serde_json::Value) -> u64 {
 }
 
 pub struct WaitSubagentTool;
+
+pub(crate) struct WaitSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl WaitSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for WaitSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        _call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
+        WaitSubagentTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl WaitSubagentTool {
     pub fn new() -> Self {
@@ -69,11 +105,11 @@ impl Tool for WaitSubagentTool {
     /// Without this the harness kills the tool at the global `Inherit` timeout
     /// (120s by default) *before* the wait can return its "still running"
     /// success, so a legitimate long wait is reported as a tool failure. The
-    /// harness adds its own small grace on top of `Secs`, so the tool always
+    /// harness adds its own small grace on top of `Millis`, so the tool always
     /// gets to finish and report first. Same reasoning as
     /// `spawn_parallel_agents`, which opts out for the same class of bug.
     fn timeout_policy(&self, args: &serde_json::Value) -> ToolTimeout {
-        ToolTimeout::Secs(requested_timeout_secs(args))
+        ToolTimeout::Millis(requested_timeout_secs(args).saturating_mul(1000))
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -104,6 +140,17 @@ impl Tool for WaitSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, None).await
+    }
+}
+
+impl WaitSubagentTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        _tool_context: Option<&dyn tinytools::ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let task_id = args
             .get("task_id")
             .and_then(|v| v.as_str())
@@ -124,7 +171,7 @@ impl Tool for WaitSubagentTool {
 
         let timeout_secs = requested_timeout_secs(&args);
 
-        let parent = match current_parent() {
+        let parent = match parent {
             Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(

@@ -4,6 +4,7 @@ use crate::platform::socket::token_provider::TokenProvider;
 use crate::platform::socket::types::ConnectionStatus;
 use futures_util::StreamExt;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Error as WsError;
@@ -539,4 +540,199 @@ fn draining_reports_and_discards_everything_still_queued() {
 fn draining_an_empty_channel_reports_nothing_dropped() {
     let (_tx, mut rx) = mpsc::unbounded_channel::<String>();
     assert_eq!(drain_pending_emits(&mut rx), 0);
+}
+
+// ── #6417: the attempt counter and the one-shot outage escalation ──────────
+
+/// Pull the `N` and `M` out of an `attempt N/M` fragment, if the line has one.
+///
+/// `None` means the line carries no `N/M` fraction at all, which is the
+/// post-fix shape past the threshold.
+fn parsed_attempt_fraction(line: &str) -> Option<(u32, u32)> {
+    let rest = line.split_once("(attempt ")?.1;
+    let fraction = rest.split_once(')')?.0;
+    let (n, m) = fraction.split_once('/')?;
+    Some((n.trim().parse().ok()?, m.trim().parse().ok()?))
+}
+
+/// Guard on the guard: `parsed_attempt_fraction` must actually parse the shape
+/// the bug produced, so the assertion in
+/// `attempt_line_never_reports_more_attempts_than_its_maximum` cannot pass
+/// vacuously by returning `None` for every line it is handed.
+#[test]
+fn attempt_fraction_parser_reads_the_reported_bug_shape() {
+    assert_eq!(
+        parsed_attempt_fraction("[socket] Connection failed (attempt 32/5): boom"),
+        Some((32, 5)),
+        "the parser must recognise the `attempt 32/5` shape from #6417, or the \
+         counter assertion silently tests nothing"
+    );
+    assert_eq!(
+        parsed_attempt_fraction("[socket] Connection failed (attempt 3/5): boom"),
+        Some((3, 5))
+    );
+    assert_eq!(
+        parsed_attempt_fraction(
+            "[socket] Connection failed (attempt 32, still retrying after 844s down): boom"
+        ),
+        None,
+        "a line with no fraction has nothing to compare"
+    );
+}
+
+/// #6417 acceptance criterion 1: `attempt N/M` never shows N > M.
+///
+/// `FAIL_ESCALATE_THRESHOLD` is a paging threshold, not a retry cap — the loop
+/// retries forever — so printing it as a denominator produced the reported
+/// `attempt 32/5`. Past the threshold the line must stop claiming a maximum
+/// it does not honour.
+#[test]
+fn attempt_line_never_reports_more_attempts_than_its_maximum() {
+    // Alan's log reached attempt 32 over a 14-minute outage; go well past it.
+    for consecutive in 1..=40u32 {
+        let line = render_attempt_line(
+            consecutive,
+            Some(Duration::from_secs(u64::from(consecutive) * 30)),
+            "WebSocket connect: IO error: Network is unreachable (os error 51)",
+        );
+        if let Some((n, m)) = parsed_attempt_fraction(&line) {
+            assert!(
+                n <= m,
+                "attempt {n}/{m} reports more attempts than its own maximum \
+                 (#6417) — rendered line: {line}"
+            );
+        }
+    }
+}
+
+/// The reported `attempt 32/5` shape specifically: once the streak is past the
+/// threshold the line carries the bare attempt count and how long the socket
+/// has been down, which is the diagnostic the reporter actually wanted.
+#[test]
+fn attempt_line_past_the_threshold_drops_the_denominator_for_the_outage() {
+    let line = render_attempt_line(32, Some(Duration::from_secs(844)), "connection refused");
+    assert!(
+        !line.contains(&format!("32/{FAIL_ESCALATE_THRESHOLD}")),
+        "line still prints the paging threshold as a retry cap (#6417): {line}"
+    );
+    assert!(
+        line.contains("attempt 32") && line.contains("844s"),
+        "line should report the attempt count and the outage duration: {line}"
+    );
+
+    // Inside the threshold the fraction is still true, so it stays.
+    let early = render_attempt_line(3, None, "connection refused");
+    assert!(
+        early.contains(&format!("attempt 3/{FAIL_ESCALATE_THRESHOLD}")),
+        "within the threshold the fraction is accurate and should remain: {early}"
+    );
+}
+
+/// #6417 second symptom: one sustained-outage escalation per outage, however
+/// long the outage runs. The equality test against the threshold is deliberate
+/// (OPENHUMAN-TAURI-8M: 549 Sentry events from one gateway 503) — this pins
+/// that it fires exactly once across a streak far past the threshold, so a
+/// later change to `>=` cannot silently reintroduce the storm.
+#[test]
+fn sustained_outage_escalates_exactly_once_across_a_long_streak() {
+    let escalations = (1..=40u32)
+        .filter(|&consecutive| {
+            log_connection_failure(
+                consecutive,
+                Some(Duration::from_secs(u64::from(consecutive) * 30)),
+                "WebSocket connect: HTTP 503 Service Unavailable",
+            )
+        })
+        .count();
+
+    assert_eq!(
+        escalations, 1,
+        "a 40-attempt outage must page exactly once, not {escalations} times \
+         (OPENHUMAN-TAURI-8M)"
+    );
+}
+
+/// The escalation is only reported as "paged" when the observability
+/// classifier actually lets it through. An offline user's outage demotes to a
+/// warn breadcrumb, so their *recovery* must not report either — otherwise the
+/// OPENHUMAN-TAURI-BH noise returns through the recovery path instead of the
+/// failure path.
+#[test]
+fn offline_user_outage_does_not_arm_the_recovery_report() {
+    let offline = "WebSocket connect: IO error: Network is unreachable (os error 51)";
+    assert!(
+        !log_connection_failure(
+            FAIL_ESCALATE_THRESHOLD,
+            Some(Duration::from_secs(60)),
+            offline
+        ),
+        "an offline user's escalation is demoted to a breadcrumb, so it must not \
+         arm the recovery Sentry report (OPENHUMAN-TAURI-BH)"
+    );
+
+    let genuine = "WebSocket connect: HTTP 503 Service Unavailable";
+    assert!(
+        log_connection_failure(
+            FAIL_ESCALATE_THRESHOLD,
+            Some(Duration::from_secs(60)),
+            genuine
+        ),
+        "a genuine outage escalation reaches Sentry and must arm the recovery report"
+    );
+}
+
+/// End-to-end reproduction of the log excerpt in #6417.
+///
+/// Alan's report is a 14-minute Wi-Fi outage that produced, every 30 s:
+///
+/// ```text
+/// 12:24:42 WRN [socket] Connection failed (attempt 1/5) …
+/// 12:25:37 ERR socket.ws_connect failed: … (sustained outage after 5 attempts)
+/// 12:26:07 WRN [socket] Connection failed (attempt 6/5) …
+/// 12:39:07 WRN [socket] Connection failed (attempt 32/5) …
+/// ```
+///
+/// This replays that streak through the two functions that actually emit it
+/// and asserts the reported symptoms are gone: no line claims more attempts
+/// than its maximum, and the 32-attempt outage pages exactly once. Run with
+/// `--nocapture` to read the rendered lines directly.
+#[test]
+fn reproduces_the_6417_outage_without_either_reported_symptom() {
+    let reason = "WebSocket connect: IO error: Network is unreachable (os error 51)";
+    let mut escalations = 0usize;
+    let mut rendered = Vec::new();
+
+    // 32 attempts, one every 30 s — the shape and duration Alan reported.
+    for attempt in 1..=32u32 {
+        let outage = Duration::from_secs(u64::from(attempt) * 30);
+        if log_connection_failure(attempt, Some(outage), reason) {
+            escalations += 1;
+            println!("attempt {attempt:>2}: ESCALATED (one-shot sustained-outage report)");
+        } else {
+            let line = render_attempt_line(attempt, Some(outage), reason);
+            println!("attempt {attempt:>2}: {line}");
+            rendered.push(line);
+        }
+    }
+
+    // Symptom 1: `attempt 32/5`. No rendered line may claim a maximum it has
+    // already exceeded.
+    for line in &rendered {
+        if let Some((n, m)) = parsed_attempt_fraction(line) {
+            assert!(n <= m, "#6417 symptom 1 still present: {line}");
+        }
+    }
+    assert!(
+        !rendered.iter().any(|l| l.contains("attempt 32/5")),
+        "#6417 symptom 1 still present: a line reads `attempt 32/5`"
+    );
+
+    // Symptom 2: the offline shape is demoted, so this outage must page zero
+    // times. `sustained_outage_escalates_exactly_once_across_a_long_streak`
+    // covers the genuine-outage case that pages exactly once.
+    assert_eq!(
+        escalations, 0,
+        "an offline user's outage must not page at all (OPENHUMAN-TAURI-BH), \
+         got {escalations} escalation(s)"
+    );
 }

@@ -17,11 +17,10 @@
 //! name. The estimate is a floor — directly-billed cost from the
 //! backend always wins when available.
 //!
-//! The pricing table is intentionally tiny and only keyed on the
-//! abstract tier names the core uses (`agentic-v1`, `reasoning-v1`,
-//! `coding-v1`). The backend resolves them to concrete vendor models;
-//! cents-per-Mtok at the tier level is good enough for client-side
-//! telemetry and budget gating. PRs adding new tiers should add a row.
+//! The pricing table is intentionally tiny: the managed default model,
+//! with the retired tier slugs (`hint:chat`, …) still resolving to its rate so
+//! older cost records estimate sanely. Every other model — catalog ids the
+//! user pins, BYOK vendor models — is priced from the vendor catalog.
 
 use crate::inference::provider::UsageInfo;
 
@@ -34,7 +33,7 @@ use crate::inference::provider::UsageInfo;
 /// `input_per_mtok_usd`.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ModelPricing {
-    /// Tier identifier, e.g. `"agentic-v1"`.
+    /// Model id, e.g. `"openrouter/deepseek/deepseek-v4-flash"`.
     pub(crate) model: &'static str,
     /// Standard prompt rate, USD per million input tokens.
     pub(crate) input_per_mtok_usd: f64,
@@ -53,96 +52,52 @@ const FALLBACK_PRICING: ModelPricing = ModelPricing {
     output_per_mtok_usd: 15.00,
 };
 
-/// Static price table keyed by tier name.
-///
-/// These are the OpenHuman tier handles, not concrete vendor model
-/// strings — the backend chooses which underlying Claude / GPT / etc.
-/// model serves each tier. Numbers track the public Anthropic price
-/// list at the time of writing for the tiers' default mappings; treat
-/// them as best-effort estimates for cases where the backend doesn't
-/// echo `charged_amount_usd`.
+/// Static price table for the managed default model.
 const PRICING_TABLE: &[ModelPricing] = &[
-    // Reasoning tier — managed "Pro" model rates (estimate; the backend's
-    // echoed `charged_amount_usd` is authoritative when present). Shared with
-    // the coding/agentic tiers below. Update when backend pricing changes.
+    // The managed default model — DeepSeek V4 Flash through the OpenRouter
+    // passthrough. Estimate only; the backend's echoed `charged_amount_usd` is
+    // authoritative when present. Any other catalog model the user pins is
+    // priced from the vendor catalog (`platform::cost::catalog`) below.
     ModelPricing {
-        model: "reasoning-v1",
-        input_per_mtok_usd: 0.435,
-        cached_input_per_mtok_usd: 0.003625,
-        output_per_mtok_usd: 0.87,
-    },
-    // Chat tier — managed "Flash" model rates (estimate). Cheaper, lower-latency
-    // model used for direct conversational turns.
-    ModelPricing {
-        model: "chat-v1",
-        input_per_mtok_usd: 0.14,
-        cached_input_per_mtok_usd: 0.0028,
-        output_per_mtok_usd: 0.28,
-    },
-    // Legacy chat tier slug retained for older transcripts/configs — "Flash"
-    // rates, same as `chat-v1`.
-    ModelPricing {
-        model: "reasoning-quick-v1",
-        input_per_mtok_usd: 0.14,
-        cached_input_per_mtok_usd: 0.0028,
-        output_per_mtok_usd: 0.28,
-    },
-    // Agentic tier — managed "Pro" model rates (same as reasoning).
-    ModelPricing {
-        model: "agentic-v1",
-        input_per_mtok_usd: 0.435,
-        cached_input_per_mtok_usd: 0.003625,
-        output_per_mtok_usd: 0.87,
-    },
-    // Coding tier — managed "Pro" model rates (same as reasoning).
-    ModelPricing {
-        model: "coding-v1",
-        input_per_mtok_usd: 0.435,
-        cached_input_per_mtok_usd: 0.003625,
-        output_per_mtok_usd: 0.87,
-    },
-    // Burst tier — high-throughput, low-cost model; flat rate both directions,
-    // no prompt cache (so cached rate mirrors the input rate). Used by fast,
-    // high-fanout workers.
-    ModelPricing {
-        model: "burst-v1",
-        input_per_mtok_usd: 0.208,
-        cached_input_per_mtok_usd: 0.208,
-        output_per_mtok_usd: 0.208,
-    },
-    // Vision tier — multimodal; estimate only. The backend's echoed
-    // `charged_amount_usd` is authoritative when present.
-    ModelPricing {
-        model: "vision-v1",
-        input_per_mtok_usd: 3.00,
-        cached_input_per_mtok_usd: 0.30,
-        output_per_mtok_usd: 15.00,
+        model: crate::config::MODEL_MANAGED_DEFAULT,
+        input_per_mtok_usd: 0.0886,
+        cached_input_per_mtok_usd: 0.0886,
+        output_per_mtok_usd: 0.1772,
     },
 ];
 
-/// Whether `model` is one of the managed OpenHuman tier handles (routed and
-/// billed by the OpenHuman backend). Anything else — concrete vendor ids
-/// (`claude-*`, `gpt-*`, OpenRouter slugs) or local model names — is a
-/// custom/BYO-provider model. Used by trace exporters to stamp model
-/// provenance (`gen_ai.provider` = "managed" | "custom").
+/// Legacy tier slugs from older transcripts and configs, mapped onto the
+/// managed default's rate so an old cost record still estimates sanely.
+const LEGACY_TIER_ROWS: &[&str] = &crate::config::LEGACY_TIER_MODELS;
+
+/// Whether `model` is served by the managed OpenHuman backend: the managed
+/// default, an `openrouter/...` passthrough id, a `hint:*` role alias, or a
+/// retired tier slug. Anything else — BYOK vendor ids (`claude-*`, `gpt-*`) or
+/// local model names — is a custom/BYO-provider model. Used by trace exporters
+/// to stamp model provenance (`gen_ai.provider` = "managed" | "custom").
 pub(crate) fn is_managed_tier(model: &str) -> bool {
-    PRICING_TABLE.iter().any(|row| row.model == model)
+    crate::platform::cost::route::route_for_model(model)
+        == crate::platform::cost::route::CostRoute::Managed
+        || model.trim().starts_with("hint:")
 }
 
 /// Look up pricing for a model name, falling back to [`FALLBACK_PRICING`].
 ///
 /// Resolution order:
-/// 1. Exact match on a canonical OpenHuman tier name (`agentic-v1`, …).
+/// 1. Exact match on the managed default model (or a retired tier slug /
+///    `hint:*` alias, which ran on it).
 /// 2. The concrete-vendor-model pricing catalog
 ///    ([`crate::platform::cost::catalog`]) — accurate per-model rates for
 ///    `claude-*`, `gpt-*`, `gemini-*`, `deepseek-*`, `kimi-*`, `qwen-*`,
 ///    `mistral-*`, including OpenRouter-style `vendor/model` ids.
-/// 3. Coarse case-insensitive vendor-name heuristics (so an unrecognised
-///    `"…opus…"` string still maps to the reasoning tier).
-/// 4. [`FALLBACK_PRICING`].
+/// 3. [`FALLBACK_PRICING`].
 pub(crate) fn lookup_pricing(model: &str) -> ModelPricing {
-    if let Some(row) = PRICING_TABLE.iter().find(|row| row.model == model) {
+    let trimmed = model.trim();
+    if let Some(row) = PRICING_TABLE.iter().find(|row| row.model == trimmed) {
         return *row;
+    }
+    if trimmed.starts_with("hint:") || LEGACY_TIER_ROWS.contains(&trimmed) {
+        return PRICING_TABLE[0];
     }
     if let Some(price) = crate::platform::cost::catalog::lookup(model) {
         return ModelPricing {
@@ -151,23 +106,6 @@ pub(crate) fn lookup_pricing(model: &str) -> ModelPricing {
             cached_input_per_mtok_usd: price.cached_input_per_mtok_usd,
             output_per_mtok_usd: price.output_per_mtok_usd,
         };
-    }
-    let lower = model.to_ascii_lowercase();
-    let by_tier = |tier: &str| {
-        PRICING_TABLE
-            .iter()
-            .find(|row| row.model == tier)
-            .copied()
-            .unwrap_or(FALLBACK_PRICING)
-    };
-    if lower.contains("opus") {
-        return by_tier("reasoning-v1");
-    }
-    if lower.contains("coding") {
-        return by_tier("coding-v1");
-    }
-    if lower.contains("sonnet") || lower.contains("agentic") {
-        return by_tier("agentic-v1");
     }
     FALLBACK_PRICING
 }

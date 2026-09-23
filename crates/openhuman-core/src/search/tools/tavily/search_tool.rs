@@ -2,9 +2,9 @@
 
 use super::client::TavilyClient;
 use super::types::{copy_bool, copy_domain_filter, copy_string, non_empty, TavilySearchResponse};
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 /// Web / news / finance search via the Tavily API (`POST /search`).
 pub struct TavilySearchTool {

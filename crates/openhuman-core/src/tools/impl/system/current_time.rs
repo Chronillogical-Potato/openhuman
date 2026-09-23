@@ -5,11 +5,11 @@
 //! having to shell out to `date`. Read-only, no arguments beyond an optional
 //! IANA timezone for a convenience conversion.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use chrono::{Local, SecondsFormat, Utc};
 use chrono_tz::Tz;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct CurrentTimeTool;
 

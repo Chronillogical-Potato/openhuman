@@ -1,8 +1,8 @@
 use super::*;
 use crate::channels::traits;
-use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use tinymemory_api::types::{MemoryCategory, MemoryEntry};
+use tinytools::{Tool, ToolResult};
 
 struct DummyTool;
 
@@ -40,7 +40,7 @@ fn memory_entry(key: &str, content: &str, score: Option<f64>) -> MemoryEntry {
 }
 
 fn runtime_context() -> ChannelRuntimeContext {
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
             "ok",
         ]));

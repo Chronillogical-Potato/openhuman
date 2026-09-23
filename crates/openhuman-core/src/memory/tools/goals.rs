@@ -56,7 +56,7 @@ use crate::memory::api::provider::MemoryProvider;
 use crate::memory::goals::ops;
 use crate::memory::guard::MemoryGuard;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// The guarded driver for this call, checked to serve the goals family.
 ///

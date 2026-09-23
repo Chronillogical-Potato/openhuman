@@ -103,6 +103,9 @@ workflow
 overlay/src-tauri/target/
 .claude/*.lock
 app/.claude/scheduled_tasks.lock
+# Subagent lifecycle checkpoints written by crate-local test runs that have no
+# workspace_dir (the `.openhuman/subagent_checkpoints` fallback in lifecycle.rs).
+crates/*/.openhuman/
 target-test-run
 # CocoIndex Code (ccc)
 /.cocoindex_code/

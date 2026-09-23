@@ -57,7 +57,7 @@ fn error_text(result: &ToolResult) -> String {
         .content
         .iter()
         .filter_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()

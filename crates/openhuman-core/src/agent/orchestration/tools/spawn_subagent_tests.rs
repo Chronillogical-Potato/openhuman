@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::harness::subagent_runner::SubagentMode;
+use crate::agent::subagent_host::SubagentMode;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -15,6 +15,8 @@ fn sample_outcome(output: &str) -> SubagentRunOutcome {
         final_history: Vec::new(),
         usage: Default::default(),
         artifact_paths: Vec::new(),
+        persistence_disposition:
+            tinyagents_orchestration::subagent::SubagentPersistenceDisposition::TerminalInserted,
     }
 }
 
@@ -156,7 +158,7 @@ async fn no_registry_returns_clear_error() {
         .unwrap();
     // Either: registry uninitialised → clear init error, OR
     // registry was initialised by a previous test → "no parent context"
-    // because we're not running inside an Agent::turn. Both are
+    // because we're not running inside an OpenHumanSessionHost::turn. Both are
     // acceptable: the tool gracefully refuses.
     assert!(result.is_error);
 }
@@ -234,14 +236,16 @@ async fn legacy_archetype_alias_is_normalized_to_agent_id() {
         .unwrap();
     assert!(result.is_error);
     // The alias resolved: the call got past argument validation and only
-    // failed later, on the missing parent turn.
+    // failed later, because raw tool execution has no typed harness parent.
     assert!(
         !result.output().contains("agent_id is required"),
         "{}",
         result.output()
     );
     assert!(
-        result.output().contains("called outside of an agent turn"),
+        result
+            .output()
+            .contains("requires a live harness run context"),
         "{}",
         result.output()
     );
@@ -274,8 +278,8 @@ async fn async_default_self_heals_to_blocking_without_delivery_thread() {
         "thread-less spawn_subagent must not hit the async delivery guard: {out}"
     );
     assert!(
-        out.contains("spawn_subagent called outside of an agent turn"),
-        "expected the blocking path's own error: {out}"
+        out.contains("requires a live harness run context"),
+        "a raw tool call must reject missing typed authority: {out}"
     );
 }
 

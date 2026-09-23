@@ -6,8 +6,8 @@ use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::Middleware;
-use tinyagents_harness::tool::ToolResult as TaToolResult;
+use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
+use tinytools::ToolResult as TaToolResult;
 
 /// `after_tool`: capture each tool call's execution outcome (success + content)
 /// into a shared sink before the harness folds the result into a `Message::tool`
@@ -26,6 +26,14 @@ pub(crate) struct ToolOutcomeCaptureMiddleware {
     /// 1.6 owns the raw outcome fields; the host still adds classified failure
     /// metadata for the UI.
     failure_map: crate::agent::tinyagents::observability::ToolFailureMap,
+    /// Invocation start + the original structured arguments.  `after_tool`
+    /// receives only an identity/result pair, so preserve both facts at the
+    /// boundary where TinyTools still exposes the full call.
+    started: std::sync::Arc<
+        std::sync::Mutex<
+            std::collections::HashMap<String, (std::time::Instant, serde_json::Value)>,
+        >,
+    >,
 }
 
 impl ToolOutcomeCaptureMiddleware {
@@ -33,22 +41,58 @@ impl ToolOutcomeCaptureMiddleware {
         sink: crate::agent::tinyagents::ToolOutcomeSink,
         failure_map: crate::agent::tinyagents::observability::ToolFailureMap,
     ) -> Self {
-        Self { sink, failure_map }
+        Self {
+            sink,
+            failure_map,
+            started: Default::default(),
+        }
     }
 }
 
 #[async_trait]
-impl Middleware<()> for ToolOutcomeCaptureMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolOutcomeCaptureMiddleware
+{
     fn name(&self) -> &str {
         "tool_outcome_capture"
     }
 
+    async fn before_tool(
+        &self,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        _state: &(),
+        call: &mut tinyinference_llm::tool::ToolCall,
+    ) -> TaResult<()> {
+        if let Ok(mut started) = self.started.lock() {
+            started.insert(
+                call.id.to_string(),
+                (std::time::Instant::now(), call.arguments.clone()),
+            );
+        }
+        Ok(())
+    }
+
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
+        invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        let tool_name = invocation.tool_name();
+        let call_id = invocation.call_id().to_string();
+        let (duration_ms, arguments) = self
+            .started
+            .lock()
+            .ok()
+            .and_then(|mut started| started.remove(&call_id))
+            .map(|(started, arguments)| {
+                (
+                    started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+                    arguments,
+                )
+            })
+            .unwrap_or_default();
         // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
         // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
         // return a bare marker line with no workaround and no relay directive, so
@@ -59,17 +103,17 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         // carry a `Workaround:` suffix) are left untouched. This runs before
         // classification below, which still recognises the preserved marker.
         if let Some(enriched) = crate::agent::tinyagents::policy_denial::maybe_enrich_policy_block(
-            &result.name,
-            &result.content,
+            tool_name,
+            &crate::agent::tinyagents::middleware::tool_result_text(result),
         ) {
             tracing::debug!(
-                tool = result.name.as_str(),
+                tool = tool_name,
                 "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
             );
-            result.content = enriched;
+            crate::agent::tinyagents::middleware::replace_tool_result_text(result, enriched);
         }
 
-        let success = result.error.is_none();
+        let success = !result.is_error;
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. The classifier
         // owns all marker precedence now (policy-blocked / policy-denied / TTL
@@ -83,14 +127,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         let failure = if success {
             None
         } else {
-            let error = result.error.as_deref().unwrap_or("");
-            let combined: std::borrow::Cow<'_, str> = if error.is_empty() {
-                std::borrow::Cow::Borrowed(result.content.as_str())
-            } else if result.content.is_empty() || result.content == error {
-                std::borrow::Cow::Borrowed(error)
-            } else {
-                std::borrow::Cow::Owned(format!("{error}\n{}", result.content))
-            };
+            let combined = crate::agent::tinyagents::middleware::tool_result_text(result);
             let timed_out = combined.contains("timed out");
             Some(crate::tools::status::classify(&combined, timed_out))
         };
@@ -99,23 +136,31 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             // for old/deserialized completion events; TinyAgents 1.6 supplies
             // these fields directly on live `ToolCompleted` events.
             map.insert(
-                result.call_id.clone(),
+                call_id.clone(),
                 (
                     success,
                     failure,
-                    result.elapsed_ms,
-                    result.content.chars().count(),
+                    duration_ms,
+                    crate::agent::tinyagents::middleware::tool_result_text(result)
+                        .chars()
+                        .count(),
                 ),
             );
         }
         if let Ok(mut sink) = self.sink.lock() {
             sink.push(crate::agent::tinyagents::ToolCallOutcome {
-                call_id: result.call_id.clone(),
-                name: result.name.clone(),
+                call_id,
+                name: tool_name.to_string(),
+                arguments,
                 success,
-                content: result.content.clone(),
+                content: crate::agent::tinyagents::middleware::tool_result_text(result),
+                duration_ms,
             });
         }
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tool_outcome_capture_tests.rs"]
+mod tests;

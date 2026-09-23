@@ -24,8 +24,8 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 
 use super::download::persist_media;
 use super::types::MediaResponse;

@@ -18,44 +18,6 @@ fn full_policy() -> SecurityPolicy {
     }
 }
 
-// -- Cross-profile write guard (1b) -------------------------------
-//
-// These drive the guard through the real `validate_parent_path` gate that every
-// file write tool funnels through, proving the tightening lands at the shared
-// call site (not just in the standalone classifier). `active_profile = None`
-// keeps the exact same setup passing, pinning the byte-identical shared path.
-
-/// Build a `<root>/projects/profiles/{alice,bob}` layout and a policy whose cwd
-/// is scoped to alice (as `security_for_tool_context` would), with the guard
-/// optionally armed for alice against the broad action root.
-fn cross_profile_policy(arm_for_alice: bool) -> (tempfile::TempDir, PathBuf, SecurityPolicy) {
-    let root = tempfile::tempdir().expect("root tempdir");
-    let action_root = root.path().join("projects");
-    let profiles = action_root.join("profiles");
-    for id in ["alice", "bob"] {
-        std::fs::create_dir_all(profiles.join(id)).unwrap();
-    }
-    let alice_dir = profiles.join("alice");
-    let policy = SecurityPolicy {
-        autonomy: AutonomyLevel::Full,
-        // Everything under `root` is inside the workspace, so the sibling path
-        // clears containment and reaches the cross-profile check.
-        workspace_dir: root.path().to_path_buf(),
-        // Mirrors the per-tool-call override: cwd scoped to the profile dir.
-        action_dir: alice_dir.clone(),
-        workspace_only: false,
-        // Clear the default forbidden list (it blocks /tmp, /var, …, which the
-        // OS tempdir lives under) so the guard is what does the blocking.
-        forbidden_paths: Vec::new(),
-        active_profile: arm_for_alice.then(|| ActiveProfileGuard {
-            profile_id: "alice".to_string(),
-            action_dir: action_root.clone(),
-        }),
-        ..SecurityPolicy::default()
-    };
-    (root, action_root, policy)
-}
-
 // -- trusted_roots allow-list (Phase 1) ---------------------------
 
 use std::fs;

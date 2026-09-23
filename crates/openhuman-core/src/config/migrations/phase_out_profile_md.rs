@@ -4,7 +4,7 @@
 //! `PROFILE.md` is being retired as a system-prompt injection. Earlier
 //! builds wrote the file into the system prompt of every session and
 //! froze those bytes inside `session_raw/{stem}.jsonl` (see
-//! [`crate::agent::harness::session::transcript`]). Without
+//! [`tinyagents_session::transcript`]). Without
 //! this migration, an upgrade leaves the leaked content replaying
 //! inside every resumed thread forever — the runtime loader reuses the
 //! persisted system message verbatim for KV-cache stability.
@@ -46,10 +46,10 @@
 //! migration short-circuits without scanning. The caller still bumps
 //! `schema_version` so future launches don't re-check.
 
-use crate::agent::harness::session::transcript::{self, SessionTranscript};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
+use tinyagents_session::transcript::{self, SessionTranscript};
 
 /// Line that opens a `PROFILE.md` block in a system prompt. Matches the
 /// output of `inject_workspace_file_capped` in `agent/prompts/mod.rs`.
@@ -155,7 +155,7 @@ pub fn run(workspace_dir: &Path) -> Result<PhaseOutStats> {
 ///
 /// **Layout assumption (one level deep).** The walk descends exactly one
 /// level — into `sessions/<date>/*.md` — matching the layout produced
-/// by [`crate::agent::harness::session::transcript`]
+/// by [`tinyagents_session::transcript`]
 /// (`sessions/YYYY_MM_DD/{stem}.md` for the new format, legacy
 /// `sessions/DDMMYYYY/{stem}.md` for the date-grouped fallback). The
 /// JSONL walk in [`collect_jsonl_transcripts`] makes the same

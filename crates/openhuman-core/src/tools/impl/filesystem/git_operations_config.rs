@@ -163,11 +163,9 @@ pub(super) const NEUTRALISED_CONFIG: &[&str] = &[
 /// - `diff.external`. Unsuppressable by value for the same reason, and the fix
 ///   `git_operations` uses — `--no-ext-diff` — is an argv change this path
 ///   cannot make. A repository that sets it keeps it, and that is a known gap.
-/// - `core.hooksPath`. Not a gap here but a different owner: the shell already
-///   points it at OpenHuman's attribution hook directory, whose shims
-///   deliberately delegate onward to whatever the repository configured. Hooks
-///   therefore still run under `shell`, by design — see the module docs on
-///   `agent::git_attribution`.
+/// - `core.hooksPath`. There is no portable inert value for it, and overriding
+///   it would change ordinary shell behavior by suppressing repository hooks.
+///   Shell-invoked git therefore keeps the repository's configured hooks.
 pub(crate) const SHELL_NEUTRALISED_CONFIG: &[&str] = &[
     "core.fsmonitor=",
     "core.pager=cat",
@@ -179,6 +177,30 @@ pub(crate) const SHELL_NEUTRALISED_CONFIG: &[&str] = &[
     // signing key on a commit nobody asked to sign.
     "commit.gpgSign=false",
 ];
+
+/// Environment overrides applied to arbitrary commands launched by the shell
+/// tool so any nested `git` process receives the safe subset above.
+///
+/// Preserve ambient `GIT_CONFIG_PARAMETERS` exactly, including non-UTF-8
+/// bytes, because git uses it to propagate a parent's `-c` settings. The
+/// safety overrides are appended so they win when the same key is repeated.
+pub(crate) fn shell_git_env() -> std::collections::HashMap<std::ffi::OsString, std::ffi::OsString> {
+    let mut parameters = std::env::var_os("GIT_CONFIG_PARAMETERS").unwrap_or_default();
+    for entry in SHELL_NEUTRALISED_CONFIG {
+        let Some((key, value)) = entry.split_once('=') else {
+            continue;
+        };
+        if !parameters.is_empty() {
+            parameters.push(" ");
+        }
+        parameters.push(format!("'{key}'='{value}'"));
+    }
+
+    std::collections::HashMap::from([(
+        std::ffi::OsString::from("GIT_CONFIG_PARAMETERS"),
+        parameters,
+    )])
+}
 
 /// A path git will read as an empty config file.
 ///
@@ -203,6 +225,13 @@ pub(super) fn suppress_ambient_git_config(
 ) -> &mut tokio::process::Command {
     cmd.env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", NULL_CONFIG_PATH)
+        // A parent `git -c` invocation propagates its command-line settings
+        // through these variables. They outrank every config file, so leaving
+        // them intact would let an ambient `core.hooksPath` or any other
+        // command-valued setting bypass both the file suppression and the
+        // repository allowlist below.
+        .env_remove("GIT_CONFIG_PARAMETERS")
+        .env_remove("GIT_CONFIG_COUNT")
         // `git` consults these before it reads any config file.
         .env_remove("GIT_EXTERNAL_DIFF")
         .env_remove("GIT_PAGER")

@@ -53,7 +53,6 @@ named = [
     # money movement or team administration, the two things that went away.
     # `credential_list` returns non-secret metadata only.
     "session_state",
-    "session_get_user",
     "credential_list",
     "oauth_connect_url",
     "oauth_list",

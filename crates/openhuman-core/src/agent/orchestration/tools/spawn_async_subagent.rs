@@ -5,23 +5,77 @@
 //! events and, when possible, persisted in the child worker thread.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::{current_parent, with_parent_context};
-use crate::agent::harness::run_queue::RunQueue;
-use crate::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions, SubagentRunStatus};
 use crate::agent::messages::ChatMessage;
+use crate::agent::orchestration::fleet_tools::FleetToolSet;
 use crate::agent::orchestration::running_subagents::{self, SubagentStatus};
 use crate::agent::orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
     SubagentSessionUpsert,
 };
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::{
+    run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
+};
 use crate::memory::conversations::{self as conversations, ConversationMessage};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::context::{RunConfig, RunContext};
+use tinyagents_harness::run_queue::RunQueue;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct SpawnAsyncSubagentTool;
+
+/// Harness dispatch for the detached child path. It owns the typed parent run
+/// so the spawned child receives the caller's carrier before `tokio::spawn`.
+pub(crate) struct SpawnAsyncSubagentDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl SpawnAsyncSubagentDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for SpawnAsyncSubagentDispatch
+{
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        _call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, _call_id.clone());
+        let detached_data = parent.data.detached_child();
+        let detached_cancellation = detached_data.cancellation.clone();
+        let detached_parent = parent
+            .child(
+                RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                detached_data,
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?
+            .with_cancellation(detached_cancellation);
+        SpawnAsyncSubagentTool::new()
+            .execute_with_live_parent_context(
+                arguments,
+                Some(&context),
+                parent.data.child(),
+                detached_parent,
+            )
+            .await
+    }
+}
 
 impl SpawnAsyncSubagentTool {
     pub fn new() -> Self {
@@ -35,6 +89,42 @@ impl Default for SpawnAsyncSubagentTool {
     }
 }
 
+/// Narrow a session's `spawn_async_subagent` schema to the ids the parent may
+/// actually dispatch.
+///
+/// The tool is registered once per process, so its `agent_id` enum is built
+/// from the whole registry: 30-odd ids, of which the orchestrator's
+/// `[subagents]` allowlist admits about twenty. `execute` already refuses the
+/// rest, so advertising them only bought a refused call and a slice of schema
+/// on every turn. Called from the per-session spec view
+/// (`builder::visible_tool_specs_for_policy`), the same place `use_skill`'s
+/// pack index is narrowed. A missing or empty allowlist leaves the spec alone:
+/// wildcard parents keep the full registry.
+pub fn scope_spawn_async_subagent_spec(spec: &mut tinytools::ToolSpec, allowed: &[String]) {
+    if allowed.is_empty() {
+        return;
+    }
+    let Some(enum_slot) = spec
+        .parameters
+        .pointer_mut("/properties/agent_id/enum")
+        .filter(|value| value.is_array())
+    else {
+        return;
+    };
+    let mut ids: Vec<String> = allowed.to_vec();
+    ids.sort();
+    ids.dedup();
+    *enum_slot = serde_json::Value::Array(ids.into_iter().map(serde_json::Value::String).collect());
+    if let Some(description) = spec
+        .parameters
+        .pointer_mut("/properties/agent_id/description")
+    {
+        *description = serde_json::Value::String(
+            "Sub-agent id (only these are dispatchable from here).".to_string(),
+        );
+    }
+}
+
 #[async_trait]
 impl Tool for SpawnAsyncSubagentTool {
     fn name(&self) -> &str {
@@ -42,7 +132,9 @@ impl Tool for SpawnAsyncSubagentTool {
     }
 
     fn description(&self) -> &str {
-        "Fire-and-forget a sub-agent for low-attention background work the user does not need in this reply (archiving, cleanup, background investigation). Returns immediately, so never use it for user-visible answers, writes, financial actions, or anything whose result must gate your final answer."
+        "Fire-and-forget a sub-agent for background work this reply does not depend on \
+         (archiving, cleanup, background investigation). Returns immediately; never for \
+         user-visible answers, writes, financial actions, or anything that gates your reply."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -70,31 +162,31 @@ impl Tool for SpawnAsyncSubagentTool {
                 "agent_id": agent_id_schema,
                 "prompt": {
                     "type": "string",
-                    "description": "Clear, self-contained background instruction. Include all context needed. The sub-agent must not ask the user for clarification."
+                    "description": "Self-contained instruction with all needed context; the worker cannot ask the user."
                 },
                 "context": {
                     "type": "string",
-                    "description": "Optional context blob from prior task results. Rendered as a `[Context]` block before the prompt."
+                    "description": "Optional prior results, rendered as a `[Context]` block before the prompt."
                 },
                 "model": {
                     "type": "string",
-                    "description": "Optional exact model id for this background spawn only."
+                    "description": "Optional exact model id for this spawn only."
                 },
                 "toolkit": {
                     "type": "string",
-                    "description": "Composio toolkit slug to scope this spawn to. Required when agent_id is `integrations_agent`."
+                    "description": "Composio toolkit slug; required when agent_id is `integrations_agent`."
                 },
                 "task_title": {
                     "type": "string",
-                    "description": "Optional short title for the persisted background worker thread."
+                    "description": "Optional short title for the worker thread."
                 },
                 "task_key": {
                     "type": "string",
-                    "description": "Optional deterministic identity key for reusable delegation. Defaults to a normalized task_title/prompt."
+                    "description": "Optional identity key for reusing an existing worker."
                 },
                 "fresh": {
                     "type": "boolean",
-                    "description": "When true, bypass reusable subagent matching and create a fresh durable worker."
+                    "description": "Force a fresh worker instead of reusing a matching one."
                 }
             }
         })
@@ -115,23 +207,101 @@ impl Tool for SpawnAsyncSubagentTool {
         options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        self.execute_with_context_inner(args, options, tool_context)
-            .await
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-async-subagent") {
+            let detached_data = live_parent.data.detached_child();
+            let detached_cancellation = detached_data.cancellation.clone();
+            let detached_parent = live_parent
+                .child(
+                    RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                    detached_data,
+                )
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                .with_cancellation(detached_cancellation);
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    live_parent.data.child(),
+                    detached_parent,
+                )
+                .await;
+        }
+        self.execute_with_context_inner(
+            args,
+            options,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            None,
+        )
+        .await
+    }
+}
+
+impl SpawnAsyncSubagentTool {
+    pub(crate) async fn execute_with_live_parent_context(
+        &self,
+        args: serde_json::Value,
+        tool_context: Option<&dyn ToolRunContext>,
+        run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+        detached_parent: RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_context_inner(
+            args,
+            ToolCallOptions::default(),
+            tool_context,
+            run_context,
+            Some(detached_parent),
+        )
+        .await
     }
 }
 
 include!("spawn_async_subagent_execute.rs");
 
 /// Format the user-facing acceptance text around a structured async sub-agent reference.
-fn format_async_subagent_accepted(agent_id: &str, payload_json: &str) -> String {
+///
+/// The wording follows what the parent can actually do: a parent without
+/// `wait_subagent` (the orchestrator, #5701) is told the result arrives on its
+/// own and not to poll, instead of being invited to "wait for completion".
+fn format_async_subagent_accepted(
+    agent_id: &str,
+    payload_json: &str,
+    fleet: &FleetToolSet,
+) -> String {
+    // Steering and waiting are independent fleet capabilities: a parent can
+    // have `wait_subagent` without `steer_subagent` (or vice versa), so the
+    // guidance text is built from each independently rather than gated
+    // entirely on `can_wait()` — otherwise a wait-only parent is told to
+    // "send more input" through a tool it does not have.
+    let can_send = fleet.has("steer_subagent");
+    let can_wait = fleet.can_wait();
+    let guidance = match (can_send, can_wait) {
+        (true, true) => {
+            "Use the structured reference below to send more input, wait for completion, or perform a          short timeout tick to check status. If the user does not need the result now, continue          without blocking."
+        }
+        (true, false) => {
+            "Use the structured reference below to send more input if needed. You cannot and need not          wait or poll for it (no shell/sleep, no fake status checks); its result is delivered to          you automatically on a later turn. If the user does not need the result now, continue          without blocking."
+        }
+        (false, true) => {
+            "Use the structured reference below to wait for completion or perform a short timeout tick          to check status. If the user does not need the result now, continue without blocking."
+        }
+        (false, false) => {
+            "Its result is delivered to you automatically on a later turn — you cannot and need not          wait or poll for it (no shell/sleep, no fake status checks). Reply to the user now with          what you know, say the result is on its way, and continue. The structured reference          below lists the only follow-up tools you have for this worker."
+        }
+    };
     format!(
-        "Accepted async sub-agent `{agent_id}`. Use the structured reference below to send more input, \
-         wait for completion, or perform a short timeout tick to check status. If the user does not need \
-         the result now, continue without blocking.\n\n[async_subagent_ref]\n{payload_json}\n[/async_subagent_ref]"
+        "Accepted async sub-agent `{agent_id}`. {guidance}
+
+[async_subagent_ref]
+{payload_json}
+[/async_subagent_ref]"
     )
 }
 
-/// Build the machine-readable reference the orchestrator uses to steer, wait, or poll a worker.
+/// Build the machine-readable reference the orchestrator uses to follow up on a worker.
+///
+/// Only tools in `fleet` are offered: an instruction naming a tool the parent
+/// cannot see costs an iteration of confused reasoning per delegation.
 fn async_subagent_ref_payload(
     task_id: &str,
     subagent_session_id: &str,
@@ -140,7 +310,102 @@ fn async_subagent_ref_payload(
     reused: bool,
     reuse_decision: &str,
     status: &str,
+    fleet: &FleetToolSet,
 ) -> serde_json::Value {
+    let mut instructions = serde_json::Map::new();
+    let mut next_actions: Vec<String> = Vec::new();
+
+    if fleet.has("steer_subagent") {
+        instructions.insert(
+            "send_message".into(),
+            json!({
+                "tool": "steer_subagent",
+                "description": "Send additional instructions or context to this running async sub-agent.",
+                "arguments": {
+                    "subagent_session_id": subagent_session_id,
+                    "message": "<message>",
+                    "mode": "steer"
+                }
+            }),
+        );
+        next_actions.push("call steer_subagent to send more input".into());
+    }
+    if fleet.has("wait_subagent") {
+        instructions.insert(
+            "wait".into(),
+            json!({
+                "tool": "wait_subagent",
+                "description": "Block until the async sub-agent finishes, up to the timeout.",
+                "arguments": { "subagent_session_id": subagent_session_id, "timeout_secs": 120 }
+            }),
+        );
+        instructions.insert(
+            "timeout_tick".into(),
+            json!({
+                "tool": "wait_subagent",
+                "description": "Perform a short status tick without committing the parent to a long wait.",
+                "arguments": { "subagent_session_id": subagent_session_id, "timeout_secs": 1 }
+            }),
+        );
+        next_actions.push("call wait_subagent with timeout_secs to collect the result".into());
+        next_actions
+            .push("call wait_subagent with timeout_secs=1 as a timeout tick/status check".into());
+        let reminder = format!(
+            "Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}."
+        );
+        if fleet.has("wait") {
+            instructions.insert(
+                "delayed_tick".into(),
+                json!({
+                    "tool": "wait",
+                    "description": "Trigger a delayed callback before checking this async sub-agent again.",
+                    "arguments": { "duration_secs": 30, "message": reminder }
+                }),
+            );
+        }
+        if fleet.has("wait_loop") {
+            instructions.insert(
+                "delayed_loop".into(),
+                json!({
+                    "tool": "wait_loop",
+                    "description": "Trigger repeatable delayed callbacks while this async sub-agent is still relevant.",
+                    "arguments": {
+                        "duration_secs": 30,
+                        "message": reminder,
+                        "loop_key": subagent_session_id,
+                        "iteration": 1
+                    }
+                }),
+            );
+        }
+        if fleet.has("wait") || fleet.has("wait_loop") {
+            next_actions.push(
+                "call wait or wait_loop with the returned message to trigger a delayed status check".into(),
+            );
+        }
+    }
+    if fleet.has("continue_subagent") {
+        instructions.insert(
+            "answer_or_resume".into(),
+            json!({
+                "tool": "continue_subagent",
+                "description": "Answer this worker if it pauses on ask_user_clarification (awaiting_user), or resume it later with a follow-up that keeps its context.",
+                "arguments": { "subagent_session_id": subagent_session_id, "message": "<answer or follow-up>" }
+            }),
+        );
+        next_actions.push(
+            "call continue_subagent only if this worker reports awaiting_user, or to resume it with a follow-up".into(),
+        );
+    }
+    if fleet.has("list_subagents") {
+        next_actions.push("call list_subagents to re-enumerate your workers if this reference scrolls out of context".into());
+    }
+    next_actions.push(if fleet.can_wait() {
+        "continue without waiting when the current user reply does not depend on the result".into()
+    } else {
+        "continue now: the result is delivered to you automatically on a later turn; never poll for it".into()
+    });
+
     json!({
         "task_id": task_id,
         "taskId": task_id,
@@ -155,58 +420,9 @@ fn async_subagent_ref_payload(
         "reused": reused,
         "reuse_decision": reuse_decision,
         "reuseDecision": reuse_decision,
-        "instructions": {
-            "send_message": {
-                "tool": "steer_subagent",
-                "description": "Send additional instructions or context to this running async sub-agent.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "message": "<message>",
-                    "mode": "steer"
-                }
-            },
-            "wait": {
-                "tool": "wait_subagent",
-                "description": "Block until the async sub-agent finishes, up to the timeout.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "timeout_secs": 120
-                }
-            },
-            "timeout_tick": {
-                "tool": "wait_subagent",
-                "description": "Perform a short status tick without committing the parent to a long wait.",
-                "arguments": {
-                    "subagent_session_id": subagent_session_id,
-                    "timeout_secs": 1
-                }
-            },
-            "delayed_tick": {
-                "tool": "wait",
-                "description": "Trigger a delayed callback before checking this async sub-agent again.",
-                "arguments": {
-                    "duration_secs": 30,
-                    "message": format!("Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}.")
-                }
-            },
-            "delayed_loop": {
-                "tool": "wait_loop",
-                "description": "Trigger repeatable delayed callbacks while this async sub-agent is still relevant.",
-                "arguments": {
-                    "duration_secs": 30,
-                    "message": format!("Check async sub-agent {agent_id} status with wait_subagent using subagent_session_id {subagent_session_id}."),
-                    "loop_key": subagent_session_id,
-                    "iteration": 1
-                }
-            }
-        },
-        "next_actions": [
-            "call steer_subagent to send more input",
-            "call wait_subagent with timeout_secs to collect the result",
-            "call wait_subagent with timeout_secs=1 as a timeout tick/status check",
-            "call wait or wait_loop with the returned message to trigger a delayed status check",
-            "continue without waiting when the current user reply does not depend on the result"
-        ]
+        "result_delivery": "automatic",
+        "instructions": instructions,
+        "next_actions": next_actions
     })
 }
 

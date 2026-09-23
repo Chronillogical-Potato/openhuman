@@ -1,7 +1,7 @@
 //! Pure conversion helpers: stem lineage, stream naming, descriptor
 //! assembly, and message-record projection.
 
-use crate::agent::harness::session::transcript::SessionTranscript;
+use tinyagents_session::transcript::SessionTranscript;
 
 use super::types::{
     DescriptorImport, DescriptorSource, DescriptorUsage, JournalMessage, SessionDescriptor,
@@ -109,7 +109,9 @@ pub fn journal_messages(transcript: &SessionTranscript) -> Vec<JournalMessage> {
     transcript
         .messages
         .iter()
-        .map(JournalMessage::from)
+        .cloned()
+        .map(crate::agent::messages::chat_message_from_transcript)
+        .map(|message| JournalMessage::from(&message))
         .collect()
 }
 

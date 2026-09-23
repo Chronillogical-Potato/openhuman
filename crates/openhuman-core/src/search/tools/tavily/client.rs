@@ -4,9 +4,9 @@
 use super::types::{
     escape_link_destination, escape_link_text, non_empty, TavilyImage, TavilyResultItem,
 };
-use crate::tools::traits::ToolResult;
 use serde_json::Value;
 use std::time::Duration;
+use tinytools::ToolResult;
 
 const DEFAULT_API_URL: &str = "https://api.tavily.com";
 const SEARCH_EXCERPT_MAX_CHARS: usize = 500;

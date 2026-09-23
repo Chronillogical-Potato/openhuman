@@ -2,6 +2,7 @@
 
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
+import { useMessagePartText } from '@assistant-ui/react';
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
@@ -10,13 +11,50 @@ import {
 } from '@assistant-ui/react-markdown';
 import '@assistant-ui/react-markdown/styles/dot.css';
 import { CheckIcon, CopyIcon } from 'lucide-react';
-import { type FC, memo, useState } from 'react';
+import { type ComponentPropsWithoutRef, type FC, isValidElement, memo, useState } from 'react';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+
+import { hasLatexContent, normalizeLatexDelimiters } from '../../utils/latex';
+import { extractLanguage, extractTextContent } from '../markdown/CodeBlock';
+
+/**
+ * Plugin sets, matched to `AgentMessageBubble`'s so the two markdown surfaces
+ * cannot disagree about the same message. Module-level constants because a new
+ * array identity on every render makes `react-markdown` re-parse the whole
+ * document — on a streaming answer that is once per token.
+ *
+ * `rehypeHighlight` must precede `rehypeKatex` so code blocks inside a math
+ * environment are not processed twice (same ordering, same reason, as
+ * `AgentMessageBubble.tsx`).
+ */
+const GFM_REMARK_PLUGINS = [remarkGfm];
+const MATH_REMARK_PLUGINS = [remarkGfm, remarkMath];
+const HIGHLIGHT_REHYPE_PLUGINS = [rehypeHighlight];
+const MATH_REHYPE_PLUGINS = [rehypeHighlight, rehypeKatex];
 
 const MarkdownTextImpl = () => {
+  // Math is GATED, not always-on, and the gate is `hasLatexContent` rather than
+  // "contains a $". `remark-math` would otherwise read "$10 vs $20" as an inline
+  // formula and eat the prose between them; the signature requires a real LaTeX
+  // signal (`\frac`, `\begin`, `\[`, `\(`, `$$`). Same call the legacy
+  // surface makes, so a message renders identically on both.
+  //
+  // Read the raw part text, not the smoothed text `MarkdownTextPrimitive`
+  // renders: the gate must not flip mid-reveal.
+  const { text } = useMessagePartText();
+  const hasMath = hasLatexContent(text);
+
   return (
     <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={hasMath ? MATH_REMARK_PLUGINS : GFM_REMARK_PLUGINS}
+      rehypePlugins={hasMath ? MATH_REHYPE_PLUGINS : HIGHLIGHT_REHYPE_PLUGINS}
+      // `\[ … \]` / `\( … \)` are what models actually emit; `remark-math`
+      // only understands `$ … $`. Runs before the smooth reveal, so the text is
+      // normalised once rather than per frame.
+      preprocess={hasMath ? normalizeLatexDelimiters : undefined}
       className="aui-md"
       components={defaultComponents}
       defer
@@ -64,6 +102,56 @@ const useCopyToClipboard = ({ copiedDuration = 3000 }: { copiedDuration?: number
   };
 
   return { isCopied, copyToClipboard };
+};
+
+/** The slice of a hast `<code>` element this file reads. */
+type HastElement = { properties?: { className?: string | string[] } };
+
+/**
+ * The fenced-code block: our header bar, then the code body.
+ *
+ * The header is rendered HERE rather than through the kit's `CodeHeader` slot,
+ * and that is load-bearing. `rehypeHighlight` replaces the `<code>` element's
+ * single string child with `<span class="hljs-*">` nodes, and the kit branches
+ * on exactly that: a string child takes the `DefaultCodeBlock` path (header +
+ * body), anything else takes `DefaultCodeBlockContent` (body only). So wiring
+ * the highlighter through the `CodeHeader` slot silently drops the language
+ * label and the copy button from every block that has a language — i.e. every
+ * block a reader cares about — while leaving them on untagged ones. Verified
+ * both ways before this was written.
+ *
+ * `Pre` is called on both paths, so owning the header here gives one code path
+ * instead of two and the highlighted and unhighlighted cases render alike.
+ */
+const CodeBlockPre: FC<ComponentPropsWithoutRef<'pre'>> = ({ className, children, ...props }) => {
+  // The child is the kit's wrapped `<code>`. Its React props carry only `node`
+  // and `children` — the `className` is merged in downstream, inside the
+  // wrapper — so the `language-*` class has to be read off the hast node, where
+  // `className` is an array of tokens rather than a string.
+  const codeProps = isValidElement<{ node?: HastElement; children?: unknown }>(children)
+    ? children.props
+    : undefined;
+  const hastClassName = codeProps?.node?.properties?.className;
+
+  return (
+    <>
+      <CodeHeader
+        language={
+          extractLanguage(Array.isArray(hastClassName) ? hastClassName.join(' ') : hastClassName) ??
+          undefined
+        }
+        code={extractTextContent(codeProps?.children)}
+      />
+      <pre
+        className={cn(
+          'aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed',
+          className
+        )}
+        {...props}>
+        {children}
+      </pre>
+    </>
+  );
 };
 
 const defaultComponents = memoizeMarkdownComponents({
@@ -202,15 +290,7 @@ const defaultComponents = memoizeMarkdownComponents({
   sup: ({ className, ...props }) => (
     <sup className={cn('aui-md-sup [&>a]:text-xs [&>a]:no-underline', className)} {...props} />
   ),
-  pre: ({ className, ...props }) => (
-    <pre
-      className={cn(
-        'aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed',
-        className
-      )}
-      {...props}
-    />
-  ),
+  pre: CodeBlockPre,
   code: function Code({ className, ...props }) {
     const isCodeBlock = useIsMarkdownCodeBlock();
     return (
@@ -224,5 +304,4 @@ const defaultComponents = memoizeMarkdownComponents({
       />
     );
   },
-  CodeHeader,
 });
