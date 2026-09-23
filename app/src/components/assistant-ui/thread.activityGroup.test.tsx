@@ -1,0 +1,99 @@
+import {
+  AssistantRuntimeProvider,
+  type ThreadMessageLike,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+
+import { activityGroupLabel } from './activity-group';
+import { Thread } from './thread';
+
+/**
+ * A turn that interleaves reasoning and tool calls must read input → work →
+ * answer: ONE disclosure holding the reasoning and the tool calls in the order
+ * they happened, with the answer outside it. The previous grouping split the
+ * same run into alternating reasoning and tool sub-groups.
+ */
+const tool = (id: string, name: string): ThreadMessageLike['content'][number] =>
+  ({
+    type: 'tool-call',
+    toolCallId: id,
+    toolName: name,
+    args: {},
+    argsText: '{}',
+    result: 'ok',
+  }) as never;
+
+const interleaved = (status: ThreadMessageLike['status']): ThreadMessageLike[] => [
+  { role: 'user', content: [{ type: 'text', text: 'find it' }] },
+  {
+    role: 'assistant',
+    status,
+    content: [
+      { type: 'reasoning', text: 'first thought' },
+      tool('t1', 'search_one'),
+      { type: 'reasoning', text: 'second thought' },
+      tool('t2', 'search_two'),
+      { type: 'text', text: 'final answer' },
+    ],
+  },
+];
+
+function Harness({ messages, isRunning }: { messages: ThreadMessageLike[]; isRunning: boolean }) {
+  const runtime = useExternalStoreRuntime({
+    messages,
+    isRunning,
+    convertMessage: (m: ThreadMessageLike) => m,
+    onNew: async () => {},
+  });
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <Thread />
+    </AssistantRuntimeProvider>
+  );
+}
+
+describe('activity group', () => {
+  it('puts interleaved reasoning and tool calls under one trigger, answer outside', () => {
+    render(<Harness messages={interleaved({ type: 'complete', reason: 'stop' })} isRunning={false} />);
+
+    const triggers = screen.getAllByRole('button', { name: /Reasoning · 2 tool calls/ });
+    expect(triggers).toHaveLength(1);
+    expect(screen.queryByText(/^Reasoning$/)).toBeNull();
+
+    const group = triggers[0]!.closest('[data-slot=tool-group-root]') as HTMLElement;
+    expect(within(group).queryByText('final answer')).toBeNull();
+    expect(screen.getByText('final answer')).toBeInTheDocument();
+
+    // Settled work starts collapsed; opening it shows the steps in order.
+    fireEvent.click(triggers[0]!);
+    const first = within(group).getByText('first thought');
+    const second = within(group).getByText('second thought');
+    expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('is open while the turn is still running', () => {
+    render(
+      <Harness
+        messages={interleaved({ type: 'running' }).map((m, i) =>
+          i === 1
+            ? { ...m, content: [{ type: 'reasoning', text: 'live thought' }, tool('t1', 'search_one')] }
+            : m
+        )}
+        isRunning
+      />
+    );
+
+    expect(screen.getByText('live thought')).toBeVisible();
+  });
+});
+
+describe('activityGroupLabel', () => {
+  it('names reasoning and counts tool calls', () => {
+    expect(activityGroupLabel(2, 1)).toBe('Reasoning · 1 tool call');
+    expect(activityGroupLabel(1, 0)).toBe('Reasoning');
+    expect(activityGroupLabel(0, 3)).toBe('3 tool calls');
+    expect(activityGroupLabel(0, 0)).toBe('Activity');
+  });
+});
