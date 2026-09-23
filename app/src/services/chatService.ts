@@ -59,6 +59,18 @@ export interface ChatToolResultEvent {
    * `parseToolFailure` before it reaches the store.
    */
   failure?: unknown;
+  /** The call's arguments. The start event may carry none; this is the fallback. */
+  args?: unknown;
+  /** Wall time the call took. */
+  elapsed_ms?: number;
+  /**
+   * Machine-readable result, when the tool produced one (the tool's
+   * `ToolResult.metadata`), e.g. `{ kind: "web_search", results: [...] }`.
+   */
+  structured?: unknown;
+  /** Label / detail recomputed by the core with the call's real arguments. */
+  tool_display_label?: string;
+  tool_display_detail?: string;
 }
 
 /** One sub-agent's token/cost contribution within a turn (hover breakdown). */
