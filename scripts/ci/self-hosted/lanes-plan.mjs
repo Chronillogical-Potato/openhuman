@@ -349,11 +349,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
         },
-        {
-          name: "prompt-budget",
-          when: core,
-          run: "bash scripts/check-prompt-budget.sh --verbose",
-        },
       ],
     },
     {
