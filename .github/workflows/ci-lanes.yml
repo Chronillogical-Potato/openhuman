@@ -55,7 +55,9 @@ jobs:
           # Full history: the module-pin monotonicity check and diff-cover
           # both compare against the base branch.
           fetch-depth: 0
-          submodules: recursive
+          # Submodules come from the step below: only the ones a build reads,
+          # fetched in parallel (checkout fetches every nested one serially).
+          submodules: false
           persist-credentials: false
           # Deliberate. This job only runs when ci-fast.yml's route job (run
           # from main, never from the PR) found the PR author and pusher to be
@@ -65,6 +67,9 @@ jobs:
           # runs in a throwaway microVM whose supervisor re-checks membership.
           # Without the opt-in, checkout@v7 refuses every fork PR here.
           allow-unsafe-pr-checkout: true
+
+      - name: Check out submodules
+        run: bash scripts/ci/checkout-submodules.sh
 
       - name: Detect changed areas
         id: filter
@@ -238,13 +243,17 @@ jobs:
           ref: refs/pull/${{ inputs.pr-number }}/merge
           # Only the checks group compares against the base branch.
           fetch-depth: ${{ matrix.group == 'checks' && '0' || '1' }}
-          submodules: recursive
+          # Submodules come from the step below (see the ex63 job).
+          submodules: false
           persist-credentials: false
 
       - name: Trust the workspace for git
         # The checkout is owned by the runner uid; the container runs as root.
         if: matrix.container != ''
         run: git config --global --add safe.directory '*'
+
+      - name: Check out submodules
+        run: bash scripts/ci/checkout-submodules.sh
 
       - name: Cache Rust build artifacts
         if: matrix.group == 'rust-lint' || matrix.group == 'rust-cov' || matrix.group == 'tauri'
