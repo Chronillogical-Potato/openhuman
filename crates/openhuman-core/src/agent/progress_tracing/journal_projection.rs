@@ -360,8 +360,8 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         tool_name: requested_name.clone(),
                         arguments: arguments.clone(),
                         iteration: scope.iteration,
-                        display_label: Some(label),
-                        display_detail: detail,
+                        display_label: Some(label.clone()),
+                        display_detail: detail.clone(),
                     },
                     AgentProgress::SubagentToolCallCompleted {
                         agent_id: scope.agent_id.clone(),
