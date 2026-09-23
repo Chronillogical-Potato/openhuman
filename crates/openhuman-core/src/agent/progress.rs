@@ -264,6 +264,14 @@ pub enum AgentProgress {
         /// a failed sub-agent row carries the same "why + what to do next" copy
         /// instead of discarding the already-computed classification (#4459).
         failure: Option<crate::tools::status::ClassifiedFailure>,
+        /// Mirrors [`Self::ToolCallCompleted::display_label`], recomputed from
+        /// the child tool's own `Tool::display_label` using the real call
+        /// arguments.
+        display_label: Option<String>,
+        /// Mirrors [`Self::ToolCallCompleted::display_detail`].
+        display_detail: Option<String>,
+        /// Mirrors [`Self::ToolCallCompleted::structured`].
+        structured: Option<serde_json::Value>,
     },
 
     /// A chunk of a sub-agent's visible assistant text arrived from the
