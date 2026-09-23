@@ -180,13 +180,20 @@ pub(super) fn visible_tool_specs_for_policy(
 /// off the wire. An empty set already means "no filter" (all tools visible),
 /// so it is left untouched — including the deliberately tool-less
 /// `Named([])` case, which must stay tool-less.
+///
+/// `recovery_needed` is whether anything can hand this agent a recovery
+/// pointer: the compaction router ([`ContextConfig::compaction_enabled`]) or
+/// TinyJuice's summary stage ([`summarizes_tool_output`]), whose footer names
+/// the retrieve tool even when the router is off.
+///
+/// [`ContextConfig::compaction_enabled`]: crate::config::schema::ContextConfig
 pub(super) fn ensure_recovery_tool_visible(
     visible: &mut std::collections::HashSet<String>,
-    compaction_enabled: bool,
+    recovery_needed: bool,
 ) {
-    // With compaction off nothing ever emits a `⟦tj:…⟧` marker, so the
-    // recovery tool would be a schema with nothing to recover.
-    if !compaction_enabled {
+    // Nothing emits a `⟦tj:…⟧` marker or a summary footer, so the recovery
+    // tool would be a schema with nothing to recover.
+    if !recovery_needed {
         return;
     }
     // `is_empty_tool_scope`, not `is_empty`: a belt holding only
@@ -199,6 +206,12 @@ pub(super) fn ensure_recovery_tool_visible(
             visible.insert((*name).to_string());
         }
     }
+}
+
+/// Whether TinyJuice may summarize this agent's tool output. Only the
+/// orchestrator gets a summary model, and a zero threshold turns it off.
+pub(super) fn summarizes_tool_output(agent_id: &str, config: &Config) -> bool {
+    agent_id == "orchestrator" && config.context.summarizer_payload_threshold_tokens > 0
 }
 
 pub(super) fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool {

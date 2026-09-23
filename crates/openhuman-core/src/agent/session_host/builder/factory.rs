@@ -759,7 +759,12 @@ impl OpenHumanSessionHost {
         // (e.g. the orchestrator's curated list). An empty set already means
         // "no filter", so it needs nothing. Added BEFORE the disallow filter
         // below so an agent that explicitly disallows it still has it removed.
-        super::ensure_recovery_tool_visible(&mut visible, config.context.compaction_enabled);
+        // A summary names the tool in its footer too, and summaries run with
+        // the router off, so either one makes the tool necessary.
+        super::ensure_recovery_tool_visible(
+            &mut visible,
+            config.context.compaction_enabled || super::summarizes_tool_output(agent_id, config),
+        );
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -915,8 +920,7 @@ impl OpenHumanSessionHost {
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
             std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
-        > = if agent_id == "orchestrator" && config.context.summarizer_payload_threshold_tokens > 0
-        {
+        > = if super::summarizes_tool_output(agent_id, config) {
             match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
                 Some(reg) => match reg.get("summarizer") {
                     Some(summarizer_def) => {
