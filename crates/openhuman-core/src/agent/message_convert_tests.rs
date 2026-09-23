@@ -46,6 +46,8 @@ fn native_image_round_trip_preserves_adjacent_text_for_claude_code() {
     );
     let line: serde_json::Value = serde_json::from_slice(&stdin).unwrap();
     let content = line["message"]["content"].as_array().unwrap();
+    // The current Claude Code bridge preserves adjacent typed blocks without
+    // injecting separators.
     assert_eq!(content[0]["text"], "before ");
     assert_eq!(content[1]["type"], "image");
     assert_eq!(content[2]["text"], " after");

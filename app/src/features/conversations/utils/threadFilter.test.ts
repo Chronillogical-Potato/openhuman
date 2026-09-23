@@ -84,7 +84,7 @@ describe('isThreadVisibleInTab', () => {
   });
 
   describe('Tasks bucket', () => {
-    it('keeps task-board, legacy agent-task, and legacy worker-labeled threads', () => {
+    it('keeps tasks-labelled, legacy agent-task, and legacy worker-labeled threads', () => {
       expect(isThreadVisibleInTab(thread({ labels: [TASKS_TAB_VALUE] }), TASKS_TAB_VALUE)).toBe(
         true
       );

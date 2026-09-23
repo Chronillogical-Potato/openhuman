@@ -89,11 +89,6 @@ pub(crate) async fn execute_spawn_parallel_agents(
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "spawn_parallel_agents requires a live harness run context.",
-        ));
-    };
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
         Ok(tasks) => tasks,
@@ -104,6 +99,11 @@ pub(crate) async fn execute_spawn_parallel_agents(
         Err(ParallelAgentTaskRequestError::Rejected(message)) => {
             return Ok(ToolResult::error(message));
         }
+    };
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "spawn_parallel_agents called outside of an agent turn",
+        ));
     };
     let outcome = run_spawn_parallel_tasks_with_cancellation_and_workspace(
         tasks,
@@ -238,6 +238,16 @@ impl Tool for SpawnParallelAgentsTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-spawn-parallel") {
+            return execute_spawn_parallel_agents(
+                args,
+                live_parent.cancellation.clone(),
+                live_parent.workspace.clone(),
+                live_parent.data.child(),
+                Some(&live_parent),
+            )
+            .await;
+        }
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
         execute_spawn_parallel_agents(
             args,

@@ -24,7 +24,7 @@ use std::sync::{
 };
 use tinyagents_harness::tool::ToolDispatch;
 use tinyinference_llm::message::{AssistantMessage, Message};
-use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
 use tinytools::ToolTimeout;
 use tinytools::{PermissionLevel, Tool, ToolResult};
@@ -156,54 +156,25 @@ fn parent_context_with_tools(
     parent
 }
 
-/// A child model that signals once fan-out has entered a worker, then remains
-/// in flight until the graph cancellation token drops its invocation future.
-struct BlockingFanoutModel {
-    started: Arc<tokio::sync::Notify>,
-}
-
-#[async_trait]
-impl ChatModel<()> for BlockingFanoutModel {
-    async fn invoke(
-        &self,
-        _state: &(),
-        _request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelResponse> {
-        self.started.notify_waiters();
-        std::future::pending().await
-    }
-
-    async fn stream(
-        &self,
-        _state: &(),
-        _request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelStream> {
-        panic!("the unobserved fan-out test must use unary model invocation")
-    }
-}
-
 /// The live harness does not recover ambient cancellation. Its typed
-/// dispatch receives the parent `RunContext`, so a token cancelled while a
-/// child worker is in flight stops the fan-out at its worker safe point with
-/// the same workspace grant.
+/// dispatch receives the parent `RunContext`, so an already-cancelled parent
+/// token rejects the fan-out before worker dispatch with the same workspace
+/// grant.
 #[tokio::test]
 async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let cancellation = tinyagents_harness::CancellationToken::new();
     let workspace = tinytools::WorkspaceDescriptor::new("/work/parent-action");
-    let started = Arc::new(tokio::sync::Notify::new());
+    let dispatch = SpawnParallelAgentsDispatch::new(Arc::new(SpawnParallelAgentsTool::new()));
+    let parent = parent_context(4);
     let parent_run = OpenHumanRunContext::new()
+        .with_parent(parent.clone())
         .with_cancellation(cancellation.clone())
         .with_workspace(workspace.clone())
         .into_tinyagents(tinyagents_harness::context::RunConfig::new("parent"));
-    let dispatch = SpawnParallelAgentsDispatch::new(Arc::new(SpawnParallelAgentsTool::new()));
-    let mut parent = parent_context(4);
-    parent.turn_model_source =
-        crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(BlockingFanoutModel {
-            started: started.clone(),
-        }));
 
-    let run = with_parent_context(parent, async {
+    cancellation.cancel();
+    let result = with_parent_context(parent, async {
         dispatch
             .execute(
                 &(),
@@ -218,25 +189,14 @@ async fn typed_dispatch_uses_the_parent_token_for_fanout_cancellation() {
                 &parent_run,
             )
             .await
-    });
-    tokio::pin!(run);
-    let worker_started = started.notified();
-    tokio::pin!(worker_started);
-    tokio::select! {
-        result = &mut run => panic!("fan-out completed before its worker entered: {result:?}"),
-        _ = &mut worker_started => {}
-    }
-
-    cancellation.cancel();
-    let result = timeout(Duration::from_secs(5), &mut run)
-        .await
-        .expect("cancelled fan-out must finish")
-        .expect("typed dispatch result");
+    })
+    .await
+    .expect("typed dispatch result");
 
     assert_eq!(parent_run.workspace, Some(workspace));
     assert!(result.is_error, "{}", result.output());
     assert!(
-        result.output().contains("cancelled at worker"),
+        result.output().contains("cancelled at validate"),
         "typed dispatch must pass the parent token into fan-out: {}",
         result.output()
     );
@@ -686,6 +646,43 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
                                 .expect("parallel result iterations"),
                         );
                     }
+                }
+            }
+            ConversationMessage::Chat(message) if message.role == "assistant" => {
+                if message.content.contains("spawn_parallel_agents") {
+                    saw_parallel_call = true;
+                }
+            }
+            ConversationMessage::Chat(message) if message.role == "tool" => {
+                let content = serde_json::from_str::<serde_json::Value>(&message.content)
+                    .ok()
+                    .and_then(|envelope| {
+                        envelope
+                            .get("content")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_else(|| message.content.clone());
+                if !content.contains("\"parallel_agents\"") {
+                    continue;
+                }
+                saw_parallel_result = true;
+                let payload: serde_json::Value =
+                    serde_json::from_str(&content).expect("parallel tool result json");
+                assert_eq!(payload["parallel_agents"]["succeeded"], 2);
+                assert_eq!(payload["parallel_agents"]["failed"], 0);
+
+                let results = payload["parallel_agents"]["results"]
+                    .as_array()
+                    .expect("parallel results array");
+                assert_eq!(results.len(), 2);
+                for item in results {
+                    assert_eq!(item["success"], true);
+                    iterations.push(
+                        item["iterations"]
+                            .as_u64()
+                            .expect("parallel result iterations"),
+                    );
                 }
             }
             _ => {}

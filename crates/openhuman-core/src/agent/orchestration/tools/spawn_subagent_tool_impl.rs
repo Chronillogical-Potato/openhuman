@@ -24,70 +24,7 @@ impl Tool for SpawnSubagentTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        // Build the agent_id enum dynamically from the global registry
-        // when it's been initialised. Falls back to a string-with-hint
-        // when the registry hasn't been set up yet (e.g. early tests).
-        let agent_ids: Vec<String> = AgentDefinitionRegistry::global()
-            .map(|reg| reg.list().iter().map(|d| d.id.clone()).collect())
-            .unwrap_or_default();
-
-        let agent_id_schema = if agent_ids.is_empty() {
-            json!({
-                "type": "string",
-                "description": "Sub-agent id (e.g. code_executor, researcher, critic)."
-            })
-        } else {
-            json!({
-                "type": "string",
-                "enum": agent_ids,
-                "description": "Sub-agent id from the registry."
-            })
-        };
-
-        json!({
-            "type": "object",
-            "required": ["agent_id", "prompt"],
-            "properties": {
-                "agent_id": agent_id_schema,
-                // Back-compat alias — older callers used `archetype`.
-                "archetype": {
-                    "type": "string",
-                    "description": "Deprecated alias for `agent_id`. Use `agent_id` going forward."
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "Clear, specific instruction for the sub-agent. The sub-agent has no memory of the parent's conversation, so include all context the sub-agent needs to act."
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Optional context blob from prior task results. Rendered as a `[Context]` block before the prompt."
-                },
-                "model": {
-                    "type": "string",
-                    "description": "Optional exact model id for this spawn only. Keeps the parent provider/routing, but pins the child agent to this model instead of the agent definition's default."
-                },
-                "toolkit": {
-                    "type": "string",
-                    "description": "Composio toolkit slug to scope this spawn to — e.g. `gmail`, `notion`, `slack`. REQUIRED when `agent_id = \"integrations_agent\"`. Narrows the sub-agent's visible Composio actions AND its Connected Integrations prompt section to only that toolkit's catalogue, so the sub-agent's context window only carries the platform it was asked to operate on. Must match a currently-connected integration (see the Delegation Guide)."
-                },
-                "dedicated_thread": {
-                    "type": "boolean",
-                    "description": "Legacy compatibility flag. Delegations now always create a persistent worker thread when parent context is available, so this flag no longer gates thread creation."
-                },
-                "blocking": {
-                    "type": "boolean",
-                    "description": "Explicitly run the sub-agent inline and return its final output. Defaults to false; reusable async delegation is the default."
-                },
-                "task_key": {
-                    "type": "string",
-                    "description": "Optional deterministic identity key for reusable async delegation. Defaults to a normalized prompt/title."
-                },
-                "fresh": {
-                    "type": "boolean",
-                    "description": "When true, bypass reusable subagent matching and create a fresh durable worker."
-                }
-            }
-        })
+        spawn_subagent_parameters_schema()
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -105,6 +42,17 @@ impl Tool for SpawnSubagentTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-spawn-subagent") {
+            let run_context = live_parent.data.child();
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    run_context,
+                    Some(&live_parent),
+                )
+                .await;
+        }
         self.execute_with_parent_context(
             args,
             tool_context,
@@ -136,11 +84,6 @@ impl SpawnSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(live_parent) = live_parent else {
-            return Ok(ToolResult::error(
-                "spawn_subagent requires a live harness run context.",
-            ));
-        };
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -197,7 +140,6 @@ impl SpawnSubagentTool {
         if prompt.is_empty() {
             return Ok(ToolResult::error("spawn_subagent: `prompt` is required"));
         }
-
         let registry = match AgentDefinitionRegistry::global() {
             Some(reg) => reg,
             None => {
@@ -398,6 +340,15 @@ impl SpawnSubagentTool {
             }
         }
 
+        // Input, registry, allowlist, and integration validation are safe to
+        // perform without a live run. A valid spawn must still fail closed
+        // unless its typed harness parent carries authority and cancellation.
+        let Some(live_parent) = live_parent else {
+            return Ok(ToolResult::error(
+                "spawn_subagent requires a live harness run context.",
+            ));
+        };
+
         // Async-by-default only holds where the finished result has somewhere
         // to land. `spawn_async_subagent` delivers thread-addressed (see
         // `background_delivery`), so outside a chat turn (flow `agent` node,
@@ -495,11 +446,6 @@ impl SpawnSubagentTool {
             prompt.chars().count(),
         );
 
-        // Mirror the spawn onto the parent's per-turn progress sink so the
-        // web-channel bridge can stream a live subagent row into the
-        // parent thread's UI. Best-effort: a closed/missing sink is
-        // silently ignored — the global DomainEvent above is the
-        // authoritative record.
         if let Some(progress) = run_context.progress.clone() {
             let _ = progress
                 .send(AgentProgress::SubagentSpawned {
@@ -515,7 +461,6 @@ impl SpawnSubagentTool {
                 .await;
         }
 
-        // ── Run the sub-agent ──────────────────────────────────────────
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace().cloned());
         let worktree_action_dir = workspace_descriptor
             .as_ref()
@@ -562,10 +507,6 @@ impl SpawnSubagentTool {
                         options: _,
                         checkpoint,
                     } => {
-                        // Sub-agent paused for user input — publish
-                        // awaiting event and return structured envelope so
-                        // the orchestrator can relay the question and later
-                        // call continue_subagent.
                         if emit_lifecycle_effects {
                             crate::agent::orchestration::subagent_events::publish_subagent_awaiting_user(
                             parent_session,
@@ -597,11 +538,6 @@ impl SpawnSubagentTool {
                         Ok(ToolResult::success(envelope))
                     }
                     SubagentRunStatus::Completed => {
-                        // #3883: log the orchestrator taking delivery of each
-                        // artifact path the child handed back, so a run journal
-                        // shows both ends of every `[artifact]` pointer. The
-                        // `consumed_by_parent` stage distinguishes this from the
-                        // child's `recorded_by_child` line for the same path.
                         crate::agent::harness::artifact_offload::note_artifact_handoff(
                             crate::agent::harness::artifact_offload::HANDOFF_STAGE_CONSUMED,
                             &outcome.agent_id,
@@ -627,6 +563,10 @@ impl SpawnSubagentTool {
                                         iterations: outcome.iterations as u32,
                                         output_chars: outcome.output.chars().count(),
                                         output: outcome.output.clone(),
+                                        // BLOCKING spawn: this child's usage DID reach the parent's
+                                        // ledger, so `chat_done` already carries its tokens AND its
+                                        // cost. Populating here would double both. See the field's docs.
+                                        usage: None,
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,
@@ -701,6 +641,10 @@ impl SpawnSubagentTool {
                                         iterations: outcome.iterations as u32,
                                         output_chars: outcome.output.chars().count(),
                                         output: outcome.output.clone(),
+                                        // BLOCKING spawn: this child's usage DID reach the parent's
+                                        // ledger, so `chat_done` already carries its tokens AND its
+                                        // cost. Populating here would double both. See the field's docs.
+                                        usage: None,
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,

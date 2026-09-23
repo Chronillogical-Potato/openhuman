@@ -225,12 +225,6 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
         >,
     >,
 ) -> anyhow::Result<ToolResult> {
-    let Some(live_parent) = live_parent else {
-        return Ok(ToolResult::error(
-            "agent_prepare_context requires a live harness run context.",
-        ));
-    };
-    let parent = run_context.parent.clone();
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 
@@ -246,6 +240,13 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
             "agent_prepare_context: `question` is required",
         ));
     }
+
+    let Some(live_parent) = live_parent else {
+        return Ok(ToolResult::error(
+            "agent_prepare_context requires a live harness run context.",
+        ));
+    };
+    let parent = run_context.parent.clone();
 
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,
@@ -374,6 +375,10 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                                         iterations: outcome.iterations as u32,
                                         output_chars: 0,
                                         output: String::new(),
+                                        // Not audited for whether this child's spend reached the
+                                        // parent turn's ledger, so it stays silent: omission adds
+                                        // nothing, which is the status quo. See the field's docs.
+                                        usage: None,
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,
@@ -416,6 +421,10 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                                     iterations: outcome.iterations as u32,
                                     output_chars: bundle.chars().count(),
                                     output: bundle.clone(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
@@ -547,6 +556,10 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                                     iterations: outcome.iterations as u32,
                                     output_chars: 0,
                                     output: String::new(),
+                                    // Not audited for whether this child's spend reached the
+                                    // parent turn's ledger, so it stays silent: omission adds
+                                    // nothing, which is the status quo. See the field's docs.
+                                    usage: None,
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,

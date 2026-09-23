@@ -129,7 +129,9 @@ impl OpenHumanSessionHost {
     }
 
     #[cfg(test)]
-    pub(crate) fn tool_policy_session_for_test(&self) -> &crate::tools::agent_policy::ToolPolicySession {
+    pub(crate) fn tool_policy_session_for_test(
+        &self,
+    ) -> &crate::tools::agent_policy::ToolPolicySession {
         &self.tool_policy_session
     }
 
@@ -319,15 +321,54 @@ impl OpenHumanSessionHost {
 
     /// Bind the OpenHuman conversation thread for the next and subsequent
     /// turns. Empty input intentionally clears the binding.
+    ///
+    /// This also binds the session's durable identity, which is what makes a
+    /// thread resolve to one transcript instead of a new timestamped stem per
+    /// cold boot. A sub-agent is excluded: each spawn is genuinely its own
+    /// transcript, and it inherits its parent's thread id only for
+    /// correlation.
     pub fn set_thread_id(&mut self, thread_id: Option<impl AsRef<str>>) {
         self.thread_id = thread_id.and_then(|thread_id| {
             let thread_id = thread_id.as_ref().trim();
             (!thread_id.is_empty()).then(|| thread_id.to_owned())
         });
+        self.session = match (&self.thread_id, self.session_parent_prefix.is_some()) {
+            (Some(thread_id), false) => Some(tinyagents_session::transcript::SessionRef::scoped(
+                thread_id.clone(),
+                self.agent_definition_id.clone(),
+            )),
+            _ => None,
+        };
     }
 
     pub(crate) fn thread_id(&self) -> Option<&str> {
         self.thread_id.as_deref()
+    }
+
+    /// Durable id of the session this host is bound to, or `None` when it has
+    /// no conversation identity (a sub-agent, or an unthreaded CLI turn).
+    ///
+    /// This is TinyAgents' identity, not a host-invented one: it is what
+    /// addresses the transcript, and it is stamped into `_meta.session_id`.
+    pub fn session_id(&self) -> Option<String> {
+        self.session.as_ref().map(|session| session.session_id())
+    }
+
+    /// Every generation of this conversation, oldest first.
+    ///
+    /// A compaction seals a generation and opens the next rather than
+    /// rewriting history, so a long conversation is a chain of transcripts.
+    /// The model sees only the head; this is how a host reads back the whole
+    /// thing. Empty when nothing has been persisted yet.
+    pub fn session_generations(&self) -> Vec<String> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        self.session_locator()
+            .session_chain(session)
+            .iter()
+            .map(|generation| generation.session_id())
+            .collect()
     }
 
     /// Override the agent definition name used for session transcript

@@ -18,6 +18,7 @@ import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { TurnFooter } from './aui/TurnFooter';
 import { TurnFooterHost } from './aui/turnFooterHost';
+import { TurnSources } from './aui/TurnSources';
 import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
@@ -282,9 +283,14 @@ export function AssistantUiChat({
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
       RunningStatus: AssistantUiInferenceStatus,
-      // One-line process summary under a settled answer, and the only door to
-      // the reasoning / narration / tool detail that no longer renders inline.
+      // One-line process summary under a settled answer, and the door to the
+      // reasoning / narration / tool detail that does not render inline.
       TurnFooter,
+      // The web sources that turn visited, inline under the answer. The rail
+      // still lists them too — it carries the scoped single-step view and the
+      // whole-run view this does not. Reads the turn's own metadata, so no
+      // props and no dependency here.
+      TurnSources,
       onSwitchToMicCloud,
       ...(attachmentsEnabled
         ? {

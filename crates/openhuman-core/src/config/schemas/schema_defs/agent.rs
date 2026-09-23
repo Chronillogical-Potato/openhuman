@@ -16,9 +16,10 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
 "update_autonomy_settings" => Some( ControllerSchema {
             namespace: "config",
             function: "update_autonomy_settings",
-            description: "Update the agent access mode: autonomy level, workspace confinement, trusted-roots allow-list, command allow-list, forbidden paths, and OS-install permission. Applies live to active sessions.",
+            description: "Update the agent access mode: whether the policy is enabled at all, autonomy level, workspace confinement, trusted-roots allow-list, command allow-list, forbidden paths, and OS-install permission. Applies live to active sessions.",
             inputs: vec![
-                optional_string("level", "Autonomy level: readonly | supervised | full."),
+                optional_bool("enabled", "Master switch for the autonomy policy. Defaults to false: with it off, command classification, the approval gate, the command allow-list, the action budget and workspace containment are all inert, and every other field here has no effect. Credential stores and system roots stay blocked either way."),
+                optional_string("level", "Autonomy level: readonly | supervised | full. Only binds when enabled is true."),
                 optional_bool("workspace_only", "Confine file/path access to the workspace directory."),
                 FieldSchema {
                     name: "allowed_commands",
@@ -56,7 +57,6 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                     comment: "Replace the \"Always allow\" allowlist (array of tool names the agent runs without an approval prompt). Empty array clears it.",
                     required: false,
                 },
-                optional_bool("require_task_plan_approval", "Require approval before an agent executes a task-board plan."),
                 optional_bool("auto_approve_all", "When true, auto-approve all tool calls without prompting. SubconsciousTainted and Unknown origins still denied. Hard security blocks unaffected."),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],

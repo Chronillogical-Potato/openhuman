@@ -166,8 +166,8 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
     PromptResource {
         uri: "openhuman://prompts/agents/summarizer",
         name: "summarizer",
-        description: "Worker that condenses long documents or conversations.",
-        content: include_str!("../../agent/registry/agents/summarizer/prompt.md"),
+        description: "The extraction contract oversized tool results are summarized against.",
+        content: crate::agent::registry::agents::summarizer::prompt::ARCHETYPE,
     },
     PromptResource {
         uri: "openhuman://prompts/agents/help",
@@ -196,7 +196,7 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
     PromptResource {
         uri: "openhuman://prompts/agents/task_manager_agent",
         name: "task_manager_agent",
-        description: "Specialist worker for task planning, status, and task-board changes.",
+        description: "Specialist worker for task-source feeds, workflow bundles, and artifacts.",
         content: include_str!("../../agent/registry/agents/task_manager_agent/prompt.md"),
     },
     PromptResource {

@@ -24,7 +24,7 @@
 //!  19. Builder validation (missing required fields)
 //!  20. Idempotent system prompt insertion
 
-use crate::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
+use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::session_host::OpenHumanSessionHost;
 use crate::config::AgentConfig;
 use crate::inference::provider::{ChatResponse, ToolCall};

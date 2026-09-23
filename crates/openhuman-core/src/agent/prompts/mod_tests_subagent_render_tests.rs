@@ -58,8 +58,48 @@ fn render_subagent_system_prompt_renders_workspace_tail() {
     // sub-agent renderer — same source const, so it can never drift from
     // `GroundingSection` / the central `build()` append.
     assert!(rendered.contains("## Grounding and tool use"));
-    assert!(rendered.contains("Your tools are exactly the ones listed in this prompt"));
+    assert!(rendered.contains("Your tools are exactly the ones you have been given for this turn"));
     assert!(rendered.contains("Preserve numeric evidence exactly"));
+
+    let _ = std::fs::remove_dir_all(workspace);
+}
+
+#[test]
+fn subagent_prompt_defaults_to_python_and_omits_protocol_without_tools() {
+    let workspace = std::env::temp_dir().join(format!(
+        "openhuman_prompt_default_dialect_{}",
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let default_rendered = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[0],
+        &tools,
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::default(),
+        &[],
+    );
+    assert!(default_rendered.contains("def test_tool() -> str"));
+    assert!(!default_rendered.contains("test_tool[]"));
+
+    let no_tools = render_subagent_system_prompt(
+        &workspace,
+        "test-model",
+        &[],
+        &[],
+        &[],
+        "You are a focused sub-agent.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::Json,
+        &[],
+    );
+    assert!(!no_tools.contains("## Tools"));
+    assert!(!no_tools.contains("## Tool Use Protocol"));
 
     let _ = std::fs::remove_dir_all(workspace);
 }
@@ -120,15 +160,15 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
     assert!(rendered.contains("## Safety"));
     // Json is a prompt-driven format (the model wraps JSON tool
     // calls in `<tool_call>` tags); it does NOT use the provider's
-    // native function-calling channel. So the prose `## Tools`
-    // section MUST still be rendered for Json, with each tool's
-    // parameter schema inline so the model knows what to emit.
+    // native function-calling channel. So the prose tool catalogue
+    // MUST still be rendered for Json, with each tool's compact
+    // argument signature so the model knows what to emit.
     // Only `ToolCallFormat::Native` gets the section omitted (see
     // the `native` branch below and the `!matches!(…, Native)`
     // guard in the renderer).
-    assert!(rendered.contains("## Tools"));
-    assert!(rendered.contains("Parameters:"));
-    assert!(rendered.contains("\"type\""));
+    assert!(rendered.contains("### Available Tools"));
+    assert!(rendered.contains("**test_tool**"));
+    assert!(rendered.contains("Arguments: `object`"));
 
     let native = render_subagent_system_prompt_with_format(
         &workspace,
@@ -143,7 +183,7 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
         None,
         None,
     );
-    assert!(native.contains("native tool-calling output"));
+    assert!(native.contains("through native tool-calling."));
     assert!(!native.contains("## Safety"));
     // Native is the only format where the prose `## Tools` section
     // is intentionally omitted — schemas travel through the

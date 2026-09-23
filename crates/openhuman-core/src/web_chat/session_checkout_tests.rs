@@ -12,12 +12,13 @@ use tinyagents_session::transcript::{write_transcript, TranscriptMeta};
 
 use super::{
     checkin_session_agent, checkin_session_agent_if_vacant, checkout_session_agent,
-    CheckedOutSession, CheckoutPolicy,
+    fingerprint_diff, CheckedOutSession, CheckoutPolicy,
 };
 use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::web_chat::ops::{key_for, THREAD_SESSIONS};
+use crate::web_chat::types::SessionCacheFingerprint;
 
 fn test_config(tmp: &tempfile::TempDir) -> Config {
     let config = Config {
@@ -53,6 +54,8 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
         .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
         .collect();
     let meta = TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator_thread".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -115,7 +118,10 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     // A host-authored turn checks out with no overrides and no user text.
-    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+    let CheckedOutSession {
+        mut agent,
+        fingerprint,
+    } = checkout_session_agent(
         &config,
         super::super::SYSTEM_CLIENT_ID,
         &thread_id,
@@ -123,10 +129,16 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
+    // Checkout binds the thread's durable session identity; the history loads
+    // when the session resumes, which every turn does for itself. The
+    // conversation the transcript holds must come back either way.
+    assert!(
+        agent.resume_bound_session().await.unwrap(),
+        "a thread with a transcript must resume"
+    );
     let history = prose(&agent.history());
     assert!(
         history
@@ -150,7 +162,6 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::Exact,
-        "so lets do 20-30 days then?",
     )
     .await
     .unwrap();
@@ -194,7 +205,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -213,7 +223,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -243,7 +252,6 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
         None,
         None,
         CheckoutPolicy::Fork,
-        "",
     )
     .await
     .unwrap();
@@ -281,7 +289,6 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
@@ -298,10 +305,194 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         Some(0.2),
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
     assert_eq!(prose(&agent.history()), vec!["pinned-history", "ok"]);
     evict(&thread_id).await;
+}
+
+/// The identity that fixes the reported bug: a thread resolves to one
+/// transcript, named without a timestamp, so two cold boots address the same
+/// file instead of accumulating one root per launch.
+#[tokio::test]
+async fn a_thread_binds_one_stable_session_across_cold_boots() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("stable");
+
+    let first = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+    // Nothing is checked back in, so the next checkout is a genuine cold boot.
+    let second = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+
+    let session_id = first
+        .agent
+        .session_id()
+        .expect("a chat thread is a session");
+    assert_eq!(
+        second.agent.session_id().as_deref(),
+        Some(session_id.as_str()),
+        "two cold boots of one thread must address the same session"
+    );
+    assert!(
+        session_id.starts_with(&thread_id),
+        "the session is named for its conversation, got {session_id}"
+    );
+    assert!(
+        !session_id
+            .split(['.', '_'])
+            .any(|part| part.len() >= 10 && part.chars().all(|c| c.is_ascii_digit())),
+        "a timestamp in the name is what made every launch a new transcript: {session_id}"
+    );
+    evict(&thread_id).await;
+}
+
+/// A fingerprint with every field set, so a test can change exactly one and
+/// know the diff it expects is the only one available.
+fn sample_fingerprint() -> SessionCacheFingerprint {
+    SessionCacheFingerprint {
+        model_override: Some("hint:chat".to_string()),
+        temperature: Some(0.7),
+        target_agent_id: "orchestrator".to_string(),
+        provider_binding: "openhuman".to_string(),
+        autonomy_signature: r#"{"approval_required":true,"action_dir":"/home/u/w"}"#.to_string(),
+        model_registry_signature: r#"[{"id":"m","provider":"p","vision":false}]"#.to_string(),
+    }
+}
+
+#[test]
+fn fingerprint_diff_is_empty_for_equal_fingerprints() {
+    // Guards the miss log's own "no field differs" branch: if this ever became
+    // non-empty for equal inputs, every cache HIT would be reported as a miss
+    // with a fabricated reason.
+    assert!(fingerprint_diff(&sample_fingerprint(), &sample_fingerprint()).is_empty());
+}
+
+#[test]
+fn fingerprint_diff_names_the_field_the_old_log_could_not_show() {
+    // The four fields the previous log never printed. Each is checked on its
+    // own so the assertion cannot pass because some *other* field differed —
+    // the exact way the old two-field log misled readers (openhuman#6414).
+    let base = sample_fingerprint();
+
+    let mut model = base.clone();
+    model.model_override = Some("gpt-4".to_string());
+    let diff = fingerprint_diff(&base, &model);
+    assert_eq!(
+        diff.len(),
+        1,
+        "expected exactly one differing field: {diff:?}"
+    );
+    assert!(
+        diff[0].starts_with("model_override:"),
+        "diff must name model_override, got {diff:?}"
+    );
+
+    let mut temp = base.clone();
+    temp.temperature = Some(0.1);
+    let diff = fingerprint_diff(&base, &temp);
+    assert_eq!(
+        diff.len(),
+        1,
+        "expected exactly one differing field: {diff:?}"
+    );
+    assert!(
+        diff[0].starts_with("temperature:"),
+        "diff must name temperature, got {diff:?}"
+    );
+
+    let mut autonomy = base.clone();
+    autonomy.autonomy_signature =
+        r#"{"approval_required":false,"action_dir":"/home/u/w"}"#.to_string();
+    let diff = fingerprint_diff(&base, &autonomy);
+    assert_eq!(
+        diff.len(),
+        1,
+        "expected exactly one differing field: {diff:?}"
+    );
+    assert!(
+        diff[0].starts_with("autonomy_signature:"),
+        "diff must name autonomy_signature, got {diff:?}"
+    );
+
+    let mut registry = base.clone();
+    registry.model_registry_signature = r#"[{"id":"m","provider":"p","vision":true}]"#.to_string();
+    let diff = fingerprint_diff(&base, &registry);
+    assert_eq!(
+        diff.len(),
+        1,
+        "expected exactly one differing field: {diff:?}"
+    );
+    assert!(
+        diff[0].starts_with("model_registry_signature:"),
+        "diff must name model_registry_signature, got {diff:?}"
+    );
+}
+
+#[test]
+fn fingerprint_diff_summarises_signatures_without_printing_them() {
+    // `config.autonomy` carries the user's filesystem paths, so the miss log
+    // must not echo the subtree onto the chat hot path. The summary has to be
+    // useful *and* quiet: it names where the two diverge, not what they say.
+    let base = sample_fingerprint();
+    let mut changed = base.clone();
+    changed.autonomy_signature =
+        r#"{"approval_required":false,"action_dir":"/home/u/secret-dir"}"#.to_string();
+
+    let diff = fingerprint_diff(&base, &changed);
+    assert_eq!(diff.len(), 1, "{diff:?}");
+    let line = &diff[0];
+
+    assert!(
+        !line.contains("secret-dir") && !line.contains("action_dir"),
+        "signature contents must not be logged, got {line}"
+    );
+    assert!(
+        line.contains("differs at byte"),
+        "summary must locate the change, got {line}"
+    );
+    assert!(
+        line.contains(&base.autonomy_signature.len().to_string()),
+        "summary must carry the prior length, got {line}"
+    );
+}
+
+#[test]
+fn fingerprint_diff_reports_every_differing_field() {
+    // A miss caused by two fields at once must not report only the first.
+    let base = sample_fingerprint();
+    let mut next = base.clone();
+    next.temperature = None;
+    next.provider_binding = "byok".to_string();
+
+    let diff = fingerprint_diff(&base, &next);
+    assert_eq!(diff.len(), 2, "{diff:?}");
+    assert!(
+        diff.iter().any(|d| d.starts_with("temperature:")),
+        "{diff:?}"
+    );
+    assert!(
+        diff.iter().any(|d| d.starts_with("provider_binding:")),
+        "{diff:?}"
+    );
 }

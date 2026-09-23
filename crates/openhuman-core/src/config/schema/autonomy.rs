@@ -8,8 +8,29 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct AutonomyConfig {
+    /// Master switch for the autonomy policy. **Defaults to `false`.**
+    ///
+    /// These agents run inside containers, platform jails and Docker sandboxes
+    /// that already provide the isolation this in-process policy was
+    /// approximating, and a shell tool that refuses ordinary shell syntax
+    /// (`$(…)`, backticks, a `&` inside a heredoc body) is not a usable shell.
+    /// So the policy is opt-in rather than opt-out.
+    ///
+    /// When `false`, every field below is inert: command classification, the
+    /// allowlist, the approval gate, the hourly action budget, `workspace_only`,
+    /// `forbidden_paths` and the workspace-internal boundary are all skipped.
+    ///
+    /// `SecurityPolicy::is_always_forbidden` still applies either way —
+    /// credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and system roots stay
+    /// unreachable. Deliberate floor, documented on
+    /// [`crate::security::SecurityPolicy::enabled`].
+    ///
+    /// Set `[autonomy] enabled = true` to restore the full policy; `level`,
+    /// `workspace_only` and the rest then behave exactly as they always have.
+    #[serde(default)]
+    pub enabled: bool,
     // No field-level override needed — AutonomyLevel's #[default] is Supervised,
-    // matching the struct Default.
+    // matching the struct Default. It only takes effect when `enabled` is true.
     pub level: AutonomyLevel,
     #[serde(default = "default_true")]
     pub workspace_only: bool,
@@ -64,10 +85,6 @@ pub struct AutonomyConfig {
     /// Intended to be enabled only in Full access mode.
     #[serde(default)]
     pub allow_tool_install: bool,
-    /// When enabled, an agent-authored task brief must be approved before it
-    /// becomes executable work.
-    #[serde(default = "default_true")]
-    pub require_task_plan_approval: bool,
 }
 
 fn default_true() -> bool {
@@ -177,6 +194,7 @@ fn default_auto_approve() -> Vec<String> {
 impl Default for AutonomyConfig {
     fn default() -> Self {
         Self {
+            enabled: false,
             level: AutonomyLevel::Supervised,
             workspace_only: default_true(),
             allowed_commands: default_allowed_commands(),
@@ -189,7 +207,6 @@ impl Default for AutonomyConfig {
             auto_approve_all: false,
             trusted_roots: Vec::new(),
             allow_tool_install: false,
-            require_task_plan_approval: default_true(),
         }
     }
 }

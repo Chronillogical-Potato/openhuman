@@ -723,6 +723,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Поехали, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Время сосредоточиться 🧘🏻',
   'chat.newWindowPrompt': 'Чем я могу помочь тебе сегодня?',
+  'chat.welcomeSuggestion.calendarToday': 'Что у меня сегодня в календаре?',
+  'chat.welcomeSuggestion.unreadEmail': 'Сделай сводку моих непрочитанных писем.',
+  'chat.welcomeSuggestion.draftReply': 'Подготовь ответ на моё последнее сообщение.',
+  'chat.welcomeSuggestion.followUps': 'Что я обещал сделать на этой неделе?',
+  'chat.welcomeSuggestion.connectIntegration': 'Подключи новую интеграцию.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Создай поток, который будет присылать мне ежедневную сводку на почту.',
   'chat.typeMessage': 'Отправьте сообщение...',
   'chat.send': 'Отправить сообщение',
   'chat.stopGeneration': 'Остановить генерацию',
@@ -3220,6 +3227,11 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Требуется дополнительная настройка',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Поддомен Atlassian',
+  'composio.connect.cancelConnection': 'Отменить подключение',
+  'composio.connect.cancelFailed': 'Не удалось отменить подключение: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio не подтвердил удаление подключения. Попробуйте ещё раз.',
+  'composio.connect.cancelling': 'Отмена…',
   'composio.connect.connect': 'Подключить',
   'composio.connect.connectedAccounts': 'Подключённые аккаунты',
   'composio.connect.defaultLabel': 'По умолчанию',
@@ -3283,13 +3295,25 @@ const messages: TranslationMap = {
     'Срок действия сессии OpenHuman истёк. Войдите снова, чтобы загрузить триггеры.',
   'composio.triggers.needsConfiguration': 'Требуется настройка',
   'composio.triggers.noneAvailable': 'Сейчас нет доступных триггеров для',
-  'conversations.threadTodo.title': 'План',
   'conversations.composer.context.title': 'Контекстное окно',
   'conversations.composer.context.input': 'Ввод',
   'conversations.composer.context.cached': 'Ввод из кэша',
   'conversations.composer.context.output': 'Вывод',
   'conversations.composer.context.cost': 'Стоимость',
   'conversations.composer.command.clear': 'Очистить переписку',
+  'conversations.todos.title': 'Задачи',
+  'conversations.todos.progress': '{completed} из {total} выполнено',
+  'conversations.todos.allDone': 'Всё выполнено',
+  'conversations.todos.status.pending': 'Ожидает',
+  'conversations.todos.status.inProgress': 'В работе',
+  'conversations.todos.status.completed': 'Выполнено',
+  'conversations.goal.title': 'Цель',
+  'conversations.goal.status.active': 'Активна',
+  'conversations.goal.status.paused': 'Приостановлена',
+  'conversations.goal.status.budgetLimited': 'Бюджет исчерпан',
+  'conversations.goal.status.complete': 'Завершена',
+  'conversations.goal.tokens': '{used} токенов',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} токенов',
   'conversations.planReview.title': 'Проверить план',
   'conversations.planReview.subtitle':
     'Одобрите для запуска, отклоните для отмены или отправьте отзыв для доработки.',
@@ -3386,12 +3410,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Последняя сгенерированная архитектурная диаграмма OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Обновляется каждые {seconds} с',
   'intelligence.memoryText.entityTypePrefix': 'Тип сущности',
-  'intelligence.workTask.sourceTaskHeading': 'Исходная задача:',
-  'intelligence.workTask.repositoryLine': '- Репозиторий: {repo}',
-  'intelligence.workTask.externalIdLine': '- Внешний ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Ссылка: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Начните с краткого повторения конкретного плана реализации, затем выполните его. Поддерживайте видимость прогресса в этой ветке и обновляйте доску задач при изменении состояния работы.',
   'intelligence.agentWork.subtitle':
     'Каждый фоновый запуск агента, сгруппированный по состоянию жизненного цикла.',
   'intelligence.agentWork.loading': 'Загрузка работы агента…',
@@ -4869,9 +4887,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Каждые 2 часа',
   'settings.devWorkflow.schedule.every6hours': 'Каждые 6 часов',
   'settings.devWorkflow.schedule.onceDaily': 'Один раз в день (9 утра)',
-  'settings.developerMenu.tasks.title': 'Задачи',
-  'settings.developerMenu.tasks.desc':
-    'Просматривайте доски задач и управляйте ими: ваши собственные дела и доски, которые агенты создают в разговорах.',
   'settings.developerMenu.cronJobs.title': 'Задачи cron',
   'settings.developerMenu.cronJobs.desc':
     'Просмотр и настройка запланированных задач для runtime-навыков',
@@ -4975,9 +4990,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ограничить рабочее пространство',
   'settings.agentAccess.confine.desc':
     'Ограничьте агента каталогом рабочей области (плюс всеми предоставленными папками), независимо от выбранного режима доступа. Когда этот параметр отключен, он может получить доступ к любому месту, доступному вашему пользователю, за исключением всегда блокируемых учетных данных и системных каталогов.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
   'settings.agentAccess.autoApproveAll.label': 'Автоматически одобрять все действия',
   'settings.agentAccess.autoApproveAll.desc':
     'При включении агент будет выполнять все подходящие действия, не спрашивая вашего одобрения. Это включает запись файлов, команды оболочки, сетевые запросы и любые другие побочные эффекты. Жесткие блокировки безопасности (каталоги учетных данных и системные каталоги) продолжают действовать, а действия из ненадежных или неизвестных источников никогда не одобряются автоматически.',
@@ -5849,9 +5861,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Источники задач',
   'settings.integrations.title': 'Интеграции',
   'settings.integrations.menuDesc': 'Источники задач, маршрутизация Composio и веб-хук триггеры',
-  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов на доску задач агента.',
+  'settings.taskSources.subtitle': 'Переносите задачи из своих инструментов агенту',
   'settings.taskSources.description':
-    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и направляйте на доску задач агента.',
+    'Собирайте рабочие элементы из GitHub, Notion, Linear и ClickUp, обогащайте их и передавайте агенту на разбор.',
   'settings.taskSources.connectHint':
     'Источники задач используют ваши подключенные учетные записи. Сначала подключите их в разделе «Интеграции».',
   'settings.taskSources.disabledBanner':

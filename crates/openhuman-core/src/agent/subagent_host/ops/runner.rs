@@ -22,7 +22,10 @@ use crate::agent::harness::definition::{
     PromptSource, SandboxMode as AgentSandboxMode,
 };
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::harness::{with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH};
+use crate::agent::harness::{
+    spawn_depth_context::current_spawn_depth, with_current_sandbox_mode, with_spawn_depth,
+    MAX_SPAWN_DEPTH,
+};
 use crate::agent::prompts::{
     render_subagent_system_prompt_with_format, PromptContext, PromptTool, SubagentRenderOptions,
 };
@@ -30,9 +33,9 @@ use crate::agent::subagent_host::extract_tool::ExtractFromResultTool;
 use crate::agent::subagent_host::handoff::ResultHandoffCache;
 use crate::agent::subagent_host::subagent_iter_cap_with_autonomous_lift;
 use crate::agent::subagent_host::tool_prep::{
-    build_text_mode_tool_instructions, filter_tool_indices, is_subagent_spawn_tool,
-    load_prompt_source, select_actions_with_essentials, strip_spawn_tools_from_dynamic,
-    subagent_prompt_protocol, top_k_for_toolkit,
+    filter_tool_indices, is_subagent_spawn_tool, load_prompt_source,
+    select_actions_with_essentials, strip_spawn_tools_from_dynamic, subagent_prompt_protocol,
+    top_k_for_toolkit,
 };
 use crate::agent::subagent_host::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,
@@ -62,10 +65,9 @@ use super::provider::{
 /// initialised. A `None` parent yields `Ok(())`: we skip rather than mask, the
 /// same defensive posture the loader takes for unknown child ids.
 ///
-/// A **worker** parent is also exempted. At runtime a worker only reaches the
-/// spawn chokepoint via the documented collapsed `delegate_to_integrations_agent`
-/// path (→ `integrations_agent`, itself a worker) — a shape the loader
-/// intentionally leaves untouched. Re-denying it here would turn valid custom
+/// A **worker** parent is also exempted. A worker's `subagents` list holds no
+/// agent id (the loader rejects one), so any spawn it reaches at runtime is
+/// one the host dispatched for it. Re-denying it here would turn valid custom
 /// worker agents that use `{ skills = "*" }` into runtime failures. The
 /// worker-leaf authoring rule stays enforced statically at boot, and the
 /// per-parent allowlist gate blocks any other worker spawn.
@@ -481,7 +483,13 @@ pub(crate) async fn run_subagent_direct(
             .clone()
             .ok_or(SubagentRunError::NoParentContext)?;
         let started = Instant::now();
-        let attempted_depth = options.run_context.spawn_depth;
+        // Typed callers carry their depth in the run context. Direct callers
+        // are scoped by `with_spawn_depth`; honor both authorities and count
+        // this child spawn exactly once.
+        let attempted_depth = options
+            .run_context
+            .spawn_depth
+            .max(current_spawn_depth().saturating_add(1));
 
         // Synchronous pre-dispatch projection of the single depth authority
         // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
@@ -1362,21 +1370,24 @@ async fn run_typed_mode(
         .map(|&i| {
             let t = parent.all_tools[i].as_ref();
             PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             }
         })
         .chain(dynamic_tools.iter().map(|t| PromptTool {
-            name: t.name(),
-            description: t.description(),
+            name: std::borrow::Cow::Borrowed(t.name()),
+            description: std::borrow::Cow::Borrowed(t.description()),
             parameters_schema: Some(t.parameters_schema().to_string()),
         }))
         .collect();
     let visible_tool_names: std::collections::HashSet<String> =
         prompt_tools.iter().map(|t| t.name.to_string()).collect();
-    let (prompt_tool_call_format, dispatcher_instructions) =
-        subagent_prompt_protocol(parent.tool_call_format, is_integrations_agent_with_toolkit);
+    let (prompt_tool_call_format, dispatcher_instructions) = subagent_prompt_protocol(
+        parent.tool_call_format,
+        is_integrations_agent_with_toolkit,
+        &filtered_specs,
+    );
     // Load AGENTS.md instruction layers once, at prompt-build time, when the
     // config gate is on. The global layer comes from the workspace dir; the
     // project layer comes from the sub-agent's `worktree_action_dir` override
@@ -1506,15 +1517,11 @@ async fn run_typed_mode(
     // rejected). Wrapping the provider clears `native_tool_calling`, which makes
     // the model adapter skip native advertisement and fall back to XML parsing.
     if is_integrations_agent_with_toolkit {
-        if let Some(sys) = history.iter_mut().find(|m| m.role == "system") {
-            sys.content.push_str("\n\n");
-            sys.content.push_str(&build_text_mode_tool_instructions());
-        }
         tracing::info!(
             agent_id = %definition.id,
             task_id = %task_id,
             tool_count = filtered_specs.len(),
-            "[subagent_host:text-mode] omitting native tool schemas; injected XML tool protocol into system prompt"
+            "[subagent_host:text-mode] omitting native tool schemas; TinyTools JSON dialect owns the prompt protocol"
         );
         subagent_source = subagent_source.with_text_mode();
     }
@@ -1534,18 +1541,6 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_host] resolved sub-agent model vision capability"
     );
-    // Sub-agent turns run through the tinyagents harness (issue #4249): the graph
-    // route reuses the same provider + tools and mirrors every legacy seam (child
-    // progress, steering, cap checkpoint, ask_user_clarification pause,
-    // worker-thread mirror). The legacy `run_inner_loop` has been removed.
-    //
-    // `model_vision` and `max_output_tokens` are now forwarded into the graph
-    // route (image rehydration + per-call output cap). `lazy_resolver` /
-    // `handoff_cache` — the integrations-agent progressive-disclosure seams — are
-    // not yet re-expressed on the tinyagents path; they need a tool-result
-    // interception middleware and are tracked as a follow-up (issue #4249, 1b).
-    // `handoff_cache` is now threaded into the graph route below (progressive
-    // disclosure). `lazy_resolver` remains a follow-up (#4249 1b).
     let _ = &lazy_resolver;
     // Per-agent turn graph (issue #4249): `Default` runs the shared sub-agent
     // graph; `Custom` hands the assembled turn to this agent's own graph runner

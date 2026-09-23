@@ -224,6 +224,9 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 4.4.11 | Inference Phase Transitions             | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Redux `inferenceStatusByThread` observes `subagent` phase then clears to idle                                   |
 | 4.4.12 | Tool Timeline Completeness              | WD    | `app/test/e2e/specs/agent-harness-behaviors.spec.ts`                                                                         | ✅     | Timeline entries carry id/name/status/round; subagent row reaches `success`; rounds non-decreasing              |
 | 4.4.13 | Grounded Close (no final text / breaker halt) | RU | `crates/openhuman-core/src/agent/session_host/turn_final_reply_grounding_tests.rs`, `crates/openhuman-core/src/agent/session_host/turn_checkpoint_tests.rs` | ✅ | Tool-records wrap-up, check rejects intent narration / contradicted claims, fallback quotes failure messages; breaker stop note never shown verbatim (#6278, #6279) |
+| 4.4.14 | Session todo list (the `todo` tool) | RI+VU+WD | `tests/agent_harness_e2e.rs`, `crates/openhuman-core/src/agent/tools/todo_tests.rs`, `vendor/tinyagents/crates/tinyagents-graph/src/todos/test.rs`, `app/src/features/conversations/utils/harnessState.test.ts`, `app/src/features/conversations/components/TodoChecklist.test.tsx`, `app/src/features/conversations/hooks/useThreadHarnessState.test.ts`, `app/test/e2e/specs/chat-todos-goals.spec.ts` | ✅ | Whole-list write per call (Claude/Codex shape), single-`in_progress` invariant, per-session scoping; five items ticked off across turns, live on the socket, persisted in the turn state, and rendered as the chat pane's checklist |
+| 4.4.15 | Thread goal (`goal_set` / `goal_get` / `goal_complete`) | RI+RU+VU+WD | `tests/agent_harness_e2e.rs`, `crates/openhuman-core/src/agent/goals/{tools_tests.rs,runtime_tests.rs,continuation_tests.rs}`, `vendor/tinyagents/crates/tinyagents-graph/src/goals/test.rs`, `app/src/features/conversations/utils/harnessState.test.ts`, `app/src/features/conversations/components/GoalBanner.test.tsx`, `app/src/features/conversations/hooks/useThreadHarnessState.test.ts`, `app/test/e2e/specs/chat-todos-goals.spec.ts` | ✅ | Objective + token budget set, read back across turns, and completed; structured `{goal, text}` payload drives the chat pane's goal banner. Budget accounting and the budget-limit stop hook are unit-covered (the scripted e2e upstream reports no usage) |
+| 4.4.16 | Builder-supplied session definition (library host) | RU | `crates/openhuman-core/src/agent/session_host/builder/builder_tests_session_definition_tests.rs` | ✅ | `SessionHostBuilder::agent_definition` stamps a caller's own `AgentDefinition` on the session, so a hosted root invocation resolves an id the process registry never held; it outranks a registry entry sharing its id, it carries the turn's tool allow-list, the session is stamped with the definition's own id, a contradicting `agent_definition_name` fails the build, and without it the same id stays unknown |
 
 ---
 
@@ -524,6 +527,22 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 ## 12. Rewards & Progression
 
 > Removed. The Rewards page, its API client, slice and Playwright specs were deleted; the section id is kept so later numbering is stable.
+
+### 12.1 Role Unlocking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.1.1 | Activity-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.2 | Integration-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.1.3 | Plan-Based Unlock | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+
+### 12.2 Progress Tracking (removed)
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| -- | ------- | ----- | ------------ | ------ | ----- |
+| 12.2.1 | Message Count Tracking | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.2 | Usage Metrics | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
+| 12.2.3 | State Persistence | — | — | ❌ | Removed with the Rewards domain; catalog ID retained. |
 
 ---
 

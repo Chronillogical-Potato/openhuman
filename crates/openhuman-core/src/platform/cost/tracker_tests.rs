@@ -409,3 +409,107 @@ fn build_session_model_stats_aggregates_correctly() {
     assert_eq!(stats["model-a"].total_tokens, 450);
     assert_eq!(stats["model-b"].request_count, 1);
 }
+
+// ── #6482: the usage-log window is `days`, not `days - 1` ───────────────────
+
+/// Persist one record at an explicit age, so a test can sit either side of a
+/// cutoff instead of hoping "now" lands somewhere useful.
+fn record_aged(tracker: &CostTracker, model: &str, age: Duration) {
+    let mut usage = TokenUsage::new(model, 10, 10, 0.01, 0.01);
+    usage.timestamp = chrono::Utc::now() - age;
+    tracker.record_usage(usage).unwrap();
+}
+
+fn models_returned(tracker: &CostTracker, days: u32) -> Vec<String> {
+    tracker
+        .get_recent_records(days, 1000)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.usage.model)
+        .collect()
+}
+
+#[test]
+fn usage_log_days_1_returns_a_record_written_now() {
+    // The reported symptom (#6482): a client asking for a one-day usage log
+    // got an empty list, because `now - (1 - 1) days` is `now` and the
+    // `timestamp < earliest` filter then rejects everything already written.
+    let tmp = TempDir::new().unwrap();
+    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
+
+    tracker
+        .record_usage(TokenUsage::new(MANAGED_MODEL, 10, 10, 0.01, 0.01))
+        .unwrap();
+
+    assert_eq!(
+        models_returned(&tracker, 1).len(),
+        1,
+        "a record written moments ago must appear in the last-1-day log"
+    );
+}
+
+#[test]
+fn usage_log_days_1_window_is_exactly_24_hours() {
+    // Pins the cutoff rather than just asserting "not empty": a record 23h old
+    // is inside the last day and one 25h old is outside. Asserting only
+    // non-emptiness would pass for any window at all once a row exists.
+    let tmp = TempDir::new().unwrap();
+    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
+
+    record_aged(&tracker, "inside/23h", Duration::hours(23));
+    record_aged(&tracker, "outside/25h", Duration::hours(25));
+
+    let models = models_returned(&tracker, 1);
+    assert!(
+        models.iter().any(|m| m == "inside/23h"),
+        "a record 23h old is within the last 24h and must be returned; got {models:?}"
+    );
+    assert!(
+        !models.iter().any(|m| m == "outside/25h"),
+        "a record 25h old is outside the last 24h and must not be returned; got {models:?}"
+    );
+}
+
+#[test]
+fn usage_log_window_is_days_not_days_minus_one_at_the_dashboard_default() {
+    // The off-by-one was never specific to `days = 1`; that value is just where
+    // it became total. The dashboard's own default is 30 (`useCostDashboard`),
+    // which silently returned 29 days of history while the UI promised 30.
+    let tmp = TempDir::new().unwrap();
+    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
+
+    record_aged(&tracker, "day29/inside", Duration::hours(29 * 24 + 12));
+    record_aged(&tracker, "day31/outside", Duration::hours(31 * 24));
+
+    let models = models_returned(&tracker, 30);
+    assert!(
+        models.iter().any(|m| m == "day29/inside"),
+        "a record 29.5 days old is within a 30-day window and must be returned; got {models:?}"
+    );
+    assert!(
+        !models.iter().any(|m| m == "day31/outside"),
+        "a record 31 days old is outside a 30-day window and must not be returned; got {models:?}"
+    );
+}
+
+#[test]
+fn daily_history_still_counts_calendar_days_inclusive_of_today() {
+    // Guard on the sibling this bug was copied from. `get_daily_history`
+    // compares dates, so `today - (span - 1)` is correct there and must stay:
+    // `days = 1` is today alone, one bucket.
+    let tmp = TempDir::new().unwrap();
+    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
+
+    tracker
+        .record_usage(TokenUsage::new(MANAGED_MODEL, 10, 10, 0.01, 0.01))
+        .unwrap();
+
+    let history = tracker.get_daily_history(1).unwrap();
+    assert_eq!(history.len(), 1, "days=1 is today alone");
+    assert_eq!(
+        history[0].date,
+        chrono::Utc::now().date_naive(),
+        "the single bucket is today"
+    );
+    assert_eq!(history[0].request_count, 1);
+}

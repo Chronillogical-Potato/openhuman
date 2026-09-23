@@ -583,10 +583,9 @@ impl OpenHumanSessionHost {
         //
         // For an agent with `[subagents] allowlist = [...]` in its TOML (today:
         // orchestrator), `collect_orchestrator_tools` synthesises one
-        // `ArchetypeDelegationTool` per named sub-agent plus a single
-        // collapsed `SkillDelegationTool`
-        // (`delegate_to_integrations_agent`) whose `toolkit` argument
-        // selects among the connected Composio toolkits (#1335).
+        // `ArchetypeDelegationTool` per named sub-agent plus, for the
+        // `{ skills = "*" }` wildcard, one `Deferred` action tool per
+        // connected Composio action (reached through `tool_search`).
         //
         // For an agent without `subagents` (today: welcome, critic,
         // archivist, etc.), no delegation tools are synthesised — the
@@ -597,7 +596,7 @@ impl OpenHumanSessionHost {
         // This builder is synchronous and sits on the CLI / REPL /
         // Tauri-web code path. It still opportunistically reuses the
         // process-wide Composio cache when one is already warm, which
-        // lets the session start with the right `delegate_<toolkit>`
+        // lets the session start with the right integration action
         // surface and prompt block without paying a turn-1 fetch. On a
         // cold cache we still fall back to the empty slice and let the
         // first turn repair the session state if needed.
@@ -756,11 +755,11 @@ impl OpenHumanSessionHost {
         // tool must be a *real* member of any non-empty allowlist — this is the
         // single source of truth that the policy session, advertised specs, and
         // the run-time visible-name gate all consume, so adding it here makes a
-        // `retrieve_tool_output("…")` footer actionable for Named-scope agents
+        // `⟦tj:…⟧` marker actionable for Named-scope agents
         // (e.g. the orchestrator's curated list). An empty set already means
         // "no filter", so it needs nothing. Added BEFORE the disallow filter
         // below so an agent that explicitly disallows it still has it removed.
-        super::ensure_recovery_tool_visible(&mut visible);
+        super::ensure_recovery_tool_visible(&mut visible, config.context.compaction_enabled);
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -907,11 +906,11 @@ impl OpenHumanSessionHost {
         //
         // Issue #574 — when a tool returns a huge payload (Composio
         // dump, long file read, web scrape), it should be compressed
-        // by a dedicated `summarizer` sub-agent before entering the
-        // orchestrator's history. We resolve the summarizer agent
-        // definition from the global registry and construct a
-        // `SubagentPayloadSummarizer` parameterized from the
-        // [`ContextConfig`] thresholds. Every other agent id gets
+        // by TinyJuice's summary stage before entering the orchestrator's
+        // history. TinyJuice owns the prompt and the thresholds (installed
+        // from [`ContextConfig`]); the host supplies only the model call,
+        // through a `SubagentPayloadSummarizer` built from the `summarizer`
+        // agent definition. Every other agent id gets
         // `None` and their tool results stay untouched (the summarizer
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
@@ -930,8 +929,6 @@ impl OpenHumanSessionHost {
                         Some(std::sync::Arc::new(
                             crate::agent::tinyagents::payload_summarizer::SubagentPayloadSummarizer::new(
                                 summarizer_def.clone(),
-                                config.context.summarizer_payload_threshold_tokens,
-                                config.context.summarizer_max_payload_tokens,
                             ),
                         ))
                     }
@@ -1037,6 +1034,14 @@ impl OpenHumanSessionHost {
                 security_policy: security,
                 memory: agent.memory_arc(),
                 post_turn_hooks: agent.post_turn_hooks.clone(),
+                // The caller's own definition, when this session was built from
+                // one rather than from a registry id. `AgentSpec::into_core`
+                // re-stamps the built-in orchestrator under the caller's id, so
+                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
+                // names no registry holds; without handing the definition over
+                // here the lookup misses and the turn is rejected as a policy
+                // failure before any provider call (#6404/#6392/#6393).
+                session_definition: target_def.cloned().map(Arc::new),
             })
         });
         if agent.hosted_base.is_none() {

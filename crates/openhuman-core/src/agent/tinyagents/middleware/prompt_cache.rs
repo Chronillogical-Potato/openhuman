@@ -36,7 +36,8 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// the crate prompt builder, so `cache_segments` would otherwise stay empty and
 /// the crate `PromptCacheGuardMiddleware` (installed immediately after this)
 /// would have no prefix to protect. The segments use the harness-layout ids
-/// `system` and `tools` — exactly those, and only those. The crate's
+/// `system` (`system.1`, … per leading system message) and `tools` — exactly
+/// those, and only those. The crate's
 /// `refresh_prompt_cache_fingerprint` (agent_loop/run_loop.rs) recognises that
 /// layout at dispatch and rebuilds `prompt_fingerprint` from the bytes actually
 /// sent (system messages + tool schemas), so an unchanged system prompt +
@@ -56,10 +57,10 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// `cache_segments` / `prompt_fingerprint`.
 pub(crate) struct PromptCacheSegmentMiddleware;
 
-/// Segment ids the crate's `refresh_prompt_cache_fingerprint` recognises as its
-/// own stable-prefix layout. Any other id opts the request into whole-request
-/// fingerprinting (see the middleware docs).
-const HARNESS_SYSTEM_SEGMENT_ID: &str = "system";
+/// Tools segment id the crate's `refresh_prompt_cache_fingerprint` recognises
+/// as its own stable-prefix layout (system ids come from
+/// `tinyagents_harness::prompt::system_segment_id`). Any other id opts the
+/// request into whole-request fingerprinting (see the middleware docs).
 const HARNESS_TOOLS_SEGMENT_ID: &str = "tools";
 
 #[async_trait]
@@ -72,19 +73,26 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
         let mut segments: Vec<PromptSegment> = Vec::new();
-        // 1. System prompt — the cache-hottest stable prefix segment.
-        if request
+        // 1. System prompt — one segment per leading system message, named
+        //    `system`, `system.1`, … exactly as the harness's
+        //    `refresh_prompt_cache_fingerprint` expects. The session sends its
+        //    prompt as tiers (stable+context, then volatile, see
+        //    `runtime_session::prepare`), so a rewritten volatile tier shows up
+        //    as a change to `system.1` while `system` keeps its id and the
+        //    layout guard can say which tier moved.
+        let leading_system = request
             .messages
             .iter()
-            .any(|m| matches!(m, TaMessage::System(_)))
-        {
+            .take_while(|m| matches!(m, TaMessage::System(_)))
+            .count();
+        for index in 0..leading_system {
             segments.push(PromptSegment {
-                id: HARNESS_SYSTEM_SEGMENT_ID.to_string(),
+                id: tinyagents_harness::prompt::system_segment_id(index),
                 role: SegmentRole::System,
                 cacheable: true,
             });
@@ -92,8 +100,18 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // 2. Tool schemas — advertised tool surface identity (full schemas, in
         //    registration order) forms the next stable prefix segment. A changed
         //    tool surface legitimately busts the prefix; an unchanged one keeps
-        //    it stable.
-        if !request.tools.is_empty() {
+        //    it stable. Under a text dialect the harness folds the catalogue
+        //    into the system prompt and clears `tools` *after* this hook ran,
+        //    so declaring a `tools` segment here would no longer match the
+        //    layout the harness rebuilds at dispatch — and a mismatch demotes
+        //    the whole request to a per-call digest, which is exactly the
+        //    routing-key churn this middleware exists to prevent.
+        let schemas_stay_on_wire = matches!(
+            ctx.data.tool_dialect,
+            tinyagents_harness::config::ToolDispatcher::Auto
+                | tinyagents_harness::config::ToolDispatcher::Native
+        );
+        if schemas_stay_on_wire && !request.tools.is_empty() {
             segments.push(PromptSegment {
                 id: HARNESS_TOOLS_SEGMENT_ID.to_string(),
                 role: SegmentRole::Tools,

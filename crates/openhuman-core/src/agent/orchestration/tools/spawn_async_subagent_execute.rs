@@ -11,47 +11,16 @@ impl SpawnAsyncSubagentTool {
             >,
         >,
     ) -> anyhow::Result<ToolResult> {
-        let Some(detached_parent) = detached_parent else {
-            return Ok(ToolResult::error(
-                "spawn_async_subagent requires a live harness run context.",
-            ));
-        };
-        let agent_id = args
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let prompt = args
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let context = args
-            .get("context")
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-        let model_override = args
-            .get("model")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        let toolkit_override = args
-            .get("toolkit")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
-        let task_title = args
-            .get("task_title")
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or("Background subagent")
-            .to_string();
-        let task_key_source = durable_task_key_source(&args, &prompt, context.as_deref());
-        let task_key = subagent_sessions::normalize_task_key(&task_key_source);
-        let force_fresh = args.get("fresh").and_then(|v| v.as_bool()).unwrap_or(false);
+        let AsyncSpawnArgs {
+            agent_id,
+            prompt,
+            context,
+            model_override,
+            toolkit_override,
+            task_title,
+            task_key,
+            force_fresh,
+        } = decode_async_spawn_args(&args);
 
         if agent_id.is_empty() {
             return Ok(ToolResult::error(
@@ -63,6 +32,11 @@ impl SpawnAsyncSubagentTool {
                 "spawn_async_subagent: `prompt` is required",
             ));
         }
+        let Some(detached_parent) = detached_parent else {
+            return Ok(ToolResult::error(
+                "spawn_async_subagent requires a live harness run context.",
+            ));
+        };
 
         let parent = match run_context.parent.clone() {
             Some(parent) => parent,
@@ -156,10 +130,9 @@ impl SpawnAsyncSubagentTool {
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
                  chat turn). Fire-and-forget delegation has nowhere to land its result here and \
                  the sub-agent's work would be silently discarded. Use synchronous delegation \
-                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
-                 tool — both run the sub-agent inline and hand you its output in this turn. \
-                 For parallel work, model it as parallel flow nodes rather than background \
-                 sub-agents.",
+                 instead: a `delegate_*` tool with `blocking: true` runs the sub-agent inline \
+                 and hands you its output in this turn. For parallel work, model it as \
+                 parallel flow nodes rather than background sub-agents.",
             ));
         }
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
@@ -544,6 +517,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,
@@ -616,6 +597,14 @@ impl SpawnAsyncSubagentTool {
                                                 iterations: outcome.iterations as u32,
                                                 output_chars: outcome.output.chars().count(),
                                                 output: outcome.output.clone(),
+                                                // Detached by construction:
+                                                // this tool takes
+                                                // `detached_child()`, so this
+                                                // child's spend never reached
+                                                // the parent turn's ledger and
+                                                // `chat_done` does not contain
+                                                // it. See the field's docs.
+                                                usage: Some(outcome.usage),
                                                 worktree_path: None,
                                                 changed_files: Vec::new(),
                                                 dirty_status: None,

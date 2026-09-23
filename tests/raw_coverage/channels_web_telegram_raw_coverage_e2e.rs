@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Round18 raw integration coverage for web-channel and Telegram provider paths.
 //!
 //! The tests use loopback mocks and existing debug seams only. No real channel

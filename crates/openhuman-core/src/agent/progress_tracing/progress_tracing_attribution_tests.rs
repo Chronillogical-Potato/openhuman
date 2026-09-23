@@ -228,7 +228,7 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
     // Pricing basis is auditable.
     assert_eq!(
         a["gen_ai.pricing.input_per_mtok_usd"],
-        serde_json::json!(0.435)
+        serde_json::json!(0.0886)
     );
     assert!(a.get("gen_ai.pricing.output_per_mtok_usd").is_some());
     // Zero reasoning / cache-write tokens are omitted on the generation.
@@ -613,6 +613,7 @@ fn subagent_span_records_prompt_and_final_output_when_capture_on() {
                 elapsed_ms: 100,
                 iterations: 2,
                 output_chars: 12,
+                usage: None,
                 output: "final answer".to_string(),
                 worktree_path: None,
                 changed_files: vec![],

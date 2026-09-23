@@ -89,6 +89,42 @@ impl Default for SpawnAsyncSubagentTool {
     }
 }
 
+/// Narrow a session's `spawn_async_subagent` schema to the ids the parent may
+/// actually dispatch.
+///
+/// The tool is registered once per process, so its `agent_id` enum is built
+/// from the whole registry: 30-odd ids, of which the orchestrator's
+/// `[subagents]` allowlist admits about twenty. `execute` already refuses the
+/// rest, so advertising them only bought a refused call and a slice of schema
+/// on every turn. Called from the per-session spec view
+/// (`builder::visible_tool_specs_for_policy`), the same place `use_skill`'s
+/// pack index is narrowed. A missing or empty allowlist leaves the spec alone:
+/// wildcard parents keep the full registry.
+pub fn scope_spawn_async_subagent_spec(spec: &mut tinytools::ToolSpec, allowed: &[String]) {
+    if allowed.is_empty() {
+        return;
+    }
+    let Some(enum_slot) = spec
+        .parameters
+        .pointer_mut("/properties/agent_id/enum")
+        .filter(|value| value.is_array())
+    else {
+        return;
+    };
+    let mut ids: Vec<String> = allowed.to_vec();
+    ids.sort();
+    ids.dedup();
+    *enum_slot = serde_json::Value::Array(ids.into_iter().map(serde_json::Value::String).collect());
+    if let Some(description) = spec
+        .parameters
+        .pointer_mut("/properties/agent_id/description")
+    {
+        *description = serde_json::Value::String(
+            "Sub-agent id (only these are dispatchable from here).".to_string(),
+        );
+    }
+}
+
 #[async_trait]
 impl Tool for SpawnAsyncSubagentTool {
     fn name(&self) -> &str {
@@ -96,7 +132,9 @@ impl Tool for SpawnAsyncSubagentTool {
     }
 
     fn description(&self) -> &str {
-        "Fire-and-forget a sub-agent for low-attention background work the user does not need in this reply (archiving, cleanup, background investigation). Returns immediately, so never use it for user-visible answers, writes, financial actions, or anything whose result must gate your final answer."
+        "Fire-and-forget a sub-agent for background work this reply does not depend on \
+         (archiving, cleanup, background investigation). Returns immediately; never for \
+         user-visible answers, writes, financial actions, or anything that gates your reply."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -124,31 +162,31 @@ impl Tool for SpawnAsyncSubagentTool {
                 "agent_id": agent_id_schema,
                 "prompt": {
                     "type": "string",
-                    "description": "Clear, self-contained background instruction. Include all context needed. The sub-agent must not ask the user for clarification."
+                    "description": "Self-contained instruction with all needed context; the worker cannot ask the user."
                 },
                 "context": {
                     "type": "string",
-                    "description": "Optional context blob from prior task results. Rendered as a `[Context]` block before the prompt."
+                    "description": "Optional prior results, rendered as a `[Context]` block before the prompt."
                 },
                 "model": {
                     "type": "string",
-                    "description": "Optional exact model id for this background spawn only."
+                    "description": "Optional exact model id for this spawn only."
                 },
                 "toolkit": {
                     "type": "string",
-                    "description": "Composio toolkit slug to scope this spawn to. Required when agent_id is `integrations_agent`."
+                    "description": "Composio toolkit slug; required when agent_id is `integrations_agent`."
                 },
                 "task_title": {
                     "type": "string",
-                    "description": "Optional short title for the persisted background worker thread."
+                    "description": "Optional short title for the worker thread."
                 },
                 "task_key": {
                     "type": "string",
-                    "description": "Optional deterministic identity key for reusable delegation. Defaults to a normalized task_title/prompt."
+                    "description": "Optional identity key for reusing an existing worker."
                 },
                 "fresh": {
                     "type": "boolean",
-                    "description": "When true, bypass reusable subagent matching and create a fresh durable worker."
+                    "description": "Force a fresh worker instead of reusing a matching one."
                 }
             }
         })
@@ -165,13 +203,37 @@ impl Tool for SpawnAsyncSubagentTool {
 
     async fn execute_with_context(
         &self,
-        _args: serde_json::Value,
-        _options: ToolCallOptions,
-        _tool_context: Option<&dyn ToolRunContext>,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        Ok(ToolResult::error(
-            "spawn_async_subagent requires a live harness run context.",
-        ))
+        if let Some(live_parent) = super::ambient_parent_run_context("direct-async-subagent") {
+            let detached_data = live_parent.data.detached_child();
+            let detached_cancellation = detached_data.cancellation.clone();
+            let detached_parent = live_parent
+                .child(
+                    RunConfig::new(format!("async-subagent-{}", uuid::Uuid::new_v4())),
+                    detached_data,
+                )
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?
+                .with_cancellation(detached_cancellation);
+            return self
+                .execute_with_live_parent_context(
+                    args,
+                    tool_context,
+                    live_parent.data.child(),
+                    detached_parent,
+                )
+                .await;
+        }
+        self.execute_with_context_inner(
+            args,
+            options,
+            tool_context,
+            crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+            None,
+        )
+        .await
     }
 }
 
@@ -195,6 +257,7 @@ impl SpawnAsyncSubagentTool {
 }
 
 include!("spawn_async_subagent_execute.rs");
+include!("spawn_async_subagent_args.rs");
 
 /// Format the user-facing acceptance text around a structured async sub-agent reference.
 ///

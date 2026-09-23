@@ -20,6 +20,12 @@ else
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/openhuman-prompt-size.XXXXXX")"
   trap 'rm -rf "$TMP"' EXIT
   mkdir -p "$TMP/home" "$TMP/workspace"
+  # Pin the native tool dialect: under a text dialect (`python`, the default
+  # since #6436) the tool catalogue is rendered into the system prompt and
+  # would be counted twice, once as prompt bytes and once in the tools column.
+  # The prompt column is the prose the agent pays for regardless of dialect;
+  # the tools column tracks the catalogue.
   env -u OPENHUMAN_HOME HOME="$TMP/home" RUST_LOG=error \
+    OPENHUMAN_TOOL_DISPATCHER=auto \
     "$BIN" agent prompt-size --workspace "$TMP/workspace" --hermetic --json
 fi

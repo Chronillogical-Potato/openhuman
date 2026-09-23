@@ -417,13 +417,11 @@ fn a_dynamic_tool_list_without_spawn_tools_is_untouched() {
 /// Render the `## Tools` section the way a sub-agent prompt does, at `format`.
 fn render_tools_at(format: crate::agent::prompts::ToolCallFormat, instructions: &str) -> String {
     use crate::agent::prompts::{LearnedContextData, PromptTool};
-    let tools = [PromptTool {
-        name: "composio_execute",
-        description: "Run one Composio action.",
-        parameters_schema: Some(
-            r#"{"type":"object","properties":{"action":{"type":"string"}}}"#.into(),
-        ),
-    }];
+    let tools = [PromptTool::with_schema(
+        "composio_execute",
+        "Run one Composio action.",
+        r#"{"type":"object","properties":{"action":{"type":"string"}}}"#.into(),
+    )];
     let visible = std::collections::HashSet::new();
     let ctx = PromptContext {
         workspace_dir: std::path::Path::new("/tmp"),
@@ -455,15 +453,23 @@ fn render_tools_at(format: crate::agent::prompts::ToolCallFormat, instructions: 
 fn text_mode_child_of_a_native_parent_renders_its_tool_catalogue() {
     use crate::agent::prompts::ToolCallFormat;
 
-    let (format, instructions) = subagent_prompt_protocol(ToolCallFormat::Native, true);
-    assert_eq!(format, ToolCallFormat::PFormat);
+    let specs = [tinytools::ToolSpec {
+        name: "composio_execute".into(),
+        description: "Run one Composio action.".into(),
+        parameters: serde_json::json!({
+            "type": "object",
+            "properties": {"action": {"type": "string"}}
+        }),
+    }];
+    let (format, instructions) = subagent_prompt_protocol(ToolCallFormat::Native, true, &specs);
+    assert_eq!(format, ToolCallFormat::Json);
     assert!(
-        instructions.is_empty(),
-        "the runner appends the text-mode protocol itself; a second block conflicts: {instructions}"
+        !instructions.is_empty(),
+        "TinyTools must supply the text-mode protocol: {instructions}"
     );
     let rendered = render_tools_at(format, &instructions);
     assert!(
-        rendered.contains("- **composio_execute**:"),
+        rendered.contains("**composio_execute**:"),
         "text-mode child has no tool catalogue: {rendered:?}"
     );
 
@@ -483,7 +489,7 @@ fn native_child_keeps_the_parents_protocol() {
         ToolCallFormat::PFormat,
         ToolCallFormat::Json,
     ] {
-        let (format, _) = subagent_prompt_protocol(parent, false);
+        let (format, _) = subagent_prompt_protocol(parent, false, &[]);
         assert_eq!(format, parent);
     }
 }

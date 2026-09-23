@@ -712,6 +712,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'চলুন শুরু করি, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'মনোযোগ দেওয়ার সময় 🧘🏻',
   'chat.newWindowPrompt': 'আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?',
+  'chat.welcomeSuggestion.calendarToday': 'আজ আমার ক্যালেন্ডারে কী আছে?',
+  'chat.welcomeSuggestion.unreadEmail': 'আমার না পড়া ইমেলগুলোর সারসংক্ষেপ দাও।',
+  'chat.welcomeSuggestion.draftReply': 'আমার শেষ বার্তাটির উত্তর খসড়া করো।',
+  'chat.welcomeSuggestion.followUps': 'এই সপ্তাহে আমি কী কী অনুসরণ করব বলেছিলাম?',
+  'chat.welcomeSuggestion.connectIntegration': 'একটি নতুন ইন্টিগ্রেশন যুক্ত করো।',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'এমন একটি ফ্লো তৈরি করো যা আমাকে প্রতিদিন সারসংক্ষেপ ইমেল করে।',
   'chat.typeMessage': 'একটি বার্তা পাঠান...',
   'chat.send': 'বার্তা পাঠান',
   'chat.stopGeneration': 'জেনারেশন বন্ধ করুন',
@@ -3191,6 +3198,11 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'অতিরিক্ত কনফিগ প্রয়োজন',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian সাবডোমেইন লেবেল',
+  'composio.connect.cancelConnection': 'সংযোগ বাতিল করুন',
+  'composio.connect.cancelFailed': 'সংযোগ বাতিল করা যায়নি: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio সংযোগটি সরানো হয়েছে বলে নিশ্চিত করেনি। আবার চেষ্টা করুন।',
+  'composio.connect.cancelling': 'বাতিল করা হচ্ছে…',
   'composio.connect.connect': 'সংযোগ করুন',
   'composio.connect.connectedAccounts': 'সংযুক্ত অ্যাকাউন্ট',
   'composio.connect.defaultLabel': 'ডিফল্ট',
@@ -3254,13 +3266,25 @@ const messages: TranslationMap = {
     'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়েছে। ট্রিগার লোড করতে আবার সাইন ইন করুন।',
   'composio.triggers.needsConfiguration': 'কনফিগারেশন প্রয়োজন',
   'composio.triggers.noneAvailable': 'বর্তমানে কোনো ট্রিগার উপলব্ধ নেই',
-  'conversations.threadTodo.title': 'পরিকল্পনা',
   'conversations.composer.context.title': 'কনটেক্সট উইন্ডো',
   'conversations.composer.context.input': 'ইনপুট',
   'conversations.composer.context.cached': 'ক্যাশ করা ইনপুট',
   'conversations.composer.context.output': 'আউটপুট',
   'conversations.composer.context.cost': 'খরচ',
   'conversations.composer.command.clear': 'কথোপকথন মুছে ফেলুন',
+  'conversations.todos.title': 'কাজের তালিকা',
+  'conversations.todos.progress': '{total}টির মধ্যে {completed}টি সম্পন্ন',
+  'conversations.todos.allDone': 'সব সম্পন্ন',
+  'conversations.todos.status.pending': 'অপেক্ষমাণ',
+  'conversations.todos.status.inProgress': 'চলছে',
+  'conversations.todos.status.completed': 'সম্পন্ন',
+  'conversations.goal.title': 'লক্ষ্য',
+  'conversations.goal.status.active': 'সক্রিয়',
+  'conversations.goal.status.paused': 'বিরতিতে',
+  'conversations.goal.status.budgetLimited': 'বাজেট শেষ',
+  'conversations.goal.status.complete': 'সম্পূর্ণ',
+  'conversations.goal.tokens': '{used} টোকেন',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} টোকেন',
   'conversations.planReview.title': 'পরিকল্পনা পর্যালোচনা করুন',
   'conversations.planReview.subtitle':
     'চালানোর জন্য অনুমোদন করুন, বাতিল করতে প্রত্যাখ্যান করুন, অথবা সংশোধনের জন্য মতামত পাঠান।',
@@ -3357,12 +3381,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'সর্বশেষ তৈরি OpenHuman আর্কিটেকচার ডায়াগ্রাম',
   'intelligence.diagram.refreshesEvery': 'প্রতি {seconds}s-এ রিফ্রেশ হয়',
   'intelligence.memoryText.entityTypePrefix': 'এনটিটি ধরন',
-  'intelligence.workTask.sourceTaskHeading': 'উৎস টাস্ক:',
-  'intelligence.workTask.repositoryLine': '- রিপোজিটরি: {repo}',
-  'intelligence.workTask.externalIdLine': '- বাহ্যিক আইডি: {externalId}',
-  'intelligence.workTask.urlLine': '- ইউআরএল: {url}',
-  'intelligence.workTask.closingInstruction':
-    'প্রথমে সুনির্দিষ্ট বাস্তবায়ন পরিকল্পনাটি সংক্ষেপে পুনরায় বলুন, তারপর তা সম্পাদন করুন। এই থ্রেডে অগ্রগতি দৃশ্যমান রাখুন এবং কাজের অবস্থা পরিবর্তিত হলে টাস্ক বোর্ড আপডেট করুন।',
   'intelligence.agentWork.subtitle':
     'প্রতিটি ব্যাকগ্রাউন্ড এজেন্ট রান, জীবনচক্রের অবস্থা অনুযায়ী গোষ্ঠীবদ্ধ।',
   'intelligence.agentWork.loading': 'এজেন্ট কাজ লোড হচ্ছে…',
@@ -4819,9 +4837,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'প্রতি ২ ঘন্টা',
   'settings.devWorkflow.schedule.every6hours': 'প্রতি ৬ ঘন্টা',
   'settings.devWorkflow.schedule.onceDaily': 'প্রতিদিন (৯.',
-  'settings.developerMenu.tasks.title': 'কাজ',
-  'settings.developerMenu.tasks.desc':
-    'টাস্ক বোর্ড ব্রাউজ ও পরিচালনা করুন: আপনার নিজের কাজ এবং কথোপকথন জুড়ে এজেন্টদের তৈরি করা বোর্ড।',
   'settings.developerMenu.cronJobs.title': 'Cron জব',
   'settings.developerMenu.cronJobs.desc':
     'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
@@ -4924,9 +4939,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'কর্মক্ষেত্র সক্রিয় করা হবে',
   'settings.agentAccess.confine.desc':
     'কর্মক্ষেত্রের মধ্যে উপস্থিত ফোল্ডারগুলির উপর নির্ভর করে (যেমন কোনো ফোল্ডার), যে কোনো ফোল্ডার নির্বাচন করা হবে। বন্ধ করা হলে, এটি আপনার ব্যবহারকারী যে কোন স্থানে পৌঁছাতে পারে - তবে একমাত্র নির্ধারিত পরিচয় এবং সিস্টেম ডিরেক্টরি ছাড়া।',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
   'settings.agentAccess.autoApproveAll.label': 'সব কাজ স্বয়ংক্রিয়ভাবে অনুমোদন করুন',
   'settings.agentAccess.autoApproveAll.desc':
     'সক্রিয় করা হলে, এজেন্ট আপনার অনুমতি না নিয়েই সব কাজ সম্পাদন করবে। এর মধ্যে রয়েছে ফাইল লেখা, শেল কমান্ড, নেটওয়ার্ক অনুরোধ এবং অন্যান্য যেকোনো পার্শ্বপ্রতিক্রিয়া। কঠোর নিরাপত্তা বাধা (ক্রেডেনশিয়াল ডিরেক্টরি, ওয়ার্কস্পেসের অভ্যন্তরীণ পাথ) তবুও কার্যকর থাকবে।',
@@ -5788,9 +5800,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'কাজের উৎস',
   'settings.integrations.title': 'ইন্টিগ্রেশন',
   'settings.integrations.menuDesc': 'টাস্ক সোর্স, Composio রাউটিং এবং ওয়েবহুক ট্রিগার',
-  'settings.taskSources.subtitle': 'আপনার টুল থেকে Tworet পরিচালনা করুন',
+  'settings.taskSources.subtitle': 'আপনার টুল থেকে কাজ আপনার এজেন্টের কাছে আনুন',
   'settings.taskSources.description':
-    'GitHub, Notion, Linear, এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন, এবং এজেন্টের টোডো বোর্ডে রুট করুন।',
+    'GitHub, Notion, Linear এবং ClickUp থেকে কাজের আইটেম সংগ্রহ করুন, সেগুলো সমৃদ্ধ করুন এবং বাছাইয়ের জন্য আপনার এজেন্টকে দিন।',
   'settings.taskSources.connectHint':
     'আপনার সংযুক্ত অ্যাকাউন্ট ব্যবহার করে কাজের উৎস খুঁজে নিন। প্রথমে তাদের সাথে যোগাযোগ করুন।',
   'settings.taskSources.disabledBanner':

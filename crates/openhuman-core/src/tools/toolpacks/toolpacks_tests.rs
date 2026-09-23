@@ -493,7 +493,8 @@ fn every_pack_declares_the_tools_it_is_named_for() {
             &[
                 "composio",
                 "composio_authorize",
-                "composio_connect",
+                // `composio_connect` is the orchestrator's inline connect
+                // card and stays unpacked (see the registry note).
                 "composio_execute",
                 "composio_list_connections",
                 "composio_list_toolkits",
@@ -572,8 +573,10 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         (
             "files",
             &[
+                // No `file_write`: it is the only create-capable tool on any
+                // belt, and packing it denied the orchestrator every route to a
+                // new file. See the comment in `registry.rs`.
                 "file_read",
-                "file_write",
                 "grep",
                 "glob",
                 "list",

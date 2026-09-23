@@ -96,6 +96,12 @@ pub(super) fn build_session_agent(
                 thread_id
             };
             agent.set_agent_definition_name(format!("{target_agent_id}_{short_thread}"));
+            // Bind the conversation's durable identity here, not after
+            // checkout: everything downstream — resume, transcript binding,
+            // the `_meta` this session writes — is addressed by it, and a host
+            // that forgot to bind it would fall back to resuming whichever
+            // transcript for this agent happened to be newest.
+            agent.set_thread_id(Some(thread_id));
             agent
         })
         .map_err(|e| e.to_string())
@@ -120,6 +126,103 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
          Respond in {language} unless the user explicitly asks for a different language. \
          Keep proper nouns, code, and command names untranslated."
     ))
+}
+
+/// Byte offset of the first difference between two signature strings, or
+/// `None` when one is a prefix of the other (then the length difference is the
+/// whole story).
+fn first_difference_at(prior: &str, next: &str) -> Option<usize> {
+    prior
+        .as_bytes()
+        .iter()
+        .zip(next.as_bytes())
+        .position(|(a, b)| a != b)
+}
+
+/// Summarise a differing signature field without printing it.
+///
+/// `autonomy_signature` and `model_registry_signature` are whole JSON subtrees
+/// of `Config` — `config.autonomy` carries the user's `action_dir` and other
+/// filesystem paths, and the registry is long. Logging either raw would be both
+/// a log bomb on the chat hot path and a needless disclosure, so the log names
+/// the field and gives the reader enough to find the change in their own config:
+/// the two lengths and where the strings first diverge.
+fn describe_signature_change(field: &str, prior: &str, next: &str) -> String {
+    match first_difference_at(prior, next) {
+        Some(offset) => format!(
+            "{field}: differs at byte {offset} (prior {} bytes, now {} bytes)",
+            prior.len(),
+            next.len()
+        ),
+        // No differing byte in the overlap: one is a prefix of the other, i.e.
+        // something was appended to or removed from the end of the subtree.
+        None => format!(
+            "{field}: length changed (prior {} bytes, now {} bytes)",
+            prior.len(),
+            next.len()
+        ),
+    }
+}
+
+/// The fingerprint fields that actually differ between the thread's cached
+/// entry and this turn.
+///
+/// The cache-miss log used to print two hand-picked fields, `target_agent_id`
+/// and `provider_binding`. When those two matched — which is the common case,
+/// since the target agent is hard-coded to `"orchestrator"`
+/// ([`pick_target_agent_id`]) — the log reported a miss while showing nothing
+/// that had missed, so the warning could not be acted on. Four of the six
+/// fields were invisible. This names the ones that differ instead of guessing
+/// which two are interesting.
+///
+/// Returns an empty vector when the fingerprints are equal, which the caller
+/// treats as a bug worth saying so in the log rather than silently omitting:
+/// reaching the miss arm with no differing field would mean `PartialEq` and
+/// this function disagree.
+pub(super) fn fingerprint_diff(
+    prior: &SessionCacheFingerprint,
+    next: &SessionCacheFingerprint,
+) -> Vec<String> {
+    let mut diff = Vec::new();
+    if prior.model_override != next.model_override {
+        diff.push(format!(
+            "model_override: {:?} -> {:?}",
+            prior.model_override, next.model_override
+        ));
+    }
+    if prior.temperature != next.temperature {
+        diff.push(format!(
+            "temperature: {:?} -> {:?}",
+            prior.temperature, next.temperature
+        ));
+    }
+    if prior.target_agent_id != next.target_agent_id {
+        diff.push(format!(
+            "target_agent_id: {} -> {}",
+            prior.target_agent_id, next.target_agent_id
+        ));
+    }
+    if prior.provider_binding != next.provider_binding {
+        diff.push(format!(
+            "provider_binding: {} -> {}",
+            prior.provider_binding, next.provider_binding
+        ));
+    }
+    if prior.autonomy_signature != next.autonomy_signature {
+        diff.push(describe_signature_change(
+            "autonomy_signature",
+            &prior.autonomy_signature,
+            &next.autonomy_signature,
+        ));
+    }
+    if prior.model_registry_signature != next.model_registry_signature {
+        diff.push(describe_signature_change(
+            "model_registry_signature",
+            &prior.model_registry_signature,
+            &next.model_registry_signature,
+        ));
+    }
+    diff
 }
 
 pub(super) fn build_session_fingerprint(
@@ -184,10 +287,6 @@ pub(crate) async fn checkout_session_agent(
     temperature: Option<f64>,
     locale: Option<&str>,
     policy: CheckoutPolicy,
-    // The message this turn is about to send, so a cold-boot seed from the
-    // conversation log can drop it when the client already stored it. Empty for
-    // a host-authored turn, whose notice is never in the store.
-    current_user_message: &str,
 ) -> Result<CheckedOutSession, String> {
     let map_key = super::ops::key_for(thread_id);
     let target_agent_id = pick_target_agent_id(config);
@@ -209,7 +308,7 @@ pub(crate) async fn checkout_session_agent(
         sessions.remove(&map_key)
     };
 
-    let (mut agent, fingerprint, was_built_fresh) = match prior {
+    let (agent, fingerprint) = match prior {
         Some(entry)
             if entry.fingerprint == fingerprint || policy == CheckoutPolicy::AdoptCached =>
         {
@@ -219,19 +318,29 @@ pub(crate) async fn checkout_session_agent(
                 client_id,
                 thread_id
             );
-            (entry.agent, entry.fingerprint, false)
+            (entry.agent, entry.fingerprint)
         }
         Some(prior_entry) => {
+            // Name the field(s) that actually differ. The previous log printed
+            // `target_agent_id` and `provider_binding` only, and both match on
+            // the common path, so a miss was reported with no visible cause
+            // (openhuman#6414).
+            let changed = fingerprint_diff(&prior_entry.fingerprint, &fingerprint);
+            let reason = if changed.is_empty() {
+                // Unreachable via `PartialEq` — reaching the miss arm with no
+                // differing field would mean the derived equality and
+                // `fingerprint_diff` disagree. Say so rather than log nothing.
+                "no field differs (fingerprint_diff disagrees with PartialEq)".to_string()
+            } else {
+                changed.join("; ")
+            };
             log::info!(
                 "[web-channel] cache miss — rebuilding session agent \
-                 (was id={}, now id={}; prior_provider_binding={}, now={}) \
-                 for client={} thread={}",
-                prior_entry.fingerprint.target_agent_id,
-                target_agent_id,
-                prior_entry.fingerprint.provider_binding,
-                fingerprint.provider_binding,
+                 (changed: {}) for client={} thread={} id={}",
+                reason,
                 client_id,
-                thread_id
+                thread_id,
+                target_agent_id
             );
             (
                 build_session_agent(
@@ -244,7 +353,6 @@ pub(crate) async fn checkout_session_agent(
                     locale,
                 )?,
                 fingerprint,
-                true,
             )
         }
         None => (
@@ -258,79 +366,18 @@ pub(crate) async fn checkout_session_agent(
                 locale,
             )?,
             fingerprint,
-            true,
         ),
     };
 
-    // Cold-boot resume. Prefer the full-fidelity `session_raw/{stem}.jsonl`
-    // transcript (tool calls, tool-role results, reasoning) routed by thread
-    // id — the model must not "forget" its tool interactions across an app
-    // restart. Only fall back to the lossy conversation-log prose pairs when
-    // no root transcript exists for the thread or it fails to load; the two
-    // sources overlap (user prompts + final assistant text), so we take one
-    // or the other, never both, to avoid duplicated context.
-    if was_built_fresh {
-        seed_cold_session(&mut agent, config, thread_id, current_user_message).await;
-    }
-
+    // Cold-boot resume needs no seeding here. `set_thread_id` binds the
+    // session's durable identity and the turn resumes by it, reading the one
+    // transcript this conversation has ever had — tool calls, tool results and
+    // reasoning included. The old path seeded by hand from whichever root
+    // transcript matched the thread and newest, and fell back to the
+    // conversation log's prose pairs when that failed; the prose fallback also
+    // carried no system message, so such a turn reached the provider with no
+    // system prompt and no prompt-cache key at all.
     Ok(CheckedOutSession { agent, fingerprint })
-}
-
-async fn seed_cold_session(
-    agent: &mut OpenHumanSessionHost,
-    config: &Config,
-    thread_id: &str,
-    current_user_message: &str,
-) {
-    if agent.seed_resume_from_thread_transcript(thread_id) {
-        log::info!(
-            "[web-channel] cold-boot resumed thread={} from full-fidelity session transcript",
-            thread_id
-        );
-        return;
-    }
-    log::debug!(
-        "[web-channel] no usable session transcript for thread={} — seeding resume \
-         from conversation-log prose",
-        thread_id
-    );
-    // Blocking pool: the store takes a process-global mutex and reads
-    // the thread's whole JSONL under it, so doing this inline parked an
-    // async worker on the chat hot path (#5156).
-    match crate::memory::conversations::blocking::get_messages(
-        config.workspace_dir.clone(),
-        thread_id.to_string(),
-    )
-    .await
-    {
-        Ok(prior_messages) if !prior_messages.is_empty() => {
-            let pairs: Vec<(String, String)> = prior_messages
-                .into_iter()
-                .map(|m| (m.sender, m.content))
-                .collect();
-            if let Err(err) = agent.seed_resume_from_messages(pairs, current_user_message) {
-                log::warn!(
-                    "[web-channel] failed to seed agent resume from conversation log \
-                     thread={} err={}",
-                    thread_id,
-                    err
-                );
-            }
-        }
-        Ok(_) => {
-            log::debug!(
-                "[web-channel] no prior messages to seed for thread={} — first turn",
-                thread_id
-            );
-        }
-        Err(err) => {
-            log::warn!(
-                "[web-channel] failed to read conversation log for resume thread={} err={}",
-                thread_id,
-                err
-            );
-        }
-    }
 }
 
 /// Return a checked-out agent to the thread cache, replacing whatever is there.

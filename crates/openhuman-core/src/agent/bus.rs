@@ -114,9 +114,9 @@ pub struct AgentTurnRequest {
     pub visible_tool_names: Option<HashSet<String>>,
 
     /// Per-turn synthesised tools to splice alongside `tools_registry`.
-    /// The dispatch path uses this to carry `ArchetypeDelegationTool` /
-    /// `SkillDelegationTool` instances built fresh each turn from the
-    /// active agent's `subagents` field and the current Composio
+    /// The dispatch path uses this to carry `ArchetypeDelegationTool`
+    /// instances and deferred Composio action tools built fresh each turn
+    /// from the active agent's `subagents` field and the current Composio
     /// integrations — tools that don't exist in the global startup
     /// registry because they depend on per-user runtime state.
     /// Empty vec for agents that don't delegate.

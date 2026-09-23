@@ -233,24 +233,39 @@ pub struct ConnectedIntegrationTool {
 /// description)` tuples) all adapt to this.
 #[derive(Debug, Clone)]
 pub struct PromptTool<'a> {
-    pub name: &'a str,
-    pub description: &'a str,
+    pub name: std::borrow::Cow<'a, str>,
+    pub description: std::borrow::Cow<'a, str>,
     pub parameters_schema: Option<String>,
 }
 
 impl<'a> PromptTool<'a> {
     pub fn new(name: &'a str, description: &'a str) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: None,
+        }
+    }
+
+    /// An entry the catalogue owns rather than borrows: a tool that exists
+    /// only for this prompt build (the harness's `tool_search` / `tool_call`
+    /// bridge), with no registration to borrow a name from.
+    pub fn owned(
+        name: String,
+        description: String,
+        parameters_schema: String,
+    ) -> PromptTool<'static> {
+        PromptTool {
+            name: std::borrow::Cow::Owned(name),
+            description: std::borrow::Cow::Owned(description),
+            parameters_schema: Some(parameters_schema),
         }
     }
 
     pub fn with_schema(name: &'a str, description: &'a str, parameters_schema: String) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: Some(parameters_schema),
         }
     }
@@ -272,21 +287,62 @@ impl<'a> PromptTool<'a> {
         tools
             .into_iter()
             .map(|t| PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             })
             .collect()
     }
 }
 
-/// How the tool catalogue should render each tool entry. Driven by the
-/// dispatcher choice on the agent — JSON-schema rendering is the
-/// historic format; P-Format is the new default text protocol.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Swap a prompt catalogue's `Deferred` entries for the discovery bridge.
+///
+/// On a TEXT dialect (P-Format / code) the catalogue this prompt renders IS
+/// the model's callable surface: the harness folds it into the system prompt
+/// and clears `request.tools`. Two things follow, and both were wrong before
+/// this helper existed:
+///
+/// * **Deferred tools must leave the catalogue.** The filter each prompt site
+///   used is the policy's allow-set, which deliberately admits deferred names
+///   so a found tool stays *callable* (`reachable_names` in the session
+///   builder). Filtering the prompt by it rendered every deferred schema into
+///   the prompt — measured live at 107 connected Composio actions for 55 KB of
+///   a 71 KB prompt, the exact cost deferral exists to avoid — and told the
+///   model to search for an action whose signature it could already read.
+///
+/// * **The bridge must take their place.** The harness mints `tool_search` /
+///   `tool_call` onto `request.tools`, which a text dialect drops, and with
+///   `host_renders_tool_catalogue` it appends nothing itself. Without these
+///   entries the model reads "invoke a match with `tool_call`" in a search
+///   result and has no signature for that name; observed live as a turn that
+///   narrates the call it is about to make and then stops.
+///
+/// A native-tool-calling provider is unaffected: it reads `request.tools`,
+/// where the harness already puts exactly this pair.
+pub fn swap_deferred_for_discovery_bridge<'a>(
+    prompt_tools: &mut Vec<PromptTool<'a>>,
+    visible_tool_names: &mut std::collections::HashSet<String>,
+    deferred_tool_names: &std::collections::HashSet<String>,
+) {
+    if deferred_tool_names.is_empty() {
+        return;
+    }
+    visible_tool_names.retain(|name| !deferred_tool_names.contains(name));
+    for bridge in
+        crate::agent::tinyagents::discovery::bridge_prompt_tools(deferred_tool_names.len())
+    {
+        visible_tool_names.insert(bridge.name.to_string());
+        prompt_tools.push(bridge);
+    }
+}
+
+/// How TinyTools should render and parse an agent's tool calls.
+///
+/// The prompt layer carries this only to select the TinyTools dialect; it does
+/// not define a tool-call protocol of its own.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ToolCallFormat {
-    /// `tool_name[arg1|arg2|...]` — compact, positional. Default.
-    #[default]
+    /// Compact positional legacy dialect.
     PFormat,
     /// Legacy JSON-in-tag rendering with full schemas.
     Json,
@@ -294,6 +350,7 @@ pub enum ToolCallFormat {
     /// informational. Renders in the same JSON-schema form as `Json`.
     Native,
     /// Python `def` signatures; the model calls `name(arg="value")`.
+    #[default]
     Python,
     /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
     TypeScript,
@@ -452,6 +509,18 @@ pub trait PromptSection: Send + Sync {
     fn name(&self) -> &str;
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String>;
 
+    /// The section's bytes split by cache tier.
+    ///
+    /// Most sections live in exactly one tier, so the default is one part in
+    /// [`Self::tier`]. A section whose body spans tiers (the orchestrator's
+    /// dynamic builder renders identity, per-install context and the user's
+    /// state in one pass) overrides this so the builder can place each slice
+    /// with its peers instead of dragging the stable bytes into the volatile
+    /// tail.
+    fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
+        Ok(vec![(self.tier(), self.build(ctx)?)])
+    }
+
     /// Which cache tier this section's bytes belong to.
     ///
     /// Defaults to [`PromptTier::Stable`], which is right for the large
@@ -488,6 +557,56 @@ pub enum PromptTier {
     /// Changes whenever the user's state does: memory, profile, the skills
     /// index, connected integrations, the clock.
     Volatile,
+}
+
+/// Marker a dynamic prompt builder emits on its own line to say "everything
+/// after this belongs to the `Context` tier".
+///
+/// A [`PromptSource::Dynamic`](crate::agent::harness::definition::PromptSource)
+/// builder returns one string. Splitting it on these markers is how it
+/// declares tiers without a second builder signature, and the markers never
+/// reach the model: [`split_prompt_tiers`] removes them, and a renderer that
+/// bypasses the builder sees an HTML comment the model ignores.
+pub const PROMPT_TIER_CONTEXT_MARKER: &str = "<!--prompt-tier:context-->";
+/// Marker for the start of the `Volatile` tier. See [`PROMPT_TIER_CONTEXT_MARKER`].
+pub const PROMPT_TIER_VOLATILE_MARKER: &str = "<!--prompt-tier:volatile-->";
+
+/// Split a dynamic builder's body on the tier markers.
+///
+/// Text before the first marker is `default_tier` (the tier the section
+/// declares); text after [`PROMPT_TIER_CONTEXT_MARKER`] is `Context` and text
+/// after [`PROMPT_TIER_VOLATILE_MARKER`] is `Volatile`. Markers may appear in
+/// either order and at most once each; empty slices are dropped.
+#[must_use]
+pub fn split_prompt_tiers(body: &str, default_tier: PromptTier) -> Vec<(PromptTier, String)> {
+    let mut parts: Vec<(PromptTier, String)> = Vec::new();
+    let mut tier = default_tier;
+    let mut current = String::new();
+    for line in body.split_inclusive('\n') {
+        let trimmed = line.trim();
+        let next = if trimmed == PROMPT_TIER_CONTEXT_MARKER {
+            Some(PromptTier::Context)
+        } else if trimmed == PROMPT_TIER_VOLATILE_MARKER {
+            Some(PromptTier::Volatile)
+        } else {
+            None
+        };
+        match next {
+            Some(next_tier) => {
+                if !current.trim().is_empty() {
+                    parts.push((tier, std::mem::take(&mut current)));
+                } else {
+                    current.clear();
+                }
+                tier = next_tier;
+            }
+            None => current.push_str(line),
+        }
+    }
+    if !current.trim().is_empty() {
+        parts.push((tier, current));
+    }
+    parts
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

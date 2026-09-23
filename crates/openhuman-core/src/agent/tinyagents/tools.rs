@@ -129,13 +129,24 @@ impl Tool for CanonicalSharedToolAdapter {
         self.resolved_tool().map(Tool::policy).unwrap_or_default()
     }
 
-    /// Forwarded so the harness advertises only `Direct` registrations and
-    /// indexes `Deferred` ones for its `tool_search` bridge. Without this
-    /// every registered tool reported `Direct` and the bridge stayed inert.
+    /// Forwarded so the harness indexes `Deferred` registrations for its
+    /// `tool_search` bridge instead of advertising them. Without this every
+    /// registered tool reported `Direct` and the bridge stayed inert.
+    ///
+    /// `Hidden` is **not** forwarded. The host is the exposure policy owner:
+    /// the session builder already drops every `Hidden` registration from a
+    /// wildcard belt, so a `Hidden` tool that reaches harness registration was
+    /// named by hand in a `[tools] named` belt (`memory_recall` on the
+    /// orchestrator, the `memory_*` readers on `flow_memory_agent`) or is a
+    /// synthesised specialist route the belt admitted. Forwarding `Hidden`
+    /// made the harness advertise 14 of the orchestrator's 25 visible tools
+    /// while the prompt described all 25 (#6370): every `research` / `plan` /
+    /// `memory_*` call the model was told about was unreachable.
     fn exposure(&self) -> tinytools::ToolExposure {
-        self.resolved_tool()
-            .map(Tool::exposure)
-            .unwrap_or_default()
+        match self.resolved_tool().map(Tool::exposure) {
+            Some(tinytools::ToolExposure::Deferred) => tinytools::ToolExposure::Deferred,
+            _ => tinytools::ToolExposure::Direct,
+        }
     }
 
     fn family(&self) -> Option<&str> {
@@ -163,7 +174,16 @@ impl Tool for CanonicalSharedToolAdapter {
             tracing::warn!(tool = %self.name, "[tinyagents] shared tool not found");
             return Ok(ToolResult::error(format!("unknown tool '{}'", self.name)));
         };
-        let result = tool.execute_with_context(args, options, context).await?;
+        // A callable tool's operational failure is input to the agent loop, not
+        // a failure of the harness itself.  Preserve it as an error result so
+        // the model can recover (or explain the failure) on its next round.
+        let result = match tool.execute_with_context(args, options, context).await {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::warn!(tool = %self.name, %error, "[tinyagents] shared tool execution failed");
+                ToolResult::error(format!("{} failed: {error}", self.name))
+            }
+        };
         if !result.is_error {
             if let Some(hook) = &self.early_exit {
                 hook.trigger(&self.name, result.output_for_llm(true));

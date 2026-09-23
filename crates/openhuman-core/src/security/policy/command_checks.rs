@@ -4,6 +4,7 @@ use super::policy_command::{
     classify_segment, command_basename, contains_unquoted_char, contains_unquoted_single_ampersand,
     has_dangerous_env_prefix, has_hidden_execution, has_leading_env_assignment,
     is_command_executor, normalized_command_name, skip_env_assignments, split_unquoted_segments,
+    strip_quoted_heredoc_bodies,
 };
 use super::types::{
     AutonomyLevel, CommandClass, CommandRiskLevel, GateDecision, SecurityPolicy,
@@ -124,6 +125,10 @@ impl SecurityPolicy {
     /// category may only *raise* it (`gate = max(rust_floor, llm_declared)`),
     /// never lower it.
     pub fn classify_command(&self, command: &str) -> CommandClass {
+        // A quoted heredoc body is document text, not shell. Without this the
+        // splitter chops the body into "commands" and a prose line containing
+        // `rm` or `curl` lifts a plain file write to Destructive/Network.
+        let command = &strip_quoted_heredoc_bodies(command);
         let mut class = CommandClass::Read;
         for segment in split_unquoted_segments(command) {
             let cmd_part = skip_env_assignments(&segment);
@@ -155,6 +160,9 @@ impl SecurityPolicy {
     /// prompts on every acting class; full runs `Read`/`Write` silently but
     /// always prompts on `Network`/`Destructive`.
     pub fn gate_decision(&self, class: CommandClass) -> GateDecision {
+        if !self.enabled {
+            return GateDecision::Allow;
+        }
         match self.autonomy {
             AutonomyLevel::ReadOnly => match class {
                 CommandClass::Read => GateDecision::Allow,
@@ -191,6 +199,9 @@ impl SecurityPolicy {
     /// Returns the classified [`CommandClass`] on success.
     pub fn check_gated_command(&self, command: &str) -> Result<CommandClass, String> {
         let class = self.classify_command(command);
+        if !self.enabled {
+            return Ok(class);
+        }
         if self.gate_decision(class) == GateDecision::Block {
             return Err(format!(
                 "{POLICY_BLOCKED_MARKER} Security policy: read-only mode — only read commands are \
@@ -231,6 +242,9 @@ impl SecurityPolicy {
         command: &str,
         approved: bool,
     ) -> Result<CommandRiskLevel, String> {
+        if !self.enabled {
+            return Ok(self.command_risk_level(command));
+        }
         if !self.is_command_allowed(command) {
             // Truncate the command in BOTH the log and the Err return: the Err
             // string is bubbled back to the frontend, and a full untruncated
@@ -308,9 +322,15 @@ impl SecurityPolicy {
     /// - Blocks output redirections (`>`, `>>`) that could write outside workspace
     /// - Blocks dangerous arguments (e.g. `find -exec`, `git config`)
     pub fn is_command_allowed(&self, command: &str) -> bool {
+        if !self.enabled {
+            return true;
+        }
         if self.autonomy == AutonomyLevel::ReadOnly {
             return false;
         }
+        // See `classify_command`: a quoted heredoc body is data, so it must not
+        // be scanned for `$(`, `&` or a disallowed base command.
+        let command = &strip_quoted_heredoc_bodies(command);
 
         // Full access bypasses the command allowlist AND the structural guards
         // (redirects, pipes, subshells, background) — a Full-access agent is

@@ -1,7 +1,4 @@
-use super::{
-    ArchetypeDelegationTool, DelegationTarget, SkillDelegationTool, SpawnSubagentTool,
-    SpawnWorkerThreadTool,
-};
+use super::{ArchetypeDelegationTool, DelegationTarget, SpawnSubagentTool, SpawnWorkerThreadTool};
 use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::agent::messages::ChatMessage;
@@ -13,13 +10,13 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
+use tinyagents_harness::context::RunConfig;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinytools::Tool;
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
-const SKILL_DELEGATION_CANARY: &str = "tool-e2e-skill-delegation-canary";
 const WORKER_THREAD_CANARY: &str = "tool-e2e-worker-thread-canary";
 
 #[tokio::test]
@@ -119,11 +116,23 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
 
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-async-session".into();
+    let mut parent_data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    parent_data.thread_id = Some("thread-async-parent".into());
+    let parent_run = parent_data
+        .with_parent(ctx.clone())
+        .into_tinyagents(RunConfig::new("archetype-async-e2e").with_thread("thread-async-parent"));
     let result = with_parent_context(ctx, async {
-        tool.execute(json!({
-            "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
-            "model": "test-model"
-        }))
+        super::archetype_delegation::execute_archetype_delegation_with_live_parent(
+            &tool.agent_id.0,
+            &tool.tool_name,
+            json!({
+                "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
+                "model": "test-model"
+            }),
+            None,
+            parent_run.data.child(),
+            Some(&parent_run),
+        )
         .await
     })
     .await
@@ -247,14 +256,24 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
 
     let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
     ctx.session_id = "tools-e2e-continue-session".into();
+    let mut parent_data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    parent_data.thread_id = Some("thread-continue-parent".into());
+    let parent_run = parent_data.with_parent(ctx.clone()).into_tinyagents(
+        RunConfig::new("continue-async-e2e").with_thread("thread-continue-parent"),
+    );
     let session_id = session.subagent_session_id.clone();
     let result = with_parent_context(ctx, async {
         ContinueSubagentTool::new()
-            .execute(json!({
-                "task_id": session_id,
-                "agent_id": "researcher",
-                "message": "looks good — proceed with continue-durable-canary"
-            }))
+            .execute_with_live_parent_context(
+                json!({
+                    "task_id": session_id,
+                    "agent_id": "researcher",
+                    "message": "looks good — proceed with continue-durable-canary"
+                }),
+                None,
+                parent_run.data.child(),
+                Some(&parent_run),
+            )
             .await
     })
     .await
@@ -323,63 +342,6 @@ async fn continue_subagent_without_checkpoint_or_durable_session_names_the_roste
         out.contains("[active_subagents]"),
         "points the model at the roster: {out}"
     );
-}
-
-#[tokio::test]
-async fn skill_delegation_tool_runs_integrations_agent_e2e() {
-    let _ = AgentDefinitionRegistry::init_global_builtins();
-    let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedModel::new(vec![(
-        SKILL_DELEGATION_CANARY,
-        "skill-delegation-child-answer",
-    )]));
-    let tool = SkillDelegationTool::for_connected(vec![(
-        "gmail".to_string(),
-        "Email access.".to_string(),
-    )])
-    .expect("delegation tool");
-
-    let result = with_parent_context(
-        parent_context(
-            workspace.path(),
-            provider.clone(),
-            vec![ConnectedIntegration {
-                toolkit: "gmail".to_string(),
-                description: "Email access.".to_string(),
-                tools: Vec::new(),
-                gated_tools: Vec::new(),
-                connected: true,
-                connections: Vec::new(),
-                non_active_status: None,
-            }],
-        ),
-        async {
-            tool.execute(json!({
-                "toolkit": "gmail",
-                "prompt": format!("Summarize inbox state for {SKILL_DELEGATION_CANARY}"),
-                "model": "test-model"
-            }))
-            .await
-        },
-    )
-    .await
-    .expect("tool execution");
-
-    assert!(!result.is_error, "{}", result.output());
-    // The sub-agent's answer comes back verbatim, followed by the
-    // inline-result note: this delegation is blocking and registers no
-    // worker, so the orchestrator must not go hunting for one (#6033).
-    let output = result.output();
-    assert!(
-        output.starts_with("skill-delegation-child-answer"),
-        "the child's answer must lead the result: {output}"
-    );
-    assert!(
-        output.contains("[INLINE_RESULT]") && output.contains("no sub-agent worker"),
-        "a blocking delegation must say its result is inline: {output}"
-    );
-    assert!(provider.saw(SKILL_DELEGATION_CANARY));
-    assert!(provider.saw("gmail"));
 }
 
 #[tokio::test]

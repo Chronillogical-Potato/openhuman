@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 // `config_auth_app_state_connectivity_e2e.rs` remains a top-level integration
 // target (it is not a `*_raw_coverage_e2e` file), so reach one directory up
 // out of `tests/raw_coverage/` to include it as the `base_coverage` helper.

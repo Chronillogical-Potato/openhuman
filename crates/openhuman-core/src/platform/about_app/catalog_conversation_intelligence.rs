@@ -114,9 +114,23 @@ Capability {
         name: "Suggested Questions",
         domain: "conversation",
         category: CapabilityCategory::Conversation,
-        description: "Offer prompt suggestions to help continue a conversation.",
-        how_to: "Home or Conversations > Suggested prompts",
-        status: CapabilityStatus::Beta,
+        // Not Beta: nothing produces these yet. Both chat surfaces that would
+        // show them — the welcome chips and the follow-up row — read
+        // `s.thread.suggestions`, which is only ever filled by the `suggestions`
+        // key on the assistant-ui ExternalStoreAdapter. `useOpenHumanExternalStore`
+        // does not declare it, and no other producer exists in `app/src` or in
+        // `crates/`, so the array is permanently empty and both surfaces render
+        // nothing. The previous entry advertised Beta and pointed at
+        // "Suggested prompts", sending users to look for a control that is not
+        // there (#6464). Move this back to Beta in the same change that lands a
+        // producer, not before.
+        description: "Offer prompt suggestions to help start or continue a conversation. \
+                      Not available yet: no part of OpenHuman produces suggestions, so \
+                      the chat surfaces that would display them stay empty.",
+        how_to: "Nothing to do yet — the starter prompts on a new chat are the first half \
+                 and land with the welcome-chips change; follow-up suggestions after a \
+                 reply need a producer that does not exist yet.",
+        status: CapabilityStatus::ComingSoon,
         privacy: None,
     },
 Capability {
@@ -130,12 +144,26 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "conversation.agent_sources",
+        name: "Agent Sources",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "List the web pages an answer was built from, derived from the agent's own \
+            fetch/browse calls rather than claimed by the model. Only http(s) addresses are \
+            linked.",
+        how_to: "Chat > Sources, under a settled answer (collapsed; click to expand). The same \
+            list, plus per-step detail and the whole run, is in Chat > the turn's process \
+            footer > Sources.",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
         id: "conversation.plan_review",
         name: "Plan Review",
         domain: "conversation",
         category: CapabilityCategory::Conversation,
-        description: "Pause an interactive turn for review whenever the assistant proposes a thread-scoped plan (a multi-step to-do list with its objective). Review the whole plan once above the composer, then Approve to run it, Reject to discard it, or send feedback to have the assistant revise and re-propose — nothing executes until you approve. Background and scheduled runs are never gated.",
-        how_to: "Conversations > review the plan card above the composer when the assistant lays out a multi-step plan",
+        description: "Pause a turn for review when a planning specialist proposes a thread-scoped plan (a multi-step to-do list with its objective). Review the whole plan once above the composer, then Approve to run it, Reject to discard it, or send feedback to have it revise and re-propose. The chat assistant itself answers research and lookup questions directly without a plan card; destructive commands and file changes are gated by the approval layer instead. Background and scheduled runs are never gated.",
+        how_to: "Conversations > review the plan card above the composer when a planning specialist lays out a multi-step plan",
         status: CapabilityStatus::Beta,
         privacy: None,
     },

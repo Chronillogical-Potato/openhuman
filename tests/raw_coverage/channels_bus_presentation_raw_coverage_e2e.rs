@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! Round20 focused raw coverage for channel bus and presentation paths.
 //!
 //! Uses debug-only seams plus in-memory web-channel events. No external

@@ -5,6 +5,14 @@
 //! every edit is validated up front (path, exact-match, uniqueness)
 //! before any file is written. If any edit fails validation, no files
 //! are touched.
+//!
+//! **Creating a file** is an empty `old_string` against a path that does not
+//! exist yet; `new_string` becomes the whole contents. Before that existed the
+//! tool could only edit, and an agent asked to produce a document had no route
+//! at all: it would create a placeholder with `shell` purely so there was
+//! something to patch (the life-scenario benchmark caught two 1-byte files
+//! containing `x`). An empty `old_string` against a file that *does* exist is
+//! still an error — "replace nothing" is ambiguous, not a create.
 
 use crate::agent::file_state;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
@@ -38,7 +46,9 @@ impl Tool for ApplyPatchTool {
     fn description(&self) -> &str {
         "Apply a batch of exact-string edits across one or more files atomically. \
          All edits are validated before any are written; validation failure rolls \
-         back the whole batch. Each edit is `{path, old_string, new_string, replace_all?}`."
+         back the whole batch. Each edit is `{path, old_string, new_string, replace_all?}`. \
+         To CREATE a new file, pass an empty `old_string` with the full contents \
+         as `new_string`; the path must not already exist."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -52,7 +62,10 @@ impl Tool for ApplyPatchTool {
                         "type": "object",
                         "properties": {
                             "path": { "type": "string" },
-                            "old_string": { "type": "string" },
+                            "old_string": {
+                                "type": "string",
+                                "description": "Exact text to replace. Empty means CREATE: the path must not exist and `new_string` becomes the whole file."
+                            },
                             "new_string": { "type": "string" },
                             "replace_all": { "type": "boolean", "default": false }
                         },
@@ -147,14 +160,23 @@ impl ApplyPatchTool {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
 
-            if old_string.is_empty() {
-                return Ok(ToolResult::error(format!(
-                    "edit[{i}]: `old_string` must not be empty"
-                )));
-            }
             if !path_policy.is_path_string_allowed(path) {
                 return Ok(ToolResult::error(format!(
                     "edit[{i}]: path not allowed: {path}"
+                )));
+            }
+            // An empty `old_string` is a create, and only against a path that
+            // does not exist yet. Resolved the same way every other edit is —
+            // joined onto `action_dir` — so "exists" means the same thing here
+            // as it does in the apply loop below.
+            let exists = path_policy.action_dir.join(path).exists()
+                || (std::path::Path::new(path).is_absolute()
+                    && std::path::Path::new(path).exists());
+            let create = old_string.is_empty();
+            if create && exists {
+                return Ok(ToolResult::error(format!(
+                    "edit[{i}]: `old_string` must not be empty for an existing file ({path}). \
+                     Pass the exact text to replace, or write to a new path to create a file."
                 )));
             }
             parsed.push(ParsedEdit {
@@ -163,6 +185,7 @@ impl ApplyPatchTool {
                 old_string: old_string.to_string(),
                 new_string: new_string.to_string(),
                 replace_all,
+                create,
             });
         }
 
@@ -234,13 +257,46 @@ impl ApplyPatchTool {
                     }
                 }
 
-                // Security check: validate path string, resolve symlinks, confirm workspace containment.
-                let resolved = match path_policy.validate_path(&edit.path).await {
-                    Ok(p) => p,
-                    Err(msg) => {
-                        return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                // Security check: validate path string, resolve symlinks, confirm
+                // workspace containment. A create has no file to canonicalize,
+                // so it resolves through the parent — the same gate
+                // `file_write` uses, which walks up to the deepest existing
+                // ancestor and still checks it for symlink escapes.
+                let resolved = if edit.create {
+                    match path_policy.validate_parent_path(&edit.path).await {
+                        Ok(p) => p,
+                        Err(msg) => {
+                            return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                        }
+                    }
+                } else {
+                    match path_policy.validate_path(&edit.path).await {
+                        Ok(p) => p,
+                        Err(msg) => {
+                            return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                        }
                     }
                 };
+                if edit.create {
+                    if let Some(parent) = resolved.parent() {
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            return Ok(ToolResult::error(format!(
+                                "edit[{}]: failed to create parent of {}: {e}",
+                                edit.index, edit.path
+                            )));
+                        }
+                    }
+                    buffers.insert(
+                        edit.path.clone(),
+                        FileBuffer {
+                            resolved,
+                            original: None,
+                            contents: edit.new_string.clone(),
+                            edit_count: 1,
+                        },
+                    );
+                    continue;
+                }
                 if let Ok(meta) = tokio::fs::metadata(&resolved).await {
                     if meta.len() > MAX_FILE_BYTES {
                         return Ok(ToolResult::error(format!(
@@ -263,11 +319,21 @@ impl ApplyPatchTool {
                     edit.path.clone(),
                     FileBuffer {
                         resolved,
-                        original: contents.clone(),
+                        original: Some(contents.clone()),
                         contents,
                         edit_count: 0,
                     },
                 );
+            }
+
+            if edit.create {
+                // A second create for the same path in one batch. The first one
+                // already populated the buffer; a duplicate would silently
+                // discard one of the two bodies, so say so.
+                return Ok(ToolResult::error(format!(
+                    "edit[{}]: {} is created earlier in this batch; only one create per path",
+                    edit.index, edit.path
+                )));
             }
 
             let buf = buffers.get_mut(&edit.path).unwrap();
@@ -311,7 +377,10 @@ impl ApplyPatchTool {
                 )));
             }
             written.push(buf);
-            summary.push(format!("{path}: {} replacement(s)", buf.edit_count));
+            summary.push(match buf.original {
+                None => format!("{path}: created ({} bytes)", buf.contents.len()),
+                Some(_) => format!("{path}: {} replacement(s)", buf.edit_count),
+            });
         }
         // Record writes in the file-state coordinator.
         if let Some(agent_id) = file_state::current_file_state_agent_id() {
@@ -333,7 +402,14 @@ impl ApplyPatchTool {
 async fn restore_originals(written: &[&FileBuffer]) -> Vec<String> {
     let mut errors = Vec::new();
     for buf in written {
-        if let Err(e) = tokio::fs::write(&buf.resolved, &buf.original).await {
+        let result = match &buf.original {
+            Some(original) => tokio::fs::write(&buf.resolved, original).await,
+            // The batch created this file, so "restore" means remove it —
+            // otherwise a failed multi-file patch leaves a half-written new
+            // file behind and the caller cannot tell it apart from a success.
+            None => tokio::fs::remove_file(&buf.resolved).await,
+        };
+        if let Err(e) = result {
             errors.push(format!("{}: {e}", buf.resolved.display()));
         }
     }
@@ -346,13 +422,17 @@ struct ParsedEdit {
     old_string: String,
     new_string: String,
     replace_all: bool,
+    /// Empty `old_string` against a path that does not exist: `new_string`
+    /// becomes the whole file.
+    create: bool,
 }
 
 struct FileBuffer {
     resolved: PathBuf,
     /// Snapshot of the file's contents as we first read them.
-    /// Used to restore on a partial-write failure.
-    original: String,
+    /// Used to restore on a partial-write failure. `None` for a file this batch
+    /// is creating — there is nothing to restore *to*, so rollback deletes it.
+    original: Option<String>,
     contents: String,
     edit_count: usize,
 }

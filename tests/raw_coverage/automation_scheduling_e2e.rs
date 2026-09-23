@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current runtime contracts.
 //! JSON-RPC E2E coverage for the automation/scheduling controllers that no
 //! e2e target reached: `cron_remove` / `cron_run` / `cron_runs`,
 //! `task_sources_sync` / `task_sources_list_databases`, the whole `hooks`

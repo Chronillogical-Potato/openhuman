@@ -57,9 +57,9 @@ pub struct TurnOverrides {
     /// transcript for the agent name -- NOT thread-scoped). A host that has just
     /// re-bound the in-memory history to a different chat sets this so a cleared
     /// history is not silently repopulated from an unrelated thread's transcript
-    /// (opencompany #1725). Thread-correct resume via
-    /// `OpenHumanSessionHost::seed_resume_from_thread_transcript` still works:
-    /// it seeds the runtime directly, rather than retaining a host cache.
+    /// (opencompany #1725). A thread-bound session no longer needs this: it
+    /// resumes by durable session identity (`ResumeMode::Session`), which is an
+    /// exact lookup and can never reach another thread's transcript.
     pub suppress_transcript_autoload: bool,
 }
 
@@ -289,6 +289,16 @@ pub struct OpenHumanSessionHost {
     /// `Some("1713000000_orchestrator/1713000123_planner")` so nested
     /// delegations produce a tree on disk.
     pub(super) session_parent_prefix: Option<String>,
+    /// Durable identity of the conversation this root session serves.
+    ///
+    /// Set by [`set_thread_id`][super::runtime::accessors] once the host knows
+    /// the thread, and `None` for a sub-agent or an unthreaded session. When
+    /// present it, not [`Self::session_key`], addresses the transcript: the
+    /// stem it derives carries no timestamp, so every restart and every
+    /// process resolves the same conversation to the same file. The
+    /// timestamped `session_key` remains correct for sub-agents, where each
+    /// spawn genuinely is a new transcript.
+    pub(super) session: Option<tinyagents_session::transcript::SessionRef>,
     /// Per-session [`ContextManager`] — owns the system-prompt
     /// builder, the layered reduction pipeline (tool-result budget →
     /// microcompact → autocompact signal → session-memory extraction
@@ -509,6 +519,25 @@ pub struct SessionHostBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
+    /// The session's own definition, when the caller has one rather than a
+    /// registry id to name.
+    ///
+    /// A hosted root invocation resolves its agent id against the host
+    /// catalogue before it composes a message, and refuses the turn when the
+    /// id is not there. `from_config_with_definition` stamps a caller's
+    /// definition on the session for exactly that reason; a direct builder
+    /// caller had no equivalent, so its only catalogue was the process-wide
+    /// [`AgentDefinitionRegistry`] — read once from `<workspace>/agents/*.toml`
+    /// at startup, with no refresh.
+    ///
+    /// Set here it becomes
+    /// [`OpenHumanHostBase::session_definition`](crate::agent::tinyagents::host::OpenHumanHostBase::session_definition),
+    /// which outranks the registry for this session's own id.
+    ///
+    /// `None` (the default) leaves every existing caller as it was.
+    ///
+    /// [`AgentDefinitionRegistry`]: crate::agent::harness::definition::AgentDefinitionRegistry
+    pub(super) session_definition: Option<Arc<crate::agent::harness::definition::AgentDefinition>>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated

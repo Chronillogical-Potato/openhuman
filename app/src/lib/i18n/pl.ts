@@ -728,6 +728,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Do dzieła, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Czas się skupić 🧘🏻',
   'chat.newWindowPrompt': 'Jak mogę ci dziś pomóc?',
+  'chat.welcomeSuggestion.calendarToday': 'Co mam dzisiaj w kalendarzu?',
+  'chat.welcomeSuggestion.unreadEmail': 'Podsumuj moje nieprzeczytane e-maile.',
+  'chat.welcomeSuggestion.draftReply': 'Przygotuj odpowiedź na moją ostatnią wiadomość.',
+  'chat.welcomeSuggestion.followUps': 'Co miałem w tym tygodniu doprowadzić do końca?',
+  'chat.welcomeSuggestion.connectIntegration': 'Połącz nową integrację.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Zbuduj przepływ, który codziennie wyśle mi podsumowanie e-mailem.',
   'chat.typeMessage': 'Wyślij wiadomość...',
   'chat.send': 'Wyślij wiadomość',
   'chat.stopGeneration': 'Zatrzymaj generowanie',
@@ -3231,6 +3238,11 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Wymagana dodatkowa konfiguracja',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Subdomena Atlassian',
+  'composio.connect.cancelConnection': 'Anuluj połączenie',
+  'composio.connect.cancelFailed': 'Nie udało się anulować połączenia: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio nie potwierdziło usunięcia połączenia. Spróbuj ponownie.',
+  'composio.connect.cancelling': 'Anulowanie…',
   'composio.connect.connect': 'Połącz',
   'composio.connect.connectedAccounts': 'Połączone konta',
   'composio.connect.defaultLabel': 'Domyślne',
@@ -3294,13 +3306,25 @@ const messages: TranslationMap = {
     'Twoja sesja OpenHuman wygasła. Zaloguj się ponownie, aby wczytać wyzwalacze.',
   'composio.triggers.needsConfiguration': 'Wymaga konfiguracji',
   'composio.triggers.noneAvailable': 'Brak dostępnych wyzwalaczy dla',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Okno kontekstu',
   'conversations.composer.context.input': 'Wejście',
   'conversations.composer.context.cached': 'Wejście z pamięci podręcznej',
   'conversations.composer.context.output': 'Wyjście',
   'conversations.composer.context.cost': 'Koszt',
   'conversations.composer.command.clear': 'Wyczyść rozmowę',
+  'conversations.todos.title': 'Zadania',
+  'conversations.todos.progress': '{completed} z {total} ukończono',
+  'conversations.todos.allDone': 'Wszystko gotowe',
+  'conversations.todos.status.pending': 'Oczekuje',
+  'conversations.todos.status.inProgress': 'W toku',
+  'conversations.todos.status.completed': 'Ukończone',
+  'conversations.goal.title': 'Cel',
+  'conversations.goal.status.active': 'Aktywny',
+  'conversations.goal.status.paused': 'Wstrzymany',
+  'conversations.goal.status.budgetLimited': 'Budżet wyczerpany',
+  'conversations.goal.status.complete': 'Ukończony',
+  'conversations.goal.tokens': '{used} tokenów',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} tokenów',
   'conversations.planReview.title': 'Przejrzyj plan',
   'conversations.planReview.subtitle':
     'Zatwierdź, aby go uruchomić, odrzuć, aby go odrzucić, lub wyślij opinię, aby go poprawić.',
@@ -3399,12 +3423,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Najnowszy wygenerowany diagram architektury OpenHuman',
   'intelligence.diagram.refreshesEvery': 'Odświeża co {seconds}s',
   'intelligence.memoryText.entityTypePrefix': 'Typ encji',
-  'intelligence.workTask.sourceTaskHeading': 'Zadanie źródłowe:',
-  'intelligence.workTask.repositoryLine': '- Repozytorium: {repo}',
-  'intelligence.workTask.externalIdLine': '- Identyfikator zewnętrzny: {externalId}',
-  'intelligence.workTask.urlLine': '- Adres: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Zacznij od krótkiego powtórzenia konkretnego planu wdrożenia, a następnie go zrealizuj. Utrzymuj widoczność postępów w tym wątku i aktualizuj tablicę zadań, gdy zmienia się stan pracy.',
   'intelligence.agentWork.subtitle':
     'Każdy przebieg agenta w tle, pogrupowany według stanu cyklu życia.',
   'intelligence.agentWork.loading': 'Ładowanie pracy agenta…',
@@ -4892,9 +4910,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Co 2 godziny',
   'settings.devWorkflow.schedule.every6hours': 'Co 6 godzin',
   'settings.devWorkflow.schedule.onceDaily': 'Raz dziennie (9:00)',
-  'settings.developerMenu.tasks.title': 'Zadania',
-  'settings.developerMenu.tasks.desc':
-    'Przeglądaj tablice zadań i zarządzaj nimi: Twoje własne zadania oraz tablice tworzone przez agentów w rozmowach.',
   'settings.developerMenu.cronJobs.title': 'Zadania cron',
   'settings.developerMenu.cronJobs.desc':
     'Przeglądaj i konfiguruj zaplanowane zadania dla umiejętności runtime',
@@ -4999,9 +5014,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Ogranicz do przestrzeni roboczej',
   'settings.agentAccess.confine.desc':
     'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Po wyłączeniu tej opcji agent może sięgać wszędzie tam, gdzie ma dostęp Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
-  'settings.agentAccess.requireTaskPlanApproval.label': 'Wymagaj zatwierdzenia planu zadania',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
   'settings.agentAccess.autoApproveAll.label': 'Automatycznie zatwierdzaj wszystkie działania',
   'settings.agentAccess.autoApproveAll.desc':
     'Po włączeniu agent będzie wykonywać wszystkie działania bez wcześniejszego proszenia o Twoją zgodę. Obejmuje to zapis plików, polecenia powłoki, żądania sieciowe i wszelkie inne efekty uboczne. Twarde blokady bezpieczeństwa (katalogi poświadczeń, wewnętrzne ścieżki przestrzeni roboczej) nadal obowiązują.',
@@ -5870,9 +5882,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Źródła zadań',
   'settings.integrations.title': 'Integracje',
   'settings.integrations.menuDesc': 'Źródła zadań, routing Composio i wyzwalacze webhooków',
-  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi na tablicę zadań agenta',
+  'settings.taskSources.subtitle': 'Pobieraj zadania z narzędzi do swojego agenta',
   'settings.taskSources.description':
-    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i kieruj na tablicę zadań agenta.',
+    'Zbieraj elementy pracy z GitHub, Notion, Linear i ClickUp, wzbogacaj je i przekazuj swojemu agentowi do przeglądu.',
   'settings.taskSources.connectHint':
     'Źródła zadań używają połączonych kont. Najpierw połącz je w Integracjach.',
   'settings.taskSources.disabledBanner':

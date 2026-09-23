@@ -574,14 +574,18 @@ fn env_overlay_context_tool_result_budget_env_suppresses_legacy_migration() {
 }
 
 #[test]
-fn env_overlay_compaction_default_on_and_kill_switch() {
-    // Default is on.
-    assert!(Config::default().context.compaction_enabled);
+fn env_overlay_compaction_default_off_and_switch() {
+    // Default is off (tokenjuice compaction cost more retrieval round trips
+    // than it saved context).
+    assert!(!Config::default().context.compaction_enabled);
 
-    // `OPENHUMAN_COMPACTION=0` disables it.
+    // `OPENHUMAN_COMPACTION=0` keeps it off; `=1` turns it on.
     let mut cfg = Config::default();
     cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION", "0"));
     assert!(!cfg.context.compaction_enabled);
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION", "1"));
+    assert!(cfg.context.compaction_enabled);
 
     // Truthy re-enables; the namespaced alias works too.
     let mut cfg = Config::default();
@@ -593,6 +597,7 @@ fn env_overlay_compaction_default_on_and_kill_switch() {
 
     // Garbage is ignored (leaves the prior value untouched).
     let mut cfg = Config::default();
+    cfg.context.compaction_enabled = true;
     cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION", "maybe"));
     assert!(cfg.context.compaction_enabled);
 }
@@ -667,14 +672,14 @@ fn env_overlay_auto_update_restart_strategy_accepts_supported_values() {
 #[test]
 fn env_overlay_tool_dispatcher_overrides_the_agent_field_when_non_blank() {
     let mut cfg = Config::default();
-    assert_eq!(cfg.agent.tool_dispatcher, "auto");
-
-    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", " python "));
     assert_eq!(cfg.agent.tool_dispatcher, "python");
+
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", " native "));
+    assert_eq!(cfg.agent.tool_dispatcher, "native");
 
     // Blank values leave the persisted choice alone.
     cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", "   "));
-    assert_eq!(cfg.agent.tool_dispatcher, "python");
+    assert_eq!(cfg.agent.tool_dispatcher, "native");
     cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_TOOL_DISPATCHER", ""));
-    assert_eq!(cfg.agent.tool_dispatcher, "python");
+    assert_eq!(cfg.agent.tool_dispatcher, "native");
 }

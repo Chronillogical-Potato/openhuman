@@ -638,3 +638,85 @@ fn validate_command_err_truncation_handles_multibyte_char_at_boundary() {
         "fixture must hit the allowlist-miss Err path"
     );
 }
+
+// -- quoted heredoc bodies are data, not shell -------------------------------
+//
+// Regression for the life-scenario `meal-plan` failure: a five-day dinner plan
+// was refused as "background (&) is not allowed" because four recipe titles
+// read "Chicken & Spinach". `classify_command` and the structural guard scan
+// the raw command string, and until `strip_quoted_heredoc_bodies` existed a
+// `<< 'EOF'` body — where the shell expands nothing — was scanned as live text.
+
+/// The command as the model actually sent it, trimmed to the offending lines.
+const MEAL_PLAN_HEREDOC: &str = r#"cat > out/meal_plan.md << 'EOF'
+# 5-Day Mediterranean Dinner Plan (Family of 4)
+
+## Day 1 — Greek Chicken & Spinach Orzo Skillet
+## Day 3 — Spinach & Feta Stuffed Chicken
+## Day 5 — Shrimp & Vegetable Mediterranean Pasta
+EOF"#;
+
+#[test]
+fn ampersand_inside_a_quoted_heredoc_body_is_not_a_background_operator() {
+    let p = SecurityPolicy {
+        autonomy: AutonomyLevel::Supervised,
+        ..SecurityPolicy::default()
+    };
+    // Still a write — the `>` is outside the body and must keep prompting.
+    assert_eq!(p.classify_command(MEAL_PLAN_HEREDOC), CommandClass::Write);
+    assert!(
+        p.check_gated_command(MEAL_PLAN_HEREDOC).is_ok(),
+        "a quoted heredoc body containing `&` must not read as background"
+    );
+}
+
+#[test]
+fn prose_in_a_quoted_heredoc_body_does_not_lift_the_class() {
+    let p = SecurityPolicy {
+        autonomy: AutonomyLevel::Supervised,
+        ..SecurityPolicy::default()
+    };
+    // Without the pre-pass the splitter turns these lines into "commands" and
+    // the write classifies Destructive / Network.
+    let doc = "cat > out/notes.md << 'EOF'\n\
+               rm -rf is dangerous; do not run it\n\
+               curl https://example.com is how you fetch a page\n\
+               EOF";
+    assert_eq!(p.classify_command(doc), CommandClass::Write);
+}
+
+#[test]
+fn an_unquoted_heredoc_delimiter_still_has_a_live_body() {
+    let p = SecurityPolicy {
+        autonomy: AutonomyLevel::Supervised,
+        ..SecurityPolicy::default()
+    };
+    // `<< EOF` (no quotes) expands, so `$(…)` in the body really does execute.
+    let live = "cat > out/x.md << EOF\nhello $(rm -rf ~)\nEOF";
+    assert!(
+        p.check_gated_command(live).is_err(),
+        "an unquoted heredoc body is expanded and must keep tripping the guard"
+    );
+}
+
+#[test]
+fn hidden_execution_outside_a_heredoc_is_still_blocked() {
+    let p = SecurityPolicy {
+        autonomy: AutonomyLevel::Supervised,
+        ..SecurityPolicy::default()
+    };
+    // The body is inert, but the command line itself is not.
+    let mixed = "cat > out/$(whoami).md << 'EOF'\nplain text\nEOF";
+    assert!(p.check_gated_command(mixed).is_err());
+}
+
+#[test]
+fn a_here_string_is_not_treated_as_a_heredoc() {
+    let p = SecurityPolicy {
+        autonomy: AutonomyLevel::Supervised,
+        ..SecurityPolicy::default()
+    };
+    // `<<<` takes no body; nothing after it may be blanked out.
+    assert!(p.check_gated_command("cat <<< 'plain'").is_ok());
+    assert!(p.check_gated_command("cat <<< \"$(whoami)\"").is_err());
+}

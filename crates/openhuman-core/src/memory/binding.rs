@@ -52,8 +52,9 @@ use crate::core::subsystem::{
     BoundDriver, DriverCapabilities, DriverClass, DriverHealth, SubsystemSlot,
 };
 
-/// Registry id of the built-in TinyMemory module.
-pub(crate) const MODULE_ID: &str = "tinymemory";
+/// Registry id of the built-in TinyMemory module. Public so in-process test
+/// suites can wait out its load (`tests/support/memory_module.rs`).
+pub const MODULE_ID: &str = "tinymemory";
 
 /// Why a bind fell back to the placeholder driver.
 ///

@@ -58,35 +58,27 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
         "expected the generated heading, got: {:?}",
         block.chars().take(120).collect::<String>()
     );
+    // The row this pins is a `documents`-gated skill, so the assertion depends
+    // on a Cargo feature the test does not declare. Under `default` the skill
+    // is not compiled, the row cannot render, and the failure reads as a broken
+    // block — which is how openhuman#6507 came to be filed and retracted.
+    //
+    // Unlike the tool-universe guard in `fleet_prompt_tests`, this test depends
+    // on exactly ONE feature and can ask about it directly, so there is no
+    // tool-to-feature mapping here to drift out of date.
     assert!(
-        block.contains("skill `documents`, tool `make_presentation`"),
-        "a packed delegate must render with its route:\n{block}"
-    );
-}
-
-/// The row text must be one readable sentence, not a cut parenthetical.
-///
-/// `mcp_agent`'s `when_to_use` opens "…an ALREADY-CONNECTED MCP server (e.g.
-/// `gmail`)…", and a naive split on ". " ends the row at "(e.g." — which is
-/// what the first live capture rendered.
-#[test]
-fn a_row_is_not_cut_at_an_abbreviation() {
-    assert_eq!(
-        first_sentence("Calls tools on a connected server (e.g. gmail). Then reports back."),
-        "Calls tools on a connected server (e.g. gmail).",
-    );
-    // A genuine boundary still ends the row.
-    assert_eq!(
-        first_sentence("Builds decks from evidence. Use for pitch-deck requests."),
-        "Builds decks from evidence.",
-    );
-    // No boundary at all: capped, not truncated mid-word by accident.
-    let long = "a ".repeat(200);
-    assert!(first_sentence(&long).ends_with('…'));
-    // Short and unterminated: returned whole.
-    assert_eq!(
-        first_sentence("Runs installed agent skills"),
-        "Runs installed agent skills"
+        block.contains("- skill `documents`: `make_presentation`"),
+        "a packed delegate must render with its route:{}\n{block}",
+        if cfg!(feature = "documents") {
+            String::new()
+        } else {
+            "\n\nNOTE — this may be a feature-profile artefact, not a rendering defect: \
+             the `documents` feature is NOT enabled in this build, so `make_presentation` \
+             does not exist and the row cannot render. Settle it by reproducing CI exactly:\
+             \n\n    cargo test -p openhuman --lib --features \"$(bash scripts/ci/product-features.sh)\"\
+             \n\nIf it passes there, this profile simply lacks the skill. See openhuman#6512."
+                .to_string()
+        }
     );
 }
 
@@ -117,16 +109,14 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
     // The gate is the fix; this pins the prompt so the model is told the route
     // before it discovers the wall.
     assert!(
-        ARCHETYPE.contains("Workflow rule of thumb"),
+        ARCHETYPE.contains("## Scheduling and workflows"),
         "orchestrator prompt must carry the workflow routing rule"
     );
     assert!(
-        ARCHETYPE.contains("`build_workflow`"),
+        ARCHETYPE.contains(
+            "skill `workflows` (`build_workflow` to author, `discover_workflows` to find)"
+        ),
         "the rule must name the delegate to call"
-    );
-    assert!(
-        ARCHETYPE.contains("use_skill"),
-        "the rule must name the path it is steering away from"
     );
 
     // The rule is only true because these are the real names. Asserting the

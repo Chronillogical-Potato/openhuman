@@ -19,6 +19,7 @@ pub(crate) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
     Box::pin(async move {
         let update = deserialize_params::<AutonomySettingsUpdate>(params)?;
         let patch = config_rpc::AutonomySettingsPatch {
+            enabled: update.enabled,
             level: update.level,
             workspace_only: update.workspace_only,
             allowed_commands: update.allowed_commands,
@@ -27,7 +28,6 @@ pub(crate) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
             allow_tool_install: update.allow_tool_install,
             max_actions_per_hour: update.max_actions_per_hour,
             auto_approve: update.auto_approve,
-            require_task_plan_approval: update.require_task_plan_approval,
             auto_approve_all: update.auto_approve_all,
         };
         to_json(config_rpc::load_and_apply_autonomy_settings(patch).await?)

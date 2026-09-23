@@ -237,14 +237,14 @@ compatibility export.
 
 ### Tool dispatch and tool-call dialects
 
-`agent.tool_dispatcher` (overridable for one launch with `OPENHUMAN_TOOL_DISPATCHER`) picks how tools are spoken to the model. `auto` (the default) uses **native tool calling** — structured tool specs through the `ChatModel` adapter and structured calls back — whenever the provider profile supports it, and falls back to JSON-in-tag for prompt-guided providers such as local Ollama. The session composes its prompt for the chosen dialect and pins the same dialect on the turn harness, so a text dialect keeps its schemas off the wire and the harness recovers calls with the matching grammar.
+`agent.tool_dispatcher` (overridable for one launch with `OPENHUMAN_TOOL_DISPATCHER`) picks how tools are spoken to the model. `python` (the default) renders the catalogue as Python function signatures and reads code-style calls back. `auto` uses **native tool calling** — structured tool specs through the `ChatModel` adapter and structured calls back — whenever the provider profile supports it, and falls back to JSON-in-tag for prompt-guided providers such as local Ollama. The session composes its prompt for the chosen dialect and pins the same dialect on the turn harness, so a text dialect keeps its schemas off the wire and the harness recovers calls with the matching grammar.
 
 Canonical `tinytools_agent::dialect::ToolDialect` implementations provide transcript-compatible parsing and rendering directly; OpenHuman converts durable/provider records only at those I/O boundaries:
 
 - **Native** (`native`) — structured tool-call fields.
 - **XML** (`xml`) — `<tool_call>{...}</tool_call>` tags in assistant text, with full JSON schemas in the prompt.
 - **P-Format** (`pformat`) — compact positional `<tool_call>name[0|a|1|b]</tool_call>` with `name[0|<a>|1|<b>]` signatures in the prompt; opt-in.
-- **Code** (`python` / `typescript`) — the catalogue is a list of function signatures (`def read_file(path: str, limit: int = None) -> str` or `function read_file(path: string, limit?: number): string;`) and the model writes a function call inside the tag: `read_file(path="src/main.rs", limit=20)` or `read_file({path: "src/main.rs", limit: 20})`. Compact like P-Format but a syntax small code-trained models already write; opt-in.
+- **Code** (`python` / `typescript`) — the catalogue is a list of function signatures (`def read_file(path: str, limit: int = None) -> str` or `function read_file(path: string, limit?: number): string;`) and the model writes a function call inside the tag: `read_file(path="src/main.rs", limit=20)` or `read_file({path: "src/main.rs", limit: 20})`. Compact like P-Format but a syntax small code-trained models already write; `python` is the default.
 
 Every text dialect shares one parser: a `<tool_call>` body is tried as P-Format, then as a code call, then as JSON, so a model that mixes forms is still understood. Persisted session histories can contain suffixes in any of these shapes, so the session shell keeps the dispatcher around to parse and replay them faithfully when a transcript is resumed.
 
@@ -259,7 +259,9 @@ Long tool-calling chains can blow past the context window. Two layers handle tha
 
 Some tool calls return enormous payloads - a Composio action dumping 200 KB of JSON, a web scrape returning 50 KB of markdown, a `file_read` over a multi-thousand-line log. Hard-truncating mid-payload drops whatever happens to land past the cut.
 
-When a tool result exceeds the summarizer's threshold, it gets routed through a dedicated `summarizer` sub-agent before entering the parent's history. The summarizer compresses the payload per an extraction contract that preserves identifiers and key facts, and the parent agent only sees the compressed summary. Hard truncation remains the backstop downstream when summarization fails or the payload is so absurdly large that paying for an LLM call on it makes no economic sense.
+When a tool result exceeds the summarizer's threshold (`summarizer_payload_threshold_tokens`, default 4 000), TinyJuice's summary stage summarizes it before it enters the parent's history. The parent agent sees only the summary. There is one summarizer, and TinyJuice owns it: it decides when a summary is worth writing, writes the extraction prompt (identifiers and key facts first), caches identical summaries, trips a per-thread breaker after three failures, and offloads the original to CCR so the `tinyjuice_retrieve` footer can recover it exactly. The model call itself belongs to the host. `ToolOutputMiddleware` binds a unary child of the current turn through `PayloadSummarizer::prepare`, registers it under a context token (`inference/tokenjuice/generate.rs`), and the module calls back through `MlHost.Generate`. Only the orchestrator carries a summary model. Hard truncation remains the downstream backstop when summarization fails, or when the payload is so large that an LLM call on it makes no economic sense.
+
+**Caller focus.** A tool can opt in to an optional `summary_focus` argument by adding `tokenjuice::focus::summary_focus_property()` to its schema; `web_fetch` and `web_search_tool` do. The model uses it to say what it needs from the result, for example "the rate limits". `before_tool` removes the argument from the call before validation, so the tool never sees it. It reaches TinyJuice with the result, where it steers the summary, keys its cache, and ranks text for the deterministic compressors. A tool that caps its own output, such as `web_fetch`, is normally left to cap-and-spill. When the caller gives a focus, it is summarized as well, because paging the raw page cannot answer a question.
 
 ### Filesystem offload - `outputs/` and `workspace/`
 
@@ -344,7 +346,7 @@ Each archetype lives under `agents/<name>/` with an `agent.toml` (metadata, tool
 | `archivist`          | Memory distillation - what to persist, what to forget.                                   |
 | `tool_maker`         | Self-healing - writes polyfills for missing shell commands.                              |
 | `tools_agent`        | Generic specialist for arbitrary tool-bound tasks.                                       |
-| `integrations_agent` | Bound to a specific Composio toolkit (Gmail, GitHub, Slack…) for that toolkit's actions. |
+| `integrations_agent` | Bound to a specific Composio toolkit (Gmail, GitHub, Slack…) for that toolkit's actions. Not reachable from chat: the orchestrator finds a connected action through `tool_search` and calls it directly. |
 | `trigger_triage`     | Classifies incoming external events into drop / notify / spawn-reactor / spawn-agent.    |
 | `trigger_reactor`    | Lightweight reaction to a triaged trigger that doesn't need a full orchestrator turn.    |
 | `morning_briefing`   | Curated daily digest run by cron.                                                        |
@@ -399,7 +401,7 @@ Each `AgentDefinition` carries an `agent_tier` field (`chat` / `reasoning` / `wo
 | `reasoning` | `worker`              | another `reasoning`, any `chat` | `planner` (today the canonical one)                                             |
 | `worker`    | nothing[^1]           | anything                        | researcher, code_executor, critic, archivist, tool_maker, integrations_agent, … |
 
-[^1]: Skill-wildcard entries (`{ skills = "*" }`) are exempt because they collapse to a single `delegate_to_integrations_agent` tool whose target is a worker; they're a fan-out delegation surface, not a recursive spawn.
+[^1]: Skill-wildcard entries (`{ skills = "*" }`) are exempt because they name no agent: they expand to the connected Composio actions as `Deferred` tools the agent reaches through `tool_search`, not to a spawn.
 
 **Why the rules.**
 
@@ -528,7 +530,7 @@ every invocation remains a later cutover step.
 
 A few small adaptive systems sit on top of the main loop:
 
-- **Payload summarizer circuit-breaker** - three consecutive sub-agent failures in a session disable summarization, falling back to truncation.
+- **Tool-output summary circuit-breaker** - three consecutive summary failures in a thread make TinyJuice stop asking for summaries in that thread, so results fall back to compaction and truncation.
 - **Triage local-vs-remote retry** - local LLM first; remote fallback on parse failure.
 - **Unknown-tool and malformed-argument recovery** - middleware rewrites an invalid model tool call into a recoverable result instead of aborting the run.
 
@@ -548,7 +550,7 @@ The harness shell lives under `crates/openhuman-core/src/agent/`, with the tinya
 | `orchestration/subagent_sessions/`       | Durable reusable sub-agent identity, compatibility matching, persisted status/history.                        |
 | `harness/definition.rs`                  | `AgentDefinition` - what an archetype declares.                                                               |
 | `subagent_host/ops/runner.rs`            | Integration-tool ranking and the host execution leaf; generic lifecycle stays in `tinyagents-orchestration`.  |
-| `../tinyagents/payload_summarizer.rs`    | Oversized-tool-result detour.                                                                                 |
+| `../tinyagents/payload_summarizer.rs`    | The model call behind TinyJuice's oversized-tool-result summary.                                              |
 | `session_host/tool_progress.rs`       | Surviving OpenHuman seam: `TurnProgress`.                                                                     |
 | `message_convert.rs`                     | Concrete durable/provider conversion around canonical tool-call dialect APIs.                                  |
 | `triage/`                                | External-trigger classification + escalation.                                                                 |
@@ -677,8 +679,8 @@ Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `S
 The remaining store cutover runs on **shadow scaffolding** (product behavior unchanged; divergences logged):
 
 - **Session dual-write / shadow read** (`session/turn/session_io.rs`): session messages dual-write into the TinyAgents store (default-ON flag `config.session_dual_write`); loads shadow-read for parity while the legacy file store stays authoritative.
-- **Task-board shadow** (`todos/graph_shadow.rs`): mirrors the board into the crate `graph.todos` `TaskBoard` and shadow-runs its `claim_card` CAS.
-- **Goals shadow** (`thread_goals/crate_adapter.rs`): faithful copy into the crate `graph.goals` KV store, keyed by thread id.
+
+Goals and todos are crate-backed outright, with no shadow: thread goals live in the crate `graph.goals` KV store (`agent/goals/store.rs`), and the session todo list lives in the in-process crate `graph.todos` store (`agent/todos/ops.rs`); see [Goals & Todos](../../features/goals-and-todos.md).
 
 ## Workload routes and the burst tier
 
@@ -689,4 +691,4 @@ The remaining store cutover runs on **shadow scaffolding** (product behavior unc
 - [Architecture overview](README.md) - where the harness sits in the bigger picture.
 - [Memory Tree](../../features/obsidian-wiki/memory-tree.md) - what the memory loader reads from and post-turn hooks write to.
 - [Automatic Model Routing](../../features/model-routing/) - how `model: "hint:reasoning"` resolves to a concrete provider+model.
-- [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo_write`.
+- [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo`.

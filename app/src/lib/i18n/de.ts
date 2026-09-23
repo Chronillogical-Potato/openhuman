@@ -744,6 +744,13 @@ const messages: TranslationMap = {
   'chat.newWindowWelcome2': 'Legen wir los, {name} 🧑‍🍳.',
   'chat.newWindowWelcome3': 'Zeit zum Fokussieren 🧘🏻',
   'chat.newWindowPrompt': 'Wie kann ich dir heute helfen?',
+  'chat.welcomeSuggestion.calendarToday': 'Was steht heute in meinem Kalender?',
+  'chat.welcomeSuggestion.unreadEmail': 'Fasse meine ungelesenen E-Mails zusammen.',
+  'chat.welcomeSuggestion.draftReply': 'Entwirf eine Antwort auf meine letzte Nachricht.',
+  'chat.welcomeSuggestion.followUps': 'Was wollte ich diese Woche nachverfolgen?',
+  'chat.welcomeSuggestion.connectIntegration': 'Verbinde eine neue Integration.',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    'Erstelle einen Flow, der mir täglich eine Zusammenfassung per E-Mail schickt.',
   'chat.typeMessage': 'Nachricht senden...',
   'chat.send': 'Nachricht senden',
   'chat.stopGeneration': 'Generierung stoppen',
@@ -3284,6 +3291,11 @@ const messages: TranslationMap = {
   'composio.connect.additionalConfigRequired': 'Zusätzliche Konfiguration erforderlich',
   'composio.connect.atlassianSubdomainHint': 'acme',
   'composio.connect.atlassianSubdomainLabel': 'Atlassian-Subdomain-Label',
+  'composio.connect.cancelConnection': 'Verbindung abbrechen',
+  'composio.connect.cancelFailed': 'Verbindung konnte nicht abgebrochen werden: {msg}',
+  'composio.connect.cancelNotConfirmed':
+    'Composio hat das Entfernen der Verbindung nicht bestätigt. Bitte erneut versuchen.',
+  'composio.connect.cancelling': 'Wird abgebrochen…',
   'composio.connect.connect': 'Verbinden',
   'composio.connect.connectedAccounts': 'Verbundene Konten',
   'composio.connect.defaultLabel': 'Standard',
@@ -3348,13 +3360,25 @@ const messages: TranslationMap = {
     'Deine OpenHuman-Sitzung ist abgelaufen. Melde dich erneut an, um Trigger zu laden.',
   'composio.triggers.needsConfiguration': 'Muss konfiguriert werden',
   'composio.triggers.noneAvailable': 'Derzeit sind keine Auslöser verfügbar für',
-  'conversations.threadTodo.title': 'Plan',
   'conversations.composer.context.title': 'Kontextfenster',
   'conversations.composer.context.input': 'Eingabe',
   'conversations.composer.context.cached': 'Zwischengespeicherte Eingabe',
   'conversations.composer.context.output': 'Ausgabe',
   'conversations.composer.context.cost': 'Kosten',
   'conversations.composer.command.clear': 'Unterhaltung leeren',
+  'conversations.todos.title': 'Aufgaben',
+  'conversations.todos.progress': '{completed} von {total} erledigt',
+  'conversations.todos.allDone': 'Alles erledigt',
+  'conversations.todos.status.pending': 'Ausstehend',
+  'conversations.todos.status.inProgress': 'In Arbeit',
+  'conversations.todos.status.completed': 'Erledigt',
+  'conversations.goal.title': 'Ziel',
+  'conversations.goal.status.active': 'Aktiv',
+  'conversations.goal.status.paused': 'Pausiert',
+  'conversations.goal.status.budgetLimited': 'Budget erreicht',
+  'conversations.goal.status.complete': 'Abgeschlossen',
+  'conversations.goal.tokens': '{used} Tokens',
+  'conversations.goal.tokensWithBudget': '{used} / {budget} Tokens',
   'conversations.planReview.title': 'Plan prüfen',
   'conversations.planReview.subtitle':
     'Genehmigen zum Ausführen, ablehnen zum Verwerfen oder Feedback zum Überarbeiten senden.',
@@ -3453,12 +3477,6 @@ const messages: TranslationMap = {
   'intelligence.diagram.imageAlt': 'Zuletzt generiertes OpenHuman-Architekturdiagramm',
   'intelligence.diagram.refreshesEvery': 'Aktualisiert alle {seconds} s',
   'intelligence.memoryText.entityTypePrefix': 'Entitätstyp',
-  'intelligence.workTask.sourceTaskHeading': 'Quellaufgabe:',
-  'intelligence.workTask.repositoryLine': '- Repository (Repo): {repo}',
-  'intelligence.workTask.externalIdLine': '- Externe ID: {externalId}',
-  'intelligence.workTask.urlLine': '- Adresse: {url}',
-  'intelligence.workTask.closingInstruction':
-    'Beginne damit, den konkreten Umsetzungsplan kurz zu wiederholen, und führe ihn dann aus. Halte den Fortschritt in diesem Thread sichtbar und aktualisiere das Aufgabenboard, wenn sich der Arbeitsstand ändert.',
   'intelligence.agentWork.subtitle':
     'Jeder Hintergrund-Agentenlauf, gruppiert nach Lebenszyklusstatus.',
   'intelligence.agentWork.loading': 'Agentenarbeit wird geladen…',
@@ -4951,9 +4969,6 @@ const messages: TranslationMap = {
   'settings.devWorkflow.schedule.every2hours': 'Alle 2 Stunden',
   'settings.devWorkflow.schedule.every6hours': 'Alle 6 Stunden',
   'settings.devWorkflow.schedule.onceDaily': 'Einmal täglich (09:00 Uhr)',
-  'settings.developerMenu.tasks.title': 'Aufgaben',
-  'settings.developerMenu.tasks.desc':
-    'Aufgaben-Boards durchsuchen und verwalten: deine eigenen To-dos sowie die Boards, die Agenten über Unterhaltungen hinweg erstellen.',
   'settings.developerMenu.cronJobs.title': 'Cron-Jobs',
   'settings.developerMenu.cronJobs.desc':
     'Zeige geplante Jobs für Laufzeitfähigkeiten an und konfiguriere sie',
@@ -5059,10 +5074,6 @@ const messages: TranslationMap = {
   'settings.agentAccess.confine.label': 'Auf Arbeitsbereich beschränken',
   'settings.agentAccess.confine.desc':
     'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn die Option ausgeschaltet ist, kann der Agent jeden Ort erreichen, auf den Ihr Benutzer zugreifen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
-  'settings.agentAccess.requireTaskPlanApproval.label':
-    'Erfordern Sie die Genehmigung des Aufgabenplans',
-  'settings.agentAccess.requireTaskPlanApproval.desc':
-    'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
   'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
   'settings.agentAccess.autoApproveAll.desc':
     'Wenn aktiviert, genehmigt der Agent automatisch alle zulässigen Aktionen, ohne vorher deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und andere Aktionen mit externen Auswirkungen. Feste Sicherheitssperren (Anmeldeinformationen und Systemverzeichnisse) gelten weiterhin, und Aktionen aus nicht vertrauenswürdigen oder unbekannten Quellen werden nie automatisch genehmigt.',
@@ -5945,9 +5956,9 @@ const messages: TranslationMap = {
   'settings.taskSources.title': 'Aufgabenquellen',
   'settings.integrations.title': 'Integrationen',
   'settings.integrations.menuDesc': 'Aufgabenquellen, Composio-Routing und Webhook-Trigger',
-  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools auf das Agenten-ToDo-Board',
+  'settings.taskSources.subtitle': 'Ziehen Sie Aufgaben aus Ihren Tools zu Ihrem Agenten',
   'settings.taskSources.description':
-    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, bereichern Sie sie und leiten Sie sie an das Agent-ToDo-Board weiter.',
+    'Sammeln Sie Arbeitselemente von GitHub, Notion, Linear und ClickUp, reichern Sie sie an und übergeben Sie sie Ihrem Agenten zur Sichtung.',
   'settings.taskSources.connectHint':
     'Aufgabenquellen nutzen Ihre verbundenen Konten. Verbinden Sie sie zunächst unter Integrationen.',
   'settings.taskSources.disabledBanner':

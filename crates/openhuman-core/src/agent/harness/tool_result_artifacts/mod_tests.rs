@@ -3,6 +3,7 @@ use crate::security::{AutonomyLevel, SecurityPolicy};
 use crate::tools::FileReadTool;
 use serde_json::json;
 use std::sync::Arc;
+use std::time::Duration;
 use tinytools::Tool;
 
 #[tokio::test]
@@ -57,6 +58,93 @@ async fn fallback_truncates_when_store_missing() {
     assert!(!outcome.persisted);
     assert!(out.contains("truncated by tool_result_budget"));
     assert!(out.len() < 4096);
+}
+
+/// The truncation trailer must not tell the model to re-run the call (#6408).
+///
+/// The old wording ended "re-run with a narrower query to see the rest". A
+/// listing tool with no narrowing argument in reach leaves the model only the
+/// identical call, which returns the identical truncation, until the
+/// successful-repeat tracker halts the run. Assert the retry instruction is
+/// gone and the deterministic-truncation statement that replaces it is
+/// present, so a revert to the old trailer fails here.
+#[tokio::test]
+async fn truncation_trailer_does_not_instruct_a_retry() {
+    let raw = "z".repeat(4096);
+    let (out, outcome) =
+        apply_per_result_persistence(raw, None, None, "GITHUB_LIST_PULL_REQUESTS", None, 512).await;
+
+    assert!(
+        !outcome.persisted,
+        "fixture must truncate inline, not persist"
+    );
+    assert!(
+        !out.contains("re-run"),
+        "trailer must not instruct a re-run; got: {out}"
+    );
+    assert!(
+        out.contains("Repeating this call returns the same truncation"),
+        "trailer must say the truncation is deterministic; got: {out}"
+    );
+    // Both totals, so the model can judge whether the retained head suffices.
+    assert!(
+        out.contains("of 4096 bytes truncated by tool_result_budget"),
+        "trailer must report dropped-of-original bytes; got: {out}"
+    );
+}
+
+/// The sweep bounds growth without touching the live session (#6408).
+///
+/// Nothing else deletes these files, so an unbounded artifact directory would
+/// trade a token-burn bug for a disk-growth one. Asserts both halves: a stale
+/// OTHER session is removed, and the CURRENT session survives regardless of
+/// age — a sweep that collected the running session's own artifacts would
+/// delete the bodies the model is about to read back.
+#[tokio::test]
+async fn prune_removes_stale_sessions_but_never_the_current_one() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("artifacts/tool-results");
+    let current = root.join("live-session");
+    let stale = root.join("old-session");
+    std::fs::create_dir_all(&current).unwrap();
+    std::fs::create_dir_all(&stale).unwrap();
+    std::fs::write(current.join("a.txt"), "current").unwrap();
+    std::fs::write(stale.join("b.txt"), "stale").unwrap();
+
+    let store = ToolResultArtifactStore::new(tmp.path().to_path_buf(), "live-session");
+
+    // Nothing is old enough yet: a generous window must collect nothing.
+    assert_eq!(
+        store
+            .prune_stale_sessions(Duration::from_secs(3600))
+            .unwrap(),
+        0
+    );
+    assert!(stale.exists(), "nothing is stale within the window");
+
+    // A zero window makes every directory stale, so only the current-session
+    // exemption can save `live-session`.
+    let removed = store.prune_stale_sessions(Duration::from_secs(0)).unwrap();
+    assert_eq!(
+        removed, 1,
+        "exactly the one other session should be collected"
+    );
+    assert!(!stale.exists(), "stale session dir must be removed");
+    assert!(
+        current.join("a.txt").exists(),
+        "the current session's artifacts must survive its own sweep"
+    );
+}
+
+/// A missing artifact root is the normal first-run case, not an error.
+#[tokio::test]
+async fn prune_is_a_noop_when_no_artifacts_exist() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ToolResultArtifactStore::new(tmp.path().to_path_buf(), "session");
+    assert_eq!(
+        store.prune_stale_sessions(Duration::from_secs(0)).unwrap(),
+        0
+    );
 }
 
 #[tokio::test]

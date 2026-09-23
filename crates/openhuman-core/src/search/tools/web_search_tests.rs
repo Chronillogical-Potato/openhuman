@@ -27,6 +27,14 @@ fn test_tool_description() {
 }
 
 #[test]
+fn the_schema_offers_an_optional_summary_focus() {
+    let schema = tool().parameters_schema();
+    let key = crate::inference::tokenjuice::focus::SUMMARY_FOCUS_ARG;
+    assert_eq!(schema["properties"][key]["type"], "string");
+    assert!(!schema["required"].as_array().unwrap().contains(&json!(key)));
+}
+
+#[test]
 fn test_parameters_schema() {
     let schema = tool().parameters_schema();
     assert_eq!(schema["type"], "object");

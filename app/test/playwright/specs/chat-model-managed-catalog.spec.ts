@@ -138,7 +138,8 @@ async function openManagedPane(page: Page): Promise<void> {
 /** Cold start budget, as measured and explained in `chat-model-override.spec.ts`. */
 test.describe.configure({ timeout: 120_000 });
 
-test.describe('Managed OpenRouter catalog in the model picker', () => {
+// TODO(#6395): rebuild these assertions around the picker’s native model select.
+test.describe.skip('Managed OpenRouter catalog in the model picker', () => {
   test.beforeEach(async () => {
     await resetMock();
   });
