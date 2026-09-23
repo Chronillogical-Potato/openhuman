@@ -79,7 +79,10 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
         other => panic!("expected userMessage, got {other:?}"),
     }
     match &items[2] {
-        DisplayItem::Reasoning { text } => assert_eq!(text, "I should call the weather tool."),
+        DisplayItem::Reasoning { text, iteration } => {
+            assert_eq!(text, "I should call the weather tool.");
+            assert_eq!(*iteration, Some(1), "reasoning carries its step's iteration");
+        }
         other => panic!("expected reasoning, got {other:?}"),
     }
     match &items[3] {
@@ -99,6 +102,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             result,
             status,
             failure,
+            ..
         } => {
             assert_eq!(call_id, "call-1");
             assert_eq!(name, "get_weather");
@@ -284,7 +288,9 @@ fn subagent_file_projects_as_nested_item() {
             _ => None,
         })
         .expect("subagent item present");
-    assert_eq!(subagent.0, "orchestrator");
+    // Unique per run (the stem suffix when no task id is recorded), never the
+    // agent name, which repeats across runs.
+    assert_eq!(subagent.0, "100_coder");
     assert!(subagent.1.iter().any(
         |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")
     ));
@@ -586,7 +592,7 @@ fn append_transcript_turn_projects_full_display_shape() {
     let reasoning = items
         .iter()
         .find_map(|i| match i {
-            DisplayItem::Reasoning { text } => Some(text.clone()),
+            DisplayItem::Reasoning { text, .. } => Some(text.clone()),
             _ => None,
         })
         .expect("reasoning projected from turn_usage");
@@ -690,17 +696,19 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
     let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();
     write_raw(dir.path(), root_stem, thread_id, &root_refs);
 
-    // Sub-agent stems encode the spawn unix timestamp: coder spawned during
-    // turn 1 (1_000_050), planner during turn 2 (2_000_050).
+    // Sub-agent stems encode the spawn unix timestamp. A turn's rows carry
+    // its *commit* time, so turn 1 ran up to 1_000_000 and turn 2 from then
+    // to 2_000_000: coder spawned during turn 1 (999_950), planner during
+    // turn 2 (1_000_050 — after turn 1 committed).
     write_raw(
         dir.path(),
-        &format!("{root_stem}__1000050_coder"),
+        &format!("{root_stem}__999950_coder"),
         thread_id,
         &[r#"{"role":"assistant","content":"coder work"}"#],
     );
     write_raw(
         dir.path(),
-        &format!("{root_stem}__2000050_planner"),
+        &format!("{root_stem}__1000050_planner"),
         thread_id,
         &[r#"{"role":"assistant","content":"planner work"}"#],
     );
