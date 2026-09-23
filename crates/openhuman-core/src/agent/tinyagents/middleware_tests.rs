@@ -93,6 +93,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     }
 }
 
@@ -191,6 +192,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     }
 }
 
@@ -240,6 +242,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     }
 }
 

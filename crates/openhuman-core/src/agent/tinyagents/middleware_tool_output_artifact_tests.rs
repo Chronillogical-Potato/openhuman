@@ -23,6 +23,7 @@ fn artifact_mw(
         runtime_config: None,
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
+        raw_fetches: Default::default(),
     }
 }
 
