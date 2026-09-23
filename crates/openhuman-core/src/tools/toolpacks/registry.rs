@@ -254,13 +254,7 @@ pub const PACKS: &[ToolPack] = &[
         // no file at all, and `meal-plan` burned eleven rounds discovering it
         // had no writer. One ~300 B schema per turn is the right price for the
         // single most common assistant task.
-        tools: &[
-            "file_read",
-            "grep",
-            "glob",
-            "list",
-            "git_operations",
-        ],
+        tools: &["file_read", "grep", "glob", "list", "git_operations"],
         owners: &[
             "code_executor",
             "critic",

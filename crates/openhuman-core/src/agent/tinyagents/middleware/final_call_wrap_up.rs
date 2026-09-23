@@ -227,7 +227,6 @@ impl FinalCallWrapUpMiddleware {
         }
         restored
     }
-
 }
 
 impl FinalCallWrapUpMiddleware {

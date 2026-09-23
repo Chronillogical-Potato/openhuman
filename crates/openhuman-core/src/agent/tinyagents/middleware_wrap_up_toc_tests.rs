@@ -220,6 +220,7 @@ async fn wrap_up_withdraws_tools_and_appends_the_instruction_on_the_last_call() 
 async fn wrap_up_restores_tool_results_microcompact_cleared() {
     let mw = FinalCallWrapUpMiddleware::new(
         "CONCLUDE NOW",
+        "WRITE NOW",
         sink_with(&[
             ("call-old", "issue #41: auth bypass"),
             ("call-new", "issue #42: leak"),
@@ -261,8 +262,12 @@ async fn wrap_up_restores_tool_results_microcompact_cleared() {
 /// the sink holds a different (e.g. later-truncated) copy for that id.
 #[tokio::test]
 async fn wrap_up_does_not_rewrite_a_result_that_was_never_cleared() {
-    let mw =
-        FinalCallWrapUpMiddleware::new("CONCLUDE NOW", "WRITE NOW", sink_with(&[("call-1", "FROM SINK")]), 0);
+    let mw = FinalCallWrapUpMiddleware::new(
+        "CONCLUDE NOW",
+        "WRITE NOW",
+        sink_with(&[("call-1", "FROM SINK")]),
+        0,
+    );
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(2),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
