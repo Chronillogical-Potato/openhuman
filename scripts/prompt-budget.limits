@@ -226,18 +226,27 @@
 #               860 B to 1,127 B. Ratchet the six agents that advertise it
 #               (and their aggregate schema budgets) to the measured values;
 #               unrelated prompt and schema reductions are ratcheted too.
+#
+#   2026-09-23  Two deliberate tool changes merged without their budget update.
+#               `apply_patch` now documents file creation through an empty
+#               `old_string` (6c5eaae53d), +246 B for every agent that has it
+#               (code_executor, skill_creator, orchestrator, tools_agent,
+#               morning_briefing). `file_write` is back in the default tool
+#               pack (b06e70009e), a further +507 B for orchestrator,
+#               tools_agent and morning_briefing. Only those five schema
+#               ceilings move; every other recorded value stays put.
 
-morning_briefing:10769:59658
+morning_briefing:10769:60411
 trigger_triage:7537:0
 workflow_builder:76501:28987
 summarizer:7351:0
-tools_agent:5229:59658
-orchestrator:9717:21007
-code_executor:11455:13622
+tools_agent:5229:60411
+orchestrator:9717:21760
+code_executor:11455:13868
 crypto_agent:10992:10454
 task_manager_agent:4531:7602
 planner:7829:5900
-skill_creator:5464:11874
+skill_creator:5464:12120
 flow_discovery:8522:8285
 profile_memory_agent:5515:11010
 settings_agent:4721:9652
