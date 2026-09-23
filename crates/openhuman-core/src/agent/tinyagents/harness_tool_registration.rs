@@ -167,7 +167,7 @@ pub(super) fn register_turn_tools_and_agents(
                                 adapter, handle,
                             ))),
                         None => harness.register_tool(adapter),
-                    }
+                    };
                 } else if let Some(dispatch) = typed_dispatch_for(name, adapter.clone()) {
                     harness.register_tool_dispatch(dispatch);
                 } else {
