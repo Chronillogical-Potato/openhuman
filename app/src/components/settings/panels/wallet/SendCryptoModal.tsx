@@ -200,12 +200,6 @@ const SendCryptoModal = ({ balance, onClose, onSuccess }: SendCryptoModalProps) 
                             .replace('{{amount}}', formatDisplayBalance(balance.formatted))
                             .replace('{{symbol}}', balance.assetSymbol)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setAmount(balance.formatted)}
-                          className="text-primary-500 font-medium hover:text-primary-600 transition-colors">
-                          {t('walletSend.max')}
-                        </button>
                       </div>
                     </div>
                     <InputGroupRoot>
