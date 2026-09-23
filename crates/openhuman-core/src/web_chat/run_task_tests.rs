@@ -43,23 +43,22 @@ fn poisoned_on_byo_provider_tool_ordering_400() {
 }
 
 #[test]
-fn genuine_param_400_keeps_warm_session() {
-    // A non-poisoning model/parameter 400 is a *non-retryable*
-    // provider_request_rejected — narrowing on `&& retryable` must keep its
-    // warm session (resending the same params won't help; no reseed needed).
+fn genuine_param_400_discards_session() {
+    // Even a non-retryable model/parameter error can have committed a prefix
+    // in the host session. It must never be checked back in.
     let err: Result<WebChatTaskResult, String> = Err(
         "custom_openai API error (400 Bad Request): {\"error\":{\"message\":\
          \"Unsupported value: 'temperature' must be 1 for this model\"}}"
             .to_string(),
     );
     assert!(
-        !turn_result_poisoned_session(&err),
-        "non-retryable param 400 is not poisoned history — keep warm session"
+        turn_result_poisoned_session(&err),
+        "a failed turn must not return its host session to the cache"
     );
 }
 
 #[test]
-fn transient_failures_keep_warm_session() {
+fn transient_failures_discard_session() {
     for raw in [
         // rate limit / 429 — history is fine, user should retry warm
         "OpenAI API error (429 Too Many Requests): slow down",
@@ -72,8 +71,8 @@ fn transient_failures_keep_warm_session() {
     ] {
         let err: Result<WebChatTaskResult, String> = Err(raw.to_string());
         assert!(
-            !turn_result_poisoned_session(&err),
-            "transient/non-payload error must keep warm session: {raw}"
+            turn_result_poisoned_session(&err),
+            "a failed turn must not return its host session to the cache: {raw}"
         );
     }
 }

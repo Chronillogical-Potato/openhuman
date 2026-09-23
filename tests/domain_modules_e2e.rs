@@ -5,6 +5,9 @@
 //! exercises cheap read/status handlers through HTTP. Mutating or networked
 //! domain behavior remains covered by the focused `*_e2e.rs` suites.
 
+#[path = "support/memory_module.rs"]
+mod memory_module;
+
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
@@ -579,6 +582,8 @@ async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
 async fn target_domain_read_paths_round_trip_through_json_rpc_transport() {
     let _lock = env_lock();
     let harness = setup().await;
+    // The memory_* reads below reach the driver; wait out the module's load.
+    memory_module::settle().await;
 
     let calls = [
         ("openhuman.config_get_client_config", json!({})),

@@ -50,10 +50,32 @@ impl SessionHostBuilder {
         // Resolved here rather than at its historical position below: the pack
         // withholding is per-agent (a pack is skipped for the specialist that
         // owns its family), so the id has to exist before the strip.
-        let agent_definition_name = self
-            .agent_definition_name
-            .clone()
-            .unwrap_or_else(|| "main".to_string());
+        // A caller-supplied definition is resolved by the id the session was
+        // stamped with (`OpenHumanDefinitionRegistry::host_definition` matches
+        // `session_definition.id` against it), so the two must agree or the
+        // definition is unreachable and every turn is refused for want of it.
+        // Deriving the name from the definition makes the common case correct
+        // without a second call, and a name that contradicts the definition is
+        // a build error rather than a turn-time mystery.
+        let agent_definition_name = match (
+            self.agent_definition_name.clone(),
+            self.session_definition.as_deref(),
+        ) {
+            (Some(name), Some(definition)) if name.trim() != definition.id.trim() => {
+                return Err(anyhow::anyhow!(
+                    "agent_definition_name `{name}` does not match the supplied agent                      definition `{}`; the session is resolved by the name it is stamped                      with, so a definition under a different id can never answer for it",
+                    definition.id
+                ));
+            }
+            // The definition's own id, not the caller's spelling of it. They
+            // agree after trimming by the arm above, but only some readers
+            // trim: `OpenHumanDefinitionRegistry` does,
+            // `AgentDefinitionRegistry::get` does not, so a padded name would
+            // resolve through one and miss through the other.
+            (Some(_), Some(definition)) | (None, Some(definition)) => definition.id.clone(),
+            (Some(name), None) => name,
+            (None, None) => "main".to_string(),
+        };
         // On-demand tool disclosure: withhold packed tools' schemas from the
         // provider and advertise `use_skill` in their place. The
         // tools stay in the registry below and stay executable — only the
@@ -285,6 +307,21 @@ impl SessionHostBuilder {
         );
         #[cfg(not(test))]
         let definitions = crate::agent::harness::AgentDefinitionRegistry::global_arc();
+        // A caller that brought its own definition is the authority for this
+        // session, so it does not need a process registry to exist before it
+        // may run a turn. The stand-in is deliberately *empty* rather than
+        // `builtins_only()`: such a caller has not asked for OpenHuman's
+        // agents, and materialising them would make `orchestrator` and every
+        // other built-in id silently resolvable in a host that never declared
+        // one. The session's own definition outranks whichever registry this
+        // is, so where a process registry does exist nothing about its
+        // resolution changes.
+        let session_definition = self.session_definition;
+        let definitions = definitions.or_else(|| {
+            session_definition
+                .is_some()
+                .then(|| Arc::new(crate::agent::harness::AgentDefinitionRegistry::default()))
+        });
         let hosted_base = definitions.map(|definitions| {
             Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {
                 security_policy: Arc::new(crate::security::SecurityPolicy::from_config(
@@ -296,9 +333,11 @@ impl SessionHostBuilder {
                 definitions,
                 memory: Arc::clone(&memory),
                 post_turn_hooks: self.post_turn_hooks.clone(),
-                // This path names a registry id; it never carries a
-                // caller-supplied definition.
-                session_definition: None,
+                // Usually this path names a registry id, and carries no
+                // definition of its own. A caller that supplied one with
+                // `agent_definition` is stamped with it here, the way
+                // `build_session_agent_inner` stamps the one it resolved.
+                session_definition: session_definition.clone(),
             })
         });
 

@@ -18,8 +18,8 @@ use super::session::{
 };
 use super::types::{ChatRequestMetadata, WebChatTaskResult};
 use super::web_errors::{
-    classify_inference_error, inference_budget_exceeded_user_message,
-    is_empty_provider_response_text, is_inference_budget_exceeded_error,
+    inference_budget_exceeded_user_message, is_empty_provider_response_text,
+    is_inference_budget_exceeded_error,
 };
 
 #[cfg(any(test, debug_assertions))]
@@ -263,25 +263,16 @@ pub(crate) async fn run_chat_task(
     // Only the primary (non-fork) turn writes its agent back to the shared
     // cache; a fork is fully isolated and lets its agent drop here.
     if !fork {
-        // De-poison guard. A `provider_request_rejected` outcome means the
-        // provider could not parse THIS turn's request — an orphaned
-        // `tool_calls` round-trip, an empty `tool_call_id`, or a reasoning
-        // echo it rejects. For the managed backend that rejection arrives as an
-        // in-stream `event: error` SSE frame carrying `errorCode:"BAD_REQUEST"`
-        // (the response already flushed HTTP 200), NOT an HTTP 400 — so we key
-        // off the classified type, not a status code. Re-caching this agent
-        // would replay the identical malformed history on every later turn,
-        // dead-ending the thread. Drop it instead (the entry was already
-        // removed from the map at the top of this fn): the next turn cold-boots
-        // and reseeds from the plain-text conversation log, which is
-        // structurally incapable of carrying tool malformation
-        // (`seed_resume_from_messages` rebuilds only system/user/assistant
-        // text). Transient failures (rate-limit / timeout / 5xx) keep the warm
-        // session so the user can retry this turn with context intact.
+        // A harness error can leave its session prefix committed even when the
+        // turn itself did not complete (for example an in-stream credential
+        // failure after partial text). Re-caching that host makes the next
+        // request fail with "cannot change a session prefix after a committed
+        // turn". The durable transcript remains authoritative, so discard an
+        // agent after every failed turn and cold-boot it on the next request.
         if turn_result_poisoned_session(&result) {
             log::warn!(
-                "[web-channel] dropping session agent after provider_request_rejected — \
-                 next turn cold-boots from the conversation log (de-poison) \
+                "[web-channel] dropping session agent after failed turn — \
+                 next turn cold-boots from the durable transcript \
                  client={} thread={} request_id={}",
                 client_id,
                 thread_id,
@@ -295,29 +286,18 @@ pub(crate) async fn run_chat_task(
     result
 }
 
-/// Whether a completed turn's session agent must be **dropped** rather than
-/// cached back, because its in-memory history would replay a provider request
-/// rejection on every subsequent turn.
-///
-/// True only for a *retryable* `provider_request_rejected` — i.e. the
-/// poisoned-history case. The copy-split in `web_errors.rs` marks a tool-ordering
-/// rejection (orphaned / mismatched `tool_call_id` — for the managed backend an
-/// in-stream SSE `event: error` frame stamped `errorCode:"BAD_REQUEST"`)
-/// `retryable: true` because the de-poison makes "send it again" true, while a
-/// genuine model/parameter 400 stays `retryable: false`. Gating on `&& retryable`
-/// therefore evicts ONLY the poisoned session: a non-retryable param 400 keeps
-/// its warm session (no needless reseed), exactly like successes and transient
-/// failures (rate-limit, timeout, 5xx, session-expiry).
+/// Whether a completed turn's checked-out agent must be dropped instead of
+/// returned to the warm-session cache. Any `Err` can leave the underlying host
+/// session partially advanced, so only completed task results are reusable.
 fn turn_result_poisoned_session(result: &Result<WebChatTaskResult, String>) -> bool {
-    matches!(result, Err(err) if turn_error_poisons_session(err))
+    result.is_err()
 }
 
 /// The error-string half of [`turn_result_poisoned_session`], shared with the
 /// host-authored turn path (`ops/system_turn.rs`) whose result carries no
 /// `WebChatTaskResult`.
-pub(super) fn turn_error_poisons_session(err: &str) -> bool {
-    let classified = classify_inference_error(err);
-    classified.error_type == "provider_request_rejected" && classified.retryable
+pub(super) fn turn_error_discards_session(_err: &str) -> bool {
+    true
 }
 
 #[cfg(test)]

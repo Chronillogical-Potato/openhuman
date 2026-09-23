@@ -573,8 +573,10 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         (
             "files",
             &[
+                // No `file_write`: it is the only create-capable tool on any
+                // belt, and packing it denied the orchestrator every route to a
+                // new file. See the comment in `registry.rs`.
                 "file_read",
-                "file_write",
                 "grep",
                 "glob",
                 "list",
