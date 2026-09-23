@@ -430,10 +430,14 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     let mut root =
         super::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
     root.set_thread_id(Some("thread-1"));
-    assert_eq!(
-        root.session_id().as_deref(),
-        Some("thread-1.orchestrator"),
-        "a root chat session is addressed by its conversation"
+    // The exact stem encoding (sanitisation, per-component digest, generation
+    // suffix) belongs to tinyagents and is pinned by its own tests. What
+    // OpenHuman owns, and what this asserts, is that a root chat session is
+    // addressed by its conversation at all.
+    let root_session = root.session_id().expect("a root chat session has an identity");
+    assert!(
+        root_session.starts_with("thread-1"),
+        "a root chat session is addressed by its conversation, got {root_session}"
     );
 
     let mut child =
