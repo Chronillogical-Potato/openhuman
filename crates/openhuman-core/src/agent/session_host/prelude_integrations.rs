@@ -16,7 +16,7 @@ impl OpenHumanTurnPrelude {
         let Some(recorded) = recorded else {
             return;
         };
-        let actions = super::recorded_tools::recorded_integration_actions(recorded.specs());
+        let actions = super::super::recorded_tools::recorded_integration_actions(recorded.specs());
         if actions.is_empty() {
             return;
         }
