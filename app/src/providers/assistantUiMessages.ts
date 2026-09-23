@@ -123,6 +123,27 @@ function toolResultPayload(entry: ToolTimelineEntry): unknown {
   };
 }
 
+/**
+ * The row's human label and detail, carried on the part's UI-only `artifact`.
+ *
+ * assistant-ui's tool-call part has no label field, and without one the card
+ * had only the raw tool name to go on, so it guessed — and labelled every tool
+ * with "search" in its name or a `query` argument (`tool_search`, a Composio
+ * action, a memory read) as a web search. The row already holds the right
+ * label: the server's `display_label` for dynamic tools, the client formatter
+ * for built-ins (`decorateEntry`, `mapDisplayItems`). A row that somehow has
+ * neither falls back to that same formatter here, never to a guess.
+ */
+function toolLabelArtifact(entry: ToolTimelineEntry): ToolLabelArtifact {
+  const formatted = entry.displayName ? undefined : formatTimelineEntry(entry);
+  const displayName = entry.displayName ?? formatted?.title;
+  const detail = entry.detail ?? formatted?.detail;
+  return {
+    ...(displayName ? { displayName } : {}),
+    ...(detail ? { detail } : {}),
+  };
+}
+
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   const running = isActiveTimelineStatus(entry.status);
   const isSubagent = entry.name.startsWith('subagent:') || entry.subagent !== undefined;
@@ -140,6 +161,7 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
     toolName: isSubagent ? 'task' : entry.name,
     args,
     argsText: JSON.stringify(args, null, 2),
+    ...(isSubagent ? {} : { artifact: toolLabelArtifact(entry) }),
     ...(!running
       ? {
           result: isSubagent
