@@ -53,19 +53,13 @@ export default function SelectNetworkModal({
               const iconSrc = chainIcons[filter.id];
 
               return (
-                <div
+                <button
+                  type="button"
                   key={filter.id}
+                  aria-pressed={isSelected}
                   onClick={() => {
                     onSelect(filter.id);
                     onClose();
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      onSelect(filter.id);
-                      onClose();
-                    }
                   }}
                   className={cn(
                     'flex w-full cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-surface-hover/50',
@@ -93,7 +87,7 @@ export default function SelectNetworkModal({
                     <span
                       className={cn(
                         'text-sm font-medium',
-                        isSelected ? 'text-content' : 'text-content'
+                        'text-content'
                       )}>
                       {filter.label}
                     </span>
@@ -113,7 +107,7 @@ export default function SelectNetworkModal({
                       />
                     </svg>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>

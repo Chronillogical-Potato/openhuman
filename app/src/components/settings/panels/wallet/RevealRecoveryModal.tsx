@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useT } from '../../../../lib/i18n/I18nContext';
 import Button from '../../../ui/Button';
 import { CheckIcon } from '../../../ui/icons';
 
@@ -11,6 +12,7 @@ interface RevealRecoveryModalProps {
 }
 
 export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealRecoveryModalProps) {
+  const { t } = useT();
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -66,12 +68,12 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
           className="fixed left-1/2 top-1/2 z-50 w-full max-w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-surface p-0 shadow-2xl duration-200 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 flex flex-col max-h-[85vh] border border-white/5">
           <div className="relative flex items-center justify-center px-5 py-4 shrink-0">
             <DialogPrimitive.Title className="text-sm font-semibold text-content m-0 p-0">
-              Save Secret Recovery Phrase
+              {t('mnemonic.saveRecoveryPhrase')}
             </DialogPrimitive.Title>
             <button
               onClick={onClose}
               className="absolute right-3 flex h-8 w-8 items-center justify-center rounded-full text-content-muted hover:bg-surface-hover hover:text-content transition-colors"
-              aria-label="Close">
+              aria-label={t('common.close')}>
               <svg
                 className="h-5 w-5"
                 fill="none"
@@ -85,8 +87,7 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
 
           <div className="px-5 pb-5 overflow-y-auto">
             <p className="text-sm text-content-muted leading-relaxed mb-6">
-              This phrase is the key to your wallet. Store it somewhere private and in the correct
-              order. Anyone with access to it can control your wallet.
+              {t('mnemonic.warning')}
             </p>
 
             {mnemonic ? (
@@ -110,7 +111,7 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                 {!revealed && (
                   <button
                     type="button"
-                    aria-label="Reveal recovery phrase"
+                    aria-label={t('mnemonic.revealPhrase')}
                     className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-black/40 hover:bg-black/30 transition-colors"
                     onClick={() => setRevealed(true)}>
                     <svg
@@ -126,10 +127,10 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                       />
                     </svg>
                     <span className="text-[15px] font-semibold text-white mb-1 tracking-tight">
-                      Tap to reveal
+                      {t('mnemonic.revealPhrase')}
                     </span>
                     <span className="text-[12px] font-medium text-white/80">
-                      Make sure no one is watching your screen.
+                      {t('mnemonic.warning')}
                     </span>
                   </button>
                 )}
@@ -148,10 +149,10 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
               {copied ? (
                 <>
                   <CheckIcon className="w-4 h-4 text-sage-400" />
-                  <span className="text-sage-400">Copied!</span>
+                  <span className="text-sage-400">{t('common.copied')}</span>
                 </>
               ) : (
-                'Copy to clipboard'
+                t('mnemonic.copyToClipboard')
               )}
             </Button>
           </div>

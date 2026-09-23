@@ -291,7 +291,7 @@ const RecoveryPhrasePanel = () => {
   const isImportComplete =
     importWords.every(w => w.trim()) &&
     BIP39_IMPORT_LENGTHS.includes(importWordCount as (typeof BIP39_IMPORT_LENGTHS)[number]);
-  const canSave = mode === 'generate' ? confirmed : isImportComplete;
+  const canSave = mode === 'generate' ? confirmed && revealed : isImportComplete;
 
   return (
     <SettingsPanel

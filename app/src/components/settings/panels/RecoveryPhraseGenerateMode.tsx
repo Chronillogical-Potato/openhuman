@@ -104,6 +104,7 @@ const RecoveryPhraseGenerateMode = ({
         <SettingsCheckbox
           id="mnemonic-confirm-checkbox"
           checked={confirmed}
+          disabled={!revealed}
           onCheckedChange={onConfirmedChange}
         />
         <span className={`text-sm ${revealed ? 'text-content' : 'text-content-secondary'}`}>

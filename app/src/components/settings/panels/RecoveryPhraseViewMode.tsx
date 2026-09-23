@@ -143,7 +143,7 @@ const RecoveryPhraseViewMode = ({
                   {t('mnemonic.walletWordCount')}
                 </span>
                 <span className="text-sm font-medium text-content">
-                  {walletStatus.mnemonicWordCount} words
+                  {walletStatus.mnemonicWordCount} {t('mnemonic.words')}
                 </span>
               </div>
             )}
@@ -194,7 +194,7 @@ const RecoveryPhraseViewMode = ({
                       <button
                         onClick={() => handleCopy(account.chain, account.address)}
                         className="p-1.5 rounded-md hover:bg-surface-muted text-content-muted transition-colors"
-                        title="Copy address">
+                        title={t('walletBalances.copyAddress')}>
                         {copiedChain === account.chain ? (
                           <LuCheck className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
@@ -227,7 +227,7 @@ const RecoveryPhraseViewMode = ({
           {isRevealing ? (
             <>
               <Spinner className="w-4 h-4" />
-              <span>Loading...</span>
+              <span>{t('common.loading')}</span>
             </>
           ) : (
             t('mnemonic.revealRecoveryPhrase')
