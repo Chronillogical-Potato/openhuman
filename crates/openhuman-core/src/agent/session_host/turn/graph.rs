@@ -125,6 +125,26 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         run_context.workspace = graph.workspace_descriptor.clone().or(run_context.workspace);
         run_context.sandbox_mode = Some(graph.sandbox_mode);
         run_context.thread_id = graph.thread_id;
+
+        // Bound by name rather than passed as bare `true` literals.
+        // `run_root_turn_via_hosted_agent` takes eighteen positional arguments,
+        // and these two `bool`s sat eleven lines apart in the call below. While
+        // investigating #6541 that pair produced four separate misreadings —
+        // in both directions, including one that briefly discarded a correct
+        // finding — because aligning an argument against the signature by
+        // counting is the only way to tell which flag a `true` belongs to.
+        // A binding puts the name inside the expression, so a future reordering
+        // is visible here and not only in the signature.
+        //
+        // Pause gracefully at the model-call cap so the turn emits a resumable
+        // checkpoint instead of erroring or returning a dangling tool cycle.
+        let pause_at_cap = true;
+        // The runtime's durable `after_commit` callback emits the terminal
+        // event after any driver-grounded close has become part of the
+        // candidate history. A seam-level event would arrive before that
+        // close and duplicate the lifecycle projection.
+        let defer_turn_completed_to_caller = true;
+
         run_root_turn_via_hosted_agent(
             run_context,
             hosted_base,
@@ -158,9 +178,7 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             // on. Users watched an "Ask User Clarification" step succeed without
             // ever being asked anything.
             &["ask_user_clarification"],
-            // Pause gracefully at the model-call cap so the turn emits a resumable
-            // checkpoint instead of erroring or returning a dangling tool cycle.
-            true,
+            pause_at_cap,
             // Bound the main agent's per-call output (legacy parity — the engine
             // capped every turn at `AGENT_TURN_MAX_OUTPUT_TOKENS`).
             Some(AGENT_TURN_MAX_OUTPUT_TOKENS),
@@ -168,11 +186,7 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
             graph.context_mw,
             // Builder-configured tool policy enforcement (session chat path).
             graph.tool_policy,
-            // The runtime's durable `after_commit` callback emits the terminal
-            // event after any driver-grounded close has become part of the
-            // candidate history. A seam-level event would arrive before that
-            // close and duplicate the lifecycle projection.
-            true,
+            defer_turn_completed_to_caller,
         )
         .await
     })
